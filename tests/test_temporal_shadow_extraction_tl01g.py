@@ -137,10 +137,12 @@ HOLDOUT_V8 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_hold
 HOLDOUT_V9 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v9"
 HOLDOUT_V10 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v10"
 HOLDOUT_V11 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v11"
+HOLDOUT_V12 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v12"
 ADV_V6 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v6"
 ADV_V7 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7"
 ADV_V8 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8"
 ADV_V9 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v9"
+ADV_V10 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10"
 
 PRIOR_CANONICAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_cohort",
@@ -153,6 +155,7 @@ PRIOR_CANONICAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v8",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v9",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v10",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v11",
 )
 
 PRIOR_ADVERSARIAL_COHORT_DIRS = (
@@ -163,6 +166,7 @@ PRIOR_ADVERSARIAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v6",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v9",
 )
 
 ADV_V6_VOCABULARY = (
@@ -199,6 +203,15 @@ ADV_V9_VOCABULARY = (
     "Frostmere Causeway",
     "Amberquill Codex",
     "Ironroot Compact",
+)
+
+ADV_V10_VOCABULARY = (
+    "Cairnwick",
+    "Sable Quay",
+    "Liora Venn",
+    "Mistglass Causeway",
+    "Thornledger Atlas",
+    "Paleoak Compact",
 )
 
 # Forbidden adversarial sentence templates (normalized) from V5/V6 — Adv V7 must not reuse.
@@ -501,6 +514,7 @@ def _normalize_template(text: str) -> str:
         *ADV_V7_VOCABULARY,
         *ADV_V8_VOCABULARY,
         *ADV_V9_VOCABULARY,
+        *ADV_V10_VOCABULARY,
     ):
         t = t.replace(vocab.lower(), "NAME")
     for token in (
@@ -510,6 +524,21 @@ def _normalize_template(text: str) -> str:
     ):
         t = t.replace(token, "NAME")
     return t
+
+
+def _template_token_set(text: str) -> set[str]:
+    return set(_normalize_template(text).split())
+
+
+def _template_jaccard(a: str, b: str) -> float:
+    left = _template_token_set(a)
+    right = _template_token_set(b)
+    if not left and not right:
+        return 0.0
+    union = left | right
+    if not union:
+        return 0.0
+    return len(left & right) / len(union)
 
 
 def _require_fresh_cohort(folder: Path) -> None:
@@ -574,8 +603,26 @@ def test_adversarial_v8_retired_as_observed_regression_not_promotion() -> None:
     assert (ADV_V8 / "gold-overlay.json").is_file()
 
 
-def test_holdout_v11_fixture_files_and_prompt_versions() -> None:
+def test_holdout_v11_retired_as_observed_regression_not_promotion() -> None:
     _require_fresh_cohort(HOLDOUT_V11)
+    readme = (HOLDOUT_V11 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    assert "holdout V12" in readme or "V12" in readme
+    assert (HOLDOUT_V11 / "base-contribution.json").is_file()
+    assert (HOLDOUT_V11 / "gold-overlay.json").is_file()
+
+
+def test_adversarial_v9_retired_as_observed_regression_not_promotion() -> None:
+    _require_fresh_cohort(ADV_V9)
+    readme = (ADV_V9 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    assert "adversarial V10" in readme or "V10" in readme
+    assert (ADV_V9 / "base-contribution.json").is_file()
+    assert (ADV_V9 / "gold-overlay.json").is_file()
+
+
+def test_holdout_v12_fixture_files_and_prompt_versions() -> None:
+    _require_fresh_cohort(HOLDOUT_V12)
     for name in (
         "README.md",
         "GOLD-AUDIT.md",
@@ -584,27 +631,27 @@ def test_holdout_v11_fixture_files_and_prompt_versions() -> None:
         "temporal-case-tl01f.json",
         "temporal-case-tl01g.json",
     ):
-        assert (HOLDOUT_V11 / name).is_file(), name
-    readme = (HOLDOUT_V11 / "README.md").read_text(encoding="utf-8")
+        assert (HOLDOUT_V12 / name).is_file(), name
+    readme = (HOLDOUT_V12 / "README.md").read_text(encoding="utf-8")
     assert "independent" in readme.lower()
     assert "promotion" in readme.lower()
-    tl01f = json.loads((HOLDOUT_V11 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
-    tl01g = json.loads((HOLDOUT_V11 / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
+    tl01f = json.loads((HOLDOUT_V12 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
+    tl01g = json.loads((HOLDOUT_V12 / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
     assert tl01f["prompt_version"] == "tl01f-v1"
     assert tl01g["prompt_version"] == "tl01g-v1"
     assert len(tl01g["selected_assertion_ids"]) >= 12
 
 
-def test_holdout_v11_semantic_and_source_text_fingerprints_disjoint_from_prior() -> None:
-    _require_fresh_cohort(HOLDOUT_V11)
-    v11_base = json.loads((HOLDOUT_V11 / "base-contribution.json").read_text(encoding="utf-8"))
-    v11_evidence = _case_evidence_by_id(HOLDOUT_V11)
-    v11_semantic = {
-        _semantic_proposition_fingerprint(a) for a in v11_base.get("candidate_assertions", [])
+def test_holdout_v12_semantic_and_source_text_fingerprints_disjoint_from_prior() -> None:
+    _require_fresh_cohort(HOLDOUT_V12)
+    v12_base = json.loads((HOLDOUT_V12 / "base-contribution.json").read_text(encoding="utf-8"))
+    v12_evidence = _case_evidence_by_id(HOLDOUT_V12)
+    v12_semantic = {
+        _semantic_proposition_fingerprint(a) for a in v12_base.get("candidate_assertions", [])
     }
-    v11_span_text = set()
-    for assertion in v11_base.get("candidate_assertions", []):
-        v11_span_text |= _source_span_text_fingerprints(assertion, v11_evidence)
+    v12_span_text = set()
+    for assertion in v12_base.get("candidate_assertions", []):
+        v12_span_text |= _source_span_text_fingerprints(assertion, v12_evidence)
 
     prior_semantic: set[tuple] = set()
     prior_span_text: set[str] = set()
@@ -617,29 +664,32 @@ def test_holdout_v11_semantic_and_source_text_fingerprints_disjoint_from_prior()
             prior_semantic.add(_semantic_proposition_fingerprint(assertion))
             prior_span_text |= _source_span_text_fingerprints(assertion, evidence)
 
-    assert v11_semantic.isdisjoint(prior_semantic), sorted(v11_semantic & prior_semantic)[:5]
-    assert all(sha for sha in v11_span_text), "resolved span text SHA must be non-empty"
+    assert v12_semantic.isdisjoint(prior_semantic), sorted(v12_semantic & prior_semantic)[:5]
+    assert v12_span_text.isdisjoint(prior_span_text), sorted(
+        v12_span_text & prior_span_text
+    )[:5]
+    assert all(sha for sha in v12_span_text), "resolved span text SHA must be non-empty"
 
 
-def test_adversarial_v9_ids_vocab_and_template_disjoint() -> None:
-    _require_fresh_cohort(ADV_V9)
-    adv_a, adv_e = _collect_ids(ADV_V9)
+def test_adversarial_v10_ids_vocab_and_template_disjoint() -> None:
+    _require_fresh_cohort(ADV_V10)
+    adv_a, adv_e = _collect_ids(ADV_V10)
     prior_a, prior_e = _union_ids(PRIOR_ADVERSARIAL_COHORT_DIRS)
     assert adv_a.isdisjoint(prior_a)
     assert adv_e.isdisjoint(prior_e)
-    folder_text = _folder_text(ADV_V9)
-    for term in ADV_V9_VOCABULARY:
+    folder_text = _folder_text(ADV_V10)
+    for term in ADV_V10_VOCABULARY:
         assert term in folder_text
     prompt = TL01G_RESOLUTION_PROOF_ABSTENTION_INSTRUCTIONS
-    for term in ADV_V9_VOCABULARY:
+    for term in ADV_V10_VOCABULARY:
         assert term not in prompt
     prior_text = "".join(_folder_text(folder) for folder in PRIOR_ADVERSARIAL_COHORT_DIRS)
-    for term in ADV_V9_VOCABULARY:
+    for term in ADV_V10_VOCABULARY:
         assert term not in prior_text
-    holdout_text = _folder_text(HOLDOUT_V11) if HOLDOUT_V11.is_dir() else ""
-    for term in ADV_V9_VOCABULARY:
+    holdout_text = _folder_text(HOLDOUT_V12) if HOLDOUT_V12.is_dir() else ""
+    for term in ADV_V10_VOCABULARY:
         assert term not in holdout_text
-    sources = "\n".join(p.read_text(encoding="utf-8") for p in (ADV_V9 / "sources").glob("*.md"))
+    sources = "\n".join(p.read_text(encoding="utf-8") for p in (ADV_V10 / "sources").glob("*.md"))
     lowered = sources.lower()
     assert "race past" not in lowered
     assert "continues to hold" not in lowered
@@ -649,22 +699,28 @@ def test_adversarial_v9_ids_vocab_and_template_disjoint() -> None:
         if src.is_dir():
             prior_sources.extend(p.read_text(encoding="utf-8") for p in src.glob("*.md"))
     prior_templates = {_normalize_template(s) for s in prior_sources if s.strip()}
-    for src in (ADV_V9 / "sources").glob("*.md"):
-        tmpl = _normalize_template(src.read_text(encoding="utf-8"))
-        assert tmpl not in prior_templates, f"template overlap: {src.name}"
+    for src in (ADV_V10 / "sources").glob("*.md"):
+        text = src.read_text(encoding="utf-8")
+        tmpl = _normalize_template(text)
+        assert tmpl not in prior_templates, f"exact template overlap: {src.name}"
+        for prior in prior_sources:
+            if _template_jaccard(text, prior) >= 0.40:
+                raise AssertionError(
+                    f"Jaccard template overlap >= 0.40: {src.name} vs prior source"
+                )
 
 
-def test_v11_and_v9_ids_mutually_disjoint() -> None:
-    _require_fresh_cohort(HOLDOUT_V11)
-    _require_fresh_cohort(ADV_V9)
-    v11_a, v11_e = _collect_ids(HOLDOUT_V11)
-    v9_a, v9_e = _collect_ids(ADV_V9)
-    assert v11_a.isdisjoint(v9_a)
-    assert v11_e.isdisjoint(v9_e)
+def test_v12_and_v10_ids_mutually_disjoint() -> None:
+    _require_fresh_cohort(HOLDOUT_V12)
+    _require_fresh_cohort(ADV_V10)
+    v12_a, v12_e = _collect_ids(HOLDOUT_V12)
+    v10_a, v10_e = _collect_ids(ADV_V10)
+    assert v12_a.isdisjoint(v10_a)
+    assert v12_e.isdisjoint(v10_e)
 
 
 def test_fresh_promotion_cohorts_exclude_evaluation_cohort_tag() -> None:
-    for folder in (HOLDOUT_V11, ADV_V9):
+    for folder in (HOLDOUT_V12, ADV_V10):
         _require_fresh_cohort(folder)
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         for assertion in base.get("candidate_assertions", []):
@@ -685,6 +741,8 @@ _AMBIGUOUS_TEMPORAL_CUES = (
     "imprisoned",
     "performed",
     "tracking",
+    "charm",
+    "followed",
 )
 _IDENTITY_ONLY_MARKERS = (
     "is from",
@@ -698,12 +756,12 @@ _IDENTITY_ONLY_MARKERS = (
 )
 
 
-def test_holdout_v11_promotion_gold_covers_required_lane_classes() -> None:
-    _require_fresh_cohort(HOLDOUT_V11)
-    gold = json.loads((HOLDOUT_V11 / "gold-overlay.json").read_text(encoding="utf-8"))
+def test_holdout_v12_promotion_gold_covers_required_lane_classes() -> None:
+    _require_fresh_cohort(HOLDOUT_V12)
+    gold = json.loads((HOLDOUT_V12 / "gold-overlay.json").read_text(encoding="utf-8"))
     annotations = gold.get("annotations", [])
     assert len(annotations) >= 12
-    base = json.loads((HOLDOUT_V11 / "base-contribution.json").read_text(encoding="utf-8"))
+    base = json.loads((HOLDOUT_V12 / "base-contribution.json").read_text(encoding="utf-8"))
     by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
 
     def status_of(ann: dict) -> str:
@@ -744,7 +802,7 @@ def test_holdout_v11_promotion_gold_covers_required_lane_classes() -> None:
 
 
 def test_gold_audit_files_exist_for_fresh_promotion_cohorts() -> None:
-    for folder in (HOLDOUT_V11, ADV_V9):
+    for folder in (HOLDOUT_V12, ADV_V10):
         _require_fresh_cohort(folder)
         assert (folder / "GOLD-AUDIT.md").is_file()
 
@@ -759,14 +817,25 @@ def _gold_status_from_audit_row(row: str) -> str:
     return cells[4]
 
 
+def _gold_audit_row_cells(row: str) -> list[str]:
+    return [cell.strip() for cell in row.split("|") if cell.strip()]
+
+
+def _audit_backtick_phrase(cell: str) -> str:
+    match = re.search(r"`([^`]+)`", cell)
+    assert match is not None, cell
+    return match.group(1)
+
+
 def test_promotion_gold_audit_matches_base_and_overlay() -> None:
-    for folder in (HOLDOUT_V11, ADV_V9):
+    for folder in (HOLDOUT_V12, ADV_V10):
         _require_fresh_cohort(folder)
         audit_text = (folder / "GOLD-AUDIT.md").read_text(encoding="utf-8")
         audit_ids = _parse_gold_audit_assertion_ids(audit_text)
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         gold = json.loads((folder / "gold-overlay.json").read_text(encoding="utf-8"))
-        base_ids = {a["assertion_id"] for a in base.get("candidate_assertions", [])}
+        base_by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+        base_ids = set(base_by_id)
         overlay_by_id = {a["base_assertion_id"]: a for a in gold.get("annotations", [])}
 
         assert audit_ids, folder.name
@@ -776,12 +845,42 @@ def test_promotion_gold_audit_matches_base_and_overlay() -> None:
         for row in audit_text.splitlines():
             if not row.startswith("| `assertion:"):
                 continue
+            cells = _gold_audit_row_cells(row)
             aid_match = re.search(r"`(assertion:[0-9a-f]+)`", row)
             assert aid_match is not None, row
             aid = aid_match.group(1)
-            status = _gold_status_from_audit_row(row)
+            status = cells[4]
             overlay = overlay_by_id[aid]
+            base_assertion = base_by_id[aid]
             assert overlay["interpretation_status"] == status, (folder.name, aid, status)
+            assert cells[1] == base_assertion.get("label"), (folder.name, aid, cells[1])
+
+            lane_cell = cells[5].lower()
+            has_occurrence = overlay.get("occurrence_time") is not None
+            vt = overlay.get("valid_time") or {}
+            has_valid_start = isinstance(vt, dict) and vt.get("start") is not None
+            has_valid_end = isinstance(vt, dict) and vt.get("end") is not None
+            if "occurrence" in lane_cell:
+                assert has_occurrence, (folder.name, aid, lane_cell)
+            if "valid-start" in lane_cell:
+                assert has_valid_start, (folder.name, aid, lane_cell)
+            if "valid-end" in lane_cell:
+                assert has_valid_end, (folder.name, aid, lane_cell)
+            if lane_cell.strip() == "none":
+                assert not has_occurrence and not has_valid_start and not has_valid_end, (
+                    folder.name,
+                    aid,
+                    lane_cell,
+                )
+
+            phrase = _audit_backtick_phrase(cells[6])
+            source_phrase = str(overlay.get("source_phrase") or "")
+            assert phrase == source_phrase or phrase in source_phrase, (
+                folder.name,
+                aid,
+                phrase,
+                source_phrase,
+            )
 
 
 def test_resolved_span_text_rejects_line_beyond_eof() -> None:

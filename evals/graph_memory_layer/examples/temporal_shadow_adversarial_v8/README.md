@@ -4,7 +4,7 @@
 
 Observed / exploratory regression cohort only. Provider results were observed, then review found Gate E2 violations: ledger-secured and keys-relinquished rows copy source session despite explicit fictional `after …` relations. Do **not** edit gold, base, spans, or GOLD-AUDIT in place.
 
-Independent promotion adversarial authority moves to **adversarial V9**.
+Independent promotion adversarial authority moved through Adv V9 (also retired) to **adversarial V10**.
 
 See `GOLD-AUDIT.md` for the sealed row table retained for forensic comparison.
 

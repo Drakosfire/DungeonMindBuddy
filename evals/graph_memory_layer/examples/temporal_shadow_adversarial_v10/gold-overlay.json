@@ -1,0 +1,230 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:d339bf99ff3e7940",
+  "base_contribution_id": "contribution:2cf2788da697878d",
+  "base_contribution_source_payload_sha256": "e49a32f438133b7819b2a63bd54ca80e78af04623f4c6c4a2ebed49863b89e6e",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-adversarial-v10",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:a1000000000000001",
+      "base_assertion_id": "assertion:77aea867bb3dbc8a",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "at dusk",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:forecast-dusk"
+      ],
+      "source_phrase": "the supply barge reaches Sable Quay at dusk",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000002",
+      "base_assertion_id": "assertion:0f2eff82753b4879",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:future-promise-unresolved"
+      ],
+      "source_phrase": "vows to petition the Paleoak Compact when she is ready, naming no day",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000003",
+      "base_assertion_id": "assertion:6d3818f2bfe92fb1",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:persistent-restatement"
+      ],
+      "source_phrase": "Cartography duties for Mistglass Causeway still rest with Liora Venn",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000004",
+      "base_assertion_id": "assertion:6e23891b620a0c97",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "Before the tide-gate seals",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:occurrence-textual-gate-e2"
+      ],
+      "source_phrase": "Before the tide-gate seals, Liora Venn transfers the Thornledger Atlas to the Cairnwick clerk on Sable Quay.",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane textual; Gate E2 rejects session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000005",
+      "base_assertion_id": "assertion:ea69d4c08a9e2373",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "since midwinter",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:valid-start-textual"
+      ],
+      "source_phrase": "the Thornledger Atlas has been closed since midwinter",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000006",
+      "base_assertion_id": "assertion:89f983c69ca1a2b4",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "following the river vote",
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:valid-end-textual"
+      ],
+      "source_phrase": "Liora Venn no longer speaks for the Paleoak Compact following the river vote in Cairnwick.",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end textual; Gate E2 rejects session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000007",
+      "base_assertion_id": "assertion:c245fb913a7f6cb3",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:still-remains"
+      ],
+      "source_phrase": "Liora Venn still refuses every Cairnwick summons",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000008",
+      "base_assertion_id": "assertion:a0f0ef0556974ada",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:ambiguous-lane"
+      ],
+      "source_phrase": "Liora Venn was elected chancellor at the solstice moot or only announced then",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings: election at moot vs announcement-only; evidence does not reject either"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000009",
+      "base_assertion_id": "assertion:6cea20d1de125912",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "three winters earlier",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:historical-textual"
+      ],
+      "source_phrase": "Liora Venn left the coast three winters earlier bound for Sable Quay",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical event proposition; occurrence lane textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1000000000000010",
+      "base_assertion_id": "assertion:2be1e229a5db3a88",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:grounding-trap"
+      ],
+      "source_phrase": "claims the Thornledger Atlas is opening now",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "opening claim lacks grounded temporal value; harbor gong is not a temporal expression"
+      ]
+    }
+  ]
+}

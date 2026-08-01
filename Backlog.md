@@ -7,6 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] TL01G promotion cohorts: assert span-text disjointness and reject paraphrased adversarial skeletons — captured 2026-08-01
+**Context:** PR #468 request-changes on V11/Adv V9: span fingerprints were computed but `isdisjoint` was omitted (and later skipped for `temporal_shadow_cohort`); Adv V9 paraphrased Adv V8 past exact template equality; title-correction gold copied session as valid-start; audit binding was ID/status-only.
+**Insight:** Independent promotion authority requires (1) resolved span-text SHA disjointness against *all* prior canonical dirs including the evaluation cohort, with no folder skips; (2) adversarial novelty beyond noun-swap — Jaccard/token-bag overlap after proper-noun scrubbing; (3) Gate E3: “now”/title restatement ≠ session valid-start; (4) audit tables should bind proposition/lane/phrase to fixtures, or be labeled ID/status-only.
+**Action:** When authoring the next TL01G (or TL01H) promotion pair, keep these four gates in the seal checklist and never patch observed cohorts in place after provider results.
+**Surfaces when:** TL01G, TL01H, promotion cohort, holdout, adversarial, span independence, GOLD-AUDIT, Gate E2, Gate E3, template overlap, request changes PR 468
+**Refs:** `tests/test_temporal_shadow_extraction_tl01g.py`; `Docs/Reports/REPORT-tl01g-resolution-proof-abstention-gate.md`; PR #468
+
 ## [READY] Hermes authoring needs a dynamic copyable markdown artifact — captured 2026-07-30
 **Context:** R0-B float-goat probe produced a useful copy-pasteable Threat description, but it was embedded in a long conversational answer. The operator wants a skill to tell Hermes when to emit a dedicated dynamic UI markdown section; that tool/card does not exist yet.
 **Insight:** “Copyable” is a product interaction, not just an instruction to put Markdown fences in prose. The authoring skill needs a structured artifact tool that renders a distinct, editable/copyable block while keeping provenance, uncertainty, and internal trace details outside the copied content.

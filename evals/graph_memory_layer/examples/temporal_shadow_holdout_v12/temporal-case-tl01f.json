@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v12/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v12/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:efc298e2a6bec2b0",
+    "assertion:2b5ef3de2b4b1059",
+    "assertion:834ecae619a6b1b7",
+    "assertion:96970bf74a4cce6b",
+    "assertion:dae970dc08ef5ef1",
+    "assertion:49f1ac3344d4de55",
+    "assertion:8c7ef835b1dcf67c",
+    "assertion:46d5c1457586affc",
+    "assertion:5b4b858b5da878d0",
+    "assertion:fe496e343ef117a7",
+    "assertion:1ae2b75b88380c5f",
+    "assertion:898d34312f32993b"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s24-battle-end",
+      "source_artifact_id": "source-artifact:holdout-v12-s24-battle-end",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+      "content_sha256": "7fe085121d651f21211f8e58c3192159c4cfaf7b07ce9f78d02b4d082e5df8bc",
+      "source_ref_id": "source-ref:holdout-v12-s24-battle-end",
+      "start_line": 30,
+      "end_line": 30,
+      "label": "Session 24 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s24-call-back",
+      "source_artifact_id": "source-artifact:holdout-v12-s24-call-back",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+      "content_sha256": "7fe085121d651f21211f8e58c3192159c4cfaf7b07ce9f78d02b4d082e5df8bc",
+      "source_ref_id": "source-ref:holdout-v12-s24-call-back",
+      "start_line": 34,
+      "end_line": 34,
+      "label": "Session 24 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s14-plume-supplies",
+      "source_artifact_id": "source-artifact:v12-s14-plume-supplies",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+      "content_sha256": "99ea4cce27aca2db6670fdfab3bc76e495bbf8a886733441a93416ab7a503823",
+      "source_ref_id": "source-ref:v12-s14-plume-supplies",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 14 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:thalia-free-wolf",
+      "source_artifact_id": "source-artifact:holdout-v12-thalia-free-wolf",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+      "content_sha256": "7f1d6c36675f9910d13f6dbeff3fd11847e943eec3f32b83f3727043a6779c83",
+      "source_ref_id": "source-ref:holdout-v12-thalia-free-wolf",
+      "start_line": 62,
+      "end_line": 62,
+      "label": "# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s20-spell-ends",
+      "source_artifact_id": "source-artifact:holdout-v12-s20-spell-ends",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "content_sha256": "70f3983a0182f2a12651a301c29de8e709296edee699184cdf06cbd1a071fa35",
+      "source_ref_id": "source-ref:holdout-v12-s20-spell-ends",
+      "start_line": 30,
+      "end_line": 30,
+      "label": "Session 20 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:delwen-fiancee",
+      "source_artifact_id": "source-artifact:holdout-v12-delwen-fiancee",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mireward/NPCs/delwen_rast/character_seed.md",
+      "content_sha256": "2dab1e873b8aa03f631b5c353f679b855396697955d75b60534da4a24a7a4b56",
+      "source_ref_id": "source-ref:holdout-v12-delwen-fiancee",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "character_seed.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s14-winna-stressed",
+      "source_artifact_id": "source-artifact:holdout-v12-s14-winna-stressed",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+      "content_sha256": "99ea4cce27aca2db6670fdfab3bc76e495bbf8a886733441a93416ab7a503823",
+      "source_ref_id": "source-ref:holdout-v12-s14-winna-stressed",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 14 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s17-woodland-elf",
+      "source_artifact_id": "source-artifact:holdout-v12-s17-woodland-elf",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+      "content_sha256": "6f01fc518deabfd705cfc76ba9754a72de6061f4e3e8443a0df2dbf8e088f97a",
+      "source_ref_id": "source-ref:holdout-v12-s17-woodland-elf",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 17 - Migrating Forest and Thrin.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s23-mission-decide",
+      "source_artifact_id": "source-artifact:holdout-v12-s23-mission-decide",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "source_ref_id": "source-ref:holdout-v12-s23-mission-decide",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 23 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s19-stafl-plan",
+      "source_artifact_id": "source-artifact:holdout-v12-s19-stafl-plan",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+      "content_sha256": "c5a033c25e53e5dd40ba751efafbd39b49c4f1aa9ed910142d70b20e8b3a4b7d",
+      "source_ref_id": "source-ref:holdout-v12-s19-stafl-plan",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 19 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:s21-iridescent-scale",
+      "source_artifact_id": "source-artifact:v12-s21-iridescent-scale",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "content_sha256": "ad4ecd013dad92cdcb1a11d412c9f73adb446b15f2ce62cfc50a98358588423f",
+      "source_ref_id": "source-ref:v12-s21-iridescent-scale",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 21 - Drake Nest Mirathorn Call.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v12:ledger-festival",
+      "source_artifact_id": "source-artifact:holdout-v12-ledger-festival",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_2.md",
+      "content_sha256": "be8c858d378358e6be11661a148a41567606845d9513e3fc02761b323d5a2b5f",
+      "source_ref_id": "source-ref:holdout-v12-ledger-festival",
+      "start_line": 230,
+      "end_line": 230,
+      "label": "Elderwyld_Narrative_Ledger_2.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "808a802063bb533508a9f3dae79525d95dbbfa6e81fc8b07db2c60b70c684a2c",
+  "gold_overlay_sha256": "bd42245a44a8552ac743d6793e4bd30d596ee3d397e44455d81dc0c590ae12a9",
+  "case_id": "tl01f-temporal-shadow-holdout-v12-v1",
+  "prompt_version": "tl01f-v1"
+}

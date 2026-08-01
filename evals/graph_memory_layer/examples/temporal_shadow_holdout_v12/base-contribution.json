@@ -1,0 +1,349 @@
+{
+  "contribution_id": "contribution:9d3959551ab8adf6",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v12",
+  "produced_at": "2026-08-01T19:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:efc298e2a6bec2b0",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:thrin",
+      "target_node_id": null,
+      "predicate": "finishes_battle",
+      "label": "Thrin finishes off the writhing creature, ending the battle",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s24-battle-end",
+            "session_id": "session-24"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s24-battle-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:2b5ef3de2b4b1059",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:grobnok",
+      "target_node_id": null,
+      "predicate": "will_call_back",
+      "label": "Grobnok will call them back the next day to check in",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s24-call-back",
+            "session_id": "session-24"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s24-call-back"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:834ecae619a6b1b7",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:plume",
+      "target_node_id": null,
+      "predicate": "responsible_for_travel_supplies",
+      "label": "Plume is responsible for preparing the group's travel supplies",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s14-plume-supplies",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s14-plume-supplies"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:96970bf74a4cce6b",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:thalia-ashenvale",
+      "target_node_id": null,
+      "predicate": "free_from_wolf",
+      "label": "Thalia Ashenvale is free from The Wolf's manipulation",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:thalia-free-wolf"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:thalia-free-wolf"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:dae970dc08ef5ef1",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "spell_ends",
+      "label": "Lysandra comes out of the shimmer-eye spell after the antidote tea",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s20-spell-ends",
+            "session_id": "session-20"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s20-spell-ends"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:49f1ac3344d4de55",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:delwen-rast",
+      "target_node_id": "npc:lysandra",
+      "predicate": "was_almost_fiancee",
+      "label": "Delwen Rast was almost-fianc\u00e9e of Lysandra about eight years ago",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:delwen-fiancee"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:delwen-fiancee"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:8c7ef835b1dcf67c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:winna",
+      "target_node_id": null,
+      "predicate": "is_stressed",
+      "label": "Winna is even more stressed out than usual",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s14-winna-stressed"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s14-winna-stressed"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:46d5c1457586affc",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:thrin",
+      "target_node_id": null,
+      "predicate": "looks_like_woodland_elf",
+      "label": "The figure looks like a woodland elf",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s17-woodland-elf"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s17-woodland-elf"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:5b4b858b5da878d0",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "must_decide_mission",
+      "label": "Lysandra must decide whether to help her hometown or go north to help Edge",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s23-mission-decide"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s23-mission-decide"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:fe496e343ef117a7",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": "loc:mossford",
+      "predicate": "begins_plan",
+      "label": "Stafl begins to form a plan for Mossford",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s19-stafl-plan"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s19-stafl-plan"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:1ae2b75b88380c5f",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": "item:iridescent-drake-scale",
+      "predicate": "holds_or_recovered_scale",
+      "label": "Karsemine holds the iridescent scale since finding it on the trail or only picked it up then",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:s21-iridescent-scale",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s21-iridescent-scale"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    },
+    {
+      "assertion_id": "assertion:898d34312f32993b",
+      "assertion_kind": "attribute",
+      "subject_node_id": "event:mirathorn-festival",
+      "target_node_id": null,
+      "predicate": "festival_postponed",
+      "label": "The Mirathorn festival has been postponed indefinitely",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v12:ledger-festival"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:ledger-festival"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9d3959551ab8adf6"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

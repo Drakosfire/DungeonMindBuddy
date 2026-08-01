@@ -1,0 +1,300 @@
+{
+  "contribution_id": "contribution:2cf2788da697878d",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v10",
+  "produced_at": "2026-08-01T19:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:77aea867bb3dbc8a",
+      "assertion_kind": "edge",
+      "subject_node_id": "event:supply-barge",
+      "target_node_id": "loc:sable-quay",
+      "predicate": "reaches_quay_at_dusk",
+      "label": "The supply barge reaches Sable Quay at dusk",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:forecast-dusk",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:forecast-dusk"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:0f2eff82753b4879",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": "org:paleoak-compact",
+      "predicate": "promised_petition",
+      "label": "Liora Venn vows to petition the Paleoak Compact when she is ready",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:future-promise-unresolved",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:future-promise-unresolved"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:6d3818f2bfe92fb1",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": null,
+      "predicate": "holds_cartography_duties",
+      "label": "Cartography duties for Mistglass Causeway still rest with Liora Venn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:persistent-restatement",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:persistent-restatement"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:6e23891b620a0c97",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": "feature:thornledger-atlas",
+      "predicate": "transfers_atlas",
+      "label": "Liora Venn transfers the Thornledger Atlas to the Cairnwick clerk before the tide-gate seals",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:occurrence-textual-gate-e2",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:occurrence-textual-gate-e2"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:ea69d4c08a9e2373",
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:thornledger-atlas",
+      "target_node_id": null,
+      "predicate": "has_been_closed",
+      "label": "Archivists note the Thornledger Atlas has been closed since midwinter",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:valid-start-textual",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:valid-start-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:89f983c69ca1a2b4",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": null,
+      "predicate": "no_longer_speaks_for_compact",
+      "label": "Liora Venn no longer speaks for the Paleoak Compact following the river vote",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:valid-end-textual",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:valid-end-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:c245fb913a7f6cb3",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": null,
+      "predicate": "still_refuses_summons",
+      "label": "Liora Venn still refuses every Cairnwick summons",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:still-remains",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:still-remains"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:a0f0ef0556974ada",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": null,
+      "predicate": "elected_or_announced",
+      "label": "Liora Venn was elected chancellor at the solstice moot or only announced then",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:ambiguous-lane",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:ambiguous-lane"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:6cea20d1de125912",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": "loc:sable-quay",
+      "predicate": "left_coast",
+      "label": "Liora Venn left the coast three winters earlier",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:historical-textual",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:historical-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    },
+    {
+      "assertion_id": "assertion:2be1e229a5db3a88",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:liora-venn",
+      "target_node_id": "feature:thornledger-atlas",
+      "predicate": "opening_claim",
+      "label": "Liora Venn claims the Thornledger Atlas is opening now",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv10:grounding-trap",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv10:grounding-trap"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2cf2788da697878d"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
