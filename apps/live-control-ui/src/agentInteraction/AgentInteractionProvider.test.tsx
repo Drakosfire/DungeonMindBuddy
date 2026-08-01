@@ -631,8 +631,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
   it("keeps pre-publication callbacks as permanent no-ops after a surface publishes", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     const staleOpenTool = result.current.openTool;
-    const staleOpenContentFromChip = result.current.openContentFromChip;
-    const staleOpenPlanReferenceResolution = result.current.openGraphReference;
+    const staleOpenGraphReference = result.current.openGraphReference;
     const staleExpandContent = result.current.expandContent;
     const staleClose = result.current.close;
 
@@ -641,11 +640,12 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
     act(() => {
       staleOpenTool("recap");
-      staleOpenContentFromChip(
-        { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
+      staleOpenGraphReference({
+        reference: { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
         resolution,
-      );
-      openResolution(staleOpenPlanReferenceResolution);
+        glanceOnly: true,
+      });
+      openResolution(staleOpenGraphReference);
       staleExpandContent();
       staleClose();
     });
@@ -739,10 +739,11 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
 
     act(() => {
-      result.current.openContentFromChip(
-        { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
+      result.current.openGraphReference({
+        reference: { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
         resolution,
-      );
+        glanceOnly: true,
+      });
       openResolution(result.current.openGraphReference);
       result.current.expandContent();
     });

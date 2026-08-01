@@ -9,11 +9,13 @@ import {
 } from "react";
 
 import type { AgentInteractionThread, LiveQueryBackend } from "../api/types";
-import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
-import type { GraphReferenceProjectionState, GraphReferenceResolution } from "../graphReference/types";
+import type {
+  GraphReferenceProjectionBinding,
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+} from "../graphReference/types";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
-  GraphReferenceProjectionBinding,
   RegisterableToolProjectionId,
   ToolProjectionPayloadMap,
 } from "../planSurface/projection/projectionBindings";
@@ -120,8 +122,9 @@ function revalidateLeasedProjection(
 }
 
 /**
- * Authorized Plan publication: projections enabled, identity/config modes agree
- * as plan, and required render context is present.
+ * Plan-only authorization for graph-reference content: projections enabled,
+ * identity/config modes agree as plan, and required render context is present.
+ * Build remains disabled by design; this is not a fully surface-neutral auth policy.
  */
 function isAuthorizedPlanPublication(reg: SurfaceRegistration | null): boolean {
   const validated = reg?.validated;
@@ -295,37 +298,6 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setLeasedActive(next);
       setLeasedGraphReference(null);
       setLeasedGraphProjectionState(null);
-    },
-    [currentSurfaceToken],
-  );
-
-  const openContentFromChip = useCallback(
-    (
-      ref: RunbookReferenceAttrs,
-      resolution: GraphReferenceResolution,
-      glanceOnly = true,
-      projectionState: GraphReferenceProjectionState | null = resolution.projectionState ?? null,
-    ) => {
-      const capturedToken = currentSurfaceToken;
-      const reg = surfaceRegistrationRef.current;
-      // Plan-content actions require an authorized Plan publication, not merely
-      // a matching surfaceId or a non-null context on another mode.
-      if (!surfaceTokenGuard(capturedToken, reg) || !isAuthorizedPlanPublication(reg)) return;
-      const activeToken = reg!.token;
-      const next: LeasedActiveProjection = {
-        surfaceToken: activeToken,
-        projection: {
-          kind: "content",
-          key: ref.refType,
-          size: glanceOnly ? "compact" : contentSize(resolution),
-          title: ref.label,
-          glanceOnly,
-        },
-      };
-      leasedActiveRef.current = next;
-      setLeasedActive(next);
-      setLeasedGraphReference({ surfaceToken: activeToken, resolution });
-      setLeasedGraphProjectionState({ surfaceToken: activeToken, state: projectionState });
     },
     [currentSurfaceToken],
   );
@@ -674,7 +646,6 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     publishProjectionSurface,
     updateProjectionSurfaceConfig,
     openTool,
-    openContentFromChip,
     openGraphReference,
     expandContent,
     close,
@@ -710,7 +681,6 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     graphReferenceBinding,
     graphReferenceProjectionState,
     graphReviewDiagnosticsPayload,
-    openContentFromChip,
     openGraphReference,
     openTool,
     paneState,

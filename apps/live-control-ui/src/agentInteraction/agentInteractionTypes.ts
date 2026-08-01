@@ -7,7 +7,6 @@ import type {
   LiveQueryCitation,
   LiveQueryResponse,
 } from "../api/types";
-import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -136,12 +135,6 @@ export interface AgentInteractionProjectionActions {
    */
   updateProjectionSurfaceConfig: (publication: ProjectionSurfacePublication) => void;
   openTool: (toolId: string) => void;
-  openContentFromChip: (
-    ref: RunbookReferenceAttrs,
-    resolution: GraphReferenceResolution,
-    glanceOnly?: boolean,
-    projectionState?: GraphReferenceProjectionState | null,
-  ) => void;
   openGraphReference: (args: OpenGraphReferenceArgs) => void;
   expandContent: () => void;
   close: () => void;

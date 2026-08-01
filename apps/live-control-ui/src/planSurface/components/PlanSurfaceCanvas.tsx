@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Editor } from "@tiptap/core";
+import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeTools } from "../../chrome/AppChrome";
@@ -68,7 +68,7 @@ export function PlanSurfaceCanvas({
   const planningDocument = sessionDescriptor.planningDocument;
   const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
   const { isLocked, canEdit, toggleLock } = useEditCapability();
-  const { openContentFromChip, openGraphReference } = useProjection();
+  const { openGraphReference } = useProjection();
   const {
     resolvePlanReference,
     projection,
@@ -82,7 +82,7 @@ export function PlanSurfaceCanvas({
     [
       sessionDescriptor.campaignId,
       sessionDescriptor.planningDocument.documentId,
-      sessionDescriptor.targetSession,
+      sessionDescriptor.planningDocument.targetSession,
     ],
   );
 
@@ -238,9 +238,14 @@ export function PlanSurfaceCanvas({
       const ref = readReferenceFromElement(chip);
       if (!ref) return;
       const resolution = await resolvePlanReference(ref);
-      openContentFromChip(ref, resolution, true, projectionState);
+      openGraphReference({
+        reference: ref,
+        resolution,
+        projectionState,
+        glanceOnly: true,
+      });
     },
-    [openContentFromChip, projectionState, resolvePlanReference],
+    [openGraphReference, projectionState, resolvePlanReference],
   );
 
   const openGraphNodeFromChip = useCallback(
@@ -253,9 +258,14 @@ export function PlanSurfaceCanvas({
         label: node?.label ?? nodeId,
       };
       const resolution = await resolvePlanReference(ref);
-      openContentFromChip(ref, resolution, true, projectionState);
+      openGraphReference({
+        reference: ref,
+        resolution,
+        projectionState,
+        glanceOnly: true,
+      });
     },
-    [openContentFromChip, projection, projectionState, resolvePlanReference],
+    [openGraphReference, projection, projectionState, resolvePlanReference],
   );
 
   const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
@@ -309,6 +319,7 @@ export function PlanSurfaceCanvas({
         actions: [
           {
             id: "plan-remove-block",
+            eyebrow: "Remove",
             label: "Remove block",
             onClick: removeActiveBlock,
             disabled: !editor || isLocked || !editorInteractive,
@@ -370,8 +381,7 @@ export function PlanSurfaceCanvas({
   const showSavePanel = Boolean(
     authoring.lastCommitReceipt
     || (authoring.phase === "save_error" && authoring.error)
-    || (authoring.phase === "committed_verification_pending" && authoring.error)
-    || authoring.lastCommitReceipt?.diagnostics?.length,
+    || (authoring.phase === "committed_verification_pending" && authoring.error),
   );
 
   const editorBody = (() => {
@@ -408,7 +418,7 @@ export function PlanSurfaceCanvas({
     }
     return (
       <MarkdownEditorCore
-        content={authoring.editorContent}
+        content={authoring.editorContent as Content}
         documentKey={authoring.documentKey}
         editable={canEdit}
         onEditorChange={handleEditorChange}

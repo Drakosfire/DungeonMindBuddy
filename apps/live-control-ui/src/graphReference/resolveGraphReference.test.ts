@@ -261,6 +261,52 @@ describe("resolveGraphReference", () => {
     expect(result.message).toMatch(/unavailable/i);
   });
 
+  it("unavailable ignores a supplied projection for graph-native refs", () => {
+    const result = resolveGraphReference({
+      ref: {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "npc-glowkindle",
+        label: "Glowkindle",
+      },
+      projection,
+      projectionState: "unavailable",
+    });
+
+    expect(result.kind).toBe("unresolved");
+    expect(result.kind).not.toBe("resolved_graph");
+    expect(result.message).toMatch(/unavailable/i);
+  });
+
+  it("unavailable legacy reference may use corpus fallback", () => {
+    const fallback = {
+      status: "resolved" as const,
+      ref: {
+        kind: "ref" as const,
+        refType: "npc",
+        refId: "lysandro-ironveil",
+        label: "Lysandro Ironveil",
+      },
+      source: "npc-index",
+      item: { title: "Lysandro Ironveil" },
+      message: "Resolved from live npc index.",
+    };
+
+    const result = resolveGraphReference({
+      refType: "npc",
+      refId: "lysandro-ironveil",
+      label: "Lysandro Ironveil",
+      projection,
+      corpusFallback: fallback,
+      projectionState: "unavailable",
+    });
+
+    expect(result.kind).toBe("resolved_corpus_fallback");
+    if (result.kind === "resolved_corpus_fallback") {
+      expect(result.fallback).toEqual(fallback);
+    }
+  });
+
   it("does not mutate graph projection payload", () => {
     const snapshot = JSON.stringify(projection);
 
@@ -270,6 +316,87 @@ describe("resolveGraphReference", () => {
     });
 
     expect(JSON.stringify(projection)).toBe(snapshot);
+  });
+
+  it("defers resolution while projectionState is loading even when projection would match", () => {
+    const result = resolveGraphReference({
+      locator: "dmb-node:npc-glowkindle",
+      projection,
+      projectionState: "loading",
+    });
+
+    expect(result.kind).toBe("unresolved");
+    expect(result.message).toMatch(/loading; resolution deferred/i);
+    expect(result.projectionState).toBe("loading");
+  });
+
+  it("defers resolution while projectionState is loading even when corpus fallback would resolve", () => {
+    const fallback = {
+      status: "resolved" as const,
+      ref: {
+        kind: "ref" as const,
+        refType: "npc",
+        refId: "lysandro-ironveil",
+        label: "Lysandro Ironveil",
+      },
+      source: "npc-index",
+      item: { title: "Lysandro Ironveil" },
+      message: "Resolved from live npc index.",
+    };
+
+    const result = resolveGraphReference({
+      refType: "npc",
+      refId: "missing-slug",
+      label: "Glow",
+      projection,
+      corpusFallback: fallback,
+      projectionState: "loading",
+    });
+
+    expect(result.kind).toBe("unresolved");
+    expect(result.message).toMatch(/loading; resolution deferred/i);
+    expect(result.kind).not.toBe("resolved_graph");
+    expect(result.kind).not.toBe("resolved_corpus_fallback");
+  });
+
+  it("returns error while projectionState is error even when projection would match", () => {
+    const result = resolveGraphReference({
+      locator: "dmb-node:npc-glowkindle",
+      projection,
+      projectionState: "error",
+    });
+
+    expect(result.kind).toBe("error");
+    expect(result.message).toMatch(/projection failed; corpus fallback disabled/i);
+    expect(result.kind).not.toBe("resolved_graph");
+  });
+
+  it("returns error while projectionState is error even when corpus fallback would resolve", () => {
+    const fallback = {
+      status: "resolved" as const,
+      ref: {
+        kind: "ref" as const,
+        refType: "npc",
+        refId: "lysandro-ironveil",
+        label: "Lysandro Ironveil",
+      },
+      source: "npc-index",
+      item: { title: "Lysandro Ironveil" },
+      message: "Resolved from live npc index.",
+    };
+
+    const result = resolveGraphReference({
+      refType: "npc",
+      refId: "missing-slug",
+      label: "Glow",
+      projection,
+      corpusFallback: fallback,
+      projectionState: "error",
+    });
+
+    expect(result.kind).toBe("error");
+    expect(result.message).toMatch(/projection failed; corpus fallback disabled/i);
+    expect(result.kind).not.toBe("resolved_corpus_fallback");
   });
 
   it("includes lens summary on graph-native miss diagnostics", () => {

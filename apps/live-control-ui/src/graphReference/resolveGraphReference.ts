@@ -368,6 +368,36 @@ export function resolveGraphReference(
   const projectionState = input.projectionState ?? null;
   const graphNative = isGraphNativeReference(refType);
 
+  // Projection-state gates belong in the neutral resolver so Build (or any
+  // future caller) cannot bypass Plan's fail-closed rules by calling directly.
+  if (projectionState === "loading") {
+    return {
+      kind: "unresolved",
+      locator,
+      reference,
+      projectionState,
+      message: "World Graph projection is loading; resolution deferred.",
+    };
+  }
+
+  if (projectionState === "error") {
+    return {
+      kind: "error",
+      locator,
+      reference,
+      projectionState,
+      message: "World Graph projection failed; corpus fallback disabled.",
+    };
+  }
+
+  if (projectionState === "unavailable") {
+    if (graphNative) {
+      return graphNativeUnavailable(locator, reference, projectionState);
+    }
+    return fallbackGraphResolution(locator, reference, input.corpusFallback, projectionState);
+  }
+
+  // ready (or unspecified): graph lookup, then corpus fallback after ordinary miss.
   if (input.projection) {
     const index = buildWorldGraphNodeIndex(input.projection);
     const lookup = findGraphNodeInProjection(index, {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   GraphProjectionAdjacencyCandidate,
   GraphProjectionEvidenceBadge,
@@ -22,6 +22,21 @@ import {
 
 /** @deprecated Prefer GraphNodeHoverToken from graphReference; kept as ingest/Graph Review alias. */
 export const GraphNodeToken = GraphNodeHoverToken;
+
+function PlanningScanSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="recap-planning-scan-section">
+      <span className="recap-planning-scan-kicker">{title}</span>
+      {children}
+    </div>
+  );
+}
 
 function EvidenceBadgeRow({
   badge,

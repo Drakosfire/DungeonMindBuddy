@@ -23,15 +23,17 @@ pr_body_template: |
 
   ## Scope and explicit deferrals
 
-  Base: a5863ac2a41c351d731b67c4b9885905cb4b4b46 — exact main SHA containing this checked-in handoff; it must descend from 2c9cb97fa29a4e703f0521f56acfcff8a291f986.
+  Base: a5863ac2a41c351d731b67c4b9885905cb4b4b46 — reconstruction base (see §2 amendments). Descends from authoring anchor 2c9cb97fa29a4e703f0521f56acfcff8a291f986.
 
   Target PR: #431.
 
   Existing old head e3919d5b13e0066cc3ed46dc51fddb27c29914a0 is historical evidence only and MUST NOT be rebased or cherry-picked as implementation.
 
-  Actual changed paths: TODO — must be a subset of §4.
+  Re-anchor (2026-07-31 operator decision): reconstruct the same PR on current main after #464 merged; preserve reconstruction history; do not close #431; do not merge until scope ledger + neutral resolver gates pass.
 
-  Paths outside §4: TODO (none or stop report).
+  Actual changed paths: §4 explicit table plus the discovered migration consumers listed under §4 “Discovered migration consumers (operator amendment)”.
+
+  Paths outside §4: none after the discovered-consumer amendment — every retained path is required by the same neutral-reference invariant.
 
   Named successor still false: Build World Reference Loop v1.
 
@@ -57,20 +59,24 @@ pr_body_template: |
 
 # HANDOFF — Surface-neutral existing-object graph reference loop
 
-**Created:** 2026-07-30.  
-**Status:** READY FOR IMPLEMENTATION — dispatch exactly one implementation capability; implementation base recorded below.  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-pr431-surface-neutral-graph-reference-loop.md`  
-**Target pull request:** #431  
-**Authoring anchor:** main at `2c9cb97fa29a4e703f0521f56acfcff8a291f986`  
-**Historical PR head:** `e3919d5b13e0066cc3ed46dc51fddb27c29914a0` — 148 commits behind the authoring anchor; research only.  
-**Suggested branch:** `agent/pr-mc02a-graph-reference`  
-**Implementation base:** `a5863ac2a41c351d731b67c4b9885905cb4b4b46`
+**Created:** 2026-07-30.
+**Status:** IMPLEMENTATION IN REVIEW — re-anchored on current main after #464; scope ledger and neutral resolver gates amended 2026-07-31.
+**Canonical handoff path:** `Docs/Plans/HANDOFF-pr431-surface-neutral-graph-reference-loop.md`
+**Target pull request:** #431
+**Authoring anchor:** main at `2c9cb97fa29a4e703f0521f56acfcff8a291f986`
+**Historical PR head:** `e3919d5b13e0066cc3ed46dc51fddb27c29914a0` — 148 commits behind the authoring anchor; research only.
+**Suggested branch:** `agent/pr-mc02a-graph-reference`
+**Implementation base (reconstruction):** `a5863ac2a41c351d731b67c4b9885905cb4b4b46`
 
-> **Mechanical dispatch gate:** The handoff must first be checked into main. Replace the implementation-base TODO with that exact resulting SHA. Before the worker edits code, the target branch tip must equal that SHA exactly. If the old PR branch still contains the historical stacked implementation, the worker must stop. Rebase, merge, cherry-pick, or selective conflict resolution from the old head is not an authorized substitute for a fresh base.
+> **RE-ANCHOR AMENDMENT (2026-07-31) — operator decision:** Do not merge #431 as previously reviewed. Do not close it. Reconstruct the same architectural prerequisite on current main after salvage PR #464 merged. Preserve the truthful reconstruction history (forward commits from `a5863ac2`, not a rebase/cherry-pick of historical stacked head `e3919d5b`). Amend this handoff’s scope ledger to name the discovered consumer/presentation paths required by the same neutral-reference invariant. Enforce projection-state fail-closed behavior inside `resolveGraphReference()` itself. Refresh verification on the final head. Merge only when those gates pass, then immediately begin Build World Reference Loop v1.
+>
+> **Mechanical dispatch gate (original):** The handoff must first be checked into main. Replace the implementation-base TODO with that exact resulting SHA. Before the worker edits code, the target branch tip must equal that SHA exactly. If the old PR branch still contains the historical stacked implementation, the worker must stop. Rebase, merge, cherry-pick, or selective conflict resolution from the old head is not an authorized substitute for a fresh base.
+>
+> **Operator amendment (2026-07-31) — Option 1A:** The original mechanical gate was **not** satisfied as written. Commit `a5863ac2` checked the handoff into the integration line, but the text at that commit still read `Base: TODO` / `Implementation base: TODO_BASE_SHA`. The later substitution of `a5863ac2` into those fields occurred on the implementation branch after implementation commits had already landed. The operator accepts `a5863ac2` as the immutable reconstruction base and requires truthful reconstruction documentation rather than a claim that a finalized-on-main handoff existed before implementation began.
 >
 > **Dispatch gate:** Dispatch is prohibited until capability decomposition is complete, one independently useful mission remains, the merge-ready invariant and required evidence survive critique, every expected path is known, required contract matrices are resolved, and every acceptance claim has an owning proof.
 >
-> This checked-in handoff is the complete authority. The worker must not compress, omit, replace, or rewrite it before implementation. The PR description must use the frontmatter skeleton and remain a truthful merge contract; it cannot substitute for the handoff.
+> This checked-in handoff is the complete authority. The worker must not compress, omit, replace, or rewrite it before implementation. The PR description must use the frontmatter skeleton and remain a truthful merge contract; it cannot substitute for the handoff. Amendments below are labeled and supersede conflicting temporal/scope claims in the frozen protocol text.
 
 ## Shared vocabulary
 
@@ -323,19 +329,46 @@ The implementation is a cross-layer refactor because the invariant spans the sha
 | Modify | `apps/live-control-ui/src/planSurface/reference/PlanReferenceObjectCard.tsx` | Adapt Plan-specific actions/escalation copy to neutral resolution/binding types; preserve shared GraphObjectProjectionCard rendering and stale relationship suppression. |
 | Modify | `apps/live-control-ui/src/planSurface/reference/PlanReferenceObjectCard.test.tsx` | Prove explicit ambiguity, fallback/error copy, relationship traversal, and stale completion with neutral types. |
 
+### Discovered migration consumers (operator amendment 2026-07-31)
+
+Implementation discovered that the original §4 inventory omitted fourteen paths required to complete the same neutral-reference invariant without leaving duplicate Plan-named APIs or Plan presentation imports behind. These are **not** feature expansion: each path is a current consumer, presentation hoist, or owning-boundary test of a renamed/removed Plan contract. Keeping fake scope compliance by retaining duplicate APIs is prohibited.
+
+| Action | Path | Why required by the same §1 invariant |
+|---|---|---|
+| Create / Modify | `apps/live-control-ui/src/graphReference/nodeGlancePresentation.ts` | Shared glance presentation must live under `graphReference/` so the package does not import Plan presentation modules. |
+| Create / Modify | `apps/live-control-ui/src/graphReference/presentation.ts` | Shared presentation helpers for neutral search/chip surfaces; same import-boundary reason as glance presentation. |
+| Modify | `apps/live-control-ui/src/planSurface/dogfood/GraphObjectDogfoodPanel.tsx` | Dogfood panel consumes the renamed app-host `openGraphReference` API; leaving Plan-named calls would preserve a second public host contract. |
+| Modify | `apps/live-control-ui/src/planSurface/dogfood/GraphObjectDogfoodPanel.test.tsx` | Owning proof that dogfood uses the neutral host API after rename. |
+| Modify | `apps/live-control-ui/src/planSurface/projection/projectionBindings.test.tsx` | Current importer of renamed projection-binding contracts; tests must migrate with the production rename. |
+| Modify | `apps/live-control-ui/src/planSurface/projection/projectionContext.test.tsx` | Current importer of renamed host projection context fields/actions. |
+| Modify | `apps/live-control-ui/src/planSurface/projection/projectionRegistry.test.tsx` | Current importer of neutral resolution rendering through the projection registry. |
+| Modify | `apps/live-control-ui/src/planSurface/reference/PlanReferenceProjectionBinding.tsx` | Plan relationship binding adapter over the neutral binding/resolution contract. |
+| Modify | `apps/live-control-ui/src/planSurface/reference/buildGraphObjectCardFromCorpusFallback.ts` | Corpus-fallback card builder adapts to neutral resolution/fallback types without redefining identity rules. |
+| Modify | `apps/live-control-ui/src/planSurface/reference/buildPlanGraphObjectActions.ts` | Plan action factory consumes neutral resolution/binding types; duplicate Plan-only action contracts are not retained. |
+| Modify | `apps/live-control-ui/src/planSurface/reference/buildPlanGraphObjectActions.test.ts` | Owning tests for the Plan action adapter after the contract rename. |
+| Modify | `apps/live-control-ui/src/planSurface/reference/resolvePlanRelationshipTarget.test.ts` | Owning tests for relationship resolution after it returns the neutral resolution contract. |
+| Delete / Modify | `apps/live-control-ui/src/planSurface/reference/searchGraphProjectionNodes.test.ts` | Companion test for the deleted Plan-owned search helper; must leave with the helper or move assertions to shared search tests. |
+| Modify | `apps/live-control-ui/src/planSurface/reference/usePlanGraphReferenceResolver.test.ts` | Owning tests for the Plan projection-load adapter after it returns/resolves through neutral contracts. |
+| Modify | `apps/live-control-ui/src/planSurface/graphPreview/GraphNodePresentation.tsx` | Baseline main defect discovered during re-anchor verification: `PlanningScanSection` was referenced but undefined, breaking UnionSupergraph explorer tests and typecheck. Restore the local helper so Plan graph preview remains usable after the neutral presentation hoist. |
+
+**Demolition follow-through also required on already-listed host paths:** remove unused Plan-named host aliases such as `openContentFromChip` once every in-allowlist caller uses `openGraphReference`. Unnamed “safer for now” duplicate APIs remain prohibited.
+
 ### Bounded discovery exception
 
 ```
 Directories:
   apps/live-control-ui/src/planSurface/reference/
   apps/live-control-ui/src/planSurface/projection/
+  apps/live-control-ui/src/planSurface/dogfood/
   apps/live-control-ui/src/agentInteraction/
+  apps/live-control-ui/src/graphReference/
 
-Maximum additional paths:
-  5
+Maximum additional paths beyond the §4 tables (including the discovered-consumer table above):
+  0 for this revision — the fourteen discovered paths are now named in the table.
+  Further discoveries still use the original rule below only if a new importer appears after re-anchor.
 
 Allowed path kinds:
-  Existing TypeScript/TSX tests or compatibility adapters that directly import one of the Plan-named types/actions being removed.
+  Existing TypeScript/TSX tests or compatibility adapters that directly import one of the Plan-named types/actions being removed; shared presentation hoists required to keep graphReference free of planSurface imports.
 
 Decision rule for including one:
   `rg` on the finalized base proves the file is a current importer of a renamed contract, and compilation or an owning-boundary regression test cannot remain truthful without updating it. The file may only rename/adapt the same graph-reference contract; it may not add behavior.
@@ -518,9 +551,10 @@ Invariant:
   durable write authority is introduced.
 
 Failure behavior:
-  loading → deferred/unresolved loading state; no fallback
-  graph error → explicit error; corpus fallback disabled
-  graph unavailable → graph-native unresolved; legacy Plan compatibility may use its current corpus fallback
+  loading → deferred/unresolved; no projection use and no corpus fallback (even if a projection or fallback fixture is supplied)
+  graph error → explicit error; no projection use and no corpus fallback
+  graph unavailable → graph-native unresolved; legacy compatibility may use corpus fallback; supplied projection must not be consulted
+  ready → graph lookup; corpus fallback only after ordinary miss for legacy compatibility refs
   graph exact miss → unresolved; no label/corpus rebind
   ambiguous alias/label → explicit ambiguous result; no fallback/open
   missing editor → insertion fails/no-ops truthfully; no DOM search
@@ -564,8 +598,8 @@ save pipeline, whose durable commit contract is unchanged and regression-tested.
 | Observable path | Loading / initializing | Exact success | Ordinary miss | Dependency unavailable | Integrity / contract failure | Stale / superseded | Retry / replay |
 |---|---|---|---|---|---|---|---|
 | Shared search | Status only; no rows/actions | Filter/sort current supplied items | "No objects match" | unavailable status | error status | Caller supplies refreshed items/state | Re-render with new inputs |
-| Graph-native reference resolution | Deferred/unresolved; no fallback | Exact refId found in projection | Explicit unresolved | Explicit unresolved; no corpus fallback | Explicit error | Caller must resolve against current projection | New invocation only |
-| Legacy compatibility resolution | Deferred while loading | Unique exact/label/alias graph match | Plan adapter may supply current corpus fallback | Plan adapter may supply current corpus fallback only under existing rules | Graph error; fallback disabled | Caller must resolve against current projection | New invocation only |
+| Graph-native reference resolution | Deferred/unresolved; ignore supplied projection; no fallback | Exact refId found in projection | Explicit unresolved | Explicit unresolved; ignore supplied projection; no corpus fallback | Explicit error; ignore supplied projection; no fallback | Caller must resolve against current projection | New invocation only |
+| Legacy compatibility resolution | Deferred while loading; ignore supplied projection and corpus fallback | Unique exact/label/alias graph match | Plan adapter may supply current corpus fallback after ordinary miss when ready | Plan adapter may supply current corpus fallback; ignore supplied projection | Graph error; ignore supplied projection and corpus fallback | Caller must resolve against current projection | New invocation only |
 | Ambiguous legacy match | N/A | N/A | N/A | N/A | Explicit ambiguous with matching IDs; no open/fallback | Remains tied to supplied projection | Re-resolve after projection changes |
 | Search result Inspect | Disabled/deferred only if no valid host publication | Open exact resolved graph object | No action | No action | No action | Lease guard rejects stale callback | New current-lease callback |
 | Search result Insert | Disabled if editor absent/locked | Existing exact attrs inserted at current selection | No action | No action | No DOM/local-storage fallback | Editor/session owns stale state | Explicit new user action |
