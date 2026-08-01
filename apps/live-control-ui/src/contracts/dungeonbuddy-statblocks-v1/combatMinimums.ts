@@ -1,4 +1,4 @@
-import type { StatblockDefinitionV1_Output } from "./client";
+import type { Distance, MovementModeKind, StatblockDefinitionV1_Output } from "./client";
 
 export type CombatMinimums = {
   name: string;
@@ -7,7 +7,7 @@ export type CombatMinimums = {
   hit_point_formula: { count: number; die: number; modifier?: number } | null;
   challenge_rating: string;
   proficiency_bonus: number;
-  speed: Array<{ mode: string; distance: { value: number; unit: string } }>;
+  speed: Array<{ mode: MovementModeKind; distance: Distance }>;
   human_adjudicated_elements: string[];
 };
 

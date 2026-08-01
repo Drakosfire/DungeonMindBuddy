@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 
+import type { GraphReviewExistingObjectCandidate } from "../../api/types";
 import { ExistingObjectResolverPanel } from "./ExistingObjectResolverPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphMergeReconciliationMaterializationPanel } from "./GraphMergeReconciliationMaterializationPanel";
@@ -193,7 +194,7 @@ export function GraphReviewAuthoringRail({
     pendingSelection: pendingAuthoringSelection,
     onUseSelectedText: (selection: GraphAuthoringSelection) =>
       graphObjectAuthoringDraft.openWithSelection(selection),
-    onStageLinkExisting: (candidate) => {
+    onStageLinkExisting: (candidate: GraphReviewExistingObjectCandidate) => {
       const selection = graphObjectAuthoringDraft.selectedSource;
       if (!selection) {
         return false;
@@ -218,7 +219,7 @@ export function GraphReviewAuthoringRail({
     sourceGraphId: projection?.graph_id ?? null,
     onCommittedProposals: graphObjectAuthoringDraft.clearCommittedProposals,
     onRefreshProjection: reloadLiveProjection,
-    onReviewMerge: (candidate) => {
+    onReviewMerge: (candidate: GraphObjectMergeCandidate) => {
       setFocusedMergeCandidate(candidate);
       onActiveTabChange("merge_candidates");
     },
@@ -548,7 +549,7 @@ function relationshipSourceNodeId(
   formState: UseGraphObjectAuthoringDraftResult["relationshipFormState"],
 ): string | null {
   const ref = formState.sourceObjectRef;
-  return ref?.refKind === "existing_graph_node" ? ref.nodeId : null;
+  return ref?.refKind === "existing_graph_node" ? (ref.nodeId ?? null) : null;
 }
 
 export function applyAuthoringPillSelection(input: {

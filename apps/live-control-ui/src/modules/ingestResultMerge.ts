@@ -26,7 +26,9 @@ function progressRank(status: string): number {
 
 function graphStatesForInspect(inspected: RecapIngestStatus): string[] {
   const fromInspect = inspected.states.filter((state) => GRAPH_PREVIEW_STATES.has(state));
-  const previewStatus = inspected.ingest_report?.graph_preview?.status;
+  // ingest_report is an untyped report bag; graph_preview.status is read defensively.
+  const graphPreview = inspected.ingest_report?.graph_preview as { status?: unknown } | undefined;
+  const previewStatus = graphPreview?.status;
   if (previewStatus === "preview_union_store_ready") {
     return [...new Set([...fromInspect, "preview_union_store_ready"])];
   }

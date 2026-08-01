@@ -46,6 +46,12 @@ function displayOptionalString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+// Trace context_summary values arrive as unknown record fields; only scalars are
+// safe React children (objects would throw at render).
+function displayScalar(value: unknown): string | number | null {
+  return typeof value === "string" || typeof value === "number" ? value : null;
+}
+
 function normalizeGraphToolEvent(raw: unknown): HermesGraphToolTraceEvent | null {
   if (!raw || typeof raw !== "object") return null;
   const event = raw as Record<string, unknown>;
@@ -522,14 +528,14 @@ export function TraceDetailsPanel({ trace, question, answer }: TraceDetailsPanel
             <h5>Context summary</h5>
             <ul>
               {context.admitted_count != null ? (
-                <li>Admitted evidence: {context.admitted_count}</li>
+                <li>Admitted evidence: {displayScalar(context.admitted_count)}</li>
               ) : null}
               {context.rejected_count != null ? (
-                <li>Rejected evidence: {context.rejected_count}</li>
+                <li>Rejected evidence: {displayScalar(context.rejected_count)}</li>
               ) : null}
               {context.admitted_excerpt_char_count != null ? (
                 <li>
-                  Admitted excerpt payload: {context.admitted_excerpt_char_count} chars
+                  Admitted excerpt payload: {displayScalar(context.admitted_excerpt_char_count)} chars
                   {context.admitted_excerpt_token_estimate != null
                     ? ` (~${context.admitted_excerpt_token_estimate} tokens est.)`
                     : null}
@@ -537,25 +543,25 @@ export function TraceDetailsPanel({ trace, question, answer }: TraceDetailsPanel
               ) : null}
               {context.total_excerpt_char_count != null ? (
                 <li>
-                  Total retrieved excerpt payload: {context.total_excerpt_char_count} chars
+                  Total retrieved excerpt payload: {displayScalar(context.total_excerpt_char_count)} chars
                   {context.total_excerpt_token_estimate != null
                     ? ` (~${context.total_excerpt_token_estimate} tokens est.)`
                     : null}
                 </li>
               ) : null}
               {context.context_payload_kind ? (
-                <li>Payload kind: {context.context_payload_kind}</li>
+                <li>Payload kind: {displayScalar(context.context_payload_kind)}</li>
               ) : null}
               {!isHermesGraphAgent && context.manifest_path ? (
                 <li>
-                  Manifest: <code>{context.manifest_path}</code>
+                  Manifest: <code>{displayScalar(context.manifest_path)}</code>
                 </li>
               ) : null}
-              {context.intent_class ? <li>Intent: {context.intent_class}</li> : null}
+              {context.intent_class ? <li>Intent: {displayScalar(context.intent_class)}</li> : null}
               {context.answerable_now != null ? (
                 <li>Answerable now: {context.answerable_now ? "yes" : "no"}</li>
               ) : null}
-              {context.verdict ? <li>Verdict: {context.verdict}</li> : null}
+              {context.verdict ? <li>Verdict: {displayScalar(context.verdict)}</li> : null}
             </ul>
           </div>
         ) : null}
@@ -699,7 +705,7 @@ export function TraceDetailsPanel({ trace, question, answer }: TraceDetailsPanel
             <summary>Tool / step trace ({steps.length})</summary>
             <ul>
               {steps.map((step, index) => {
-                const record = step && typeof step === "object" ? step as Record<string, unknown> : {};
+                const record = step && typeof step === "object" ? step as unknown as Record<string, unknown> : {};
                 const name = typeof record.name === "string" ? record.name : `step-${index}`;
                 const summary = typeof record.summary === "string" ? record.summary : "";
                 return (
@@ -718,7 +724,7 @@ export function TraceDetailsPanel({ trace, question, answer }: TraceDetailsPanel
             <h5>Artifact refs</h5>
             <ul>
               {trace.artifact_refs.map((ref, index) => {
-                const record = ref && typeof ref === "object" ? ref as Record<string, unknown> : {};
+                const record = ref && typeof ref === "object" ? ref as unknown as Record<string, unknown> : {};
                 const kind = typeof record.kind === "string" ? record.kind : "ref";
                 const path = typeof record.path === "string" ? record.path : "";
                 const label = typeof record.label === "string" ? record.label : null;

@@ -2,7 +2,6 @@ import type {
   AgentInteractionTurn,
   HermesGraphGrounding,
   HermesGraphGroundingState,
-  LiveQueryCitation,
   LiveQueryResponse,
   WorldGraphAnchorCitation,
 } from "../../api/types";

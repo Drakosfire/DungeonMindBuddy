@@ -20,6 +20,7 @@ import type {
   PlanViewProjection,
   SourceUnit,
   WorldGraphAnchorCitation,
+  WorldGraphProjectionFocus,
   WorldGraphSourceAnchorReadResponse,
 } from "../../api/types";
 import type { PlanSessionDescriptor } from "../types";
@@ -128,7 +129,7 @@ function parseHermesGraphGroundingView(answer: LiveQueryResponse): HermesGroundi
 
 function isLegacyPathCitation(citation: unknown): citation is LegacyPathCitation {
   if (!citation || typeof citation !== "object") return false;
-  const candidate = citation as LegacyPathCitation;
+  const candidate = citation as { kind?: string; path?: unknown; evidence_id?: unknown };
   if (candidate.kind === "world_graph_anchor") return false;
   return typeof candidate.path === "string" && typeof candidate.evidence_id === "string";
 }
@@ -157,7 +158,7 @@ function isNonEmptyString(value: unknown): value is string {
 
 function parseSnapshotFocus(
   value: unknown,
-): { kind: string; sessionId: string | null } | null {
+): WorldGraphProjectionFocus | null {
   if (!isRecord(value)) return null;
   if (typeof value.kind !== "string") return null;
   if (!(value.sessionId === null || typeof value.sessionId === "string")) return null;

@@ -10,6 +10,7 @@ import type {
   GraphObjectAuthoringProposalPayload,
   GraphObjectAuthoringUnionStoreMaterializationSummary,
   GraphAuthoringDiagnostic,
+  GraphAuthoringOverlayDiagnostic,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
 import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
@@ -186,7 +187,7 @@ function CommitSuccessPrimary({
   onRefreshProjection?: () => Promise<unknown>;
   refreshingProjection: boolean;
   refreshProjectionError: string | null;
-  projectionDiagnostics: GraphAuthoringDiagnostic[];
+  projectionDiagnostics: GraphAuthoringOverlayDiagnostic[];
   onRefresh: () => void;
   onDismiss: () => void;
 }) {
@@ -336,7 +337,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   const [committing, setCommitting] = useState(false);
   const [refreshingProjection, setRefreshingProjection] = useState(false);
   const [refreshProjectionError, setRefreshProjectionError] = useState<string | null>(null);
-  const [projectionDiagnostics, setProjectionDiagnostics] = useState<GraphAuthoringDiagnostic[]>([]);
+  const [projectionDiagnostics, setProjectionDiagnostics] = useState<GraphAuthoringOverlayDiagnostic[]>([]);
 
   const currentFingerprint = useMemo(() => proposalsFingerprint(proposals), [proposals]);
   const proposalsChangedSincePrepare =

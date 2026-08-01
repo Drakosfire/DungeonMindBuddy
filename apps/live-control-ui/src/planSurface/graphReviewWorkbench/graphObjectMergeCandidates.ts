@@ -52,15 +52,6 @@ function nodeTokens(node: GraphProjectionNodeView): Set<string> {
   return tokens;
 }
 
-function kindsCompatible(left: GraphProjectionNodeView, right: GraphProjectionNodeView): boolean {
-  const leftKind = (left.kind || "unknown").trim().toLowerCase();
-  const rightKind = (right.kind || "unknown").trim().toLowerCase();
-  if (!leftKind || !rightKind || leftKind === "unknown" || rightKind === "unknown") {
-    return true;
-  }
-  return leftKind === rightKind;
-}
-
 function survivorScore(node: GraphProjectionNodeView): number {
   let score = 0;
   if (node.authored === true || node.source_domains.includes("authored_overlay")) {

@@ -1,3 +1,4 @@
+import type { JSONContent } from "@tiptap/core";
 import { normalizeCalloutKind } from "./calloutMarkdown";
 import {
   isSupportedRunbookReference,
@@ -12,10 +13,7 @@ export type MarkdownImportDiagnostic = {
 };
 
 export type MarkdownImportResult = {
-  doc: {
-    type: "doc";
-    content: unknown[];
-  };
+  doc: JSONContent;
   diagnostics: MarkdownImportDiagnostic[];
 };
 
@@ -233,5 +231,5 @@ export function markdownToTiptapDoc(markdown: string, options: MarkdownImportOpt
     content.push(paragraph(paragraphLines.join(" ").trim(), options));
   }
 
-  return { doc: { type: "doc", content }, diagnostics };
+  return { doc: { type: "doc", content } as JSONContent, diagnostics };
 }
