@@ -30,7 +30,9 @@ from graph_memory.world_supergraph import (
     publish_world_graph_revision as _publish_world_graph_revision_storage,
     rollback_world_graph_head,
 )
+from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.storage import (
+    list_revision_ids,
     load_world_graph_revision_manifest,
 )
 from graph_memory.world_supergraph.identity_decision_store import (
@@ -50,6 +52,7 @@ __all__ = [
     "WorldGraphValidationError",
     "build_world_graph_integrity_report",
     "build_world_integrity_report",
+    "find_world_graph_revisions_by_operation_id",
     "load_current_world_graph",
     "load_world_graph_revision",
     "load_world_graph_revision_manifest",
@@ -108,3 +111,32 @@ def publish_world_revision(
 def build_world_integrity_report(root: Path, world_id: str, *, persist: bool = True):
     """Build the machine-readable world graph integrity report."""
     return build_world_graph_integrity_report(root, world_id, persist=persist)
+
+
+def find_world_graph_revisions_by_operation_id(
+    root: Path,
+    world_id: str,
+    operation_id: str,
+) -> tuple[WorldGraphRevision, ...]:
+    """Return every immutable revision manifest whose ``operation_ids`` contain ``operation_id``.
+
+    Scans the complete revision store in one enumeration snapshot (independent of
+    current head). Results are ordered by ``(created_at, revision_id)``. Performs
+    no durable writes.
+    """
+    world_paths.assert_safe_world_id(world_id)
+    if not operation_id or not operation_id.strip():
+        raise ValueError("operation_id must be non-empty")
+
+    revision_ids = list_revision_ids(root, world_id)
+    if not revision_ids:
+        return ()
+
+    matches: list[WorldGraphRevision] = []
+    for revision_id in revision_ids:
+        manifest = load_world_graph_revision_manifest(root, world_id, revision_id)
+        if operation_id in manifest.operation_ids:
+            matches.append(manifest)
+
+    matches.sort(key=lambda manifest: (manifest.created_at, manifest.revision_id))
+    return tuple(matches)
