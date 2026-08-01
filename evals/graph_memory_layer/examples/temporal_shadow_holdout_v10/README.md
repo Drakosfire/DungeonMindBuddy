@@ -6,4 +6,4 @@ Canonical corpus-grounded rows with disjoint span fingerprints from all prior `t
 
 See `GOLD-AUDIT.md` for the sealed row table. Do not mutate after first provider run.
 
-**Promotion seal / first provider execution:** .
+**Promotion seal / first provider execution:** `046093fd899e1b286329b0e0bf6b09b6aa0e60d6`.

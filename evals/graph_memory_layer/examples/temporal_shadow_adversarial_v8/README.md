@@ -6,4 +6,4 @@ Synthetic rows using reserved vocabulary (`Rookhaven`, `Merridan`, `Calyx Thorne
 
 See `GOLD-AUDIT.md` for the sealed row table.
 
-**Promotion seal / first provider execution:** .
+**Promotion seal / first provider execution:** `046093fd899e1b286329b0e0bf6b09b6aa0e60d6`.
