@@ -45,7 +45,7 @@ pr_body_template: |
 # HANDOFF — SBW09a durable Threat publication operation ledger
 
 **Created:** 2026-07-31.  
-**Status:** ACTIVE DESIGN — dispatch exactly one durable publication-operation capability after the repository synchronization gate below.  
+**Status:** COMPLETED / MERGED IN PR #462 — historical authority; do not dispatch.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw09a-publication-operation-ledger.md`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Design anchor:** `103b727cbfe7ce5f816e381c7dc8fab64fd76372`  
