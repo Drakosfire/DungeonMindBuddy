@@ -2,13 +2,14 @@
 
 **Status:** ACTIVE PUBLICATION-FIRST TRACKER  
 **Date:** 2026-08-01  
-**Repository anchor:** `25ca4b941ce80e9cfa336c41c59667b9a3ed771d` — current `main`; no net file change from the immediately preceding accidental placeholder/revert pair  
+**Repository anchor:** `573698b00028949741786db3361fd1d14d5a8906` — current `main` after merged PR `#473`  
 **Latest merged Threat implementation:** `#467` — durable exact Threat identity resolution  
-**Latest merged Threat authority:** `#471` — SBW09c1 proposal handoff and publication-path re-anchor  
+**Latest merged Threat authority:** `#473` — SBW09c2a exact operation-to-revision lookup handoff  
 **Immediate implementation authorities:**
 - [`HANDOFF-sbw09c1-threat-publication-proposal.md`](HANDOFF-sbw09c1-threat-publication-proposal.md) — exact durable no-write Threat proposal
-- [`HANDOFF-sbw09c2a-operation-revision-lookup.md`](HANDOFF-sbw09c2a-operation-revision-lookup.md) — read-only operation-to-revision recovery primitive; dispatch only after its authority merges
+- [`HANDOFF-sbw09c2a-operation-revision-lookup.md`](HANDOFF-sbw09c2a-operation-revision-lookup.md) — read-only exact contribution-operation-to-immutable-revision lookup
 
+**Designed blocked successor:** [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — proposal-bound commit, durable recovery, and exact verification; implementation dispatch prohibited until c1 and c2a merge and this handoff is re-anchored  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Publication re-anchor:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
@@ -29,7 +30,8 @@ This tracker is the sequencing authority for the Threat + Statblock workstream. 
 8. Operator-confirmed evidence must be labeled as operator-reported rather than CI-attested.
 9. Active handoffs are committed to `main` before implementation dispatch.
 10. A durable proposal is not a commit receipt.
-11. Ambiguous commit recovery must search immutable revision authority by exact operation ID; current head, first match, or retrying against a repinned parent is not recovery.
+11. Ambiguous commit recovery must search immutable revision authority by exact contribution operation ID; current head, first match, or retrying against a repinned parent is not recovery.
+12. Once any commit record claims a proposal, proposal supersession must be blocked under the same lifecycle lock.
 
 Required demolition declaration:
 
@@ -68,8 +70,9 @@ Required deletion owner:
 | `SBW08` | `MERGED #457` | Exact graph resource/binding contract. | Complete. |
 | `SBW09a` | `MERGED #462` | Exact source and expected-parent authority. | Complete. |
 | `SBW09b` | `MERGED #467` | Exact Threat identity authority. | Complete. |
-| `SBW09c1` | ACTIVE HANDOFF; implementation branch empty at its authority anchor | Durable exact no-write publication proposal. | Implement/review/merge. |
-| `SBW09c2a` | ACTIVE HANDOFF after this docs authority merges | Public read-only operation→immutable revision lookup. | May implement in parallel with c1; no overlapping production paths. |
+| `SBW09c1` | ACTIVE HANDOFF; implementation branch remains at its authority anchor | Durable exact no-write publication proposal. | Implement/review/merge. |
+| `SBW09c2a` | ACTIVE HANDOFF; implementation branch remains at PR `#473` merge | Public read-only exact operation→immutable revision lookup. | May implement in parallel with c1. |
+| `SBW09c2b` | DESIGNED / BLOCKED | Proposal claim, exact commit, durable intent/receipt, recovery, verification. | Re-anchor only after c1 and c2a implementations merge. |
 
 ## 4. Critical publication queue
 
@@ -81,25 +84,41 @@ The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` remains s
 | `SBW09b` | MERGED `#467` | Exact Threat identity resolution. | Explicit create/connect/refuse; no automatic identity. |
 | `SBW09c1` | ACTIVE / NEXT PRODUCT CAPABILITY | Exact durable no-write Threat publication proposal. | Seal deterministic create/connect effects and persist/replay/supersede without graph mutation. |
 | `SBW09c2a` | ACTIVE READ-ONLY PREREQUISITE | Exact operation-to-revision lookup across all immutable revision manifests. | Zero/one/many plural result; head advance/rollback cannot hide a match; no write. |
-| `SBW09c2b` | BLOCKED ON `SBW09c1` + `SBW09c2a` | Proposal-bound commit, durable intent/receipt/recovery, and exact verification. | One Kernel merge; receipt persisted before/after audit; crash recovery resolves exact operation ID before any retry. |
+| `SBW09c2b` | DESIGNED / BLOCKED ON `SBW09c1` + `SBW09c2a` | Proposal-bound commit, durable intent/receipt/recovery, and exact verification. | Authority: [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md). Must be amended against actual merged predecessors before dispatch. |
 | `SBW10a` | BLOCKED ON PUBLICATION | Hermes query and exact mechanics hydration. | Name/role/capability/relationship/context; explicit zero/one/many bindings. |
 | `SBW10b` | BLOCKED ON `SBW10a` | Compact/full exact-revision Threat projection. | Useful game information first. |
 
 ### Publication split invariant
 
 ```text
-SBW09a:  immutable source + expected-parent operation authority
-SBW09b:  explicit Threat identity authority
-SBW09c1: exact durable no-write reviewed proposal
-SBW09c2a: public exact operation→immutable revision recovery lookup
-SBW09c2b: proposal-bound commit + durable receipt/recovery + exact verification
+SBW09a:   immutable source + expected-parent operation authority
+SBW09b:   explicit Threat identity authority
+SBW09c1:  exact durable no-write reviewed proposal
+SBW09c2a: public exact contribution-operation→immutable revision recovery lookup
+SBW09c2b: proposal claim + exact commit + durable receipt/recovery + exact verification
 ```
 
-No successor may rewrite source/identity, repin a parent, copy mechanics, treat proposal storage as publication, infer commit from current head, or choose the first revision match.
+No successor may rewrite source/identity, repin a parent, copy mechanics, treat proposal storage as publication, infer commit from current head, choose the first revision match, or permit proposal supersession after durable commit intent exists.
 
 ### Why `SBW09c2a` exists
 
 World Graph revisions immutably retain `operation_ids`; internal storage can enumerate revision IDs and load typed manifests. The public Kernel does not currently expose lookup by operation ID. A crash after head advance but before application receipt persistence therefore cannot be recovered safely when head later advances or rolls back. `SBW09c2a` closes only that read-contract gap. `SBW09c2b` remains the sole Threat commit and receipt owner.
+
+### Frozen `SBW09c2b` design boundary
+
+The designed handoff requires:
+
+- the c1 operation-scoped proposal lock to become the shared proposal/commit lifecycle lock;
+- any durable commit record to block proposal supersession permanently;
+- intent persisted before the first Kernel merge;
+- recovery lookup keyed by the exact expected contribution ID, not the SBW09a publication operation ID;
+- zero matches plus unchanged parent permitting at most one exact retry;
+- one exact immutable match requiring full contribution/effect verification;
+- multiple matches remaining an integrity ambiguity;
+- immediate `committed_unverified` persistence before rebuild/projection audits;
+- no merge retry after any committed revision is known.
+
+These are design constraints, not permission to implement from current main. Actual c1/c2a contracts must be merged and re-anchored first.
 
 ## 5. Placement and shared-capability queue
 
@@ -163,9 +182,10 @@ Current truth: the server-backed combat roster exists, but durable combat identi
 ## 10. Immediate dispatch logic
 
 ```text
-SBW09c1 proposal implementation  ─┐
-                                 ├→ re-anchor and dispatch SBW09c2b commit/receipt/recovery/verify
-SBW09c2a operation lookup       ─┘
+implement/review/merge SBW09c1 proposal  ─┐
+                                          ├→ amend/re-anchor SBW09c2b handoff
+implement/review/merge SBW09c2a lookup   ─┘
+→ dispatch SBW09c2b exact commit/receipt/recovery/verify
 → SBW10a exact query/hydration
 → SBW10b exact projection
 → dogfood MAGIC-D3
@@ -175,7 +195,7 @@ SBW09c2a operation lookup       ─┘
 → dogfood MAGIC-D5
 ```
 
-SBW09c1 and SBW09c2a may proceed in parallel only because their production allowlists do not overlap. If actual c1 implementation touches the Kernel lookup paths, stop c2a and re-anchor.
+SBW09c1 and SBW09c2a may proceed in parallel only because their production allowlists do not overlap. SBW09c2b may not begin until both merge and its design-only handoff is amended against their actual contracts.
 
 ## 11. PR body requirements
 
