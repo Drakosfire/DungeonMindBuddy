@@ -287,6 +287,7 @@ No Threat node, alias, description, kind, role, tag, or unrelated relationship a
 - Resource uses `external_statblock_node_id` and strict `ExternalResourceV1`; it contains logical statblock identity/contract only.
 - Binding uses `compute_binding_id` and `edge_id_from_binding_id` with the exact six-field accepted mechanics locator.
 - Initial role is `primary`; `phase_key=null`; `variant_label=null`.
+- The reused proposal verifier requires every accepted node assertion to carry a nonblank `identity_resolution_outcome`: use `created_new` for both create-new node assertions and `matched_existing` for the connect-existing external-resource node. Attribute and edge assertions carry the same operation outcome for audit consistency.
 - Recursive mechanics-body keys such as `definition`, `rules_elements`, rendered Markdown, assets, and equivalents are forbidden.
 
 ### §6.4 Provenance
@@ -339,7 +340,7 @@ identity_outcome_snapshot = {
 }
 ```
 
-For create-new, the Threat node assertion carries `identity_resolution_outcome=created_new`, so `verify_promote_proposal` checks the snapshot and node map directly. For connect-existing, there is deliberately no Threat node assertion; resource/binding assertions may carry `matched_existing`, while the proposal model independently verifies the exact selected target and snapshot.
+For create-new, the Threat node assertion carries `identity_resolution_outcome=created_new`, so `verify_promote_proposal` checks the snapshot and node map directly. The external-resource node also carries `created_new` to satisfy the verifier's nonblank-node-outcome rule. For connect-existing, there is deliberately no Threat node assertion; the external-resource node carries `matched_existing`, and the proposal model independently verifies the exact selected target and snapshot.
 
 Mutable-source verification is disabled only because SBW09a/SBW09b are the source authorities rather than a corpus file. Package digest, principal, parent, accepted payload, contribution metadata, node map, and identity snapshot verification remain enabled.
 
@@ -505,6 +506,7 @@ Record exact base/head, changed paths, diff stat, every command/result and prove
 
 - Search for a cloned proposal digest or weakened verifier.
 - Verify `created_new` / `matched_existing` mapping, not `create_new` / `connect_existing`, inside the existing proposal identity snapshot.
+- Confirm every node assertion carries the required nonblank identity outcome.
 - Confirm sealed proposal ID equals Threat proposal ID.
 - Confirm connect-existing cannot rewrite the Threat.
 - Recursively search proposal/ledger/response payloads for copied mechanics.
