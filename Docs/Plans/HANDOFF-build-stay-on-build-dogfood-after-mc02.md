@@ -72,4 +72,4 @@ Do not dispatch until:
 
 ## §6 Predecessor evidence
 
-Salvage disposition: **PRESERVED** in [`REPORT-superseded-open-pr-salvage-2026-07-31.md`](../Reports/REPORT-superseded-open-pr-salvage-2026-07-31.md). Source PR #432 to be closed on salvage merge.
+Salvage disposition: **PRESERVED** in [`REPORT-superseded-open-pr-salvage-2026-07-31.md`](../Reports/REPORT-superseded-open-pr-salvage-2026-07-31.md). Source PR #432 was closed after salvage PR #464 opened; its branch remains historical evidence.

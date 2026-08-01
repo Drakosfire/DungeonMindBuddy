@@ -6,7 +6,7 @@
 **Trigger evidence (historical):** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md) — opaque `definition_invalid` motivated the diagnostic model in §5
 **Current Statblock sequencing authority:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md) and [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md) on main — **not** this document
 **R0-A status on main:** OPERATOR_CONFIRMED_PASS (2026-07-30 reanchor)
-**Diagnostics dispatch:** [`HANDOFF-dms-generation-validation-diagnostics.md`](../Plans/HANDOFF-dms-generation-validation-diagnostics.md) is a **CONDITIONAL** successor — dispatch only if R0-A-class opaque `definition_invalid` regresses; #462 owns current Statblock work (SBW09a)
+**Diagnostics dispatch:** [`HANDOFF-dms-generation-validation-diagnostics.md`](../Plans/HANDOFF-dms-generation-validation-diagnostics.md) is a **CONDITIONAL** successor — dispatch only if R0-A-class opaque `definition_invalid` regresses; #462/SBW09a merged at `2fa5b790…` and this diagnostics handoff remains outside the current Statblock sequence
 **Constraint source:** OpenAI Structured Outputs guide, fetched live 2026-07-29 (`developers.openai.com/api/docs/guides/structured-outputs`)
 **Code authority:** `DungeonMindServer` `statblocks_v1/` at current `main` (PR24 era)
 

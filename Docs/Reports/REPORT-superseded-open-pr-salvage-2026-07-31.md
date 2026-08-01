@@ -11,7 +11,7 @@
 
 ### Re-anchor note
 
-The first salvage commit mined against `c371d431…`. PR #464 received **REQUEST_CHANGES** requiring re-implementation on current `main` after #462 (SBW09a publication operation ledger) merged at `2fa5b790…` on 2026-08-01. This revision re-anchors the ledger and #433 code mapping to that base. Source PRs were closed after salvage PR #464 existed remotely (per authoritative handoff §8B); this doc refresh does **not** reopen them.
+The first salvage commit mined against `c371d431…`. PR #464 received **REQUEST_CHANGES** requiring re-implementation on current `main` after #462 (SBW09a publication operation ledger) merged at `2fa5b790…` on 2026-08-01. That same re-anchor base already contains #463 (TL01F) merged at `e04a2126…`; salvage did not modify Timeline paths. This revision re-anchors the ledger and #433 code mapping to `2fa5b790…`. Source PRs were closed after salvage PR #464 existed remotely (per authoritative handoff §8B); this doc refresh does **not** reopen them.
 
 ### Source heads (frozen)
 
@@ -138,7 +138,7 @@ Reimplemented on current-main models/services from #433 behavior; adapted to cur
 | `PATTERN-openai-structured-outputs-complex-contracts.md` | **PRESERVED** | Scrubbed copy in `Docs/Design/` (ACTIVE_REFERENCE) |
 | `HANDOFF-dms-generation-validation-diagnostics.md` | **PRESERVED** | Scrubbed CONDITIONAL successor in `Docs/Plans/` |
 | PR449 R0-A report overwrite | **REJECTED** | Main `MAGIC-MOMENT-R0-A-2026-07-29.md` is authoritative |
-| Stale tracker R0-A FAIL_PRODUCT / DMS-VAL-01 dispatch-now claims | **REJECTED** | Not copied; #462 owns current Statblock work |
+| Stale tracker R0-A FAIL_PRODUCT / DMS-VAL-01 dispatch-now claims | **REJECTED** | Not copied; #462/SBW09a merged at `2fa5b790…`; current Statblock sequence continues from merged main |
 | R0-A factual evidence + roadmap reanchor on main | **ALREADY_PRESENT** | `Docs/Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`; R0-A **OPERATOR_CONFIRMED_PASS** |
 
 ### #459 — Duplicate MC-02a handoff (`0abdb55`)
@@ -216,16 +216,16 @@ Intended verification set for re-anchored revision (base `2fa5b790…` → revis
 
 ## §6 Protected PR states
 
-These PRs remain **protected active work** — salvage must not close, rebase, or overwrite them:
+Protected threads at the time of salvage mining, with re-anchor corrections:
 
 | PR | Role | State after salvage / at re-anchor |
 |---|---|---|
 | **#431** | MC-02a surface-neutral graph reference | **OPEN** — active implementation; #459 duplicate rejected |
 | **#442** | Eldyrwild world-graph snapshot transfer | **OPEN** — intentional transfer vehicle; do not close/merge |
 | **#462** | SBW09a publication operation ledger | **MERGED** at `2fa5b790…` (2026-08-01); salvage did not rewrite its paths |
-| **#463** | TL01F Timeline temporal lane gate | **OPEN** — active Timeline thread; outside salvage authority |
+| **#463** | TL01F Timeline temporal lane gate | **MERGED** at `e04a2126adc8fbb735a2a7052fb0ebeeda2791ef` **before** the `2fa5b790` re-anchor; salvage did not modify Timeline paths |
 
-Salvage **may** reference successors that **depend on** #431 merging first. #462 obligations are classified against merged `main`, not an open successor.
+Salvage **may** reference successors that **depend on** #431 merging first. #462/#463 obligations are classified against merged `main`; salvage did not rewrite their paths.
 
 ---
 
@@ -284,6 +284,6 @@ Salvage PR: https://github.com/Drakosfire/DungeonMindBuddy/pull/464
 | #459 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/459#issuecomment-5144829285 |
 | #460 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/460#issuecomment-5144829762 |
 
-Protected after salvage / at re-anchor: **#431 OPEN**, **#442 OPEN**, **#462 MERGED** (`2fa5b790…`, 2026-08-01), **#463 OPEN**.
+Protected after salvage / at re-anchor: **#431 OPEN**, **#442 OPEN**, **#462 MERGED** (`2fa5b790…`, 2026-08-01), **#463 MERGED** (`e04a2126…`, before re-anchor; Timeline paths untouched by salvage).
 
 Source PRs were closed after salvage PR #464 existed remotely (per authoritative handoff §8B). This re-anchor documentation refresh does not reopen them.
