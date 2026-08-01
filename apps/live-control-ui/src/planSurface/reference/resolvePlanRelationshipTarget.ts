@@ -162,8 +162,13 @@ export async function resolvePlanRelationshipTarget({
     return readyWithoutProjectionRelationshipResolution(locator, reference, projectionState);
   }
 
+  // Unavailable ignores any supplied projection (handoff: dependency unavailable).
+  // Exact-target relationships may still use governed corpus fallback; label-only
+  // relationships must not read graph data.
+  const usableProjection = projectionState === "unavailable" ? null : projection;
+
   if (targetId) {
-    const exactNode = projection?.nodes.find((node) => node.nodeId === targetId) ?? null;
+    const exactNode = usableProjection?.nodes.find((node) => node.nodeId === targetId) ?? null;
     if (exactNode) {
       return withProjectionState(
         {
@@ -209,12 +214,12 @@ export async function resolvePlanRelationshipTarget({
     return unresolvedRelationshipMiss(locator, reference, label, projectionState);
   }
 
-  if (projection) {
+  if (usableProjection) {
     const graphResolution = resolvePlanReferenceFromGraphProjection({
       locator: label,
       label,
       refType: targetKind,
-      projection,
+      projection: usableProjection,
       projectionState,
     });
 

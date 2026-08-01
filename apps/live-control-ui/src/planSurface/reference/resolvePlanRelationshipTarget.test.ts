@@ -233,6 +233,44 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(fetchCount).toBe(0);
   });
 
+  it("unavailable ignores a supplied projection for exact targetId (may use corpus only)", async () => {
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-unavailable-exact",
+        label: "Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+      },
+      projection,
+      projectionState: "unavailable",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({ locations: [] }),
+        }) as Response,
+    });
+
+    expect(resolution.kind).not.toBe("resolved_graph");
+    expect(resolution.graphNodeId).toBeUndefined();
+    expect(resolution.locator).toBe("dmb-node:location-inn");
+  });
+
+  it("unavailable ignores a supplied projection for unique label/alias relationships", async () => {
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-unavailable-label",
+        label: "Glow",
+        predicate: "knows",
+      },
+      projection,
+      projectionState: "unavailable",
+    });
+
+    expect(resolution.kind).not.toBe("resolved_graph");
+    expect(resolution.kind).not.toBe("ambiguous");
+    expect(resolution.graphNodeId).toBeUndefined();
+  });
+
   it("fails closed during projection error without querying corpus", async () => {
     let fetchCount = 0;
     const resolution = await resolvePlanRelationshipTarget({

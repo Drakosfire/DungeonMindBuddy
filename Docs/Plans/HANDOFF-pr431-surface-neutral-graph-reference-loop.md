@@ -561,6 +561,7 @@ Failure behavior:
   exact locator + conflicting refId → explicit error; never silently select either identity
   graph exact miss → unresolved; no label/corpus rebind
   relationship ready + absent projection → explicit error; no corpus query/fallback
+  relationship unavailable → ignore supplied projection; exact-target may use governed corpus fallback; label-only unresolved
   relationship targetId exact miss → governed corpus fallback or unresolved only; never a second graph label/alias pass
   ambiguous alias/label → explicit ambiguous result; no fallback/open
   missing editor → insertion fails/no-ops truthfully; no DOM search
