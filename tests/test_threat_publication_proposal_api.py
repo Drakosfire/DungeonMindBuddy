@@ -256,4 +256,13 @@ def test_proposal_route_not_found_is_404(tmp_path: Path, monkeypatch) -> None:
         f"/api/live/threat-drafts/{draft.draft_id}/publication-operations/{op_id}/proposals/{uuid.uuid4()}"
     )
     assert response.status_code == 404
-    assert response.json()["result_label"] == "publication_proposal_not_found"
+    payload = response.json()
+    assert payload["result_label"] == "publication_proposal_not_found"
+    assert payload["resolution_id"] is None
+    assert not (
+        tmp_path
+        / "out"
+        / "threat_publication_proposals"
+        / draft.draft_id
+        / op_id
+    ).exists()

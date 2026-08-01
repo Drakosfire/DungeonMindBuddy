@@ -10,6 +10,7 @@ from apps.live_control_server.models.threat_publication_proposal import (
     PrepareThreatPublicationProposalRequestV1,
     ThreatPublicationEffectSummaryV1,
     ThreatPublicationProposalLedgerV1,
+    ThreatPublicationProposalResponseV1,
     ThreatPublicationProposalV1,
     canonical_string_list,
     prepare_request_digest,
@@ -141,5 +142,29 @@ def test_effect_summary_requires_non_negative_counts() -> None:
                 "binding_edge_id": "edge:1",
                 "accepted_assertion_count": -1,
                 "authored_field_assertion_count": 0,
+            }
+        )
+
+
+def test_response_resolution_id_accepts_null() -> None:
+    response = ThreatPublicationProposalResponseV1.model_validate(
+        {
+            "draft_id": str(uuid.uuid4()),
+            "operation_id": str(uuid.uuid4()),
+            "resolution_id": None,
+            "result_label": "publication_proposal_not_found",
+        }
+    )
+    assert response.resolution_id is None
+
+
+def test_response_resolution_id_rejects_invalid_non_null() -> None:
+    with pytest.raises(ValidationError, match="invalid resolution_id"):
+        ThreatPublicationProposalResponseV1.model_validate(
+            {
+                "draft_id": str(uuid.uuid4()),
+                "operation_id": str(uuid.uuid4()),
+                "resolution_id": "../escape",
+                "result_label": "publication_proposal_not_found",
             }
         )

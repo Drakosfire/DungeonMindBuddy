@@ -231,7 +231,7 @@ def _save_ledger_unlocked(root: Path, ledger: ThreatPublicationProposalLedgerV1)
 def _response(
     draft_id: str,
     operation_id: str,
-    resolution_id: str,
+    resolution_id: str | None,
     label: ThreatPublicationProposalResultLabel,
     *,
     proposal: ThreatPublicationProposalV1 | None = None,
@@ -250,7 +250,7 @@ def _response(
 def _outcome_from_storage_error(
     draft_id: str,
     operation_id: str,
-    resolution_id: str,
+    resolution_id: str | None,
     exc: ThreatPublicationProposalStorageError,
 ) -> ProposalOutcome:
     if exc.kind == "integrity":
@@ -782,6 +782,20 @@ def _node_matches_candidate(
 def _existing_resource_matches(
     node: UnionSupergraphNode, statblock_id: str
 ) -> bool:
+    expected_node_id = external_statblock_node_id(statblock_id)
+    expected_label = f"External statblock {statblock_id}"
+    if node.node_id != expected_node_id:
+        return False
+    if node.kind.casefold() != "external_resource":
+        return False
+    if node.role != "statblock":
+        return False
+    if node.label != expected_label:
+        return False
+    if sorted(node.aliases) != sorted([expected_label]):
+        return False
+    if sorted(node.source_domains) != ["manual_seed"]:
+        return False
     if node.external_resource is None:
         return False
     expected = ExternalResourceV1.model_validate(
@@ -923,6 +937,57 @@ def prepare_threat_publication_proposal(
     safe_op = validate_publication_operation_id(operation_id)
     safe_resolution = validate_resolution_id(resolution_id)
     safe_proposal = validate_proposal_id(request.proposal_id)
+
+    ledger_file = _ledger_path(root, safe_draft, safe_op)
+    if not ledger_file.is_file():
+        if request.supersedes_proposal_id is not None:
+            return ProposalOutcome(
+                _response(
+                    safe_draft,
+                    safe_op,
+                    safe_resolution,
+                    "publication_proposal_input_conflict",
+                    message="supersedes_proposal_id requires an active proposal",
+                ),
+                created=False,
+            )
+
+        identity_outcome = read_identity_resolution(root, safe_draft, safe_op, safe_resolution)
+        resolution = identity_outcome.response.resolution
+        if resolution is None:
+            return _outcome_from_identity_failure(
+                safe_draft, safe_op, safe_resolution, identity_outcome
+            )
+        if resolution.state != "active":
+            return ProposalOutcome(
+                _response(
+                    safe_draft,
+                    safe_op,
+                    safe_resolution,
+                    "publication_proposal_resolution_not_active",
+                    message="identity resolution is not active",
+                )
+            )
+        if resolution.decision == "refuse":
+            return ProposalOutcome(
+                _response(
+                    safe_draft,
+                    safe_op,
+                    safe_resolution,
+                    "publication_proposal_identity_refused",
+                    message="identity resolution refused publication",
+                )
+            )
+        if resolution.decision not in ("create_new", "connect_existing"):
+            return ProposalOutcome(
+                _response(
+                    safe_draft,
+                    safe_op,
+                    safe_resolution,
+                    "publication_proposal_resolution_not_active",
+                    message="identity resolution is not publishable",
+                )
+            )
 
     with _proposal_lock(root, safe_draft, safe_op):
         try:
@@ -1240,19 +1305,30 @@ def read_threat_publication_proposal(
     safe_op = validate_publication_operation_id(operation_id)
     safe_proposal = validate_proposal_id(proposal_id)
 
+    ledger_file = _ledger_path(root, safe_draft, safe_op)
+    if not ledger_file.is_file():
+        return ProposalOutcome(
+            _response(
+                safe_draft,
+                safe_op,
+                None,
+                "publication_proposal_not_found",
+                message="publication proposal ledger not found",
+            )
+        )
+
     with _proposal_lock(root, safe_draft, safe_op):
         try:
             ledger = _load_ledger_unlocked(root, safe_draft, safe_op)
         except ThreatPublicationProposalStorageError as exc:
-            resolution_id = "00000000-0000-0000-0000-000000000000"
-            return _outcome_from_storage_error(safe_draft, safe_op, resolution_id, exc)
+            return _outcome_from_storage_error(safe_draft, safe_op, None, exc)
 
         if ledger is None:
             return ProposalOutcome(
                 _response(
                     safe_draft,
                     safe_op,
-                    "00000000-0000-0000-0000-000000000000",
+                    None,
                     "publication_proposal_not_found",
                     message="publication proposal ledger not found",
                 )
@@ -1264,7 +1340,7 @@ def read_threat_publication_proposal(
                 _response(
                     safe_draft,
                     safe_op,
-                    "00000000-0000-0000-0000-000000000000",
+                    None,
                     "publication_proposal_not_found",
                     message="publication proposal not found",
                 )

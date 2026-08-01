@@ -300,7 +300,7 @@ class ThreatPublicationProposalResponseV1(StrictModel):
     )
     draft_id: str
     operation_id: str
-    resolution_id: str
+    resolution_id: str | None
     result_label: ThreatPublicationProposalResultLabel
     proposal: ThreatPublicationProposalV1 | None = None
     message: str | None = Field(default=None, max_length=_MAX_NOTE)
@@ -319,7 +319,9 @@ class ThreatPublicationProposalResponseV1(StrictModel):
 
     @field_validator("resolution_id")
     @classmethod
-    def _resolution_id(cls, value: str) -> str:
+    def _resolution_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         return validate_resolution_id(value)
 
 
