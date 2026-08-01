@@ -4,7 +4,7 @@ pr_body_template: |
   The live-control UI can express one surface's interaction contributions through one neutral validated publication contract so later host-lifecycle slices can consume the contract without importing Plan, Build, or Ingest domain modules.
 
   ## Merge-ready invariant
-  For one `SurfaceInteractionPublication`, exact surface identity, Canvas/work-object pointer, Agent-context pointers, Tool launchers, Edit commands, Projection descriptors, and Projection binding identifiers form one deterministic fail-closed contract: contradictory identity, duplicate identifiers, incoherent availability, missing projection targets, or missing bindings invalidate the whole publication without invoking callbacks, mutating provider state, or changing any existing surface behavior.
+  For one `SurfaceInteractionPublication` arriving as an untyped runtime value, exact surface identity, Canvas/work-object pointer, bounded Agent-context pointers, Tool launchers, Edit commands, Projection descriptors, and Projection binding identifiers form one deterministic fail-closed contract: malformed structure, contradictory identity, duplicate identifiers, blank contribution labels, contradictory group placement, incoherent availability, out-of-bounds Agent context, missing projection targets, or missing bindings invalidate the whole publication — without coercing malformed input, throwing on untyped values, invoking callbacks, mutating provider state, or changing any existing surface behavior.
 
   ## Evidence required to merge
   | Guarantee | Owning boundary | Required evidence | Result |
@@ -39,6 +39,8 @@ pr_body_template: |
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sih01-neutral-surface-interaction-contracts.md`  
 **Required implementation base:** `d101341bbffeb07627097de2dbcfe84930e01ce2` — merge of PR #470.
 
+**Amended 2026-08-01 (PR #472 review):** Validator trust boundary fixed to untyped `unknown` input with structural fail-closed validation (no coercion, no throws); §6.3 issue-code table completed to the full 29-code public vocabulary (2 shape codes, contribution label, group conflict, Agent-context bounds, plus the four §6.5/§6.6 runtime codes); Tool/Edit labels required nonblank; deterministic `placement_group_conflict`; enforceable Agent-context bounds (§6.7); Projection bindings de-typed to named opaque `unknown` values with per-ID typing deferred to SIH-03b; V9 guard re-anchored to import specifiers; V13/V14 evidence rows added.
+
 > **Dispatch gate:** Implement only the neutral runtime contract described here. Do not change provider/store ownership, render hosts, route publications, or current Plan/Build/Ingest behavior.
 >
 > This checked-in handoff is the complete authority. The worker must not compress, omit, replace, or rewrite it before implementation. The PR description must use the frontmatter skeleton and remain a truthful merge contract; it cannot substitute for the handoff.
@@ -48,19 +50,19 @@ pr_body_template: |
 | Term | Definition |
 |---|---|
 | **Surface identity** | Exact runtime identity consisting of a nonblank `surfaceId` and opaque nonblank `instanceKey`. Labels are never identity. |
-| **Publication** | One runtime-only declaration of the active Surface's Tool, Edit, Canvas, Agent-context, and Projection contributions. It is not persisted and does not contain a provider lease token. |
+| **Publication** | One runtime-only declaration of the active Surface's Tool, Edit, Canvas, Agent-context, and Projection contributions. It is not persisted and does not contain a provider lease token. The validator receives it as an untyped (`unknown`) runtime value and proves its structure before any field check. |
 | **Contribution** | One neutral descriptor consumed by a later shared host: Tool launcher, Edit command, Canvas pointer, Agent context, Projection descriptor, or Projection binding. |
 | **Availability** | Explicit `enabled` or `disabled` state. Disabled contributions require a human-readable reason; enabled contributions may not carry a disabled reason. |
 | **Projection descriptor** | An authorized projection ID, kind, preferred size, and required binding identifiers. It is not a renderer registration and grants no write authority. |
-| **Projection binding** | A typed runtime value identified by exact binding ID. The neutral validator checks identifier coherence only; owning adapters remain responsible for the value's domain type and authorization. |
-| **Fail closed** | Any material contract contradiction returns an invalid result for the whole publication. No partial contribution set is treated as valid. |
+| **Projection binding** | A named opaque runtime value (`unknown`) identified by exact binding ID. The neutral validator checks identifier coherence only and never inspects the value. Per-binding-ID value typing is owned by the SIH-03b typed Projection catalog; owning adapters remain responsible for the value's domain type and authorization. |
+| **Fail closed** | Any material contract contradiction — including malformed structure in untyped input — returns an invalid result for the whole publication. No partial contribution set is treated as valid, and malformed values are never coerced into valid-looking defaults. |
 | **Compatibility adapter** | A later SIH-02 bridge from current Plan/Build/Ingest shapes into this neutral contract. No compatibility adapter is implemented in SIH-01. |
 
 ## §1 Mission and merge-ready invariant
 
 The live-control UI can express one surface's interaction contributions through one neutral validated publication contract so later host-lifecycle slices can consume the contract without importing Plan, Build, or Ingest domain modules.
 
-**Merge-ready invariant:** For one `SurfaceInteractionPublication`, exact surface identity, Canvas/work-object pointer, Agent-context pointers, Tool launchers, Edit commands, Projection descriptors, and Projection binding identifiers form one deterministic fail-closed contract: contradictory identity, duplicate identifiers, incoherent availability, missing projection targets, or missing bindings invalidate the whole publication without invoking callbacks, mutating provider state, or changing any existing surface behavior.
+**Merge-ready invariant:** For one `SurfaceInteractionPublication` arriving as an untyped runtime value, exact surface identity, Canvas/work-object pointer, bounded Agent-context pointers, Tool launchers, Edit commands, Projection descriptors, and Projection binding identifiers form one deterministic fail-closed contract: malformed structure, contradictory identity, duplicate identifiers, blank contribution labels, contradictory group placement, incoherent availability, out-of-bounds Agent context, missing projection targets, or missing bindings invalidate the whole publication — without coercing malformed input, throwing on untyped values, invoking callbacks, mutating provider state, or changing any existing surface behavior.
 
 ### Pre-dispatch critique
 
@@ -118,6 +120,10 @@ This slice has no user-facing UI path. Its observable paths are public TypeScrip
 | Disabled contribution without reason | Current `disabled?: boolean` has no reason contract | Invalid with stable availability issue | Yes | `publication.ts` |
 | Enabled contribution carrying disabled reason | Current shapes can carry no standardized reason | Invalid with stable availability issue | Yes | `publication.ts` |
 | Invalid callback/binding value | Current provider trusts registered callbacks/payloads | Validator does not execute or semantically inspect runtime values; owning adapters remain responsible | Yes | `publication.ts` |
+| Malformed collection or entry in untyped input | No shared rule | Invalid with `publication_shape_invalid` / `contribution_shape_invalid`; never coerced to empty collections, never throws | Yes | `publication.ts` |
+| Enabled Tool/Edit with blank label | No shared rule | Invalid with `contribution_label_blank`; a host is never asked to present a blank command | Yes | `publication.ts` |
+| Two contributions share a group ID with different label/order | No shared rule | Invalid with `placement_group_conflict`; first declaration in Tool-then-Edit order is canonical — never host first-wins | Yes | `publication.ts` |
+| Agent context exceeds a contract bound | No shared rule | Invalid with `agent_context_bounds_exceeded` naming the violated bound | Yes | `publication.ts` |
 | Existing Plan/Build/Ingest runtime | Current behavior | Byte-for-byte source unchanged outside new package; focused suites remain equivalent | Yes | Regression suites + changed-path proof |
 
 ### Ordered adversarial sequences
@@ -133,6 +139,10 @@ This slice has no user-facing UI path. Its observable paths are public TypeScrip
 | Enabled Tool/Edit contribution with non-null disabled reason → validate | Invalid `enabled_has_disabled_reason` | V6 |
 | Encode parts `["a", "b:c"]` and `["a:b", "c"]` → compare | Distinct instance keys and identities | V1 |
 | Re-label a publication without changing identity → compare identities | Same identity; display label remains non-authoritative | V1 |
+| Validate the string `"not-a-publication"`, then `{ tools: {} }` | Both invalid with shape codes; no throw, no coercion, no partial acceptance | V13 |
+| Tool `a` declares group `graph` / `"Graph"` / order 1 → Edit command `b` declares group `graph` / `"World"` / order 7 → validate | Invalid `placement_group_conflict` naming `graph`, `a`, and `b`; Tool `a` is canonical | V6 |
+| Enabled Tool with `label: ""` → validate | Invalid `contribution_label_blank` | V6 |
+| Agent context with a 501-character ambient summary, 17 pointers, or a 257-character pointer value → validate | Invalid `agent_context_bounds_exceeded` naming the violated bound | V14 |
 | Validate the same frozen publication twice | Deeply equivalent validation result and issue order; callback and binding object identities are preserved, not executed | V7, V8 |
 
 ## §4 Files in scope (allowlist)
@@ -165,6 +175,7 @@ Every implementation path is new. Do not modify predecessor consumers in this sl
 | `apps/live-control-ui/src/markdownCanvas/**` | Canvas authority is already landed and must not move. This slice carries pointers only. |
 | `apps/live-control-ui/src/graphReference/**` | Neutral graph-reference capability is a predecessor; Build enablement is later. |
 | `apps/live-control-ui/src/planSurface/projection/**` | Projection host move/catalog are SIH-03a/SIH-03b. |
+| Per-binding-ID value typing / typed Projection catalog | SIH-03b owns binding-ID→value-type relationships. SIH-01 bindings are named opaque `unknown` values; the publication is not parameterized by a binding generic. |
 | Any backend/API/schema/store path | Publication is runtime-only and non-durable. |
 | CSS and visual layout | No host or user-facing change. |
 | Runtime `leaseToken` | Generated and owned by SIH-02 store; never supplied by a Surface publication. |
@@ -191,8 +202,8 @@ SurfaceInteractionAvailability
   | { status: "disabled"; disabledReason: nonblank string }
 
 SurfaceInteractionPointer
-  kind: nonblank string
-  value: nonblank string
+  kind: nonblank string        # ≤ 64 chars
+  value: nonblank string       # ≤ 256 chars
 
 SurfaceInteractionWorkObjectIdentity
   kind: nonblank string
@@ -207,8 +218,8 @@ SurfaceInteractionAgentContextContribution
   campaignId: string | null
   documentId: string | null
   sessionNumber: number | null
-  ambientSummary: string | null
-  pointers: readonly SurfaceInteractionPointer[]
+  ambientSummary: string | null                   # ≤ 500 chars when non-null
+  pointers: readonly SurfaceInteractionPointer[]  # ≤ 16 entries
 
 SurfaceInteractionPlacement
   groupId: nonblank string | null      # null means pinned/top-level
@@ -221,7 +232,7 @@ SurfaceInteractionToolActivation
   | { kind: "command"; invoke: () => void | Promise<void> }
 
 SurfaceInteractionToolContribution
-  id, label, optional eyebrow
+  id, nonblank label, optional eyebrow
   placement
   availability
   activation
@@ -231,7 +242,7 @@ SurfaceInteractionCommandTarget
   id: nonblank string
 
 SurfaceInteractionEditCommandContribution
-  id, label, optional eyebrow
+  id, nonblank label, optional eyebrow
   placement
   availability
   target
@@ -249,11 +260,11 @@ SurfaceInteractionProjectionDescriptor
   preferredSize: SurfaceInteractionProjectionSize
   bindingIds: readonly nonblank string[]
 
-SurfaceInteractionProjectionBinding<TBinding = unknown>
+SurfaceInteractionProjectionBinding
   id: nonblank string
-  value: TBinding
+  value: unknown   # opaque to this contract; per-ID typing is SIH-03b's catalog
 
-SurfaceInteractionPublication<TBinding = unknown>
+SurfaceInteractionPublication
   surfaceId: nonblank string
   label: nonblank string
   identity: SurfaceInteractionIdentity
@@ -262,10 +273,10 @@ SurfaceInteractionPublication<TBinding = unknown>
   tools: readonly SurfaceInteractionToolContribution[]
   editCommands: readonly SurfaceInteractionEditCommandContribution[]
   projections: readonly SurfaceInteractionProjectionDescriptor[]
-  projectionBindings: readonly SurfaceInteractionProjectionBinding<TBinding>[]
+  projectionBindings: readonly SurfaceInteractionProjectionBinding[]
 ```
 
-`unknown` is permitted only as the generic default for a typed binding value. Do not add arbitrary `Record<string, unknown>`, metadata bags, renderer payload bags, or surface-specific context blobs.
+`unknown` is permitted only as the binding value type: binding values are opaque to this contract, the validator never inspects them, and per-binding-ID typing is deliberately deferred to the SIH-03b typed Projection catalog. Do not parameterize the publication with a single homogeneous binding generic — it falsely implies every binding shares one type while projections reference bindings by unrelated string IDs. Do not add arbitrary `Record<string, unknown>`, metadata bags, renderer payload bags, or surface-specific context blobs.
 
 Toggle (`pressed`) and fold initial-open (`defaultOpen`) states are deliberately not modeled. Both are live on current Plan chrome and remain owned by the legacy render path until SIH-04/SIH-05 host extraction; those slices extend the neutral contract with adapter evidence before the legacy path is removed. See §D.
 
@@ -289,42 +300,55 @@ A generic helper may construct an identity from `surfaceId` plus caller-supplied
 
 ### 6.3 Validation result
 
-Validation is pure, non-throwing for ordinary invalid publications, deterministic, and does not execute callbacks.
+Validation is pure, deterministic, non-throwing for any malformed or invalid input, and does not execute callbacks.
 
 ```text
-validateSurfaceInteractionPublication(publication)
-  → { valid: true; publication }
-  | { valid: false; publication; issues: readonly SurfaceInteractionValidationIssue[] }
+validateSurfaceInteractionPublication(publication: unknown)
+  → { valid: true; publication: SurfaceInteractionPublication }
+  | { valid: false; publication: unknown; issues: readonly SurfaceInteractionValidationIssue[] }
 ```
 
-The returned `publication` must retain the caller's callback and binding value identities. Validation may inspect structure and identifiers only. It must not clone through JSON, invoke callbacks, inspect React values, access global state, or load a renderer catalog.
+The input is an untyped runtime value. The validator first proves structural shape — the publication is a non-null object; `tools`, `editCommands`, `projections`, and `projectionBindings` are arrays; `canvas` and `agentContext` are null or objects; every contribution entry and every required nested object (`identity`, `placement`, `availability`, `activation`, `target`, `workObject`, pointer entries) is a non-null object — before any field-level or cross-reference check. Malformed values are rejected with shape issue codes, never coerced into valid-looking defaults: a non-array collection is invalid, never treated as empty. Field-level checks still run on every entry whose shape held, so independent issues accumulate in one pass; shape-invalid entries contribute their shape issues and are skipped for field checks.
+
+The returned `publication` must retain the caller's callback and binding value identities. Validation may inspect structure and identifiers only. It must not clone through JSON, invoke callbacks, inspect React values, access global state, or load a renderer catalog. On `valid: true` the returned publication is the caller's object, type-narrowed; on `valid: false` the raw input is returned unmodified.
 
 Required stable issue codes:
 
 | Code | Trigger |
 |---|---|
+| `publication_shape_invalid` | Publication is not a non-null object, a contribution collection is missing or not an array, or Canvas/Agent context is present but not an object |
+| `contribution_shape_invalid` | A Tool/Edit/Projection/binding/pointer entry is not a non-null object, or a required nested object (identity, placement, availability, activation, target, work object) is missing or not an object |
 | `surface_id_blank` | Publication or identity surface ID is blank |
 | `instance_key_blank` | Identity instance key is blank |
 | `identity_surface_mismatch` | `publication.surfaceId !== publication.identity.surfaceId` |
 | `publication_label_blank` | Publication label is blank |
 | `contribution_id_blank` | Tool, Edit, Projection, or binding ID is blank |
+| `contribution_label_blank` | Tool or Edit contribution label is blank |
 | `duplicate_tool_id` | Same Tool ID occurs more than once |
 | `duplicate_edit_command_id` | Same Edit command ID occurs more than once |
 | `duplicate_projection_id` | Same Projection ID occurs more than once |
 | `duplicate_projection_binding_id` | Same binding ID occurs more than once |
 | `placement_invalid` | Group ID/label nullability disagrees, label is blank, or order is not a finite integer |
+| `placement_group_conflict` | Two contributions share a non-null group ID but disagree on group label or group order; the first declaration in Tool-then-Edit collection order is canonical |
 | `disabled_reason_missing` | Disabled Tool/Edit contribution has blank reason |
 | `enabled_has_disabled_reason` | Enabled Tool/Edit contribution supplies a disabled reason |
+| `tool_activation_invalid` | Tool activation is missing, has an unknown discriminant, or a command activation lacks its invoke callback |
+| `edit_command_invoke_invalid` | Edit command lacks its invoke callback |
 | `tool_projection_missing` | Projection activation targets no declared Projection |
 | `tool_projection_kind_mismatch` | Projection activation targets a declared non-`tool` Projection |
+| `projection_kind_unknown` | Projection kind is neither `tool` nor `content` (untyped input) |
+| `projection_size_unknown` | Projection preferred size is not `compact`, `wide`, or `fullscreen` (untyped input) |
 | `projection_binding_missing` | Projection names an undeclared binding ID |
 | `projection_binding_duplicate_reference` | One Projection repeats the same binding ID |
 | `canvas_identity_invalid` | Canvas ID or work-object kind/ID is blank |
 | `command_target_invalid` | Edit command target kind/ID is blank |
 | `agent_context_invalid` | Agent label or supplied campaign/document/ambient fields violate required string/null shape |
 | `agent_pointer_invalid` | Pointer kind/value is blank |
+| `agent_context_bounds_exceeded` | Agent ambient summary exceeds 500 characters, pointers exceed 16 entries, or a pointer kind/value exceeds 64/256 characters; the message names the violated bound |
 
-Issue order must be deterministic and documented by tests. Recommended order: publication/identity, Canvas, Agent context, Tool collection order, Edit collection order, Projection collection order, binding collection order, then cross-reference issues. The implementation may use a different order only if it is explicit and fully tested.
+This table is the complete public issue vocabulary. Adding, renaming, or removing a code requires amending this handoff; implementations must not invent extension codes.
+
+Issue order must be deterministic and documented by tests. Recommended order: publication shape, per-collection entry shape (Tool, Edit, Projection, binding collection order), publication/identity fields, Canvas, Agent context, Tool field checks in collection order, Edit field checks in collection order, Projection field checks in collection order, binding field checks in collection order, then cross-reference issues (including `placement_group_conflict`). The implementation may use a different order only if it is explicit and fully tested.
 
 Issue details must identify the exact contribution ID and referenced ID where applicable. Do not include callback source text, binding values, document content, or other potentially sensitive bodies.
 
@@ -344,6 +368,8 @@ The validator verifies only:
 - structural activation discriminant;
 - exact projection target coherence for projection activations.
 
+Structural activation failures use `tool_activation_invalid`; a missing Edit command callback uses `edit_command_invoke_invalid` (§6.3).
+
 The validator never invokes them. Authorization, current-lease revalidation, error capture, async lifecycle, and stale-callback suppression belong to SIH-02/SIH-04/SIH-05.
 
 ### 6.6 Projection rule
@@ -352,11 +378,24 @@ A Projection descriptor authorizes an ID and declares its kind, preferred size, 
 
 A Tool activation with `kind: projection` must target a declared Projection with kind `tool`. Content Projections are opened through content/reference flows in later slices.
 
-Unknown Projection kinds and sizes should be prevented by TypeScript and rejected at runtime when untyped input reaches validation. Do not silently coerce unknown strings.
+Unknown Projection kinds and sizes are rejected at runtime with `projection_kind_unknown` and `projection_size_unknown` (§6.3). Do not silently coerce unknown strings.
+
+Projection bindings are named opaque values (`unknown`) in this slice. Per-binding-ID value typing arrives with the SIH-03b typed Projection catalog; SIH-01 types must not claim or imply a binding-ID-to-value-type relationship (§6.1).
 
 ### 6.7 Agent-context rule
 
-Agent context remains pointer-only. The contract may carry campaign/document/session identifiers, a bounded ambient summary, and exact pointer pairs. It must not carry corpus bodies, document Markdown, graph node bodies, statblock mechanics, citation excerpts, or a generic source-envelope payload.
+Agent context remains pointer-only and bounded. The contract may carry campaign/document/session identifiers, a bounded ambient summary, and exact pointer pairs. It must not carry corpus bodies, document Markdown, graph node bodies, statblock mechanics, citation excerpts, or a generic source-envelope payload.
+
+Bounds are contract maxima enforced by the validator with `agent_context_bounds_exceeded`, not UI budgets:
+
+| Field | Maximum |
+|---|---|
+| `ambientSummary` | 500 characters when non-null |
+| `pointers` | 16 entries |
+| Pointer `kind` | 64 characters |
+| Pointer `value` | 256 characters |
+
+Raising a bound requires amending this handoff. A publisher that needs a larger payload needs a successor durable contract, not this publication.
 
 No cross-field authority is inferred. A `documentId` does not prove Canvas admission; a campaign ID does not prove graph authorization. Those checks remain with owning adapters and services.
 
@@ -372,7 +411,7 @@ The Canvas contribution identifies the active Canvas host entry and exact work o
 
 ```text
 Input:
-  One in-memory SurfaceInteractionPublication<TBinding>.
+  One unknown runtime value claimed to be a SurfaceInteractionPublication.
 
 Output:
   Deterministic valid or invalid result retaining the original publication.
@@ -381,7 +420,7 @@ Invariant:
   Same as §1.
 
 Failure behavior:
-  Structural contradiction → valid:false + stable issue codes.
+  Structural contradiction or malformed untyped input → valid:false + stable issue codes; never throws, never coerces malformed values.
   Callback or binding semantic invalidity → not proved here; no invocation or coercion.
   Unexpected programmer exception inside validator → test failure; do not convert arbitrary exceptions into valid output.
 
@@ -391,7 +430,7 @@ Replay / idempotency:
   Retry after invalid input → safe; validator has no side effects.
 
 Trust boundary:
-  Verifies: structural identity, exact IDs, uniqueness, availability coherence, target/binding references, primitive shape.
+  Verifies: structural shape of every collection and nested object, structural identity, exact IDs, uniqueness, availability coherence, label presence, group-placement consistency, Agent-context bounds, target/binding references, primitive field shape.
   Records or trusts without proving: callback behavior, binding value semantics, renderer presence, graph authorization, Canvas admission, provider lease.
 ```
 
@@ -442,7 +481,7 @@ Not applicable — the contract is runtime-only and no serialization, localStora
 | `AppChromeToolSection` | `{id,title,actions,defaultOpen?,panel?: ReactNode}` | Group placement for actions; rich panel deliberately not represented | Rich panel remains compatibility-only until host design | Boundary test rejects React/JSX production imports |
 | `AppChromeAction.pressed` | optional toggle state; live on the Plan lock action (`PlanSurfaceCanvas.tsx`) | Not represented in SIH-01 | Deliberate deferral: legacy chrome renders toggle state until SIH-04/SIH-05 host extraction, which adds a neutral toggle field with adapter evidence before removing the legacy path | Documented only |
 | `AppChromeToolSection.defaultOpen` | optional fold initial-open state; live on Plan Edit-fold sections (`PlanSurfaceCanvas.tsx`) | Not represented in SIH-01 | Deliberate deferral: legacy chrome renders fold state until SIH-04/SIH-05 host extraction, which adds a neutral group field with adapter evidence before removing the legacy path | Documented only |
-| `AgentInteractionSurfaceContext` | label, campaign/document/session IDs, ambient summary, source envelope | Agent-context scalar fields + exact pointer pairs only | No body/source-envelope blob copied | Agent context validation tests |
+| `AgentInteractionSurfaceContext` | label, campaign/document/session IDs, ambient summary, source envelope | Agent-context scalar fields + bounded ambient summary + bounded exact pointer pairs only | No body/source-envelope blob copied; §6.7 bounds enforced | Agent context validation and bounds tests |
 | `ActiveProjection` | kind/key/size/title/glance | Not migrated in SIH-01 | SIH-03a owns active-host state | Explicitly out of scope |
 
 Inventing a compatibility adapter, generic metadata bag, or copied Plan context to make this mapping executable is prohibited in SIH-01.
@@ -456,13 +495,15 @@ Inventing a compatibility adapter, generic metadata bag, or copied Plan context 
 | V3 | Duplicate Tool/Edit/Projection/binding IDs are deterministic failures | `publication.ts` | Contract | Focused publication tests | All required duplicate codes and deterministic issue order | First-wins behavior or silent overwrite |
 | V4 | Tool projection activation resolves only exact declared Tool Projection | `publication.ts` | Adversarial | Missing target and wrong-kind tests | Stable missing/kind issues; no callback/renderer lookup | Label fallback, first projection, or content target accepted |
 | V5 | Projection binding requirements resolve only exact declared IDs | `publication.ts` | Adversarial | Missing/duplicate binding-reference tests | Stable issues and whole-publication invalidation | Binding value inspection or first-wins lookup |
-| V6 | Availability and placement states are coherent | `publication.ts` | Contract | Enabled/disabled and group/order matrix | Every invalid combination rejected with stable code | Optional silent disabled reasons or non-finite order accepted |
+| V6 | Availability, placement, and label states are coherent | `publication.ts` | Contract | Enabled/disabled, blank-label, and group/order matrix | Every invalid combination rejected with stable code; group conflicts resolve to the deterministic first-declared canonical | Optional silent disabled reasons, blank labels, non-finite order, or host first-wins group resolution accepted |
 | V7 | Validation is pure and deterministic | `publication.ts` | Adversarial | Freeze input, validate twice, spy callbacks and preserve binding identity | Equivalent results, no callbacks, same object identities | Mutation, JSON cloning, invocation, global read |
 | V8 | Independent issues accumulate without enabling partial state | `publication.ts` | Adversarial | One publication with identity mismatch, duplicate IDs, missing target, and callback spies | All material issues returned in deterministic order; `valid:false`; spies untouched | Validator hides contradictions or filters to valid subset |
-| V9 | Neutral production package imports no surface/domain implementation or React host code | `boundaries.test.ts` | Contract/source guard | Focused boundary test + `rg` commands | No prohibited imports, JSX, `ReactNode`, or `.tsx` production files | Any exception required for current consumer shape |
+| V9 | Neutral production package imports no surface/domain implementation or React host code | `boundaries.test.ts` | Contract/source guard | Focused boundary test + `rg` commands | No prohibited import/export specifiers, JSX, `ReactNode`, or `.tsx` production files | Any exception required for current consumer shape |
 | V10 | Existing Plan/Build/AgentInteraction behavior remains unchanged | Existing suites | Regression | Exact command below | All focused predecessor tests pass on head | Any production path outside §4 required |
 | V11 | TypeScript and production build introduce no new diagnostics | UI package | Regression/build | Base/head protocol below | Green, or zero new errors versus base with explicit waiver | New diagnostic in §4 or unreported baseline drift |
 | V12 | Diff is exactly the §4 package | Repository | Scope | `git diff` commands | Only seven allowlisted files | Any additional path |
+| V13 | Untyped or malformed input fails closed without throw or coercion | `publication.ts` | Adversarial | Focused publication tests | Shape codes for non-object publication, non-array collections, non-object entries, and missing nested objects; field checks still accumulate where shape held | Any coercion to empty collections, thrown TypeError, or partial acceptance |
+| V14 | Agent-context bounds are enforced | `publication.ts` | Contract | Focused publication tests | Each §6.7 bound rejected with `agent_context_bounds_exceeded` naming the violated bound | Unbounded summary or pointer payloads accepted |
 
 Run and record exact results:
 
@@ -480,8 +521,12 @@ npm test -- --run \
   src/planSurface/PlanSurfaceShell.test.tsx \
   src/buildSurface/BuildSurfacePage.test.tsx
 
-# Production boundary: tests may inspect predecessor shapes, production may not import them.
-! rg -n 'planSurface|buildSurface|ingestSurface|AgentInteractionProvider|AppChrome|markdownCanvas|graphReference' \
+# Production boundary: tests may inspect predecessor shapes, production may not
+# import them. The guard anchors on import/export specifiers only — it never
+# constrains neutral naming, comments, or doc text. (A bare substring guard
+# forced an otherwise-neutral helper rename in the first implementation.)
+# \x27 is the single quote; using it keeps the shell quoting readable.
+! rg -n '\b(from|import)\b\s*\(?\s*[\x27"][^\x27"]*(planSurface|buildSurface|ingestSurface|agentInteraction|chrome|markdownCanvas|graphReference)' \
   src/surfaceInteraction \
   --glob '!*.test.ts' \
   --glob '!*.test.tsx'
@@ -489,7 +534,7 @@ npm test -- --run \
 # No React host code in production files: no React imports, no ReactNode, no
 # .tsx import specifiers. JSX is detected by file extension below, never by tag
 # regex — a pattern like '<[A-Za-z]' also matches mandatory generics such as
-# 'Promise<void>' and '<TBinding = unknown>' and would reject conforming code.
+# 'Promise<void>' and would reject conforming code.
 ! rg -n 'ReactNode|from "react"|from '\''react'\''|\.tsx' \
   src/surfaceInteraction \
   --glob '!*.test.ts' \
@@ -539,7 +584,7 @@ The PR description must remain current and include:
 
 1. §1 Mission copied exactly.
 2. §1 merge-ready invariant copied exactly.
-3. The complete V1–V12 evidence ledger with required proof, produced result, and provenance.
+3. The complete V1–V14 evidence ledger with required proof, produced result, and provenance.
 4. Base SHA `d101341bbffeb07627097de2dbcfe84930e01ce2` and actual head SHA.
 5. Actual changed paths and focused diff stat limited to §4.
 6. Every §7 command and exact result.
@@ -557,13 +602,15 @@ A generic “Summary / Test plan” PR body does not satisfy this section.
 
 ## §9 Acceptance rubric
 
-- [ ] Exactly one capability was delivered: the neutral validated runtime publication contract — V1–V9.
-- [ ] The §1 invariant holds for every §3 path and adversarial sequence — V1–V8.
+- [ ] Exactly one capability was delivered: the neutral validated runtime publication contract — V1–V9, V13, V14.
+- [ ] The §1 invariant holds for every §3 path and adversarial sequence — V1–V8, V13, V14.
 - [ ] Contradictory identity invalidates the whole publication — V2.
 - [ ] Duplicate IDs never become first-wins maps — V3.
 - [ ] Tool projection targets and binding requirements resolve only by exact IDs — V4–V5.
-- [ ] Availability and placement states are explicit and coherent — V6.
-- [ ] Validation is deterministic, pure, and callback-free — V7–V8.
+- [ ] Availability, placement, and label states are explicit and coherent, and group conflicts resolve deterministically — V6.
+- [ ] Validation is deterministic, pure, callback-free, and fail-closed on untyped input — V7–V8, V13.
+- [ ] The §6.3 issue-code table is the complete public vocabulary; no extension codes were invented.
+- [ ] Agent-context bounds are enforced — V14.
 - [ ] Production `surfaceInteraction/**` imports no Plan, Build, Ingest, AppChrome, AgentInteractionProvider, MarkdownCanvas, graphReference, React, or JSX implementation — V9.
 - [ ] Existing Plan, Build, and AgentInteraction focused behavior remains unchanged — V10.
 - [ ] Typecheck/build evidence is truthful, including baseline comparison and any waiver — V11.
@@ -581,6 +628,7 @@ Stop and report rather than expanding if implementation discovers:
 - a provider lease token must be supplied by a Surface publication;
 - a persistent schema, serialization, localStorage record, API payload, or migration becomes necessary;
 - callbacks must be invoked to establish validity;
+- a required rejection has no stable issue code in §6.3 (the vocabulary is incomplete — amend this handoff rather than inventing extension codes);
 - validation requires graph reads, Canvas admission, renderer lookup, or global provider state;
 - whole-publication invalidation cannot preserve an existing required behavior;
 - a second independently useful capability appears, such as a compatibility adapter or runtime store;
