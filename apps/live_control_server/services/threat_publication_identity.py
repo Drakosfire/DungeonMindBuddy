@@ -50,6 +50,7 @@ from apps.live_control_server.models.threat_publication_identity import (
     candidate_set_digest_for_set,
     derive_created_node_id,
     normalize_exact_collision_text,
+    resolution_digest_for_resolution,
     resolution_request_digest,
     source_name_from_snapshot,
     validate_resolution_id,
@@ -426,7 +427,7 @@ def _compose_candidate_set(
     rebuilt = candidates
 
     candidate_set_without_digest = ThreatIdentityCandidateSetV1.model_construct(
-        schema_name="dmb_threat_publication_identity_candidate_set_v1",
+        schema_name="dmb_threat_identity_candidate_set_v1",
         draft_id=draft_id,
         operation_id=operation_id,
         source_digest=source_digest,
@@ -1033,7 +1034,7 @@ def decide_identity_resolution(
                     created=False,
                 )
 
-        new_resolution = ThreatPublicationIdentityResolutionV1(
+        new_resolution_unvalidated = ThreatPublicationIdentityResolutionV1.model_construct(
             resolution_id=request.resolution_id,
             draft_id=safe_draft,
             operation_id=safe_op,
@@ -1044,6 +1045,7 @@ def decide_identity_resolution(
             candidate_set=candidate_set,
             candidate_set_digest=candidate_set.candidate_set_digest,
             request_digest=computed_digest,
+            resolution_digest="sha256:" + "0" * 64,
             decision=request.decision,
             selected_target=selected_target,
             created_node_id=created_node_id,
@@ -1055,6 +1057,15 @@ def decide_identity_resolution(
             superseded_by_resolution_id=None,
             created_at=now,
             updated_at=now,
+        )
+        new_resolution = ThreatPublicationIdentityResolutionV1.model_validate(
+            new_resolution_unvalidated.model_copy(
+                update={
+                    "resolution_digest": resolution_digest_for_resolution(
+                        new_resolution_unvalidated
+                    )
+                }
+            ).model_dump(mode="json", by_alias=True)
         )
 
         resolutions = list(ledger.resolutions)

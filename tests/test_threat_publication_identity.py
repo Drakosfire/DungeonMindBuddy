@@ -35,7 +35,11 @@ from apps.live_control_server.models.threat_publication_identity import (
     PrepareThreatIdentityCandidatesRequestV1,
     ThreatIdentityCandidateSetV1,
     ThreatPublicationIdentityLedgerV1,
+    ThreatPublicationIdentityResolutionV1,
     derive_created_node_id,
+    resolution_digest_for_resolution,
+    resolution_request_digest,
+    resolution_request_from_resolution,
 )
 from apps.live_control_server.services.threat_draft_store import (
     _draft_path,
@@ -49,6 +53,8 @@ from apps.live_control_server.services.threat_publication_operations import (
     refresh_publication_operation,
 )
 from graph_memory.projection.world_projection import WorldGraphProjectionNodeView
+from graph_memory.union_supergraph.load import DEFAULT_FIXTURE_PATH, load_union_supergraph_store
+from graph_memory.world_supergraph import publish_world_graph_revision
 
 DEFAULT_DIGEST = "sha256:" + "a" * 64
 PARENT = "rev:parent1"
@@ -108,13 +114,19 @@ def _mechanics_saved_draft(tmp_path: Path, monkeypatch, *, name: str = "Ironhide
     return draft
 
 
-def _begin_operation(tmp_path: Path, draft, *, operation_id: str | None = None):
+def _begin_operation(
+    tmp_path: Path,
+    draft,
+    *,
+    operation_id: str | None = None,
+    expected_parent_revision_id: str = PARENT,
+):
     op_id = operation_id or str(uuid.uuid4())
     request = BeginThreatPublicationOperationRequestV1.model_validate(
         {
             "operation_id": op_id,
             "expected_draft_version": draft.version,
-            "expected_parent_revision_id": PARENT,
+            "expected_parent_revision_id": expected_parent_revision_id,
             "actor": "gm",
         }
     )
@@ -141,8 +153,10 @@ def _node(
     )
 
 
-def _projection_for(*nodes: WorldGraphProjectionNodeView):
-    return identity_svc.build_projection_fixture(revision_id=PARENT, nodes=list(nodes))
+def _projection_for(
+    *nodes: WorldGraphProjectionNodeView, revision_id: str = PARENT
+):
+    return identity_svc.build_projection_fixture(revision_id=revision_id, nodes=list(nodes))
 
 
 def _prepare(tmp_path: Path, draft_id: str, operation_id: str, **overrides: Any):
@@ -234,6 +248,10 @@ def test_prepare_uses_exact_expected_parent_and_threat_only_candidates(
 
     assert outcome.response.result_label == "publication_identity_candidates_ready"
     assert outcome.response.candidate_set is not None
+    assert (
+        outcome.response.candidate_set.model_dump(mode="json", by_alias=True)["schema"]
+        == "dmb_threat_identity_candidate_set_v1"
+    )
     ids = {c.node_id for c in outcome.response.candidate_set.candidates}
     assert ids == {"threat:1"}
     assert "npc:1" not in ids
@@ -446,6 +464,78 @@ def test_create_new_checks_global_exact_revision_for_hidden_node_collision(
 
     assert outcome.response.result_label == "publication_identity_new_id_collision"
     load_revision.assert_called_once_with(world_root, "world_1", PARENT)
+
+
+def test_create_new_checks_canonical_kernel_revision_for_hidden_node_collision(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Unique Name XYZ")
+    op_id = str(uuid.uuid4())
+    derived = derive_created_node_id(
+        world_id="world_1",
+        campaign_id="campaign_1",
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+    )
+    world_root = tmp_path / "canonical-world-graph"
+    base_store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    template_node = next(iter(base_store.nodes.values()))
+    hidden_node = template_node.model_copy(
+        update={
+            "node_id": derived,
+            "label": "Other campaign hidden node",
+            "kind": "NPC",
+            "source_domains": ["worldbuilding"],
+        }
+    )
+    exact_store = base_store.model_copy(
+        update={"nodes": {**base_store.nodes, derived: hidden_node}}
+    )
+    published = publish_world_graph_revision(
+        world_root,
+        "world_1",
+        exact_store,
+        operation_ids=["seed:hidden-collision"],
+    )
+    revision_id = published.revision.revision_id
+    _mock_head(monkeypatch, revision_id)
+    _begin_operation(
+        tmp_path,
+        draft,
+        operation_id=op_id,
+        expected_parent_revision_id=revision_id,
+    )
+    projection = _projection_for(
+        _node("threat:visible", label="Visible"),
+        revision_id=revision_id,
+    )
+
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        prepared = _prepare(tmp_path, draft.draft_id, op_id, query_text="Visible")
+        cs = prepared.response.candidate_set
+        assert cs is not None
+        request = CreateThreatIdentityResolutionRequestV1.model_validate(
+            {
+                "resolution_id": str(uuid.uuid4()),
+                "matching_profile": MATCHING_PROFILE_V1,
+                "candidate_query": cs.candidate_query,
+                "candidate_set_digest": cs.candidate_set_digest,
+                "decision": "create_new",
+                "rejected_candidate_node_ids": _reject_all_collisions(cs),
+                "actor": "gm",
+                "reason": "new threat",
+            }
+        )
+        outcome = identity_svc.decide_identity_resolution(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            request,
+            world_root=world_root,
+        )
+
+    assert outcome.response.result_label == "publication_identity_new_id_collision"
+    assert identity_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
 
 
 def test_connect_existing_requires_exact_reviewed_threat_node(
@@ -980,7 +1070,7 @@ def test_malformed_identity_ledger_json_fails_closed(
 
 def test_persisted_candidate_set_rejects_non_threat_kind() -> None:
     base = {
-        "schema": "dmb_threat_publication_identity_candidate_set_v1",
+        "schema": "dmb_threat_identity_candidate_set_v1",
         "draft_id": str(uuid.uuid4()),
         "operation_id": str(uuid.uuid4()),
         "source_digest": "sha256:" + "a" * 64,
@@ -1013,7 +1103,7 @@ def test_persisted_candidate_set_rejects_non_threat_kind() -> None:
 
 def test_persisted_candidate_set_rejects_mismatched_collision_count() -> None:
     payload = {
-        "schema": "dmb_threat_publication_identity_candidate_set_v1",
+        "schema": "dmb_threat_identity_candidate_set_v1",
         "draft_id": str(uuid.uuid4()),
         "operation_id": str(uuid.uuid4()),
         "source_digest": "sha256:" + "a" * 64,
@@ -1046,7 +1136,7 @@ def test_persisted_candidate_set_rejects_mismatched_collision_count() -> None:
 
 def test_persisted_candidate_set_rejects_blank_candidate_query() -> None:
     payload = {
-        "schema": "dmb_threat_publication_identity_candidate_set_v1",
+        "schema": "dmb_threat_identity_candidate_set_v1",
         "draft_id": str(uuid.uuid4()),
         "operation_id": str(uuid.uuid4()),
         "source_digest": "sha256:" + "a" * 64,
@@ -1120,6 +1210,58 @@ def test_persisted_resolution_rejects_tampered_selected_target_fields(
         tmp_path, draft.draft_id, op_id, resolution_id
     )
     assert outcome.response.result_label == "publication_identity_integrity_failure"
+
+
+def test_persisted_create_new_rejects_unadjudicated_exact_collision(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Ironhide Brute")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    projection = _projection_for(_node("threat:collision", label="Ironhide Brute"))
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        prepared = _prepare(tmp_path, draft.draft_id, op_id, query_text="One")
+        cs = prepared.response.candidate_set
+        assert cs is not None
+        _decide(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            resolution_id=str(uuid.uuid4()),
+            matching_profile=MATCHING_PROFILE_V1,
+            candidate_query=cs.candidate_query,
+            candidate_set_digest=cs.candidate_set_digest,
+            decision="create_new",
+            rejected_candidate_node_ids=_reject_all_collisions(cs),
+            actor="gm",
+            reason="new threat",
+        )
+
+    ledger = _identity_ledger_json(tmp_path, draft.draft_id, op_id)
+    persisted = ThreatPublicationIdentityResolutionV1.model_validate(
+        ledger["resolutions"][0]
+    )
+    request = resolution_request_from_resolution(persisted).model_copy(
+        update={"rejected_candidate_node_ids": []}
+    )
+    tampered = persisted.model_copy(
+        update={
+            "rejected_candidate_node_ids": [],
+            "request_digest": resolution_request_digest(
+                persisted.draft_id, persisted.operation_id, request
+            ),
+        }
+    )
+    tampered = tampered.model_copy(
+        update={"resolution_digest": resolution_digest_for_resolution(tampered)}
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="explicit rejection of every exact-name collision",
+    ):
+        ThreatPublicationIdentityResolutionV1.model_validate(
+            tampered.model_dump(mode="json", by_alias=True)
+        )
 
 
 def test_candidate_composition_respects_advisory_bound_of_twelve(
@@ -1233,6 +1375,49 @@ def test_read_rejects_tampered_created_node_id_when_predecessor_available(
         tmp_path, draft.draft_id, op_id, resolution_id
     )
     assert outcome.response.result_label == "publication_identity_integrity_failure"
+
+
+def test_exact_replay_rejects_tampered_created_node_id_before_dependency_reads(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Unique Create")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    projection = _projection_for(_node("threat:other", label="Other"))
+    request_body: dict[str, Any]
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        prepared = _prepare(tmp_path, draft.draft_id, op_id, query_text="Other")
+        cs = prepared.response.candidate_set
+        assert cs is not None
+        request_body = {
+            "resolution_id": str(uuid.uuid4()),
+            "matching_profile": MATCHING_PROFILE_V1,
+            "candidate_query": cs.candidate_query,
+            "candidate_set_digest": cs.candidate_set_digest,
+            "decision": "create_new",
+            "rejected_candidate_node_ids": _reject_all_collisions(cs),
+            "actor": "gm",
+            "reason": "new threat",
+        }
+        first = _decide(tmp_path, draft.draft_id, op_id, **request_body)
+        assert first.created is True
+
+    ledger = _identity_ledger_json(tmp_path, draft.draft_id, op_id)
+    ledger["resolutions"][0]["created_node_id"] = "threat:authored:" + "f" * 32
+    _write_identity_ledger_json(tmp_path, draft.draft_id, op_id, ledger)
+
+    with patch.object(identity_svc, "refresh_publication_operation") as refresh_mock, patch.object(
+        identity_svc, "project_world_graph"
+    ) as project_mock:
+        replay = identity_svc.decide_identity_resolution(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            CreateThreatIdentityResolutionRequestV1.model_validate(request_body),
+        )
+
+    assert replay.response.result_label == "publication_identity_integrity_failure"
+    refresh_mock.assert_not_called()
+    project_mock.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

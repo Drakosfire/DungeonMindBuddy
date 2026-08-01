@@ -27,7 +27,7 @@ from apps.live_control_server.models.threat_publication import (
 )
 
 PREPARE_REQUEST_SCHEMA = "dmb_prepare_threat_identity_candidates_request_v1"
-CANDIDATE_SET_SCHEMA = "dmb_threat_publication_identity_candidate_set_v1"
+CANDIDATE_SET_SCHEMA = "dmb_threat_identity_candidate_set_v1"
 CREATE_REQUEST_SCHEMA = "dmb_create_threat_identity_resolution_request_v1"
 RESOLUTION_SCHEMA = "dmb_threat_publication_identity_resolution_v1"
 LEDGER_SCHEMA = "dmb_threat_publication_identity_ledger_v1"
@@ -154,7 +154,7 @@ def _candidate_snapshots_equal(
 
 
 class ThreatIdentityCandidateSetV1(StrictModel):
-    schema_name: Literal["dmb_threat_publication_identity_candidate_set_v1"] = Field(
+    schema_name: Literal["dmb_threat_identity_candidate_set_v1"] = Field(
         default=CANDIDATE_SET_SCHEMA, alias="schema"
     )
     draft_id: str
@@ -324,6 +324,7 @@ class ThreatPublicationIdentityResolutionV1(StrictModel):
     candidate_set: ThreatIdentityCandidateSetV1
     candidate_set_digest: str = Field(pattern=_DIGEST_RE)
     request_digest: str = Field(pattern=_DIGEST_RE)
+    resolution_digest: str = Field(pattern=_DIGEST_RE)
     decision: IdentityDecision
     selected_target: ThreatIdentityCandidateV1 | None = None
     created_node_id: str | None = None
@@ -392,6 +393,9 @@ class ThreatPublicationIdentityResolutionV1(StrictModel):
         )
         if expected_request_digest != self.request_digest:
             raise ValueError("request_digest does not match recomputed digest")
+        expected_resolution_digest = resolution_digest_for_resolution(self)
+        if expected_resolution_digest != self.resolution_digest:
+            raise ValueError("resolution_digest does not match immutable decision payload")
         candidate_ids = {c.node_id for c in self.candidate_set.candidates}
         candidate_by_id = {c.node_id: c for c in self.candidate_set.candidates}
         if len(self.rejected_candidate_node_ids) != len(set(self.rejected_candidate_node_ids)):
@@ -401,6 +405,15 @@ class ThreatPublicationIdentityResolutionV1(StrictModel):
         if self.decision == "create_new":
             if self.selected_target is not None or self.created_node_id is None:
                 raise ValueError("create_new requires created_node_id and no selected_target")
+            exact_collision_ids = {
+                candidate.node_id
+                for candidate in self.candidate_set.candidates
+                if candidate.exact_name_collision
+            }
+            if not exact_collision_ids.issubset(self.rejected_candidate_node_ids):
+                raise ValueError(
+                    "create_new requires explicit rejection of every exact-name collision"
+                )
         elif self.decision == "connect_existing":
             if self.selected_target is None or self.created_node_id is not None:
                 raise ValueError("connect_existing requires selected_target and no created_node_id")
@@ -421,6 +434,29 @@ class ThreatPublicationIdentityResolutionV1(StrictModel):
         if self.state == "superseded" and self.superseded_by_resolution_id is None:
             raise ValueError("superseded resolution requires superseded_by_resolution_id")
         return self
+
+
+def resolution_digest_payload(
+    resolution: ThreatPublicationIdentityResolutionV1,
+) -> dict[str, Any]:
+    """Return the immutable decision payload covered by ``resolution_digest``."""
+    dumped = resolution.model_dump(mode="json", by_alias=True)
+    for key in (
+        "resolution_digest",
+        "state",
+        "supersedes_resolution_id",
+        "superseded_by_resolution_id",
+        "created_at",
+        "updated_at",
+    ):
+        dumped.pop(key, None)
+    return dumped
+
+
+def resolution_digest_for_resolution(
+    resolution: ThreatPublicationIdentityResolutionV1,
+) -> str:
+    return _canonical_json_digest(resolution_digest_payload(resolution))
 
 
 class ThreatPublicationIdentityLedgerV1(StrictModel):
