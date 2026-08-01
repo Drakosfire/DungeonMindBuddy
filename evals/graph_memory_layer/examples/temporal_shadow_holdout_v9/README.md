@@ -5,3 +5,5 @@
 Canonical corpus-grounded rows with disjoint span fingerprints from all prior `temporal_shadow_*` evidence registries. Proposition-first ambiguous row 11 encodes competing readings in the assertion label (`or`), not surrounding consequences.
 
 See `GOLD-AUDIT.md` for the sealed row table. Do not mutate after first provider run.
+
+**Promotion seal / first provider execution:** `b1843ff6681ed92f12ba3657527d2b608f49cc95`.

@@ -5,3 +5,5 @@
 Synthetic rows using reserved vocabulary (`Hollowmere`, `Sablewick`, `Torren Vale`, `Glassfen Causeway`, `Moonshard Index`, `Ashen Compact`) with novel sentence templates — no V5/V6 race/hold constructions.
 
 See `GOLD-AUDIT.md` for the sealed row table.
+
+**Promotion seal / first provider execution:** `b1843ff6681ed92f12ba3657527d2b608f49cc95`.
