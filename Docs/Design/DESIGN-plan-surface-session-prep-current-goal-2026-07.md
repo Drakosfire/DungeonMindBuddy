@@ -1,9 +1,16 @@
 # Design — Plan Surface Session-Prep Current Goal
 
+> **HOST OWNERSHIP (2026-08-01):** Plan does **not** own Nav, Tool, Edit, Agent, or
+> Projection hosts. Plan is a **characterized consumer** that publishes prep/session
+> contributions into the
+> [`Surface Interaction Layer`](../Design/ARCHITECTURE-surface-interaction-layer.md).
+> See §8 contribution map.
+
 **Status:** Current product checkpoint  
 **Date:** 2026-07-10  
 **Scope:** `/plan`, session preparation, graph-memory consumption, planning-oriented Agent Interaction, and the Tiptap/Markdown planning board  
-**Architecture authority:** `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`  
+**Architecture authority:** `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` (Plan domain)
+**Interaction Layer authority:** `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`
 **Campaign supergraph authority:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`  
 **Graph Review authority:** `Docs/Design/DESIGN-graph-object-authoring-surface.md`  
 **Graph Review evidence / pause point:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`  
@@ -108,7 +115,26 @@ The next `/plan` implementation slices succeed only if one GM can use `/plan` to
 
 This creates a falsifiable dogfood path. A feature that adds generic projection machinery but does not make one of these prep steps work does not meet this checkpoint’s goal.
 
-Implementation order for Plan-facing slices is recorded in `Docs/Design/ARCHITECTURE-campaign-supergraph.md` (Plan consumption) and `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`.
+Implementation order for Plan-facing slices is recorded in
+`Docs/Design/ARCHITECTURE-campaign-supergraph.md` (Plan consumption),
+`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`, and Interaction Layer hoist sequencing
+in [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md).
+
+### 7.1 Plan contribution map (no host ownership)
+
+Plan **publishes** into shared hosts; it does **not** own Nav, Tool, Edit, Agent, or
+Projection implementation.
+
+| Contribution | Target host | Plan-domain (stays on Plan) |
+|---|---|---|
+| Prep/session context header | Nav (publication) | `PlanContextDescriptor`, prep session selection |
+| Ingest escalation, statblock, roll-table launchers | Tool Bar (publication) | Which workflows enabled for prep |
+| Markdown edit, callout/block actions, graph ref insert | Edit Bar (publication) | Plan lock policy, callout extensions |
+| Hermes/Ask ambient pointers | Agent Bar (publication) | Prep-memory query shapes, citation display |
+| Chip → glance, tool/content projections | Projection host (publication) | Plan graph lens, characterized `graphReference` consumer |
+| Planning board document | Canvas (independent) | Prep document selection, board content |
+
+SI-01 in the hoist plan completes this map against runtime before moving code.
 
 ## 8. Non-goals for that slice
 
@@ -126,7 +152,9 @@ Implementation order for Plan-facing slices is recorded in `Docs/Design/ARCHITEC
 | --- | --- |
 | `/plan` product goal and next dogfood target | This document |
 | Campaign supergraph architecture and Plan consumption | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` |
-| SurfaceConfig, resolver, projection, edit-capability, Tiptap canvas, and Agent Interaction target architecture | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` |
+| SurfaceConfig, resolver, Plan extensions, prep policy | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` |
+| Shared Nav/Tool/Edit/Agent/Projection hosts | `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` |
+| Interaction hoist sequencing | `Docs/Plans/PLAN-surface-interaction-hoist-build-first.md` |
 | Supergraph roadmap and PR sequence | `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` · `Docs/Plans/PR-TRACKER-campaign-supergraph.md` |
 | Graph Review, authored overlay/event log, and selected preview-union identity materialization | `Docs/Design/DESIGN-graph-object-authoring-surface.md` |
 | Current Graph Review pause point and proven safety invariants | `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md` |

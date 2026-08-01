@@ -1,5 +1,12 @@
 # Magic Moment Charter — Build as a Worldbuilding Surface
 
+> **AUTHORITY (2026-08-01):** Shared Nav, Tool, Edit, Agent, and Projection hosts are
+> owned by the
+> [`Surface Interaction Layer`](../Design/ARCHITECTURE-surface-interaction-layer.md).
+> Build **publishes** worldbuilding capabilities into those hosts; it does **not**
+> own bar UI or app/shared provider state. Canvas is the independent work object.
+> **Find existing** is a Tool Bar workflow; insertion uses Canvas/edit commands.
+
 **Status:** Living product story  
 **Date:** 2026-07-30  
 **Purpose:** Describe the Build experience we are trying to create, in user terms, before reducing it to implementation slices.  
@@ -14,16 +21,20 @@ It is not merely a Markdown editor. It is not a thin route into Graph Review. It
 Build is a configured DungeonBuddy Surface:
 
 ```text
-shared application shell
-+ Build-specific world and campaign lens
-+ shared Markdown canvas
-+ shared graph projection
-+ configured tools
-+ persistent Agent Interaction
+Surface Interaction Layer (shared Nav, Tool, Edit, Agent, Projection hosts)
++ Build-specific world and campaign lens (publication)
++ shared Markdown Canvas (independent work object)
++ configured tools (published to Tool Bar)
++ persistent Agent Interaction (shared host)
 = a worldbuilding workbench
 ```
 
-The GM should be able to write prose, inspect campaign memory, follow relationships, use tools, ask Hermes questions, and make deliberate changes without losing the document they are working in.
+The GM should be able to write prose, inspect campaign memory, follow relationships,
+use tools, ask Hermes questions, and make deliberate changes without losing the
+document they are working in.
+
+Shared bars own UI chrome. Build publishes capabilities and domain lens — it does
+not own the bars. App/shared AgentInteraction state is not Build-owned.
 
 The canvas remains the center of gravity. Everything else comes to the canvas.
 
@@ -52,7 +63,8 @@ Agent Bar
 Adaptive Projection Pane
 ```
 
-The regions are shared components. Build configures them for worldbuilding.
+The regions are **shared Interaction Layer hosts**. Build configures and **publishes**
+into them for worldbuilding — Build is not the bar owner.
 
 The GM writes:
 
@@ -103,13 +115,13 @@ A GM can open a Build document, author and style useful Markdown, save it, hard 
 
 While writing the Mireward document, the GM wants to know whether “Tripod Null-Calf” already exists in campaign memory.
 
-The Edit Bar includes **Find existing object**.
+The shared Tool Bar exposes **Find existing object** as a workflow.
 
 The GM searches:
 
 > Tripod Null-Calf
 
-Search runs against the World Graph using the current Build lens. The result list appears without replacing the canvas.
+Search runs against the World Graph using the current Build lens. The result list appears without replacing the canvas. Inserting the selected reference invokes an explicit Canvas/edit command; the Edit Bar presents the resulting document mutation and save state.
 
 Each result shows useful campaign information first:
 

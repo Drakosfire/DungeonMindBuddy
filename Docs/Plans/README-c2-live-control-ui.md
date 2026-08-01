@@ -1,5 +1,10 @@
 # C2 Live Control UI — README
 
+> **HISTORICAL / NON-AUTHORITATIVE (2026-08-01):** The claim "UI package does not
+> exist yet" below is **stale evidence** — `apps/live-control-ui/` exists on current
+> `main`. Preserved for L4 planning history. Current UI authority:
+> [`ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md).
+
 **Status:** planning/implementation guide for **L4**. The UI package does not exist yet. The **L3 FastAPI server** is merged on `main` at `apps/live_control_server/` (PR #75 L3-min + PR #76 L3-rest). This README describes the UI layer to build next and how it consumes the live API + L1 substrate.
 
 **Target future location:** once the UI package exists, keep this document as the planning anchor and copy/adapt the implementation sections into `apps/live-control-ui/README.md`.

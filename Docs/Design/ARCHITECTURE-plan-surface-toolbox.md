@@ -1,8 +1,21 @@
 # Plan Surface Toolbox
 
+> **AUTHORITY SCOPE (2026-08-01):** This document is **Plan surface composition
+> authority** — `SurfaceConfig`, prep/session policy, resolver consumption, Plan
+> extensions, and domain graph lens for session prep. It is **not** the universal
+> owner of Nav Bar, Tool Bar, Edit Bar, Agent Bar, or Projection Pane hosts.
+> Shared chrome ownership:
+> [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md).
+> Canvas authority:
+> [`DESIGN-shared-markdown-canvas-surface-composition.md`](DESIGN-shared-markdown-canvas-surface-composition.md).
+> Execution sequence for host hoists:
+> [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md).
+
 ## Current checkpoint — 2026-07
 
-This document remains the architecture authority for `SurfaceConfig`, projection, the Tiptap/Markdown Plan canvas, the shared resolver, edit capability, and the Agent Interaction target shape.
+This document remains the **Plan domain** authority for `SurfaceConfig`, Plan
+projection consumption, the Tiptap/Markdown planning board, the shared resolver,
+edit capability extensions, and how Plan publishes into the Surface Interaction Layer.
 
 Current product framing for the next `/plan` dogfood phase is in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
 
@@ -22,14 +35,23 @@ Since this architecture was written, `/ingest` has matured into the **Graph Revi
 
 The durable abstraction is **Surface**, not Bar. A surface expresses one of the named work modes **Plan**, **Play**, or **Build**; each surface config composes independent regions instead of making every region pretend to be the same generic bar. Combat is no longer a fourth surface. It folds into the React **Play** surface as operational cockpit projections: initiative, HP, statblock drilldowns, generated combatants, terrain pressure, and related table tools.
 
-**Priority decision (2026-06-22):** Surface work is the product priority, and it should exercise retrieval rather than wait for a separate retrieval-only milestone. Plan proves ingest and planning-context retrieval; Play proves table-facing retrieval through reference chips, statblocks, roll tables, combat rows, and focused-beat overlays. Build remains named but intentionally nebulous until Plan and Play dogfood show which durable world-object authoring surfaces are actually needed.
+**Priority decision (2026-06-22, historical wording re-anchored 2026-08-01):**
+Surface work remains the product priority. Plan proves ingest and planning-context
+retrieval; Play proves table-facing retrieval through reference chips, statblocks,
+roll tables, combat rows, and focused-beat overlays. Build is now a named worldbuilding
+Surface with a product story and a shared-Canvas proof sequence; its runtime
+composition remains a named successor in
+[`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md).
 
-`/plan` does not own tool, edit, or nav internals. It supplies a `SurfaceConfig` to a reusable `SurfaceShell`:
+`/plan` does not own Nav, Tool, Edit, Agent, or Projection host internals (see
+[`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md)).
+It supplies a `SurfaceConfig` and **publishes** into shared hosts via a layout
+composer (`SurfaceShell` / `SurfaceFrame` — layout only):
 
-- **NavBar** — global/surface navigation.
-- **ToolBar** — config-projected workflow launcher and adaptive drawer/container.
-- **EditBar** — document/editing command surface when a selected context is editable.
-- **SurfaceCanvas** — the main work object for the active surface; for `/plan`, this is the Tiptap/Markdown planning board.
+- **Nav Bar** — Plan publishes entries and context header; host owned by Interaction Layer.
+- **Tool Bar** — Plan publishes configured workflow launchers; host owned by Interaction Layer.
+- **Edit Bar** — Plan publishes document-editing commands; host owned by Interaction Layer.
+- **Canvas** — independent work object; for `/plan`, the Tiptap/Markdown planning board.
 
 The ToolBar consumes shared knowledge and schemas, then projects configured workflow components into right-sized work surfaces. On `/plan`, those workflows support session preparation rather than recreate the serious memory-correction flow:
 
@@ -42,7 +64,13 @@ Reference chips on the canvas are navigation handles into corpus/graph detail, a
 
 ## Architecture Shape
 
-**Core primitive:** A Surface is a configured work environment composed of Nav, Tool, Edit, and Canvas regions. `/plan` is the first concrete surface config. For `/plan`, the canvas is the Tiptap/Markdown working board the GM writes on. NavBar, ToolBar, and EditBar are independent projection components composed around it. Tools are not pages; they are configured workflows projected by the ToolBar into an adaptive container that can sit beside the canvas, overlay it, or fill the screen on mobile.
+**Core primitive:** A Surface is a configured work environment that **publishes** into
+shared Interaction Layer regions (Nav, Tool, Edit, Agent+Projection) and selects an
+independent **Canvas**. `/plan` is the first concrete surface config. For `/plan`,
+the Canvas is the Tiptap/Markdown working board the GM writes on. Nav, Tool, and
+Edit are shared hosts; Plan publishes domain capabilities into them. Tools are not
+pages; they are configured workflows projected through the shared Tool Bar and
+Projection Pane host.
 
 **Second primitive:** projection is shared. One projection registry maps a kind (`tool` | `content`) to a component and a preferred container size. Two things trigger a projection into the adaptive container:
 
@@ -51,7 +79,11 @@ Reference chips on the canvas are navigation handles into corpus/graph detail, a
 
 Both render through the same container and size modes.
 
-This single registry and single adaptive container are **app-scoped**, not surface-local. They are hoisted above the route/surface switch into the Agent Interaction layer (see [Agent Interaction layer](#agent-interaction-layer-continuity-host) below). A `SurfaceConfig` declares which projections it enables and publishes ambient context into that layer; it does not own a private projection container. This keeps "one projection registry, one adaptive container" literally singular across the whole app rather than per surface.
+This single registry and single adaptive container are **app-scoped**, owned by the
+Surface Interaction Layer (`AgentInteractionProvider` — **landed primitive** via PR
+#441; see [Agent Interaction layer](#agent-interaction-layer-continuity-host)).
+A `SurfaceConfig` declares which projections Plan enables and **publishes** ambient
+context upward; Plan does not own a private projection container.
 
 The source-vocabulary boundary for projected ingestion material is defined by `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`. Agent Interaction and future taxonomy/ontology producers consume `SourceArtifact` -> `SourceAnchor` -> `SourceUnit` bundles, not raw ingestion internals.
 
@@ -86,10 +118,13 @@ flowchart TB
     surfaceCanvas["SurfaceCanvas"]
   end
 
-  surfaceShell --> navBar
-  surfaceShell --> toolBar
-  surfaceShell --> editBar
   surfaceShell --> surfaceCanvas
+  app --> navBar
+  app --> toolBar
+  app --> editBar
+  planSurfaceConfig -.->|"publish"| navBar
+  planSurfaceConfig -.->|"publish"| toolBar
+  planSurfaceConfig -.->|"publish"| editBar
 
   subgraph contextBoundary [Context boundary not a single store]
     sourceAuthority["Source artifacts prose and evidentiary authority"]

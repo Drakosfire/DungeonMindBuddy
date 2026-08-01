@@ -20,7 +20,8 @@
 **Still in force as contracts / surface product (not graph-workstream roadmap authority):**
 
 - [`CONTRACT-surface-vocabulary-boundary-v0.md`](CONTRACT-surface-vocabulary-boundary-v0.md)
-- [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md)
+- [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md) — **UI shell / shared bars** (cross-boundary pointer only)
+- [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md) — Plan domain composition
 - [`DESIGN-graph-object-authoring-surface.md`](DESIGN-graph-object-authoring-surface.md)
 - [`DESIGN-plan-surface-session-prep-current-goal-2026-07.md`](DESIGN-plan-surface-session-prep-current-goal-2026-07.md)
 - Evidence / identity / taxonomy contracts under `Docs/Design/GRAPH-MEMORY-*` that the audit marks KEEP
@@ -34,6 +35,10 @@ The **only** active implementation sequence for Campaign Supergraph work is [`PR
 DungeonMindBuddy is building a **persistent World Supergraph** (product shorthand: **Campaign Supergraph**) that serves as the memory backend for every surface.
 
 Every surface — Plan, Play, Build, Graph Review, and Agent Interaction — either contributes data to it, reads from it, validates it, or visualizes it.
+
+**UI boundary:** Shared Nav/Tool/Edit/Agent/Projection host ownership lives in
+[`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md).
+This document does not sequence UI hoists.
 
 This project is **not** building a graph-extraction experiment, a session-local graph product, or a preview-graph architecture. Those were useful proofs. Their lessons remain. Their ownership models do not.
 

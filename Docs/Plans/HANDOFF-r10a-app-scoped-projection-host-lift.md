@@ -1,7 +1,13 @@
 # HANDOFF — R10a app-scoped projection host lift
 
+> **MERGED / HISTORICAL (2026-08-01):** PR **#441** merged
+> `4ec74045f0b7878434e911fa73c407727d3e958c`. App projection host is a **landed
+> primitive** under `AgentInteractionProvider`. Shared Tool/Edit hoist:
+> [`PLAN-surface-interaction-hoist-build-first.md`](PLAN-surface-interaction-hoist-build-first.md)
+> SI-02+. R10b remainder (bottom pane) is parallel.
+
 **Created:** 2026-07-27
-**Status:** ACTIVE — dispatch exactly one implementation capability.
+**Status:** **MERGED** — PR #441 / R10a complete.
 **Dispatch gate:** Cleared 2026-07-27 — PR #438 merged as `16f4210d85ba42a771e0c3d4a5adc9ec8f495676` (contains accepted head `a7dc6a1efa6fdbb1ea8d88e5d60164c1ed735063`).
 **Canonical handoff path:** `Docs/Plans/HANDOFF-r10a-app-scoped-projection-host-lift.md`
 **Implementation base:** `16f4210d85ba42a771e0c3d4a5adc9ec8f495676`
@@ -266,7 +272,7 @@ Every changed path must appear below or satisfy the bounded discovery exception.
 | Action           | Path                                                                                                | Purpose                                                                                                               |
 | ---------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Create           | `Docs/Plans/HANDOFF-r10a-app-scoped-projection-host-lift.md`                                        | Check in this complete implementation authority                                                                       |
-| Modify           | `Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`                                             | Mark R10a-deps DONE and R10a ACTIVE; link this handoff without redesigning other lanes                                |
+| Modify           | `Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`                                             | Mark R10a-deps DONE and R10a **MERGED**; link this handoff without redesigning other lanes                                |
 | Modify           | `apps/live-control-ui/src/App.tsx`                                                                  | Host exactly one `AdaptiveProjectionContainer` as a direct child of `AgentInteractionProvider`, outside route content |
 | Modify           | `apps/live-control-ui/src/App.test.tsx`                                                             | Prove one app-level container and route publication behavior                                                          |
 | Modify           | `apps/live-control-ui/src/agentInteraction/AgentInteractionProvider.tsx`                            | Absorb projection state, exact surface lease, dependency registrations, validation, and actions                       |

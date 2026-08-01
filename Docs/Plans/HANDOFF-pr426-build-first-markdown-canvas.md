@@ -53,8 +53,15 @@ pr_body_template: |
 
 # HANDOFF — Build-first shared Markdown canvas
 
+> **MERGED / HISTORICAL (2026-08-01):** PR **#426** merged
+> `7d98074d434a5310d21d4fe645e497789e0a3114`. MC-01 Canvas primitive is a **landed
+> primitive**. Successor composition:
+> [`PLAN-surface-interaction-hoist-build-first.md`](PLAN-surface-interaction-hoist-build-first.md).
+> Canvas authority:
+> [`DESIGN-shared-markdown-canvas-surface-composition.md`](../Design/DESIGN-shared-markdown-canvas-surface-composition.md).
+
 **Created:** 2026-07-26, America/Denver  
-**Status:** IN FLIGHT — implementation PR #426; base is the docs re-anchor merge SHA of PR #424.  
+**Status:** **MERGED** — PR #426 / MC-01 complete.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr426-build-first-markdown-canvas.md`  
 **Planned implementation PR:** #426
 **Lineage note:** An earlier draft filename used `pr425`, but GitHub #425 was already

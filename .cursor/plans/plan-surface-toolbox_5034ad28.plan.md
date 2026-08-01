@@ -1,6 +1,7 @@
 ---
 name: plan-surface-toolbox
 overview: Create an intentional `/plan` surface as the first `SurfaceConfig` over a reusable `SurfaceShell`, composed from independent NavBar, ToolBar, EditBar, and SurfaceCanvas regions, where one projection registry powers both tools and reference-chip navigation. Ships as a parallel branch ladder of defensible, agent-authored PR stories (testing, security, simplicity, composability), kept decoupled from the ontology/taxonomy ladder by an adapter boundary.
+
 todos:
   - id: ladder-delivery
     content: Stand up the `plan-surface` branch ladder (trunk + tracking doc + baseline) and author per-rung agent handoffs (`HANDOFF-pr<N>-<slug>.md`) carrying section 4 allowlist, section 7 verification, and the section 9 defensible rubric (testing, security, simplicity, composability).
@@ -34,6 +35,12 @@ todos:
     status: completed
 isProject: false
 ---
+
+> **HISTORICAL / NON-AUTHORITATIVE (2026-08-01):** Cursor plan artifact preserved as
+> implementation evidence. **Do not use for bar ownership.** Current authorities:
+> [`Docs/Design/ARCHITECTURE-surface-interaction-layer.md`](../../Docs/Design/ARCHITECTURE-surface-interaction-layer.md),
+> [`Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`](../../Docs/Design/ARCHITECTURE-plan-surface-toolbox.md).
+> Claims that SurfaceShell owns Nav/Tool/Edit bars are superseded.
 
 # Plan Surface Toolbox
 
@@ -142,7 +149,7 @@ Interpretation:
 
 ### Boundary with the Ontology / Taxonomy ladder
 
-Derived semantics, controlled vocabulary, and the graph model are **owned by the `experiment/ontology-taxonomy-ladder` workstream**, not by this plan (see [Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md](Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md): "The Tiptap / Markdown backend workstream owns canonical authoring... The Ontology / Taxonomy ladder owns derived semantics"). This surface plan must:
+Derived semantics, controlled vocabulary, and the graph model are **owned by the `experiment/ontology-taxonomy-ladder` workstream**, not by this plan (see [Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md](../../Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md): "The Tiptap / Markdown backend workstream owns canonical authoring... The Ontology / Taxonomy ladder owns derived semantics"). This surface plan must:
 
 - Consume existing Markdown, session-memory JSONL, manifests, routes, and corpus indexes via an adapter; treat the graph as a future shadow-mode dependency only.
 - Not build a unified knowledge store here, and not collapse GM prep, rumor, candidate facts, and played truth into "one state everything reads and writes" — that conflation is explicitly forbidden by the ladder's non-negotiables and is the part that needs provenance + lifecycle, not a shared blob.
@@ -160,7 +167,7 @@ This Surface plan and the ontology/taxonomy ladder run **in parallel at full sco
 
 ## Visual Design and Theming
 
-Anchor on the existing Tiptap spike styling rather than inventing a new look. The spike at [apps/live-control-ui/src/tiptap/tiptapSpike.css](apps/live-control-ui/src/tiptap/tiptapSpike.css) and [apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.tsx](apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.tsx) already establishes the token vocabulary and theming seam to reuse:
+Anchor on the existing Tiptap spike styling rather than inventing a new look. The spike at [apps/live-control-ui/src/tiptap/tiptapSpike.css](../../apps/live-control-ui/src/tiptap/tiptapSpike.css) and [apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.tsx](../../apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.tsx) already establishes the token vocabulary and theming seam to reuse:
 
 - Token set: `--fg`, `--fg-mute`, `--border`, `--bg-card`, `--bg-input`, `--accent`, `--radius`, `--mono`, each falling back to app-level tokens (`--text`, `--text-muted`, `--panel`). The surface should consume these same tokens so the canvas matches the spike by default.
 - Descriptor-driven theme: the editor applies `md-theme-${themeId}` / `data-md-theme` from a descriptor and loads `prep-markdown-themes.css`. This is the existing "config selects styling" mechanism to generalize, not replace.
@@ -201,7 +208,7 @@ This plan's **output is a sequence of agent handoffs**, not a single monolithic 
 
 - **Trunk:** `experiment/plan-surface-ladder`, with a short tracking/anchor doc on `main` for planning visibility (mirror the ontology ladder's anchor pattern; do not treat the trunk as a merge-back of every rung).
 - **Rung branches:** one per PR story, agent-authored (Codex-style `codex/...` or `surface-exp/NN-<slug>`), each opening a PR against the trunk.
-- **Loop:** every rung follows the four-stage external-agent PR loop — HANDOFF write -> external PR -> judgment record -> atomic doc-sync — per [.cursor/skills/external-agent-pr-loop/SKILL.md](.cursor/skills/external-agent-pr-loop/SKILL.md) and the invariants in `.cursor/rules/external-agent-pr-loop.mdc`. Use `scripts/review_external_pr.py {fetch | verify | post | merge}`; handoffs are named `HANDOFF-pr<N>-<slug>.md` per `AGENTS.md`.
+- **Loop:** every rung follows the four-stage external-agent PR loop — HANDOFF write -> external PR -> judgment record -> atomic doc-sync — per [.cursor/skills/external-agent-pr-loop/SKILL.md](../skills/external-agent-pr-loop/SKILL.md) and the invariants in `.cursor/rules/external-agent-pr-loop.mdc`. Use `scripts/review_external_pr.py {fetch | verify | post | merge}`; handoffs are named `HANDOFF-pr<N>-<slug>.md` per `AGENTS.md`.
 
 ### The "defensible" rubric (every PR's section 9 acceptance bar)
 

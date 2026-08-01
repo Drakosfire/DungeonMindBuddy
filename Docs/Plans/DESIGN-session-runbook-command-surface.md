@@ -1,5 +1,10 @@
 # DESIGN — Session Runbook as Command Surface
 
+> **HISTORICAL / NON-AUTHORITATIVE (2026-08-01):** Preserved as Command Board /
+> runbook evidence. UI shell:
+> [`ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md).
+> Play recomposition is explicitly later in the hoist plan.
+
 **Status:** Draft design anchor  
 **Created:** 2026-06-18  
 **Project area:** DungeonBuddy / Command Board / Tiptap runbook  

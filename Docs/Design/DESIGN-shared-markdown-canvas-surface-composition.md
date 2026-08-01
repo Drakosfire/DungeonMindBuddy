@@ -3,15 +3,26 @@ document_id: dmb-design-shared-markdown-canvas-surface-composition
 title: Shared Markdown Canvas and Surface Capability Composition
 document_class: architecture_supplement
 status: active
-version: 1.2
+version: 1.3
 created_at: "2026-07-26"
-updated_at: "2026-07-27"
-parent_authority: ARCHITECTURE-plan-surface-toolbox.md
+updated_at: "2026-08-01"
+parent_authority: ARCHITECTURE-surface-interaction-layer.md
+canvas_authority: self
+plan_domain: ARCHITECTURE-plan-surface-toolbox.md
 first_consumer: /build
 extends_backlog: "Hoist the Build authoring lifecycle into a shared document-bound Markdown canvas"
 ---
 
 # Shared Markdown Canvas and Surface Capability Composition
+
+> **AUTHORITY (2026-08-01):** **Canvas** (`MarkdownCanvasSession` /
+> `MarkdownCanvas`) is the independent work object. Shared Nav, Tool, Edit, Agent,
+> and Projection hosts are owned by the
+> [`Surface Interaction Layer`](ARCHITECTURE-surface-interaction-layer.md).
+> Surfaces **register/publish** capabilities into those hosts; they do not own bar
+> DOM. `composeSurfaceCapabilities` describes **registration intent**, not bar
+> ownership. Execution:
+> [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md).
 
 ## Decision
 
@@ -22,9 +33,11 @@ from the hardened workspace-document lifecycle that already serves Build, Plan, 
 the TipTap runbook. Build-specific extraction remains a plugin that consumes canvas
 authority; it is not part of the canvas.
 
-The broader Surface architecture remains governed by
+The broader Surface architecture for shared chrome is governed by
+[`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md).
+Plan domain composition remains in
 [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md).
-This document supplements that authority at the document/capability seam.
+This document supplements at the **Canvas** seam.
 
 ## Terminology correction
 
@@ -35,15 +48,15 @@ is rejected because `projection` already has two precise meanings in this reposi
 2. the app's `tool | content` projection registry rendered by
    `AdaptiveProjectionContainer`.
 
-This design uses **surface capability composition** instead:
+This design uses **surface capability registration** instead:
 
 - `MarkdownCanvasSession` owns document authority and document-bound commands;
 - `MarkdownCanvas` renders that session;
-- `composeSurfaceCapabilities(...)` selects what fills the existing Edit, Tool, and
-  authoring regions.
+- surfaces **register/publish** Edit, Tool, and authoring contributions into shared
+  Interaction Layer hosts (not into Canvas slots for bars).
 
-The existing tool/content projection registry remains the owner of adaptive projected
-workflows and selected-object content.
+The existing tool/content projection registry remains owned by the Interaction Layer
+Projection Pane host.
 
 ## Review of the proposed direction
 
@@ -124,18 +137,20 @@ stable slots for:
 - editor;
 - generic recovery;
 - document actions;
-- surface-owned adjacent tools.
+- surface-owned adjacent tools (canvas-adjacent only — **not** Nav/Tool/Edit bars).
+
+Bars are not Canvas slots. Surfaces publish bar content via the Interaction Layer.
 
 The view must remain usable without Build. It renders no extraction terminology and
 imports no Build, ExtractionRun, or Graph Review types.
 
-### 3. Surface capability composition
+### 3. Surface capability registration
 
-A shared catalog maps capability IDs to region contributions. A surface enables
-capabilities and provides typed parameters:
+A shared catalog maps capability IDs to Interaction Layer host contributions. A
+surface enables capabilities and provides typed parameters; hosts render them:
 
 ```ts
-composeSurfaceCapabilities({
+registerSurfaceCapabilities({
   surfaceId: "build",
   canvasSession,
   enabled: [
@@ -145,16 +160,15 @@ composeSurfaceCapabilities({
 });
 ```
 
-The result may contain:
+Registration publishes into:
 
-- `editTools` for the existing AppChrome Edit dock;
-- adaptive `tools` for the existing tool/content projection registry;
-- optional canvas slots or authoring-host props.
+- shared **Edit Bar** host (not a Canvas slot);
+- shared **Tool Bar** / projection registry (Interaction Layer);
+- optional canvas-adjacent slots only.
 
-This composition layer does not create another adaptive container or another graph
-projection registry.
-
-## Document state and admitted envelopes
+Registration does not create another adaptive container or graph projection registry.
+`composeSurfaceCapabilities` remains a **transitional implementation name** until
+SI-02 hoist; target ownership is shared hosts + publication.
 
 The session always exposes truthful state:
 
@@ -224,28 +238,29 @@ Graph Review handoff.
 
 ```mermaid
 flowchart TB
-  config["Surface capability config"] --> compose["composeSurfaceCapabilities"]
-  catalog["Shared capability catalog"] --> compose
+  config["Surface capability registration"] --> register["registerSurfaceCapabilities"]
+  catalog["Shared capability catalog"] --> register
 
   hook["useWorkspaceDocumentAuthoring"] --> session["MarkdownCanvasSession"]
   commands["Document command host"] --> session
   session --> canvas["MarkdownCanvas"]
 
-  compose --> edit["AppChrome Edit region"]
-  compose --> tools["Existing tool/content projection registry"]
-  compose --> slots["Canvas/authoring slots"]
+  register --> edit["Shared Edit Bar host"]
+  register --> tools["Shared Tool Bar / projection registry"]
+  register --> slots["Canvas-adjacent slots only"]
 
-  session --> compose
-  canvas --> shell["Surface shell"]
-  edit --> shell
-  tools --> shell
+  session --> register
+  canvas --> shell["Surface layout shell"]
+  edit --> appChrome["AppChrome Interaction Layer"]
+  tools --> appChrome
   slots --> shell
 
-  buildPlugin["Build extraction capability"] --> compose
+  buildPlugin["Build extraction capability"] --> register
   buildPlugin -. "consumes committed_clean envelope" .-> session
 ```
 
-The shell composes canvas and plugins. Plugins do not own or wrap the canvas.
+Layout shell composes canvas and canvas-adjacent plugins. Shared bars live under
+AppChrome. Plugins do not own or wrap shared bar hosts.
 
 ## Surface policy
 
@@ -258,11 +273,14 @@ Build after MC-01 enables:
 - exact-run status and Open in Graph Review (handoff remains intentional, not the
   sole gravity for inspection).
 
-After **MC-02b**, Build also enables the shared graph-reference capabilities
-(`reference_render`, `reference_insert_existing`, `reference_project`) using a
-**Build graph lens** (world/campaign/GM admissibility/published revision — not a
-prep-session or Plan document target). Build does **not** inherit Plan session
+After **SI-04 (Build World Reference Loop)**, Build enables shared graph-reference
+capabilities (`reference_render`, `reference_insert_existing`, `reference_project`)
+using a **Build graph lens** (world/campaign/GM admissibility/published revision —
+not a prep-session or Plan document target). Build does **not** inherit Plan session
 policy, PlanGraphLoadPanel transitional loaders, or Graph Review dispositions.
+
+**Find existing** is a **Tool Bar** workflow (not Edit Bar). Insertion invokes Canvas
+/edit commands. Build does **not** own app/shared AgentInteraction state.
 
 **Exact-run inspection boundary (refined from BLD-06):** Build may host a
 **read-only exact-run inspector** in the singular shared projection container.
@@ -400,6 +418,11 @@ provider. Sequencing authority:
 
 ## Delivery sequence
 
+> **RE-ANCHOR (2026-08-01):** MC-01, R10a, MC-02a are **landed**. MC-02b successor is
+> **SI-04 Build World Reference Loop** in
+> [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md).
+> Section below preserves pre-SI-00 sequencing evidence.
+
 ### MC-01 — Build-first Markdown canvas session
 
 - Wrap the existing workspace-document authoring hook in a reusable session/provider.
@@ -521,8 +544,10 @@ foundation records. Their full text is archived under:
 
 The active execution authority is:
 
-- this design;
-- `Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`;
-- `Docs/Plans/HANDOFF-pr426-build-first-markdown-canvas.md`.
+- [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md);
+- this design (Canvas);
+- [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md);
+- [`PLAN-shared-markdown-canvas-build-first.md`](../Plans/PLAN-shared-markdown-canvas-build-first.md) (prerequisite — MC-01 / R10a / MC-02a landed);
+- [`HANDOFF-pr426-build-first-markdown-canvas.md`](../Plans/HANDOFF-pr426-build-first-markdown-canvas.md) (historical — merged).
 
 BLD-09 remains active and is not archived. BLD-10c remains undispatched.

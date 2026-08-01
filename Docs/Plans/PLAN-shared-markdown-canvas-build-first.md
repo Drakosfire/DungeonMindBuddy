@@ -2,33 +2,38 @@
 document_id: dmb-plan-shared-markdown-canvas-build-first
 title: Shared Markdown Canvas — Build-First Execution Plan
 document_class: implementation_plan
-status: active
-version: 1.4
+status: active_prerequisite
+version: 1.5
 created_at: "2026-07-26"
-updated_at: "2026-07-27"
+updated_at: "2026-08-01"
 design: ../Design/DESIGN-shared-markdown-canvas-surface-composition.md
+interaction_authority: ../Design/ARCHITECTURE-surface-interaction-layer.md
 surface_authority: ../Design/ARCHITECTURE-plan-surface-toolbox.md
+successor_plan: PLAN-surface-interaction-hoist-build-first.md
 first_consumer: /build
 ---
 
 # Shared Markdown Canvas — Build-First Execution Plan
 
+> **RE-ANCHOR (2026-08-01):** This plan is the **prerequisite plan** for Canvas and
+> graphReference **landed primitives** (MC-01, R10a-deps, R10a, MC-02a). Remaining
+> shared Nav/Tool/Edit hoist, Plan recomposition, and Build World Reference Loop
+> route to
+> [`PLAN-surface-interaction-hoist-build-first.md`](PLAN-surface-interaction-hoist-build-first.md)
+> (SI-01–SI-05) — **not** as Build-local immediate wiring after MC-02a.
+
 ## Status
 
-**ACTIVE.** MC-01 (shared Markdown canvas session + Build migration) has landed.
-Dogfood after the preloaded Build canvas re-anchored the next sequence: shared
-graph-reference capabilities and stay-on-Build extraction inspection — **not**
-“Plan parity” by copying Plan providers, and **not** a Build-local candidate
-workbench.
+**PREREQUISITE COMPLETE** for its owned slices. MC-01, R10a-deps, R10a, and MC-02a
+have landed. **Active composition sequencing** continues in the Surface Interaction
+hoist plan.
 
 Two parallel executable lanes (converge before Stay-on-Build v2):
 
 ```text
-Lane 1 — projection / graph-reference composition
-  R10a-deps projection-host dependency extraction
-    → R10a app-scoped lift into AgentInteractionProvider
-      → MC-02a remaining neutral graph-reference extraction
-        → MC-02b Build enables shared reference capabilities
+Lane 1 — projection / graph-reference composition (PREDECESSOR SLICES DONE)
+  R10a-deps DONE → R10a DONE → MC-02a DONE
+  Successor: SI-02–SI-04 in PLAN-surface-interaction-hoist-build-first.md
 
 Lane 2 — inspection correctness (independent; start immediately)
   BLD inspection-truth defect
@@ -40,13 +45,9 @@ Convergence
               → MC-03 node authoring design gate (still gated)
 ```
 
-Executable next (Lane 1):
-
-```text
-R10a ACTIVE — see HANDOFF-r10a-app-scoped-projection-host-lift.md
-  → MC-02a remaining neutral graph-reference extraction
-    → MC-02b Build enables shared reference capabilities
-```
+**Successor executable next (composition):** SI-01 characterize Plan → SI-02 hoist
+shared Tool/Edit → SI-03 recompose Plan → SI-04 Build World Reference Loop — see
+[`PLAN-surface-interaction-hoist-build-first.md`](PLAN-surface-interaction-hoist-build-first.md).
 
 Lane 2 remains independently executable: BLD inspection-truth defect.
 
@@ -85,8 +86,10 @@ full originals are archived at
 - Do not archive “no second review panel”; **replace** with the refined boundary
   above.
 
-This plan is the sequencing authority for shared canvas/component work. It does
-not replace:
+This plan is the **prerequisite sequencing authority** for shared canvas/component
+**primitives**. Composition hoists and Build World Reference Loop are owned by
+[`PLAN-surface-interaction-hoist-build-first.md`](PLAN-surface-interaction-hoist-build-first.md).
+It does not replace:
 
 - BLD-09 PDF/OCR;
 - BLD-10c worldbuilding review UX (dispositions);
@@ -95,25 +98,25 @@ not replace:
 
 ## Current product state
 
-| Area | Current state | Next correction |
+| Area | Current state | Successor correction |
 |---|---|---|
-| Build editor | Shared `MarkdownCanvasSession` + `MarkdownCanvas` on `/build` | Enable shared graph-reference capabilities (MC-02b) after R10a-deps/R10a/MC-02a |
-| Build extraction | Toolbar consumes `committed_clean` envelope | Stay-on-Build summary/inspector after MC-02b + BLD; handoff becomes secondary |
-| Projection host | R10a-deps landed (typed bindings; route-local ownership remains) | **R10a** singular host in `AgentInteractionProvider` |
-| Plan Edit / refs | Plan-local search, chip runtime, projection open | **MC-02a** neutral contracts; Plan characterized consumer |
-| Build graph interaction | Starter `#dmb-ref` chips render; no Edit dock / projection glance | MC-02b Build lens + docked search + shared glance |
+| Build editor | Shared `MarkdownCanvasSession` + `MarkdownCanvas` on `/build` | SI-04 Build World Reference Loop (not Build-local MC-02b wiring) |
+| Build extraction | Toolbar consumes `committed_clean` envelope | Stay-on-Build summary/inspector after SI-04 + BLD; handoff becomes secondary |
+| Projection host | **DONE** — R10a landed (PR #441) | R10b bottom pane + localStorage (parallel) |
+| Plan Edit / refs | Plan characterized consumer of neutral `graphReference` (#431) | SI-01 map → SI-03 recompose Plan on shared Tool/Edit hosts |
+| Build graph interaction | Starter `#dmb-ref` chips render; shared loop not enabled | SI-04 after SI-02/SI-03 |
 | Node authoring | Graph Review Author Draft | MC-03 design gate |
-| Inspection truth | Run can be `reviewable` while review-package 422s (`false_anchor_quote`) | **Lane 2 now:** BLD inspection-truth defect (before Stay-on-Build v2; blocks truthful Stay-on-Build v1 status) |
+| Inspection truth | Run can be `reviewable` while review-package 422s (`false_anchor_quote`) | **Lane 2 now:** BLD inspection-truth defect |
 
 ## Slice table
 
 | Slice | Status | Mission | Must remain false |
 |---|---|---|---|
 | MC-01 | **DONE** (PR #426) | Shared canvas session/view + Build migration + admitted extraction envelope | — |
-| R10a-deps | **DONE** (PR #438) — [`HANDOFF-r10a-deps-projection-host-dependency-extraction.md`](./HANDOFF-r10a-deps-projection-host-dependency-extraction.md) | Projected Plan/Ingest content stops requiring route-local hooks; explicit payloads or app-registered deps | Container lift; Build enablement; bottom-pane redesign |
-| R10a | **ACTIVE** — [`HANDOFF-r10a-app-scoped-projection-host-lift.md`](./HANDOFF-r10a-app-scoped-projection-host-lift.md) | Singular projection registry/state/container owned by `AgentInteractionProvider` above route switch; typed surface publication; Plan interaction-equivalent | Build graph enablement; bottom-pane redesign; localStorage Phase A; sibling ProjectionProvider |
-| MC-02a | QUEUED | Remaining surface-neutral `reference_render` / `reference_insert_existing` / `reference_project`; Plan unchanged as consumer | Build enablement; extraction inspector; MC-03 |
-| MC-02b | QUEUED | Build enables those three capabilities via Build lens + app-scoped host | Extraction candidates; dispositions; PlanGraphLoadPanel; node create |
+| R10a-deps | **DONE** (PR #438) | Projected Plan/Ingest content stops requiring route-local hooks | — |
+| R10a | **DONE** (PR #441) — [`HANDOFF-r10a-app-scoped-projection-host-lift.md`](./HANDOFF-r10a-app-scoped-projection-host-lift.md) | Singular projection host in `AgentInteractionProvider` | Build graph enablement was explicitly deferred |
+| MC-02a | **DONE** (PR #431) — [`HANDOFF-pr431-surface-neutral-graph-reference-loop.md`](./HANDOFF-pr431-surface-neutral-graph-reference-loop.md) | Neutral `graphReference` contracts; Plan characterized consumer | Build enablement deferred to SI-04 |
+| MC-02b | **SUCCESSOR: SI-04** | Build World Reference Loop via shared hosts — see [`PLAN-surface-interaction-hoist-build-first.md`](PLAN-surface-interaction-hoist-build-first.md) | Build-local immediate wiring; Edit Bar Find existing |
 | BLD inspection truth | **NEXT (Lane 2)** | Truthful inspection readiness vs `reviewable`; structured diagnostics | New Build panel; weakened evidence validation; waiting on MC-02* |
 | Stay-on-Build v1 | QUEUED | In-place exact-run summary + secondary Open full Graph Review | Candidate selection; highlight; insert; untruthful `reviewable` display if BLD not landed |
 | Stay-on-Build v2 | QUEUED | Read-only Extraction Run Inspector as tool projection | Dispositions; identity correction; elevation; prepare/confirm; direct insert |

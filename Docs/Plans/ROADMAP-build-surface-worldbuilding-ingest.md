@@ -13,7 +13,9 @@ The complete original document is preserved verbatim at
 
 Current componentization authority:
 
-- [Shared Markdown Canvas design](../Design/DESIGN-shared-markdown-canvas-surface-composition.md)
-- [Build-first execution plan](PLAN-shared-markdown-canvas-build-first.md)
+- [`ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md) — shared bars / publication
+- [Shared Markdown Canvas design](../Design/DESIGN-shared-markdown-canvas-surface-composition.md) — Canvas primitive
+- [Surface Interaction hoist plan](PLAN-surface-interaction-hoist-build-first.md) — active composition sequencing
+- [Build-first prerequisite plan](PLAN-shared-markdown-canvas-build-first.md) — MC-01 / R10a / MC-02a landed
 
 BLD-09 PDF/OCR remains independent and active. BLD-10c remains undispatched.
