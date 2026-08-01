@@ -1,0 +1,160 @@
+/**
+ * Surface-neutral interaction publication contract (SIH-01).
+ *
+ * Authority: Docs/Plans/HANDOFF-sih01-neutral-surface-interaction-contracts.md §6.1.
+ * Runtime-only, non-durable, no provider lease tokens, no React/JSX payloads.
+ */
+
+export interface SurfaceInteractionIdentity {
+  surfaceId: string;
+  /** Opaque exact instance key — structured tuple encoding, never labels. */
+  instanceKey: string;
+}
+
+export type SurfaceInteractionInstancePart = string | number | boolean | null;
+
+export type SurfaceInteractionAvailability =
+  | { status: "enabled"; disabledReason?: never }
+  | { status: "disabled"; disabledReason: string };
+
+export interface SurfaceInteractionPointer {
+  kind: string;
+  value: string;
+}
+
+export interface SurfaceInteractionWorkObjectIdentity {
+  kind: string;
+  id: string;
+}
+
+export interface SurfaceInteractionCanvasContribution {
+  canvasId: string;
+  workObject: SurfaceInteractionWorkObjectIdentity;
+}
+
+export interface SurfaceInteractionAgentContextContribution {
+  label: string;
+  campaignId: string | null;
+  documentId: string | null;
+  sessionNumber: number | null;
+  ambientSummary: string | null;
+  pointers: readonly SurfaceInteractionPointer[];
+}
+
+export interface SurfaceInteractionPlacement {
+  /** Null means pinned/top-level. */
+  groupId: string | null;
+  /** Null iff groupId is null. */
+  groupLabel: string | null;
+  groupOrder: number;
+  itemOrder: number;
+}
+
+export type SurfaceInteractionToolActivation =
+  | { kind: "projection"; projectionId: string }
+  | { kind: "command"; invoke: () => void | Promise<void> };
+
+export interface SurfaceInteractionToolContribution {
+  id: string;
+  label: string;
+  eyebrow?: string;
+  placement: SurfaceInteractionPlacement;
+  availability: SurfaceInteractionAvailability;
+  activation: SurfaceInteractionToolActivation;
+}
+
+export interface SurfaceInteractionCommandTarget {
+  kind: string;
+  id: string;
+}
+
+export interface SurfaceInteractionEditCommandContribution {
+  id: string;
+  label: string;
+  eyebrow?: string;
+  placement: SurfaceInteractionPlacement;
+  availability: SurfaceInteractionAvailability;
+  target: SurfaceInteractionCommandTarget;
+  invoke: () => void | Promise<void>;
+}
+
+export type SurfaceInteractionProjectionKind = "tool" | "content";
+
+export type SurfaceInteractionProjectionSize = "compact" | "wide" | "fullscreen";
+
+export interface SurfaceInteractionProjectionDescriptor {
+  id: string;
+  kind: SurfaceInteractionProjectionKind;
+  preferredSize: SurfaceInteractionProjectionSize;
+  bindingIds: readonly string[];
+}
+
+export interface SurfaceInteractionProjectionBinding<TBinding = unknown> {
+  id: string;
+  value: TBinding;
+}
+
+export interface SurfaceInteractionPublication<TBinding = unknown> {
+  surfaceId: string;
+  label: string;
+  identity: SurfaceInteractionIdentity;
+  canvas: SurfaceInteractionCanvasContribution | null;
+  agentContext: SurfaceInteractionAgentContextContribution | null;
+  tools: readonly SurfaceInteractionToolContribution[];
+  editCommands: readonly SurfaceInteractionEditCommandContribution[];
+  projections: readonly SurfaceInteractionProjectionDescriptor[];
+  projectionBindings: readonly SurfaceInteractionProjectionBinding<TBinding>[];
+}
+
+/**
+ * Stable issue codes. The twenty codes required by the handoff §6.3 table are
+ * listed first, in table order. The final four implement the §6.5/§6.6 runtime
+ * rejection requirements for untyped input (activation discriminant, callback
+ * presence, unknown projection kind/size) and are an intentional, documented
+ * extension of the required set.
+ */
+export type SurfaceInteractionValidationIssueCode =
+  | "surface_id_blank"
+  | "instance_key_blank"
+  | "identity_surface_mismatch"
+  | "publication_label_blank"
+  | "contribution_id_blank"
+  | "duplicate_tool_id"
+  | "duplicate_edit_command_id"
+  | "duplicate_projection_id"
+  | "duplicate_projection_binding_id"
+  | "placement_invalid"
+  | "disabled_reason_missing"
+  | "enabled_has_disabled_reason"
+  | "tool_projection_missing"
+  | "tool_projection_kind_mismatch"
+  | "projection_binding_missing"
+  | "projection_binding_duplicate_reference"
+  | "canvas_identity_invalid"
+  | "command_target_invalid"
+  | "agent_context_invalid"
+  | "agent_pointer_invalid"
+  | "tool_activation_invalid"
+  | "edit_command_invoke_invalid"
+  | "projection_kind_unknown"
+  | "projection_size_unknown";
+
+export interface SurfaceInteractionValidationIssue {
+  code: SurfaceInteractionValidationIssueCode;
+  /** Human-readable summary. Never carries callback source, binding values, or document bodies. */
+  message: string;
+  /** Exact contribution ID where applicable (may be blank when blankness is the defect). */
+  contributionId?: string;
+  /** Collection index of the offending contribution where applicable. */
+  contributionIndex?: number;
+  /** Exact referenced ID (projection target, binding ID) where applicable. */
+  referencedId?: string;
+}
+
+export type SurfaceInteractionValidationResult<TBinding = unknown> =
+  | { valid: true; publication: SurfaceInteractionPublication<TBinding> }
+  | {
+      valid: false;
+      publication: SurfaceInteractionPublication<TBinding>;
+      issues: readonly SurfaceInteractionValidationIssue[];
+    };

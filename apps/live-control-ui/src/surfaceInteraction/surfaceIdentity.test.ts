@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  createSurfaceInteractionIdentity,
+  encodeSurfaceInteractionInstanceKey,
+  sameSurfaceInteractionIdentity,
+} from "./surfaceIdentity";
+import type { SurfaceInteractionInstancePart } from "./types";
+
+describe("encodeSurfaceInteractionInstanceKey", () => {
+  it("is deterministic for the same typed tuple", () => {
+    const parts: SurfaceInteractionInstancePart[] = ["plan", "doc-1", 3, null, true];
+    expect(encodeSurfaceInteractionInstanceKey(parts)).toBe(
+      encodeSurfaceInteractionInstanceKey([...parts]),
+    );
+  });
+
+  it("preserves tuple boundaries against delimiter adversaries", () => {
+    const left = encodeSurfaceInteractionInstanceKey(["a", "b:c"]);
+    const right = encodeSurfaceInteractionInstanceKey(["a:b", "c"]);
+    expect(left).not.toBe(right);
+  });
+
+  it("preserves part types so distinct typed tuples cannot collapse", () => {
+    const cases: Array<[SurfaceInteractionInstancePart, SurfaceInteractionInstancePart]> = [
+      ["1", 1],
+      ["true", true],
+      ["null", null],
+      ["0", 0],
+      [0, false],
+      ["", null],
+    ];
+    for (const [left, right] of cases) {
+      expect(encodeSurfaceInteractionInstanceKey([left])).not.toBe(
+        encodeSurfaceInteractionInstanceKey([right]),
+      );
+    }
+  });
+
+  it("never derives identity from display labels", () => {
+    const key = encodeSurfaceInteractionInstanceKey(["plan", "doc-1"]);
+    expect(key).not.toContain("Plan");
+    expect(key).toBe('["plan","doc-1"]');
+  });
+
+  it("rejects non-encodable parts that would break injectivity", () => {
+    const bad: unknown[] = [undefined, Number.NaN, Number.POSITIVE_INFINITY, {}, [], () => {}];
+    for (const part of bad) {
+      expect(() =>
+        encodeSurfaceInteractionInstanceKey([part as SurfaceInteractionInstancePart]),
+      ).toThrow(TypeError);
+    }
+  });
+});
+
+describe("createSurfaceInteractionIdentity", () => {
+  it("combines the exact surface ID with the encoded instance parts", () => {
+    const identity = createSurfaceInteractionIdentity({
+      surfaceId: "plan",
+      instanceParts: ["plan", "doc-1", 3],
+    });
+    expect(identity).toEqual({
+      surfaceId: "plan",
+      instanceKey: '["plan","doc-1",3]',
+    });
+  });
+
+  it("carries no label or domain-specific fields", () => {
+    const identity = createSurfaceInteractionIdentity({
+      surfaceId: "build",
+      instanceParts: ["build", null],
+    });
+    expect(Object.keys(identity).sort()).toEqual(["instanceKey", "surfaceId"]);
+  });
+});
+
+describe("sameSurfaceInteractionIdentity", () => {
+  const identity = createSurfaceInteractionIdentity({
+    surfaceId: "plan",
+    instanceParts: ["plan", "doc-1"],
+  });
+
+  it("returns false for null or undefined on either side", () => {
+    expect(sameSurfaceInteractionIdentity(null, identity)).toBe(false);
+    expect(sameSurfaceInteractionIdentity(identity, undefined)).toBe(false);
+    expect(sameSurfaceInteractionIdentity(null, null)).toBe(false);
+    expect(sameSurfaceInteractionIdentity(undefined, undefined)).toBe(false);
+  });
+
+  it("returns true only for exact surfaceId and instanceKey matches", () => {
+    const same = createSurfaceInteractionIdentity({
+      surfaceId: "plan",
+      instanceParts: ["plan", "doc-1"],
+    });
+    expect(sameSurfaceInteractionIdentity(identity, same)).toBe(true);
+
+    expect(
+      sameSurfaceInteractionIdentity(identity, { ...same, surfaceId: "build" }),
+    ).toBe(false);
+    expect(
+      sameSurfaceInteractionIdentity(identity, {
+        surfaceId: "plan",
+        instanceKey: '["plan","doc-2"]',
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores labels and other non-identity decoration", () => {
+    const decorated = {
+      ...identity,
+      label: "Renamed surface",
+    };
+    expect(sameSurfaceInteractionIdentity(identity, decorated)).toBe(true);
+  });
+});
