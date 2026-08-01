@@ -6,6 +6,6 @@ Observed / exploratory **regression** cohort only. Several rows are noun-substit
 
 Provider results have already been observed — do **not** edit gold, sources, or spans in place.
 
-Independent promotion adversarial authority moves to **adversarial V8** (V7 also retired; novel constructions + template-overlap guards).
+Independent promotion adversarial authority moves to **adversarial V9** (V8 also retired; novel constructions + template-overlap guards).
 
 See `GOLD-AUDIT.md`.

@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v11/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v11/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:cf1fdd299bde2b12",
+    "assertion:4748bfc6a1bc87a4",
+    "assertion:11a5c700e06ca5aa",
+    "assertion:08211230b5672bb4",
+    "assertion:0fa2194c373d6af3",
+    "assertion:089e429987da7d53",
+    "assertion:0fc1c3f35074b0bb",
+    "assertion:f0b95eaba30b4c80",
+    "assertion:5e29b10e861a06f0",
+    "assertion:9239f08721e45750",
+    "assertion:7f1f9c3be3e91c22",
+    "assertion:cd5bbef7b9bce21b"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s12-dustwalker-kill",
+      "source_artifact_id": "source-artifact:v11-s12-dustwalker-kill",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "source_ref_id": "source-ref:v11-s12-dustwalker-kill",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 12 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s11-results-following-day",
+      "source_artifact_id": "source-artifact:v11-s11-results-following-day",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "content_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+      "source_ref_id": "source-ref:v11-s11-results-following-day",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 11 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s22-lieutenant",
+      "source_artifact_id": "source-artifact:v11-s22-lieutenant",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "source_ref_id": "source-ref:v11-s22-lieutenant",
+      "start_line": 38,
+      "end_line": 38,
+      "label": "Session 22 - Mireward Road and Lysandro.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s22-restaurant-abandoned",
+      "source_artifact_id": "source-artifact:v11-s22-restaurant-abandoned",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "source_ref_id": "source-ref:v11-s22-restaurant-abandoned",
+      "start_line": 30,
+      "end_line": 30,
+      "label": "Session 22 - Mireward Road and Lysandro.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s23-compulsion-end",
+      "source_artifact_id": "source-artifact:v11-s23-compulsion-end",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "source_ref_id": "source-ref:v11-s23-compulsion-end",
+      "start_line": 36,
+      "end_line": 36,
+      "label": "Session 23 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s11-professor-30y",
+      "source_artifact_id": "source-artifact:v11-s11-professor-30y",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "content_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+      "source_ref_id": "source-ref:v11-s11-professor-30y",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 11 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s4-still-on-edge",
+      "source_artifact_id": "source-artifact:v11-s4-still-on-edge",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+      "content_sha256": "0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832",
+      "source_ref_id": "source-ref:v11-s4-still-on-edge",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 4 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s1-dragon-scale",
+      "source_artifact_id": "source-artifact:v11-s1-dragon-scale",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+      "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+      "source_ref_id": "source-ref:v11-s1-dragon-scale",
+      "start_line": 13,
+      "end_line": 13,
+      "label": "Session 1 - Let the Games Begin.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s16-final-decision",
+      "source_artifact_id": "source-artifact:v11-s16-final-decision",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+      "content_sha256": "38fe100ba220bb6faf544fe79f6b77a4c8aa0219d9535aa608ca04743caef535",
+      "source_ref_id": "source-ref:v11-s16-final-decision",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 16 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s24-refugee-plan",
+      "source_artifact_id": "source-artifact:v11-s24-refugee-plan",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+      "content_sha256": "7fe085121d651f21211f8e58c3192159c4cfaf7b07ce9f78d02b4d082e5df8bc",
+      "source_ref_id": "source-ref:v11-s24-refugee-plan",
+      "start_line": 32,
+      "end_line": 32,
+      "label": "Session 24 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s11-spores-ambiguous",
+      "source_artifact_id": "source-artifact:v11-s11-spores-ambiguous",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "content_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+      "source_ref_id": "source-ref:v11-s11-spores-ambiguous",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 11 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v11:s13-festival-postponed",
+      "source_artifact_id": "source-artifact:v11-s13-festival-postponed",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+      "content_sha256": "3a1278d88978d28118494dfb881f5bc5f479fe1ffd88fb039fd8dfe52661e27f",
+      "source_ref_id": "source-ref:v11-s13-festival-postponed",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 13 - Recap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "case_id": "tl01f-temporal-shadow-holdout-v11-v1",
+  "prompt_version": "tl01f-v1",
+  "base_contribution_sha256": "b7e6f3f64c34602810f41aa27791956b99fe267ae2a30f8279271e0e34fa58a2",
+  "gold_overlay_sha256": "9aa061f2f2771b1eea65c423874d92881cb0ab30d62d8fabf8a574a11222bdf5"
+}

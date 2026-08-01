@@ -1,9 +1,11 @@
 # Temporal shadow holdout cohort V10 (TL01G)
 
-**Independent TL01G promotion holdout** authored after immutable prompt-only freeze `67408bd871ba684e70ddf6e53dd7088d0036a475`. V9 is retired observed regression.
+**RETIRED as independent TL01G promotion evidence.**
 
-Canonical corpus-grounded rows with disjoint span fingerprints from all prior `temporal_shadow_*` evidence registries (including V9). Proposition-first ambiguous row encodes competing readings in the assertion label (`or`), not surrounding consequences. V9 gold defects (persistent-rest valid-start, costume signup NA, identity ambiguous) are corrected here.
+Observed / exploratory regression cohort only. Provider results were observed, then review found: GOLD-AUDIT assertion IDs mismatched the sealed base/gold; festival postponement gold used invalid-end under Gate C; migration ambiguous gold rejected one reading via evidence. Do **not** edit gold, base, spans, or GOLD-AUDIT in place.
 
-See `GOLD-AUDIT.md` for the sealed row table. Do not mutate after first provider run.
+Independent promotion authority moves to **holdout V11**.
+
+See `GOLD-AUDIT.md` for the sealed (but inconsistent) row table retained for forensic comparison.
 
 **Promotion seal / first provider execution:** `046093fd899e1b286329b0e0bf6b09b6aa0e60d6`.

@@ -1,0 +1,356 @@
+{
+  "contribution_id": "contribution:1d2d7797e6f150c2",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v11",
+  "produced_at": "2026-08-01T18:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:cf1fdd299bde2b12",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": "npc:dustwalker",
+      "predicate": "killed_dustwalker",
+      "label": "Caelynn killed the Dustwalker at the Glimmering Globe",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s12-dustwalker-kill",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s12-dustwalker-kill"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:4748bfc6a1bc87a4",
+      "assertion_kind": "attribute",
+      "subject_node_id": "event:coliseum-results",
+      "target_node_id": null,
+      "predicate": "will_be_announced",
+      "label": "Coliseum results will be announced the following day",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s11-results-following-day",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s11-results-following-day"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:11a5c700e06ca5aa",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "addressed_as_lieutenant",
+      "label": "Lysandra is addressed as Lieutenant Lysandra",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s22-lieutenant",
+            "session_id": "session-22"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s22-lieutenant"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:08211230b5672bb4",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:roadside-meat-stick-restaurant",
+      "target_node_id": null,
+      "predicate": "is_abandoned",
+      "label": "The roadside meat-stick restaurant is abandoned",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s22-restaurant-abandoned",
+            "session_id": "session-22"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s22-restaurant-abandoned"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:0fa2194c373d6af3",
+      "assertion_kind": "attribute",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": null,
+      "predicate": "compulsion_ended",
+      "label": "Bonogo feels compelled to attack the meatwings",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s23-compulsion-end",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s23-compulsion-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:089e429987da7d53",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:stormspire-professor",
+      "target_node_id": null,
+      "predicate": "left_academy",
+      "label": "The Stormspire professor left about thirty years ago",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s11-professor-30y",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s11-professor-30y"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:0fc1c3f35074b0bb",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:mirathorn",
+      "target_node_id": null,
+      "predicate": "still_on_edge",
+      "label": "Everyone is still on edge about the missing guards",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s4-still-on-edge",
+            "session_id": "session-4"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s4-still-on-edge"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:f0b95eaba30b4c80",
+      "assertion_kind": "attribute",
+      "subject_node_id": "item:dragon-scale",
+      "target_node_id": null,
+      "predicate": "from_extinct_lineage",
+      "label": "The dragon scale is from an extinct dragon lineage",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s1-dragon-scale",
+            "session_id": "session-1"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s1-dragon-scale"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:5e29b10e861a06f0",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": null,
+      "predicate": "must_decide_next_steps",
+      "label": "The group must make a final decision on the next steps",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s16-final-decision",
+            "session_id": "session-16"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s16-final-decision"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:9239f08721e45750",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "group:edge-refugees",
+      "predicate": "must_plan_for_refugees",
+      "label": "The group must create a plan for the Edge refugees",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s24-refugee-plan",
+            "session_id": "session-24"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s24-refugee-plan"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:7f1f9c3be3e91c22",
+      "assertion_kind": "attribute",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": "item:mushroom-spores",
+      "predicate": "holds_or_received_spores",
+      "label": "Caelynn holds the mushroom spores since Tealeaf's lesson or only received them then",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s11-spores-ambiguous",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s11-spores-ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    },
+    {
+      "assertion_id": "assertion:cd5bbef7b9bce21b",
+      "assertion_kind": "attribute",
+      "subject_node_id": "event:mirathorn-festival",
+      "target_node_id": null,
+      "predicate": "postponement_announced",
+      "label": "The Mirathorn festival has been postponed",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v11:s13-festival-postponed",
+            "session_id": "session-13"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s13-festival-postponed"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1d2d7797e6f150c2"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

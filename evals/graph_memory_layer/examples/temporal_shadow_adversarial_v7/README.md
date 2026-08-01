@@ -4,7 +4,7 @@
 
 Observed / exploratory regression cohort only. Gold defects retained for historical honesty: future-with-`tomorrow` marked unresolved, grounding trap resolved with object-NP `raw_expression`. Do **not** edit gold, sources, or spans in place.
 
-Independent promotion adversarial authority moves to **adversarial V8**.
+Independent promotion adversarial authority moves to **adversarial V9**.
 
 See `GOLD-AUDIT.md` for the sealed row table.
 

@@ -1,0 +1,287 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:7a0cec99ea3085ae",
+  "base_contribution_id": "contribution:1d2d7797e6f150c2",
+  "base_contribution_source_payload_sha256": "af17347fa6940be7eebefb68412b0ebd53c95b618f13ebe9f8b005bb5685ff6f",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v11",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v110000000000000001",
+      "base_assertion_id": "assertion:cf1fdd299bde2b12",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s12-dustwalker-kill"
+      ],
+      "source_phrase": "She also kills the Dustwalker!",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000002",
+      "base_assertion_id": "assertion:4748bfc6a1bc87a4",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "the following day",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s11-results-following-day"
+      ],
+      "source_phrase": "They are informed that the results will be announced the following day",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000003",
+      "base_assertion_id": "assertion:11a5c700e06ca5aa",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-22",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "inferred"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s22-lieutenant"
+      ],
+      "source_phrase": "No dad, it’s Lieutenant Lysandra now",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start lane; occurrence null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000004",
+      "base_assertion_id": "assertion:08211230b5672bb4",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "no more than a week ago",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s22-restaurant-abandoned"
+      ],
+      "source_phrase": "the place was only recently abandoned, no more than a week ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000005",
+      "base_assertion_id": "assertion:0fa2194c373d6af3",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-23",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s23-compulsion-end"
+      ],
+      "source_phrase": "Bonogo and Ephanna no longer feel compelled to attack the meatwings",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane; Gate C end boundary (no longer)"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000006",
+      "base_assertion_id": "assertion:089e429987da7d53",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "about 30 years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s11-professor-30y"
+      ],
+      "source_phrase": "He left about 30 years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical event proposition; occurrence lane textual without session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000007",
+      "base_assertion_id": "assertion:0fc1c3f35074b0bb",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s4-still-on-edge"
+      ],
+      "source_phrase": "everyone is still on edge about all the missing guards",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000008",
+      "base_assertion_id": "assertion:f0b95eaba30b4c80",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s1-dragon-scale"
+      ],
+      "source_phrase": "the scale was from an ancient dragon that is long extinct",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "identity or classification proposition; Gate B not eligible"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000009",
+      "base_assertion_id": "assertion:5e29b10e861a06f0",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s16-final-decision"
+      ],
+      "source_phrase": "The group must make a final decision on the next steps",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "plan urgency without grounded occurrence time distinct from session provenance"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000010",
+      "base_assertion_id": "assertion:9239f08721e45750",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s24-refugee-plan"
+      ],
+      "source_phrase": "create a plan for the refugees",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000011",
+      "base_assertion_id": "assertion:7f1f9c3be3e91c22",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s11-spores-ambiguous"
+      ],
+      "source_phrase": "They exchange mushroom spores and she instructs Caelynn on the best way to grow them",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings: custody start since lesson vs one-time receipt at exchange; evidence does not reject either"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v110000000000000012",
+      "base_assertion_id": "assertion:cd5bbef7b9bce21b",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has been postponed",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v11:s13-festival-postponed"
+      ],
+      "source_phrase": "the festival has been postponed",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "postponement is event/transition occurrence textual; Gate C rejects valid-end for postponement"
+      ]
+    }
+  ]
+}
