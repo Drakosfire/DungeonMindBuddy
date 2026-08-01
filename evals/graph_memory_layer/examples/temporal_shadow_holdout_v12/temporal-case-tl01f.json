@@ -139,8 +139,8 @@
     }
   ],
   "snippet_max_chars": 2000,
-  "base_contribution_sha256": "808a802063bb533508a9f3dae79525d95dbbfa6e81fc8b07db2c60b70c684a2c",
-  "gold_overlay_sha256": "bd42245a44a8552ac743d6793e4bd30d596ee3d397e44455d81dc0c590ae12a9",
+  "base_contribution_sha256": "20ccb5083061ca54a55801dfd1bd051333d5c27f27cdffd0fe793619fd817d63",
+  "gold_overlay_sha256": "f7635a29c37b1f75c46e7351b7909cceff829a9b4d6407c482e0b526987ee5ca",
   "case_id": "tl01f-temporal-shadow-holdout-v12-v1",
   "prompt_version": "tl01f-v1"
 }
