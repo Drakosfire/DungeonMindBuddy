@@ -25,18 +25,19 @@ pr_body_template: |
   | tl01g-v1 frozen; tl01f-v1 unchanged | prompt registry + hash tests | `uv run pytest tests/test_temporal_shadow_extraction_tl01g.py -q` | TODO |
   | Packet/renderer V2 unchanged | registry identity tests | same + registry assertions | TODO |
   | No kernel/schema/evaluator/threshold/runner change | diff allowlist | `git diff --stat` vs §4 | TODO |
-  | Lane regression green | Matrix A aggregate | `.../tl01g/regression-lane/calibration/aggregate.json` | TODO |
-  | Abstention regression green on known TL01F blockers | Matrix B aggregate | `.../tl01g/regression-abstention/calibration/aggregate.json` | TODO |
-  | Legacy safety regression green | Matrix C aggregate | `.../tl01g/regression-legacy/calibration/aggregate.json` | TODO |
-  | Fresh V8/V6 independent + sealed before execution | fixtures + independence tests | fingerprint/ID/vocab tests + seal SHA | TODO |
-  | Promotion decision trustworthy from fresh cohorts only | Matrix D aggregate + report | `.../tl01g/promotion/calibration/aggregate.json` + REPORT | TODO |
+  | Lane regression green | Matrix A aggregate | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/regression-lane/calibration/aggregate.json` | TODO |
+  | Abstention regression green on known TL01F blockers | Matrix B aggregate | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/regression-abstention/calibration/aggregate.json` | TODO |
+  | Legacy safety regression green | Matrix C aggregate | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/regression-legacy/calibration/aggregate.json` | TODO |
+  | Fresh V8/V6 independent + sealed before execution | fixtures + independence tests | separate semantic + source fingerprint gates + ID/vocab tests + seal SHA | TODO |
+  | Promotion decision trustworthy from fresh cohorts only | Matrix D aggregate + report | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` + REPORT | TODO |
 
   ## Scope and explicit deferrals
   Base: origin/main containing PR #463 merge e04a2126.
   Branch: feat/tl01g-resolution-proof-abstention-gate.
   Explicitly deferred: broader-shadow acceptance, textual normalization productization,
   grounding retries/salvage, Temporal Kernel/packet/renderer changes, graph writes,
-  Timeline API/UI.
+  Timeline API/UI, world-line scope / named branch refs / multi-parent revisions / merge
+  semantics.
 
   ## Evidence produced
   ### Automated
@@ -57,15 +58,16 @@ pr_body_template: |
 **Created:** 2026-07-31  
 **Project:** DungeonBuddy / DungeonMindBuddy  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Status:** ACTIVE — next Timeline prompt-calibration slice  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-pr465-tl01g-resolution-proof-abstention-gate.md`  
-**Also known as:** `HANDOFF-tl01g-resolution-proof-abstention-gate.md` (slug without planned PR prefix)  
-**Planned PR number:** `465` (next after open `#464` / merged `#463`; rename if the opened PR number differs)  
+**Status:** ACTIVE DESIGN — docs-only authority for the next Timeline prompt-calibration slice  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-tl01g-resolution-proof-abstention-gate.md`  
+**Also known as:** this unnumbered active handoff (no planned implementation PR number)  
+**Planned PR number:** none — this documentation change is itself PR `#465`; do not map `HANDOFF-pr465-*` to the future implementation. Rename to `HANDOFF-pr<N>-…` only after the implementation PR number `<N>` is actually known, in a separately reviewed doc-sync.  
 **Required dependency:** PR `#463`, merged as `e04a2126adc8fbb735a2a7052fb0ebeeda2791ef`  
-**Design / implementation base:** current clean `origin/main` containing that merge (observed at handoff authoring as `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e`)  
+**Design anchor:** the commit that lands this unnumbered handoff on `main` (fill after merge)  
+**Required implementation base:** exact `main` SHA that contains this merged handoff — record before dispatch; the implementation worker must start from that SHA and must not redefine or rename this authority document  
 **Suggested branch:** `feat/tl01g-resolution-proof-abstention-gate`  
 **Suggested worktree:** `../DungeonMindBuddy-tl01g`  
-**Expected PR count:** one  
+**Expected PR count:** one implementation PR after this docs PR merges  
 **Operating mode:** prompt-only semantic iteration with sealed evaluation  
 **Graph writes:** forbidden  
 **Temporal Kernel changes:** forbidden  
@@ -73,7 +75,7 @@ pr_body_template: |
 **Comparison, threshold, and calibration-runner changes:** forbidden  
 **Timeline API, event nodes, participant roles, projection, and UI:** forbidden  
 
-> **Dispatch gate:** Dispatch is prohibited until the pre-dispatch critique below is accepted, expected paths are known, and every acceptance claim has an owning proof. This checked-in handoff is the complete authority. The PR description must use the frontmatter `pr_body_template` and remain a truthful merge contract.
+> **Dispatch gate:** Dispatch is prohibited until (1) this docs PR merges, (2) the exact implementation-base SHA containing the merged handoff is recorded, (3) the pre-dispatch critique below is accepted, and (4) every acceptance claim has an owning proof. This checked-in handoff is the complete authority; the implementation worker must not edit it. The implementation PR description must use the frontmatter `pr_body_template` and remain a truthful merge contract.
 
 ---
 
@@ -84,7 +86,7 @@ pr_body_template: |
 | Can one invariant govern every claimed observable path? | **Yes.** Every control/candidate run is the same shadow extraction path; the invariant is “resolved only after full resolution proof, else correct abstention,” evaluated via four sealed matrices. Split only if packet/kernel/evaluator changes become necessary. |
 | What adversarial sequence is most likely to falsify it? | Future commitment spoken in a timed source → model reuses `source_context.source_time` as `valid_time.start` / occurrence (Lysandra / Corveth patterns) while emitting `resolved`, counting as readiness. |
 | Would the proposed §7 / Matrix B evidence detect that failure? | **Yes**, if Matrix B gates require 3/3 unresolved/NA on those known rows and the promotion aggregate refuses readiness when `unsafe_over_resolution > 0`. |
-| Which owning boundary is easiest to under-test? | Fresh V8/V6 **semantic/source-span independence** (ID-only disjointness is insufficient — TL01F V7 lesson). Also: authoring fresh rows before prompt freeze. |
+| Which owning boundary is easiest to under-test? | Fresh V8 **separate** semantic-proposition and source/evidence fingerprint gates (combined tuple or ID-only disjointness is insufficient — TL01F V7 lesson). Also: anti-oracle contamination of instructional prose; authoring fresh rows before prompt freeze. |
 | What fact would force this slice to stop or split? | Need for Temporal Kernel / packet V3 / renderer V3 / threshold or runner changes; inability to assemble independent canonical V8; gold defect after first provider execution; overlapping active TL01G PR. |
 
 **Collision-risk pre-flight (authoring time):** no existing `tl01g-v1`, `test_temporal_shadow_extraction_tl01g.py`, `temporal_shadow_holdout_v8`, or `temporal_shadow_adversarial_v6` on `origin/main`. No open TL01G PR. TL01F merge is ancestor of `origin/main`.
@@ -94,17 +96,27 @@ pr_body_template: |
 | Action | Path | Purpose |
 | --- | --- | --- |
 | Modify | `src/graph_memory/temporal_shadow_extraction.py` | Add `TL01G_RESOLUTION_PROOF_ABSTENTION_INSTRUCTIONS` + `tl01g-v1` registry entry only |
-| Create | `tests/test_temporal_shadow_extraction_tl01g.py` | Prompt identity, content guards, freshness, gold coverage, few-shot uniqueness |
+| Create | `tests/test_temporal_shadow_extraction_tl01g.py` | Prompt identity, content guards, freshness, gold coverage, whole-prompt anti-oracle scan |
 | Modify | `tests/test_temporal_shadow_extraction_tl01f.py` | Only if required to preserve/assert `tl01f-v1` hash stability (prefer no edit) |
 | Create | `evals/graph_memory_layer/examples/temporal_shadow_holdout_v8/**` | Fresh canonical promotion holdout + audit + cases |
 | Create | `evals/graph_memory_layer/examples/temporal_shadow_adversarial_v6/**` | Fresh synthetic promotion adversarial + sources + audit + cases |
-| Create | `evals/graph_memory_layer/examples/*/temporal-case-tl01g.json` | Regression mirrors for cohorts used by Matrices A–C (and development) |
-| Create | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/**/calibration/aggregate.json` | Four durable aggregates |
+| Create | `evals/graph_memory_layer/examples/temporal_shadow_cohort/temporal-case-tl01g.json` | Regression mirror (Matrices A–D development) |
+| Create | `evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case-tl01g.json` | Regression mirror (Matrix C holdout) |
+| Create | `evals/graph_memory_layer/examples/temporal_shadow_holdout_v5/temporal-case-tl01g.json` | Regression mirror (Matrix A holdout) |
+| Create | `evals/graph_memory_layer/examples/temporal_shadow_holdout_v7/temporal-case-tl01g.json` | Regression mirror (Matrix B holdout) |
+| Create | `evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/temporal-case-tl01g.json` | Regression mirror (Matrix C adversarial) |
+| Create | `evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/temporal-case-tl01g.json` | Regression mirror (Matrix A adversarial) |
+| Create | `evals/graph_memory_layer/examples/temporal_shadow_adversarial_v5/temporal-case-tl01g.json` | Regression mirror (Matrix B adversarial) |
+| Create | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/regression-lane/calibration/aggregate.json` | Matrix A durable aggregate |
+| Create | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/regression-abstention/calibration/aggregate.json` | Matrix B durable aggregate |
+| Create | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/regression-legacy/calibration/aggregate.json` | Matrix C durable aggregate |
+| Create | `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` | Matrix D durable aggregate |
 | Modify | `.gitignore` | Allowlist entries for the four TL01G aggregates only if required |
 | Create | `Docs/Reports/REPORT-tl01g-resolution-proof-abstention-gate.md` | Roadmap recommendation + evidence |
-| Create / Modify | `Docs/Plans/HANDOFF-pr465-tl01g-resolution-proof-abstention-gate.md` | This handoff (docs-only commits allowed) |
 
-**Bounded discovery exception:** none. No unrestricted globs.
+**Out of implementation allowlist:** `Docs/Plans/HANDOFF-tl01g-resolution-proof-abstention-gate.md` and any acceptance-authority edits. Changing this handoff requires a separately reviewed re-brief, not an implementation-side edit.
+
+**Bounded discovery exception:** none. No unrestricted globs. Exact seven regression mirrors and four aggregates only.
 
 ### Dispatch contract — §5 denylist (must not touch)
 
@@ -115,6 +127,7 @@ pr_body_template: |
 | `evals/graph_memory_layer/temporal_shadow_prompt_calibration.py` | Runner / thresholds / decision logic immutable |
 | Prior sealed fixtures’ base/gold/source/audit/aggregates/reports | Immutable; mirrors only |
 | Packet/renderer functions’ behavior | V2 identity only; no V3 |
+| `Docs/Plans/HANDOFF-tl01g-resolution-proof-abstention-gate.md` | Acceptance authority; re-brief only, not implementation edits |
 | Graph writes, Timeline API/UI, Hermes tools | Explicit non-goals |
 
 ### Dispatch contract — §7 verification commands
@@ -413,7 +426,7 @@ Docs/Design/CONTRACT-temporal-prompt-calibration-v2.md
 
 Docs/Reports/REPORT-tl01f-proposition-type-temporal-lane-gate.md
 Docs/Plans/HANDOFF-tl01d-conservative-temporal-decision-gate.md
-Docs/Plans/HANDOFF-pr465-tl01g-resolution-proof-abstention-gate.md
+Docs/Plans/HANDOFF-tl01g-resolution-proof-abstention-gate.md
 ```
 
 2. Record repository state:
@@ -814,19 +827,21 @@ No exception.
 
 ## §9 Candidate prompt: required semantic distinctions
 
-The prompt must explicitly distinguish these pairs.
+Anti-oracle rule (hard): known Matrix B / V7 / V5 failures may inform **generic decision rules** only. They must never supply exact names, predicates, phrases, source spans, or expected outputs to `tl01g-v1`. Instructional prose, decision checklists, diagnostics vocabulary, and few-shots are all in scope. Keep observed V7/V5 rows only in the report and in post-generation regression assertions.
+
+Rewrite every motivating failure as a synthetic analogue from a reserved TL01G vocabulary family. Do not reuse active-benchmark entities, places, objects, predicates, or high-signal source phrases.
 
 ### Future commitment versus timed forecast
 
 ```text
-“She will search her contacts.”
+“He vows to revisit the harbor market.”
 → unresolved
 ```
 
 No execution time is supplied.
 
 ```text
-“The forest will arrive in four hours.”
+“The supply caravan will reach Millcross in four hours.”
 → resolved occurrence with grounded textual/relative time
 ```
 
@@ -834,29 +849,29 @@ No execution time is supplied.
 
 ```text
 assertion:
-Corveth holds the ledger
+Mara keeps the quay keys
 
 evidence:
-Couriers race past Corveth as he continues to hold the ledger
+Messengers hurry past Mara as she continues to keep the quay keys
 
 → not_applicable
 ```
 
-Do not temporalize the assertion from the couriers’ action.
+Do not temporalize the assertion from the messengers’ action.
 
 ### State attribute versus transition event
 
 ```text
 assertion:
-The restaurant was abandoned
+The mill was shuttered
 
 evidence:
-It was only recently abandoned, no more than a week ago
+It was only recently shuttered, no more than a week ago
 
 → valid_time.start textual
 ```
 
-The assertion is the resulting abandoned state with an explicit beginning.
+The assertion is the resulting shuttered state with an explicit beginning.
 
 ### Missing value versus competing readings
 
@@ -871,11 +886,25 @@ two materially different interpretations
 ### Observation versus new boundary
 
 ```text
-“As archivist, Ysanna presents the ledger.”
+“As harbor clerk, Teren presents the quay keys.”
 → not_applicable
 ```
 
 No appointment or start boundary is stated.
+
+### Epistemic ambiguity versus world-line divergence
+
+```text
+Temporal ambiguity is epistemic, not branch divergence.
+
+Resolved means one supported temporal interpretation within the
+assertion’s supplied reality/canon scope.
+
+Intentional alternate world lines must not be encoded as
+ambiguous, unresolved, temporal points, or diagnostics.
+```
+
+World-line scope, named branch refs, multi-parent revisions, and merge semantics are explicitly deferred (see §25).
 
 ---
 
@@ -883,13 +912,16 @@ No appointment or start boundary is stated.
 
 Use at most eight synthetic examples.
 
-Reserve a new vocabulary family exclusively for TL01G prompt examples. It must not reuse names, places, objects, predicates, or sentence templates from:
+Reserve a new vocabulary family exclusively for TL01G. It must not reuse names, places, objects, predicates, high-signal source phrases, or sentence templates from:
 
 ```text
 all earlier prompt examples
 all existing temporal cohorts
 the fresh V8/V6 fixtures
+observed V7/V5 Matrix B rows
 ```
+
+This restriction applies to the **entire** `tl01g-v1` prompt (instructions and examples), not only few-shot blocks.
 
 Required example classes:
 
@@ -913,7 +945,7 @@ relative or textual
 occurrence or valid-start
 ```
 
-Do not use examples from V7, V5, or any fresh promotion row.
+Do not use names, predicates, phrases, or expected answers from V7, V5, or any fresh promotion row anywhere in `tl01g-v1`.
 
 ---
 
@@ -1120,19 +1152,19 @@ PROMPT_READY_FOR_BROADER_SHADOW
 
 ## §13 Regression mirror files
 
-Add `temporal-case-tl01g.json` mirrors only where required by the four matrices.
-
-Expected directories include:
+Add exactly these seven `temporal-case-tl01g.json` mirrors (no other regression cohorts):
 
 ```text
-evals/graph_memory_layer/examples/temporal_shadow_cohort/
-evals/graph_memory_layer/examples/temporal_shadow_holdout/
-evals/graph_memory_layer/examples/temporal_shadow_holdout_v5/
-evals/graph_memory_layer/examples/temporal_shadow_holdout_v7/
-evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/
-evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/
-evals/graph_memory_layer/examples/temporal_shadow_adversarial_v5/
+evals/graph_memory_layer/examples/temporal_shadow_cohort/temporal-case-tl01g.json
+evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case-tl01g.json
+evals/graph_memory_layer/examples/temporal_shadow_holdout_v5/temporal-case-tl01g.json
+evals/graph_memory_layer/examples/temporal_shadow_holdout_v7/temporal-case-tl01g.json
+evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/temporal-case-tl01g.json
+evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/temporal-case-tl01g.json
+evals/graph_memory_layer/examples/temporal_shadow_adversarial_v5/temporal-case-tl01g.json
 ```
+
+Fresh V8/V6 cases are created under their own cohort directories (already allowlisted) and are not part of this seven-file regression set.
 
 Each mirror must:
 
@@ -1201,23 +1233,39 @@ V8 must be semantically and evidentially disjoint from every prior temporal coho
 
 Do not rely only on assertion or evidence IDs.
 
-Compute a normalized fingerprint containing at least:
+Prove the two claims **separately**. A combined proposition+span tuple may be retained as supplemental telemetry, but it cannot own the independence gate.
+
+#### Semantic proposition fingerprints (must be disjoint)
+
+Canonical proposition identity independent of evidence/provenance and of cosmetic label rewrites:
 
 ```text
 assertion_kind
 subject_node_id
 target_node_id
 predicate
-label
-semantic_value
-source_artifact_path
-start_line
-end_line
-source content hash
+semantic_assertion_value
+  (provenance-only keys excluded; label rewrites alone must not create novelty)
 ```
 
-The V8 fingerprint set must have zero intersection with all prior canonical/development/holdout cohorts.
+Zero overlap with all prior canonical/development/holdout cohorts.
 
+#### Source / evidence fingerprints (must be disjoint)
+
+Minimally:
+
+```text
+source_artifact_path
+content_sha256
+start_line
+end_line
+hash of the resolved span text
+```
+
+Zero overlap with all prior canonical/development/holdout cohorts.
+
+A reused source span fails even if the label or semantic value changed.
+A reused proposition fails even if attached to another span.
 A renamed evidence ID or assertion ID does not create independence.
 
 ### Selection timing
@@ -1470,12 +1518,34 @@ no more than eight examples
 exactly one expected answer per example
 reserved vocabulary appears in prompt
 reserved vocabulary appears nowhere in evaluation fixtures
-prior observed vocabulary does not appear in the prompt examples
 ```
+
+### Whole-prompt anti-oracle scan
+
+Scan the **entire** frozen `tl01g-v1` prompt text (instructions + checklists + diagnostics + few-shots), not merely parsed examples, and assert zero hits for:
+
+```text
+every prior prompt’s reserved example vocabulary
+every prior temporal cohort’s high-signal entity/place/object names
+every high-signal source phrase from observed V7/V5 Matrix B rows
+  (forest arrival; Corveth/ledger holding; abandoned restaurant;
+   Ysanna-as-archivist; future contacts search; Lysandra pledge;
+   Dustwalker cell; and equivalent high-signal spans)
+evaluation-only cohort labels
+```
+
+Known failures may appear in the TL01G report and in regression assertions after generation. They must not appear in model-facing prompt material.
 
 ### Freshness guards
 
-Test V8 against all prior canonical cohorts using normalized proposition/source fingerprints.
+Test V8 against all prior canonical cohorts with **two independent gates**:
+
+```text
+semantic proposition fingerprint set ∩ prior == ∅
+source/evidence fingerprint set ∩ prior == ∅
+```
+
+A combined fingerprint may be logged, but passing only the combined set is insufficient.
 
 Test V6 against all prior adversarial cohorts using:
 
@@ -1602,6 +1672,7 @@ Candidate totals:
 unsafe over-resolution: 0
 source leakage: 0
 wrong temporal lane: 0
+wrong temporal value: 0
 grounding failures: 0
 ```
 
@@ -1641,9 +1712,27 @@ candidate grounding failures: 0
 candidate model-output failures: 0
 candidate evidence/case failures: 0
 candidate wrong temporal lane: 0
+candidate wrong temporal value: 0
 
 candidate status accuracy per run: 1.0
 candidate not-applicable accuracy per run: 1.0
+```
+
+`PROMPT_READY_FOR_BROADER_SHADOW` may be considered only when `wrong_temporal_value == 0` (and the other safety/semantic gates above). The existing machine decision can still emit readiness with a single wrong temporal value; the human report must not.
+
+Recommendation precedence for residual value mismatches (see §20 / §22):
+
+```text
+wrong_temporal_value == 0
+  → PROMPT_READY may be considered
+
+wrong_temporal_value > 0
+  and every mismatch is audited as textual-span-only
+  → ADVANCE_TO_TEXTUAL_NORMALIZATION
+  (not broader-shadow readiness)
+
+any structured or semantically different temporal value
+  → ITERATE_PROMPT / appropriate human recommendation
 ```
 
 Every fresh `not_applicable`, `unresolved`, and `ambiguous` assertion must have one stable status across all three repetitions.
@@ -1675,13 +1764,15 @@ wrong lane
 invalid output
 ```
 
-but exact textual expressions remain the only blocker, do not mutate `tl01g-v1`.
+but `wrong_temporal_value > 0` and every mismatch is audited as textual-span-only, do not mutate `tl01g-v1`.
 
 Recommend:
 
 ```text
 ADVANCE_TO_TEXTUAL_NORMALIZATION
 ```
+
+Do **not** select `PROMPT_READY_FOR_BROADER_SHADOW` while any wrong temporal value remains, even if the machine decision does.
 
 A future normalization slice must not reopen the abstention and lane semantics proven here.
 
@@ -1732,6 +1823,7 @@ Use only when:
 
 ```text
 promotion machine decision is PROMPT_READY_FOR_BROADER_SHADOW
+candidate wrong_temporal_value == 0
 all fresh semantic and safety gates pass
 all candidate promotion runs succeed
 known regressions remain green
@@ -1745,8 +1837,11 @@ Use when:
 
 ```text
 status, lane, safety, source-time, and grounding are green
-only exact textual-value normalization remains
+wrong_temporal_value > 0
+every residual mismatch is audited as textual-span-only
 ```
+
+Precedence: this recommendation outranks broader-shadow readiness whenever any wrong temporal value remains.
 
 ### `ITERATE_ABSTENTION_PROMPT`
 
@@ -1886,6 +1981,10 @@ Timeline UI
 Hermes temporal tools
 corpus-wide shadow rollout
 textual normalization beyond reporting
+world-line scope / named branch refs
+multi-parent revisions
+merge semantics for alternate realities
+encoding intentional branch divergence as temporal ambiguity
 ```
 
 ---
