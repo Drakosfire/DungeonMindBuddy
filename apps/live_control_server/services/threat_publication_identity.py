@@ -18,6 +18,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Literal
 
+import graph_memory.kernel as kernel
+from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.models.threat_publication import (
@@ -257,7 +259,7 @@ def _response(
     candidate_set: ThreatIdentityCandidateSetV1 | None = None,
     resolution: ThreatPublicationIdentityResolutionV1 | None = None,
     predecessor_state: OperationState | None = None,
-    predecessor_usable: bool = False,
+    predecessor_usable: bool | None = None,
     message: str | None = None,
 ) -> ThreatPublicationIdentityResponseV1:
     return ThreatPublicationIdentityResponseV1(
@@ -473,10 +475,38 @@ def _validate_pinned_projection(
     return None
 
 
-def _predecessor_usable(operation: ThreatPublicationOperationV1 | None) -> bool:
-    if operation is None:
-        return False
-    return operation.state == "ready"
+def _exact_revision_contains_node_id(
+    operation: ThreatPublicationOperationV1,
+    node_id: str,
+    *,
+    world_root: Path | None,
+) -> bool:
+    """Check global node-ID occupancy in the immutable expected-parent revision.
+
+    Candidate projection is intentionally campaign-visible and projectable, so it
+    is insufficient for the create-new collision boundary. This read uses only
+    the public Kernel exact-revision loader and never follows the mutable head.
+    """
+    graph_root = (world_root if world_root is not None else world_graph_root()).resolve()
+    try:
+        store = kernel.load_world_graph_revision(
+            graph_root,
+            operation.source_snapshot.world_id,
+            operation.expected_parent_revision_id,
+        )
+    except kernel.WorldGraphNotFoundError as exc:
+        raise WorldGraphProjectionServiceError(
+            "exact expected-parent World Graph revision is unavailable",
+            code="projection_revision_unavailable",
+            status_code=503,
+        ) from exc
+    except Exception as exc:
+        raise WorldGraphProjectionServiceError(
+            "exact expected-parent World Graph revision failed integrity validation",
+            code="projection_integrity_error",
+            status_code=500,
+        ) from exc
+    return node_id in store.nodes
 
 
 def _validate_resolution_against_operation(
@@ -666,7 +696,7 @@ def decide_identity_resolution(
                             safe_op,
                             label,
                             resolution=existing_resolution,
-                            predecessor_usable=False,
+                            predecessor_usable=None,
                         ),
                         created=False,
                     )
@@ -902,7 +932,28 @@ def decide_identity_resolution(
                 draft_id=safe_draft,
                 operation_id=safe_op,
             )
-            if any(node.node_id == created_node_id for node in projection.nodes):
+            try:
+                occupied = _exact_revision_contains_node_id(
+                    operation,
+                    created_node_id,
+                    world_root=world_root,
+                )
+            except WorldGraphProjectionServiceError as exc:
+                label: ThreatPublicationIdentityResultLabel = (
+                    "publication_identity_integrity_failure"
+                    if exc.code == "projection_integrity_error"
+                    else "publication_identity_graph_unavailable"
+                )
+                return IdentityResolutionOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        label,
+                        message=str(exc),
+                    ),
+                    created=False,
+                )
+            if occupied:
                 return IdentityResolutionOutcome(
                     _response(
                         safe_draft,
@@ -1121,11 +1172,6 @@ def read_identity_resolution(
         )
 
     predecessor_state = predecessor_op.state
-    predecessor_usable = (
-        _predecessor_usable(predecessor_op)
-        and resolution.state == "active"
-        and resolution.decision in ("create_new", "connect_existing")
-    )
 
     label = _resolution_outcome_label(
         resolution, superseded=resolution.state == "superseded"
@@ -1137,7 +1183,9 @@ def read_identity_resolution(
             label,
             resolution=resolution,
             predecessor_state=predecessor_state,
-            predecessor_usable=predecessor_usable,
+            # Read reports the persisted predecessor state only; it does not
+            # refresh SBW09a or verify the current graph head.
+            predecessor_usable=None,
         ),
         created=False,
     )

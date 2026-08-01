@@ -538,7 +538,10 @@ class ThreatPublicationIdentityResponseV1(StrictModel):
     candidate_set: ThreatIdentityCandidateSetV1 | None = None
     resolution: ThreatPublicationIdentityResolutionV1 | None = None
     predecessor_state: OperationState | None = None
-    predecessor_usable: bool
+    # ``None`` means no current freshness observation was made. Exact replay and
+    # read intentionally skip refresh/graph reads, so they cannot truthfully
+    # claim that a persisted ready operation remains consumable.
+    predecessor_usable: bool | None
     message: str | None = Field(default=None, max_length=_MAX_NOTE)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)

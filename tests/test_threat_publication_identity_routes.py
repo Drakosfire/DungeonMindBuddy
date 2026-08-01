@@ -160,6 +160,7 @@ def test_identity_routes_preserve_exact_restart_reload(tmp_path: Path, monkeypat
     assert body["result_label"] == "publication_identity_refused"
     assert body["resolution"]["resolution_id"] == resolution_id
     assert body["resolution"]["request_digest"] == decide.json()["resolution"]["request_digest"]
+    assert body["predecessor_usable"] is None
 
 
 def test_identity_flow_leaves_graph_draft_mechanics_and_dms_unchanged(

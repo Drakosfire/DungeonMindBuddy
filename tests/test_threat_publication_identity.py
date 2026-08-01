@@ -5,6 +5,7 @@ import json
 import threading
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -149,10 +150,23 @@ def _prepare(tmp_path: Path, draft_id: str, operation_id: str, **overrides: Any)
     return identity_svc.prepare_identity_candidates(tmp_path, draft_id, operation_id, body)
 
 
-def _decide(tmp_path: Path, draft_id: str, operation_id: str, **overrides: Any):
+def _decide(
+    tmp_path: Path,
+    draft_id: str,
+    operation_id: str,
+    *,
+    exact_node_ids: set[str] | None = None,
+    **overrides: Any,
+):
     overrides.setdefault("rejected_candidate_node_ids", [])
     body = CreateThreatIdentityResolutionRequestV1.model_validate(overrides)
-    return identity_svc.decide_identity_resolution(tmp_path, draft_id, operation_id, body)
+    with patch.object(
+        identity_svc,
+        "_exact_revision_contains_node_id",
+        side_effect=lambda _operation, node_id, *, world_root: node_id
+        in (exact_node_ids or set()),
+    ):
+        return identity_svc.decide_identity_resolution(tmp_path, draft_id, operation_id, body)
 
 
 def _reject_all_collisions(candidate_set) -> list[str]:
@@ -379,9 +393,59 @@ def test_create_new_rejects_existing_derived_id_without_random_suffix(
             rejected_candidate_node_ids=_reject_all_collisions(cs),
             actor="gm",
             reason="new threat",
+            exact_node_ids={derived},
         )
     assert outcome.response.result_label == "publication_identity_new_id_collision"
     assert identity_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+
+
+def test_create_new_checks_global_exact_revision_for_hidden_node_collision(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Unique Name XYZ")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    derived = derive_created_node_id(
+        world_id="world_1",
+        campaign_id="campaign_1",
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+    )
+    projection = _projection_for(_node("threat:visible", label="Visible"))
+    world_root = tmp_path / "separate-world-graph"
+    world_root.mkdir()
+    exact_store = SimpleNamespace(nodes={derived: object()})
+
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        prepared = _prepare(tmp_path, draft.draft_id, op_id, query_text="Visible")
+        cs = prepared.response.candidate_set
+        assert cs is not None
+        request = CreateThreatIdentityResolutionRequestV1.model_validate(
+            {
+                "resolution_id": str(uuid.uuid4()),
+                "matching_profile": MATCHING_PROFILE_V1,
+                "candidate_query": cs.candidate_query,
+                "candidate_set_digest": cs.candidate_set_digest,
+                "decision": "create_new",
+                "rejected_candidate_node_ids": _reject_all_collisions(cs),
+                "actor": "gm",
+                "reason": "new threat",
+            }
+        )
+        with patch.object(
+            identity_svc.kernel,
+            "load_world_graph_revision",
+            return_value=exact_store,
+        ) as load_revision:
+            outcome = identity_svc.decide_identity_resolution(
+                tmp_path,
+                draft.draft_id,
+                op_id,
+                request,
+                world_root=world_root,
+            )
+
+    assert outcome.response.result_label == "publication_identity_new_id_collision"
+    load_revision.assert_called_once_with(world_root, "world_1", PARENT)
 
 
 def test_connect_existing_requires_exact_reviewed_threat_node(
@@ -516,6 +580,7 @@ def test_resolution_exact_replay_does_not_read_predecessor_or_graph(
 
     assert replay.response.result_label == "publication_identity_refused"
     assert replay.created is False
+    assert replay.response.predecessor_usable is None
 
 
 def test_resolution_same_id_changed_request_conflicts(tmp_path: Path, monkeypatch) -> None:
@@ -1134,7 +1199,7 @@ def test_read_preserves_historical_resolution_for_stale_predecessor(
     assert outcome.response.result_label == "publication_identity_refused"
     assert outcome.response.resolution is not None
     assert outcome.response.predecessor_state == "stale"
-    assert outcome.response.predecessor_usable is False
+    assert outcome.response.predecessor_usable is None
 
 
 def test_read_rejects_tampered_created_node_id_when_predecessor_available(
