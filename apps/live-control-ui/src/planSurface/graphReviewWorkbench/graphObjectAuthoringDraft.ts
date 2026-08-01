@@ -760,7 +760,10 @@ export function relationshipPreviewCopy(
 
 export function canStageRelationshipForm(
   formState: GraphObjectAuthoringRelationshipFormState,
-): boolean {
+): formState is GraphObjectAuthoringRelationshipFormState & {
+  sourceObjectRef: GraphObjectAuthoringObjectRef;
+  targetObjectRef: GraphObjectAuthoringObjectRef;
+} {
   return (
     isValidObjectRef(formState.sourceObjectRef) &&
     isValidObjectRef(formState.targetObjectRef) &&

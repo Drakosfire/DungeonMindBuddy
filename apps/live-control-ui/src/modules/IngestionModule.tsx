@@ -805,7 +805,6 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     hasState(latestResult, "recap_reused") ||
     hasState(latestResult, "normalized_created") ||
     hasState(latestResult, "normalized_reused");
-  const hasUsablePreview = hasPreview || hasApplied;
   const hasFrontmatterSeed = hasState(latestResult, "frontmatter_seed_found");
   const hasBreadcrumb = hasState(latestResult, "breadcrumb_found");
   const canResumeFromDisk = hasApplied || hasFrontmatterSeed || hasBreadcrumb;

@@ -204,7 +204,7 @@ function isLegacyPathCitationForSnapshot(
   citation: unknown,
 ): citation is LegacyPathCitation & { path: string } {
   if (!citation || typeof citation !== "object") return false;
-  const candidate = citation as LegacyPathCitation;
+  const candidate = citation as { kind?: string; path?: unknown };
   if (candidate.kind === "world_graph_anchor") return false;
   return Boolean(candidate.path)
     && typeof candidate.path === "string"
@@ -391,7 +391,7 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
     ...turn,
     citations: citations.filter((citation) => {
       if (!citation || typeof citation !== "object") return false;
-      return isLegacyPathCitationForSnapshot(citation) || Boolean((citation as LegacyPathCitation).path);
+      return isLegacyPathCitationForSnapshot(citation) || Boolean((citation as unknown as LegacyPathCitation).path);
     }),
     trace: safeTraceForPersistence(turn.trace),
   };
