@@ -1,13 +1,13 @@
 # PR Tracker — Threat + Statblock Publication, Query, and Placement
 
 **Status:** ACTIVE PUBLICATION-FIRST TRACKER  
-**Date:** 2026-07-30  
-**Repository anchor:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` — merged PR `#462`  
-**Latest merged workstream PR:** `#462` — durable no-write SBW09a publication operation authority  
-**Immediate authority:** [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md) is the SBW09b contract authority; implementation dispatch is blocked until PR `#466` merges and a post-merge authority sync records the resulting immutable `origin/main` SHA
+**Date:** 2026-08-01  
+**Repository anchor:** `35c3d34c6db44371cba81eb65883b2b76e011cad` — current main after merged PR `#469`  
+**Latest merged workstream PR:** `#467` — durable exact Threat identity resolution  
+**Immediate authority:** [`HANDOFF-sbw09c1-threat-publication-proposal.md`](HANDOFF-sbw09c1-threat-publication-proposal.md); implementation dispatch begins only after this authority merges and the exact immutable `origin/main` SHA is recorded  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
-**Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
+**Current re-anchor report:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
 **Accepted-revision prerequisite:** `SATISFIED_BY_OPERATOR_CONFIRMATION` — the GM manually completed create → generate → edit → validate → accept → hard reload → reopen at least twice  
 **R0-B evidence:** [`../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md`](../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md) — `IN_PROGRESS`
 
@@ -19,11 +19,12 @@ This tracker is the sequencing authority for the Threat + Statblock workstream. 
 2. Stateful, idempotent, partially durable, concurrent, or recoverable workflows require a frozen state/persistence contract and ordered adversarial evidence.
 3. No slice silently adds graph writes, mechanics persistence, document mutation, placement mutation, or combat mutation outside its mission.
 4. Exact consumers pin exact revision identity; no `latest` fallback.
-5. Saved mechanics, publication intent, graph publication, projection, placement, and runtime activation remain distinct.
+5. Saved mechanics, publication intent, identity resolution, reviewed proposal, graph publication, projection, placement, and runtime activation remain distinct.
 6. Pre-designed handoffs are research until re-anchored to current code, paths, and base SHA.
 7. Product dogfood is required at the gate enabled by the slice; unrelated authoring gaps do not block publication-first work.
 8. Operator-confirmed product evidence is authoritative when recorded honestly as operator-reported rather than CI-attested.
 9. Active handoffs are committed to `main` before external implementation dispatch. Prefer an unnumbered path until a real pull request exists; do not pre-assign a future PR number in tracker or handoff text.
+10. A durable proposal is not a commit receipt. Ambiguous commit recovery must have one explicit owner before a graph-writing slice dispatches.
 
 Required demolition declaration:
 
@@ -49,7 +50,9 @@ Required deletion owner:
 | Dogfood Gate A | MERGED `#425` | Context-aware Workbench create/generate entry. |
 | R0 unblockers | MERGED `#454` | Provider-contract sync, timeout alignment, provenance honesty, Hermes UX. |
 | Accepted-revision proof | OPERATOR-CONFIRMED | Normal real-provider acceptance and reopen lifecycle completed at least twice. |
-| `SBW08` | MERGED `#457` | Strict graph-owned external statblock resource + exact immutable `ThreatStatblockBinding`; reload/projection; no copied mechanics; fail-closed collision handling. |
+| `SBW08` | MERGED `#457` | Strict graph-owned external statblock resource + exact immutable `ThreatStatblockBinding`; reload/projection; no copied mechanics; fail-closed collisions. |
+| `SBW09a` | MERGED `#462` | Durable exact-source / expected-parent publication operation; no graph write. |
+| `SBW09b` | MERGED `#467` | Exact revision-pinned Threat candidates plus durable explicit create/connect/refuse resolution; no graph write. |
 
 ## 3. Current evidence and prerequisite queue
 
@@ -59,20 +62,22 @@ Required deletion owner:
 | `R0-B` | `IN_PROGRESS` / PROVISIONAL PASS | Unioned-graph investigation and useful Threat-description authoring. | Capture final trace/verdict; does not block publication. |
 | `R0-A-DIAGNOSTICS` | NOT DISPATCHED | Surface validation diagnostics if the product regresses. | Conditional future regression slice only. |
 | `ACCEPTED-REVISION-PROOF` | `SATISFIED_BY_OPERATOR_CONFIRMATION` | One exact accepted revision through the normal Workbench. | Closed. |
-| `SBW08` | `MERGED #457` | Exact resource/binding graph contract. | Predecessor complete; `SBW09a` unlocked. |
-| `SBW09a` | `MERGED #462` | Durable no-write publication operation ledger. | Proven source snapshot, exact accepted mechanics locator, expected parent, replay-safe lifecycle, and explicit retry lineage; no graph publication. |
+| `SBW08` | `MERGED #457` | Exact resource/binding graph contract. | Complete. |
+| `SBW09a` | `MERGED #462` | Durable no-write publication operation ledger. | Complete. |
+| `SBW09b` | `MERGED #467` | Durable exact Threat identity resolution. | Complete; SBW09c1 unlocked. |
 
 ## 4. Critical publication queue
 
-The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` is superseded. Publication is deliberately split at durable ownership seams.
+The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` is superseded. Publication is deliberately split at durable ownership and recovery seams.
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `SBW09a` | MERGED #462 | Durable no-write publication operation ledger. | Proven source snapshot + exact parent; begin/read/refresh/cancel/retry; no identity resolution or graph mutation. Historical authority: [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md). |
-| `SBW09b` | ACTIVE HANDOFF | Exact Threat identity resolution. | Revision-pinned Threat-only candidate inspection plus durable explicit create-new/connect-existing/refuse decision; no silent duplicate/merge. Authority: [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md). |
-| `SBW09c` | BLOCKED ON `SBW09b` | Governed preview/confirm Threat + exact binding commit. | Existing immutable World Graph governance path; stale-safe commit; post-commit exact verification; recoverable graph failure. |
-| `SBW10a` | BLOCKED ON PUBLICATION | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context. |
-| `SBW10b` | BLOCKED ON `SBW10a` | Compact/full exact-revision Threat projection. | Useful game information first; explicit zero/one/many binding behavior. |
+| `SBW09a` | MERGED `#462` | Durable no-write publication operation ledger. | Historical authority: [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md). |
+| `SBW09b` | MERGED `#467` | Exact Threat identity resolution. | Historical authority: [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md). |
+| `SBW09c1` | ACTIVE HANDOFF / NEXT | Exact durable no-write Threat publication proposal. | Build deterministic create/connect effects, reuse sealed-proposal authority, persist/reload/replay/supersede; no graph write. Authority: [`HANDOFF-sbw09c1-threat-publication-proposal.md`](HANDOFF-sbw09c1-threat-publication-proposal.md). |
+| `SBW09c2` | BLOCKED ON `SBW09c1` | Proposal-bound governed commit, durable receipt/recovery, and exact verification. | One Kernel contribution/revision; exact parent; committed-but-unverified honesty; retry reconciles receipt before write. |
+| `SBW10a` | BLOCKED ON PUBLICATION | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context; explicit zero/one/many bindings. |
+| `SBW10b` | BLOCKED ON `SBW10a` | Compact/full exact-revision Threat projection. | Useful game information first; evidence and scores secondary. |
 
 `MAGIC-D3` proves publication, queryability, hydration, and projection. It blocks placement.
 
@@ -81,10 +86,11 @@ The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` is supers
 ```text
 SBW09a: immutable source + expected-parent operation authority
 SBW09b: explicit Threat identity resolution attached to that operation
-SBW09c: reviewed proposal + governed commit + exact verification
+SBW09c1: exact durable no-write reviewed proposal
+SBW09c2: proposal-bound commit + exact receipt/recovery + exact verification
 ```
 
-No successor may rewrite SBW09a's source snapshot or silently replace its expected parent. A stale operation requires explicit retry/new authority.
+No successor may rewrite SBW09a's source snapshot, replace SBW09b's identity, repin the parent, copy mechanics, or treat proposal storage as proof a graph commit occurred.
 
 ## 5. Placement and shared-capability queue
 
@@ -151,9 +157,11 @@ These do not block `SBW09–SBW10`.
 |---|---|---|
 | `R0-A` | `OPERATOR_CONFIRMED_PASS` | Exact accepted revision lifecycle complete |
 | `R0-B` | `IN_PROGRESS`; provisional grounding pass | Grounded-authoring enhancement lane |
+| `SBW09a` | `MERGED #462` | Exact publication source/parent authority |
+| `SBW09b` | `MERGED #467` | Exact Threat identity authority |
 | `MAGIC-D1` | DOGFOOD REQUIRED / PARALLEL | Query → grounded description → durable ThreatDraft |
 | `MAGIC-D2` | DOGFOOD REQUIRED / PARALLEL | Grounded draft → connected accepted mechanics |
-| `MAGIC-D3` | BLOCKED ON `SBW09a–c`, `SBW10a–b` | Accepted revision → published/queryable/projectable Threat |
+| `MAGIC-D3` | BLOCKED ON `SBW09c1–c2`, `SBW10a–b` | Accepted revision → published/queryable/projectable Threat |
 | `MAGIC-D4` | BLOCKED | Same exact Threat placed from relevant surfaces |
 | `MAGIC-D5` | BLOCKED | Exact published Threat/placement enters live combat |
 | `AOW05` | DEFERRED | Second domain proves general architecture |
@@ -161,9 +169,9 @@ These do not block `SBW09–SBW10`.
 ## 10. Immediate dispatch logic
 
 ```text
-  merge PR #466, re-anchor the handoff to the resulting immutable origin/main SHA,
-  then dispatch SBW09b exact Threat identity resolution
-→ SBW09c governed preview/confirm/verify
+merge and re-anchor SBW09c1 handoff authority
+→ dispatch SBW09c1 exact durable no-write proposal
+→ re-anchor and dispatch SBW09c2 commit/receipt/recovery/verify
 → SBW10a Hermes query + exact hydration
 → SBW10b exact projection
 → dogfood MAGIC-D3
@@ -183,7 +191,7 @@ Every PR in this workstream states:
 - why the slice is the smallest independently useful capability;
 - authority and persistence boundaries;
 - current/legacy path retained or demolished;
-- success, failure, retry, stale, reload, and concurrency behavior;
+- success, failure, retry, stale, reload, concurrency, and ambiguous-outcome behavior where applicable;
 - tests run and provenance;
 - live dogfood still required after merge;
 - named successors that remain false.
