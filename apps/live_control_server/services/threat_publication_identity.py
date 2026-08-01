@@ -51,7 +51,6 @@ from apps.live_control_server.models.threat_publication_identity import (
     derive_created_node_id,
     normalize_exact_collision_text,
     resolution_request_digest,
-    resolution_request_from_resolution,
     source_name_from_snapshot,
     validate_resolution_id,
 )
@@ -692,10 +691,13 @@ def decide_identity_resolution(
         if existing_ledger is not None:
             existing_resolution = _find_resolution(existing_ledger, request.resolution_id)
             if existing_resolution is not None:
-                existing_request = resolution_request_from_resolution(existing_resolution)
-                if request.model_dump(mode="json", by_alias=True) == existing_request.model_dump(
-                    mode="json", by_alias=True
-                ):
+                incoming_digest = resolution_request_digest(
+                    safe_draft,
+                    safe_op,
+                    request,
+                    created_node_id=existing_resolution.created_node_id,
+                )
+                if incoming_digest == existing_resolution.request_digest:
                     label = _resolution_outcome_label(existing_resolution)
                     return IdentityResolutionOutcome(
                         _response(

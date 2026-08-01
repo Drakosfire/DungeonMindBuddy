@@ -676,6 +676,51 @@ def test_resolution_exact_replay_does_not_read_predecessor_or_graph(
     assert replay.response.predecessor_usable is None
 
 
+def test_resolution_exact_replay_treats_rejection_list_order_as_non_semantic(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Unique Advisory Rejections")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    projection = _projection_for(
+        _node("threat:a", label="Alpha Match"),
+        _node("threat:b", label="Alpha Backup"),
+    )
+    resolution_id = str(uuid.uuid4())
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        prepared = _prepare(tmp_path, draft.draft_id, op_id, query_text="Alpha Match")
+        cs = prepared.response.candidate_set
+        assert cs is not None
+        assert len(cs.candidates) >= 2
+        reject_ids = [cs.candidates[0].node_id, cs.candidates[1].node_id]
+        request_body = {
+            "resolution_id": resolution_id,
+            "matching_profile": MATCHING_PROFILE_V1,
+            "candidate_query": cs.candidate_query,
+            "candidate_set_digest": cs.candidate_set_digest,
+            "decision": "create_new",
+            "rejected_candidate_node_ids": reject_ids,
+            "actor": "gm",
+            "reason": "new threat",
+        }
+        first = _decide(tmp_path, draft.draft_id, op_id, **request_body)
+        assert first.created is True
+
+    reversed_body = {
+        **request_body,
+        "rejected_candidate_node_ids": list(reversed(reject_ids)),
+    }
+    with patch.object(identity_svc, "refresh_publication_operation") as refresh_mock, patch.object(
+        identity_svc, "project_world_graph"
+    ) as project_mock:
+        replay = _decide(tmp_path, draft.draft_id, op_id, **reversed_body)
+        refresh_mock.assert_not_called()
+        project_mock.assert_not_called()
+
+    assert replay.response.result_label == "publication_identity_created_new"
+    assert replay.created is False
+    assert replay.response.result_label != "publication_identity_input_conflict"
+
+
 def test_resolution_same_id_changed_request_conflicts(tmp_path: Path, monkeypatch) -> None:
     draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Unique")
     op_id, _op = _begin_operation(tmp_path, draft)
