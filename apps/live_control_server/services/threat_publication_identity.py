@@ -50,8 +50,8 @@ from apps.live_control_server.models.threat_publication_identity import (
     candidate_set_digest_for_set,
     derive_created_node_id,
     normalize_exact_collision_text,
-    resolution_digest_for_resolution,
     resolution_request_digest,
+    resolution_request_from_resolution,
     source_name_from_snapshot,
     validate_resolution_id,
 )
@@ -682,7 +682,6 @@ def decide_identity_resolution(
 ) -> IdentityResolutionOutcome:
     safe_draft = require_draft_id(draft_id)
     safe_op = validate_publication_operation_id(operation_id)
-    computed_digest = resolution_request_digest(safe_draft, safe_op, request)
 
     with _identity_lock(root, safe_draft, safe_op):
         try:
@@ -693,7 +692,10 @@ def decide_identity_resolution(
         if existing_ledger is not None:
             existing_resolution = _find_resolution(existing_ledger, request.resolution_id)
             if existing_resolution is not None:
-                if existing_resolution.request_digest == computed_digest:
+                existing_request = resolution_request_from_resolution(existing_resolution)
+                if request.model_dump(mode="json", by_alias=True) == existing_request.model_dump(
+                    mode="json", by_alias=True
+                ):
                     label = _resolution_outcome_label(existing_resolution)
                     return IdentityResolutionOutcome(
                         _response(
@@ -1038,6 +1040,12 @@ def decide_identity_resolution(
                     created=False,
                 )
 
+        computed_digest = resolution_request_digest(
+            safe_draft,
+            safe_op,
+            request,
+            created_node_id=created_node_id,
+        )
         new_resolution_unvalidated = ThreatPublicationIdentityResolutionV1.model_construct(
             resolution_id=request.resolution_id,
             draft_id=safe_draft,
@@ -1049,7 +1057,6 @@ def decide_identity_resolution(
             candidate_set=candidate_set,
             candidate_set_digest=candidate_set.candidate_set_digest,
             request_digest=computed_digest,
-            resolution_digest="sha256:" + "0" * 64,
             decision=request.decision,
             selected_target=selected_target,
             created_node_id=created_node_id,
@@ -1063,13 +1070,7 @@ def decide_identity_resolution(
             updated_at=now,
         )
         new_resolution = ThreatPublicationIdentityResolutionV1.model_validate(
-            new_resolution_unvalidated.model_copy(
-                update={
-                    "resolution_digest": resolution_digest_for_resolution(
-                        new_resolution_unvalidated
-                    )
-                }
-            ).model_dump(mode="json", by_alias=True)
+            new_resolution_unvalidated.model_dump(mode="json", by_alias=True)
         )
 
         resolutions = list(ledger.resolutions)
@@ -1155,7 +1156,11 @@ def read_identity_resolution(
         predecessor = read_publication_operation(root, safe_draft, safe_op)
         predecessor_op = predecessor.response.operation
         if predecessor_op is None:
-            return _outcome_from_predecessor_failure(safe_draft, safe_op, predecessor)
+            outcome = _outcome_from_predecessor_failure(safe_draft, safe_op, predecessor)
+            return IdentityResolutionOutcome(
+                outcome.response.model_copy(update={"predecessor_usable": None}),
+                created=False,
+            )
 
         if (
             predecessor_op.source_digest != resolution.source_digest
@@ -1187,10 +1192,6 @@ def read_identity_resolution(
             )
 
         predecessor_state = predecessor_op.state
-        predecessor_usable: bool | None = None
-        if predecessor_op.state in ("stale", "cancelled", "superseded"):
-            predecessor_usable = False
-
         label = _resolution_outcome_label(
             resolution, superseded=resolution.state == "superseded"
         )
@@ -1201,7 +1202,7 @@ def read_identity_resolution(
                 label,
                 resolution=resolution,
                 predecessor_state=predecessor_state,
-                predecessor_usable=predecessor_usable,
+                predecessor_usable=None,
             ),
             created=False,
         )

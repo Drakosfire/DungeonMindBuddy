@@ -272,6 +272,8 @@ def resolution_request_digest(
     draft_id: str,
     operation_id: str,
     request: CreateThreatIdentityResolutionRequestV1,
+    *,
+    created_node_id: str | None = None,
 ) -> str:
     identity = {
         "draft_id": draft_id,
@@ -286,6 +288,7 @@ def resolution_request_digest(
         "actor": request.actor,
         "reason": request.reason,
         "supersedes_resolution_id": request.supersedes_resolution_id,
+        "created_node_id": created_node_id,
     }
     return _canonical_json_digest(identity)
 
@@ -324,7 +327,6 @@ class ThreatPublicationIdentityResolutionV1(StrictModel):
     candidate_set: ThreatIdentityCandidateSetV1
     candidate_set_digest: str = Field(pattern=_DIGEST_RE)
     request_digest: str = Field(pattern=_DIGEST_RE)
-    resolution_digest: str = Field(pattern=_DIGEST_RE)
     decision: IdentityDecision
     selected_target: ThreatIdentityCandidateV1 | None = None
     created_node_id: str | None = None
@@ -390,12 +392,10 @@ class ThreatPublicationIdentityResolutionV1(StrictModel):
             self.draft_id,
             self.operation_id,
             resolution_request_from_resolution(self),
+            created_node_id=self.created_node_id,
         )
         if expected_request_digest != self.request_digest:
             raise ValueError("request_digest does not match recomputed digest")
-        expected_resolution_digest = resolution_digest_for_resolution(self)
-        if expected_resolution_digest != self.resolution_digest:
-            raise ValueError("resolution_digest does not match immutable decision payload")
         candidate_ids = {c.node_id for c in self.candidate_set.candidates}
         candidate_by_id = {c.node_id: c for c in self.candidate_set.candidates}
         if len(self.rejected_candidate_node_ids) != len(set(self.rejected_candidate_node_ids)):
@@ -434,29 +434,6 @@ class ThreatPublicationIdentityResolutionV1(StrictModel):
         if self.state == "superseded" and self.superseded_by_resolution_id is None:
             raise ValueError("superseded resolution requires superseded_by_resolution_id")
         return self
-
-
-def resolution_digest_payload(
-    resolution: ThreatPublicationIdentityResolutionV1,
-) -> dict[str, Any]:
-    """Return the immutable decision payload covered by ``resolution_digest``."""
-    dumped = resolution.model_dump(mode="json", by_alias=True)
-    for key in (
-        "resolution_digest",
-        "state",
-        "supersedes_resolution_id",
-        "superseded_by_resolution_id",
-        "created_at",
-        "updated_at",
-    ):
-        dumped.pop(key, None)
-    return dumped
-
-
-def resolution_digest_for_resolution(
-    resolution: ThreatPublicationIdentityResolutionV1,
-) -> str:
-    return _canonical_json_digest(resolution_digest_payload(resolution))
 
 
 class ThreatPublicationIdentityLedgerV1(StrictModel):

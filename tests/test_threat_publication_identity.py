@@ -40,7 +40,6 @@ from apps.live_control_server.models.threat_publication_identity import (
     ThreatPublicationIdentityLedgerV1,
     ThreatPublicationIdentityResolutionV1,
     derive_created_node_id,
-    resolution_digest_for_resolution,
     resolution_request_digest,
     resolution_request_from_resolution,
 )
@@ -1251,12 +1250,12 @@ def test_persisted_create_new_rejects_unadjudicated_exact_collision(
         update={
             "rejected_candidate_node_ids": [],
             "request_digest": resolution_request_digest(
-                persisted.draft_id, persisted.operation_id, request
+                persisted.draft_id,
+                persisted.operation_id,
+                request,
+                created_node_id=persisted.created_node_id,
             ),
         }
-    )
-    tampered = tampered.model_copy(
-        update={"resolution_digest": resolution_digest_for_resolution(tampered)}
     )
 
     with pytest.raises(
@@ -1319,6 +1318,19 @@ def test_read_fails_closed_on_predecessor_source_parent_mismatch(
     assert outcome.response.result_label == "publication_identity_integrity_failure"
 
 
+def test_persisted_resolution_serializes_without_resolution_digest(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _resolution_id = _persisted_refuse_resolution(tmp_path, monkeypatch)
+    ledger = _identity_ledger_json(tmp_path, draft.draft_id, op_id)
+    resolution_payload = ledger["resolutions"][0]
+    assert "resolution_digest" not in resolution_payload
+    dumped = ThreatPublicationIdentityResolutionV1.model_validate(
+        resolution_payload
+    ).model_dump(mode="json", by_alias=True)
+    assert "resolution_digest" not in dumped
+
+
 def test_read_preserves_historical_resolution_for_stale_predecessor(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -1345,7 +1357,7 @@ def test_read_preserves_historical_resolution_for_stale_predecessor(
     assert outcome.response.result_label == "publication_identity_refused"
     assert outcome.response.resolution is not None
     assert outcome.response.predecessor_state == "stale"
-    assert outcome.response.predecessor_usable is False
+    assert outcome.response.predecessor_usable is None
 
 
 def test_read_rejects_tampered_created_node_id_when_predecessor_available(
