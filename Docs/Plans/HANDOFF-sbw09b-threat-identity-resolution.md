@@ -21,7 +21,7 @@ pr_body_template: |
 
   ## Scope and explicit deferrals
   Design anchor: `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e`
-  Required implementation base: `{{EXACT_HANDOFF_COMMIT_SHA}}`
+  Required implementation base: `178ed6766a847275525a23349d24e77270db97f9`
   Actual base/head: Pre-dispatch; implementation head does not exist yet.
   Actual changed paths: Pre-dispatch documentation synchronization only.
   Paths outside the handoff allowlist: none known; stop and report any discovered path.
@@ -52,7 +52,7 @@ pr_body_template: |
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw09b-threat-identity-resolution.md`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Design anchor:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` — merge commit for PR `#462` / SBW09a.  
-**Required implementation base:** `{{EXACT_HANDOFF_COMMIT_SHA}}` — the exact main commit that lands this handoff and synchronizes roadmap/tracker authority.  
+**Required implementation base:** `178ed6766a847275525a23349d24e77270db97f9` — exact authority-sync commit, or a later deliberate authority-sync commit.  
 **Suggested branch:** `feat/sbw09b-threat-identity-resolution`
 
 No future pull-request number is assigned by this handoff. The hosting system or operator may assign one when a pull request is actually opened.
@@ -79,7 +79,7 @@ At design anchor `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e`, SBW09a is merged, b
    - SBW09a is recorded as proven;
    - this handoff is the current implementation authority;
 5. update the current-dispatch sequence in the superseded bundled SBW09 handoff to link this exact unnumbered file while preserving its historical status;
-6. replace every `{{EXACT_HANDOFF_COMMIT_SHA}}` in this file with the immutable main SHA produced by that atomic documentation synchronization;
+6. use the immutable main SHA `178ed6766a847275525a23349d24e77270db97f9` recorded in this handoff as the implementation base;
 7. dispatch the implementation worker from that exact SHA.
 
 Do not combine the synchronization edits with implementation unless repository process explicitly requires the handoff file to travel on the implementation branch. If unrelated PRs move main, re-anchor only when they change SBW09a contracts, World Graph projection/retrieval behavior, Threat node vocabulary, route registration, or lock assumptions used below.
@@ -777,7 +777,7 @@ uv run python -m compileall -q \
   apps/live_control_server/routes/threat_publication_identity.py
 
 git diff --check
-git diff --name-only {{EXACT_HANDOFF_COMMIT_SHA}}...HEAD
+git diff --name-only 178ed6766a847275525a23349d24e77270db97f9...HEAD
 ```
 
 For every required command failure that also occurs on base, run the identical
