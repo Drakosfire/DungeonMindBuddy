@@ -1,5 +1,7 @@
 # Temporal shadow holdout cohort V12 (TL01G)
 
-Independent TL01G promotion holdout authored after prompt freeze `67408bd871ba684e70ddf6e53dd7088d0036a475`. Holdout V11 is **RETIRED** as independent promotion evidence.
+**RETIRED as independent TL01G promotion evidence.**
 
-See `GOLD-AUDIT.md` for the sealed row table. **Promotion seal / first provider execution:** `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82`.
+Holdout V12 gold contradicted the frozen prompt on multiple rows (spell-end transition marked valid-end; historical relationship marked occurrence; scale custody/ambiguity unsupported and a renamed replay of V11 spores). Provider outputs were observed under seal `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82`. Gold is retained unchanged as **observed regression** material only.
+
+Independent promotion authority moved to holdout **V13**.

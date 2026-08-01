@@ -7,6 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] TL01G promotion cohorts: Gate-correct gold + proposition-template Jaccard — captured 2026-08-01
+**Context:** V12/Adv V10 retired after observed promotion (`a7a9d5c3…`) exposed gold/Gate defects: spell-end as valid-end, historical relationship lane error, V11-scale custody replay, festival span reuse, Adv V10 `now` grounding-trap gold contradiction.
+**Insight:** Promotion authority must pair Gate-faithful human gold with mechanical guards that catch noun-substituted proposition replays — span-text `isdisjoint` alone misses paraphrased holdout skeletons. Proposition-template Jaccard (label+predicate, entity scrub, stopwords) `< 0.40` vs all prior canonical holdouts complements span and adversarial source Jaccard guards.
+**Action:** Seal V13/Adv V11 before first provider run; keep `test_holdout_v13_proposition_template_jaccard_disjoint_from_prior` in the promotion checklist; never patch observed cohort gold in place.
+**Surfaces when:** TL01G, TL01H, promotion cohort, holdout V13, adversarial V11, proposition Jaccard, Gate-faithful gold, V12 retirement, Adv V10 retirement
+**Refs:** `tests/test_temporal_shadow_extraction_tl01g.py`; `evals/graph_memory_layer/examples/temporal_shadow_holdout_v13/`; `evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/`; `Docs/Reports/REPORT-tl01g-resolution-proof-abstention-gate.md`
+
 ## [READY] TL01G promotion cohorts: assert span-text disjointness and reject paraphrased adversarial skeletons — captured 2026-08-01
 **Context:** PR #468 request-changes on V11/Adv V9: span fingerprints were computed but `isdisjoint` was omitted (and later skipped for `temporal_shadow_cohort`); Adv V9 paraphrased Adv V8 past exact template equality; title-correction gold copied session as valid-start; audit binding was ID/status-only.
 **Insight:** Independent promotion authority requires (1) resolved span-text SHA disjointness against *all* prior canonical dirs including the evaluation cohort, with no folder skips; (2) adversarial novelty beyond noun-swap — Jaccard/token-bag overlap after proper-noun scrubbing; (3) Gate E3: “now”/title restatement ≠ session valid-start; (4) audit tables should bind proposition/lane/phrase to fixtures, or be labeled ID/status-only.
