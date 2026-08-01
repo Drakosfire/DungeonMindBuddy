@@ -2,9 +2,9 @@
 
 **Status:** ACTIVE PUBLICATION-FIRST TRACKER  
 **Date:** 2026-07-30  
-**Repository anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`  
-**Latest merged workstream PR:** `#457` — exact external statblock resource and `ThreatStatblockBinding` graph contract  
-**Immediate authority:** dispatch [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md) after the handoff's §0 repository synchronization gate is on `main`  
+**Repository anchor:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` — merged PR `#462`  
+**Latest merged workstream PR:** `#462` — durable no-write SBW09a publication operation authority  
+**Immediate authority:** [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md) is the SBW09b contract authority; implementation dispatch is blocked until PR `#466` merges and a post-merge authority sync records the resulting immutable `origin/main` SHA
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
@@ -60,6 +60,7 @@ Required deletion owner:
 | `R0-A-DIAGNOSTICS` | NOT DISPATCHED | Surface validation diagnostics if the product regresses. | Conditional future regression slice only. |
 | `ACCEPTED-REVISION-PROOF` | `SATISFIED_BY_OPERATOR_CONFIRMATION` | One exact accepted revision through the normal Workbench. | Closed. |
 | `SBW08` | `MERGED #457` | Exact resource/binding graph contract. | Predecessor complete; `SBW09a` unlocked. |
+| `SBW09a` | `MERGED #462` | Durable no-write publication operation ledger. | Proven source snapshot, exact accepted mechanics locator, expected parent, replay-safe lifecycle, and explicit retry lineage; no graph publication. |
 
 ## 4. Critical publication queue
 
@@ -67,8 +68,8 @@ The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` is supers
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `SBW09a` | ACTIVE HANDOFF | Durable no-write publication operation ledger. | Snapshot exact mechanics-saved source + exact expected graph parent; begin/read/refresh/cancel/retry; no identity resolution or graph mutation. Authority: [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md). No future PR number is assigned until a PR opens. |
-| `SBW09b` | NEXT DESIGN AFTER `SBW09a` | Create-new versus connect-existing Threat resolution. | Candidate matches, exact selection, explicit refusal, no silent duplicate/merge. Must consume immutable SBW09a operation authority. |
+| `SBW09a` | MERGED #462 | Durable no-write publication operation ledger. | Proven source snapshot + exact parent; begin/read/refresh/cancel/retry; no identity resolution or graph mutation. Historical authority: [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md). |
+| `SBW09b` | ACTIVE HANDOFF | Exact Threat identity resolution. | Revision-pinned Threat-only candidate inspection plus durable explicit create-new/connect-existing/refuse decision; no silent duplicate/merge. Authority: [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md). |
 | `SBW09c` | BLOCKED ON `SBW09b` | Governed preview/confirm Threat + exact binding commit. | Existing immutable World Graph governance path; stale-safe commit; post-commit exact verification; recoverable graph failure. |
 | `SBW10a` | BLOCKED ON PUBLICATION | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context. |
 | `SBW10b` | BLOCKED ON `SBW10a` | Compact/full exact-revision Threat projection. | Useful game information first; explicit zero/one/many binding behavior. |
@@ -160,9 +161,8 @@ These do not block `SBW09–SBW10`.
 ## 10. Immediate dispatch logic
 
 ```text
-dispatch SBW09a durable publication operation ledger
-  (from the exact main SHA that lands HANDOFF-sbw09a-publication-operation-ledger.md)
-→ design/dispatch SBW09b explicit create-or-connect resolution
+  merge PR #466, re-anchor the handoff to the resulting immutable origin/main SHA,
+  then dispatch SBW09b exact Threat identity resolution
 → SBW09c governed preview/confirm/verify
 → SBW10a Hermes query + exact hydration
 → SBW10b exact projection
