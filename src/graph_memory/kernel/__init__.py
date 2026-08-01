@@ -102,6 +102,7 @@ from graph_memory.kernel.world_initialization_models import (
 from graph_memory.kernel.world_projection import (
     WorldGraphProjectionError,
     build_projection_payload,
+    load_world_graph_revision_with_integrity,
     project_world_graph,
     resolve_projection_admissibility,
     search_world_graph_projection,
@@ -233,6 +234,7 @@ __all__ = [
     # Projection (PR007A)
     "WorldGraphProjectionError",
     "build_projection_payload",
+    "load_world_graph_revision_with_integrity",
     "project_world_graph",
     "resolve_projection_admissibility",
     "search_world_graph_projection",

@@ -1782,10 +1782,95 @@ def test_projection_apis_exported_from_kernel_public_api() -> None:
         "build_projection_payload",
         "resolve_projection_admissibility",
         "search_world_graph_projection",
+        "load_world_graph_revision_with_integrity",
         "WorldGraphProjectionError",
     ):
         assert name in kernel.__all__
         assert hasattr(kernel, name)
+
+
+def test_load_world_graph_revision_with_integrity_reads_exact_revision(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+
+    store = kernel.load_world_graph_revision_with_integrity(
+        tmp_path,
+        WORLD_ID,
+        pinned_revision_id,
+    )
+
+    assert len(store.nodes) == 12
+    assert TRIPOD_ID in store.nodes
+
+
+def test_load_world_graph_revision_with_integrity_rejects_tampered_payload(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    graph_path = _revision_graph_path(tmp_path, pinned_revision_id)
+    payload = json.loads(graph_path.read_text(encoding="utf-8"))
+    payload["campaign_id"] = "tampered-campaign-id"
+    graph_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.load_world_graph_revision_with_integrity(
+            tmp_path,
+            WORLD_ID,
+            pinned_revision_id,
+        )
+    assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_load_world_graph_revision_with_integrity_rejects_tampered_manifest_hash(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    pinned_revision_id = result.current_head_revision_id
+    graph_path = _revision_graph_path(tmp_path, pinned_revision_id)
+    payload = json.loads(graph_path.read_text(encoding="utf-8"))
+    payload["campaign_id"] = "tampered-campaign-id"
+    canonical = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ) + "\n"
+    graph_path.write_text(canonical, encoding="utf-8")
+
+    manifest_path = _revision_manifest_path(tmp_path, pinned_revision_id)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["graph_payload_sha256"] = hashlib.sha256(
+        canonical.encode("utf-8")
+    ).hexdigest()
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.load_world_graph_revision_with_integrity(
+            tmp_path,
+            WORLD_ID,
+            pinned_revision_id,
+        )
+    assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_load_world_graph_revision_with_integrity_reports_missing_revision(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.load_world_graph_revision_with_integrity(
+            tmp_path,
+            WORLD_ID,
+            "rev:00000000000000000000000000000000",
+        )
+    assert exc_info.value.code == "revision_not_found"
 
 
 def test_provenance_only_mutation_of_embedded_evidence_fails_integrity(
