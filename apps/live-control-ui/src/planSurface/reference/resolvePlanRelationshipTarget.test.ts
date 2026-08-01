@@ -205,6 +205,34 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(resolution.locator).toBe("dmb-node:location-missing");
   });
 
+  it("fails closed when ready without a projection even if corpus fallback would resolve", async () => {
+    let fetchCount = 0;
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-ready-null",
+        label: "Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+      },
+      projection: null,
+      projectionState: "ready",
+      fetchImpl: async () => {
+        fetchCount += 1;
+        return {
+          ok: true,
+          json: async () => ({
+            locations: [{ slug: "location-inn", title: "Inn" }],
+          }),
+        } as Response;
+      },
+    });
+
+    expect(resolution.kind).toBe("error");
+    expect(resolution.message).toMatch(/marked ready but no projection was supplied/i);
+    expect(resolution.kind).not.toBe("resolved_corpus_fallback");
+    expect(fetchCount).toBe(0);
+  });
+
   it("fails closed during projection error without querying corpus", async () => {
     let fetchCount = 0;
     const resolution = await resolvePlanRelationshipTarget({

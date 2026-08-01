@@ -558,7 +558,9 @@ Failure behavior:
   ready + absent projection → explicit error (inconsistent dependency); no corpus fallback
   omitted projectionState → caller-unspecified: with projection, graph lookup then legacy corpus fallback after ordinary miss; without projection, legacy may use corpus fallback and graph-native stays unresolved
   recognized exact locators (dmb-node: / graph_node: / node:) → exact ID only even when refType is absent; never label/alias/corpus rebind
+  exact locator + conflicting refId → explicit error; never silently select either identity
   graph exact miss → unresolved; no label/corpus rebind
+  relationship ready + absent projection → explicit error; no corpus query/fallback
   relationship targetId exact miss → governed corpus fallback or unresolved only; never a second graph label/alias pass
   ambiguous alias/label → explicit ambiguous result; no fallback/open
   missing editor → insertion fails/no-ops truthfully; no DOM search

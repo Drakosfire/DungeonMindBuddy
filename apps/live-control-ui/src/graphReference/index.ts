@@ -29,6 +29,7 @@ export {
   isGraphNativeReference,
   normalizeReferenceKey,
   parseGraphNodeLocator,
+  resolveExactGraphNativeIdentity,
   resolveGraphReference,
   type ResolveGraphReferenceInput,
   type WorldGraphNodeIndex,

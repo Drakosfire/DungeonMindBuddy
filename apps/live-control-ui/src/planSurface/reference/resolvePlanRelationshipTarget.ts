@@ -70,6 +70,21 @@ function worldGraphErrorRelationshipResolution(
   };
 }
 
+function readyWithoutProjectionRelationshipResolution(
+  locator: string,
+  reference: GraphReferenceResolution["reference"],
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
+  return {
+    kind: "error",
+    locator,
+    reference,
+    projectionState,
+    message:
+      "World Graph projection marked ready but no projection was supplied; corpus fallback disabled.",
+  };
+}
+
 /**
  * After an exact targetId miss, adapt governed corpus fallback only.
  * Never re-enter graph label/alias resolution with the stale target ID.
@@ -141,6 +156,10 @@ export async function resolvePlanRelationshipTarget({
 
   if (projectionState === "error") {
     return worldGraphErrorRelationshipResolution(locator, reference, projectionState);
+  }
+
+  if (projectionState === "ready" && !projection) {
+    return readyWithoutProjectionRelationshipResolution(locator, reference, projectionState);
   }
 
   if (targetId) {

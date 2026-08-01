@@ -17,6 +17,7 @@ export {
   isGraphNativeInput,
   isGraphNativeReference,
   parseGraphNodeLocator,
+  resolveExactGraphNativeIdentity,
   resolveGraphReference,
   type ResolveGraphReferenceInput,
   type WorldGraphNodeIndex,

@@ -526,4 +526,44 @@ describe("resolveGraphReference", () => {
 
     expect(result.kind).toBe("resolved_corpus_fallback");
   });
+
+  it("exact locator with matching refId resolves the shared ID", () => {
+    const result = resolveGraphReference({
+      locator: "dmb-node:npc-glowkindle",
+      refId: "npc-glowkindle",
+      projection,
+      projectionState: "ready",
+    });
+
+    expect(result.kind).toBe("resolved_graph");
+    expect(result.graphNodeId).toBe("npc-glowkindle");
+  });
+
+  it("exact locator conflicting with refId fails closed without selecting either identity", () => {
+    const locationB: WorldGraphProjectionNodeView = {
+      ...glowkindleNode,
+      nodeId: "location-b",
+      label: "Location B",
+      kind: "location",
+      aliases: [],
+    };
+    const twinProjection: WorldGraphProjection = {
+      ...projection,
+      nodes: [glowkindleNode, locationB],
+    };
+
+    const result = resolveGraphReference({
+      locator: "dmb-node:location-a",
+      refId: "location-b",
+      projection: twinProjection,
+      projectionState: "ready",
+    });
+
+    expect(result.kind).toBe("error");
+    expect(result.message).toMatch(/conflicting graph identity/i);
+    expect(result.message).toMatch(/location-a/);
+    expect(result.message).toMatch(/location-b/);
+    expect(result.kind).not.toBe("resolved_graph");
+    expect(result.graphNodeId).toBeUndefined();
+  });
 });

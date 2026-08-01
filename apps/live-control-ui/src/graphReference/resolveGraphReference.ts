@@ -53,6 +53,7 @@ export interface WorldGraphNodeIndex {
 export type GraphNodeProjectionLookup =
   | { status: "found"; node: WorldGraphProjectionNodeView }
   | { status: "ambiguous"; matchingNodeIds: string[] }
+  | { status: "conflict"; locatorNodeId: string; refId: string }
   | { status: "miss" };
 
 const GRAPH_NODE_LOCATOR_PATTERNS = [
@@ -154,17 +155,40 @@ function lookupNodeByLabel(index: WorldGraphNodeIndex, label: string): GraphNode
   return uniqueLabelKeyMatch(index, label);
 }
 
-function graphNativeNodeId(options: {
+/**
+ * Resolve the durable node ID for an exact-native reference.
+ *
+ * Rules:
+ * - exact locator present + refId absent → locator ID
+ * - exact locator present + matching refId → that ID
+ * - exact locator present + conflicting refId → conflict (fail closed)
+ * - graph-node refType without exact locator → refId (else trimmed locator)
+ */
+export function resolveExactGraphNativeIdentity(options: {
   locator?: string | null;
   refId?: string | null;
-}): string | null {
-  const fromRefId = String(options.refId || "").trim();
-  if (fromRefId) return fromRefId;
-  if (!options.locator) return null;
-  const parsed = parseGraphNodeLocator(options.locator);
-  if (parsed) return parsed;
-  const trimmed = String(options.locator).trim();
-  return trimmed || null;
+  refType?: string | null;
+}):
+  | { status: "ok"; nodeId: string }
+  | { status: "conflict"; locatorNodeId: string; refId: string }
+  | { status: "absent" } {
+  const fromRefId = String(options.refId || "").trim() || null;
+  const parsed = options.locator ? parseGraphNodeLocator(options.locator) : null;
+
+  if (parsed) {
+    if (fromRefId && fromRefId !== parsed) {
+      return { status: "conflict", locatorNodeId: parsed, refId: fromRefId };
+    }
+    return { status: "ok", nodeId: parsed };
+  }
+
+  if (isGraphNativeReference(options.refType)) {
+    if (fromRefId) return { status: "ok", nodeId: fromRefId };
+    const trimmed = String(options.locator || "").trim();
+    if (trimmed) return { status: "ok", nodeId: trimmed };
+  }
+
+  return { status: "absent" };
 }
 
 export function findGraphNodeInProjection(
@@ -179,9 +203,16 @@ export function findGraphNodeInProjection(
   // Graph-native chips and recognized exact locators bind only to durable node
   // IDs — never label/alias rebind.
   if (isGraphNativeInput({ refType: options.refType, locator: options.locator })) {
-    const nodeId = graphNativeNodeId(options);
-    if (!nodeId) return { status: "miss" };
-    return lookupExactNodeId(index, nodeId);
+    const identity = resolveExactGraphNativeIdentity(options);
+    if (identity.status === "conflict") {
+      return {
+        status: "conflict",
+        locatorNodeId: identity.locatorNodeId,
+        refId: identity.refId,
+      };
+    }
+    if (identity.status !== "ok") return { status: "miss" };
+    return lookupExactNodeId(index, identity.nodeId);
   }
 
   const candidates: string[] = [];
@@ -373,6 +404,23 @@ function graphNativeUnavailable(
   };
 }
 
+function conflictingGraphIdentity(
+  locator: string,
+  reference: RunbookReferenceAttrs | null,
+  locatorNodeId: string,
+  conflictingRefId: string,
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
+  return {
+    kind: "error",
+    locator,
+    reference,
+    projectionState,
+    message:
+      `Conflicting graph identity: locator resolves to "${locatorNodeId}" but refId is "${conflictingRefId}".`,
+  };
+}
+
 export function resolveGraphReference(
   input: ResolveGraphReferenceInput,
 ): GraphReferenceResolution {
@@ -386,9 +434,21 @@ export function resolveGraphReference(
   // refType:refId must not accidentally become exact graph locators.
   const lookupLocator = input.locator ?? null;
   const graphNative = isGraphNativeInput({ refType, locator: lookupLocator });
-  const exactNodeId = graphNative
-    ? graphNativeNodeId({ locator: lookupLocator, refId })
-    : null;
+  const exactIdentity = graphNative
+    ? resolveExactGraphNativeIdentity({ locator: lookupLocator, refId, refType })
+    : { status: "absent" as const };
+  const exactNodeId = exactIdentity.status === "ok" ? exactIdentity.nodeId : null;
+
+  // Conflicting exact identities fail closed before any projection/fallback path.
+  if (exactIdentity.status === "conflict") {
+    return conflictingGraphIdentity(
+      locator,
+      reference,
+      exactIdentity.locatorNodeId,
+      exactIdentity.refId,
+      projectionState,
+    );
+  }
 
   // Projection-state gates belong in the neutral resolver so Build (or any
   // future caller) cannot bypass Plan's fail-closed rules by calling directly.
@@ -452,6 +512,16 @@ export function resolveGraphReference(
 
     if (lookup.status === "ambiguous") {
       return ambiguousGraphResolution(locator, reference, lookup.matchingNodeIds, projectionState);
+    }
+
+    if (lookup.status === "conflict") {
+      return conflictingGraphIdentity(
+        locator,
+        reference,
+        lookup.locatorNodeId,
+        lookup.refId,
+        projectionState,
+      );
     }
 
     if (graphNative) {
