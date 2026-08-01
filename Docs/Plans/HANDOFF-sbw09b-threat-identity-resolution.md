@@ -21,7 +21,7 @@ pr_body_template: |
 
   ## Scope and explicit deferrals
   Design anchor: `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e`
-  Required implementation base: `178ed6766a847275525a23349d24e77270db97f9`
+  Required implementation base: `BLOCKED UNTIL PR #466 MERGES` — dispatch only from the immutable `origin/main` SHA produced by that merge and recorded by a post-merge authority sync.
   Actual base/head: Pre-dispatch; implementation head does not exist yet.
   Actual changed paths: Pre-dispatch documentation synchronization only.
   Paths outside the handoff allowlist: none known; stop and report any discovered path.
@@ -52,7 +52,7 @@ pr_body_template: |
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw09b-threat-identity-resolution.md`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Design anchor:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` — merge commit for PR `#462` / SBW09a.  
-**Required implementation base:** `178ed6766a847275525a23349d24e77270db97f9` — exact authority-sync commit, or a later deliberate authority-sync commit.  
+**Required implementation base:** `BLOCKED UNTIL PR #466 MERGES` — the pre-merge branch commits are not merged-main authority; after the merge, record the immutable `origin/main` SHA in a post-merge authority sync before dispatch.
 **Suggested branch:** `feat/sbw09b-threat-identity-resolution`
 
 No future pull-request number is assigned by this handoff. The hosting system or operator may assign one when a pull request is actually opened.
@@ -79,8 +79,8 @@ At design anchor `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e`, SBW09a is merged, b
    - SBW09a is recorded as proven;
    - this handoff is the current implementation authority;
 5. update the current-dispatch sequence in the superseded bundled SBW09 handoff to link this exact unnumbered file while preserving its historical status;
-6. use the immutable main SHA `178ed6766a847275525a23349d24e77270db97f9` recorded in this handoff as the implementation base;
-7. dispatch the implementation worker from that exact SHA.
+6. merge PR `#466` before implementation dispatch; do not dispatch from either pre-merge branch commit because squash or rebase may rewrite those SHAs;
+7. after the merge, fetch `origin/main`, record its immutable SHA in this handoff and the tracker/roadmap through one post-merge authority sync, retarget the implementation PR to that main base, and only then dispatch or accept implementation work.
 
 Do not combine the synchronization edits with implementation unless repository process explicitly requires the handoff file to travel on the implementation branch. If unrelated PRs move main, re-anchor only when they change SBW09a contracts, World Graph projection/retrieval behavior, Threat node vocabulary, route registration, or lock assumptions used below.
 
@@ -447,7 +447,23 @@ The ID is stable for the same publication operation, independent of display
 name, slug, rank, or candidate ordering, and is proposal input rather than
 proof a node exists. Collision with any node at the exact expected parent
 fails closed as `publication_identity_new_id_collision`; never add a suffix or
-silently connect.
+silently connect. Before accepting `create_new`, perform an integrity-checked
+exact-revision existence read through the public Kernel:
+
+```text
+graph_memory.kernel.load_world_graph_revision(
+  world_graph_root(),
+  source_snapshot.world_id,
+  expected_parent_revision_id,
+)
+```
+
+Check the derived ID against the complete immutable revision `store.nodes`, not
+only the campaign-visible/projectable candidate projection. This boundary
+includes other-campaign, nonprojectable, merged-away, and otherwise hidden node
+records that still occupy the globally unique ID. Missing or corrupt exact
+revision data fails closed as a typed graph/integrity error; it never falls back
+to the current head or treats the candidate projection as the global namespace.
 
 ### 9.8 Durable resolution model
 
@@ -527,9 +543,16 @@ ThreatPublicationIdentityResponseV1:
   candidate_set?
   resolution?
   predecessor_state?
-  predecessor_usable
+  predecessor_usable: bool | null
   message?
 ```
+
+`predecessor_usable` is nullable freshness metadata, not durable identity. It
+is `true` only on a path that refreshed SBW09a and completed the exact-parent
+projection check; it is `null` for exact replay and ordinary read because those
+paths intentionally skip refresh and current graph reads. `null` means “not
+observed,” not “usable.” A persisted ready operation alone must never produce
+`true` on read or replay.
 
 Closed labels:
 
@@ -608,8 +631,11 @@ decision recomputes against the same exact parent and requires SBW09a still read
 
 Validate route IDs, acquire the identity lock, strictly load the ledger and
 resolution, and return the immutable record. Read predecessor operation only
-to report current `predecessor_state` / `predecessor_usable`. Do not refresh
-candidates or mutate predecessor, graph, or identity ledger.
+to report its persisted `predecessor_state`; return
+`predecessor_usable=null` because this path does not refresh SBW09a or verify
+the current graph head. Exact replay returns before any predecessor or graph
+read and also returns `predecessor_usable=null`. Do not refresh candidates or
+mutate predecessor, graph, or identity ledger.
 
 ## §11 Lock, commit, replay, and failure contract
 
@@ -710,13 +736,14 @@ actual Threat nodes, or SBW08 bindings do not prove the boundary.
 | Ranking remains advisory | candidate service | Highest-score and tie tests | Ordering only; no selected identity | Any implicit target |
 | Exact collisions cannot be hidden | matching profile | Unrelated query + exact alias collision | Every collision included | Truncated collision |
 | Create-new requires collision adjudication | decision service | Missing/all explicit rejection matrix | Review-required or durable proposed ID | Silent duplicate |
-| Proposed ID is deterministic and name/slug independent | decision service | Formula + collision tests | Stable exact ID or fail closed | Random suffix |
+| Proposed ID is deterministic and name/slug independent | decision service | Formula plus exact-revision hidden-node collision test through the public Kernel | Stable exact ID or fail closed | Random suffix or candidate-projection-only collision check |
 | Connect selects exact reviewed Threat | decision service | Exact candidate, missing, wrong-kind, redirect matrix | One exact node or typed reject | Name/redirect fallback |
 | Candidate digest binds review | model/service | Query/profile/order/snapshot tamper matrix | Mismatch conflicts | Recomputed hidden authority |
 | Replay is dependency-independent | ledger/service | Same-ID replay after graph drift/corruption | Existing exact record returned | Graph reread on replay |
 | One active decision and atomic replacement | ledger | Concurrency, supersession, injected write failure | One active lineage or prior ledger | Dual active/orphan |
 | Persistence fails closed | parser/store | Malformed JSON/schema/digest/link/history/path tests | Typed integrity, byte-identical storage | Auto-repair |
 | SBW09a owns freshness | integration | Stale/terminal/source-parent mismatch tests | No identity record minted | Duplicate freshness model |
+| Read/replay freshness metadata is honest | response/service | Exact replay and ordinary read with persisted-ready operation | `predecessor_usable=null` unless a fresh observation occurred | `true` derived from persisted ready state alone |
 | External authorities stay untouched | service + route | Byte hashes/spies | No graph/Draft/mechanics/DMS mutation | Any forbidden write |
 | Route contract is strict and reloadable | FastAPI | Route integration + new app instance | Typed statuses + exact reload | Opaque failure |
 | Predecessor contracts remain green | predecessor boundaries | Focused regressions | No unexplained regression | Unwaived failure |
@@ -731,6 +758,7 @@ test_candidate_rank_never_selects_identity
 test_create_new_requires_explicit_rejection_of_every_exact_collision
 test_create_new_derives_stable_name_independent_proposed_threat_id
 test_create_new_rejects_existing_derived_id_without_random_suffix
+test_create_new_checks_global_exact_revision_for_hidden_node_collision
 test_connect_existing_requires_exact_reviewed_threat_node
 test_connect_existing_rejects_wrong_kind_redirect_and_name_fallback
 test_decision_rejects_changed_candidate_set_digest_without_mutation
@@ -777,7 +805,7 @@ uv run python -m compileall -q \
   apps/live_control_server/routes/threat_publication_identity.py
 
 git diff --check
-git diff --name-only 178ed6766a847275525a23349d24e77270db97f9...HEAD
+git diff --name-only "$(git rev-parse origin/main)"...HEAD
 ```
 
 For every required command failure that also occurs on base, run the identical
@@ -832,7 +860,7 @@ Required deletion owner:
 - [ ] Ranking is advisory and cannot auto-select.
 - [ ] Create-new requires explicit adjudication of every exact-name collision.
 - [ ] Proposed new Threat ID is server-derived, deterministic, bounded, and not name/slug based.
-- [ ] Proposed ID collision fails closed without random suffix or silent connect.
+- [ ] Proposed ID collision checks the complete exact-parent revision through the public Kernel and fails closed without random suffix or silent connect.
 - [ ] Connect-existing selects one exact reviewed Threat node ID.
 - [ ] No name, alias, redirect, alias-map, or first-result fallback exists.
 - [ ] Candidate-set and request digests recompute on durable load.
@@ -841,7 +869,7 @@ Required deletion owner:
 - [ ] One operation has at most one active resolution.
 - [ ] Supersession updates old/new records and active pointer in one atomic ledger replacement.
 - [ ] Corrupt storage, dependency failure, and write failure do not auto-repair or invent authority.
-- [ ] Read preserves historical resolution while reporting current predecessor usability separately.
+- [ ] Read preserves historical resolution while returning nullable freshness metadata; persisted-ready state alone never yields `predecessor_usable=true`.
 - [ ] No World Graph, ThreatDraft, accepted-mechanics, or DungeonMind mutation occurs.
 - [ ] The only adjacent predecessor mutation is an existing SBW09a refresh transition through its owning service.
 - [ ] The internal Graph Kernel identity-decision store remains untouched.

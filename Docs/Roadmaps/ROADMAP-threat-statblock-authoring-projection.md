@@ -4,7 +4,7 @@
 **Date:** 2026-07-30  
 **Repository anchor:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` — merged PR `#462`  
 **Latest completed publication foundation:** `SBW09a` merged in PR `#462` (with SBW08 in PR `#457`)  
-**Immediate implementation authority:** [`../Plans/HANDOFF-sbw09b-threat-identity-resolution.md`](../Plans/HANDOFF-sbw09b-threat-identity-resolution.md)  
+**Immediate implementation authority:** [`../Plans/HANDOFF-sbw09b-threat-identity-resolution.md`](../Plans/HANDOFF-sbw09b-threat-identity-resolution.md); dispatch is blocked until PR `#466` merges and a post-merge authority sync records the resulting immutable `origin/main` SHA
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
@@ -173,8 +173,13 @@ What remains false after merge:
 
 ### `SBW09b` — Explicit create-or-connect Threat resolution
 
-Current implementation authority:
+Current contract authority:
 [`../Plans/HANDOFF-sbw09b-threat-identity-resolution.md`](../Plans/HANDOFF-sbw09b-threat-identity-resolution.md).
+
+Implementation dispatch remains blocked while PR `#466` is open. Its pre-merge
+branch commits are not merged-main authority and may be rewritten by squash or
+rebase. After that merge, re-anchor this handoff and the tracker to the exact
+`origin/main` SHA before accepting or dispatching SBW09b implementation work.
 
 Consumes one ready SBW09a operation.
 

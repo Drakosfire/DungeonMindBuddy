@@ -4,7 +4,7 @@
 **Date:** 2026-07-30  
 **Repository anchor:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` — merged PR `#462`  
 **Latest merged workstream PR:** `#462` — durable no-write SBW09a publication operation authority  
-**Immediate authority:** dispatch [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md) from the exact authority-sync SHA recorded in that handoff  
+**Immediate authority:** [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md) is the SBW09b contract authority; implementation dispatch is blocked until PR `#466` merges and a post-merge authority sync records the resulting immutable `origin/main` SHA
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
@@ -161,8 +161,8 @@ These do not block `SBW09–SBW10`.
 ## 10. Immediate dispatch logic
 
 ```text
-  dispatch SBW09b exact Threat identity resolution
-  (from the exact main SHA recorded by HANDOFF-sbw09b-threat-identity-resolution.md)
+  merge PR #466, re-anchor the handoff to the resulting immutable origin/main SHA,
+  then dispatch SBW09b exact Threat identity resolution
 → SBW09c governed preview/confirm/verify
 → SBW10a Hermes query + exact hydration
 → SBW10b exact projection
