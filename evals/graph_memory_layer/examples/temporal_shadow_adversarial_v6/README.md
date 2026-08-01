@@ -1,9 +1,11 @@
-# Temporal shadow adversarial cohort V6 (TL01G promotion)
+# Temporal shadow adversarial cohort V6 (TL01G)
 
-Synthetic lane-classification stress set for TL01G promotion.
+**RETIRED as independent TL01G promotion evidence.**
 
-Authored after `tl01g-v1` freeze. Reserved vocabulary (`Kestrel Vale`, `Briarwick`, `Nymera`, `Ironreed Causeway`, `Saltglass Register`, `Dawnspine Compact`) is absent from the prompt and all prior cohorts.
+Observed / exploratory **regression** cohort only. Several rows are noun-substituted replays of adversarial V5 sentence templates (e.g. “race past … continues to hold … Register/Ledger”). That is useful for known-failure regression, not independent promotion evidence for a prompt designed from those V5 failures.
 
-Ten synthetic rows under `sources/` — one per lane class including future promise, relative forecast, grounding trap, and occurrence-vs-valid-start ambiguity.
+Provider results have already been observed — do **not** edit gold, sources, or spans in place.
+
+Independent promotion adversarial authority moves to **adversarial V7** (novel constructions + template-overlap guards).
 
 See `GOLD-AUDIT.md`.

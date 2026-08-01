@@ -1,24 +1,11 @@
-# Temporal shadow holdout cohort V8 (TL01G promotion)
+# Temporal shadow holdout cohort V8 (TL01G)
 
-**Independent TL01G promotion holdout.** Sealed before first provider run.
+**RETIRED as independent TL01G promotion evidence.**
 
-Twelve canonical corpus rows with fresh propositions and source spans disjoint from all prior holdout cohorts (V3–V7, cohort, holdout). Covers occurrence (session and textual/relative), valid-time start/end (session and textual), restatement, structure, unresolved, and ambiguous lane classes.
+Observed / exploratory regression cohort only. Authored in the same commit as the original `tl01g-v1` freeze (`ed65f140…`), so it cannot prove holdout rows were unknown at prompt finalization. Provider results for this cohort have already been observed — do **not** edit gold, base, or spans in place.
 
-Do not edit after the promotion seal commit used for the first TL01G provider run.
+Row 11 (`reached_fortifications` / fires lit) is also proposition-defective under the proposition-first rule: the assertion is a clear arrival event; surrounding plan-success consequences do not create a second temporal reading. That defect is retained for historical honesty and is **not** corrected here.
 
-| Row | Source | Proposition type | Gold |
-| --- | --- | --- | --- |
-| 1 | Session 23 L20 | event (shadow alarm) | resolved occurrence session-23 |
-| 2 | Session 21 L14 | event forecast | resolved occurrence textual (`in about seven hours`) |
-| 3 | Session 13 L14 | state-start | resolved valid-time start session-13 |
-| 4 | Session 22 L24 | state-start (source-different) | resolved valid-time start textual (`has been compromised`) |
-| 5 | Session 23 L36 | state-end | resolved valid-time end session-23 |
-| 6 | Mirathorn L290 | historical event | resolved occurrence textual |
-| 7 | Session 23 L18 | restatement | not_applicable |
-| 8 | Session 4 L20 | non-temporal structure | not_applicable |
-| 9 | Session 2 L30 | unresolved future pledge | unresolved |
-| 10 | Session 15 L30 | unresolved plan/urgency | unresolved |
-| 11 | Session 20 L26 | ambiguous competing readings | ambiguous |
-| 12 | Session 1 L13 | ambiguous identity | ambiguous |
+Independent promotion authority moves to **holdout V9**.
 
-See `GOLD-AUDIT.md` for row-level audit.
+See `GOLD-AUDIT.md` for the sealed row table. Do not mutate after the original execution seal.
