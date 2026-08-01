@@ -1,11 +1,11 @@
 # REPORT — TL01G: Resolution-Proof Abstention Gate
 
-**Created:** 2026-08-01  
-**Updated:** 2026-08-01 (integrity recovery after PR #468 request-changes)  
-**Control:** frozen `tl01f-v1`  
-**Candidate:** frozen `tl01g-v1`  
-**Packet / renderer:** `tl01c-packet-v1` / `render_temporal_shadow_user_content_v2`  
-**Model:** `gpt-5.4-mini` · **Repetitions:** 3  
+**Created:** 2026-08-01
+**Updated:** 2026-08-01 (integrity recovery after PR #468 request-changes)
+**Control:** frozen `tl01f-v1`
+**Candidate:** frozen `tl01g-v1`
+**Packet / renderer:** `tl01c-packet-v1` / `render_temporal_shadow_user_content_v2`
+**Model:** `gpt-5.4-mini` · **Repetitions:** 3
 
 ## Executive result
 
