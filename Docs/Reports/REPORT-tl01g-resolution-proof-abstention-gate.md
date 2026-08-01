@@ -1,7 +1,7 @@
 # REPORT — TL01G: Resolution-Proof Abstention Gate
 
 **Created:** 2026-08-01
-**Updated:** 2026-08-01 (V13/Adv V11 pending seal after V12/Adv V10 retirement)
+**Updated:** 2026-08-01 (V13/Adv V11 authoritative promotion after V12/Adv V10 retirement)
 **Control:** frozen `tl01f-v1`
 **Candidate:** frozen `tl01g-v1`
 **Packet / renderer:** `tl01c-packet-v1` / `render_temporal_shadow_user_content_v2`
@@ -19,11 +19,11 @@
 | observed V10 / Adv V8 | exploratory / regression only (audit drift + Gate C/E2 gold defects) | `ITERATE_PROMPT` | `candidate_unsafe_over_resolution=3` |
 | observed V11 / Adv V9 | exploratory / regression only (span reuse + paraphrased Adv skeletons) | `ITERATE_PROMPT` | `candidate_unsafe_over_resolution=3` |
 | **promotion (V12 / Adv V10)** | **retired** (gold/Gate defects) | **`ITERATE_PROMPT`** (observed) | **`candidate_unsafe_over_resolution=1`** |
-| **promotion (V13 / Adv V11)** | **authoritative (pending seal)** | *not yet run* | *pending* |
+| **promotion (V13 / Adv V11)** | **authoritative** | **`ITERATE_PROMPT`** | **`candidate_grounding_failures=9`** |
 
 **Human roadmap recommendation:** `ITERATE_ABSTENTION_PROMPT`
 
-TL01 may **not** advance to broader-shadow readiness. V12/Adv V10 observed promotion under seal `a7a9d5c3…` failed (`candidate_unsafe_over_resolution=1`). Authoritative promotion authority moves to holdout **V13** and adversarial **V11** (Gate-faithful gold, pending seal — no provider runs yet). Prior V8–V11 / Adv V6–V9 matrices remain exploratory or regression-only.
+TL01 may **not** advance to broader-shadow readiness. Authoritative promotion under freeze `3af1e470…` with Gate-faithful V13 / Adv V11 still fails: candidate grounding collapses on development, holdout, and adversarial (0/3 each; `candidate_grounding_failures=9`). Notably, the prior V12/Adv V10 sole `unsafe_over_resolution=1` blocker is gone under corrected gold — residual failure is grounding completeness, not that manufactured unsafe count. Prior V8–V12 / Adv V6–V10 remain exploratory or regression-only.
 
 ## Integrity recovery timeline
 
@@ -35,7 +35,7 @@ TL01 may **not** advance to broader-shadow readiness. V12/Adv V10 observed promo
 | Retire V9/V7; fail-closed span guard; seal V10 / Adv V8 | `046093fd899e1b286329b0e0bf6b09b6aa0e60d6` | **retired** — GOLD-AUDIT≠fixture; Gate C/E2 gold defects after observation |
 | Retire V10/Adv V8; audit ID/status tests; span EOF bounds; seal V11 / Adv V9 | `a3f108f2fa64a3ac5c0146acbc25d7b904fcacc2` | **retired** — reused observed spans; Adv V9 paraphrased Adv V8 |
 | Retire V11/Adv V9; restore span `isdisjoint`; Jaccard templates; audit proposition/lane/phrase; seal V12 / Adv V10 | `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` | **retired promotion execution** — gold/Gate defects (see below) |
-| Retire V12/Adv V10; proposition-template Jaccard; Gate-faithful V13/Adv V11 gold | `SEAL_PENDING` | **authoritative promotion (pending seal)** |
+| Retire V12/Adv V10; proposition-template Jaccard; Gate-faithful V13/Adv V11 gold | `33bae3485babb0d15373b91b0cbcb13282b42491` | **authoritative promotion seal / execution** |
 
 ### Why V12/Adv V10 cannot remain promotion authority
 
@@ -47,7 +47,7 @@ Do **not** patch V12/Adv V10 gold in place (provider outputs already observed un
 - V12 festival postponement reused Mirathorn-festival ledger span already observed in prior holdouts.
 - Adv V10 grounding-trap row used `now` in source but gold marked unresolved — under frozen gates the claim is resolvable (embedded `now` / session occurrence), likely manufacturing the sole `unsafe_over_resolution=1` blocker.
 
-Authoritative promotion moves to holdout **V13** + adversarial **V11** with Gate-faithful gold and proposition-template Jaccard guards. Seal pending (`SEAL_PENDING`).
+Authoritative promotion moved to holdout **V13** + adversarial **V11** with Gate-faithful gold and proposition-template Jaccard guards; sealed and executed at `33bae348…`.
 
 ### Why V11/Adv V9 cannot remain promotion authority
 
@@ -64,7 +64,7 @@ Resolved-span fingerprints fail before hashing when evidence refs are missing, p
 
 ### Adversarial template novelty
 
-Exact template equality after noun scrubbing is insufficient. Adv V10 requires token-set Jaccard `< 0.40` against every prior adversarial source after the same scrub.
+Exact template equality after noun scrubbing is insufficient. Fresh adversarial and holdout cohorts require token-set Jaccard `< 0.40` after entity scrub (adversarial sources; holdout label/predicate templates).
 
 ### GOLD-AUDIT ↔ fixture binding
 
@@ -82,27 +82,28 @@ Promotion cohorts require `GOLD-AUDIT.md` assertion IDs to equal the sealed base
 | Renderer | `render_temporal_shadow_user_content_v2` |
 | Model | `gpt-5.4-mini` |
 | Prompt-only freeze SHA | `67408bd871ba684e70ddf6e53dd7088d0036a475` |
-| Promotion cohort seal / execution SHA | `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` (V12/Adv V10 observed; retired) |
-| Next promotion seal | `SEAL_PENDING` (V13 / Adv V11) |
+| Promotion cohort seal / execution SHA | `33bae3485babb0d15373b91b0cbcb13282b42491` (V13 / Adv V11) |
+| Prior retired seal (V12 / Adv V10) | `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` |
 | Repetitions | 3 |
 
 ## Aggregate artifacts
 
-* Exploratory / regression-only (not authority for freeze `3af1e470…` + V12/V10):
+* Exploratory / regression-only (not authority for freeze `3af1e470…` + V13/V11):
   * `.../tl01g/regression-lane|abstention|legacy/calibration/aggregate.json`
   * Prior V8/V6 promotion `temporal-prompt-calibration:8fa650923db848b2` (git history)
   * Prior V9/V7 promotion `temporal-prompt-calibration:ad6a53a7ed8e9714` (git history / overwritten on disk)
   * Prior V10/Adv V8 promotion `temporal-prompt-calibration:27f9e68971c575ee` (git history / overwritten on disk)
   * Prior V11/Adv V9 promotion `temporal-prompt-calibration:2c149b55752a5e63` (git history / overwritten on disk)
-* **Authoritative promotion (V12 / Adv V10):**
-  * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:3db8507237419d92`
+  * Prior V12/Adv V10 promotion `temporal-prompt-calibration:3db8507237419d92` (git history / overwritten on disk)
+* **Authoritative promotion (V13 / Adv V11):**
+  * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:e6183c0b17867ff3`
 
 ## Cohorts
 
 | Cohort | Rows | Role |
 | --- | ---: | --- |
-| holdout V13 | 12 | **authoritative promotion holdout (pending seal)** — span-text disjoint; proposition-template Jaccard `<0.40`; Gate-faithful gold |
-| adversarial V11 | 10 | **authoritative promotion adversarial (pending seal)** — novel Glimmerfen vocab + Jaccard `<0.40`; Gate E2 textual; no-`now` grounding trap |
+| holdout V13 | 12 | **authoritative promotion holdout** — span-text disjoint; proposition-template Jaccard `<0.40`; Gate-faithful gold; sealed at `33bae348…` |
+| adversarial V11 | 10 | **authoritative promotion adversarial** — novel Glimmerfen vocab + Jaccard `<0.40`; Gate E2 textual; no-`now` grounding trap |
 | holdout V12 / Adv V10 | 12 / 10 | observed regression only (gold/Gate defects retained) |
 | holdout V11 / Adv V9 | 12 / 10 | observed regression only (span reuse + paraphrased skeletons retained) |
 | holdout V10 / Adv V8 | 12 / 10 | observed regression only (audit drift + Gate C/E2 defects retained) |
@@ -112,9 +113,21 @@ Promotion cohorts require `GOLD-AUDIT.md` assertion IDs to equal the sealed base
 
 Audits: `evals/graph_memory_layer/examples/temporal_shadow_holdout_v13/GOLD-AUDIT.md`, `.../temporal_shadow_adversarial_v11/GOLD-AUDIT.md`.
 
-## Matrix D — observed promotion (holdout V12 / Adv V10, retired)
+## Matrix D — authoritative promotion (holdout V13 / Adv V11)
 
-Seal/execution: `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` · candidate SHA `3af1e470…` · calibration `temporal-prompt-calibration:3db8507237419d92` · run repo SHA `e63bc58d…`
+Seal/execution: `33bae3485babb0d15373b91b0cbcb13282b42491` · candidate SHA `3af1e470…` · calibration `temporal-prompt-calibration:e6183c0b17867ff3` · run repo SHA `33bae348…`
+
+| Cohort | Success | Status min | Wrong lane | Wrong value | Unsafe | Source leak | Grounding |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| development | 0/3 | — | 0 | 0 | 0 | 0 | 3 |
+| holdout V13 | 0/3 | — | 0 | 0 | 0 | 0 | 3 |
+| adversarial V11 | 0/3 | — | 0 | 0 | 0 | 0 | 3 |
+
+Machine decision: `ITERATE_PROMPT` (`candidate_grounding_failures=9`). Unsafe over-resolution is **0** on this authoritative matrix (the V12/Adv V10 `unsafe=1` was not reproduced under corrected gold). Human gates still fail on grounding completeness across all three candidate cohorts. `PROMPT_READY_FOR_BROADER_SHADOW` remains disallowed.
+
+### Observed V12 / Adv V10 — retired (for comparison)
+
+Seal/execution: `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` · calibration `temporal-prompt-calibration:3db8507237419d92`
 
 | Cohort | Success | Status min | Wrong lane | Wrong value | Unsafe | Source leak | Grounding |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -122,19 +135,17 @@ Seal/execution: `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` · candidate SHA `3af
 | holdout V12 | 0/3 | — | 0 | 0 | 0 | 0 | 3 |
 | adversarial V10 | 1/3 | 0.9 | 0 | 5 | **1** | 0 | 2 |
 
-Machine decision: `ITERATE_PROMPT` (`candidate_unsafe_over_resolution=1`). Human gates also fail: grounding collapses on development and holdout; Adv V10 still over-resolves on one run. `PROMPT_READY_FOR_BROADER_SHADOW` remains disallowed.
-
 ## Interpretation
 
-1. Process defects from PR #468 reviews are addressed in V13/Adv V11 authoring: span-text `isdisjoint` including evaluation cohort; adversarial and holdout proposition-template Jaccard guards; GOLD-AUDIT binds proposition/lane/phrase mechanically (not Gate correctness).
-2. V12/Adv V10 observed promotion under `a7a9d5c3…` was honestly red — unsafe over-resolution and grounding instability blocked readiness; those cohorts are retired without in-place gold edits.
-3. V13/Adv V11 await seal and first provider run before any new promotion decision.
+1. Process defects from PR #468 reviews are addressed in V13/Adv V11: span-text `isdisjoint` including evaluation cohort; adversarial and holdout proposition-template Jaccard guards; GOLD-AUDIT binds proposition/lane/phrase mechanically (not Gate correctness).
+2. V12/Adv V10 are retired without in-place gold edits; their sole unsafe over-resolution is not trustworthy promotion evidence given the Adv V10 `now`/unresolved gold contradiction.
+3. Under Gate-faithful V13/Adv V11, TL01G remains honestly red — grounding collapses (`candidate_grounding_failures=9`) with unsafe 0. Residual work is grounding completeness / abstention prompt iteration, not the prior manufactured unsafe blocker.
 4. Next prompt version (`tl01h-v1` or equivalent) should target abstention safety and grounding completeness. Do not mutate `tl01g-v1`; do not revive V8–V12 / Adv V6–V10 as promotion authority.
 
 ## Recommendation precedence applied
 
 ```text
-unsafe over-resolution > 0 and grounding failures on authoritative promotion
+grounding failures > 0 on authoritative promotion (unsafe over-resolution = 0)
 → ITERATE_ABSTENTION_PROMPT
 (not PROMPT_READY; not ADVANCE_TO_TEXTUAL_NORMALIZATION)
 ```
@@ -143,18 +154,19 @@ unsafe over-resolution > 0 and grounding failures on authoritative promotion
 
 * No Temporal Kernel / packet / renderer / threshold / runner changes.
 * No graph writes or Timeline surface work.
-* V8–V11 and Adv V6–V9 are **not** independent promotion evidence.
+* V8–V12 and Adv V6–V10 are **not** independent promotion evidence.
 * Matrices A–C under candidate hash `60680e1f…` are not authority for freeze `3af1e470…`.
 * World-line / branch-divergence encoding remains deferred; temporal ambiguity stays epistemic.
+* GOLD-AUDIT mechanical binding is not proof of Gate-faithfulness.
 
 ## Handback
 
 ```text
 Candidate: tl01g-v1 (freeze 67408bd8…; prompt hash 3af1e470…)
 Control: tl01f-v1
-Last observed seal/execution: a7a9d5c321e7f57ddc95303705a8a8bac94fcd82 (V12/Adv V10 — retired)
-Promotion cohorts: holdout V13 + adversarial V11 (SEAL_PENDING)
-Last observed promotion decision: ITERATE_PROMPT (V12/Adv V10 unsafe over-resolution=1)
+Authoritative seal/execution: 33bae3485babb0d15373b91b0cbcb13282b42491
+Promotion cohorts: holdout V13 + adversarial V11
+Promotion decision: ITERATE_PROMPT (candidate_grounding_failures=9; unsafe=0)
 Human recommendation: ITERATE_ABSTENTION_PROMPT
-Next: seal V13/Adv V11; run promotion calibration; do not mutate tl01g-v1; do not revive V8–V12 / Adv V6–V10 as promotion authority
+Next: new frozen abstention prompt version; keep V13/V11 sealed; do not mutate tl01g-v1; do not revive V8–V12 / Adv V6–V10 as promotion authority
 ```

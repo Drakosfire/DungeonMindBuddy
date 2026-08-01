@@ -4,4 +4,4 @@ Independent TL01G promotion adversarial after prompt freeze `67408bd871ba684e70d
 
 Novel Glimmerfen / Brinearch Quay vocabulary; Gate E2 faithful textual rows; grounding trap without `now`. Sealed before first provider run.
 
-**Seal SHA:** `SEAL_PENDING`
+**Seal SHA:** `33bae3485babb0d15373b91b0cbcb13282b42491`
