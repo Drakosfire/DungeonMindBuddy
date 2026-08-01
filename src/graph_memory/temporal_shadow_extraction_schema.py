@@ -325,6 +325,9 @@ class CalibrationRunRecordV1(_TransportModel):
     run_id: str | None = None
     provider_response_id: str | None = None
     failure_code: str | None = None
+    affected_assertion_id: str | None = None
+    failure_diagnostics: list[str] = Field(default_factory=list)
+    foreign_evidence_attempts: int | None = None
     exact_match_count: int | None = None
     resolved_exact_match_count: int | None = None
     exact_occurrence_match_count: int | None = None

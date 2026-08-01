@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from evals.graph_memory_layer import temporal_shadow_prompt_calibration as calibration
+from graph_memory.temporal_shadow_extraction import TemporalShadowExtractionError
 from graph_memory.temporal_shadow_extraction_schema import (
     CalibrationCohortAggregateV1,
     CalibrationMetricDistributionV1,
@@ -1206,6 +1207,106 @@ def test_aggregate_counts_invalid_model_output_as_model_output_failure(
     )
     assert decision == "ITERATE_PROMPT"
     assert any("model_output_failures" in note for note in diagnostics)
+
+
+def test_aggregate_preserves_grounding_failure_diagnostics(tmp_path: Path) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "dmb_temporal_shadow_extraction_failure_v1",
+                "case_id": "tl01g-temporal-shadow-holdout-v13",
+                "case_digest": "b" * 64,
+                "model_id": "fake-model",
+                "executed_prompt_version": "tl01g-v1",
+                "prompt_version": "tl01g-v1",
+                "failure_code": "grounding_failure",
+                "affected_assertion_id": "assertion:deadbeef",
+                "diagnostics": [
+                    "source_phrase not found…",
+                    "source_phrase='Party at Copper and Quartz'",
+                ],
+                "foreign_evidence_attempts": 0,
+                "repository_sha": "deadbeef",
+                "provider_response_id": "resp_grounding_preserved_456",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    outcome = calibration.load_run_outcome(
+        _spec("candidate", "holdout", 1), run_dir
+    )
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="holdout",
+        outcomes=[outcome],
+        expected_case_id="tl01g-temporal-shadow-holdout-v13",
+        expected_model_id="fake-model",
+        expected_prompt_version="tl01g-v1",
+        expected_repository_sha="deadbeef",
+    )
+    assert aggregate.total_grounding_failures == 1
+    record = aggregate.run_records[0]
+    assert record.succeeded is False
+    assert record.failure_code == "grounding_failure"
+    assert record.affected_assertion_id == "assertion:deadbeef"
+    assert record.failure_diagnostics == [
+        "source_phrase not found…",
+        "source_phrase='Party at Copper and Quartz'",
+    ]
+    assert record.foreign_evidence_attempts == 0
+    assert record.provider_response_id == "resp_grounding_preserved_456"
+
+
+def test_temporal_shadow_extraction_error_prepends_message_to_custom_diagnostics() -> None:
+    exc = TemporalShadowExtractionError(
+        "grounding miss",
+        code="grounding_failure",
+        diagnostics=["source_phrase not found"],
+    )
+    assert exc.diagnostics == ["grounding miss", "source_phrase not found"]
+
+    exc_with_message = TemporalShadowExtractionError(
+        "already listed",
+        code="grounding_failure",
+        diagnostics=["already listed", "detail"],
+    )
+    assert exc_with_message.diagnostics == ["already listed", "detail"]
+
+    exc_default = TemporalShadowExtractionError("only message", code="path_escape")
+    assert exc_default.diagnostics == ["only message"]
+
+
+def test_compute_calibration_decision_unobserved_when_all_candidate_runs_fail() -> None:
+    holdout = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="holdout",
+        run_count=2,
+        success_count=0,
+        failure_count=2,
+    )
+    development = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=2,
+        success_count=0,
+        failure_count=2,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[holdout, development],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert "candidate_has_failed_runs" in diagnostics
+    assert "candidate_comparison_metrics_unobserved" in diagnostics
 
 
 def test_historical_tl01c_fake_run_derives_tl01c_candidate_version(

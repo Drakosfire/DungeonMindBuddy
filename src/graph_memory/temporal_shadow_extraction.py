@@ -108,8 +108,14 @@ class TemporalShadowExtractionError(Exception):
         foreign_evidence_attempts: int = 0,
     ) -> None:
         super().__init__(message)
+        if diagnostics is None:
+            self.diagnostics = [message]
+        else:
+            diags = list(diagnostics)
+            if message not in diags:
+                diags.insert(0, message)
+            self.diagnostics = diags
         self.code = code
-        self.diagnostics = list(diagnostics or [message])
         self.affected_assertion_id = affected_assertion_id
         self.provider_response_id = provider_response_id
         self.foreign_evidence_attempts = int(foreign_evidence_attempts)

@@ -159,6 +159,7 @@ PRIOR_CANONICAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v10",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v11",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v12",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v13",
 )
 
 PRIOR_ADVERSARIAL_COHORT_DIRS = (
@@ -171,7 +172,11 @@ PRIOR_ADVERSARIAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v9",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11",
 )
+
+# Set when a fresh adversarial promotion cohort (V12+) is authored.
+FRESH_ADVERSARIAL_FOR_PROPOSITION_GUARD: Path | None = None
 
 ADV_V6_VOCABULARY = (
     "Kestrel Vale",
@@ -720,6 +725,40 @@ def _proposition_template_jaccard(left: dict, right: dict) -> float:
     return len(left_tokens & right_tokens) / len(union)
 
 
+_RESULTING_STATE_MARKERS = ("no longer", "still ", "continues to", "remains")
+
+
+def _source_reports_resulting_state_without_narrated_boundary(source_text: str) -> bool:
+    """True when prose reports a resulting attitude/state without narrating the transition event."""
+    text = source_text.lower()
+    return any(m in text for m in _RESULTING_STATE_MARKERS) and not any(
+        cue in text
+        for cue in (
+            "became",
+            "stopped",
+            "ceased",
+            "ended",
+            "began to",
+            "started to",
+            "when they",
+        )
+    )
+
+
+def _postponement_occurrence_uses_reschedule_time(
+    proposition: str, raw_expression: str | None
+) -> bool:
+    """True when occurrence value is the future reschedule target of a postponement proposition."""
+    prop = proposition.lower()
+    expr = (raw_expression or "").lower()
+    if "postpon" not in prop:
+        return False
+    if not expr:
+        return False
+    # dawn/dusk/morning etc. used as occurrence of postponement decision
+    return ("until " in expr) or expr.startswith("postponed until")
+
+
 def _template_token_set(text: str) -> set[str]:
     return set(_normalize_template(text).split())
 
@@ -833,6 +872,26 @@ def test_adversarial_v10_retired_as_observed_regression_not_promotion() -> None:
     assert (ADV_V10 / "gold-overlay.json").is_file()
 
 
+def test_holdout_v13_retired_as_observed_regression_not_promotion() -> None:
+    _require_fresh_cohort(HOLDOUT_V13)
+    readme = (HOLDOUT_V13 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    assert "Gate E3" in readme or "no longer feel represented" in readme
+    assert (HOLDOUT_V13 / "base-contribution.json").is_file()
+    assert (HOLDOUT_V13 / "gold-overlay.json").is_file()
+
+
+def test_adversarial_v11_retired_as_observed_regression_not_promotion() -> None:
+    _require_fresh_cohort(ADV_V11)
+    readme = (ADV_V11 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    lowered = readme.lower()
+    assert "adv v10" in lowered or "adversarial v10" in lowered or "v10" in lowered
+    assert "proposition" in lowered or "jaccard" in lowered
+    assert (ADV_V11 / "base-contribution.json").is_file()
+    assert (ADV_V11 / "gold-overlay.json").is_file()
+
+
 def test_holdout_v13_fixture_files_and_prompt_versions() -> None:
     _require_fresh_cohort(HOLDOUT_V13)
     for name in (
@@ -845,8 +904,7 @@ def test_holdout_v13_fixture_files_and_prompt_versions() -> None:
     ):
         assert (HOLDOUT_V13 / name).is_file(), name
     readme = (HOLDOUT_V13 / "README.md").read_text(encoding="utf-8")
-    assert "independent" in readme.lower()
-    assert "promotion" in readme.lower()
+    assert "RETIRED as independent TL01G promotion evidence" in readme
     tl01f = json.loads((HOLDOUT_V13 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
     tl01g = json.loads((HOLDOUT_V13 / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
     assert tl01f["prompt_version"] == "tl01f-v1"
@@ -868,7 +926,7 @@ def test_holdout_v13_semantic_and_source_text_fingerprints_disjoint_from_prior()
     prior_semantic: set[tuple] = set()
     prior_span_text: set[str] = set()
     for folder in PRIOR_CANONICAL_COHORT_DIRS:
-        if not folder.is_dir():
+        if folder == HOLDOUT_V13 or not folder.is_dir():
             continue
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         evidence = _case_evidence_by_id(folder)
@@ -889,7 +947,7 @@ def test_holdout_v13_proposition_template_jaccard_disjoint_from_prior() -> None:
     v13_assertions = v13_base.get("candidate_assertions", [])
     prior_assertions: list[tuple[str, dict]] = []
     for folder in PRIOR_CANONICAL_COHORT_DIRS:
-        if not folder.is_dir():
+        if folder == HOLDOUT_V13 or not folder.is_dir():
             continue
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         for assertion in base.get("candidate_assertions", []):
@@ -909,7 +967,8 @@ def test_holdout_v13_proposition_template_jaccard_disjoint_from_prior() -> None:
 def test_adversarial_v11_ids_vocab_and_template_disjoint() -> None:
     _require_fresh_cohort(ADV_V11)
     adv_a, adv_e = _collect_ids(ADV_V11)
-    prior_a, prior_e = _union_ids(PRIOR_ADVERSARIAL_COHORT_DIRS)
+    prior_dirs = tuple(f for f in PRIOR_ADVERSARIAL_COHORT_DIRS if f != ADV_V11)
+    prior_a, prior_e = _union_ids(prior_dirs)
     assert adv_a.isdisjoint(prior_a)
     assert adv_e.isdisjoint(prior_e)
     folder_text = _folder_text(ADV_V11)
@@ -918,7 +977,7 @@ def test_adversarial_v11_ids_vocab_and_template_disjoint() -> None:
     prompt = TL01G_RESOLUTION_PROOF_ABSTENTION_INSTRUCTIONS
     for term in ADV_V11_VOCABULARY:
         assert term not in prompt
-    prior_text = "".join(_folder_text(folder) for folder in PRIOR_ADVERSARIAL_COHORT_DIRS)
+    prior_text = "".join(_folder_text(folder) for folder in prior_dirs)
     for term in ADV_V11_VOCABULARY:
         if term in ADV_V11_PRIOR_VOCABULARY_ALLOWED:
             continue
@@ -932,7 +991,7 @@ def test_adversarial_v11_ids_vocab_and_template_disjoint() -> None:
     assert "continues to hold" not in lowered
     assert " now" not in lowered and not lowered.startswith("now")
     prior_sources = []
-    for folder in PRIOR_ADVERSARIAL_COHORT_DIRS:
+    for folder in prior_dirs:
         src = folder / "sources"
         if src.is_dir():
             prior_sources.extend(p.read_text(encoding="utf-8") for p in src.glob("*.md"))
@@ -948,6 +1007,66 @@ def test_adversarial_v11_ids_vocab_and_template_disjoint() -> None:
                 )
 
 
+def test_adversarial_v11_proposition_template_jaccard_replays_adv_v10() -> None:
+    _require_fresh_cohort(ADV_V11)
+    _require_fresh_cohort(ADV_V10)
+    v11_base = json.loads((ADV_V11 / "base-contribution.json").read_text(encoding="utf-8"))
+    v10_base = json.loads((ADV_V10 / "base-contribution.json").read_text(encoding="utf-8"))
+    v11_assertions = v11_base.get("candidate_assertions", [])
+    v10_assertions = v10_base.get("candidate_assertions", [])
+
+    high_overlap_count = 0
+    for v11_assertion in v11_assertions:
+        for v10_assertion in v10_assertions:
+            if _proposition_template_jaccard(v11_assertion, v10_assertion) >= 0.40:
+                high_overlap_count += 1
+                break
+    assert high_overlap_count >= 5, (
+        f"expected >=5 V11 assertions with proposition-template Jaccard >= 0.40 vs V10; "
+        f"got {high_overlap_count}"
+    )
+
+    def _find_by_label_fragment(base: dict, fragment: str) -> dict:
+        for assertion in base.get("candidate_assertions", []):
+            if fragment in str(assertion.get("label") or "").lower():
+                return assertion
+        raise AssertionError(f"no assertion with label fragment {fragment!r}")
+
+    elected_v11 = _find_by_label_fragment(v11_base, "elected chancellor")
+    elected_v10 = _find_by_label_fragment(v10_base, "elected chancellor")
+    assert _proposition_template_jaccard(elected_v11, elected_v10) >= 0.99
+
+    coast_v11 = _find_by_label_fragment(v11_base, "left the coast three winters earlier")
+    coast_v10 = _find_by_label_fragment(v10_base, "left the coast three winters earlier")
+    assert _proposition_template_jaccard(coast_v11, coast_v10) >= 0.99
+
+
+def test_adversarial_cohort_proposition_template_jaccard_must_be_below_threshold_vs_prior() -> None:
+    """Guard for the next fresh adversarial promotion cohort (V12+)."""
+    if FRESH_ADVERSARIAL_FOR_PROPOSITION_GUARD is None:
+        pytest.skip("no fresh adversarial promotion cohort; Adv V11 retired as replay")
+    fresh_dir = FRESH_ADVERSARIAL_FOR_PROPOSITION_GUARD
+    _require_fresh_cohort(fresh_dir)
+    fresh_base = json.loads((fresh_dir / "base-contribution.json").read_text(encoding="utf-8"))
+    fresh_assertions = fresh_base.get("candidate_assertions", [])
+    prior_assertions: list[tuple[str, dict]] = []
+    for folder in PRIOR_ADVERSARIAL_COHORT_DIRS:
+        if folder == fresh_dir or not folder.is_dir():
+            continue
+        base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+        for assertion in base.get("candidate_assertions", []):
+            prior_assertions.append((folder.name, assertion))
+    for fresh_assertion in fresh_assertions:
+        for prior_name, prior_assertion in prior_assertions:
+            score = _proposition_template_jaccard(fresh_assertion, prior_assertion)
+            if score >= 0.40:
+                raise AssertionError(
+                    "proposition-template Jaccard >= 0.40 vs prior adversarial: "
+                    f"{fresh_assertion.get('label')!r} vs {prior_name} "
+                    f"{prior_assertion.get('label')!r} ({score:.3f})"
+                )
+
+
 def test_v13_and_v11_ids_mutually_disjoint() -> None:
     _require_fresh_cohort(HOLDOUT_V13)
     _require_fresh_cohort(ADV_V11)
@@ -957,7 +1076,8 @@ def test_v13_and_v11_ids_mutually_disjoint() -> None:
     assert v13_e.isdisjoint(v11_e)
 
 
-def test_fresh_promotion_cohorts_exclude_evaluation_cohort_tag() -> None:
+def test_regression_cohorts_exclude_evaluation_cohort_tag() -> None:
+    """Retired regression cohorts (V13/Adv V11) must still exclude cohort_tag."""
     for folder in (HOLDOUT_V13, ADV_V11):
         _require_fresh_cohort(folder)
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
@@ -1000,7 +1120,8 @@ _IDENTITY_ONLY_MARKERS = (
 )
 
 
-def test_holdout_v13_promotion_gold_covers_required_lane_classes() -> None:
+def test_holdout_v13_regression_gold_covers_required_lane_classes() -> None:
+    """Regression fixture lane coverage for sealed V13 gold — not promotion authority."""
     _require_fresh_cohort(HOLDOUT_V13)
     gold = json.loads((HOLDOUT_V13 / "gold-overlay.json").read_text(encoding="utf-8"))
     annotations = gold.get("annotations", [])
@@ -1045,7 +1166,7 @@ def test_holdout_v13_promotion_gold_covers_required_lane_classes() -> None:
             assert ann.get("valid_time") is None
 
 
-def test_gold_audit_files_exist_for_fresh_promotion_cohorts() -> None:
+def test_gold_audit_files_exist_for_retired_regression_cohorts() -> None:
     for folder in (HOLDOUT_V13, ADV_V11):
         _require_fresh_cohort(folder)
         assert (folder / "GOLD-AUDIT.md").is_file()
@@ -1071,7 +1192,7 @@ def _audit_backtick_phrase(cell: str) -> str:
     return match.group(1)
 
 
-def test_promotion_gold_audit_matches_base_and_overlay() -> None:
+def test_retired_regression_gold_audit_matches_base_and_overlay() -> None:
     """Binding proves fixture consistency only — not Gate-faithfulness."""
     for folder in (HOLDOUT_V13, ADV_V11):
         _require_fresh_cohort(folder)
@@ -1126,6 +1247,53 @@ def test_promotion_gold_audit_matches_base_and_overlay() -> None:
                 phrase,
                 source_phrase,
             )
+
+
+def test_gate_e3_audit_rejects_source_time_for_resulting_state_report() -> None:
+    source = (
+        "They are a group of humans that no longer feel represented in the city "
+        "and want to cause as much trouble as possible."
+    )
+    assert _source_reports_resulting_state_without_narrated_boundary(source)
+    # Resolving valid_end=session for this phrase is NOT Gate-E3-faithful.
+
+
+def test_proposition_first_value_audit_rejects_reschedule_as_postponement_occurrence() -> None:
+    proposition = "The council raid on the compromised guardhouse has been postponed until dawn"
+    raw_expression = "postponed until dawn"
+    assert _postponement_occurrence_uses_reschedule_time(proposition, raw_expression)
+
+
+def test_holdout_v13_retains_observed_gate_e3_and_postponement_value_defects() -> None:
+    """Retained as regression evidence; do not patch gold."""
+    _require_fresh_cohort(HOLDOUT_V13)
+    gold = json.loads((HOLDOUT_V13 / "gold-overlay.json").read_text(encoding="utf-8"))
+    base = json.loads((HOLDOUT_V13 / "base-contribution.json").read_text(encoding="utf-8"))
+    by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+    overlay_by_id = {a["base_assertion_id"]: a for a in gold.get("annotations", [])}
+    evidence = _case_evidence_by_id(HOLDOUT_V13)
+
+    rebels_id = "assertion:f59b518d7e4767f6"
+    rebels_ann = overlay_by_id[rebels_id]
+    assert rebels_ann["interpretation_status"] == "resolved"
+    valid_end = (rebels_ann.get("valid_time") or {}).get("end") or {}
+    assert valid_end.get("session_id") == "session-7"
+    assert "no longer feel represented" in str(rebels_ann.get("source_phrase") or "")
+
+    rebels_evidence_id = (by_id[rebels_id].get("evidence_ref_ids") or [None])[0]
+    rebels_source = _resolved_span_text(evidence[rebels_evidence_id])
+    assert _source_reports_resulting_state_without_narrated_boundary(rebels_source)
+
+    postpone_id = "assertion:d25ec476e8268f16"
+    postpone_ann = overlay_by_id[postpone_id]
+    assert postpone_ann["interpretation_status"] == "resolved"
+    occ_point = ((postpone_ann.get("occurrence_time") or {}).get("point") or {})
+    raw_expression = str(occ_point.get("raw_expression") or "")
+    assert "postponed until dawn" in raw_expression
+
+    postpone_assertion = by_id[postpone_id]
+    proposition = str(postpone_assertion.get("label") or "")
+    assert _postponement_occurrence_uses_reschedule_time(proposition, raw_expression)
 
 
 def test_resolved_span_text_rejects_line_beyond_eof() -> None:

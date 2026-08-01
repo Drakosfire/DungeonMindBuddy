@@ -923,6 +923,17 @@ def aggregate_cohort_runs(
                     provider_response_id=str(payload.get("provider_response_id") or "")
                     or None,
                     failure_code=code,
+                    affected_assertion_id=(
+                        failure.get("affected_assertion_id")
+                        if isinstance(failure.get("affected_assertion_id"), str)
+                        else None
+                    ),
+                    failure_diagnostics=list(failure.get("diagnostics") or []),
+                    foreign_evidence_attempts=(
+                        int(failure["foreign_evidence_attempts"])
+                        if failure.get("foreign_evidence_attempts") is not None
+                        else None
+                    ),
                     manifest_consistent=consistent,
                     manifest_diagnostics=list(record_diags),
                 )
@@ -1103,6 +1114,12 @@ def compute_calibration_decision(
 
     if any(a.failure_count > 0 for a in candidate):
         notes.append("candidate_has_failed_runs")
+        if sum(a.success_count for a in candidate) == 0:
+            notes.append("candidate_comparison_metrics_unobserved")
+        return "ITERATE_PROMPT", notes
+
+    if sum(a.success_count for a in candidate) == 0:
+        notes.append("candidate_comparison_metrics_unobserved")
         return "ITERATE_PROMPT", notes
 
     if any(not a.manifest_consistency_ok for a in cohort_aggregates):
