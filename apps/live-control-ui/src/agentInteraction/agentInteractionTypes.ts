@@ -7,11 +7,14 @@ import type {
   LiveQueryCitation,
   LiveQueryResponse,
 } from "../api/types";
-import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
-import type { PlanGraphProjectionState, PlanReferenceResolution } from "../planSurface/reference/graphAwareReferenceResolver";
+import type {
+  GraphReferenceProjectionBinding,
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+  OpenGraphReferenceArgs,
+} from "../graphReference/types";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
-  PlanReferenceProjectionBinding,
   RegisterableToolProjectionId,
   ToolProjectionPayloadMap,
 } from "../planSurface/projection/projectionBindings";
@@ -118,9 +121,9 @@ export interface AgentInteractionActions {
 export interface AgentInteractionProjectionState {
   projectionSurface: ValidatedProjectionSurface | null;
   active: ActiveProjection | null;
-  activePlanReference: PlanReferenceResolution | null;
-  planProjectionState: PlanGraphProjectionState | null;
-  planReferenceBinding: PlanReferenceProjectionBinding | null;
+  activeGraphReference: GraphReferenceResolution | null;
+  graphReferenceProjectionState: GraphReferenceProjectionState | null;
+  graphReferenceBinding: GraphReferenceProjectionBinding | null;
   graphReviewDiagnosticsPayload: GraphReviewDiagnosticsProjectionPayload | null;
 }
 
@@ -132,19 +135,10 @@ export interface AgentInteractionProjectionActions {
    */
   updateProjectionSurfaceConfig: (publication: ProjectionSurfacePublication) => void;
   openTool: (toolId: string) => void;
-  openContentFromChip: (
-    ref: RunbookReferenceAttrs,
-    resolution: PlanReferenceResolution,
-    glanceOnly?: boolean,
-    projectionState?: PlanGraphProjectionState | null,
-  ) => void;
-  openPlanReferenceResolution: (
-    resolution: PlanReferenceResolution,
-    projectionState?: PlanGraphProjectionState | null,
-  ) => void;
+  openGraphReference: (args: OpenGraphReferenceArgs) => void;
   expandContent: () => void;
   close: () => void;
-  registerPlanReferenceBinding: (binding: PlanReferenceProjectionBinding) => () => void;
+  registerGraphReferenceBinding: (binding: GraphReferenceProjectionBinding) => () => void;
   registerToolProjectionPayload: <K extends RegisterableToolProjectionId>(
     toolId: K,
     payload: ToolProjectionPayloadMap[K],

@@ -1,11 +1,28 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createElement, type ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import type { GraphProjectionNodeView } from "../../api/types";
-import { PlanGraphLensProvider } from "../PlanGraphLensContext";
-import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
+import type { GraphProjectionNodeView } from "../api/types";
+import { GraphReferenceSearch } from "./GraphReferenceSearch";
+import { referenceFromGraphNode } from "./referenceFromGraphNode";
+import type { GraphReferenceSearchItem } from "./types";
+
+function searchItem(
+  node: GraphProjectionNodeView,
+  scopeLabel: string,
+): GraphReferenceSearchItem {
+  return {
+    nodeId: node.node_id,
+    label: node.label,
+    kind: node.kind,
+    role: node.role,
+    summary: node.summary ?? null,
+    aliases: node.aliases ?? [],
+    scopeLabel,
+    reference: referenceFromGraphNode(node),
+    nodeView: node,
+  };
+}
 
 const nodes: GraphProjectionNodeView[] = [
   {
@@ -36,36 +53,26 @@ const nodes: GraphProjectionNodeView[] = [
   },
 ];
 
-function wrapper({ children }: { children: ReactNode }) {
-  return createElement(PlanGraphLensProvider, { planCampaignId: "longmont-c2" }, children);
-}
+const items = [
+  searchItem(nodes[0], "Longmont C1"),
+  searchItem(nodes[1], "world"),
+];
 
-function renderSearch(
-  ui: React.ReactElement,
-) {
-  return render(ui, { wrapper });
-}
-
-describe("PlanGraphRefSearch", () => {
-  beforeEach(() => {
-    window.history.replaceState({}, "", "/plan");
-  });
-
+describe("GraphReferenceSearch", () => {
   it("searches projection nodes and inserts a chip from a match", async () => {
     const user = userEvent.setup();
     const onInsert = vi.fn();
 
     render(
-      <PlanGraphRefSearch
-        nodes={nodes}
+      <GraphReferenceSearch
+        items={items}
         projectionState="ready"
         onInsert={onInsert}
       />,
-      { wrapper },
     );
 
     await user.type(screen.getByLabelText("Find objects"), "glow");
-    const results = screen.getByTestId("plan-graph-ref-search-results");
+    const results = screen.getByTestId("graph-reference-search-results");
     expect(within(results).getByText("Glowkindle")).toBeInTheDocument();
     expect(within(results).queryByText("Inn")).not.toBeInTheDocument();
 
@@ -78,25 +85,24 @@ describe("PlanGraphRefSearch", () => {
     });
   });
 
-  it("shows cross-campaign provenance on search results", async () => {
+  it("shows scope provenance on search results", async () => {
     const user = userEvent.setup();
 
     render(
-      <PlanGraphRefSearch
-        nodes={nodes}
+      <GraphReferenceSearch
+        items={items}
         projectionState="ready"
         onInsert={() => undefined}
       />,
-      { wrapper },
     );
 
     await user.type(screen.getByLabelText("Find objects"), "glow");
-    const results = screen.getByTestId("plan-graph-ref-search-results");
+    const results = screen.getByTestId("graph-reference-search-results");
     expect(within(results).getByText(/Longmont C1/i)).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Find objects"));
     await user.type(screen.getByLabelText("Find objects"), "inn");
-    const innResults = screen.getByTestId("plan-graph-ref-search-results");
+    const innResults = screen.getByTestId("graph-reference-search-results");
     expect(within(innResults).getByText(/world/i)).toBeInTheDocument();
   });
 
@@ -106,20 +112,19 @@ describe("PlanGraphRefSearch", () => {
     const onView = vi.fn();
 
     render(
-      <PlanGraphRefSearch
-        nodes={nodes}
+      <GraphReferenceSearch
+        items={items}
         projectionState="ready"
         insertDisabled
         onInsert={onInsert}
         onView={onView}
       />,
-      { wrapper },
     );
 
     expect(screen.getByText(/Unlock editing to insert chips/i)).toBeInTheDocument();
     await user.type(screen.getByLabelText("Find objects"), "inn");
     await user.click(screen.getByRole("button", { name: "View" }));
-    expect(onView).toHaveBeenCalledWith(expect.objectContaining({ node_id: "location-inn" }));
+    expect(onView).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "location-inn" }));
     expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
     expect(onInsert).not.toHaveBeenCalled();
   });

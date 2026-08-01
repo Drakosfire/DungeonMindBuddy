@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 
 import type { LiveQueryResponse } from "../api/types";
-import type { PlanReferenceResolution } from "../planSurface/reference/graphAwareReferenceResolver";
+import type { GraphProjectionNodeView } from "../api/types";
+import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
+import { referenceFromGraphNode } from "../graphReference";
+import type { GraphReferenceResolution } from "../graphReference/types";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
   PlanReferenceProjectionBinding,
@@ -475,17 +478,33 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     },
   };
 
-  const resolution: PlanReferenceResolution = {
-    kind: "graph-node",
-    locator: "dmb-node:creature:bubbles",
-    refType: "creature",
-    refId: "creature:bubbles",
-    graphObject: null,
-    graphNodeId: "creature:bubbles",
-    fallback: null,
-    source: "world-graph",
-    graphProjectionState: "ready",
+  const bubblesNode: GraphProjectionNodeView = {
+    node_id: "creature:bubbles",
+    label: "Bubbles",
+    kind: "creature",
+    role: "creature",
+    aliases: [],
+    source_domains: ["recap"],
+    evidence_badges: [],
+    adjacency: [],
+    anchored_to_focus_session: true,
+    summary: null,
   };
+
+  const resolution: GraphReferenceResolution = {
+    kind: "resolved_graph",
+    locator: "dmb-node:creature:bubbles",
+    reference: referenceFromGraphNode(bubblesNode),
+    graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
+    graphNodeId: "creature:bubbles",
+    projectionState: "ready",
+  };
+
+  function openResolution(
+    open: (args: { resolution: GraphReferenceResolution; projectionState?: "ready" }) => void,
+  ) {
+    open({ resolution, projectionState: "ready" });
+  }
 
   function makePlanBinding(): PlanReferenceProjectionBinding {
     return {
@@ -576,18 +595,18 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       result.current.publishProjectionSurface(makePlanPublication());
     });
     act(() => {
-      result.current.openPlanReferenceResolution(resolution);
+      openResolution(result.current.openGraphReference);
     });
     expect(result.current.active?.kind).toBe("content");
-    expect(result.current.activePlanReference?.locator).toBe(resolution.locator);
+    expect(result.current.activeGraphReference?.locator).toBe(resolution.locator);
 
     act(() => {
       result.current.publishProjectionSurface(makePlanPublication({ label: "Plan (revised)" }));
     });
 
     expect(result.current.active?.kind).toBe("content");
-    expect(result.current.activePlanReference?.locator).toBe(resolution.locator);
-    expect(result.current.planProjectionState).toBe("ready");
+    expect(result.current.activeGraphReference?.locator).toBe(resolution.locator);
+    expect(result.current.graphReferenceProjectionState).toBe("ready");
   });
 
   it("invalidates Plan content when a same-identity update drops the render context", () => {
@@ -596,7 +615,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       result.current.publishProjectionSurface(makePlanPublication());
     });
     act(() => {
-      result.current.openPlanReferenceResolution(resolution);
+      openResolution(result.current.openGraphReference);
     });
     expect(result.current.active?.kind).toBe("content");
 
@@ -605,15 +624,14 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
 
     expect(result.current.active).toBeNull();
-    expect(result.current.activePlanReference).toBeNull();
-    expect(result.current.planProjectionState).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
+    expect(result.current.graphReferenceProjectionState).toBeNull();
   });
 
   it("keeps pre-publication callbacks as permanent no-ops after a surface publishes", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     const staleOpenTool = result.current.openTool;
-    const staleOpenContentFromChip = result.current.openContentFromChip;
-    const staleOpenPlanReferenceResolution = result.current.openPlanReferenceResolution;
+    const staleOpenGraphReference = result.current.openGraphReference;
     const staleExpandContent = result.current.expandContent;
     const staleClose = result.current.close;
 
@@ -622,17 +640,18 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
     act(() => {
       staleOpenTool("recap");
-      staleOpenContentFromChip(
-        { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
+      staleOpenGraphReference({
+        reference: { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
         resolution,
-      );
-      staleOpenPlanReferenceResolution(resolution);
+        glanceOnly: true,
+      });
+      openResolution(staleOpenGraphReference);
       staleExpandContent();
       staleClose();
     });
 
     expect(result.current.active).toBeNull();
-    expect(result.current.activePlanReference).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
 
     act(() => {
       result.current.openTool("recap");
@@ -645,14 +664,14 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     act(() => {
       result.current.publishProjectionSurface(makePlanPublication());
     });
-    const staleRegister = result.current.registerPlanReferenceBinding;
+    const staleRegister = result.current.registerGraphReferenceBinding;
 
     act(() => {
       result.current.publishProjectionSurface(ingestPublication);
       staleRegister(makePlanBinding());
     });
 
-    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
   });
 
   it("blocks a stale Plan registrar invoked after Ingest publication has rendered", () => {
@@ -660,7 +679,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     act(() => {
       result.current.publishProjectionSurface(makePlanPublication());
     });
-    const staleRegister = result.current.registerPlanReferenceBinding;
+    const staleRegister = result.current.registerGraphReferenceBinding;
 
     act(() => {
       result.current.publishProjectionSurface(ingestPublication);
@@ -669,7 +688,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       staleRegister(makePlanBinding());
     });
 
-    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
   });
 
   it("blocks a stale diagnostics registrar invoked after Plan publication, before and after rerender", () => {
@@ -720,16 +739,17 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
 
     act(() => {
-      result.current.openContentFromChip(
-        { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
+      result.current.openGraphReference({
+        reference: { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
         resolution,
-      );
-      result.current.openPlanReferenceResolution(resolution);
+        glanceOnly: true,
+      });
+      openResolution(result.current.openGraphReference);
       result.current.expandContent();
     });
 
     expect(result.current.active).toBeNull();
-    expect(result.current.activePlanReference).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
   });
 
   it("rejects a freshly supplied Plan registrar under an exact current Ingest lease", () => {
@@ -739,10 +759,10 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
 
     act(() => {
-      result.current.registerPlanReferenceBinding(makePlanBinding());
+      result.current.registerGraphReferenceBinding(makePlanBinding());
     });
 
-    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
   });
 
   it("rejects a freshly supplied diagnostics registrar under an exact current Plan lease", () => {
@@ -803,9 +823,9 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       result.current.publishProjectionSurface(makePlanPublication());
     });
     act(() => {
-      result.current.registerPlanReferenceBinding(makePlanBinding());
+      result.current.registerGraphReferenceBinding(makePlanBinding());
     });
-    expect(result.current.planReferenceBinding).not.toBeNull();
+    expect(result.current.graphReferenceBinding).not.toBeNull();
 
     act(() => {
       result.current.publishProjectionSurface(
@@ -814,12 +834,12 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
 
     expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
-    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
 
     act(() => {
-      result.current.registerPlanReferenceBinding(makePlanBinding());
+      result.current.registerGraphReferenceBinding(makePlanBinding());
     });
-    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
   });
 
   it("clears diagnostics payload when a same-identity update keeps the tool but loses context", () => {
@@ -877,18 +897,18 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
 
     act(() => {
-      result.current.registerPlanReferenceBinding(makePlanBinding());
+      result.current.registerGraphReferenceBinding(makePlanBinding());
       result.current.registerToolProjectionPayload(
         GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
         {} as GraphReviewDiagnosticsProjectionPayload,
       );
-      result.current.openPlanReferenceResolution(resolution);
+      openResolution(result.current.openGraphReference);
       result.current.openTool("ingest-recap");
     });
 
-    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
     expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
-    expect(result.current.activePlanReference).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
     expect(result.current.active).toBeNull();
   });
 
@@ -929,23 +949,23 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
     let cleanup: (() => void) | undefined;
     act(() => {
-      cleanup = result.current.registerPlanReferenceBinding(makePlanBinding());
+      cleanup = result.current.registerGraphReferenceBinding(makePlanBinding());
     });
-    expect(result.current.planReferenceBinding).not.toBeNull();
+    expect(result.current.graphReferenceBinding).not.toBeNull();
 
     act(() => {
       result.current.publishProjectionSurface(
         makePlanPublication({}, { instanceKey: "plan\u001finstance-b" }),
       );
     });
-    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
 
     // The binder re-runs because the registrar identity changed with the lease.
     act(() => {
       cleanup?.();
-      cleanup = result.current.registerPlanReferenceBinding(makePlanBinding());
+      cleanup = result.current.registerGraphReferenceBinding(makePlanBinding());
     });
-    expect(result.current.planReferenceBinding).not.toBeNull();
+    expect(result.current.graphReferenceBinding).not.toBeNull();
   });
 
   it("lets binder effects republish diagnostics under a new Ingest instance lease", () => {

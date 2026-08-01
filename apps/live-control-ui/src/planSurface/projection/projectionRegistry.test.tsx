@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import { renderContentProjection } from "./projectionRegistry";
 import type { PlanSurfaceConfig } from "../types";
 import { FIXTURE_DOC_ID, fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
@@ -42,13 +44,13 @@ describe("renderContentProjection", () => {
     render(
       renderContentProjection(
         {
-          kind: "graph-node",
+          kind: "resolved_graph",
           locator: "dmb-node:location-north-gate",
+          reference: referenceFromGraphNode(node),
           graphObject: buildGraphObjectCardFromNodeView(node),
           graphNodeId: "location-north-gate",
-          fallback: null,
-          source: "union-supergraph",
-        },
+          projectionState: "ready",
+        } satisfies GraphReferenceResolution,
         config,
         "ready",
       ),

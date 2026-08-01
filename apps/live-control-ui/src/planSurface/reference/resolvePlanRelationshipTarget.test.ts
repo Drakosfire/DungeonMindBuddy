@@ -90,7 +90,7 @@ describe("resolvePlanRelationshipTarget", () => {
       projectionState: "ready",
     });
 
-    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.locator).toBe("dmb-node:location-inn");
     expect(resolution.graphNodeId).toBe("location-inn");
     expect(resolution.graphObject?.label).toBe("Inn");
@@ -107,7 +107,7 @@ describe("resolvePlanRelationshipTarget", () => {
       projectionState: "ready",
     });
 
-    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.graphNodeId).toBe("npc-glowkindle");
   });
 
@@ -122,8 +122,10 @@ describe("resolvePlanRelationshipTarget", () => {
       projectionState: "ready",
     });
 
-    expect(resolution.kind).toBe("unresolved");
-    expect(resolution.ambiguousNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    expect(resolution.kind).toBe("ambiguous");
+    if (resolution.kind === "ambiguous") {
+      expect(resolution.matchingGraphNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    }
     expect(resolution.message).toMatch(/uniquely resolve/i);
   });
 
@@ -145,7 +147,6 @@ describe("resolvePlanRelationshipTarget", () => {
     });
 
     expect(resolution.kind).toBe("unresolved");
-    expect(resolution.graphObject).toBeNull();
     expect(resolution.message).toMatch(/ingest/i);
   });
 
@@ -167,9 +168,107 @@ describe("resolvePlanRelationshipTarget", () => {
     });
 
     expect(resolution.kind).toBe("unresolved");
-    expect(resolution.graphNodeId).toBeNull();
-    expect(resolution.graphObject).toBeNull();
     expect(resolution.locator).toBe("dmb-node:location-missing");
+  });
+
+  it("does not alias-rebind when missing targetId equals another node's unique alias", async () => {
+    const aliasTwin: WorldGraphProjectionNodeView = {
+      ...innNode,
+      nodeId: "location-elsewhere",
+      label: "Elsewhere",
+      aliases: ["location-missing"],
+    };
+    const twinProjection: WorldGraphProjection = {
+      ...projection,
+      nodes: [glowkindleNode, aliasTwin, lysandraA, lysandraB],
+    };
+
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-alias-trap",
+        label: "Missing Gate",
+        targetId: "location-missing",
+        targetKind: "location",
+      },
+      projection: twinProjection,
+      projectionState: "ready",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({ locations: [] }),
+        }) as Response,
+    });
+
+    expect(resolution.kind).toBe("unresolved");
+    expect(resolution.kind).not.toBe("resolved_graph");
+    expect(resolution.graphNodeId).toBeUndefined();
+    expect(resolution.locator).toBe("dmb-node:location-missing");
+  });
+
+  it("fails closed when ready without a projection even if corpus fallback would resolve", async () => {
+    let fetchCount = 0;
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-ready-null",
+        label: "Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+      },
+      projection: null,
+      projectionState: "ready",
+      fetchImpl: async () => {
+        fetchCount += 1;
+        return {
+          ok: true,
+          json: async () => ({
+            locations: [{ slug: "location-inn", title: "Inn" }],
+          }),
+        } as Response;
+      },
+    });
+
+    expect(resolution.kind).toBe("error");
+    expect(resolution.message).toMatch(/marked ready but no projection was supplied/i);
+    expect(resolution.kind).not.toBe("resolved_corpus_fallback");
+    expect(fetchCount).toBe(0);
+  });
+
+  it("unavailable ignores a supplied projection for exact targetId (may use corpus only)", async () => {
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-unavailable-exact",
+        label: "Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+      },
+      projection,
+      projectionState: "unavailable",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({ locations: [] }),
+        }) as Response,
+    });
+
+    expect(resolution.kind).not.toBe("resolved_graph");
+    expect(resolution.graphNodeId).toBeUndefined();
+    expect(resolution.locator).toBe("dmb-node:location-inn");
+  });
+
+  it("unavailable ignores a supplied projection for unique label/alias relationships", async () => {
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-unavailable-label",
+        label: "Glow",
+        predicate: "knows",
+      },
+      projection,
+      projectionState: "unavailable",
+    });
+
+    expect(resolution.kind).not.toBe("resolved_graph");
+    expect(resolution.kind).not.toBe("ambiguous");
+    expect(resolution.graphNodeId).toBeUndefined();
   });
 
   it("fails closed during projection error without querying corpus", async () => {
@@ -193,7 +292,6 @@ describe("resolvePlanRelationshipTarget", () => {
     });
 
     expect(resolution.kind).toBe("error");
-    expect(resolution.source).toBe("error");
     expect(resolution.message).toMatch(/corpus fallback disabled/i);
     expect(fetchCount).toBe(0);
   });

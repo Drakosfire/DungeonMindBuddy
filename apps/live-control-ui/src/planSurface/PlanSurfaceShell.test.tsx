@@ -233,7 +233,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
     expect(screen.getByText("World Graph objects")).toBeInTheDocument();
-    expect(screen.getByTestId("plan-graph-ref-search")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-reference-search")).toBeInTheDocument();
   });
 
   it("opens Recap from the tool query parameter", async () => {

@@ -75,9 +75,9 @@ describe("usePlanGraphReferenceResolver", () => {
       label: "Glow",
     });
 
-    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.graphNodeId).toBe("npc-glowkindle");
-    expect(resolution.graphProjectionState).toBe("ready");
+    expect(resolution.projectionState).toBe("ready");
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(projectionSpy).toHaveBeenCalledWith({
       schema: "dmb_world_graph_projection_request_v1",
@@ -161,7 +161,7 @@ describe("usePlanGraphReferenceResolver", () => {
       predicate: "met at",
     });
 
-    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.locator).toBe("dmb-node:location-inn");
     expect(resolution.graphNodeId).toBe("location-inn");
   });
@@ -191,8 +191,8 @@ describe("usePlanGraphReferenceResolver", () => {
       label: "North Reach Gate",
     });
 
-    expect(resolution.kind).toBe("corpus-index");
-    expect(resolution.graphProjectionState).toBe("unavailable");
+    expect(resolution.kind).toBe("resolved_corpus_fallback");
+    expect(resolution.projectionState).toBe("unavailable");
   });
 
   it("maps projection integrity errors to error state without corpus fallback", async () => {
@@ -223,7 +223,7 @@ describe("usePlanGraphReferenceResolver", () => {
     });
 
     expect(resolution.kind).toBe("error");
-    expect(resolution.graphProjectionState).toBe("error");
+    expect(resolution.projectionState).toBe("error");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
@@ -254,7 +254,7 @@ describe("resolvePlanReferenceWithFallback", () => {
     );
 
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.graphNodeId).toBe("npc-glowkindle");
   });
 
@@ -296,8 +296,10 @@ describe("resolvePlanReferenceWithFallback", () => {
     );
 
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(resolution.kind).toBe("unresolved");
-    expect(resolution.ambiguousNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    expect(resolution.kind).toBe("ambiguous");
+    if (resolution.kind === "ambiguous") {
+      expect(resolution.matchingGraphNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    }
   });
 
   it("fetches corpus index only after a graph miss", async () => {
@@ -327,7 +329,7 @@ describe("resolvePlanReferenceWithFallback", () => {
     );
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(resolution.kind).toBe("corpus-index");
+    expect(resolution.kind).toBe("resolved_corpus_fallback");
   });
 
   it("does not fetch corpus index when projection state is error", async () => {
@@ -351,8 +353,7 @@ describe("resolvePlanReferenceWithFallback", () => {
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(resolution.kind).toBe("error");
-    expect(resolution.source).toBe("error");
-    expect(resolution.graphProjectionState).toBe("error");
+    expect(resolution.projectionState).toBe("error");
   });
 
   it("does not resolve against stale projection while loading", async () => {
@@ -376,7 +377,7 @@ describe("resolvePlanReferenceWithFallback", () => {
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(resolution.kind).toBe("unresolved");
-    expect(resolution.graphProjectionState).toBe("loading");
+    expect(resolution.projectionState).toBe("loading");
   });
 
   it("allows corpus fallback when projection is unavailable", async () => {
@@ -406,8 +407,8 @@ describe("resolvePlanReferenceWithFallback", () => {
     );
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(resolution.kind).toBe("corpus-index");
-    expect(resolution.graphProjectionState).toBe("unavailable");
+    expect(resolution.kind).toBe("resolved_corpus_fallback");
+    expect(resolution.projectionState).toBe("unavailable");
     expect(isCorpusFallbackAllowed("unavailable")).toBe(true);
     expect(isCorpusFallbackAllowed("error")).toBe(false);
     expect(isCorpusFallbackAllowed("loading")).toBe(false);
@@ -446,8 +447,6 @@ describe("resolvePlanReferenceWithFallback", () => {
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(resolution.kind).toBe("unresolved");
-    expect(resolution.graphNodeId).toBeNull();
-    expect(resolution.graphObject).toBeNull();
     expect(resolution.message).toMatch(/not found/i);
     expect(resolution.message).not.toMatch(/invalid reference locator/i);
   });
@@ -473,7 +472,7 @@ describe("resolvePlanReferenceWithFallback", () => {
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(resolution.kind).toBe("unresolved");
-    expect(resolution.graphProjectionState).toBe("unavailable");
+    expect(resolution.projectionState).toBe("unavailable");
     expect(resolution.message).toMatch(/world graph is unavailable/i);
     expect(resolution.message).not.toMatch(/invalid reference locator/i);
   });

@@ -202,3 +202,113 @@
   font-style: normal;
   padding: 0.16rem 0.42rem;
 }
+
+.graph-reference-search {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: rgba(18, 20, 26, 0.55);
+  padding: 0.75rem 0.85rem;
+}
+
+.graph-reference-search__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.graph-reference-search__subtitle {
+  margin: 0.3rem 0 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.8rem;
+}
+
+.graph-reference-search__status {
+  margin: 0.55rem 0 0;
+  font-size: 0.84rem;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.graph-reference-search__status--error {
+  color: #fca5a5;
+}
+
+.graph-reference-search__label {
+  display: block;
+  margin: 0.65rem 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.graph-reference-search__input {
+  width: 100%;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.65);
+  color: var(--fg, #e8eaef);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+
+.graph-reference-search__empty {
+  margin: 0.55rem 0 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.84rem;
+}
+
+.graph-reference-search__results {
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.graph-reference-search__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.45);
+  padding: 0.45rem 0.55rem;
+}
+
+.graph-reference-search__copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.graph-reference-search__meta {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.76rem;
+}
+
+.graph-reference-search__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.graph-reference-search__button {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(30, 35, 48, 0.85);
+  color: var(--fg, #e8eaef);
+  padding: 0.28rem 0.5rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.graph-reference-search__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.graph-reference-search__button--primary {
+  border-color: rgba(122, 162, 247, 0.45);
+}

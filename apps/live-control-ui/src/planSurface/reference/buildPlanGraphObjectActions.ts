@@ -1,10 +1,10 @@
 import type { GraphObjectActionViewModel, GraphObjectCardViewModel } from "../../graphObjectCard";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import type { PlanSessionDescriptor } from "../types";
-import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
 
 export interface BuildPlanGraphObjectActionsInput {
-  resolution: PlanReferenceResolution;
+  resolution: GraphReferenceResolution;
   sessionDescriptor?: PlanSessionDescriptor;
   /** Opens the Plan statblock tool when grounded. Omit when unavailable. */
   onOpenStatblock?: () => void;
@@ -28,9 +28,9 @@ function isRollTableKind(value: string | null | undefined): boolean {
 }
 
 function graphObjectFromResolution(
-  resolution: PlanReferenceResolution,
+  resolution: GraphReferenceResolution,
 ): GraphObjectCardViewModel | null {
-  return resolution.graphObject ?? null;
+  return resolution.kind === "resolved_graph" ? resolution.graphObject : null;
 }
 
 export function hasPlanSourceOrEvidence(
@@ -48,10 +48,14 @@ export function hasPlanSourceOrEvidence(
   return false;
 }
 
-function resolutionIndicatesStatblock(resolution: PlanReferenceResolution): boolean {
-  if (isStatblockKind(resolution.refType)) return true;
-  if (resolution.fallback?.source === "statblock-index") return true;
-  if (isStatblockKind(resolution.fallback?.ref.refType)) return true;
+function resolutionIndicatesStatblock(resolution: GraphReferenceResolution): boolean {
+  if (isStatblockKind(resolution.reference?.refType)) return true;
+  if (resolution.kind === "resolved_corpus_fallback" && resolution.fallback.source === "statblock-index") {
+    return true;
+  }
+  if (resolution.kind === "resolved_corpus_fallback" && isStatblockKind(resolution.fallback.ref.refType)) {
+    return true;
+  }
 
   const model = graphObjectFromResolution(resolution);
   if (!model) return false;
@@ -59,10 +63,14 @@ function resolutionIndicatesStatblock(resolution: PlanReferenceResolution): bool
   return (model.relationships ?? []).some((relationship) => isStatblockKind(relationship.targetKind));
 }
 
-function resolutionIndicatesRollTable(resolution: PlanReferenceResolution): boolean {
-  if (isRollTableKind(resolution.refType)) return true;
-  if (resolution.fallback?.source === "roll-table-index") return true;
-  if (isRollTableKind(resolution.fallback?.ref.refType)) return true;
+function resolutionIndicatesRollTable(resolution: GraphReferenceResolution): boolean {
+  if (isRollTableKind(resolution.reference?.refType)) return true;
+  if (resolution.kind === "resolved_corpus_fallback" && resolution.fallback.source === "roll-table-index") {
+    return true;
+  }
+  if (resolution.kind === "resolved_corpus_fallback" && isRollTableKind(resolution.fallback.ref.refType)) {
+    return true;
+  }
 
   const model = graphObjectFromResolution(resolution);
   if (!model) return false;
@@ -90,15 +98,15 @@ export function buildPlanGraphObjectActions({
   const ingestHref = ingestHrefFor(sessionDescriptor);
   const model = graphObjectFromResolution(resolution);
 
-  if (resolution.kind === "graph-node" || resolution.kind === "corpus-index") {
+  if (resolution.kind === "resolved_graph" || resolution.kind === "resolved_corpus_fallback") {
     const sourceModel =
       model ??
-      (resolution.kind === "corpus-index"
+      (resolution.kind === "resolved_corpus_fallback"
         ? {
             evidence: [],
             sourceDomains: [],
             details: {
-              lines: resolution.fallback?.sourcePath
+              lines: resolution.fallback.sourcePath
                 ? [`Source path: ${resolution.fallback.sourcePath}`]
                 : [],
               sourceAnchorText: null,
@@ -108,7 +116,8 @@ export function buildPlanGraphObjectActions({
           }
         : null);
 
-    const hasCorpusSourcePath = Boolean(resolution.fallback?.sourcePath);
+    const hasCorpusSourcePath = resolution.kind === "resolved_corpus_fallback"
+      && Boolean(resolution.fallback.sourcePath);
     if (hasPlanSourceOrEvidence(sourceModel) || hasCorpusSourcePath) {
       actions.push({
         id: "open-source",
@@ -139,7 +148,7 @@ export function buildPlanGraphObjectActions({
     }
   }
 
-  if (resolution.kind === "graph-node") {
+  if (resolution.kind === "resolved_graph") {
     actions.push({
       id: "open-ingest",
       label: "Review memory in /ingest",
@@ -147,7 +156,7 @@ export function buildPlanGraphObjectActions({
       href: ingestHref,
       helpText: "Open /ingest to review this object's memory.",
     });
-  } else if (resolution.kind === "corpus-index") {
+  } else if (resolution.kind === "resolved_corpus_fallback") {
     actions.push({
       id: "open-ingest",
       label: "Review memory in /ingest",
@@ -155,7 +164,7 @@ export function buildPlanGraphObjectActions({
       href: ingestHref,
       helpText: "Corpus fallback only — open /ingest to review or correct memory.",
     });
-  } else if (resolution.kind === "unresolved" || resolution.kind === "error") {
+  } else if (resolution.kind === "unresolved" || resolution.kind === "error" || resolution.kind === "ambiguous") {
     actions.push({
       id: "open-ingest",
       label: "Fix memory in /ingest",

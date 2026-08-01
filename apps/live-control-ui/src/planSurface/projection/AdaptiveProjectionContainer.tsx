@@ -39,12 +39,12 @@ export function AdaptiveProjectionContainer() {
   const { projectionSurface } = useAgentInteraction();
   const {
     active,
-    activePlanReference,
+    activeGraphReference,
     close,
     expandContent,
     openTool,
-    planProjectionState,
-    planReferenceBinding,
+    graphReferenceProjectionState,
+    graphReferenceBinding,
     graphReviewDiagnosticsPayload,
   } = useProjection();
 
@@ -60,12 +60,12 @@ export function AdaptiveProjectionContainer() {
       surfaceIdentity={projectionSurface!.publication.identity}
       config={config}
       active={active}
-      activePlanReference={activePlanReference}
+      activeGraphReference={activeGraphReference}
       close={close}
       expandContent={expandContent}
       openTool={openTool}
-      planProjectionState={planProjectionState}
-      planReferenceBinding={planReferenceBinding}
+      graphReferenceProjectionState={graphReferenceProjectionState}
+      graphReferenceBinding={graphReferenceBinding}
       graphReviewDiagnosticsPayload={graphReviewDiagnosticsPayload}
     />
   );
@@ -75,12 +75,12 @@ interface AdaptiveProjectionContainerInnerProps {
   surfaceIdentity: ProjectionSurfaceIdentity;
   config: NonNullable<ReturnType<typeof useAgentInteraction>["projectionSurface"]>["publication"]["config"];
   active: ReturnType<typeof useProjection>["active"];
-  activePlanReference: ReturnType<typeof useProjection>["activePlanReference"];
+  activeGraphReference: ReturnType<typeof useProjection>["activeGraphReference"];
   close: () => void;
   expandContent: () => void;
   openTool: (toolId: string) => void;
-  planProjectionState: ReturnType<typeof useProjection>["planProjectionState"];
-  planReferenceBinding: ReturnType<typeof useProjection>["planReferenceBinding"];
+  graphReferenceProjectionState: ReturnType<typeof useProjection>["graphReferenceProjectionState"];
+  graphReferenceBinding: ReturnType<typeof useProjection>["graphReferenceBinding"];
   graphReviewDiagnosticsPayload: ReturnType<typeof useProjection>["graphReviewDiagnosticsPayload"];
 }
 
@@ -88,12 +88,12 @@ function AdaptiveProjectionContainerInner({
   surfaceIdentity,
   config,
   active,
-  activePlanReference,
+  activeGraphReference,
   close,
   expandContent,
   openTool,
-  planProjectionState,
-  planReferenceBinding,
+  graphReferenceProjectionState,
+  graphReferenceBinding,
   graphReviewDiagnosticsPayload,
 }: AdaptiveProjectionContainerInnerProps) {
   const isOpen = Boolean(active);
@@ -271,9 +271,9 @@ function AdaptiveProjectionContainerInner({
             renderToolProjection(active.key, config.context!, {
               graphReviewDiagnosticsPayload,
             })
-          ) : activePlanReference ? (
-            renderContentProjection(activePlanReference, config, planProjectionState, {
-              planReferenceBinding,
+          ) : activeGraphReference ? (
+            renderContentProjection(activeGraphReference, config, graphReferenceProjectionState, {
+              graphReferenceBinding,
               glanceOnly: active.glanceOnly === true,
             })
           ) : (

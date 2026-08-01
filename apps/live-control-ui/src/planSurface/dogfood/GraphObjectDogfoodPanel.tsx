@@ -5,9 +5,10 @@ import {
   buildGraphObjectCardFromNodeView,
   type GraphObjectCardViewModel,
 } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import { useOptionalProjection } from "../projection/projectionContext";
 import { buildPlanGraphObjectActions } from "../reference/buildPlanGraphObjectActions";
-import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import type { PlanSessionDescriptor } from "../types";
@@ -39,15 +40,13 @@ function buildViewModelForNode(
   sessionDescriptor: PlanSessionDescriptor,
 ): GraphObjectCardViewModel {
   const base = buildGraphObjectCardFromNodeView(node);
-  const resolution: PlanReferenceResolution = {
-    kind: "graph-node",
+  const resolution: GraphReferenceResolution = {
+    kind: "resolved_graph",
     locator: `dmb-node:${node.node_id}`,
-    refType: node.kind,
-    refId: node.node_id,
+    reference: referenceFromGraphNode(node),
     graphObject: base,
     graphNodeId: node.node_id,
-    fallback: null,
-    source: "world-graph",
+    projectionState: null,
     message: `Resolved graph node ${node.label}.`,
   };
   return {
@@ -59,20 +58,17 @@ function buildViewModelForNode(
 function resolutionFromNode(
   node: GraphProjectionNodeView,
   sessionDescriptor: PlanSessionDescriptor,
-  projectionState: PlanReferenceResolution["graphProjectionState"],
-): PlanReferenceResolution {
+  projectionState: GraphReferenceResolution["projectionState"],
+): GraphReferenceResolution {
   const graphObject = buildViewModelForNode(node, sessionDescriptor);
   return {
-    kind: "graph-node",
+    kind: "resolved_graph",
     locator: `dmb-node:${node.node_id}`,
-    refType: node.kind,
-    refId: node.node_id,
+    reference: referenceFromGraphNode(node),
     graphObject,
     graphNodeId: node.node_id,
-    fallback: null,
-    source: "world-graph",
+    projectionState: projectionState ?? null,
     message: `Resolved graph node ${node.label}.`,
-    graphProjectionState: projectionState ?? null,
   };
 }
 
@@ -145,8 +141,8 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
   }, [projection, state.addedNodeIds]);
 
   const activeViewedNodeId =
-    projectionApi?.activePlanReference?.kind === "graph-node"
-      ? projectionApi.activePlanReference.graphNodeId
+    projectionApi?.activeGraphReference?.kind === "resolved_graph"
+      ? projectionApi.activeGraphReference.graphNodeId
       : null;
 
   const handleRemove = (nodeId: string) => {
@@ -157,10 +153,10 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
     if (!projectionApi) return;
     const next = markNodeViewed(state, node.node_id);
     persist(next);
-    projectionApi.openPlanReferenceResolution(
-      resolutionFromNode(node, sessionDescriptor, projectionState),
+    projectionApi.openGraphReference({
+      resolution: resolutionFromNode(node, sessionDescriptor, projectionState),
       projectionState,
-    );
+    });
   };
 
   const handleUsefulness = (nodeId: string, usefulness: GraphObjectDogfoodUsefulness) => {
