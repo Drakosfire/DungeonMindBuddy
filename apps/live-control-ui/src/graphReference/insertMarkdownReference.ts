@@ -8,6 +8,5 @@ export function insertMarkdownReference(
   attrs: RunbookReferenceAttrs,
 ): boolean {
   if (!editor) return false;
-  editor.chain().focus().insertRunbookReference(attrs).run();
-  return true;
+  return editor.chain().focus().insertRunbookReference(attrs).run();
 }

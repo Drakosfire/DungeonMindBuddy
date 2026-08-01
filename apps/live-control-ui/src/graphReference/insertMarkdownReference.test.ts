@@ -4,7 +4,7 @@ import { insertMarkdownReference } from "./insertMarkdownReference";
 
 describe("insertMarkdownReference", () => {
   it("inserts a runbook reference through the editor chain", () => {
-    const run = vi.fn();
+    const run = vi.fn(() => true);
     const chain = {
       focus: vi.fn().mockReturnThis(),
       insertRunbookReference: vi.fn().mockReturnThis(),
@@ -37,5 +37,27 @@ describe("insertMarkdownReference", () => {
         label: "Missing",
       }),
     ).toBe(false);
+  });
+
+  it("returns false when the editor command chain run() fails", () => {
+    const run = vi.fn(() => false);
+    const chain = {
+      focus: vi.fn().mockReturnThis(),
+      insertRunbookReference: vi.fn().mockReturnThis(),
+      run,
+    };
+    const editor = {
+      chain: vi.fn(() => chain),
+    };
+
+    expect(
+      insertMarkdownReference(editor as never, {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "npc-glowkindle",
+        label: "Glowkindle",
+      }),
+    ).toBe(false);
+    expect(run).toHaveBeenCalled();
   });
 });

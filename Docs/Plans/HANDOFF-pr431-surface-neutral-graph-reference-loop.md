@@ -83,7 +83,7 @@ pr_body_template: |
 | Term | Definition |
 |---|---|
 | Graph reference | A document or interaction pointer that identifies an existing World Graph object, or a legacy compatibility reference awaiting graph/corpus resolution. |
-| Graph-native reference | A RunbookReferenceAttrs value whose refType is graph-node and whose refId is the exact durable World Graph node ID. |
+| Graph-native reference | A RunbookReferenceAttrs value whose refType is graph-node and whose refId is the exact durable World Graph node ID, **or** a recognized exact locator (`dmb-node:`, `graph_node:`, `node:`) treated as durable node identity even when refType is absent. |
 | Compatibility reference | A pre-graph or corpus-oriented reference that may resolve through unique graph label/alias lookup and, only under the existing Plan rules, corpus-index fallback. |
 | Reference lifecycle | Search existing objects → inspect an exact result → insert an existing reference → resolve a chip → project the object → traverse a relationship. |
 | Surface-neutral contract | A caller-facing type, component, hook, or helper under `apps/live-control-ui/src/graphReference/` whose production module imports no planSurface module and contains no fabricated Plan session state. |
@@ -555,9 +555,14 @@ Failure behavior:
   graph error → explicit error; no projection use and no corpus fallback
   graph unavailable → graph-native unresolved; legacy compatibility may use corpus fallback; supplied projection must not be consulted
   ready → graph lookup; corpus fallback only after ordinary miss for legacy compatibility refs
+  ready + absent projection → explicit error (inconsistent dependency); no corpus fallback
+  omitted projectionState → caller-unspecified: with projection, graph lookup then legacy corpus fallback after ordinary miss; without projection, legacy may use corpus fallback and graph-native stays unresolved
+  recognized exact locators (dmb-node: / graph_node: / node:) → exact ID only even when refType is absent; never label/alias/corpus rebind
   graph exact miss → unresolved; no label/corpus rebind
+  relationship targetId exact miss → governed corpus fallback or unresolved only; never a second graph label/alias pass
   ambiguous alias/label → explicit ambiguous result; no fallback/open
   missing editor → insertion fails/no-ops truthfully; no DOM search
+  insert command run() false → insertion helper returns false
   stale Surface lease → open/close/expand/register callback no-op
   replaced relationship binding → late completion discarded
   missing projection binding → content may render read-only; relationship/tool actions fail closed
@@ -614,7 +619,7 @@ No unnamed fallback source is permitted.
 
 | Situation | Required rule | Ambiguity behavior | Fallback permitted? |
 |---|---|---|---|
-| Graph-native exact ID | refType=graph-node; trim surrounding whitespace only; exact refId lookup in projection | Not ambiguous: found exact ID or miss | No label, alias, normalized-key, or corpus fallback |
+| Graph-native exact ID | refType=graph-node **or** recognized `dmb-node:` / `graph_node:` / `node:` locator; trim surrounding whitespace only; exact node ID lookup in projection | Not ambiguous: found exact ID or miss | No label, alias, normalized-key, or corpus fallback |
 | Search-selected node | Construct reference from exact node ID; preserve punctuation/colons; label is display only | Search item already identifies one exact node | No alternative identity lookup during insertion |
 | Legacy locator/refId | Existing candidate order may be used, but every normalized label/alias lookup is unique-only | Explicit ambiguous with all matching node IDs | Corpus fallback only after ordinary graph miss under current Plan rules |
 | Legacy label/alias | Unique-only normalized key | Explicit ambiguity; never first match | Same current Plan fallback rule; ambiguity blocks fallback |

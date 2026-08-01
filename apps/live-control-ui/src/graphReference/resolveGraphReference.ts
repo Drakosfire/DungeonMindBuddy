@@ -17,6 +17,26 @@ export function isGraphNativeReference(
   return refType === GRAPH_NODE_REF_TYPE;
 }
 
+/**
+ * Recognized exact graph locators (`dmb-node:`, `graph_node:`, `node:`) bind by
+ * durable node ID even when `refType` is absent — never label/alias rebind.
+ */
+export function isExactGraphNodeLocator(
+  locator: string | null | undefined,
+): boolean {
+  return parseGraphNodeLocator(locator ?? "") !== null;
+}
+
+export function isGraphNativeInput(options: {
+  refType?: string | null;
+  locator?: string | null;
+}): boolean {
+  return (
+    isGraphNativeReference(options.refType)
+    || isExactGraphNodeLocator(options.locator)
+  );
+}
+
 /** Corpus fallback is allowed only when World Graph is unavailable, or ready with an ordinary miss. */
 export function isCorpusFallbackAllowed(
   projectionState: GraphReferenceProjectionState | null,
@@ -156,8 +176,9 @@ export function findGraphNodeInProjection(
     label?: string | null;
   },
 ): GraphNodeProjectionLookup {
-  // Graph-native chips bind only to durable node IDs — never label/alias rebind.
-  if (isGraphNativeReference(options.refType)) {
+  // Graph-native chips and recognized exact locators bind only to durable node
+  // IDs — never label/alias rebind.
+  if (isGraphNativeInput({ refType: options.refType, locator: options.locator })) {
     const nodeId = graphNativeNodeId(options);
     if (!nodeId) return { status: "miss" };
     return lookupExactNodeId(index, nodeId);
@@ -165,13 +186,8 @@ export function findGraphNodeInProjection(
 
   const candidates: string[] = [];
 
-  const parsedLocator = options.locator ? parseGraphNodeLocator(options.locator) : null;
-  if (parsedLocator) candidates.push(parsedLocator);
-  if (options.locator && !parsedLocator) candidates.push(options.locator);
-
-  if (options.refId) {
-    candidates.push(options.refId);
-  }
+  if (options.locator) candidates.push(options.locator);
+  if (options.refId) candidates.push(options.refId);
 
   for (const candidate of candidates) {
     const lookup = lookupNodeById(index, candidate);
@@ -366,7 +382,13 @@ export function resolveGraphReference(
   const label = input.label ?? input.ref?.label ?? null;
   const reference = resolutionReference({ ref: input.ref, refType, refId, label });
   const projectionState = input.projectionState ?? null;
-  const graphNative = isGraphNativeReference(refType);
+  // Prefer the caller's locator when present; synthesized locators from legacy
+  // refType:refId must not accidentally become exact graph locators.
+  const lookupLocator = input.locator ?? null;
+  const graphNative = isGraphNativeInput({ refType, locator: lookupLocator });
+  const exactNodeId = graphNative
+    ? graphNativeNodeId({ locator: lookupLocator, refId })
+    : null;
 
   // Projection-state gates belong in the neutral resolver so Build (or any
   // future caller) cannot bypass Plan's fail-closed rules by calling directly.
@@ -397,11 +419,27 @@ export function resolveGraphReference(
     return fallbackGraphResolution(locator, reference, input.corpusFallback, projectionState);
   }
 
-  // ready (or unspecified): graph lookup, then corpus fallback after ordinary miss.
+  // ready without a projection is an inconsistent dependency state — fail closed.
+  // Omitted/null projectionState remains caller-unspecified: when a projection is
+  // supplied, perform graph lookup; when absent, legacy may use corpus fallback
+  // and graph-native stays unresolved without fallback.
+  if (projectionState === "ready" && !input.projection) {
+    return {
+      kind: "error",
+      locator,
+      reference,
+      projectionState,
+      message:
+        "World Graph projection marked ready but no projection was supplied; corpus fallback disabled.",
+    };
+  }
+
+  // ready (or unspecified with a projection): graph lookup, then corpus fallback
+  // after ordinary miss for legacy compatibility refs only.
   if (input.projection) {
     const index = buildWorldGraphNodeIndex(input.projection);
     const lookup = findGraphNodeInProjection(index, {
-      locator: input.locator ?? locator,
+      locator: lookupLocator ?? (graphNative ? locator : null),
       refType,
       refId,
       // Graph-native refs must not rebind through display labels.
@@ -417,7 +455,13 @@ export function resolveGraphReference(
     }
 
     if (graphNative) {
-      return exactGraphNativeMiss(locator, reference, refId, projectionState, input.lensSummary);
+      return exactGraphNativeMiss(
+        locator,
+        reference,
+        exactNodeId ?? refId,
+        projectionState,
+        input.lensSummary,
+      );
     }
   }
 

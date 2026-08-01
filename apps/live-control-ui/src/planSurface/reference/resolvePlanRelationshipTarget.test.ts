@@ -171,6 +171,40 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(resolution.locator).toBe("dmb-node:location-missing");
   });
 
+  it("does not alias-rebind when missing targetId equals another node's unique alias", async () => {
+    const aliasTwin: WorldGraphProjectionNodeView = {
+      ...innNode,
+      nodeId: "location-elsewhere",
+      label: "Elsewhere",
+      aliases: ["location-missing"],
+    };
+    const twinProjection: WorldGraphProjection = {
+      ...projection,
+      nodes: [glowkindleNode, aliasTwin, lysandraA, lysandraB],
+    };
+
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-alias-trap",
+        label: "Missing Gate",
+        targetId: "location-missing",
+        targetKind: "location",
+      },
+      projection: twinProjection,
+      projectionState: "ready",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({ locations: [] }),
+        }) as Response,
+    });
+
+    expect(resolution.kind).toBe("unresolved");
+    expect(resolution.kind).not.toBe("resolved_graph");
+    expect(resolution.graphNodeId).toBeUndefined();
+    expect(resolution.locator).toBe("dmb-node:location-missing");
+  });
+
   it("fails closed during projection error without querying corpus", async () => {
     let fetchCount = 0;
     const resolution = await resolvePlanRelationshipTarget({

@@ -13,6 +13,8 @@ export {
   buildWorldGraphNodeIndex,
   findGraphNodeInProjection,
   isCorpusFallbackAllowed,
+  isExactGraphNodeLocator,
+  isGraphNativeInput,
   isGraphNativeReference,
   parseGraphNodeLocator,
   resolveGraphReference,

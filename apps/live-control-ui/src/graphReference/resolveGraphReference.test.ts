@@ -415,4 +415,115 @@ describe("resolveGraphReference", () => {
     expect(result.message).toMatch(/node:bubbles/i);
     expect(result.message).toMatch(/C2 only · no session focus/);
   });
+
+  it("exact dmb-node locator without refType never alias-rebinds to another node", () => {
+    const aliasTwin: WorldGraphProjectionNodeView = {
+      ...glowkindleNode,
+      nodeId: "location-elsewhere",
+      label: "Elsewhere",
+      aliases: ["location-missing"],
+      kind: "location",
+    };
+    const twinProjection: WorldGraphProjection = {
+      ...projection,
+      nodes: [aliasTwin],
+    };
+
+    const result = resolveGraphReference({
+      locator: "dmb-node:location-missing",
+      projection: twinProjection,
+      projectionState: "ready",
+      corpusFallback: {
+        status: "resolved",
+        ref: {
+          kind: "ref",
+          refType: "location",
+          refId: "location-missing",
+          label: "Missing Gate",
+        },
+        message: "Would have fallen back.",
+      },
+    });
+
+    expect(result.kind).toBe("unresolved");
+    expect(result.kind).not.toBe("resolved_graph");
+    expect(result.kind).not.toBe("resolved_corpus_fallback");
+    expect(result.message).toMatch(/location-missing/i);
+  });
+
+  it("exact graph_node and node locators without refType stay exact-only", () => {
+    const aliasTwin: WorldGraphProjectionNodeView = {
+      ...glowkindleNode,
+      nodeId: "npc-other",
+      label: "Other",
+      aliases: ["missing-id"],
+    };
+    const twinProjection: WorldGraphProjection = {
+      ...projection,
+      nodes: [aliasTwin],
+    };
+
+    for (const locator of ["graph_node:missing-id", "node:missing-id"] as const) {
+      const result = resolveGraphReference({
+        locator,
+        projection: twinProjection,
+        projectionState: "ready",
+      });
+      expect(result.kind).toBe("unresolved");
+      expect(result.graphNodeId).toBeUndefined();
+    }
+  });
+
+  it("ready without a projection fails closed even when corpus fallback would resolve", () => {
+    const fallback = {
+      status: "resolved" as const,
+      ref: {
+        kind: "ref" as const,
+        refType: "npc",
+        refId: "lysandro-ironveil",
+        label: "Lysandro Ironveil",
+      },
+      source: "npc-index",
+      item: { title: "Lysandro Ironveil" },
+      message: "Resolved from live npc index.",
+    };
+
+    const result = resolveGraphReference({
+      refType: "npc",
+      refId: "lysandro-ironveil",
+      label: "Lysandro Ironveil",
+      projection: null,
+      corpusFallback: fallback,
+      projectionState: "ready",
+    });
+
+    expect(result.kind).toBe("error");
+    expect(result.message).toMatch(/marked ready but no projection was supplied/i);
+    expect(result.kind).not.toBe("resolved_corpus_fallback");
+  });
+
+  it("omitted projectionState without projection may still use corpus fallback for legacy refs", () => {
+    const fallback = {
+      status: "resolved" as const,
+      ref: {
+        kind: "ref" as const,
+        refType: "npc",
+        refId: "lysandro-ironveil",
+        label: "Lysandro Ironveil",
+      },
+      source: "npc-index",
+      item: { title: "Lysandro Ironveil" },
+      message: "Resolved from live npc index.",
+    };
+
+    const result = resolveGraphReference({
+      refType: "npc",
+      refId: "lysandro-ironveil",
+      label: "Lysandro Ironveil",
+      projection: null,
+      corpusFallback: fallback,
+    });
+
+    expect(result.kind).toBe("resolved_corpus_fallback");
+  });
 });

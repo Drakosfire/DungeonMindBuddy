@@ -1,9 +1,10 @@
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { WorldGraphProjection } from "../../api/types";
-import type { GraphReferenceProjectionState, GraphReferenceResolution } from "../../graphReference/types";
+import type { GraphReferenceCorpusFallback, GraphReferenceProjectionState, GraphReferenceResolution } from "../../graphReference/types";
 import {
   isCorpusFallbackAllowed,
+  mapReferenceResolutionToCorpusFallback,
   resolvePlanReferenceFromGraphProjection,
 } from "./graphAwareReferenceResolver";
 import { REFERENCE_INDEX_ENDPOINTS, resolveReference } from "./referenceResolver";
@@ -70,6 +71,49 @@ function worldGraphErrorRelationshipResolution(
 }
 
 /**
+ * After an exact targetId miss, adapt governed corpus fallback only.
+ * Never re-enter graph label/alias resolution with the stale target ID.
+ */
+function corpusFallbackAfterExactTargetMiss(
+  locator: string,
+  reference: GraphReferenceResolution["reference"],
+  corpusFallback: GraphReferenceCorpusFallback,
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
+  if (corpusFallback.status === "resolved") {
+    return {
+      kind: "resolved_corpus_fallback",
+      locator,
+      reference: reference ?? corpusFallback.ref,
+      fallback: corpusFallback,
+      projectionState,
+      message: corpusFallback.message,
+    };
+  }
+
+  if (corpusFallback.status === "error") {
+    return {
+      kind: "error",
+      locator,
+      reference: reference ?? corpusFallback.ref,
+      projectionState,
+      message: corpusFallback.message,
+    };
+  }
+
+  return {
+    kind: "unresolved",
+    locator,
+    reference: reference ?? corpusFallback.ref,
+    projectionState,
+    message: appendIngestEscalationHint(
+      corpusFallback.message
+      || "Could not resolve this reference from graph memory or corpus indexes.",
+    ),
+  };
+}
+
+/**
  * Resolve a GraphObjectCard relationship target through the Plan graph-aware ladder.
  */
 export async function resolvePlanRelationshipTarget({
@@ -116,6 +160,9 @@ export async function resolvePlanRelationshipTarget({
       );
     }
 
+    // Exact targetId miss: do not pass the ID through label/alias graph lookup
+    // again (that can rebind a stale ID to another node's alias). Proceed only
+    // to governed corpus fallback or unresolved.
     const canUseCorpusIndex =
       isCorpusFallbackAllowed(projectionState)
       && Boolean(targetKind && REFERENCE_INDEX_ENDPOINTS[targetKind]);
@@ -130,14 +177,12 @@ export async function resolvePlanRelationshipTarget({
         fetchImpl,
       );
       return withProjectionState(
-        resolvePlanReferenceFromGraphProjection({
+        corpusFallbackAfterExactTargetMiss(
           locator,
-          refType: targetKind,
-          refId: targetId,
-          projection: projection ?? null,
-          fallbackResolution,
+          reference,
+          mapReferenceResolutionToCorpusFallback(fallbackResolution),
           projectionState,
-        }),
+        ),
         projectionState,
       );
     }
