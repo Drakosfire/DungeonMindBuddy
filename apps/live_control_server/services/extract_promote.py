@@ -126,7 +126,15 @@ def _with_review_package_inspection_context(
     *,
     run_status: str,
 ) -> ExtractPromoteError:
-    if exc.code != "run_not_promotable":
+    """Attach lifecycle + inspection fields to post-resolution package failures.
+
+    Pre-resolution identity failures (unknown run, not reviewable, etc.) are
+    outside this helper. Every ``ExtractPromoteError`` raised while building the
+    review package after a successful ``resolve_promotable_ingest_run`` is an
+    inspection failure: the run may remain ``reviewable`` while the package is
+    ``blocked`` or ``invalid_evidence``.
+    """
+    if exc.run_status is not None and exc.inspection_status is not None:
         return exc
     return ExtractPromoteError(
         str(exc),
@@ -713,67 +721,70 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             ],
         ) from exc
 
+    # Entire post-resolution package construction is one inspection boundary:
+    # source prose, candidate parse, scope check, frozen span-index load/validate,
+    # and evidence projection all share runStatus + inspectionStatus enrichment.
     try:
-        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ExtractPromoteError(
-            "exact-run source prose could not be read",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("source_unreadable", str(exc))],
-        ) from exc
+        try:
+            source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ExtractPromoteError(
+                "exact-run source prose could not be read",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[_diagnostic("source_unreadable", str(exc))],
+            ) from exc
 
-    try:
-        candidate_payload = json.loads(
-            resolved.candidate_graph_path.read_text(encoding="utf-8")
+        try:
+            candidate_payload = json.loads(
+                resolved.candidate_graph_path.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ExtractPromoteError(
+                "exact-run candidate graph could not be read",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
+            ) from exc
+        if not isinstance(candidate_payload, dict):
+            raise ExtractPromoteError(
+                "exact-run candidate graph root must be a JSON object",
+                code="run_not_promotable",
+                status_code=422,
+            )
+
+        _assert_candidate_scope_matches_run(
+            candidate_payload,
+            campaign_id=resolved.campaign_id,
+            session_id=resolved.session_id,
         )
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ExtractPromoteError(
-            "exact-run candidate graph could not be read",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
-        ) from exc
-    if not isinstance(candidate_payload, dict):
-        raise ExtractPromoteError(
-            "exact-run candidate graph root must be a JSON object",
-            code="run_not_promotable",
-            status_code=422,
-        )
 
-    _assert_candidate_scope_matches_run(
-        candidate_payload,
-        campaign_id=resolved.campaign_id,
-        session_id=resolved.session_id,
-    )
-
-    span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    try:
+        span_index = _load_frozen_span_index_for_resolved_run(resolved)
         assertions = _assert_and_project_candidate_evidence(
             candidate_payload=candidate_payload,
             source_prose=source_prose,
             source_artifact_id=resolved.source_artifact_id,
             span_index=span_index,
         )
+
+        inspect_only = _is_worldbuilding_inspect_only(resolved)
+        return ExactRunReviewPackage(
+            run_id=resolved.run_id,
+            source_domain=resolved.source_domain,
+            source_artifact_id=resolved.source_artifact_id,
+            source_revision_id=resolved.source_revision_id,
+            campaign_id=resolved.campaign_id or None,
+            session_id=resolved.session_id or None,
+            source_prose=source_prose,
+            assertions=assertions,
+            diagnostics=list(resolved.diagnostics),
+            promotable=not inspect_only,
+            promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None,
+        )
     except ExtractPromoteError as exc:
         raise _with_review_package_inspection_context(
             exc, run_status=resolved.status
         ) from exc
-
-    inspect_only = _is_worldbuilding_inspect_only(resolved)
-    return ExactRunReviewPackage(
-        run_id=resolved.run_id,
-        source_domain=resolved.source_domain,
-        source_artifact_id=resolved.source_artifact_id,
-        source_revision_id=resolved.source_revision_id,
-        campaign_id=resolved.campaign_id or None,
-        session_id=resolved.session_id or None,
-        source_prose=source_prose,
-        assertions=assertions,
-        diagnostics=list(resolved.diagnostics),
-        promotable=not inspect_only,
-        promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None,
-    )
 
 
 def prepare(

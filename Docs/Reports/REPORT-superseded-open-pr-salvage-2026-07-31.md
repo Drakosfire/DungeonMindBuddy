@@ -1,10 +1,16 @@
 # REPORT — Superseded open PR salvage and retirement
 
-**Date:** 2026-07-31  
-**Required base / actual base:** `c371d43178a2b83da299319a047f93bae50d0959`  
-**Actual head:** `04a2fe5bc438972338e25a9f1385877436f55970`
-**Salvage branch:** `chore/mine-retire-superseded-prs`  
+**Date:** 2026-07-31 (revised 2026-08-01 after PR #464 REQUEST_CHANGES)
+**Original mining base:** `c371d43178a2b83da299319a047f93bae50d0959`
+**Re-anchored implementation base / required current base:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` (#462 merge commit; current `main` tip at re-anchor)
+**Actual head:** `{{HEAD_AFTER_REVISION_COMMIT}}`
+**Salvage branch:** `chore/mine-retire-superseded-prs`
+**Salvage PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/464
 **Evidence ledger authority:** This report is the canonical disposition ledger for the eight source PRs listed below. Dispatch record: [`Docs/Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md`](../Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md).
+
+### Re-anchor note
+
+The first salvage commit mined against `c371d431…`. PR #464 received **REQUEST_CHANGES** requiring re-implementation on current `main` after #462 (SBW09a publication operation ledger) merged at `2fa5b790…` on 2026-08-01. This revision re-anchors the ledger and #433 code mapping to that base. Source PRs were closed after salvage PR #464 existed remotely (per authoritative handoff §8B); this doc refresh does **not** reopen them.
 
 ### Source heads (frozen)
 
@@ -25,7 +31,7 @@
 
 Mine durable documentation and one bounded code salvage (#433 extract-promote inspection status) from eight long-lived open PRs whose stacked implementation is superseded by current `main`, name successors for still-valid intent, and retire the source PRs without rebasing or cherry-picking obsolete architecture.
 
-**Salvage invariant:** No rebased stacked heads, no dormant PDF/publication parallel APIs, no first-wins projection tolerance, no tracker/roadmap overwrite, no threat-publication parallel stack.
+**Salvage invariant:** No rebased stacked heads, no dormant PDF/publication parallel APIs, no first-wins projection tolerance, no tracker/roadmap overwrite, no threat-publication parallel stack. #433 behavior is **reimplemented** on current-main models/services — not ported from the source PR branch as implementation base.
 
 ---
 
@@ -34,19 +40,19 @@ Mine durable documentation and one bounded code salvage (#433 extract-promote in
 | PR | GitHub state before salvage | Salvage outcome | Landed in this branch | Named successor |
 |---|---|---|---|---|
 | #231 | CLOSED | **ALREADY_PRESENT** (+ REJECTED runner) | Report note only | — |
-| #395 | CLOSED | **ALREADY_PRESENT** (+ REJECTED shell) | Report + preserved handoff pointer | [`HANDOFF-bld09-pdf-ocr-lineage-pilot.md`](../Plans/HANDOFF-bld09-pdf-ocr-lineage-pilot.md) |
+| #395 | CLOSED | **ALREADY_PRESENT** (+ REJECTED shell) + **PRESERVED** pilot report | Report + [`REPORT-build-pdf-lineage-pilot.md`](REPORT-build-pdf-lineage-pilot.md) | [`HANDOFF-bld09-pdf-ocr-lineage-pilot.md`](../Plans/HANDOFF-bld09-pdf-ocr-lineage-pilot.md) (successor gate; PREPARED/DRAFT — not a replacement for completed report) |
 | #432 | OPEN (superseded) | **PRESERVED** intent (+ REJECTED shell) | Report + successor handoff | [`HANDOFF-build-stay-on-build-dogfood-after-mc02.md`](../Plans/HANDOFF-build-stay-on-build-dogfood-after-mc02.md) |
 | #433 | OPEN (superseded) | **IMPLEMENTED** (code) + **PRESERVED** (UI successor) | Code + report §6D | Frontend inspection UI after #431/#432 |
 | #444 | OPEN (superseded) | **PRESERVED** (+ REJECTED first-wins) | Report + successor handoff | [`HANDOFF-graph-review-browse-committed-sessions.md`](../Plans/HANDOFF-graph-review-browse-committed-sessions.md) |
 | #449 | OPEN (superseded) | **PRESERVED** docs (+ REJECTED tracker/report overwrite) | Pattern + conditional handoff | [`HANDOFF-dms-generation-validation-diagnostics.md`](../Plans/HANDOFF-dms-generation-validation-diagnostics.md) (conditional) |
 | #459 | OPEN (duplicate) | **REJECTED** as independent authority | Report only | — (same as #431) |
-| #460 | OPEN (superseded) | **REJECTED** parallel API (+ **PRESERVED** review checklist) | Report §#460 checklist | #462 [`HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md) |
+| #460 | OPEN (superseded) | **REJECTED** parallel API (+ **PRESERVED** residual checklist) | Report §#460 checklist | Residual obligations only; core guarantees **ALREADY_PRESENT** on merged `main` (#462) |
 
 ---
 
 ## §3 Per-PR contribution tables
 
-Disposition codes: **IMPLEMENTED** — landed in salvage branch; **PRESERVED** — named successor or historical record; **ALREADY_PRESENT** — on main before salvage; **REJECTED** — obsolete or harmful; do not port.
+Disposition codes: **IMPLEMENTED** — landed in salvage branch; **PRESERVED** — named successor or historical record; **ALREADY_PRESENT** — on main before salvage or merged independently; **REJECTED** — obsolete or harmful; do not port.
 
 ### #231 — C2S23 vocabulary ablation dogfood (`006e53b`)
 
@@ -66,7 +72,8 @@ Disposition codes: **IMPLEMENTED** — landed in salvage branch; **PRESERVED** �
 | Build toolbar integration | **ALREADY_PRESENT** | `BuildIngestToolbar` / related main paths |
 | `graphReviewRunSelection` | **ALREADY_PRESENT** | Graph Review run selection on main |
 | Monolithic `BuildSurfaceShell` / local draft architecture | **REJECTED** | Superseded by current modular Build surface |
-| PDF/OCR lineage intent | **PRESERVED** | [`HANDOFF-bld09-pdf-ocr-lineage-pilot.md`](../Plans/HANDOFF-bld09-pdf-ocr-lineage-pilot.md) (source head `bb7e4eb`) |
+| Completed BLD-09 PDF/OCR lineage pilot report | **PRESERVED** | [`REPORT-build-pdf-lineage-pilot.md`](REPORT-build-pdf-lineage-pilot.md) — HISTORICAL banner; **GO**; 3/3 trials; one canonical identity; fail-closed OCR/page-map; zero promotions |
+| Stale PREPARED/DRAFT successor handoff | **PRESERVED** (gate only) | [`HANDOFF-bld09-pdf-ocr-lineage-pilot.md`](../Plans/HANDOFF-bld09-pdf-ocr-lineage-pilot.md) — re-anchor gate; **not** a replacement for the completed report |
 | PDF/OCR implementation code | **REJECTED** | Dormant framework prohibited; no PDF code landed |
 | PR branch | **REJECTED** | Already CLOSED on GitHub before salvage |
 
@@ -91,27 +98,32 @@ Disposition codes: **IMPLEMENTED** — landed in salvage branch; **PRESERVED** �
 | `ExtractPromoteInspectionStatus` type | **IMPLEMENTED** | `apps/live_control_server/models/extract_promote.py` |
 | `run_status` / `inspection_status` on error paths | **IMPLEMENTED** | `apps/live_control_server/services/extract_promote.py` |
 | `_review_package_inspection_status` / `_with_review_package_inspection_context` | **IMPLEMENTED** | `apps/live_control_server/services/extract_promote.py` |
-| `get_exact_run_review_package` enrichment | **IMPLEMENTED** | Same service module |
+| `get_exact_run_review_package` enrichment | **IMPLEMENTED** | Wraps **complete post-resolution** review-package construction boundary (source prose read, candidate parse, scope validation, frozen span-index load/validate, evidence projection) — not only `_assert_and_project_candidate_evidence` |
 | Tests: `blocked` / `invalid_evidence` + `span_ref` / `false_anchor_quote` retention | **IMPLEMENTED** | `tests/test_live_extract_promote_api.py` |
+| Test: post-resolution span-index failure retains inspection fields | **IMPLEMENTED** (regression target) | `test_review_package_span_index_failure_keeps_inspection_fields` |
 | `false_anchor_quote` / `span_ref` diagnostic emission | **ALREADY_PRESENT** | Pre-salvage main behavior |
 | Frontend inspection UI types | **PRESERVED** | Successor after #431/#432 Build inspector lands |
 
 #### §6D — #433 source-to-current mapping
 
+Reimplemented on current-main models/services from #433 behavior; adapted to current camelCase error vocabulary and owning-boundary tests. **Not** a direct port from source PR branch.
+
 | Source (#433 head) | Current path / symbol | Transformation |
 |---|---|---|
-| `ExtractPromoteInspectionStatus = Literal["ready", "blocked", "invalid_evidence"]` | `models/extract_promote.py` | Direct port |
+| `ExtractPromoteInspectionStatus = Literal["ready", "blocked", "invalid_evidence"]` | `models/extract_promote.py` | Reimplemented on current-main Pydantic models |
 | `ExtractPromoteErrorResponse.run_status` / `inspection_status` | `models/extract_promote.py` | Optional camelCase-serialized fields on 422 error body |
 | `_review_package_inspection_status(diagnostics)` | `services/extract_promote.py` | `false_anchor_quote` → `invalid_evidence`; else `blocked` |
-| `_with_review_package_inspection_context(exc, run_status=…)` | `services/extract_promote.py` | Enriches `run_not_promotable` with lifecycle + inspection fields |
-| `get_exact_run_review_package` evidence projection | Same function | try/except wraps `_assert_and_project_candidate_evidence`; preserves `resolved.status` (e.g. `reviewable`) while inspection fails |
+| `_with_review_package_inspection_context(exc, run_status=…)` | `services/extract_promote.py` | Attaches `run_status` + `inspection_status` to every post-resolution `ExtractPromoteError` (not only evidence-projection) |
+| `get_exact_run_review_package` review-package construction | Same function | try/except wraps the **complete post-resolution** boundary: source prose read → candidate parse → scope validation → frozen span-index load/validate → evidence projection; preserves `resolved.status` (e.g. `reviewable`) while inspection fails |
 | API tests for blocked + invalid_evidence | `tests/test_live_extract_promote_api.py` | Asserts `runStatus=reviewable`, `inspectionStatus`, and retained `span_ref`/`false_anchor_quote` diagnostics |
+| Post-resolution span-index failure | `test_review_package_span_index_failure_keeps_inspection_fields` | Asserts inspection enrichment survives span-index load/validate failure after resolution |
 
 ### #444 — Graph Review browse-first sessions (`127168de`)
 
 | Contribution | Disposition | Evidence |
 |---|---|---|
-| Browse-first World Graph session catalog + Load UX | **PRESERVED** | [`HANDOFF-graph-review-browse-committed-sessions.md`](../Plans/HANDOFF-graph-review-browse-committed-sessions.md) |
+| Browse-first World Graph session catalog + Load UX (§1A) | **PRESERVED** | [`HANDOFF-graph-review-browse-committed-sessions.md`](../Plans/HANDOFF-graph-review-browse-committed-sessions.md) §1A / §2A |
+| Corpus-backed recap catalog product finding (§1B / §2B) | **PRESERVED** | Same handoff: statuses `not_ingested` / `preview_ready` / `stale_vs_source` / `broken(reason)`; populate/refresh CTA; quarantine eval dogfood — **separate** from browse-committed-sessions §1A |
 | `postWorldGraphRecapProjection` / `/recap-projection` API | **ALREADY_PRESENT** | Main projection API |
 | Ingest-run catalog path | **ALREADY_PRESENT** | Main ingest catalog |
 | `per_contribution_assertion_ids` first-wins tolerance | **REJECTED** | Main keeps strict `semantic_assertion_divergence` 409 |
@@ -139,26 +151,30 @@ Disposition codes: **IMPLEMENTED** — landed in salvage branch; **PRESERVED** �
 
 | Contribution | Disposition | Evidence |
 |---|---|---|
-| Entire `threat_statblock_publication*` parallel API/models/routes/store | **REJECTED** | Superseded by #462 SBW09a ledger design |
-| Core begin/refresh/cancel/replay/stale/corrupt/history guarantees | **ALREADY_PRESENT** on #462 | [`HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md) |
-| Residual review obligations (see §#460 checklist below) | **PRESERVED** | Review against #462 implementation |
+| Entire `threat_statblock_publication*` parallel API/models/routes/store | **REJECTED** | Superseded by merged #462 SBW09a ledger design on `main` |
+| Core begin/refresh/cancel/replay/stale/corrupt/history guarantees | **ALREADY_PRESENT** on merged `main` (#462) | [`HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md); merged at `2fa5b790…` |
+| Residual review obligations (see §#460 checklist below) | **PRESERVED** | Successor obligations only where merged-main tests do not yet prove the case |
 
-#### §#460 — Review checklist (for #462, not ported code)
+#### §#460 — Review checklist (classified against merged `main`, not open #462)
 
-When reviewing SBW09a implementation, verify these adversarial cases called out by #460 research:
+When reviewing publication guarantees, map #460 research items to merged-main tests. Parallel `threat_statblock_publication*` API remains **REJECTED**.
 
-1. **Route query-param rejection** — malformed or conflicting query params fail closed without partial ledger writes.
-2. **Process-boundary GET reload** — reload after process restart returns the same operation authority without reconstructing from mutable draft state.
-3. **Claim-under-lock** — concurrent begin/claim does not produce twin active operations for one mechanics locator.
-4. **Invalid filename corruption** — corrupt on-disk ledger filenames surface explicit error, not silent repair.
-5. **World/campaign mismatch** — parent world/campaign drift becomes stale state; no silent rebase.
-6. **Manual live-proof** — operator can exercise begin → read → stale → cancel without World Graph mutation.
+| #460 obligation | Disposition on merged `main` | Merged-main test evidence |
+|---|---|---|
+| Route query-param rejection | **ALREADY_PRESENT** | `test_begin_route_rejects_extra_field_with_422`, `test_begin_route_rejects_invalid_draft_id_with_422`, `test_read_route_rejects_malformed_operation_id_with_422` |
+| Process-boundary GET reload | **ALREADY_PRESENT** | `test_restart_reload_preserves_exact_snapshot_locator_parent_and_digests`, `test_restart_reload_via_new_test_client_preserves_operation` |
+| Claim-under-lock / competing begin | **ALREADY_PRESENT** | `test_competing_begin_allows_one_active_operation` |
+| Corrupt ledger / invalid filename | **ALREADY_PRESENT** | `test_corrupt_ledger_fails_closed_without_rewrite`, `test_corrupt_ledger_bad_schema_fails_closed` |
+| World/campaign / parent mismatch | **ALREADY_PRESENT** | `test_begin_rejects_parent_mismatch_without_record`, `test_begin_route_parent_mismatch_returns_409` |
+| History full | **ALREADY_PRESENT** | `test_history_full_rejects_without_mutation` |
+| No draft/graph mutation | **ALREADY_PRESENT** | `test_all_operations_leave_draft_graph_and_dungeonmind_unchanged`, `test_route_flow_leaves_threat_draft_bytes_unchanged` |
+| Manual live-proof — operator begin → read → stale → cancel without World Graph mutation | **PRESERVED** | Successor obligation; not automated in merged-main suite |
 
 ---
 
-## §4 Changed paths (salvage branch vs base)
+## §4 Changed paths (salvage branch vs re-anchored base `2fa5b790…`)
 
-### Code (#433 only — pre-existing in worktree before doc commit)
+### Code (#433 — reimplemented on current main)
 
 | Path | Action |
 |---|---|
@@ -166,30 +182,34 @@ When reviewing SBW09a implementation, verify these adversarial cases called out 
 | `apps/live_control_server/services/extract_promote.py` | Modified |
 | `tests/test_live_extract_promote_api.py` | Modified |
 
-### Documentation (this salvage commit)
+### Documentation
 
 | Path | Action |
 |---|---|
-| `Docs/Reports/REPORT-superseded-open-pr-salvage-2026-07-31.md` | Added |
+| `Docs/Reports/REPORT-superseded-open-pr-salvage-2026-07-31.md` | Added / revised |
 | `Docs/Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md` | Added |
 | `Docs/Design/PATTERN-openai-structured-outputs-complex-contracts.md` | Added (scrubbed from #449) |
 | `Docs/Plans/HANDOFF-dms-generation-validation-diagnostics.md` | Added (scrubbed CONDITIONAL successor) |
 | `Docs/Plans/HANDOFF-graph-review-browse-committed-sessions.md` | Added |
 | `Docs/Plans/HANDOFF-build-stay-on-build-dogfood-after-mc02.md` | Added |
+| `Docs/Reports/REPORT-build-pdf-lineage-pilot.md` | Added (PRESERVED historical pilot from #395) |
 
-**Explicitly not changed:** `PR-TRACKER-threat-statblock-authoring-projection.md`, `ROADMAP-threat-statblock-authoring-projection.md`, any `threat_statblock_publication*` paths, PDF/OCR code, #444 first-wins projection code.
+**Explicitly not changed:** `PR-TRACKER-threat-statblock-authoring-projection.md`, `ROADMAP-threat-statblock-authoring-projection.md`, any `threat_statblock_publication*` paths, PDF/OCR implementation code, #444 first-wins projection code, #462 merged paths (salvage did not rewrite SBW09a ledger implementation).
 
 ---
 
 ## §5 Verification results
 
+Intended verification set for re-anchored revision (base `2fa5b790…` → `{{HEAD_AFTER_REVISION_COMMIT}}`):
+
 | Command | Expected | Result |
 |---|---|---|
-| `uv run pytest -q tests/test_live_extract_promote_api.py -k "false_anchor or review_package or reviewable"` | #433 blocked/invalid_evidence + diagnostic retention | **PASS** — `4 passed, 58 deselected` (2026-07-31) |
-| `git diff --name-only c371d431...HEAD` (post-commit) | Only §4 allowlist paths | **PASS** pending commit — expected 3 code + 6 docs |
+| `uv run pytest -q tests/test_live_extract_promote_api.py -k "false_anchor or review_package or reviewable or span_index_failure"` | #433 blocked/invalid_evidence + diagnostic retention + span-index failure enrichment | **PASS** — `5 passed, 58 deselected` (2026-08-01; post-resolution span-index loader forced via monkeypatch because byte corruption is caught pre-resolution by digest seal) |
+| `uv run pytest -q tests/test_live_extract_promote_api.py` (full file — required by authoritative handoff) | All extract-promote API tests pass | **PASS** — `63 passed` (2026-08-01) |
+| `git diff --name-only 2fa5b790...HEAD` | Only §4 allowlist paths | **PASS** — 3 code + 7 docs (see §4); no denylist paths |
 | `git diff --check` | Exit 0 | **PASS** |
-| Conditional UI / graph-kernel / PDF lineage | N/A — no UI, projection, or PDF paths changed | **not applicable** |
-| Source PR retirement | Eight source PRs CLOSED with disposition comments; none MERGED by this op | **PASS** — #231/#395 comment-only (already CLOSED); #432/#433/#444/#449/#459/#460 closed 2026-07-31 via salvage; salvage PR #464; #442 remains OPEN |
+| Conditional UI / graph-kernel / PDF lineage implementation | N/A unless those paths changed | **not applicable** — no UI, projection-kernel, or PDF implementation paths in salvage allowlist |
+| Source PR retirement | Eight source PRs CLOSED with disposition comments; none MERGED by salvage | **PASS** — closures recorded §10; re-anchor doc refresh does not reopen |
 
 ---
 
@@ -197,27 +217,30 @@ When reviewing SBW09a implementation, verify these adversarial cases called out 
 
 These PRs remain **protected active work** — salvage must not close, rebase, or overwrite them:
 
-| PR | Role | Why protected |
+| PR | Role | State after salvage / at re-anchor |
 |---|---|---|
-| **#431** | MC-02a surface-neutral graph reference | Active implementation; #459 duplicate rejected |
-| **#442** | Eldyrwild world-graph snapshot transfer | Intentional OPEN transfer vehicle; do not close/merge |
-| **#462** | SBW09a publication operation ledger | Owns publication guarantees; #460 parallel API rejected |
-| **#463** | TL01F Timeline temporal lane gate | Active Timeline thread; outside salvage authority |
+| **#431** | MC-02a surface-neutral graph reference | **OPEN** — active implementation; #459 duplicate rejected |
+| **#442** | Eldyrwild world-graph snapshot transfer | **OPEN** — intentional transfer vehicle; do not close/merge |
+| **#462** | SBW09a publication operation ledger | **MERGED** at `2fa5b790…` (2026-08-01); salvage did not rewrite its paths |
+| **#463** | TL01F Timeline temporal lane gate | **OPEN** — active Timeline thread; outside salvage authority |
 
-Salvage **may** reference and name successors that **depend on** #431/#462 merging first.
+Salvage **may** reference successors that **depend on** #431 merging first. #462 obligations are classified against merged `main`, not an open successor.
 
 ---
 
 ## §7 Explicit confirmations from dispatch handoff
 
-- [x] No rebased or cherry-picked stacked heads from source PRs (except bounded #433 port documented in §6D).
-- [x] No dormant PDF/OCR framework code landed.
+- [x] No wholesale source merge or cherry-pick of stacked heads from source PRs.
+- [x] No code based on a source PR branch as implementation base — #433 reimplemented from current `main` models/services (§6D).
+- [x] No dormant PDF/OCR framework **implementation** code landed (pilot **report** preserved only).
 - [x] No `threat_statblock_publication*` parallel stack ported.
 - [x] No first-wins / divergent-shadow projection tolerance from #444.
 - [x] No PR-TRACKER or ROADMAP edits in salvage branch.
-- [x] #231, #395 already CLOSED on GitHub — ledger only.
+- [x] #231, #395 already CLOSED on GitHub — ledger + preserved pilot report.
 - [x] #449 pattern/handoff scrubbed; dispatch-now tracker claims rejected.
 - [x] R0-A treated as **OPERATOR_CONFIRMED_PASS** on main; DMS-VAL-01 handoff is **CONDITIONAL** on regression only.
+- [x] **#442 remains OPEN.**
+- [x] **#462 merged** at re-anchor base; salvage did not rewrite SBW09a paths.
 
 ---
 
@@ -229,17 +252,21 @@ Salvage **may** reference and name successors that **depend on** #431/#462 mergi
 | MC-02b / candidate-assisted Find existing | #432 | MC-02a |
 | Stay-on-Build extraction inspector/summary | #432 | [`HANDOFF-build-stay-on-build-dogfood-after-mc02.md`](../Plans/HANDOFF-build-stay-on-build-dogfood-after-mc02.md) after #431 |
 | BLD inspection-truth | #432 | Build inspector milestone |
-| Graph Review browse-first committed sessions | #444 | [`HANDOFF-graph-review-browse-committed-sessions.md`](../Plans/HANDOFF-graph-review-browse-committed-sessions.md); strict projection |
-| PDF/OCR lineage pilot | #395 | [`HANDOFF-bld09-pdf-ocr-lineage-pilot.md`](../Plans/HANDOFF-bld09-pdf-ocr-lineage-pilot.md) |
+| Graph Review browse-first committed sessions (§1A) | #444 | [`HANDOFF-graph-review-browse-committed-sessions.md`](../Plans/HANDOFF-graph-review-browse-committed-sessions.md); strict projection |
+| Corpus-backed recap catalog (§1B / §2B) | #444 | Same handoff; status vocabulary + populate/refresh design |
+| PDF/OCR lineage product gate | #395 | [`HANDOFF-bld09-pdf-ocr-lineage-pilot.md`](../Plans/HANDOFF-bld09-pdf-ocr-lineage-pilot.md) (PREPARED/DRAFT; completed evidence in [`REPORT-build-pdf-lineage-pilot.md`](REPORT-build-pdf-lineage-pilot.md)) |
 | DMS generation validation diagnostics | #449 | [`HANDOFF-dms-generation-validation-diagnostics.md`](../Plans/HANDOFF-dms-generation-validation-diagnostics.md) — **only if** R0-A-class opaque `definition_invalid` regresses |
 | Frontend extract-promote inspection UI | #433 | Build inspector after #431/#432 |
-| SBW09b+ publication resolution / graph proposal | #460 research | #462 SBW09a merge first |
+| SBW09b+ publication resolution / graph proposal | #460 research | Core ledger on merged #462; residual manual live-proof only |
+| Publication manual live-proof (operator) | #460 | **PRESERVED** — not yet automated |
 
 ---
 
 ## §9 Closure protocol
 
-After the salvage PR is opened remotely with this report committed, close each open source PR (#432, #433, #444, #449, #459, #460) using the §8A template in [`HANDOFF-superseded-open-pr-salvage-and-retirement.md`](../Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md), and post the same disposition comment on already-CLOSED #231/#395. Do not MERGED any of the eight. Do not close #442. Then fill `{{VERIFY_GITHUB_CLOSURE}}` and `{{HEAD_AFTER_COMMIT}}`.
+Source PRs (#432, #433, #444, #449, #459, #460) were closed after salvage PR #464 existed remotely, using the §8A template in [`HANDOFF-superseded-open-pr-salvage-and-retirement.md`](../Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md). Already-CLOSED #231/#395 received ledger comments only. None of the eight were MERGED. Do not close #442. Re-anchor doc refresh does **not** reopen closed source PRs.
+
+---
 
 ## §10 Closure evidence (2026-07-31)
 
@@ -256,4 +283,6 @@ Salvage PR: https://github.com/Drakosfire/DungeonMindBuddy/pull/464
 | #459 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/459#issuecomment-5144829285 |
 | #460 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/460#issuecomment-5144829762 |
 
-Protected after salvage: #431 OPEN, #442 OPEN, #462 OPEN, #463 OPEN.
+Protected after salvage / at re-anchor: **#431 OPEN**, **#442 OPEN**, **#462 MERGED** (`2fa5b790…`, 2026-08-01), **#463 OPEN**.
+
+Source PRs were closed after salvage PR #464 existed remotely (per authoritative handoff §8B). This re-anchor documentation refresh does not reopen them.

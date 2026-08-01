@@ -1488,6 +1488,56 @@ def test_review_and_prepare_reject_false_anchor_quotes(world_client) -> None:
     assert prepare.status_code == 422
 
 
+def test_review_package_span_index_failure_keeps_inspection_fields(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Post-resolution span-index failures must carry runStatus + inspectionStatus.
+
+    Regression for the incomplete #433 wrap that only enriched evidence-projection
+    errors: a reviewable run whose frozen span-index load fails after successful
+    resolve must still report inspectionStatus=blocked with runStatus=reviewable.
+
+    Corruption of the span-index bytes is caught earlier by registry digest checks
+    (pre-resolution). This test forces the post-resolution loader path itself.
+    """
+    from apps.live_control_server.services import extract_promote as ep
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.status == "reviewable"
+
+    def _boom(_resolved: object) -> object:
+        raise ep.ExtractPromoteError(
+            "exact-run source span index is unavailable",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[
+                ep._diagnostic(
+                    "source_span_index_unavailable",
+                    "synthetic post-resolution span-index failure",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(ep, "_load_frozen_span_index_for_resolved_run", _boom)
+
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 422, review.text
+    body = review.json()
+    assert body["code"] == "run_not_promotable"
+    assert body.get("runStatus") == "reviewable"
+    assert body.get("inspectionStatus") == "blocked"
+    diagnostics = body.get("diagnostics") or []
+    assert any(
+        (d.get("code") or "") == "source_span_index_unavailable" for d in diagnostics
+    ), diagnostics
+
+
 def test_prepare_rejects_session_invention_for_sessionless_extraction_run(
     world_client,
 ) -> None:
