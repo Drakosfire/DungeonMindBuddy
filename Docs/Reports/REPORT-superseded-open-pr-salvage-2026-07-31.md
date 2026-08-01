@@ -3,7 +3,8 @@
 **Date:** 2026-07-31 (revised 2026-08-01 after PR #464 REQUEST_CHANGES)
 **Original mining base:** `c371d43178a2b83da299319a047f93bae50d0959`
 **Re-anchored implementation base / required current base:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` (#462 merge commit; current `main` tip at re-anchor)
-**Actual head:** `{{HEAD_AFTER_REVISION_COMMIT}}`
+**Revision commit (re-anchor):** `ed330548ac58f5fdc3e0bb3b7a56508b349bade4`
+**Actual head:** PR #464 `headRefOid` on `chore/mine-retire-superseded-prs` (authoritative after force-push; do not freeze a chasing tip SHA in-tree)
 **Salvage branch:** `chore/mine-retire-superseded-prs`
 **Salvage PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/464
 **Evidence ledger authority:** This report is the canonical disposition ledger for the eight source PRs listed below. Dispatch record: [`Docs/Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md`](../Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md).
@@ -200,7 +201,7 @@ When reviewing publication guarantees, map #460 research items to merged-main te
 
 ## §5 Verification results
 
-Intended verification set for re-anchored revision (base `2fa5b790…` → `{{HEAD_AFTER_REVISION_COMMIT}}`):
+Intended verification set for re-anchored revision (base `2fa5b790…` → revision `ed330548…` / PR tip):
 
 | Command | Expected | Result |
 |---|---|---|

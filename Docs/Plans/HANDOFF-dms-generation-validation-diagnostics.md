@@ -1,11 +1,11 @@
 # HANDOFF — DungeonMindServer generation-validation diagnostics
 
-**Created:** 2026-07-29  
-**Status:** CONDITIONAL SUCCESSOR — dispatch only if R0-A-class opaque `definition_invalid` regresses; not currently next Statblock work (#462 owns SBW09a).  
-**Implementation repository:** `Drakosfire/DungeonMindServer`  
-**Implementation base:** `2c7d2566baa744f2b1a4667761775c1dec87a2d4`  
-**Suggested branch:** `feat/statblocks-v1-generation-validation-diagnostics`  
-**Parent dogfood evidence:** `Drakosfire/DungeonMindBuddy/Docs/Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`  
+**Created:** 2026-07-29
+**Status:** CONDITIONAL SUCCESSOR — dispatch only if R0-A-class opaque `definition_invalid` regresses; not currently next Statblock work (#462 owns SBW09a).
+**Implementation repository:** `Drakosfire/DungeonMindServer`
+**Implementation base:** `2c7d2566baa744f2b1a4667761775c1dec87a2d4`
+**Suggested branch:** `feat/statblocks-v1-generation-validation-diagnostics`
+**Parent dogfood evidence:** `Drakosfire/DungeonMindBuddy/Docs/Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`
 **Named consumer successor:** DungeonMindBuddy propagation + Workbench rendering of the diagnostic packet.
 
 ---

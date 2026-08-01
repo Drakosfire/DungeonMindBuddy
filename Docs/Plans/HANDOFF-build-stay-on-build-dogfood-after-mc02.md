@@ -1,9 +1,9 @@
 # HANDOFF — Build stay-on-Build dogfood after MC-02a
 
-**Created:** 2026-07-31  
-**Status:** NAMED SUCCESSOR — blocked on #431 (MC-02a surface-neutral graph reference) merge.  
-**Source PR:** #432 head `5cdcd107e50cc89f16e44c4072705549e28d696e`  
-**Salvage ledger:** [`REPORT-superseded-open-pr-salvage-2026-07-31.md`](../Reports/REPORT-superseded-open-pr-salvage-2026-07-31.md) §#432  
+**Created:** 2026-07-31
+**Status:** NAMED SUCCESSOR — blocked on #431 (MC-02a surface-neutral graph reference) merge.
+**Source PR:** #432 head `5cdcd107e50cc89f16e44c4072705549e28d696e`
+**Salvage ledger:** [`REPORT-superseded-open-pr-salvage-2026-07-31.md`](../Reports/REPORT-superseded-open-pr-salvage-2026-07-31.md) §#432
 **Predecessor gate:** #431 [`HANDOFF-pr431-surface-neutral-graph-reference-loop.md`](HANDOFF-pr431-surface-neutral-graph-reference-loop.md) must merge first.
 
 ---
