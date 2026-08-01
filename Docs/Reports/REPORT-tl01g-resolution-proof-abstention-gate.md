@@ -1,7 +1,7 @@
 # REPORT — TL01G: Resolution-Proof Abstention Gate
 
 **Created:** 2026-08-01
-**Updated:** 2026-08-01 (V13/Adv V11 retired; grounding collapse diagnosed; no new promotion cohort)
+**Updated:** 2026-08-01 (V13/Adv V11 retired; grounding collapse diagnosed; aggregate rebuilt from on-disk manifests; no new promotion cohort)
 **Control:** frozen `tl01f-v1`
 **Candidate:** frozen `tl01g-v1`
 **Packet / renderer:** `tl01c-packet-v1` / `render_temporal_shadow_user_content_v2`
@@ -36,7 +36,7 @@ TL01 may **not** advance to broader-shadow readiness. There is currently **no au
 | Retire V10/Adv V8; audit ID/status tests; span EOF bounds; seal V11 / Adv V9 | `a3f108f2fa64a3ac5c0146acbc25d7b904fcacc2` | **retired** — reused observed spans; Adv V9 paraphrased Adv V8 |
 | Retire V11/Adv V9; restore span `isdisjoint`; Jaccard templates; audit proposition/lane/phrase; seal V12 / Adv V10 | `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` | **retired** — gold/Gate defects |
 | Retire V12/Adv V10; proposition-template Jaccard (holdout); seal V13/Adv V11 | `33bae3485babb0d15373b91b0cbcb13282b42491` | **retired after observation** — Adv proposition replay; V13 Gate E3 / postponement-value defects; grounding collapse |
-| Preserve grounding diagnostics; Adv proposition-template Jaccard; Gate E3 / value audit cases | *(this recovery tip)* | process — **no new promotion cohort** |
+| Preserve grounding diagnostics; fail-closed auto-discovery for fresh adversarial/holdout proposition-template Jaccard; Gate E3 / value audit cases; rebuild committed aggregate from on-disk manifests | *(this recovery tip)* | process — **no new promotion cohort** |
 
 ### Why V13/Adv V11 cannot remain promotion authority
 
@@ -69,7 +69,7 @@ Audit rows must bind ID, status, proposition, lane, and supporting phrase to sea
 
 ### Grounding diagnostics
 
-Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagnostics`, and `foreign_evidence_attempts`. Aggregate `run_records` must preserve those fields (not only `failure_code` + `provider_response_id`). When candidate `success_count` totals zero, decision diagnostics should include `candidate_comparison_metrics_unobserved`.
+Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagnostics`, and `foreign_evidence_attempts`. The **rebuilt committed aggregate** (`883ef58250be88d5`, build SHA `ab780a66…`) now preserves those fields in `run_records` (not only `failure_code` + `provider_response_id`). All 17 failed runs include `affected_assertion_id` and `failure_diagnostics`; `foreign_evidence_attempts` is `0` on sampled grounding rows. Decision diagnostics include `candidate_grounding_failures=9` and `candidate_comparison_metrics_unobserved`.
 
 ## Frozen identities
 
@@ -92,8 +92,8 @@ Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagno
   * `.../tl01g/regression-lane|abstention|legacy/calibration/aggregate.json`
   * Prior V8–V12 / Adv V6–V10 promotion aggregates (git history / overwritten on disk)
 * **Last observed matrix (V13 / Adv V11) — not promotion authority:**
-  * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:e6183c0b17867ff3`
-  * Per-run manifests under `.../promotion/calibration/{baseline,candidate}/{development,holdout,adversarial}/run-0N/failure-manifest.json` retain assertion-level grounding detail
+  * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:883ef58250be88d5` (**rebuilt** from on-disk run manifests at `ab780a66…`; durable evidence with `affected_assertion_id`, `failure_diagnostics`, `foreign_evidence_attempts`, and decision note `candidate_comparison_metrics_unobserved`)
+  * Per-run manifests under `.../promotion/calibration/{baseline,candidate}/{development,holdout,adversarial}/run-0N/` remain gitignored; the committed aggregate is the durable evidence surface
 
 ## Cohorts
 
@@ -109,7 +109,7 @@ Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagno
 
 ## Matrix D — last observed run (holdout V13 / Adv V11) — not authority
 
-Seal/execution: `33bae3485babb0d15373b91b0cbcb13282b42491` · candidate SHA `3af1e470…` · calibration `temporal-prompt-calibration:e6183c0b17867ff3`
+Seal/execution: `33bae3485babb0d15373b91b0cbcb13282b42491` · candidate SHA `3af1e470…` · calibration `temporal-prompt-calibration:883ef58250be88d5` · aggregate build `ab780a66…`
 
 ### Candidate
 
@@ -127,11 +127,11 @@ Seal/execution: `33bae3485babb0d15373b91b0cbcb13282b42491` · candidate SHA `3af
 | holdout V13 | 1/3 | 1 grounding + 1 `invalid_model_output` |
 | adversarial V11 | 0/3 | all `grounding_failure` |
 
-Machine decision: `ITERATE_PROMPT` (`candidate_grounding_failures=9`). **16 of 18** control+candidate runs failed before normal comparison. The candidate is not promotable, but the experiment does **not** isolate an abstention-prompt defect: both lanes share the post-provider verbatim `source_phrase` grounding validator.
+Machine decision: `ITERATE_PROMPT` (`candidate_grounding_failures=9`). **17 of 18** control+candidate runs failed before normal comparison. The candidate is not promotable, but the experiment does **not** isolate an abstention-prompt defect: both lanes share the post-provider verbatim `source_phrase` grounding validator.
 
 ### Grounding failure mode (shared)
 
-Sampled `failure-manifest.json` rows (both lanes) show `foreign_evidence_attempts: 0` and diagnostics of the form `source_phrase='…'` — the verbatim-miss branch in `_require_grounded_source_phrase` / `ground_and_convert_model_batch`, not a candidate-only code path. Example: development both lanes fail on `assertion:4e24f0fa3c99d487` with `source_phrase='Party at Copper and Quartz'`.
+Sampled committed aggregate `run_records` (both lanes) show `foreign_evidence_attempts: 0` and diagnostics of the form `source_phrase='…'` — the verbatim-miss branch in `_require_grounded_source_phrase` / `ground_and_convert_model_batch`, not a candidate-only code path. Example: development both lanes fail on `assertion:4e24f0fa3c99d487` with `source_phrase='Party at Copper and Quartz'` (present in rebuilt aggregate `run_records`).
 
 Known-good smoke still exists via FakeClient gold replay and older regression-lane seals (V5/Adv V3) — not via Gate-repaired V13/V11 under live promotion.
 

@@ -175,8 +175,8 @@ PRIOR_ADVERSARIAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11",
 )
 
-# Set when a fresh adversarial promotion cohort (V12+) is authored.
-FRESH_ADVERSARIAL_FOR_PROPOSITION_GUARD: Path | None = None
+# Set when a fresh adversarial promotion cohort (V12+) is authored — removed;
+# fresh dirs are auto-discovered via _discover_dirs_not_in_declared.
 
 ADV_V6_VOCABULARY = (
     "Kestrel Vale",
@@ -774,6 +774,39 @@ def _template_jaccard(a: str, b: str) -> float:
     return len(left & right) / len(union)
 
 
+def _discover_dirs_not_in_declared(pattern: str, declared: tuple[Path, ...]) -> list[Path]:
+    examples = REPO_ROOT / "evals/graph_memory_layer/examples"
+    declared_resolved = {p.resolve() for p in declared}
+    found = []
+    for path in sorted(examples.glob(pattern)):
+        if path.is_dir() and path.resolve() not in declared_resolved:
+            found.append(path)
+    return found
+
+
+def _max_versioned_suffix(dirs: tuple[Path, ...], prefix: str) -> int:
+    max_version = 0
+    for path in dirs:
+        if not path.name.startswith(prefix):
+            continue
+        suffix = path.name[len(prefix) :]
+        if suffix.isdigit():
+            max_version = max(max_version, int(suffix))
+    return max_version
+
+
+def _discover_fresh_versioned_dirs(pattern: str, declared: tuple[Path, ...]) -> list[Path]:
+    """Fresh = versioned dir exists on disk but version exceeds max in declared set."""
+    prefix = pattern.rstrip("*")
+    max_declared = _max_versioned_suffix(declared, prefix)
+    fresh: list[Path] = []
+    for path in _discover_dirs_not_in_declared(pattern, declared):
+        suffix = path.name[len(prefix) :]
+        if suffix.isdigit() and int(suffix) > max_declared:
+            fresh.append(path)
+    return fresh
+
+
 def _require_fresh_cohort(folder: Path) -> None:
     if not folder.is_dir():
         pytest.skip(f"fresh cohort not authored yet: {folder.name}")
@@ -1042,29 +1075,118 @@ def test_adversarial_v11_proposition_template_jaccard_replays_adv_v10() -> None:
 
 
 def test_adversarial_cohort_proposition_template_jaccard_must_be_below_threshold_vs_prior() -> None:
-    """Guard for the next fresh adversarial promotion cohort (V12+)."""
-    if FRESH_ADVERSARIAL_FOR_PROPOSITION_GUARD is None:
-        pytest.skip("no fresh adversarial promotion cohort; Adv V11 retired as replay")
-    fresh_dir = FRESH_ADVERSARIAL_FOR_PROPOSITION_GUARD
-    _require_fresh_cohort(fresh_dir)
-    fresh_base = json.loads((fresh_dir / "base-contribution.json").read_text(encoding="utf-8"))
-    fresh_assertions = fresh_base.get("candidate_assertions", [])
+    """Fail-closed guard for fresh adversarial promotion cohorts (V12+)."""
+    fresh_dirs = _discover_fresh_versioned_dirs(
+        "temporal_shadow_adversarial_v*",
+        PRIOR_ADVERSARIAL_COHORT_DIRS,
+    )
+    if not fresh_dirs:
+        return
     prior_assertions: list[tuple[str, dict]] = []
     for folder in PRIOR_ADVERSARIAL_COHORT_DIRS:
-        if folder == fresh_dir or not folder.is_dir():
+        if not folder.is_dir():
             continue
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         for assertion in base.get("candidate_assertions", []):
             prior_assertions.append((folder.name, assertion))
-    for fresh_assertion in fresh_assertions:
-        for prior_name, prior_assertion in prior_assertions:
-            score = _proposition_template_jaccard(fresh_assertion, prior_assertion)
-            if score >= 0.40:
-                raise AssertionError(
-                    "proposition-template Jaccard >= 0.40 vs prior adversarial: "
-                    f"{fresh_assertion.get('label')!r} vs {prior_name} "
-                    f"{prior_assertion.get('label')!r} ({score:.3f})"
-                )
+    for fresh_dir in fresh_dirs:
+        _require_fresh_cohort(fresh_dir)
+        fresh_base = json.loads(
+            (fresh_dir / "base-contribution.json").read_text(encoding="utf-8")
+        )
+        fresh_assertions = fresh_base.get("candidate_assertions", [])
+        for fresh_assertion in fresh_assertions:
+            for prior_name, prior_assertion in prior_assertions:
+                score = _proposition_template_jaccard(fresh_assertion, prior_assertion)
+                if score >= 0.40:
+                    raise AssertionError(
+                        "proposition-template Jaccard >= 0.40 vs prior adversarial: "
+                        f"{fresh_assertion.get('label')!r} vs {prior_name} "
+                        f"{prior_assertion.get('label')!r} ({score:.3f})"
+                    )
+
+
+def test_holdout_cohort_proposition_template_jaccard_must_be_below_threshold_vs_prior() -> None:
+    """Fail-closed guard for fresh holdout promotion cohorts (V14+)."""
+    fresh_dirs = _discover_fresh_versioned_dirs(
+        "temporal_shadow_holdout_v*",
+        PRIOR_CANONICAL_COHORT_DIRS,
+    )
+    if not fresh_dirs:
+        return
+    prior_assertions: list[tuple[str, dict]] = []
+    for folder in PRIOR_CANONICAL_COHORT_DIRS:
+        if not folder.is_dir():
+            continue
+        base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+        for assertion in base.get("candidate_assertions", []):
+            prior_assertions.append((folder.name, assertion))
+    for fresh_dir in fresh_dirs:
+        _require_fresh_cohort(fresh_dir)
+        fresh_base = json.loads(
+            (fresh_dir / "base-contribution.json").read_text(encoding="utf-8")
+        )
+        fresh_assertions = fresh_base.get("candidate_assertions", [])
+        for fresh_assertion in fresh_assertions:
+            for prior_name, prior_assertion in prior_assertions:
+                score = _proposition_template_jaccard(fresh_assertion, prior_assertion)
+                if score >= 0.40:
+                    raise AssertionError(
+                        "proposition-template Jaccard >= 0.40 vs prior canonical holdout: "
+                        f"{fresh_assertion.get('label')!r} vs {prior_name} "
+                        f"{prior_assertion.get('label')!r} ({score:.3f})"
+                    )
+
+
+def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() -> None:
+    """Fresh holdout gold overlays must not encode Gate E3 or postponement-value defects."""
+    fresh_dirs = _discover_fresh_versioned_dirs(
+        "temporal_shadow_holdout_v*",
+        PRIOR_CANONICAL_COHORT_DIRS,
+    )
+    if not fresh_dirs:
+        return
+    for fresh_dir in fresh_dirs:
+        _require_fresh_cohort(fresh_dir)
+        gold = json.loads((fresh_dir / "gold-overlay.json").read_text(encoding="utf-8"))
+        base = json.loads((fresh_dir / "base-contribution.json").read_text(encoding="utf-8"))
+        by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+        evidence = _case_evidence_by_id(fresh_dir)
+        for ann in gold.get("annotations", []):
+            if ann.get("interpretation_status") != "resolved":
+                continue
+            valid_time = ann.get("valid_time") or {}
+            valid_end = valid_time.get("end")
+            if valid_end is not None:
+                assertion_id = ann.get("base_assertion_id")
+                assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
+                if assertion is not None:
+                    evidence_id = (assertion.get("evidence_ref_ids") or [None])[0]
+                    entry = evidence.get(evidence_id) if evidence_id else None
+                    if entry is not None:
+                        source = _resolved_span_text(entry)
+                        if _source_reports_resulting_state_without_narrated_boundary(source):
+                            raise AssertionError(
+                                f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} — "
+                                "valid_time.end set from resulting-state report without "
+                                "narrated boundary"
+                            )
+            occ_time = ann.get("occurrence_time") or {}
+            occ_point = occ_time.get("point") or {}
+            raw_expression = str(occ_point.get("raw_expression") or "")
+            if raw_expression:
+                assertion_id = ann.get("base_assertion_id")
+                assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
+                if assertion is not None:
+                    proposition = str(assertion.get("label") or "")
+                    if _postponement_occurrence_uses_reschedule_time(
+                        proposition, raw_expression
+                    ):
+                        raise AssertionError(
+                            f"{fresh_dir.name}: postponement-value defect on "
+                            f"{assertion_id!r} — occurrence uses reschedule time "
+                            f"{raw_expression!r}"
+                        )
 
 
 def test_v13_and_v11_ids_mutually_disjoint() -> None:

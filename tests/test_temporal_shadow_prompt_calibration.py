@@ -1267,6 +1267,74 @@ def test_aggregate_preserves_grounding_failure_diagnostics(tmp_path: Path) -> No
     assert record.provider_response_id == "resp_grounding_preserved_456"
 
 
+def test_load_calibration_outcomes_from_disk_preserves_failure_fields(
+    tmp_path: Path,
+) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "dmb_temporal_shadow_extraction_failure_v1",
+                "case_id": "tl01g-temporal-shadow-holdout-v13",
+                "case_digest": "b" * 64,
+                "model_id": "fake-model",
+                "executed_prompt_version": "tl01g-v1",
+                "prompt_version": "tl01g-v1",
+                "failure_code": "grounding_failure",
+                "affected_assertion_id": "assertion:deadbeef",
+                "diagnostics": ["source_phrase='Party at Copper and Quartz'"],
+                "foreign_evidence_attempts": 0,
+                "repository_sha": "deadbeef",
+                "provider_response_id": "resp_loader_test",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    spec = _spec("candidate", "holdout", 1)
+    outcomes = calibration.load_calibration_outcomes_from_disk(
+        output_dir=tmp_path,
+        run_specs=[spec],
+    )
+    assert len(outcomes) == 1
+    outcome = outcomes[0]
+    assert outcome.succeeded is False
+    assert outcome.failure_manifest is not None
+    assert outcome.failure_manifest["affected_assertion_id"] == "assertion:deadbeef"
+    assert outcome.failure_manifest["foreign_evidence_attempts"] == 0
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="holdout",
+        outcomes=outcomes,
+        expected_case_id="tl01g-temporal-shadow-holdout-v13",
+        expected_model_id="fake-model",
+        expected_prompt_version="tl01g-v1",
+    )
+    record = aggregate.run_records[0]
+    assert record.affected_assertion_id == "assertion:deadbeef"
+    assert record.failure_diagnostics == ["source_phrase='Party at Copper and Quartz'"]
+    assert record.foreign_evidence_attempts == 0
+
+
+def test_load_calibration_outcomes_from_disk_raises_when_manifests_missing(
+    tmp_path: Path,
+) -> None:
+    spec = _spec("candidate", "holdout", 1)
+    with pytest.raises(calibration.ReaggregateError, match="missing run artifacts"):
+        calibration.load_calibration_outcomes_from_disk(
+            output_dir=tmp_path,
+            run_specs=[spec],
+        )
+
+
 def test_temporal_shadow_extraction_error_prepends_message_to_custom_diagnostics() -> None:
     exc = TemporalShadowExtractionError(
         "grounding miss",
