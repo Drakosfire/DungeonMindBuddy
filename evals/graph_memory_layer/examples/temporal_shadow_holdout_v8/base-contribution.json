@@ -1,0 +1,349 @@
+{
+  "contribution_id": "contribution:94cc47bb46795540",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v8",
+  "produced_at": "2026-07-31T22:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:5c4e790d3046ca34",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:mireward-boy",
+      "target_node_id": "loc:north-gate-reach",
+      "predicate": "warned_shadows_from_reach",
+      "label": "A boy warned that shadows are coming from the Reach and an alarm bell rang",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s23-shadow-alarm",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s23-shadow-alarm"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:2ddbdee66df3dde4",
+      "assertion_kind": "attribute",
+      "subject_node_id": "weather:gathering-storm",
+      "target_node_id": null,
+      "predicate": "will_arrive",
+      "label": "The gathering storm will arrive",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s21-storm-forecast",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s21-storm-forecast"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:961be3344354ca71",
+      "assertion_kind": "attribute",
+      "subject_node_id": "org:mirathorn-council",
+      "target_node_id": null,
+      "predicate": "instituted_curfew",
+      "label": "Mirathorn Council instituted a curfew",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s13-curfew",
+            "session_id": "session-13"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s13-curfew"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:ff392152c6bf1ce2",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:frank",
+      "target_node_id": null,
+      "predicate": "has_been_compromised",
+      "label": "Frank has been compromised",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s22-frank-compromised",
+            "session_id": "session-22"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s22-frank-compromised"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:a572398539c61220",
+      "assertion_kind": "attribute",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": null,
+      "predicate": "compelled_to_attack_meatwings",
+      "label": "Ephanna is compelled to attack the meatwings",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s23-ephanna-compulsion-end",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s23-ephanna-compulsion-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:d74124ff46698f0f",
+      "assertion_kind": "attribute",
+      "subject_node_id": "term:reaches",
+      "target_node_id": null,
+      "predicate": "originated_from_early_settlement",
+      "label": "The term Reaches originated from early settlement",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:mirathorn-reaches-origin"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:mirathorn-reaches-origin"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:56855181d5da17d9",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:orik-tane",
+      "target_node_id": null,
+      "predicate": "is_mayor",
+      "label": "Orik Tane is mayor",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s23-orik-mayor",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s23-orik-mayor"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:a520c570c9c7c82a",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:wolf-manor-library",
+      "target_node_id": "feature:books",
+      "predicate": "contains",
+      "label": "Wolf Manor library has a wall full of books",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s4-library-books",
+            "session_id": "session-4"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s4-library-books"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:4168dacb57687edf",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": "org:stormspire-academy",
+      "predicate": "promised_to_speak_on_winna_behalf",
+      "label": "Karsemine promised to speak to someone at the Academy on Winna's behalf",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s2-karsemine-promise",
+            "session_id": "session-2"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s2-karsemine-promise"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:048402f4a022f344",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "loc:migration-vanguard-trees",
+      "predicate": "must_reach_quickly",
+      "label": "The group needs to get to the other side of the migration and reach the vanguard trees",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s15-migration-plan",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s15-migration-plan"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:5e1517e61c74aafb",
+      "assertion_kind": "edge",
+      "subject_node_id": "feature:migrating-forest",
+      "target_node_id": "loc:mireward-fortifications",
+      "predicate": "reached_fortifications",
+      "label": "The migrating forest reached the fortifications when the plan succeeded and fires were lit",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s20-forest-ambiguous",
+            "session_id": "session-20"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s20-forest-ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    },
+    {
+      "assertion_id": "assertion:c17a577a4291f915",
+      "assertion_kind": "attribute",
+      "subject_node_id": "item:dragon-scale",
+      "target_node_id": null,
+      "predicate": "origin_identity",
+      "label": "The dragon scale's origin and identity are uncertain",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v8:s1-dragon-scale",
+            "session_id": "session-1"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s1-dragon-scale"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:94cc47bb46795540"
+    }
+  ]
+}

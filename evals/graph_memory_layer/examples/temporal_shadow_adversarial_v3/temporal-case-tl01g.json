@@ -1,0 +1,102 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01g-temporal-shadow-adversarial-v3-candidate",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/base-contribution.json",
+  "base_contribution_sha256": "a28ec6223f48ea28a256ded406187eb28e9b7e22f330c8eff6b039134c448f58",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/gold-overlay.json",
+  "gold_overlay_sha256": "75a8249c62319858dea5a1713ebf3bbd8e51bad43a2c4b58bdeff37ca9fcca28",
+  "selected_assertion_ids": [
+    "assertion:bf5ef8e00aed4f4a",
+    "assertion:c042ed2ad50da72c",
+    "assertion:117ee12e98ad447f",
+    "assertion:6906453d55f7de4f",
+    "assertion:897ca8d636678e13",
+    "assertion:d9db4178d7482c78",
+    "assertion:987a228f92411b84",
+    "assertion:457195f08daaade1"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:src-diff-occ",
+      "source_artifact_id": "source-artifact:adv3-src-diff-occ",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/source-diff-occurrence.md",
+      "content_sha256": "8ecc8a69ea322212eaad69956776d23c99e8b82e9c0da4c66b134a0210960cd5",
+      "source_ref_id": "source-ref:adv3-src-diff-occ",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "source-diff-occurrence.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:src-diff-valid",
+      "source_artifact_id": "source-artifact:adv3-src-diff-valid",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/source-diff-valid.md",
+      "content_sha256": "f7d6aef4ed08b0654265a3353f6c7d25152338267ba815b7291096dd5fff103d",
+      "source_ref_id": "source-ref:adv3-src-diff-valid",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "source-diff-valid.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:valid-end",
+      "source_artifact_id": "source-artifact:adv3-valid-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/valid-end.md",
+      "content_sha256": "83b97c52d3a252c8541d034e624b1bbcac9d0ac6f0faf11be13c2bea9639dec0",
+      "source_ref_id": "source-ref:adv3-valid-end",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "valid-end.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:structural",
+      "source_artifact_id": "source-artifact:adv3-structural",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/structural.md",
+      "content_sha256": "effde1a9a70aeb78b65b391dd603a8539fb3aca5145883704543f161793be2e2",
+      "source_ref_id": "source-ref:adv3-structural",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "structural.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:scene",
+      "source_artifact_id": "source-artifact:adv3-scene",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/scene-framing.md",
+      "content_sha256": "0a56ba99bba42723873093c8f9a7a99298251b3a0e0b5726aa3fe9df1b3cbff1",
+      "source_ref_id": "source-ref:adv3-scene",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "scene-framing.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:reattest",
+      "source_artifact_id": "source-artifact:adv3-reattest",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/reattest.md",
+      "content_sha256": "2335fd5dd7690d01c93f1201c0398f8b9c4fbed79762e586a49de8491535035f",
+      "source_ref_id": "source-ref:adv3-reattest",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "reattest.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:ambiguous-id",
+      "source_artifact_id": "source-artifact:adv3-ambiguous-id",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/ambiguous-identity.md",
+      "content_sha256": "3ffb5d2421a2fcb8a92889f3784aa3b0026f78f162cd38e4e982d6a632aa388b",
+      "source_ref_id": "source-ref:adv3-ambiguous-id",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "ambiguous-identity.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-adv3:textual-hist",
+      "source_artifact_id": "source-artifact:adv3-textual-hist",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/sources/textual-historical.md",
+      "content_sha256": "817c6b85eb58786bd2c6fe635f445bb7f1d1e248c5555621bf4e799a19244042",
+      "source_ref_id": "source-ref:adv3-textual-hist",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "textual-historical.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01g-v1"
+}

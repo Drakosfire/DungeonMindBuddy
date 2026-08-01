@@ -1,0 +1,294 @@
+{
+  "contribution_id": "contribution:f2a97bd6d4bfedd0",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v6",
+  "produced_at": "2026-07-31T22:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:f9c1ab0f287836b9",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": "org:dawnspine-compact",
+      "predicate": "promised_deliver_saltglass_register",
+      "label": "Nymera promised to deliver the Saltglass Register to the Dawnspine Compact",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:future-promise",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:future-promise"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:22c520837a9412a0",
+      "assertion_kind": "attribute",
+      "subject_node_id": "weather:ironreed-storm",
+      "target_node_id": null,
+      "predicate": "will_arrive",
+      "label": "The storm rolling down the Ironreed Causeway will arrive",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:relative-forecast",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:relative-forecast"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:ebf11828bd139342",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": null,
+      "predicate": "holds_saltglass_register",
+      "label": "Nymera holds the Saltglass Register for Kestrel Vale",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:eventive-on-state",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:eventive-on-state"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:0da780f066aa0084",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:dawnspine-envoy",
+      "target_node_id": "loc:ironreed-causeway-gate",
+      "predicate": "sealed_briarwick_gate",
+      "label": "The Dawnspine Compact envoy sealed Briarwick against Kestrel Vale raiders",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:stative-on-event",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:stative-on-event"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:fc2d5410a9718cef",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": null,
+      "predicate": "reports_to_dawnspine_hall",
+      "label": "Nymera reports to the Dawnspine Compact hall in Briarwick",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:valid-start-textual",
+            "session_id": "session-9"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:valid-start-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:02449b27060f145c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": null,
+      "predicate": "controls_ironreed_seal",
+      "label": "Nymera controls the Ironreed Causeway seal",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:valid-end",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:9e0360f8db54db89",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": null,
+      "predicate": "serves_with_dawnspine_wardens",
+      "label": "Nymera serves with the Dawnspine Compact wardens along the Ironreed Causeway",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:still-remains",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:still-remains"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:0961a0569de5e37c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": null,
+      "predicate": "holds_or_recovered_saltglass_register",
+      "label": "Nymera holds or recovered the Saltglass Register at the Briarwick fire",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:ambiguous-lane",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:ambiguous-lane"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:c8101a02448d4330",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": "loc:ironreed-causeway",
+      "predicate": "left",
+      "label": "Nymera left the Ironreed Causeway",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:source-diff",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:source-diff"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    },
+    {
+      "assertion_id": "assertion:e3e1a47d21a94a23",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:nymera",
+      "target_node_id": "feature:saltglass-register",
+      "predicate": "opened_register",
+      "label": "Nymera opened the Saltglass Register at Briarwick",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv6:grounding-trap",
+            "session_id": "session-8"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:grounding-trap"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:f2a97bd6d4bfedd0"
+    }
+  ]
+}

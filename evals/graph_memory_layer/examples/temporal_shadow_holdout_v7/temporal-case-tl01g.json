@@ -1,0 +1,113 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01g-temporal-shadow-holdout-v7-v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v7/base-contribution.json",
+  "base_contribution_sha256": "5a7bdc35d8beedbc77db4b3d321ed8cb2715c8b6755bdbb1b5a137a0699d3673",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v7/gold-overlay.json",
+  "gold_overlay_sha256": "f5c2fc31c21da68e21b5355564703fbd8ea5136c6facab8bea338d2d230c3486",
+  "selected_assertion_ids": [
+    "assertion:130e2c303989e455",
+    "assertion:694c0497d27efa0c",
+    "assertion:ae464c1577720f3a",
+    "assertion:9e895a8230bbe0b8",
+    "assertion:32481ece274e25b6",
+    "assertion:bc93e34fa8b21796",
+    "assertion:5df8d8029cf5a34c",
+    "assertion:c18c29870e398a23",
+    "assertion:0cd480dde6597bfe"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s6-shattering",
+      "source_artifact_id": "source-artifact:v7-s6-shattering",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+      "content_sha256": "c4fe6d1592e97a550d250fb88bd914d239134868a48c3905ace8bb3162800b94",
+      "source_ref_id": "source-ref:v7-s6-shattering",
+      "start_line": 24,
+      "end_line": 24,
+      "label": "Session 6 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s8-winna-door",
+      "source_artifact_id": "source-artifact:v7-s8-winna-door",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+      "content_sha256": "f62cfae78793590a732b13de389be31c1299270d3823b65bd0d8d325e9c96840",
+      "source_ref_id": "source-ref:v7-s8-winna-door",
+      "start_line": 19,
+      "end_line": 19,
+      "label": "Session 8 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s23-compulsion-end",
+      "source_artifact_id": "source-artifact:v7-s23-compulsion-end",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "source_ref_id": "source-ref:v7-s23-compulsion-end",
+      "start_line": 36,
+      "end_line": 36,
+      "label": "Session 23 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s18-moss-farmers",
+      "source_artifact_id": "source-artifact:v7-s18-moss-farmers",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+      "content_sha256": "e920bb658a5bc5bd56cb576d3a9071fbb9df71a30e93117596efb7a98e8d1d7c",
+      "source_ref_id": "source-ref:v7-s18-moss-farmers",
+      "start_line": 24,
+      "end_line": 24,
+      "label": "Session 18 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s14-summoning-circle",
+      "source_artifact_id": "source-artifact:v7-s14-summoning-circle",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+      "content_sha256": "99ea4cce27aca2db6670fdfab3bc76e495bbf8a886733441a93416ab7a503823",
+      "source_ref_id": "source-ref:v7-s14-summoning-circle",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 14 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s22-abandoned-week",
+      "source_artifact_id": "source-artifact:v7-s22-abandoned-week",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "source_ref_id": "source-ref:v7-s22-abandoned-week",
+      "start_line": 30,
+      "end_line": 30,
+      "label": "Session 22 - Mireward Road and Lysandro.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s18-forest-arrival",
+      "source_artifact_id": "source-artifact:v7-s18-forest-arrival",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+      "content_sha256": "e920bb658a5bc5bd56cb576d3a9071fbb9df71a30e93117596efb7a98e8d1d7c",
+      "source_ref_id": "source-ref:v7-s18-forest-arrival",
+      "start_line": 24,
+      "end_line": 24,
+      "label": "Session 18 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s12-dustwalker-cell",
+      "source_artifact_id": "source-artifact:v7-s12-dustwalker-cell",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "source_ref_id": "source-ref:v7-s12-dustwalker-cell",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 12 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01f-holdout-v7:s3-lysandra-contacts",
+      "source_artifact_id": "source-artifact:v7-s3-lysandra-contacts",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+      "content_sha256": "7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec",
+      "source_ref_id": "source-ref:v7-s3-lysandra-contacts",
+      "start_line": 30,
+      "end_line": 30,
+      "label": "Session 3 - Recap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01g-v1"
+}

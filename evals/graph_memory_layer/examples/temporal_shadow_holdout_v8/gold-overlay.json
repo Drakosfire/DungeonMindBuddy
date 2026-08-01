@@ -1,0 +1,274 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:78a99f8f29c94a60",
+  "base_contribution_id": "contribution:94cc47bb46795540",
+  "base_contribution_source_payload_sha256": "a7bf9e0e6b2b7d30f662e7d20e7302651145f7ec1235de43b6f0c35424afb1a5",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v8",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v800000000000001",
+      "base_assertion_id": "assertion:5c4e790d3046ca34",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-23",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s23-shadow-alarm"
+      ],
+      "source_phrase": "shadows are coming from the Reach",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000002",
+      "base_assertion_id": "assertion:2ddbdee66df3dde4",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "in about seven hours",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s21-storm-forecast"
+      ],
+      "source_phrase": "the gathering storm will arrive in about seven hours",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000003",
+      "base_assertion_id": "assertion:961be3344354ca71",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-13",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s13-curfew"
+      ],
+      "source_phrase": "The Mirathorn Council has instituted a curfew",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000004",
+      "base_assertion_id": "assertion:ff392152c6bf1ce2",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has been compromised",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s22-frank-compromised"
+      ],
+      "source_phrase": "it appears he has been compromised",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual; reject copying session-22 as start"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000005",
+      "base_assertion_id": "assertion:a572398539c61220",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-23",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s23-ephanna-compulsion-end"
+      ],
+      "source_phrase": "Ephanna no longer feel compelled to attack the meatwings",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000006",
+      "base_assertion_id": "assertion:d74124ff46698f0f",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "originated from the early days of settlement",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:mirathorn-reaches-origin"
+      ],
+      "source_phrase": "The term \"Reaches\" originated from the early days of settlement",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical event proposition; occurrence lane textual without session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000007",
+      "base_assertion_id": "assertion:56855181d5da17d9",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s23-orik-mayor"
+      ],
+      "source_phrase": "As mayor, Orik Tane",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000008",
+      "base_assertion_id": "assertion:a520c570c9c7c82a",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s4-library-books"
+      ],
+      "source_phrase": "a wall full of books",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "static structural proposition; no temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000009",
+      "base_assertion_id": "assertion:4168dacb57687edf",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s2-karsemine-promise"
+      ],
+      "source_phrase": "Karsemine had promised to speak to someone at the Academy on her behalf",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000010",
+      "base_assertion_id": "assertion:048402f4a022f344",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s15-migration-plan"
+      ],
+      "source_phrase": "the group needs to get to the other side as quickly as possible",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "plan/urgency without grounded occurrence time distinct from session provenance"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000011",
+      "base_assertion_id": "assertion:5e1517e61c74aafb",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s20-forest-ambiguous"
+      ],
+      "source_phrase": "As the forest finally reaches the fortifications, the fires are lit",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings: forest arrival event vs plan-success state boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v800000000000012",
+      "base_assertion_id": "assertion:c17a577a4291f915",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v8:s1-dragon-scale"
+      ],
+      "source_phrase": "it was not of a dragon that currently exists",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "identity/contradictory readings about scale origin without unique lane proof"
+      ]
+    }
+  ]
+}

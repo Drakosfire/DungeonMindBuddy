@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v8/base-contribution.json",
+  "base_contribution_sha256": "c1204fb5985d76a858d1e0782b95a0d9b26964f2ba82279c496bf8c8d2ab3d1e",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v8/gold-overlay.json",
+  "gold_overlay_sha256": "8b0aff4471667fd6dc3bb5efd2c1f23a2de402d305084f6410d0070ec7d520f8",
+  "selected_assertion_ids": [
+    "assertion:5c4e790d3046ca34",
+    "assertion:2ddbdee66df3dde4",
+    "assertion:961be3344354ca71",
+    "assertion:ff392152c6bf1ce2",
+    "assertion:a572398539c61220",
+    "assertion:d74124ff46698f0f",
+    "assertion:56855181d5da17d9",
+    "assertion:a520c570c9c7c82a",
+    "assertion:4168dacb57687edf",
+    "assertion:048402f4a022f344",
+    "assertion:5e1517e61c74aafb",
+    "assertion:c17a577a4291f915"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s23-shadow-alarm",
+      "source_artifact_id": "source-artifact:v8-s23-shadow-alarm",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+      "content_sha256": "77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782",
+      "source_ref_id": "source-ref:v8-s23-shadow-alarm",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 23 - Mireward Gate.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s21-storm-forecast",
+      "source_artifact_id": "source-artifact:v8-s21-storm-forecast",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "content_sha256": "ad4ecd013dad92cdcb1a11d412c9f73adb446b15f2ce62cfc50a98358588423f",
+      "source_ref_id": "source-ref:v8-s21-storm-forecast",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 21 - Drake Nest Mirathorn Call.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s13-curfew",
+      "source_artifact_id": "source-artifact:v8-s13-curfew",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+      "content_sha256": "3a1278d88978d28118494dfb881f5bc5f479fe1ffd88fb039fd8dfe52661e27f",
+      "source_ref_id": "source-ref:v8-s13-curfew",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 13 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s22-frank-compromised",
+      "source_artifact_id": "source-artifact:v8-s22-frank-compromised",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "source_ref_id": "source-ref:v8-s22-frank-compromised",
+      "start_line": 24,
+      "end_line": 24,
+      "label": "Session 22 - Mireward Road and Lysandro.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s23-ephanna-compulsion-end",
+      "source_artifact_id": "source-artifact:v8-s23-ephanna-compulsion-end",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+      "content_sha256": "77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782",
+      "source_ref_id": "source-ref:v8-s23-ephanna-compulsion-end",
+      "start_line": 36,
+      "end_line": 36,
+      "label": "Session 23 - Mireward Gate.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:mirathorn-reaches-origin",
+      "source_artifact_id": "source-artifact:v8-mirathorn-reaches-origin",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "content_sha256": "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+      "source_ref_id": "source-ref:v8-mirathorn-reaches-origin",
+      "start_line": 290,
+      "end_line": 290,
+      "label": "The City of Mirathorn.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s23-orik-mayor",
+      "source_artifact_id": "source-artifact:v8-s23-orik-mayor",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate.md",
+      "content_sha256": "77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782",
+      "source_ref_id": "source-ref:v8-s23-orik-mayor",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 23 - Mireward Gate.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s4-library-books",
+      "source_artifact_id": "source-artifact:v8-s4-library-books",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+      "content_sha256": "0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832",
+      "source_ref_id": "source-ref:v8-s4-library-books",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 4 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s2-karsemine-promise",
+      "source_artifact_id": "source-artifact:v8-s2-karsemine-promise",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+      "content_sha256": "8a4080ac953780c13b30f5613907fb55c9fd4a1f891aa093fd9d3f245ebbca56",
+      "source_ref_id": "source-ref:v8-s2-karsemine-promise",
+      "start_line": 30,
+      "end_line": 30,
+      "label": "Session 2 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s15-migration-plan",
+      "source_artifact_id": "source-artifact:v8-s15-migration-plan",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:v8-s15-migration-plan",
+      "start_line": 30,
+      "end_line": 30,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s20-forest-ambiguous",
+      "source_artifact_id": "source-artifact:v8-s20-forest-ambiguous",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "content_sha256": "70f3983a0182f2a12651a301c29de8e709296edee699184cdf06cbd1a071fa35",
+      "source_ref_id": "source-ref:v8-s20-forest-ambiguous",
+      "start_line": 26,
+      "end_line": 26,
+      "label": "Session 20 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v8:s1-dragon-scale",
+      "source_artifact_id": "source-artifact:v8-s1-dragon-scale",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+      "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+      "source_ref_id": "source-ref:v8-s1-dragon-scale",
+      "start_line": 13,
+      "end_line": 13,
+      "label": "Session 1 - Let the Games Begin.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "case_id": "tl01g-temporal-shadow-holdout-v8-v1",
+  "prompt_version": "tl01g-v1"
+}
