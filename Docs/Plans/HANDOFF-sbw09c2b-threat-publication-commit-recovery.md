@@ -1,16 +1,16 @@
 ---
 pr_body_template: |
   ## Outcome
-  The live-control server can explicitly confirm one exact active Threat publication proposal into one exact World Graph contribution and immutable revision, preserve durable commit intent and receipt across response loss or restart, recover ambiguous outcomes through exact immutable revision lookup, and verify the exact Threat/resource/binding result without ever repinning or recommitting a known publication.
+  The live-control server can explicitly confirm one exact active Threat publication proposal into one exact World Graph contribution and immutable revision, preserve durable commit intent and receipt across response loss or restart, recover ambiguous outcomes through exact immutable revision lookup, and verify the exact Threat/resource/binding result without repinning or recommitting a known publication.
 
   ## Merge-ready invariant
-  For one exact active SBW09c1 proposal, at most one durable commit record can claim it; the record binds the exact proposal digest, expected parent, contribution ID, accepted assertion set, Threat identity, external resource, and binding. The service persists intent before the single Kernel merge, persists committed-unverified authority immediately when publication is proven, resolves crashes through the SBW09c2a exact contribution-ID lookup before any retry, never selects the first of multiple matches, and never retries after a committed revision is known. Verification is pinned to that immutable revision, and verification failure remains committed-but-unverified rather than becoming a second write.
+  For one exact active SBW09c1 proposal, at most one durable commit record can claim it; the record binds the exact proposal request digest, sealed proposal digest, expected parent, contribution ID, accepted assertion set, Threat identity, external resource, and binding. Intent is persisted before the Kernel merge. Committed-unverified authority is persisted immediately when publication is proven. An unresolved attempt is reconciled through the SBW09c2a exact contribution-ID lookup before any retry; deterministic refusals are never retried; multiple matches remain ambiguous; and no merge occurs after a committed revision is known. Verification is pinned to that immutable revision, and verification failure remains committed-but-unverified rather than becoming a second write.
 
   ## Evidence required to merge
   | Guarantee | Owning boundary | Required evidence | Result |
   |---|---|---|---|
   | One proposal claim and one commit record | shared proposal lifecycle lock + commit ledger | concurrency and proposal-supersession race matrix | {{TODO}} |
-  | Intent-before-write and exact single merge | commit service | injected crash/write/merge sequences | {{TODO}} |
+  | Intent-before-write and bounded merge attempts | commit service | injected crash/write/refusal/exception sequences | {{TODO}} |
   | Honest ambiguous-outcome recovery | c2a lookup integration | zero/one/many, head-advance, and rollback sequences | {{TODO}} |
   | Exact committed-revision verification | verifier | contribution/support/object/binding/rebuild/projection matrix | {{TODO}} |
   | Committed-but-unverified honesty | receipt state machine | degraded/failed verification and replay tests | {{TODO}} |
@@ -49,21 +49,17 @@ pr_body_template: |
 | Perform one exact-parent Kernel merge | Yes | Existing Kernel write contract | Include |
 | Recover response loss or process death | Yes | Commit state/retry contract | Include |
 | Verify exact immutable Threat/resource/binding result | Yes | Publication outcome semantics | Include |
-| Add GM-facing confirmation UI | Yes | Product surface | SBW09c2c or successor after backend proof |
+| Add GM-facing confirmation UI | Yes | Product surface | Named successor after backend proof |
 | Query/hydrate/project the published Threat | Yes | Consumer contracts | SBW10a/SBW10b |
-| Generalize publication to every object type | Yes | Generic framework | Reject for this slice |
+| Generalize publication to every object type | Yes | Generic framework | Reject |
 
 **Selected capability:** one proposal-bound, durable, recoverable backend commit path that truthfully distinguishes uncommitted, ambiguous, committed-unverified, and committed-verified outcomes.
 
-### Why the included work is one invariant
+A graph-writing endpoint is not safe merely because `merge_contribution_to_revision` is atomic. The application must know whether it already dispatched the exact contribution, prevent proposal supersession while the outcome is unresolved, recover an immutable revision after response loss, and never report preview material as durable without checking the exact committed revision. Intent, the bounded merge attempt, immediate receipt persistence, recovery, and verification therefore share one invariant.
 
-A graph-writing endpoint is not safe merely because `merge_contribution_to_revision` is atomic. The application must know whether it already asked the Kernel to publish, must prevent the proposal from being superseded while that outcome is unresolved, must recover a revision when the process dies after head advance, and must never report preview material as durable without checking the exact committed revision. Intent, the single merge, immediate receipt persistence, recovery, and verification are therefore one publication invariant.
+**Mission falsification:** this is not one slice if implementation also requires UI, mechanics mutation, identity reselection, parent repinning, a generic graph editor, a second Graph Kernel, a new revision index beyond c2a, or World Graph write/CAS changes.
 
-### Mission falsification test
-
-This is not one slice if implementation also requires a Workbench UI, mechanics mutation, identity reselection, parent repinning, a generic graph editor, a second Graph Kernel, a new revision index beyond SBW09c2a, or changes to World Graph write/CAS semantics.
-
-## §1 Mission and merge-ready invariant
+## §1 Mission and invariant
 
 ```text
 One exact active Threat publication proposal can be explicitly confirmed into
@@ -75,23 +71,24 @@ committed revision without a latest/current-head fallback or duplicate write.
 
 ```text
 For one exact active SBW09c1 proposal, at most one durable commit record can claim
-it; the record binds the exact proposal digest, expected parent, contribution ID,
-accepted assertion set, Threat identity, external resource, and binding. Intent is
-persisted before the single Kernel merge. Publication proof is persisted as
-committed_unverified immediately when an exact immutable revision is known.
-Recovery resolves the expected contribution ID through SBW09c2a before any retry,
-multiple matches remain an integrity ambiguity, and no merge occurs after a
-committed revision is known. Verification is pinned to that revision; degraded or
-failed verification remains committed-but-unverified and never becomes a retry.
+it. The record binds the exact proposal request digest, sealed proposal digest,
+expected parent, contribution ID, accepted assertion set, Threat identity,
+external resource, and binding. Intent is persisted before the Kernel merge.
+Publication proof is persisted as committed_unverified immediately when an exact
+immutable revision is known. An unresolved attempt checks c2a before any retry;
+deterministic refusals are terminal, multiple matches remain ambiguous, and no
+merge occurs after a committed revision is known. Verification is pinned to that
+revision; degraded or failed verification remains committed-but-unverified.
 ```
 
 ### Pre-dispatch critique
 
-- Most likely race: proposal supersession occurs after confirmation begins but before the commit record becomes durable.
-- Most dangerous retry bug: stale-parent handling blindly re-merges or records the current head as the committed revision.
-- Most dangerous receipt bug: graph publication succeeds, receipt persistence fails, and a later request treats the proposal as uncommitted.
-- Required defense: one shared proposal lifecycle lock, durable intent before merge, c2a lookup before retry, exact immutable verification, and terminal no-retry semantics once any committed revision is known.
-- Split trigger: the actual c1 service cannot expose a semantic shared lock/claim boundary without changing its durable proposal schema or invalidating its replay rules.
+- Most likely race: proposal supersession occurs after confirmation begins but before commit intent becomes durable.
+- Most dangerous retry bug: stale-parent handling blindly re-merges or records current head as the committed revision.
+- Most dangerous refusal bug: a typed `published=false` result is misclassified as transport ambiguity and consumes the crash-recovery retry.
+- Most dangerous receipt bug: publication succeeds, receipt persistence fails, and a later request treats the proposal as uncommitted.
+- Required defense: one shared lifecycle lock, intent-before-write, deterministic-refusal terminality, c2a-before-retry, immutable verification, and no-retry semantics once a committed revision is known.
+- Split trigger: actual c1 cannot expose a semantic shared lock/claim boundary without changing its durable proposal contract.
 
 ## §2 Authority and dependency map
 
@@ -99,76 +96,75 @@ failed verification remains committed-but-unverified and never becomes a retry.
 |---|---|
 | Source and expected parent | SBW09a merged PR `#462` |
 | Threat identity decision | SBW09b merged PR `#467` |
-| Exact reviewed effect | actual merged SBW09c1 proposal implementation; currently only designed |
+| Exact reviewed effect | actual merged SBW09c1 implementation; currently only designed |
 | Operation-to-revision recovery | actual merged SBW09c2a public Kernel lookup; currently only designed |
 | Resource/binding identity | SBW08 merged PR `#457` |
 | Proposal seal/verification | `graph_memory.extract_promote_proposal` |
-| Contribution reconstruction | `resolve_merged_contribution_from_package` or its actual merged c1 adapter |
+| Contribution reconstruction | `resolve_merged_contribution_from_package` or actual merged c1 adapter |
 | Graph commit | public `graph_memory.kernel.merge_contribution_to_revision` |
-| Exact revision reads | public Graph Kernel revision/integrity/projection APIs |
+| Exact revision reads | public Graph Kernel revision/integrity/rebuild/projection APIs |
 | Sequence | active Threat tracker and roadmap |
 
-Read in order after the dispatch gate is satisfied:
+Read after the dispatch gate:
 
 1. `AGENTS.md` and external-agent PR-loop rules.
-2. active Threat tracker, roadmap, publication re-anchor, this handoff amendment.
-3. merged SBW09c1 models/service/routes/tests and handback.
-4. merged SBW09c2a public function/export/tests and handback.
+2. active tracker, roadmap, publication re-anchor, and this amended handoff.
+3. merged c1 models/service/routes/tests and handback.
+4. merged c2a public function/export/tests and handback.
 5. SBW09a/SBW09b owning services and tests.
 6. SBW08 resource/binding models and tests.
-7. `extract_promote_proposal.py` and contribution reconstruction helper.
+7. proposal verification and contribution reconstruction owners.
 8. public Kernel contribution, revision, rebuild, and projection APIs.
-9. generic extract-promote confirm code only as precedent; do not copy current-head recovery shortcuts.
+9. generic extract-promote confirmation only as precedent; do not copy current-head recovery shortcuts.
 
-### Locked authority boundaries
+### Locked boundaries
 
 - The exact active c1 proposal is complete content authority.
-- The SBW09a operation remains source and expected-parent authority.
-- The SBW09b resolution remains Threat identity authority.
-- The commit request confirms; it does not select assertions, identity, parent, world root, or mechanics.
+- SBW09a remains source and expected-parent authority.
+- SBW09b remains Threat identity authority.
+- The confirmation request confirms; it does not select assertions, identity, parent, world root, or mechanics.
 - The Kernel owns graph mutation and immutable revision publication.
 - The application commit ledger owns durable intent, outcome, and verification status.
-- SBW09c2a owns complete exact operation-ID-to-revision lookup.
-- Current head is useful only for the pre-merge expected-parent check or deciding whether a zero-match recovery may make one exact retry. It is never proof of which revision committed this proposal.
+- c2a owns complete exact operation-ID-to-revision lookup.
+- Current head is used only for pre-merge parent admission or deciding whether an unresolved zero-match attempt may make one exact recovery retry. It is never proof of which revision committed the proposal.
 
 ## §3 Observable-path inventory
 
 | Path | Required behavior | Owner |
 |---|---|---|
-| Confirm exact active proposal | persist intent, perform one exact merge, persist receipt, verify | commit service |
-| Exact POST replay after success | return durable record before predecessor or graph reads | commit ledger |
-| Exact POST replay after committed-unverified | re-run verification only; never merge | commit service |
+| Confirm exact active proposal | persist intent, dispatch exact merge, persist receipt, verify | commit service |
+| Exact replay after success | return durable record before predecessor/graph reads | commit ledger |
+| Replay after committed-unverified | verification only; never merge | commit service |
 | Same commit ID, changed request | conflict; bytes unchanged | ledger |
 | Different commit ID for claimed proposal | busy/conflict; no second record | ledger |
 | Proposal supersession racing confirmation | either supersession wins before claim or commit claim wins; never both | shared lifecycle lock |
-| Crash after intent, before merge | recovery lookup zero; one exact retry only when original parent remains head | recovery state machine |
-| Crash after graph commit, before receipt | unique immutable match recovers revision; no merge | c2a + ledger |
-| Head advances after commit | recover exact earlier immutable revision | c2a |
-| Head rolls back after commit | recover exact rolled-back-away revision | c2a |
+| Crash after intent, before/around merge | c2a zero; one exact retry only if attempt remains unresolved and parent unchanged | recovery state machine |
+| Deterministic merge refusal | c2a reconciliation; zero match becomes terminal uncommitted; no retry | commit service |
+| Crash after commit, before receipt | unique immutable match recovers; no merge | c2a + ledger |
+| Head advances or rolls back after commit | recover exact immutable committed revision | c2a |
 | Multiple matching revisions | integrity ambiguity; no first-win receipt | c2a caller policy |
 | Lookup unavailable/corrupt | remain unresolved `committing`; no merge | recovery state machine |
-| Merge refuses before publication | persist `uncommitted`; proposal remains claimed | commit service |
-| Publication proven, verification fails | persist `committed_unverified`; retry forbidden | verifier |
-| Restart/read | exact commit record round-trips | ledger/GET |
+| Verification fails after publication | persist committed-unverified; retry forbidden | verifier |
+| Restart/read | exact record round-trips under lifecycle lock | ledger/GET |
 | Corrupt commit ledger | fail closed; no repair/overwrite | parser/store |
-| UI/Hermes/projection surface | absent | successors |
+| UI/Hermes/product projection | absent | successors |
 
-## §4 Files in scope — provisional allowlist
+## §4 Provisional implementation allowlist
 
-This allowlist must be revalidated against the actual c1/c2a merges before dispatch.
+This allowlist must be revalidated against actual c1/c2a merges.
 
 | Action | Path | Purpose |
 |---|---|---|
-| Create | `apps/live_control_server/models/threat_publication_commit.py` | strict request, commit-record, ledger, response models |
-| Create | `apps/live_control_server/services/threat_publication_commit_store.py` | path-safe atomic commit-ledger reads/writes; no independent lock |
+| Create | `apps/live_control_server/models/threat_publication_commit.py` | strict request, record, ledger, response models |
+| Create | `apps/live_control_server/services/threat_publication_commit_store.py` | path-safe atomic ledger reads/writes; no independent lock |
 | Create | `apps/live_control_server/services/threat_publication_commits.py` | claim, commit, recovery, verification orchestration |
 | Create | `apps/live_control_server/routes/threat_publication_commits.py` | POST confirm and GET exact record |
-| Modify | `apps/live_control_server/services/threat_publication_proposals.py` | expose shared lifecycle lock/claim seam and reject supersession after commit claim |
-| Modify | `apps/live_control_server/main.py` | register route |
-| Create | `tests/test_threat_publication_commit_models.py` | strict model/state/ledger invariants |
+| Modify | `apps/live_control_server/services/threat_publication_proposals.py` | shared lifecycle lock/claim seam; block supersession after claim |
+| Modify | `apps/live_control_server/main.py` | route registration |
+| Create | `tests/test_threat_publication_commit_models.py` | model/state/ledger invariants |
 | Create | `tests/test_threat_publication_commits.py` | service, persistence, recovery, concurrency, verification |
 | Create | `tests/test_threat_publication_commit_api.py` | route/status/result contracts |
-| Modify | `tests/test_threat_publication_proposals.py` | prove proposal supersession is blocked after commit claim |
+| Modify | `tests/test_threat_publication_proposals.py` | supersession blocked after commit claim |
 
 Bounded test-only discovery exception:
 
@@ -180,61 +176,38 @@ Rule: no additional production scope
 Report: exact paths and why local fixtures were insufficient
 ```
 
-Stop before implementation if actual c1 names differ materially, c1 has no operation-scoped lifecycle lock, or c2a's merged signature/semantics differ from the design assumed here. Amend this handoff rather than guessing.
+Stop before implementation if actual names differ materially, c1 has no operation-scoped lifecycle lock, or c2a's merged signature/semantics differ. Amend rather than guess.
 
 Production changes under `src/graph_memory/**`, SBW09a/SBW09b models/stores, ThreatDraft, accepted-mechanics persistence, DungeonMind, UI, corpus, placement, or combat are prohibited.
 
-## §5 Explicit exclusions and demolition
+## §5 Exclusions and demolition
 
-Excluded:
-
-- proposal construction or identity selection;
-- assertion subset selection;
-- parent or mechanics repinning;
-- automatic retry under a new operation/proposal;
-- current-head-as-receipt inference;
-- first matching revision selection;
-- UI confirmation flow;
-- Hermes write tools or query/hydration;
-- compact/full Threat projection UI;
-- placement/combat;
-- generic object publication framework;
-- contribution supersession/retraction or undo.
+Excluded: proposal construction, identity selection, assertion subsets, parent/mechanics repinning, retries under a new operation/proposal, current-head receipt inference, first-match selection, UI confirmation, Hermes write/query/hydration, Threat projection UI, placement/combat, generic publication, supersession/retraction, and undo.
 
 ```text
-Replaced path: any Threat-specific use of current-head inference, generic stale-parent already-applied shortcuts, or proposal supersession after commit begins
+Replaced path: any Threat-specific current-head inference, generic stale-parent already-applied shortcut, or proposal supersession after commit begins
 Deleted in this PR: no
-Retained reason: existing generic extract-promote confirmation remains an independent consumer and is not the Threat publication path
+Retained reason: generic extract-promote confirmation remains an independent consumer
 Named remaining consumer: Graph Review / generic extract-promote workflows
-Required deletion owner: none in this slice; a later consolidation may reuse the stronger recovery primitive deliberately
+Required deletion owner: none; later consolidation may deliberately reuse the stronger recovery primitive
 ```
 
-## §6 Request, record, storage, and API contract
+## §6 Request, record, storage, and API
 
 ### §6.1 Confirmation request
 
 ```text
 schema: dmb_confirm_threat_publication_request_v1
 commit_id: UUID or bounded tcommit_<token>
-proposal_digest: exact persisted c1 proposal digest
+sealed_proposal_digest: exact persisted c1 sealed_proposal_digest
 expected_parent_revision_id: exact persisted c1/SBW09a parent
 actor: nonblank bounded string
 operator_note: optional bounded string
 ```
 
-Route identity supplies `draft_id`, `operation_id`, and `proposal_id`.
+Route identity supplies `draft_id`, `operation_id`, and `proposal_id`. The canonical request digest includes every route identity and request field.
 
-The request must not accept:
-
-- assertion IDs or a selection;
-- world/campaign/root;
-- identity or target node IDs;
-- resource/binding IDs;
-- mechanics locators or bodies;
-- `dry_run`, live-world permission, or idempotency policy;
-- a replacement parent.
-
-Canonical request digest includes every route identity and request field.
+The request must not accept assertion IDs, world/campaign/root, identity/target IDs, resource/binding IDs, mechanics locators/bodies, `dry_run`, live-world permission, idempotency policy, or a replacement parent.
 
 ### §6.2 Durable commit record
 
@@ -245,7 +218,7 @@ request_digest
 draft_id
 operation_id
 proposal_id
-proposal_digest
+proposal_request_digest
 sealed_proposal_digest
 resolution_id
 source_digest
@@ -272,16 +245,16 @@ created_at
 updated_at
 ```
 
-The exact effect identity fields must be copied from and validated against the c1 proposal—not reconstructed from current draft, label, mechanics store, or graph head.
+The exact effect fields are extracted from and validated against the durable c1 proposal and its sealed effect. They are never reconstructed from mutable draft, label, mechanics store, or current head.
 
 State invariants:
 
-- `committing`: no committed revision; merge attempt count is 1 or 2.
-- `uncommitted`: no committed revision; terminal for this proposal claim.
-- `ambiguous`: no selected committed revision; terminal until operator repair/reconciliation.
+- `committing`: no committed revision; attempt count is 1 or 2; outcome remains unresolved.
+- `uncommitted`: no committed revision; deterministic refusal, unsafe retry, or exhausted recovery; terminal for this claim.
+- `ambiguous`: no selected revision; multiple immutable matches or integrity ambiguity; terminal pending external repair.
 - `committed_unverified`: committed revision required; merge retry prohibited.
 - `committed_verified`: committed revision required; verification passed; merge retry prohibited.
-- Any record permanently claims the proposal. There is no record deletion or reset in v1.
+- Any record permanently claims the proposal. No delete/reset exists in v1.
 
 ### §6.3 Ledger and storage
 
@@ -292,24 +265,22 @@ operation_id
 commit: ThreatPublicationCommitV1 | null
 ```
 
-Storage:
-
 ```text
 out/threat_publication_commits/<draft_id>/<operation_id>/ledger.json
 ```
 
-There is deliberately no `.commit.lock`. The c1 operation-scoped `.proposal.lock` is the sole lifecycle lock covering proposal activity and commit claim/outcome. The commit store exposes unlocked low-level reads/writes that are legal only while that semantic lifecycle lock is held.
+There is no `.commit.lock`. The c1 operation-scoped `.proposal.lock` is the sole proposal/commit lifecycle lock. The commit store exposes dependency-neutral unlocked low-level reads/writes legal only while that semantic lock is held; it must not import the proposal service.
 
-One operation can have at most one commit record. A terminal `uncommitted` record is not cleared to reuse the proposal; the operator must create a new SBW09a operation, identity resolution, and proposal if publication should be attempted against a new parent.
+One operation has at most one commit record. A terminal uncommitted record is not cleared to reuse the proposal; a new parent requires a new SBW09a operation, resolution, and proposal.
 
-### §6.4 Routes
+### §6.4 Routes and results
 
 ```text
 POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/proposals/{proposal_id}/commits
 GET  /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/commits/{commit_id}
 ```
 
-Minimum result labels:
+Minimum labels:
 
 ```text
 publication_commit_verified
@@ -329,7 +300,7 @@ publication_commit_storage_unavailable
 publication_commit_integrity_failure
 ```
 
-HTTP mapping:
+HTTP:
 
 - first committed result: `201`, including committed-unverified;
 - replay, recovery, GET, or verification-only replay: `200`;
@@ -339,11 +310,9 @@ HTTP mapping:
 - unavailable dependency/storage: `503`;
 - corrupt durable authority/integrity: `500`.
 
-A committed-unverified outcome is a success-shaped receipt containing the exact committed revision and `retry_allowed=false`. It must not be collapsed into a generic 500 that invites a second commit.
+Committed-unverified is a success-shaped receipt with exact committed revision and `retry_allowed=false`, never a generic error that invites a second commit.
 
-## §7 Shared proposal claim and lock contract
-
-### §7.1 One lifecycle lock
+## §7 Shared proposal claim and lock
 
 The actual c1 proposal service must expose a semantic context/helper equivalent to:
 
@@ -354,36 +323,35 @@ with claim_threat_publication_proposal_lifecycle(
     ...
 ```
 
-The helper name may follow actual c1 conventions, but these semantics are fixed:
+Names may follow c1 conventions; semantics may not:
 
 1. acquire the exact operation-scoped c1 proposal lock;
-2. allow loading the active proposal and commit ledger under that lock;
-3. permit c2b to atomically create/update the commit record;
-4. cause c1 proposal supersession to check the commit ledger under the same lock;
-5. refuse proposal supersession once any commit record exists, regardless of state;
-6. release only after the c2b state transition, Kernel call/recovery, immediate receipt persistence, and verification persistence complete or fail safely.
+2. permit active-proposal and commit-ledger loads under that lock;
+3. permit c2b atomic commit-record writes;
+4. require c1 supersession to inspect commit-record existence under the same lock;
+5. refuse supersession once any commit record exists;
+6. require GET and POST commit-record reads/writes under this same lock;
+7. release only after the current state transition, Kernel call/recovery, immediate receipt persistence, and any attempted verification persistence complete or fail safely.
 
-### §7.2 Lock order
+Lock order:
 
 ```text
 proposal lifecycle lock
 → commit ledger unlocked read/write
 → SBW09b identity read
 → SBW09a publication refresh/read
-→ exact World Graph read / Kernel world-write lock
+→ exact graph read / Kernel world-write lock
 ```
 
-No SBW09a/SBW09b/Kernel code may call back into proposal or commit storage. No second application lock may be acquired in reverse order.
+No predecessor or Kernel path may call back into proposal/commit storage. No second application lock may reverse this order.
 
-### §7.3 Proposal supersession race
+Supersession/confirmation race must be serializable:
 
-The required result is serializable:
+- supersession wins lock first: c2b observes proposal inactive and writes no intent;
+- c2b wins and persists any commit record: supersession is refused permanently;
+- a superseded proposal never also owns a commit record.
 
-- supersession acquires the lock first and completes: c2b sees the requested proposal is no longer active and writes no intent;
-- c2b acquires the lock first and persists any commit record: supersession is refused permanently;
-- there is no state where a superseded proposal also owns a commit record.
-
-If holding the proposal lifecycle lock across the Kernel call is incompatible with the actual c1 contract, stop. Do not replace it with a check-then-act window.
+If holding the lifecycle lock across the Kernel call is incompatible with actual c1, stop rather than introduce a check-then-act gap.
 
 ## §8 Exact commit and recovery algorithm
 
@@ -391,80 +359,78 @@ If holding the proposal lifecycle lock across the Kernel call is incompatible wi
 
 Under the lifecycle lock, load the commit ledger before proposal, predecessor, or graph reads.
 
-- same commit ID + exact request digest + `committed_verified`: return record;
-- same commit ID + exact request digest + `committed_unverified`: run verification only, then return updated record;
-- same commit ID + exact request digest + `committing`: enter recovery; never blindly merge;
-- same commit ID + changed request: conflict; bytes unchanged;
-- different commit ID when any record exists: busy/conflict; no second record.
+- exact `committed_verified`: return record;
+- exact `committed_unverified`: verification only;
+- exact `committing`: recovery first; never blindly merge;
+- exact `uncommitted` or `ambiguous`: return terminal record;
+- same ID with changed request: conflict; bytes unchanged;
+- different ID when any record exists: busy/conflict.
 
-### §8.2 New commit admission
+### §8.2 New admission
 
-For a new record:
-
-1. Load the exact c1 proposal and require it is the active proposal for the operation.
-2. Require request proposal digest and expected parent equal the persisted proposal.
-3. Read the exact SBW09b resolution and require it remains active and identity/digests equal the proposal.
-4. Refresh/read the exact SBW09a operation and require it remains `ready`; route IDs, source digest, world/campaign, mechanics locator, and expected parent must equal proposal and resolution.
-5. Require current head equals the expected parent before the first attempt. A mismatch produces no commit record and no merge.
-6. Verify the complete sealed proposal and reconstruct the complete contribution using existing authority. File-source verification may be disabled only because SBW09a/SBW09b are the mutable-source authorities; package digest, principal, parent, effect, contribution meta, node map, and identity snapshot remain verified.
-7. Whole proposal only: no assertion subset. Reconstructed contribution ID, accepted assertion IDs, Threat/resource/binding IDs, and expected parent must exactly equal the c1 proposal fields.
+1. Load exact c1 proposal; require it is active.
+2. Require request sealed digest and parent equal persisted proposal.
+3. Read exact SBW09b resolution; require active and all identities/digests equal proposal.
+4. Refresh/read exact SBW09a operation; require ready and route/source/world/campaign/mechanics/parent equal proposal and resolution.
+5. Require current head equals expected parent before intent. Mismatch writes no commit record and performs no merge.
+6. Verify complete sealed proposal and reconstruct complete contribution with existing authority. File-source verification may be disabled only because SBW09a/SBW09b are the source authorities; package digest, principal, parent, effect, contribution meta, node map, and identity snapshot remain verified.
+7. Whole proposal only. Reconstructed contribution ID, accepted IDs, Threat/resource/binding IDs, and parent equal c1 authority exactly.
 8. Persist `committing`, `merge_attempt_count=1` before the Kernel call.
 
-### §8.3 Kernel commit
+### §8.3 Kernel call
 
-Call exactly:
+Call only:
 
 ```text
 kernel.merge_contribution_to_revision(
-  exact configured world root,
-  world_id=proposal world,
+  configured world root,
+  world_id=exact proposal world,
   contribution=exact reconstructed contribution,
-  expected_parent_revision_id=proposal expected parent,
+  expected_parent_revision_id=exact proposal parent,
 )
 ```
 
-Do not call direct World Graph storage, generic HTTP confirm, mutable-source prepare, contribution supersession, or any second merge framework.
+No direct graph storage, generic HTTP confirm, mutable-source prepare, contribution supersession, or second merge framework.
 
-When the result proves publication and supplies a revision ID, immediately persist `committed_unverified` with that exact revision before running audits.
+A result with `published=true` and exact revision ID immediately persists `committed_unverified` before audits.
+
+A typed deterministic `published=false` result is not a transport ambiguity. Reconcile once through c2a in case authority exists despite the return; if zero matches, persist `uncommitted` and do not retry.
 
 ### §8.4 Ambiguous outcome reconciliation
 
-Whenever the Kernel call raises, reports unpublished unexpectedly, omits a revision ID, or a replay finds `committing`, call the merged c2a public lookup with:
+For a Kernel exception, missing result, missing revision ID, failed receipt persistence, or replayed `committing` record, call c2a with:
 
 ```text
 world_id = exact proposal world
 operation_id = proposal.expected_contribution_id
 ```
 
-The lookup key is the Graph contribution ID because Kernel publication records `operation_ids=[contribution.contribution_id]`. It is not the SBW09a publication operation ID.
+The key is the Graph contribution ID because Kernel publication records `operation_ids=[contribution.contribution_id]`. It is not the SBW09a operation ID.
 
-Interpretation:
+| Lookup | Attempt classification | Additional checks | Result |
+|---|---|---|---|
+| one match | any unresolved path | exact world, parent, operation membership, contribution/effect | persist committed-unverified, recovered=true |
+| multiple matches | any | none may be selected | persist ambiguous |
+| zero matches | deterministic refusal | none | persist uncommitted; no retry |
+| zero matches | unresolved committing, attempts=1, current head still original parent | exact same contribution only | persist attempts=2, make one retry |
+| zero matches | unresolved committing and head changed | retry unsafe | persist uncommitted |
+| zero matches | unresolved committing after second attempt | retry exhausted | persist uncommitted |
+| lookup unavailable/corrupt | any unresolved path | outcome unknown | retain committing; return unavailable |
 
-| Lookup | Additional checks | Result |
-|---|---|---|
-| one match | exact world, parent, operation membership, contribution/effect verification | persist `committed_unverified`, recovered=true |
-| multiple matches | none may be selected | persist `ambiguous`; fail closed |
-| zero matches, current head still expected parent, attempts=1 | exact same contribution only | persist attempts=2, perform one retry |
-| zero matches, head changed | publication not proven and retry unsafe | persist `uncommitted` |
-| zero matches after second attempt | publication not proven | persist `uncommitted` |
-| lookup unavailable/corrupt | outcome unresolved | retain `committing`; return unavailable |
+After the one permitted recovery retry, reconcile through c2a again before classification. No third attempt exists.
 
-After the one permitted recovery retry, reconcile through c2a again before classifying the result. No third merge is permitted.
+Head advance or rollback after commit cannot hide the immutable matching revision. Current head is never substituted for committed revision ID.
 
-Head advancement or rollback after a successful commit cannot hide the immutable matching revision. Current head must never be substituted for `committed_revision_id`.
-
-### §8.5 Receipt persistence failure
-
-Required injected sequence:
+### §8.5 Required receipt-write failure sequence
 
 ```text
 intent persisted
-→ Kernel publishes revision
-→ committed_unverified save fails
-→ response is unavailable/unknown
+→ Kernel publishes
+→ committed-unverified save fails
+→ response unavailable/unknown
 → restart/replay sees committing
-→ c2a finds one exact immutable revision
-→ committed_unverified is persisted
+→ c2a finds one immutable revision
+→ committed-unverified persists
 → verification runs
 ```
 
@@ -472,219 +438,178 @@ No second merge occurs.
 
 ## §9 Exact committed-revision verification
 
-Verification consumes only the durable commit record, the exact c1 proposal, reconstructed contribution, and exact committed revision.
+Verification consumes only the commit record, exact c1 proposal, reconstructed contribution, and exact committed revision.
 
 Required checks:
 
-1. c2a returns exactly one matching manifest for the expected contribution ID, and it is the recorded committed revision.
+1. c2a returns exactly one matching manifest and it is the recorded revision.
 2. Manifest world, revision, parent, and operation membership are exact.
 3. Exact revision payload loads through public integrity authority.
-4. `contribution_source_payload_sha256[expected_contribution_id]` equals the exact reconstructed contribution source digest.
-5. `contribution_replay_manifest` contains one active entry for the exact contribution ID and digest.
-6. Every accepted assertion ID has durable support naming the exact contribution ID.
-7. Create-new contains the exact Threat node and authored fields sealed by c1.
-8. Connect-existing does not introduce or rewrite the target Threat identity fields.
-9. The external-resource node is the exact strict `ExternalResourceV1` sealed by c1.
-10. The binding edge has the exact edge ID, endpoints, predicate, binding ID, and strict `ThreatStatblockBindingV1` sealed by c1.
-11. No mechanics body, rules elements, rendered Markdown, or assets are copied into graph state.
-12. `rebuild_from_contributions(... compare_revision_id=committed_revision_id, publish=False)` reports equivalence to the exact revision.
-13. Exact revision-pinned projection reports the same revision and contains the exact Threat, external resource, and binding.
+4. `contribution_source_payload_sha256[expected_contribution_id]` equals the public digest of the exact reconstructed contribution.
+5. `contribution_replay_manifest` contains one active exact contribution/digest entry.
+6. Every accepted assertion support record names the exact contribution ID.
+7. Create-new contains the exact sealed Threat node and authored fields.
+8. Connect-existing does not introduce or rewrite target Threat identity fields.
+9. External-resource node equals exact strict `ExternalResourceV1`.
+10. Binding edge equals exact ID/endpoints/predicate/binding ID/`ThreatStatblockBindingV1`.
+11. No mechanics body, rules elements, rendered Markdown, or assets enter graph state.
+12. Exact committed-revision rebuild reports equivalence.
+13. Exact revision-pinned projection reports the same revision and exact Threat/resource/binding.
 
-Current head is irrelevant once `committed_revision_id` exists.
+Current head is irrelevant after committed revision is known.
 
-Verification classification:
-
-| Condition | Commit state | Verification status | Retry merge? |
+| Condition | State | Verification | Merge retry |
 |---|---|---|---|
-| every required check passes | `committed_verified` | `passed` | no |
-| exact objects/support are present but rebuild or secondary audit is unavailable/degraded | `committed_unverified` | `degraded` | no |
-| contribution/object/binding/digest/projection identity mismatch | `committed_unverified` | `failed` | no |
-| verification dependency temporarily unavailable | `committed_unverified` | `not_started` or `degraded` | no; later verification-only replay |
+| all checks pass | committed_verified | passed | no |
+| exact objects/support pass but rebuild or secondary audit is unavailable/degraded | committed_unverified | degraded | no |
+| contribution/object/binding/digest/projection mismatch | committed_unverified | failed | no |
+| verification dependency unavailable | committed_unverified | not_started/degraded | no; later verification-only replay |
 
-A later exact POST may re-run verification. It may never call merge after a committed revision exists.
+## §10 Matrices and commit points
 
-## §10 State, fallback, identity, persistence, and commit matrices
+### State/fallback
 
-### §10A State/fallback matrix
-
-| Durable state | Meaning | POST behavior | Fallback |
+| State | Meaning | POST behavior | Fallback |
 |---|---|---|---|
 | no record | proposal unclaimed | new admission | none |
-| committing | intent exists, outcome unresolved | c2a reconciliation first | no blind merge |
-| uncommitted | publication not proven; retry unsafe/exhausted | return terminal conflict | new operation/proposal |
-| ambiguous | multiple immutable matches/integrity ambiguity | return terminal conflict | operator repair only |
-| committed_unverified | exact revision known | verify only | no merge |
-| committed_verified | exact revision verified | exact replay | none |
+| committing | outcome unresolved | c2a reconciliation first | one conditional retry maximum |
+| uncommitted | deterministic refusal/unsafe/exhausted | terminal conflict | new operation/proposal |
+| ambiguous | multiple matches/integrity ambiguity | terminal conflict | operator repair |
+| committed_unverified | revision known | verify only | no merge |
+| committed_verified | revision verified | exact replay | none |
 
-### §10B Identity matrix
+### Identity
 
 | Identity | Authority | Fallback |
 |---|---|---|
-| source/parent | SBW09a operation snapshot | none |
+| source/parent | SBW09a snapshot | none |
 | Threat target/new ID | SBW09b resolution | none |
 | reviewed effect | c1 proposal + sealed package | none |
-| contribution | exact reconstructed ID equal to c1 expected ID | none |
+| contribution | reconstructed ID equal c1 expected ID | none |
 | committed revision | Kernel result or unique c2a match | never current head |
-| resource/binding | exact c1 fields + SBW08 models | none |
-| commit replay | commit ID + canonical request digest | none |
+| resource/binding | c1 sealed effect + SBW08 models | none |
+| replay | commit ID + canonical request digest | none |
 
-### §10C Persistence/replay matrix
+### Persistence/replay
 
 | Event | Durable effect | Replay |
 |---|---|---|
-| admission fails before intent | none | caller fixes or creates new request |
-| intent save succeeds | proposal permanently claimed | reconcile before merge |
-| merge publishes | immutable revision exists | unique c2a match recovers |
-| immediate receipt saves | committed revision durable in app ledger | verify only |
+| admission fails before intent | none | caller fixes/new request |
+| intent saves | proposal permanently claimed | reconcile before merge |
+| merge publishes | immutable revision exists | c2a recovers |
+| receipt saves | exact committed revision in app ledger | verify only |
 | verification saves | terminal/refreshable audit status | no merge |
-| ledger corrupt | none further | fail closed; no overwrite |
+| ledger corrupt | no further mutation | fail closed |
 
-### §10D Commit-point declaration
+### Commit points
 
 ```text
-Application intent point: atomic commit-ledger save in state=committing.
-Graph commit point: Kernel publishes immutable revision and advances head.
-Application publication proof point: atomic save in state=committed_unverified.
-Verified completion point: atomic save in state=committed_verified.
+Application intent point: atomic state=committing save.
+Graph commit point: Kernel immutable revision publish/head advance.
+Application publication proof: atomic state=committed_unverified save.
+Verified completion: atomic state=committed_verified save.
 
 After graph commit, no application failure may make the operation retryable.
 ```
 
-### §10E No-fallback declaration
+Prohibited fallbacks: latest mechanics, current draft, latest resolution, labels/rank, current head as committed revision, first immutable match, new parent, new proposal/contribution ID, or direct storage scanning.
 
-Prohibited fallbacks:
+## §11 Required evidence
 
-- latest accepted mechanics;
-- current ThreatDraft;
-- latest/current identity resolution;
-- label, alias, or candidate rank;
-- current graph head as committed revision;
-- first matching immutable revision;
-- a newly pinned parent;
-- a second proposal or contribution ID;
-- direct graph-file inspection from application code.
-
-## §11 Verification ownership and required evidence
-
-| Guarantee | Owning boundary | Required command/evidence |
+| Guarantee | Boundary | Command/evidence |
 |---|---|---|
-| strict models and state invariants | commit models | `uv run pytest -q tests/test_threat_publication_commit_models.py` |
-| claim/merge/recovery/verification | commit service | `uv run pytest -q tests/test_threat_publication_commits.py` |
-| route labels/statuses | API | `uv run pytest -q tests/test_threat_publication_commit_api.py` |
-| proposal cannot supersede after claim | c1 proposal owner | focused c1 proposal tests |
-| c1 proposal regression | predecessor | actual merged c1 focused suites |
-| c2a zero/one/many regression | Kernel lookup owner | actual merged c2a focused suite |
-| SBW09a/SBW09b regression | predecessor | focused operation and identity suites |
-| SBW08 exact binding regression | graph contract | `tests/test_statblock_binding_graph_contract.py` |
-| sealed proposal/contribution regression | graph governance | current exact promote proposal/ops suites |
-| Kernel merge/rebuild/projection regression | Kernel owners | current focused contribution merge/rebuild/projection suites |
-| scope/hygiene | repository | `git diff --check`; exact base/head name-only diff |
+| strict models/state | commit models | `uv run pytest -q tests/test_threat_publication_commit_models.py` |
+| claim/commit/recovery/verify | service | `uv run pytest -q tests/test_threat_publication_commits.py` |
+| routes | API | `uv run pytest -q tests/test_threat_publication_commit_api.py` |
+| proposal supersession blocked | c1 owner | focused c1 proposal tests |
+| c1 regression | predecessor | actual merged c1 suites |
+| c2a zero/one/many regression | Kernel owner | actual merged c2a suite |
+| SBW09a/SBW09b regression | predecessors | focused operation/identity suites |
+| SBW08 binding regression | graph contract | `tests/test_statblock_binding_graph_contract.py` |
+| sealed proposal/contribution | governance | current promote proposal/ops suites |
+| Kernel merge/rebuild/projection | Kernel | current focused suites |
+| scope/hygiene | repository | `git diff --check`; exact name-only diff |
 
 Required adversarial sequences:
 
-1. Create-new confirmation → committed-unverified save → exact verification → restart GET.
-2. Connect-existing commit contains no Threat node rewrite.
-3. Request cannot select a subset of assertions.
-4. Exact terminal replay returns before predecessor and graph reads.
-5. Changed same-ID replay conflicts with byte-identical ledger.
-6. Concurrent first confirmations produce one record and at most one Kernel merge.
-7. Proposal supersession/confirmation race is serializable under the shared lock.
-8. Crash after intent, before merge: zero lookup + unchanged parent permits exactly one retry.
-9. Crash after graph commit, before receipt: one lookup match recovers without merge.
-10. Head advances after commit: earlier immutable revision still recovers.
-11. Head rolls back after commit: rolled-back-away revision still recovers.
-12. Duplicate matching revisions: persist ambiguity; never first-win.
-13. Lookup unavailable/corrupt: retain `committing`; no merge.
-14. Kernel reports unpublished or raises after publication: lookup proves or disproves commit.
-15. Committed revision plus verification failure: committed-unverified, retry forbidden.
-16. Crash after committed-unverified before verification: replay verifies only.
-17. Commit-ledger write fails before intent: no graph call.
-18. Receipt write fails after graph commit: restart recovery sequence succeeds without duplicate merge.
-19. Corrupt commit ledger: fail closed without overwrite or graph call.
-20. Success and every failure path leave ThreatDraft, accepted mechanics, SBW09a, SBW09b, and c1 proposal bytes unchanged except the c1 commit-claim behavior under its shared lock.
+1. Create-new commit → receipt → exact verification → restart GET.
+2. Connect-existing commit has no Threat identity rewrite.
+3. Request cannot select assertions.
+4. Exact terminal replay returns before dependencies.
+5. Changed replay conflicts with byte-identical ledger.
+6. Concurrent first confirmations yield one record and at most one merge.
+7. Proposal supersession/confirmation race is serializable.
+8. Crash after intent: zero lookup + unchanged parent permits exactly one retry.
+9. Deterministic `published=false`: zero lookup persists uncommitted with zero retry.
+10. Crash after graph commit: one lookup match recovers without merge.
+11. Head advance and rollback do not hide committed revision.
+12. Duplicate matches persist ambiguity; no first-win.
+13. Lookup unavailable retains committing; no merge.
+14. Exception or missing revision ID reconciles before retry.
+15. Verification failure after commit remains committed-unverified.
+16. Crash after committed-unverified verifies only on replay.
+17. Ledger write failure before intent makes no graph call.
+18. Receipt write failure after commit recovers after restart without duplicate merge.
+19. Corrupt ledger fails closed.
+20. Predecessor/mechanics/proposal bytes remain unchanged except commit-claim behavior.
 
-For every baseline-red command, run the identical command at base and head and record an explicit waiver. Do not claim repository-wide CI unless attached checks actually exist.
+Baseline-red commands require identical base/head comparison and explicit waiver. Do not claim repository-wide CI unless attached checks exist.
 
-## §12 Dispatch gate and required re-anchor amendment
+## §12 Dispatch gate and re-anchor amendment
 
-Implementation must not begin from this design-only handoff. Dispatch requires all of the following:
+Implementation must not begin from this design-only handoff. Dispatch requires:
 
-- SBW09c1 implementation is merged to main with exact merge SHA, actual models, proposal fields, service names, lock semantics, routes, tests, and handback reviewed.
-- SBW09c2a implementation is merged to main with exact merge SHA, actual public function/export, plural zero/one/many semantics, and tests reviewed.
-- This file is amended to replace every provisional c1/c2a name or assumption with actual merged contracts.
-- The provisional allowlist in §4 is revalidated and narrowed against current main.
-- The tracker and roadmap mark c1 and c2a complete and c2b as the sole next publication implementation.
-- The amendment records the exact immutable dispatch-base SHA and proves the c1/c2a production paths do not create a lock-order or scope conflict.
-- Any discovered need to change Graph Kernel write/CAS semantics, c1 durable proposal schema, or c2a plural lookup semantics is resolved as a predecessor slice rather than silently absorbed.
+- c1 implementation merged with exact SHA, actual models/fields/service/lock/routes/tests/handback reviewed;
+- c2a implementation merged with exact SHA, actual public signature/export/plural semantics/tests reviewed;
+- this file amended to replace provisional names/assumptions with actual contracts;
+- §4 allowlist revalidated and narrowed;
+- tracker/roadmap mark c1+c2a complete and c2b sole next publication implementation;
+- amendment records immutable dispatch SHA and proves no lock-order/scope conflict;
+- any required Kernel write/CAS, c1 durable-schema, or c2a semantic change is handled as a predecessor slice.
 
-The amendment may tighten this design. It may not weaken exact identity, intent-before-write, immutable recovery, plural ambiguity, or committed-but-unverified guarantees.
+The amendment may tighten but not weaken exact identity, intent-before-write, deterministic-refusal terminality, immutable recovery, plural ambiguity, or committed-but-unverified guarantees.
 
 ## §13 Required implementation handback
 
-Record:
-
-- exact dispatch base/head and merge ancestry;
-- actual changed paths/diff stat;
-- actual c1 shared lock/claim seam and c2a signature;
-- request/record/ledger JSON examples;
-- every §11 command/result and provenance;
-- count of Kernel merge calls in all replay/race/crash tests;
-- exact unique recovery manifest and committed revision;
-- zero/one/many recovery evidence, including head advance and rollback;
-- exact Threat/resource/binding verification evidence;
-- committed-unverified degraded/failed examples with merge retry proving absent;
-- before/after bytes for predecessor/proposal/mechanics stores;
-- baseline failures and waivers;
-- paths outside the amended allowlist;
-- confirmation that UI, Hermes query/hydration, Threat projection, placement, and combat remain false.
+Record exact base/head and ancestry; changed paths/diff; actual c1 lock seam and c2a signature; JSON examples; every §11 result/provenance; Kernel merge-call counts; unique recovery revision; zero/one/many plus head advance/rollback evidence; exact Threat/resource/binding verification; committed-unverified examples proving no retry; predecessor/proposal/mechanics before/after bytes; baseline waivers; out-of-scope paths; and confirmation UI/Hermes/projection/placement/combat remain false.
 
 ## §14 Acceptance rubric
 
-- [ ] Actual merged c1 and c2a contracts were re-anchored before implementation.
-- [ ] One exact active proposal can own at most one commit record.
-- [ ] Proposal supersession and confirmation share one serializable lifecycle lock.
-- [ ] Intent is durable before the first Kernel merge.
-- [ ] Whole sealed proposal is reconstructed and verified; no assertion subset exists.
-- [ ] At most two merge attempts occur: the initial attempt and one zero-match recovery retry.
+- [ ] Actual c1/c2a contracts re-anchored before implementation.
+- [ ] One active proposal owns at most one commit record.
+- [ ] Supersession and confirmation share one serializable lifecycle lock.
+- [ ] Intent is durable before Kernel call.
+- [ ] Whole sealed proposal is verified; no subset exists.
+- [ ] Deterministic refusal is never retried.
+- [ ] At most two attempts exist: initial plus one unresolved zero-match recovery retry.
 - [ ] Every ambiguous outcome checks c2a before retry.
-- [ ] Unique recovery validates exact parent, contribution, and effect before receipt.
-- [ ] Multiple matches remain ambiguous; no first-win path exists.
-- [ ] Current head is never recorded as committed revision merely because contribution state is visible there.
-- [ ] Any known committed revision permanently prohibits merge retry.
-- [ ] Committed-but-unverified is durable and truthfully exposed.
-- [ ] Exact revision verifies contribution digest/replay/support, Threat/resource/binding, rebuild, and projection.
+- [ ] Unique recovery validates exact parent/contribution/effect.
+- [ ] Multiple matches remain ambiguous.
+- [ ] Current head is never substituted for committed revision.
+- [ ] Known committed revision permanently prohibits merge retry.
+- [ ] Committed-unverified is durable and truthfully exposed.
+- [ ] Exact revision verifies digest/replay/support, Threat/resource/binding, rebuild, projection.
 - [ ] No mechanics body enters graph state.
-- [ ] Storage is path-safe, atomic, bounded, restart-safe, and corruption-closed.
-- [ ] No production path outside the amended allowlist changed.
-- [ ] Later UI/query/projection/placement/combat capabilities remain unimplemented.
+- [ ] Storage is path-safe, atomic, bounded, restart-safe, corruption-closed.
+- [ ] No production path outside amended allowlist changes.
+- [ ] UI/query/projection/placement/combat remain false.
 
 ## §15 Reviewer attack list
 
-- Force a proposal supersession exactly between confirmation admission and intent persistence.
-- Count Kernel merge calls across exact replay, concurrent requests, every exception, and every crash seam.
-- Search for current-head substitution, parent repinning, first match, `next(...)`, label lookup, or mutable draft reads.
-- Verify the c2a lookup key is the expected contribution ID, not SBW09a operation ID.
-- Delete or corrupt the immediate receipt after a real synthetic publish and require restart recovery.
+- Race proposal supersession between admission and intent.
+- Count merge calls across replay, concurrency, refusal, exception, and crash seams.
+- Search for current-head substitution, repinning, first match, `next(...)`, label lookup, or mutable draft reads.
+- Verify c2a key is expected contribution ID, not SBW09a operation ID.
+- Delete immediate receipt after synthetic publish and require restart recovery.
 - Advance and roll back head before recovery.
-- Seed two manifests with the same contribution operation ID and ensure no revision is selected.
-- Fail every atomic commit-ledger save point.
-- Make exact object verification fail after publication and confirm no merge retry.
-- Inspect connect-existing revision for unintended Threat node/attribute rewrites.
-- Recursively scan graph payloads and receipts for mechanics bodies.
-- Verify no application import reaches into `world_supergraph.storage` or contribution-store internals when a public Kernel API owns the operation.
+- Seed duplicate operation IDs and ensure no revision is selected.
+- Fail every atomic ledger save point.
+- Return typed unpublished result and prove no recovery retry.
+- Fail verification after publication and prove no merge retry.
+- Inspect connect-existing for unintended Threat rewrites.
+- Recursively scan graph/receipt payloads for mechanics bodies.
+- Verify application code uses public Kernel APIs, not storage/contribution-store internals.
 
 ## §16 Stop conditions
 
-Stop and report if:
-
-- actual c1 cannot expose a safe shared lifecycle lock/claim seam;
-- actual c1 proposal lacks exact contribution/assertion/effect identity required for verification;
-- actual c2a cannot recover immutable revisions independent of head;
-- complete recovery requires selecting one of multiple matches;
-- contribution reconstruction requires mutable draft/mechanics/current-head data;
-- safe commit requires changes to Kernel write/CAS semantics;
-- exact verification requires application imports of storage internals rather than public Kernel APIs;
-- any committed outcome cannot be persisted without becoming retryable;
-- a production path outside the amended allowlist is required;
-- UI, Hermes, placement, combat, or generic publication is pulled into scope;
-- an unwaived owning-boundary regression appears.
+Stop if actual c1 cannot expose a safe shared lifecycle lock; c1 lacks exact effect identity needed for verification; c2a cannot recover independent of head; recovery requires choosing among multiple matches; contribution reconstruction requires mutable state; safe commit requires Kernel write/CAS changes; exact verification requires storage-internal application imports; any committed outcome can become retryable; a production path outside amended allowlist is required; later UI/Hermes/placement/combat/generic publication enters scope; or an unwaived owning-boundary regression appears.
