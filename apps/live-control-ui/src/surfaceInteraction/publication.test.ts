@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { validateSurfaceInteractionPublication } from "./publication";
-import { sameSurfaceInteractionIdentity } from "./surfaceIdentity";
+import {
+  SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS,
+  validateSurfaceInteractionPublication,
+} from "./publication";
+import { buildSurfaceInteractionIdentity } from "./surfaceIdentity";
 import type {
   SurfaceInteractionAvailability,
   SurfaceInteractionEditCommandContribution,
@@ -93,8 +96,9 @@ function deepFreeze<T>(value: T): T {
 
 describe("validateSurfaceInteractionPublication — valid publications", () => {
   it("accepts an empty publication with nullable canvas and agent context", () => {
-    const result = validateSurfaceInteractionPublication(makePublication());
-    expect(result).toEqual({ valid: true, publication: expect.any(Object) });
+    const publication = makePublication();
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(result).toEqual({ valid: true, publication });
   });
 
   it("accepts a fully coherent populated publication without cloning away identity", () => {
@@ -124,8 +128,10 @@ describe("validateSurfaceInteractionPublication — valid publications", () => {
     const result = validateSurfaceInteractionPublication(publication);
 
     expect(result.valid).toBe(true);
-    expect(result.publication).toBe(publication);
-    expect(result.publication.projectionBindings[0]?.value).toBe(bindingValue);
+    if (result.valid) {
+      expect(result.publication).toBe(publication);
+      expect(result.publication.projectionBindings[0]?.value).toBe(bindingValue);
+    }
     expect(invoke).not.toHaveBeenCalled();
   });
 
@@ -134,7 +140,110 @@ describe("validateSurfaceInteractionPublication — valid publications", () => {
     const second = makePublication({ label: "Renamed Plan" });
     expect(validateSurfaceInteractionPublication(first).valid).toBe(true);
     expect(validateSurfaceInteractionPublication(second).valid).toBe(true);
-    expect(sameSurfaceInteractionIdentity(first.identity, second.identity)).toBe(true);
+    expect(buildSurfaceInteractionIdentity({
+      surfaceId: "plan",
+      instanceParts: ["plan", "doc-1"],
+    }).instanceKey).toBe(first.identity.instanceKey);
+    expect(sameIdentity(first, second)).toBe(true);
+  });
+});
+
+function sameIdentity(a: SurfaceInteractionPublication, b: SurfaceInteractionPublication): boolean {
+  return a.identity.surfaceId === b.identity.surfaceId && a.identity.instanceKey === b.identity.instanceKey;
+}
+
+describe("validateSurfaceInteractionPublication — V13 untyped shape matrix", () => {
+  const junkInputs: unknown[] = [
+    "not-a-publication",
+    null,
+    undefined,
+    [],
+    42,
+  ];
+
+  it.each(junkInputs)("rejects %p with publication_shape_invalid without throwing", (junk) => {
+    expect(() => validateSurfaceInteractionPublication(junk)).not.toThrow();
+    const result = validateSurfaceInteractionPublication(junk);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.publication).toBe(junk);
+      expect(codesOf(result)).toEqual(["publication_shape_invalid"]);
+    }
+  });
+
+  it("rejects tools: {} as publication_shape_invalid — never coerces to empty array", () => {
+    const junk = makePublication({ tools: {} as unknown as SurfaceInteractionToolContribution[] });
+    expect(() => validateSurfaceInteractionPublication(junk)).not.toThrow();
+    const result = validateSurfaceInteractionPublication(junk);
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toContain("publication_shape_invalid");
+  });
+
+  it("accepts an empty tools array on an otherwise valid publication", () => {
+    const publication = makePublication({ tools: [] });
+    expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
+  });
+
+  it("rejects each non-array collection independently", () => {
+    for (const field of ["editCommands", "projections", "projectionBindings"] as const) {
+      const junk = makePublication({ [field]: {} as never });
+      const result = validateSurfaceInteractionPublication(junk);
+      expect(result.valid).toBe(false);
+      expect(codesOf(result)).toContain("publication_shape_invalid");
+    }
+  });
+
+  it("rejects non-object collection entries and missing nested objects", () => {
+    const publication = makePublication({
+      tools: [null as unknown as SurfaceInteractionToolContribution, makeTool("ok")],
+      editCommands: [
+        {
+          id: "e1",
+          label: "Edit",
+          placement: makePlacement(),
+          availability: ENABLED,
+          target: null,
+          invoke: () => {},
+        } as unknown as SurfaceInteractionEditCommandContribution,
+      ],
+      projections: [makeProjection("p1", { bindingIds: "not-array" as unknown as string[] })],
+      projectionBindings: ["string-entry" as unknown as SurfaceInteractionProjectionBinding],
+      canvas: { canvasId: "c1", workObject: null as unknown as { kind: string; id: string } },
+      agentContext: {
+        label: "Ctx",
+        campaignId: null,
+        documentId: null,
+        sessionNumber: null,
+        ambientSummary: null,
+        pointers: [null as unknown as { kind: string; value: string }],
+      },
+      identity: null as unknown as SurfaceInteractionPublication["identity"],
+    });
+
+    expect(() => validateSurfaceInteractionPublication(publication)).not.toThrow();
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(result.valid).toBe(false);
+    expect(codesOf(result).every((code) => code === "contribution_shape_invalid")).toBe(true);
+    expect(codesOf(result).length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("accumulates field issues for shape-valid entries alongside shape-invalid ones", () => {
+    const publication = makePublication({
+      tools: [
+        null as unknown as SurfaceInteractionToolContribution,
+        makeTool("good-tool"),
+        makeTool("", { label: "" }),
+      ],
+    });
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(
+      expect.arrayContaining([
+        "contribution_shape_invalid",
+        "contribution_id_blank",
+        "contribution_label_blank",
+      ]),
+    );
   });
 });
 
@@ -150,23 +259,61 @@ describe("validateSurfaceInteractionPublication — identity and publication sha
     const result = validateSurfaceInteractionPublication(publication);
 
     expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.publication).toBe(publication);
     expect(codesOf(result)).toContain("identity_surface_mismatch");
     expect(invoke).not.toHaveBeenCalled();
   });
 
   it("reports blank surface ID, blank instance key, and blank publication label", () => {
-    const result = validateSurfaceInteractionPublication(
-      makePublication({
-        surfaceId: "  ",
-        label: "",
-        identity: { surfaceId: "  ", instanceKey: "" },
-      }),
-    );
+    const publication = makePublication({
+      surfaceId: "  ",
+      label: "",
+      identity: { surfaceId: "  ", instanceKey: "" },
+    });
+    const result = validateSurfaceInteractionPublication(publication);
 
     expect(result.valid).toBe(false);
     expect(codesOf(result)).toEqual(
       expect.arrayContaining(["surface_id_blank", "instance_key_blank", "publication_label_blank"]),
     );
+  });
+
+  it("accumulates publication-field issues independently of malformed collections", () => {
+    const publication = makePublication({
+      tools: {} as unknown as SurfaceInteractionToolContribution[],
+      surfaceId: "build",
+      identity: { surfaceId: "plan", instanceKey: '["plan","doc-1"]' },
+      label: "",
+    });
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(
+      expect.arrayContaining([
+        "publication_shape_invalid",
+        "identity_surface_mismatch",
+        "publication_label_blank",
+      ]),
+    );
+  });
+});
+
+describe("validateSurfaceInteractionPublication — contribution_label_blank", () => {
+  it("rejects blank Tool labels (empty and whitespace-only)", () => {
+    for (const label of ["", "   "]) {
+      const result = validateSurfaceInteractionPublication(
+        makePublication({ tools: [makeTool("t1", { label })] }),
+      );
+      expect(codesOf(result)).toEqual(["contribution_label_blank"]);
+    }
+  });
+
+  it("rejects blank Edit command labels (empty and whitespace-only)", () => {
+    for (const label of ["", "  \t"]) {
+      const result = validateSurfaceInteractionPublication(
+        makePublication({ editCommands: [makeEditCommand("e1", { label })] }),
+      );
+      expect(codesOf(result)).toEqual(["contribution_label_blank"]);
+    }
   });
 });
 
@@ -278,6 +425,205 @@ describe("validateSurfaceInteractionPublication — availability and placement",
       }),
     );
     expect(result.valid).toBe(true);
+  });
+});
+
+describe("validateSurfaceInteractionPublication — placement_group_conflict", () => {
+  it("rejects same groupId with different label across Tool and Edit (Tool canonical)", () => {
+    const publication = makePublication({
+      tools: [
+        makeTool("a", {
+          placement: makePlacement({ groupId: "graph", groupLabel: "Graph", groupOrder: 1, itemOrder: 0 }),
+        }),
+      ],
+      editCommands: [
+        makeEditCommand("b", {
+          placement: makePlacement({ groupId: "graph", groupLabel: "World", groupOrder: 7, itemOrder: 0 }),
+        }),
+      ],
+    });
+
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["placement_group_conflict"]);
+    if (!result.valid) {
+      expect(result.issues[0]).toMatchObject({
+        contributionId: "b",
+        referencedId: "graph",
+      });
+      expect(result.issues[0]?.message).toContain("a");
+    }
+  });
+
+  it("rejects same groupId with different order between two Tools", () => {
+    const publication = makePublication({
+      tools: [
+        makeTool("first", {
+          placement: makePlacement({ groupId: "g", groupLabel: "Group", groupOrder: 1, itemOrder: 0 }),
+        }),
+        makeTool("second", {
+          placement: makePlacement({ groupId: "g", groupLabel: "Group", groupOrder: 2, itemOrder: 1 }),
+        }),
+      ],
+    });
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(codesOf(result)).toEqual(["placement_group_conflict"]);
+    if (!result.valid) {
+      expect(result.issues[0]).toMatchObject({ contributionId: "second", referencedId: "g" });
+    }
+  });
+
+  it("produces two issues when two later entries conflict with the canonical declaration", () => {
+    const publication = makePublication({
+      tools: [
+        makeTool("canonical", {
+          placement: makePlacement({ groupId: "g", groupLabel: "G", groupOrder: 0, itemOrder: 0 }),
+        }),
+        makeTool("conflict-label", {
+          placement: makePlacement({ groupId: "g", groupLabel: "Other", groupOrder: 0, itemOrder: 1 }),
+        }),
+        makeTool("conflict-order", {
+          placement: makePlacement({ groupId: "g", groupLabel: "G", groupOrder: 9, itemOrder: 2 }),
+        }),
+      ],
+    });
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(codesOf(result)).toEqual(["placement_group_conflict", "placement_group_conflict"]);
+  });
+
+  it("never conflicts on null or blank groupId", () => {
+    const publication = makePublication({
+      tools: [
+        makeTool("t1", { placement: makePlacement({ groupId: null, groupLabel: null }) }),
+        makeTool("t2", { placement: makePlacement({ groupId: null, groupLabel: null }) }),
+      ],
+    });
+    expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
+  });
+
+  it("does not produce group conflict for blank groupId even when labels differ", () => {
+    const publication = makePublication({
+      tools: [
+        makeTool("t1", { placement: makePlacement({ groupId: "  ", groupLabel: "A" }) }),
+        makeTool("t2", { placement: makePlacement({ groupId: "  ", groupLabel: "B" }) }),
+      ],
+    });
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["placement_invalid", "placement_invalid"]);
+    expect(codesOf(result)).not.toContain("placement_group_conflict");
+  });
+
+  it("does not participate entries with placement field failures in group conflict", () => {
+    const publication = makePublication({
+      tools: [
+        makeTool("bad", { placement: makePlacement({ groupId: "g", groupLabel: null }) }),
+        makeTool("also-bad", { placement: makePlacement({ groupId: "g", groupLabel: null, itemOrder: 1 }) }),
+      ],
+    });
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(codesOf(result)).toEqual(["placement_invalid", "placement_invalid"]);
+    expect(codesOf(result)).not.toContain("placement_group_conflict");
+  });
+});
+
+describe("validateSurfaceInteractionPublication — agent_context_bounds_exceeded", () => {
+  function agentContext(overrides: Partial<NonNullable<SurfaceInteractionPublication["agentContext"]>> = {}) {
+    return {
+      label: "Context",
+      campaignId: null,
+      documentId: null,
+      sessionNumber: null,
+      ambientSummary: null,
+      pointers: [],
+      ...overrides,
+    };
+  }
+
+  it("rejects ambientSummary exceeding 500 characters", () => {
+    const summary = "x".repeat(SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.ambientSummaryMaxChars + 1);
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ agentContext: agentContext({ ambientSummary: summary }) }),
+    );
+    expect(codesOf(result)).toEqual(["agent_context_bounds_exceeded"]);
+    if (!result.valid) {
+      expect(result.issues[0]?.message).toContain("500");
+    }
+  });
+
+  it("accepts ambientSummary at exactly 500 characters", () => {
+    const summary = "x".repeat(SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.ambientSummaryMaxChars);
+    expect(
+      validateSurfaceInteractionPublication(
+        makePublication({ agentContext: agentContext({ ambientSummary: summary }) }),
+      ).valid,
+    ).toBe(true);
+  });
+
+  it("rejects more than 16 pointers", () => {
+    const pointers = Array.from({ length: SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointersMaxEntries + 1 }, (_, i) => ({
+      kind: "k",
+      value: `v${i}`,
+    }));
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ agentContext: agentContext({ pointers }) }),
+    );
+    expect(codesOf(result)).toEqual(["agent_context_bounds_exceeded"]);
+    if (!result.valid) {
+      expect(result.issues[0]?.message).toContain("16");
+    }
+  });
+
+  it("accepts exactly 16 pointers", () => {
+    const pointers = Array.from({ length: SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointersMaxEntries }, (_, i) => ({
+      kind: "k",
+      value: `v${i}`,
+    }));
+    expect(
+      validateSurfaceInteractionPublication(
+        makePublication({ agentContext: agentContext({ pointers }) }),
+      ).valid,
+    ).toBe(true);
+  });
+
+  it("rejects pointer kind exceeding 64 characters", () => {
+    const kind = "k".repeat(SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointerKindMaxChars + 1);
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ agentContext: agentContext({ pointers: [{ kind, value: "v" }] }) }),
+    );
+    expect(codesOf(result)).toEqual(["agent_context_bounds_exceeded"]);
+    if (!result.valid) {
+      expect(result.issues[0]?.message).toContain("64");
+    }
+  });
+
+  it("accepts pointer kind at exactly 64 characters", () => {
+    const kind = "k".repeat(SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointerKindMaxChars);
+    expect(
+      validateSurfaceInteractionPublication(
+        makePublication({ agentContext: agentContext({ pointers: [{ kind, value: "v" }] }) }),
+      ).valid,
+    ).toBe(true);
+  });
+
+  it("rejects pointer value exceeding 256 characters", () => {
+    const value = "v".repeat(SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointerValueMaxChars + 1);
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ agentContext: agentContext({ pointers: [{ kind: "k", value }] }) }),
+    );
+    expect(codesOf(result)).toEqual(["agent_context_bounds_exceeded"]);
+    if (!result.valid) {
+      expect(result.issues[0]?.message).toContain("256");
+    }
+  });
+
+  it("accepts pointer value at exactly 256 characters", () => {
+    const value = "v".repeat(SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointerValueMaxChars);
+    expect(
+      validateSurfaceInteractionPublication(
+        makePublication({ agentContext: agentContext({ pointers: [{ kind: "k", value }] }) }),
+      ).valid,
+    ).toBe(true);
   });
 });
 
@@ -421,6 +767,69 @@ describe("validateSurfaceInteractionPublication — canvas, agent context, edit 
     expect(codesOf(result)).toEqual(["agent_context_invalid", "agent_pointer_invalid"]);
   });
 
+  it("accumulates agent-context field and bounds issues when one pointer entry is shape-invalid", () => {
+    const summary = "x".repeat(SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.ambientSummaryMaxChars + 1);
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        agentContext: {
+          label: " ",
+          campaignId: null,
+          documentId: null,
+          sessionNumber: null,
+          ambientSummary: summary,
+          pointers: [null as unknown as { kind: string; value: string }],
+        },
+      }),
+    );
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(
+      expect.arrayContaining([
+        "contribution_shape_invalid",
+        "agent_context_invalid",
+        "agent_context_bounds_exceeded",
+      ]),
+    );
+  });
+
+  it("reports agent_pointer_invalid at the original pointers-array index", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        agentContext: {
+          label: "Context",
+          campaignId: null,
+          documentId: null,
+          sessionNumber: null,
+          ambientSummary: null,
+          pointers: [
+            null as unknown as { kind: string; value: string },
+            { kind: "", value: "v" },
+          ],
+        },
+      }),
+    );
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid", "agent_pointer_invalid"]);
+    if (!result.valid) {
+      const pointerIssue = result.issues.find((issue) => issue.code === "agent_pointer_invalid");
+      expect(pointerIssue).toMatchObject({ contributionIndex: 1 });
+      const shapeIssue = result.issues.find((issue) => issue.code === "contribution_shape_invalid");
+      expect(shapeIssue).toMatchObject({ contributionIndex: 0 });
+    }
+  });
+
+  it("rejects agent context missing the sessionNumber key", () => {
+    const agentContext = {
+      label: "Context",
+      campaignId: null,
+      documentId: null,
+      ambientSummary: null,
+      pointers: [],
+    };
+    const result = validateSurfaceInteractionPublication(makePublication({ agentContext }));
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["agent_context_invalid"]);
+  });
+
   it("accepts a minimal agent context with all-null optional fields", () => {
     const result = validateSurfaceInteractionPublication(
       makePublication({
@@ -503,8 +912,10 @@ describe("validateSurfaceInteractionPublication — purity and determinism", () 
 
     expect(first.valid).toBe(true);
     expect(second).toEqual(first);
-    expect(first.publication).toBe(publication);
-    expect(first.publication.projectionBindings[0]?.value).toBe(bindingValue);
+    if (first.valid) {
+      expect(first.publication).toBe(publication);
+      expect(first.publication.projectionBindings[0]?.value).toBe(bindingValue);
+    }
     expect(invoke).not.toHaveBeenCalled();
   });
 
@@ -566,7 +977,7 @@ describe("validateSurfaceInteractionPublication — whole-publication accumulati
         pointers: [{ kind: "", value: "v" }],
       },
       tools: [
-        makeTool(""),
+        makeTool("", { label: "" }),
         makeTool("t1", {
           placement: makePlacement({ groupId: null, groupLabel: "Tools" }),
           availability: {
@@ -606,14 +1017,15 @@ describe("validateSurfaceInteractionPublication — whole-publication accumulati
       "agent_context_invalid",
       "agent_pointer_invalid",
       "contribution_id_blank",
+      "contribution_label_blank",
       "placement_invalid",
       "enabled_has_disabled_reason",
       "tool_activation_invalid",
-      "duplicate_tool_id",
       "command_target_invalid",
       "edit_command_invoke_invalid",
       "projection_kind_unknown",
       "projection_size_unknown",
+      "duplicate_tool_id",
       "tool_projection_missing",
       "projection_binding_duplicate_reference",
       "projection_binding_missing",

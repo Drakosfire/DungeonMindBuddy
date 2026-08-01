@@ -5,17 +5,17 @@ import { describe, expect, it } from "vitest";
 const ROOT = __dirname;
 
 /**
- * Substrings that must never appear in neutral production sources (handoff V9).
- * Tests may inspect predecessor shapes; production code may not import them.
+ * Import/export specifiers that must never appear in neutral production sources
+ * (handoff V9). Tests may inspect predecessor shapes; production code may not
+ * import them. Anchored on import/export specifiers only — neutral naming,
+ * comments, and doc text are not constrained.
  */
 const FORBIDDEN_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
-  { name: "planSurface reference", pattern: /\bplanSurface\b/ },
-  { name: "buildSurface reference", pattern: /\bbuildSurface\b/ },
-  { name: "ingestSurface reference", pattern: /\bingestSurface\b/ },
-  { name: "AgentInteractionProvider reference", pattern: /\bAgentInteractionProvider\b/ },
-  { name: "AppChrome reference", pattern: /\bAppChrome\b/ },
-  { name: "markdownCanvas reference", pattern: /\bmarkdownCanvas\b/ },
-  { name: "graphReference reference", pattern: /\bgraphReference\b/ },
+  {
+    name: "domain module import",
+    pattern:
+      /\b(from|import)\b\s*\(?\s*['"][^'"]*(planSurface|buildSurface|ingestSurface|agentInteraction|chrome|markdownCanvas|graphReference)/,
+  },
   { name: "ReactNode", pattern: /\bReactNode\b/ },
   { name: "react import", pattern: /from\s+["']react(\/[^"']*)?["']/ },
   { name: ".tsx import specifier", pattern: /\.tsx["']/ },

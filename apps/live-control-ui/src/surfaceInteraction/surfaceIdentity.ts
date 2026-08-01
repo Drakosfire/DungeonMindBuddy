@@ -42,7 +42,7 @@ export function encodeSurfaceInteractionInstanceKey(
  * campaign-, document-, or session-specific field names; domain helpers remain
  * outside this package until an authorized compatibility slice.
  */
-export function createSurfaceInteractionIdentity(options: {
+export function buildSurfaceInteractionIdentity(options: {
   surfaceId: string;
   instanceParts: readonly SurfaceInteractionInstancePart[];
 }): SurfaceInteractionIdentity {

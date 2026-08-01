@@ -89,12 +89,12 @@ export interface SurfaceInteractionProjectionDescriptor {
   bindingIds: readonly string[];
 }
 
-export interface SurfaceInteractionProjectionBinding<TBinding = unknown> {
+export interface SurfaceInteractionProjectionBinding {
   id: string;
-  value: TBinding;
+  value: unknown;
 }
 
-export interface SurfaceInteractionPublication<TBinding = unknown> {
+export interface SurfaceInteractionPublication {
   surfaceId: string;
   label: string;
   identity: SurfaceInteractionIdentity;
@@ -103,41 +103,44 @@ export interface SurfaceInteractionPublication<TBinding = unknown> {
   tools: readonly SurfaceInteractionToolContribution[];
   editCommands: readonly SurfaceInteractionEditCommandContribution[];
   projections: readonly SurfaceInteractionProjectionDescriptor[];
-  projectionBindings: readonly SurfaceInteractionProjectionBinding<TBinding>[];
+  projectionBindings: readonly SurfaceInteractionProjectionBinding[];
 }
 
 /**
- * Stable issue codes. The twenty codes required by the handoff §6.3 table are
- * listed first, in table order. The final four implement the §6.5/§6.6 runtime
- * rejection requirements for untyped input (activation discriminant, callback
- * presence, unknown projection kind/size) and are an intentional, documented
- * extension of the required set.
+ * Stable issue codes. The §6.3 table is the complete public vocabulary — all
+ * 29 codes, in table order. Adding, renaming, or removing a code requires
+ * amending the handoff; implementations must not invent extension codes.
  */
 export type SurfaceInteractionValidationIssueCode =
+  | "publication_shape_invalid"
+  | "contribution_shape_invalid"
   | "surface_id_blank"
   | "instance_key_blank"
   | "identity_surface_mismatch"
   | "publication_label_blank"
   | "contribution_id_blank"
+  | "contribution_label_blank"
   | "duplicate_tool_id"
   | "duplicate_edit_command_id"
   | "duplicate_projection_id"
   | "duplicate_projection_binding_id"
   | "placement_invalid"
+  | "placement_group_conflict"
   | "disabled_reason_missing"
   | "enabled_has_disabled_reason"
+  | "tool_activation_invalid"
+  | "edit_command_invoke_invalid"
   | "tool_projection_missing"
   | "tool_projection_kind_mismatch"
+  | "projection_kind_unknown"
+  | "projection_size_unknown"
   | "projection_binding_missing"
   | "projection_binding_duplicate_reference"
   | "canvas_identity_invalid"
   | "command_target_invalid"
   | "agent_context_invalid"
   | "agent_pointer_invalid"
-  | "tool_activation_invalid"
-  | "edit_command_invoke_invalid"
-  | "projection_kind_unknown"
-  | "projection_size_unknown";
+  | "agent_context_bounds_exceeded";
 
 export interface SurfaceInteractionValidationIssue {
   code: SurfaceInteractionValidationIssueCode;
@@ -151,10 +154,10 @@ export interface SurfaceInteractionValidationIssue {
   referencedId?: string;
 }
 
-export type SurfaceInteractionValidationResult<TBinding = unknown> =
-  | { valid: true; publication: SurfaceInteractionPublication<TBinding> }
+export type SurfaceInteractionValidationResult =
+  | { valid: true; publication: SurfaceInteractionPublication }
   | {
       valid: false;
-      publication: SurfaceInteractionPublication<TBinding>;
+      publication: unknown;
       issues: readonly SurfaceInteractionValidationIssue[];
     };

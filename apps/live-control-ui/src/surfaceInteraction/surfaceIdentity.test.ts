@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createSurfaceInteractionIdentity,
+  buildSurfaceInteractionIdentity,
   encodeSurfaceInteractionInstanceKey,
   sameSurfaceInteractionIdentity,
 } from "./surfaceIdentity";
@@ -53,9 +53,9 @@ describe("encodeSurfaceInteractionInstanceKey", () => {
   });
 });
 
-describe("createSurfaceInteractionIdentity", () => {
+describe("buildSurfaceInteractionIdentity", () => {
   it("combines the exact surface ID with the encoded instance parts", () => {
-    const identity = createSurfaceInteractionIdentity({
+    const identity = buildSurfaceInteractionIdentity({
       surfaceId: "plan",
       instanceParts: ["plan", "doc-1", 3],
     });
@@ -66,7 +66,7 @@ describe("createSurfaceInteractionIdentity", () => {
   });
 
   it("carries no label or domain-specific fields", () => {
-    const identity = createSurfaceInteractionIdentity({
+    const identity = buildSurfaceInteractionIdentity({
       surfaceId: "build",
       instanceParts: ["build", null],
     });
@@ -75,7 +75,7 @@ describe("createSurfaceInteractionIdentity", () => {
 });
 
 describe("sameSurfaceInteractionIdentity", () => {
-  const identity = createSurfaceInteractionIdentity({
+  const identity = buildSurfaceInteractionIdentity({
     surfaceId: "plan",
     instanceParts: ["plan", "doc-1"],
   });
@@ -88,7 +88,7 @@ describe("sameSurfaceInteractionIdentity", () => {
   });
 
   it("returns true only for exact surfaceId and instanceKey matches", () => {
-    const same = createSurfaceInteractionIdentity({
+    const same = buildSurfaceInteractionIdentity({
       surfaceId: "plan",
       instanceParts: ["plan", "doc-1"],
     });

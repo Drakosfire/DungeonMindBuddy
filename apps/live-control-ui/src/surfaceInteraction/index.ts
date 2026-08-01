@@ -30,9 +30,12 @@ export type {
 } from "./types";
 
 export {
-  createSurfaceInteractionIdentity,
+  buildSurfaceInteractionIdentity,
   encodeSurfaceInteractionInstanceKey,
   sameSurfaceInteractionIdentity,
 } from "./surfaceIdentity";
 
-export { validateSurfaceInteractionPublication } from "./publication";
+export {
+  SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS,
+  validateSurfaceInteractionPublication,
+} from "./publication";
