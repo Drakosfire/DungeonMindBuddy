@@ -6,6 +6,6 @@ Observed / exploratory regression cohort only. Authored in the same commit as th
 
 Row 11 (`reached_fortifications` / fires lit) is also proposition-defective under the proposition-first rule: the assertion is a clear arrival event; surrounding plan-success consequences do not create a second temporal reading. That defect is retained for historical honesty and is **not** corrected here.
 
-Independent promotion authority moves to **holdout V9**.
+Independent promotion authority moves to **holdout V10** (V9 also retired).
 
 See `GOLD-AUDIT.md` for the sealed row table. Do not mutate after the original execution seal.

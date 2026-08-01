@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v10/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v10/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:b1032ae92c80e8a6",
+    "assertion:7bb98055a894cfe1",
+    "assertion:59c034b2884f4b64",
+    "assertion:0296f5bee498e7ee",
+    "assertion:1afbc930bb497328",
+    "assertion:5b61a772b50e37f7",
+    "assertion:25855c24db471810",
+    "assertion:9a891f57fd6f4649",
+    "assertion:1f40f6a3f97f3904",
+    "assertion:1312c2e8676ea1e3",
+    "assertion:8d106dfb3664e9d2",
+    "assertion:3cd2267165a887e5"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s2-monk-out",
+      "source_artifact_id": "source-artifact:v10-s2-monk-out",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+      "content_sha256": "8a4080ac953780c13b30f5613907fb55c9fd4a1f891aa093fd9d3f245ebbca56",
+      "source_ref_id": "source-ref:v10-s2-monk-out",
+      "start_line": 28,
+      "end_line": 28,
+      "label": "Session 2 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s22-mireward-arrival",
+      "source_artifact_id": "source-artifact:v10-s22-mireward-arrival",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "source_ref_id": "source-ref:v10-s22-mireward-arrival",
+      "start_line": 32,
+      "end_line": 32,
+      "label": "Session 22 - Mireward Road and Lysandro.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s3-guest-judge",
+      "source_artifact_id": "source-artifact:v10-s3-guest-judge",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+      "content_sha256": "7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec",
+      "source_ref_id": "source-ref:v10-s3-guest-judge",
+      "start_line": 22,
+      "end_line": 22,
+      "label": "Bonogo added as guest bake-off judge"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s9-winna-all-night",
+      "source_artifact_id": "source-artifact:v10-s9-winna-all-night",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md",
+      "content_sha256": "49ef13907bd8dff0d320fae33f88caec80bef842cd99f5412df9cb687321179a",
+      "source_ref_id": "source-ref:v10-s9-winna-all-night",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Winna up all night"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s15-festival-postponed",
+      "source_artifact_id": "source-artifact:v10-s15-festival-postponed",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:v10-s15-festival-postponed",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:lysandra-history-delwen",
+      "source_artifact_id": "source-artifact:v10-lysandra-history-delwen",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/lysandra_ironveil_mireward_history.md",
+      "content_sha256": "d2d312fa500c99be7d2d08ff9fb105e5e4bbf9a0e37a370b607eacc760978035",
+      "source_ref_id": "source-ref:v10-lysandra-history-delwen",
+      "start_line": 106,
+      "end_line": 106,
+      "label": "lysandra_ironveil_mireward_history.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s10-hole-still",
+      "source_artifact_id": "source-artifact:v10-s10-hole-still",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+      "content_sha256": "8482ee1639ec1156689e0339ff40626ac3da9c50b71d165a656250c45e1e3e7d",
+      "source_ref_id": "source-ref:v10-s10-hole-still",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 10 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s1-fossil-fake",
+      "source_artifact_id": "source-artifact:v10-s1-fossil-fake",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+      "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+      "source_ref_id": "source-ref:v10-s1-fossil-fake",
+      "start_line": 17,
+      "end_line": 17,
+      "label": "Session 1 - Let the Games Begin.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s21-mission-decision",
+      "source_artifact_id": "source-artifact:v10-s21-mission-decision",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "content_sha256": "ad4ecd013dad92cdcb1a11d412c9f73adb446b15f2ce62cfc50a98358588423f",
+      "source_ref_id": "source-ref:v10-s21-mission-decision",
+      "start_line": 24,
+      "end_line": 24,
+      "label": "Session 21 - Drake Nest Mirathorn Call.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s2-dustwalker-plan",
+      "source_artifact_id": "source-artifact:v10-s2-dustwalker-plan",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+      "content_sha256": "8a4080ac953780c13b30f5613907fb55c9fd4a1f891aa093fd9d3f245ebbca56",
+      "source_ref_id": "source-ref:v10-s2-dustwalker-plan",
+      "start_line": 44,
+      "end_line": 44,
+      "label": "Session 2 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s15-migration-ambiguous",
+      "source_artifact_id": "source-artifact:v10-s15-migration-ambiguous",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:v10-s15-migration-ambiguous",
+      "start_line": 26,
+      "end_line": 26,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v10:s10-hooded-watcher",
+      "source_artifact_id": "source-artifact:v10-s10-hooded-watcher",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+      "content_sha256": "8482ee1639ec1156689e0339ff40626ac3da9c50b71d165a656250c45e1e3e7d",
+      "source_ref_id": "source-ref:v10-s10-hooded-watcher",
+      "start_line": 22,
+      "end_line": 22,
+      "label": "Session 10 - Recap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "fb9df48129eddb3b664e20c7d93479ff7a92a1c115244d98607917dece48e298",
+  "gold_overlay_sha256": "838e4cee3915086d5cccbd5078b2339209dcf9982c1062a7925300314c3fb52f",
+  "case_id": "tl01g-temporal-shadow-holdout-v10-v1",
+  "prompt_version": "tl01g-v1"
+}

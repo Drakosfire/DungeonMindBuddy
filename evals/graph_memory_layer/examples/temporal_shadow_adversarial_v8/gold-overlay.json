@@ -1,0 +1,230 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:33186363c33d33e1",
+  "base_contribution_id": "contribution:9a5e2a5b3c358efd",
+  "base_contribution_source_payload_sha256": "539ede329d31eca759eff7183e784dd4755e74a1e40805dfad05abffd55d07ba",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-adversarial-v8",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:a800000000000001",
+      "base_assertion_id": "assertion:54abc8ee0063987b",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "opens tomorrow",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:future-with-tomorrow"
+      ],
+      "source_phrase": "confirms the Emberleaf Index opens tomorrow when the Cinder Compact bell rings",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000002",
+      "base_assertion_id": "assertion:8dcf5c7d478a2612",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:future-promise-unresolved"
+      ],
+      "source_phrase": "pledges the Stormglass Causeway vault will reopen once Rookhaven is secure again",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000003",
+      "base_assertion_id": "assertion:1f441d9524c742ec",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:eventive-on-state"
+      ],
+      "source_phrase": "Merridan remains quartermaster of the Cinder Compact",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000004",
+      "base_assertion_id": "assertion:014ea4f4c1f7fc2a",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:stative-on-event"
+      ],
+      "source_phrase": "After the Stormglass Causeway beacon topples, Calyx Thorne secures the Emberleaf Index ledger",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000005",
+      "base_assertion_id": "assertion:1463a94a4bbb16d9",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has been sealed for no more than a fortnight",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:valid-start-textual"
+      ],
+      "source_phrase": "The Emberleaf Index has been sealed for no more than a fortnight",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000006",
+      "base_assertion_id": "assertion:ba1dfafca14abf82",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-11",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:valid-end"
+      ],
+      "source_phrase": "Merridan no longer keeps the Cinder Compact keys",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000007",
+      "base_assertion_id": "assertion:2be86ce1954e91ce",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:still-remains"
+      ],
+      "source_phrase": "Calyx Thorne still serves Rookhaven",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000008",
+      "base_assertion_id": "assertion:ea3165b10d3c0a33",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:ambiguous-lane"
+      ],
+      "source_phrase": "holds the Emberleaf Index since the quay fire, or maybe he only recovered it then",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings: custody start vs recovery event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000009",
+      "base_assertion_id": "assertion:d3b60b24092b0a35",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "about forty years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:source-diff"
+      ],
+      "source_phrase": "Merridan left the Stormglass Causeway about forty years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event proposition; occurrence lane textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a800000000000010",
+      "base_assertion_id": "assertion:7e167c0ecc5e572d",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:grounding-trap"
+      ],
+      "source_phrase": "claims he opened the Emberleaf Index",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "opening claim lacks grounded temporal value; object NP is not a temporal expression"
+      ]
+    }
+  ]
+}
