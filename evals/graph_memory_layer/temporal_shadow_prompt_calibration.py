@@ -1082,12 +1082,16 @@ def compute_calibration_decision(
         # Phrase grounding misses are prompt/model quality unless spans are unusable
         # (those land in evidence_or_case_failures → BLOCKED_BY_EVIDENCE above).
         notes.append(f"candidate_grounding_failures={total_grounding}")
+        if sum(a.success_count for a in candidate) == 0:
+            notes.append("candidate_comparison_metrics_unobserved")
         return "ITERATE_PROMPT", notes
 
     total_model_output = sum(a.total_model_output_failures for a in candidate)
     if total_model_output > 0:
         # Schema-invalid / target-set noncompliance against a representable contract.
         notes.append(f"candidate_model_output_failures={total_model_output}")
+        if sum(a.success_count for a in candidate) == 0:
+            notes.append("candidate_comparison_metrics_unobserved")
         return "ITERATE_PROMPT", notes
 
     total_wrong_value = sum(a.total_wrong_temporal_value for a in candidate)

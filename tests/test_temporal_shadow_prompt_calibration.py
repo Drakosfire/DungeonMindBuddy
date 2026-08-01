@@ -1309,6 +1309,39 @@ def test_compute_calibration_decision_unobserved_when_all_candidate_runs_fail() 
     assert "candidate_comparison_metrics_unobserved" in diagnostics
 
 
+def test_compute_calibration_decision_unobserved_alongside_grounding_failures() -> None:
+    holdout = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="holdout",
+        run_count=3,
+        success_count=0,
+        failure_count=3,
+        total_grounding_failures=3,
+    )
+    development = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=3,
+        success_count=0,
+        failure_count=3,
+        total_grounding_failures=3,
+    )
+    adversarial = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="adversarial",
+        run_count=3,
+        success_count=0,
+        failure_count=3,
+        total_grounding_failures=3,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[holdout, development, adversarial],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert "candidate_grounding_failures=9" in diagnostics
+    assert "candidate_comparison_metrics_unobserved" in diagnostics
+
+
 def test_historical_tl01c_fake_run_derives_tl01c_candidate_version(
     tmp_path: Path,
 ) -> None:
