@@ -31,7 +31,7 @@ FROZEN_TL01F_PROMPT_SHA256 = (
 )
 # Frozen after TL01G candidate freeze — do NOT recompute from live instructions.
 FROZEN_TL01G_PROMPT_SHA256 = (
-    "60680e1f5f574e76cfa2c9809f1292ef7daa17bab9b4b320d0427440c661b0f9"
+    "3af1e470e304008d2490ba73e1a53628519c211bb54e17a10cd4c694beae9013"
 )
 
 TL01G_RESERVED_VOCABULARY = (
@@ -112,6 +112,8 @@ REQUIRED_PROMPT_PHRASES = (
     "Temporal ambiguity is epistemic, not branch divergence",
     "A statement made during Session N is not evidence that a promised future action happens in Session N",
     "A persistent-state start or end never appears only as occurrence_time",
+    "Surrounding consequences in evidence",
+    "holds or recovered the Ashlock Primers",
     "occurrence_time MUST be null AND valid_time MUST be null",
     "raw_expression must be a verbatim contiguous substring",
 )

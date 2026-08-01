@@ -1338,8 +1338,9 @@ Gate C — Unique-lane proof:
   D. Persistent-state observation or restatement without a new boundary ("X is mayor"; "As mayor, X..."; "X remains captain"; "X is still captain"; "X again serves with the order"; "X belongs to the order"; "X keeps/holds Y" as ongoing state while surrounding prose narrates unrelated motion) → not_applicable; both lanes null.
   E. Non-temporal identity, classification, containment, or structure → not_applicable; both lanes null.
   F. Temporally relevant proposition with one intended reading whose value cannot be resolved safely from owned evidence → unresolved; both lanes null. Future commitments without execution time belong here.
-  G. Proposition with multiple materially plausible temporal readings (for example occurrence versus valid-start) and neither can be safely rejected → ambiguous; both lanes null.
+  G. Proposition with multiple materially plausible temporal readings (for example occurrence versus valid-start) and neither can be safely rejected → ambiguous; both lanes null. The competing readings must be licensed by the assertion proposition itself (label/semantic_value/predicate), not by surrounding evidence events that merely accompany a clear single proposition.
 - For a resolved annotation, exactly one lane must normally be justified. If two materially different lanes or proposition readings remain plausible → ambiguous. Do not choose whichever lane is easiest to populate.
+- Surrounding consequences in evidence (fires lit, vault remaining sealed, messengers racing) do not manufacture a second reading when the assertion proposition is already a single clear event or state.
 - A persistent-state start or end never appears only as occurrence_time.
 
 Gate D — Grounded-value proof:
@@ -1420,8 +1421,8 @@ evidence: "The supply caravan is set to arrive at Brinegate Wharf in four hours.
 → resolved; occurrence_time = textual point with raw_expression including in four hours; valid_time = null; do NOT copy session-18; diagnostics = ["resolution proof complete; occurrence lane"]
 
 Example 6 — competing occurrence versus valid-start readings is ambiguous:
-assertion: Rondel sealed the Ashlock Primers
-evidence: "Rondel sealed the Ashlock Primers; the vault has been sealed from that hour."
+assertion: Rondel holds or recovered the Ashlock Primers at the fire
+evidence: "Rondel has the Ashlock Primers since the fire, or maybe he only recovered them then."
 → ambiguous; occurrence_time = null; valid_time = null; diagnostics = ["competing temporal readings; ambiguous"]
 
 Example 7 — eventive evidence surrounding a stable-state assertion is not_applicable:
