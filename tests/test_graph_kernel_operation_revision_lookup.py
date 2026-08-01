@@ -18,7 +18,7 @@ from graph_memory.union_supergraph.load import (
     parse_union_supergraph_store,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphStore
-from graph_memory.world_supergraph import WorldGraphNotFoundError
+from graph_memory.world_supergraph import WorldGraphIntegrityError, WorldGraphNotFoundError
 from graph_memory.world_supergraph import paths as world_paths
 
 WORLD_ID = "eldyrwild"
@@ -271,6 +271,56 @@ def test_lookup_fails_closed_on_malformed_enumerated_manifest(
     with pytest.raises(json.JSONDecodeError):
         kernel.find_world_graph_revisions_by_operation_id(
             store_root, WORLD_ID, "op:valid"
+        )
+
+
+def test_lookup_fails_closed_on_world_id_identity_mismatch(
+    store_root: Path, fixture_store: UnionSupergraphStore
+) -> None:
+    search_op = "op:identity-tamper-world"
+    published = kernel.publish_world_revision(
+        store_root,
+        WORLD_ID,
+        fixture_store,
+        operation_ids=[search_op],
+    )
+    manifest_path = world_paths.revision_manifest_path(
+        store_root, WORLD_ID, published.revision.revision_id
+    )
+    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert search_op in manifest_data["operation_ids"]
+    manifest_data["world_id"] = "otherworld"
+    manifest_path.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    with pytest.raises(WorldGraphIntegrityError, match="manifest identity mismatch"):
+        kernel.find_world_graph_revisions_by_operation_id(
+            store_root, WORLD_ID, search_op
+        )
+
+
+def test_lookup_fails_closed_on_revision_id_identity_mismatch(
+    store_root: Path, fixture_store: UnionSupergraphStore
+) -> None:
+    search_op = "op:identity-tamper-revision"
+    published = kernel.publish_world_revision(
+        store_root,
+        WORLD_ID,
+        fixture_store,
+        operation_ids=[search_op],
+    )
+    manifest_path = world_paths.revision_manifest_path(
+        store_root, WORLD_ID, published.revision.revision_id
+    )
+    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert search_op in manifest_data["operation_ids"]
+    claimed_revision_id = "rev:0000000000000003"
+    assert claimed_revision_id != published.revision.revision_id
+    manifest_data["revision_id"] = claimed_revision_id
+    manifest_path.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    with pytest.raises(WorldGraphIntegrityError, match="manifest identity mismatch"):
+        kernel.find_world_graph_revisions_by_operation_id(
+            store_root, WORLD_ID, search_op
         )
 
 

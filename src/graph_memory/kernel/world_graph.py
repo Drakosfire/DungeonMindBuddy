@@ -123,6 +123,9 @@ def find_world_graph_revisions_by_operation_id(
     Scans the complete revision store in one enumeration snapshot (independent of
     current head). Results are ordered by ``(created_at, revision_id)``. Performs
     no durable writes.
+
+    Manifests whose embedded ``world_id`` or ``revision_id`` disagree with the store
+    path used to load them fail closed with ``WorldGraphIntegrityError``.
     """
     world_paths.assert_safe_world_id(world_id)
     if not operation_id or not operation_id.strip():
@@ -135,6 +138,13 @@ def find_world_graph_revisions_by_operation_id(
     matches: list[WorldGraphRevision] = []
     for revision_id in revision_ids:
         manifest = load_world_graph_revision_manifest(root, world_id, revision_id)
+        if manifest.world_id != world_id or manifest.revision_id != revision_id:
+            raise WorldGraphIntegrityError(
+                "manifest identity mismatch for "
+                f"world_id={world_id!r} revision_id={revision_id!r}: "
+                f"manifest claims world_id={manifest.world_id!r} "
+                f"revision_id={manifest.revision_id!r}"
+            )
         if operation_id in manifest.operation_ids:
             matches.append(manifest)
 
