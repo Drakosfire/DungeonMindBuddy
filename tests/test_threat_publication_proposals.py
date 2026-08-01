@@ -22,7 +22,10 @@ from apps.live_control_server.models.threat_draft import (
     RulesetRefV1,
     UpdateThreatDraftRequest,
 )
-from apps.live_control_server.models.threat_publication import BeginThreatPublicationOperationRequestV1
+from apps.live_control_server.models.threat_publication import (
+    BeginThreatPublicationOperationRequestV1,
+    CancelThreatPublicationOperationRequestV1,
+)
 from apps.live_control_server.models.threat_publication_identity import MATCHING_PROFILE_V1
 from apps.live_control_server.models.threat_publication_proposal import PrepareThreatPublicationProposalRequestV1
 from apps.live_control_server.services.threat_draft_store import (
@@ -31,13 +34,28 @@ from apps.live_control_server.services.threat_draft_store import (
     create_threat_draft,
     update_threat_draft,
 )
-from apps.live_control_server.services.threat_publication_operations import begin_publication_operation
+from apps.live_control_server.services.threat_publication_operations import (
+    begin_publication_operation,
+    cancel_publication_operation,
+)
+import graph_memory.kernel as kernel
 from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
 from graph_memory.extract_promote_proposal import contribution_slices_from_effect
 from graph_memory.projection.world_projection import WorldGraphProjectionNodeView
 from graph_memory.union_supergraph.load import DEFAULT_FIXTURE_PATH, load_union_supergraph_store
-
+from graph_memory.union_supergraph.statblock_binding import (
+    CONTRACT,
+    CONTRACT_VERSION,
+    PROVIDER,
+    ExternalResourceV1,
+    ThreatStatblockBindingV1,
+    compute_binding_id,
+    edge_id_from_binding_id,
+    external_statblock_node_id,
+)
 from graph_memory.world_supergraph import publish_world_graph_revision
+
+WORLD_ID = "world_1"
 
 DEFAULT_DIGEST = "sha256:" + "a" * 64
 
@@ -292,6 +310,128 @@ def _prepare_request(proposal_id: str | None = None, **overrides: Any):
 def _proposal_ledger_bytes(tmp_path: Path, draft_id: str, operation_id: str) -> bytes:
     path = proposal_svc._ledger_path(tmp_path, draft_id, operation_id)
     return path.read_bytes()
+
+
+def _world_tree_file_snapshot(world_root: Path) -> dict[str, tuple[bytes, int]]:
+    return {
+        path.relative_to(world_root).as_posix(): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in world_root.rglob("*")
+        if path.is_file()
+    }
+
+
+def _incompatible_external_resource_store_node(statblock_id: str = "sb_1"):
+    template = next(iter(load_union_supergraph_store(DEFAULT_FIXTURE_PATH).nodes.values()))
+    wrong_resource = ExternalResourceV1.model_validate(
+        {
+            "schema": "dmb_external_resource_v1",
+            "provider": PROVIDER,
+            "resource_type": "statblock",
+            "resource_id": "sb_w09",
+            "contract": CONTRACT,
+            "contract_version": CONTRACT_VERSION,
+        }
+    )
+    return template.model_copy(
+        update={
+            "node_id": external_statblock_node_id(statblock_id),
+            "label": "Foreign statblock resource",
+            "kind": "external_resource",
+            "role": "statblock",
+            "aliases": [],
+            "source_domains": ["worldbuilding"],
+            "evidence_ref_ids": [],
+            "external_resource": wrong_resource,
+        }
+    )
+
+
+def _incompatible_binding_edge(
+    *,
+    threat_node_id: str,
+    resource_node_id: str,
+    use_deterministic_edge_id: bool,
+    accepted_statblock_id: str = "sb_1",
+):
+    template = next(iter(load_union_supergraph_store(DEFAULT_FIXTURE_PATH).edges.values()))
+    binding = ThreatStatblockBindingV1.model_validate(
+        {
+            "schema": "dmb_threat_statblock_binding_v1",
+            "binding_id": compute_binding_id(
+                threat_node_id=threat_node_id,
+                provider=PROVIDER,
+                statblock_id="sb_w09",
+                revision_id="rev_1",
+                contract=CONTRACT,
+                contract_version=CONTRACT_VERSION,
+                definition_digest=DEFAULT_DIGEST,
+                role="primary",
+                phase_key=None,
+                variant_label=None,
+            ),
+            "provider": PROVIDER,
+            "statblock_id": "sb_w09",
+            "revision_id": "rev_1",
+            "contract": CONTRACT,
+            "contract_version": CONTRACT_VERSION,
+            "definition_digest": DEFAULT_DIGEST,
+            "role": "primary",
+            "phase_key": None,
+            "variant_label": None,
+        }
+    )
+    edge_id = (
+        edge_id_from_binding_id(binding.binding_id)
+        if use_deterministic_edge_id
+        else "edge:incompatible-binding-collision"
+    )
+    return template.model_copy(
+        update={
+            "edge_id": edge_id,
+            "source_node_id": threat_node_id,
+            "target_node_id": resource_node_id,
+            "predicate": "uses_statblock",
+            "label": "uses statblock",
+            "direction": "outbound",
+            "source_domains": ["worldbuilding"],
+            "session_ids": [],
+            "evidence_ref_ids": [],
+            "threat_statblock_binding": binding,
+        }
+    )
+
+
+def _supersede_resolution(
+    tmp_path: Path,
+    draft,
+    op_id: str,
+    parent: str,
+    *,
+    first_resolution_id: str,
+    second_resolution_id: str | None = None,
+):
+    projection = _projection_for(_node("threat:visible", label="Visible"), revision_id=parent)
+    second_id = second_resolution_id or str(uuid.uuid4())
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        prepared = _prepare(tmp_path, draft.draft_id, op_id, query_text="Visible")
+        cs = prepared.response.candidate_set
+        assert cs is not None
+        outcome = _decide(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            resolution_id=second_id,
+            matching_profile=MATCHING_PROFILE_V1,
+            candidate_query=cs.candidate_query,
+            candidate_set_digest=cs.candidate_set_digest,
+            decision="create_new",
+            rejected_candidate_node_ids=_reject_all_collisions(cs),
+            actor="gm",
+            reason="supersede",
+            supersedes_resolution_id=first_resolution_id,
+        )
+    assert outcome.response.result_label == "publication_identity_superseded"
+    return second_id
 
 
 def test_create_new_prepare_seals_and_reloads_exactly(tmp_path: Path, monkeypatch) -> None:
@@ -596,3 +736,204 @@ def test_success_leaves_predecessor_stores_unchanged(tmp_path: Path, monkeypatch
     assert _draft_path(tmp_path, draft.draft_id).read_bytes() == draft_before
     assert pub_svc._ledger_path(tmp_path, draft.draft_id).read_bytes() == pub_before
     assert identity_svc._ledger_path(tmp_path, draft.draft_id, op_id).read_bytes() == identity_before
+
+
+def test_missing_resolution_rejects_without_proposal(tmp_path: Path, monkeypatch) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    missing_resolution_id = str(uuid.uuid4())
+
+    outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        missing_resolution_id,
+        _prepare_request(),
+        world_root=tmp_path / "graph",
+    )
+
+    assert outcome.response.result_label == "publication_proposal_resolution_not_active"
+    assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+
+
+def test_superseded_resolution_rejects_without_proposal(tmp_path: Path, monkeypatch) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    first_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    _supersede_resolution(tmp_path, draft, op_id, parent, first_resolution_id=first_id)
+
+    outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        first_id,
+        _prepare_request(),
+        world_root=tmp_path / "graph",
+    )
+
+    assert outcome.response.result_label == "publication_proposal_resolution_not_active"
+    assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+
+
+def test_cancelled_operation_rejects_without_proposal(tmp_path: Path, monkeypatch) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    cancel_req = CancelThreatPublicationOperationRequestV1(actor="gm", note="cancelled")
+    cancelled = cancel_publication_operation(tmp_path, draft.draft_id, op_id, cancel_req)
+    assert cancelled.response.result_label == "publication_cancelled"
+
+    outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(),
+        world_root=tmp_path / "graph",
+    )
+
+    assert outcome.response.result_label == "publication_proposal_operation_not_ready"
+    assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+
+
+def test_storage_failure_before_replace_leaves_no_partial_proposal(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    draft_before = _draft_path(tmp_path, draft.draft_id).read_bytes()
+    pub_before = pub_svc._ledger_path(tmp_path, draft.draft_id).read_bytes()
+    identity_before = identity_svc._ledger_path(tmp_path, draft.draft_id, op_id).read_bytes()
+    ledger_path = proposal_svc._ledger_path(tmp_path, draft.draft_id, op_id)
+
+    def _raise_on_proposal_ledger_write(path: Path, payload: dict) -> None:
+        if path == ledger_path:
+            raise OSError("simulated storage failure")
+        proposal_svc.write_json(path, payload)
+
+    monkeypatch.setattr(proposal_svc, "write_json", _raise_on_proposal_ledger_write)
+
+    outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(),
+        world_root=tmp_path / "graph",
+    )
+
+    assert outcome.response.result_label == "publication_proposal_storage_unavailable"
+    assert not ledger_path.exists()
+    assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+    assert _draft_path(tmp_path, draft.draft_id).read_bytes() == draft_before
+    assert pub_svc._ledger_path(tmp_path, draft.draft_id).read_bytes() == pub_before
+    assert identity_svc._ledger_path(tmp_path, draft.draft_id, op_id).read_bytes() == identity_before
+
+
+def test_incompatible_external_resource_at_exact_parent_rejects_without_proposal(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    incompatible_node = _incompatible_external_resource_store_node()
+    store = _empty_parent_store().model_copy(
+        update={"nodes": {incompatible_node.node_id: incompatible_node}}
+    )
+
+    with patch.object(
+        proposal_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ):
+        outcome = proposal_svc.prepare_threat_publication_proposal(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            resolution_id,
+            _prepare_request(),
+            world_root=tmp_path / "graph",
+        )
+
+    assert outcome.response.result_label == "publication_proposal_typed_collision"
+    assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+
+
+def test_incompatible_binding_at_exact_parent_rejects_without_proposal(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    assert resolution is not None
+    assert resolution.created_node_id is not None
+    threat_node_id = resolution.created_node_id
+    resource_node_id = external_statblock_node_id("sb_1")
+    incompatible_edge = _incompatible_binding_edge(
+        threat_node_id=threat_node_id,
+        resource_node_id=resource_node_id,
+        use_deterministic_edge_id=False,
+    )
+    store = _empty_parent_store().model_copy(
+        update={"edges": {incompatible_edge.edge_id: incompatible_edge}}
+    )
+
+    with patch.object(
+        proposal_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ):
+        outcome = proposal_svc.prepare_threat_publication_proposal(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            resolution_id,
+            _prepare_request(),
+            world_root=tmp_path / "graph",
+        )
+
+    assert outcome.response.result_label == "publication_proposal_typed_collision"
+    assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+
+
+def test_connect_target_missing_at_exact_parent_rejects_without_proposal(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _connect_resolution(tmp_path, draft, op_id, parent)
+
+    outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(),
+        world_root=tmp_path / "graph",
+    )
+
+    assert outcome.response.result_label == "publication_proposal_typed_collision"
+    assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
+
+
+def test_success_leaves_graph_head_and_revision_bytes_unchanged(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    world_root = tmp_path / "graph"
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    tree_before = _world_tree_file_snapshot(world_root)
+
+    outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(),
+        world_root=world_root,
+    )
+
+    assert outcome.response.result_label == "publication_proposal_ready"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    tree_after = _world_tree_file_snapshot(world_root)
+    assert head_after == head_before
+    assert tree_after == tree_before
