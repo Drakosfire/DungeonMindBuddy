@@ -402,8 +402,7 @@ def _resolved_span_text(entry: dict) -> str:
     lines = path.read_text(encoding="utf-8").splitlines()
     start = int(entry.get("start_line") or 1)
     end = int(entry.get("end_line") or start)
-    chunk = "
-".join(lines[start - 1 : end])
+    chunk = chr(10).join(lines[start - 1 : end])
     return _normalize_span_text(chunk)
 
 

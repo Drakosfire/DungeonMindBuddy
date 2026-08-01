@@ -117,8 +117,8 @@
     }
   ],
   "snippet_max_chars": 2000,
-  "base_contribution_sha256": "63d90ca8174cfc4751aa76540474081714138fa82dae4cbf0ca36b384dacb9f6",
-  "gold_overlay_sha256": "9782edd4d9b6b2489349eff3cd4233eb4842c3aadb09c67ce7f4c83d3641310b",
+  "base_contribution_sha256": "8a32822e3c28e36d485accfed51bb0fbe7f665986d58107d8d3bc27afed184b4",
+  "gold_overlay_sha256": "0179d17ac56ef59bb00fa6066a5d1e17c143da74bbe77f7d58a4ef86cccb7bda",
   "case_id": "tl01g-temporal-shadow-adversarial-v7-v1",
   "prompt_version": "tl01g-v1"
 }
