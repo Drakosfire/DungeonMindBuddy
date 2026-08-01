@@ -1,8 +1,10 @@
 """SBW09b: Threat publication identity-resolution service tests."""
 from __future__ import annotations
 
+import fcntl
 import json
 import threading
+import time
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -27,6 +29,7 @@ from apps.live_control_server.models.threat_draft import (
 )
 from apps.live_control_server.models.threat_publication import (
     BeginThreatPublicationOperationRequestV1,
+    CancelThreatPublicationOperationRequestV1,
     ThreatPublicationOperationResponseV1,
 )
 from apps.live_control_server.models.threat_publication_identity import (
@@ -280,6 +283,7 @@ def test_prepare_refreshes_and_rejects_stale_publication_operation(
         outcome = _prepare(tmp_path, draft.draft_id, op_id)
     assert outcome.response.result_label == "publication_identity_operation_not_ready"
     assert outcome.response.candidate_set is None
+    assert outcome.response.predecessor_usable is False
     assert identity_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
 
 
@@ -451,7 +455,7 @@ def test_create_new_checks_global_exact_revision_for_hidden_node_collision(
         )
         with patch.object(
             identity_svc.kernel,
-            "load_world_graph_revision",
+            "load_world_graph_revision_with_integrity",
             return_value=exact_store,
         ) as load_revision:
             outcome = identity_svc.decide_identity_resolution(
@@ -1341,7 +1345,7 @@ def test_read_preserves_historical_resolution_for_stale_predecessor(
     assert outcome.response.result_label == "publication_identity_refused"
     assert outcome.response.resolution is not None
     assert outcome.response.predecessor_state == "stale"
-    assert outcome.response.predecessor_usable is None
+    assert outcome.response.predecessor_usable is False
 
 
 def test_read_rejects_tampered_created_node_id_when_predecessor_available(
@@ -1418,6 +1422,155 @@ def test_exact_replay_rejects_tampered_created_node_id_before_dependency_reads(
     assert replay.response.result_label == "publication_identity_integrity_failure"
     refresh_mock.assert_not_called()
     project_mock.assert_not_called()
+
+
+def _identity_lock_is_held(root: Path, draft_id: str, operation_id: str) -> bool:
+    lock_path = identity_svc._operation_directory(root, draft_id, operation_id) / ".identity.lock"
+    lock_file = open(lock_path, "a+", encoding="utf-8")
+    try:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        return False
+    finally:
+        lock_file.close()
+
+
+def test_read_holds_identity_lock_through_predecessor_read(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, resolution_id = _persisted_refuse_resolution(tmp_path, monkeypatch)
+    observed: dict[str, bool] = {}
+
+    def capture_predecessor(*args, **kwargs):
+        observed["lock_held"] = _identity_lock_is_held(tmp_path, draft.draft_id, op_id)
+        return pub_svc.read_publication_operation(*args, **kwargs)
+
+    with patch.object(identity_svc, "read_publication_operation", side_effect=capture_predecessor):
+        outcome = identity_svc.read_identity_resolution(
+            tmp_path, draft.draft_id, op_id, resolution_id
+        )
+
+    assert outcome.response.result_label == "publication_identity_refused"
+    assert observed.get("lock_held") is True
+
+
+def test_read_linearizes_against_concurrent_supersession(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Unique")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    first_id = str(uuid.uuid4())
+    projection = _projection_for(_node("threat:1", label="One"))
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        prepared = _prepare(tmp_path, draft.draft_id, op_id, query_text="One")
+        cs = prepared.response.candidate_set
+        assert cs is not None
+        _decide(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            resolution_id=first_id,
+            matching_profile=MATCHING_PROFILE_V1,
+            candidate_query=cs.candidate_query,
+            candidate_set_digest=cs.candidate_set_digest,
+            decision="refuse",
+            actor="gm",
+            reason="first",
+        )
+
+    read_started = threading.Event()
+    release_read = threading.Event()
+    read_labels: list[str] = []
+    supersede_started = threading.Event()
+    supersede_finished = threading.Event()
+    supersede_labels: list[str] = []
+
+    def slow_predecessor(*args, **kwargs):
+        read_started.set()
+        assert release_read.wait(timeout=5.0)
+        return pub_svc.read_publication_operation(*args, **kwargs)
+
+    def reader() -> None:
+        with patch.object(identity_svc, "read_publication_operation", side_effect=slow_predecessor):
+            outcome = identity_svc.read_identity_resolution(
+                tmp_path, draft.draft_id, op_id, first_id
+            )
+        read_labels.append(outcome.response.result_label)
+
+    def superseder() -> None:
+        supersede_started.set()
+        with patch.object(identity_svc, "project_world_graph", return_value=projection):
+            outcome = _decide(
+                tmp_path,
+                draft.draft_id,
+                op_id,
+                resolution_id=str(uuid.uuid4()),
+                matching_profile=MATCHING_PROFILE_V1,
+                candidate_query=cs.candidate_query,
+                candidate_set_digest=cs.candidate_set_digest,
+                decision="create_new",
+                rejected_candidate_node_ids=_reject_all_collisions(cs),
+                actor="gm",
+                reason="replace",
+                supersedes_resolution_id=first_id,
+            )
+        supersede_labels.append(outcome.response.result_label)
+        supersede_finished.set()
+
+    reader_thread = threading.Thread(target=reader)
+    reader_thread.start()
+    assert read_started.wait(timeout=5.0)
+
+    supersede_thread = threading.Thread(target=superseder)
+    supersede_thread.start()
+    assert supersede_started.wait(timeout=5.0)
+    time.sleep(0.05)
+    assert not supersede_finished.is_set()
+    ledger = identity_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id)
+    assert ledger is not None
+    assert ledger.active_resolution_id == first_id
+
+    release_read.set()
+    reader_thread.join(timeout=5.0)
+    supersede_thread.join(timeout=5.0)
+
+    assert read_labels == ["publication_identity_refused"]
+    assert supersede_labels == ["publication_identity_superseded"]
+
+
+def test_prepare_reports_predecessor_unusable_for_cancelled_operation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft)
+    pub_svc.cancel_publication_operation(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        CancelThreatPublicationOperationRequestV1(actor="gm", note="withdrawn"),
+    )
+    projection = _projection_for(_node("threat:1", label="One"))
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        outcome = _prepare(tmp_path, draft.draft_id, op_id)
+    assert outcome.response.result_label == "publication_identity_operation_not_ready"
+    assert outcome.response.predecessor_usable is False
+
+
+def test_prepare_keeps_predecessor_unusable_none_when_operation_not_observed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft)
+    with patch.object(
+        identity_svc,
+        "refresh_publication_operation",
+        return_value=_predecessor_outcome(draft.draft_id, "publication_not_found"),
+    ):
+        outcome = _prepare(tmp_path, draft.draft_id, op_id)
+    assert outcome.response.result_label == "publication_identity_not_found"
+    assert outcome.response.predecessor_usable is None
 
 
 # ---------------------------------------------------------------------------

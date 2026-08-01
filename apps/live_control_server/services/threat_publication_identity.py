@@ -123,12 +123,16 @@ def _outcome_from_predecessor_failure(
 ) -> IdentityResolutionOutcome:
     label = _identity_label_from_predecessor(predecessor.response.result_label)
     op = predecessor.response.operation
+    predecessor_usable: bool | None = None
+    if op is not None and op.state in ("stale", "cancelled", "superseded"):
+        predecessor_usable = False
     return IdentityResolutionOutcome(
         _response(
             draft_id,
             operation_id,
             label,
             predecessor_state=op.state if op is not None else None,
+            predecessor_usable=predecessor_usable,
             message=predecessor.response.message or predecessor.response.result_label,
         ),
         created=False,
@@ -490,22 +494,22 @@ def _exact_revision_contains_node_id(
     """
     graph_root = (world_root if world_root is not None else world_graph_root()).resolve()
     try:
-        store = kernel.load_world_graph_revision(
+        store = kernel.load_world_graph_revision_with_integrity(
             graph_root,
             operation.source_snapshot.world_id,
             operation.expected_parent_revision_id,
         )
-    except kernel.WorldGraphNotFoundError as exc:
+    except kernel.WorldGraphProjectionError as exc:
+        if exc.code == "projection_integrity_error":
+            raise WorldGraphProjectionServiceError(
+                "exact expected-parent World Graph revision failed integrity validation",
+                code="projection_integrity_error",
+                status_code=500,
+            ) from exc
         raise WorldGraphProjectionServiceError(
             "exact expected-parent World Graph revision is unavailable",
             code="projection_revision_unavailable",
             status_code=503,
-        ) from exc
-    except Exception as exc:
-        raise WorldGraphProjectionServiceError(
-            "exact expected-parent World Graph revision failed integrity validation",
-            code="projection_integrity_error",
-            status_code=500,
         ) from exc
     return node_id in store.nodes
 
@@ -1148,58 +1152,59 @@ def read_identity_resolution(
                 created=False,
             )
 
-    predecessor = read_publication_operation(root, safe_draft, safe_op)
-    predecessor_op = predecessor.response.operation
-    if predecessor_op is None:
-        return _outcome_from_predecessor_failure(safe_draft, safe_op, predecessor)
+        predecessor = read_publication_operation(root, safe_draft, safe_op)
+        predecessor_op = predecessor.response.operation
+        if predecessor_op is None:
+            return _outcome_from_predecessor_failure(safe_draft, safe_op, predecessor)
 
-    if (
-        predecessor_op.source_digest != resolution.source_digest
-        or predecessor_op.expected_parent_revision_id
-        != resolution.expected_parent_revision_id
-    ):
+        if (
+            predecessor_op.source_digest != resolution.source_digest
+            or predecessor_op.expected_parent_revision_id
+            != resolution.expected_parent_revision_id
+        ):
+            return IdentityResolutionOutcome(
+                _response(
+                    safe_draft,
+                    safe_op,
+                    "publication_identity_integrity_failure",
+                    message="predecessor identity mismatch with persisted resolution",
+                ),
+                created=False,
+            )
+
+        validation_error = _validate_resolution_against_operation(
+            resolution, predecessor_op, draft_id=safe_draft
+        )
+        if validation_error is not None:
+            return IdentityResolutionOutcome(
+                _response(
+                    safe_draft,
+                    safe_op,
+                    "publication_identity_integrity_failure",
+                    message=validation_error,
+                ),
+                created=False,
+            )
+
+        predecessor_state = predecessor_op.state
+        predecessor_usable: bool | None = None
+        if predecessor_op.state in ("stale", "cancelled", "superseded"):
+            predecessor_usable = False
+
+        label = _resolution_outcome_label(
+            resolution, superseded=resolution.state == "superseded"
+        )
         return IdentityResolutionOutcome(
             _response(
                 safe_draft,
                 safe_op,
-                "publication_identity_integrity_failure",
-                message="predecessor identity mismatch with persisted resolution",
+                label,
+                resolution=resolution,
+                predecessor_state=predecessor_state,
+                predecessor_usable=predecessor_usable,
             ),
             created=False,
         )
-
-    validation_error = _validate_resolution_against_operation(
-        resolution, predecessor_op, draft_id=safe_draft
-    )
-    if validation_error is not None:
-        return IdentityResolutionOutcome(
-            _response(
-                safe_draft,
-                safe_op,
-                "publication_identity_integrity_failure",
-                message=validation_error,
-            ),
-            created=False,
-        )
-
-    predecessor_state = predecessor_op.state
-
-    label = _resolution_outcome_label(
-        resolution, superseded=resolution.state == "superseded"
-    )
-    return IdentityResolutionOutcome(
-        _response(
-            safe_draft,
-            safe_op,
-            label,
-            resolution=resolution,
-            predecessor_state=predecessor_state,
-            # Read reports the persisted predecessor state only; it does not
-            # refresh SBW09a or verify the current graph head.
-            predecessor_usable=None,
-        ),
-        created=False,
-    )
 
 
 def build_projection_fixture(

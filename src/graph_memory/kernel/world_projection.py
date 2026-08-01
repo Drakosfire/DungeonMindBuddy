@@ -389,6 +389,36 @@ def _load_revision_store_with_integrity(
     return revision_id, store
 
 
+def load_world_graph_revision_with_integrity(
+    root: Path,
+    world_id: str,
+    revision_id: str,
+) -> UnionSupergraphStore:
+    """Load exactly one immutable world graph revision with integrity attestation.
+
+    Verifies the on-disk manifest, graph payload hash, graph schema, and
+    recomputed content-addressed revision id before returning the store.
+    """
+    try:
+        world_paths.assert_safe_revision_id(revision_id)
+    except ValueError as exc:
+        raise WorldGraphProjectionError(
+            f"Revision id is invalid: {revision_id!r}",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[_diagnostic("invalid_revision_id", str(exc))],
+        ) from exc
+    _revision_id, store = _load_revision_store_with_integrity(
+        root,
+        world_id,
+        revision_id,
+        not_found_code="revision_not_found",
+        not_found_message=f"Revision not found: {revision_id!r}",
+    )
+    del _revision_id
+    return store
+
+
 def _memory_state(graph_object: UnionSupergraphNode | UnionSupergraphEdge) -> str | None:
     memory_state = graph_object.state.get("memory_state")
     return memory_state if isinstance(memory_state, str) else None
@@ -2646,6 +2676,7 @@ def search_world_graph_projection(
 __all__ = [
     "WorldGraphProjectionError",
     "build_projection_payload",
+    "load_world_graph_revision_with_integrity",
     "project_world_graph",
     "resolve_projection_admissibility",
     "search_world_graph_projection",
