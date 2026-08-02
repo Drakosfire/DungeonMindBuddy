@@ -1,0 +1,35 @@
+{
+  "annotations": [
+    {
+      "base_assertion_id": "assertion:b8a9e88438e5c6a5",
+      "diagnostics": [
+        "grounding smoke fake output"
+      ],
+      "evidence_ref_ids": [
+        "evidence:tl01-grounding-smoke-v1:bell-strike"
+      ],
+      "extraction_confidence": "high",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "end": null,
+        "kind": "point",
+        "point": {
+          "anchor_ref": null,
+          "calendar_id": null,
+          "campaign_id": "longmont-c2",
+          "certainty": "explicit",
+          "kind": "session",
+          "raw_expression": null,
+          "relation": null,
+          "session_id": "session-3",
+          "value": null
+        },
+        "raw_expression": null,
+        "start": null
+      },
+      "source_phrase": "the brass moth struck the north bell exactly twice",
+      "valid_time": null
+    }
+  ],
+  "schema": "dmb_temporal_model_annotation_batch_v1"
+}

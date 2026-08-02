@@ -1,0 +1,41 @@
+{
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:smoke0000000001",
+      "base_assertion_id": "assertion:b8a9e88438e5c6a5",
+      "diagnostics": [
+        "event proposition; occurrence lane session-3 matches evidence session"
+      ],
+      "evidence_ref_ids": [
+        "evidence:tl01-grounding-smoke-v1:bell-strike"
+      ],
+      "extraction_confidence": "high",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "anchor_ref": null,
+          "calendar_id": null,
+          "campaign_id": "longmont-c2",
+          "certainty": "explicit",
+          "kind": "session",
+          "raw_expression": null,
+          "relation": null,
+          "session_id": "session-3",
+          "value": null
+        }
+      },
+      "source_phrase": "the brass moth struck the north bell exactly twice",
+      "valid_time": null
+    }
+  ],
+  "base_contribution_id": "contribution:f78a3624784cb84b",
+  "base_contribution_source_payload_sha256": "7d1862b2aaed0ec4f2608f94913f582632f12d5647e15efea117debf7a6f8d81",
+  "overlay_id": "temporal-overlay:17e9c6d9ddf46fbc",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01-grounding-smoke-v1",
+    "version": "1"
+  },
+  "schema": "dmb_temporal_annotation_overlay_v1"
+}

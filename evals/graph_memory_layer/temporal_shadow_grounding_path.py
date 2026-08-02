@@ -1,0 +1,819 @@
+"""Paired TL01 shared source-phrase grounding-path diagnostic runner."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Literal
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+_SRC = _REPO_ROOT / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+from graph_memory.kernel.contribution_models import GraphContribution  # noqa: E402
+from graph_memory.kernel.contributions import explicit_assertion_evidence_ref_ids  # noqa: E402
+from graph_memory.temporal_shadow_extraction import (  # noqa: E402
+    FakeTemporalShadowExtractionClient,
+    OpenAITemporalShadowExtractionClient,
+    ProviderMeta,
+    TemporalShadowExtractionClient,
+    TemporalShadowExtractionError,
+    build_assertion_evidence_packets,
+    compute_prompt_sha256,
+    load_bound_gold_overlay,
+    load_temporal_shadow_extraction_case,
+    resolve_prompt_spec,
+    run_temporal_shadow_extraction,
+)
+
+LaneName = Literal["control", "candidate"]
+RunMode = Literal["deterministic", "live"]
+RunPhase = Literal["initial", "post_fix"]
+
+LIVE_OPT_IN_ENV = "DMB_RUN_LIVE_TL01_GROUNDING_SMOKE"
+LIVE_MODEL_ID = "gpt-5.4-mini"
+RENDERER_IDENTITY = "render_temporal_shadow_user_content_v2"
+
+LaneResult = Literal[
+    "EVALUABLE",
+    "PACKET_MISSING_PHRASE",
+    "RENDERER_MISSING_PHRASE",
+    "PROVIDER_EXECUTION_FAILED",
+    "PROVIDER_PHRASE_FIDELITY_BLOCKED",
+    "TRANSPORT_REJECTED",
+    "EVIDENCE_OWNERSHIP_MISMATCH",
+    "GROUNDING_VALIDATOR_DEFECT",
+    "OVERLAY_ASSEMBLY_FAILED",
+    "COMPARISON_METRICS_UNOBSERVED",
+    "UNRESOLVED_DIAGNOSTIC_GAP",
+]
+
+OverallConclusion = Literal[
+    "GROUNDING_PATH_READY",
+    "LOCAL_REPAIR_REQUIRED",
+    "PROVIDER_PHRASE_FIDELITY_BLOCKED",
+    "UNRESOLVED_DIAGNOSTIC_GAP",
+]
+
+FORBIDDEN_TRACE_SUBSTRINGS = (
+    "OPENAI_API_KEY",
+    "sk-",
+    "/home/",
+    "/Users/",
+    "TL01F_PROPOSITION_TYPE_TEMPORAL_LANE_INSTRUCTIONS",
+    "TL01G_RESOLUTION_PROOF_ABSTENTION_INSTRUCTIONS",
+)
+
+PHASE_CALL_BUDGET = 2
+MAX_TOTAL_PROVIDER_CALLS = 4
+
+
+def _normalize_phrase(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _bounded_text(text: str | None, *, limit: int = 200) -> str | None:
+    if text is None:
+        return None
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _repository_sha(*, repo_root: Path) -> str:
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    if dirty.stdout.strip():
+        return f"{sha}+dirty"
+    return sha
+
+
+def _load_contribution(case_path: Path, *, repo_root: Path) -> GraphContribution:
+    case = load_temporal_shadow_extraction_case(case_path, repo_root=repo_root)
+    base_path = repo_root / case.base_contribution_path
+    return GraphContribution.model_validate(json.loads(base_path.read_text(encoding="utf-8")))
+
+
+def _case_pair_fields(case: Any) -> dict[str, Any]:
+    payload = case.model_dump(by_alias=True)
+    for key in ("case_id", "prompt_version"):
+        payload.pop(key, None)
+    return payload
+
+
+def validate_paired_cases(
+    control_case_path: Path,
+    candidate_case_path: Path,
+    *,
+    repo_root: Path,
+) -> tuple[Any, Any]:
+    control = load_temporal_shadow_extraction_case(control_case_path, repo_root=repo_root)
+    candidate = load_temporal_shadow_extraction_case(
+        candidate_case_path, repo_root=repo_root
+    )
+    if control.prompt_version == candidate.prompt_version:
+        raise TemporalShadowExtractionError(
+            "Control and candidate must use different frozen prompt identities",
+            code="invalid_case",
+            diagnostics=[
+                f"control={control.prompt_version!r}",
+                f"candidate={candidate.prompt_version!r}",
+            ],
+        )
+    if _case_pair_fields(control) != _case_pair_fields(candidate):
+        raise TemporalShadowExtractionError(
+            "Paired cases differ outside allowed prompt identity fields",
+            code="invalid_case",
+            diagnostics=["only prompt_version and case_id may differ"],
+        )
+    return control, candidate
+
+
+def expected_phrase_from_fixture(
+    *,
+    contribution: GraphContribution,
+    case: Any,
+    repo_root: Path,
+) -> tuple[str, str, list[str]]:
+    assertion_id = case.selected_assertion_ids[0]
+    assertion = next(
+        a for a in contribution.candidate_assertions if a.assertion_id == assertion_id
+    )
+    owned = list(explicit_assertion_evidence_ref_ids(assertion))
+    gold = load_bound_gold_overlay(case, contribution, repo_root=repo_root)
+    gold_ann = next(a for a in gold.annotations if a.base_assertion_id == assertion_id)
+    phrase = gold_ann.source_phrase or ""
+    if not phrase.strip():
+        raise TemporalShadowExtractionError(
+            "Fixture gold overlay missing source_phrase for selected assertion",
+            code="invalid_case",
+            affected_assertion_id=assertion_id,
+        )
+    return phrase, assertion_id, owned
+
+
+def packet_contains_phrase(
+    packets: dict[str, dict[str, Any]],
+    *,
+    assertion_id: str,
+    evidence_ref_ids: list[str],
+    expected_phrase: str,
+) -> bool:
+    snippets = packets[assertion_id]["evidence_snippets"]
+    normalized_expected = _normalize_phrase(expected_phrase)
+    for evidence_id in evidence_ref_ids:
+        snippet = next(
+            s["preview_snippet"] for s in snippets if s["evidence_ref_id"] == evidence_id
+        )
+        if normalized_expected in _normalize_phrase(snippet):
+            return True
+    return False
+
+
+def decoded_renderer_contains_phrase(user_content: str, expected_phrase: str) -> bool:
+    payload = json.loads(user_content)
+    normalized_expected = _normalize_phrase(expected_phrase)
+    for packet in payload.get("assertion_packets", []):
+        for snippet in packet.get("evidence_snippets", []):
+            preview = snippet.get("preview_snippet")
+            if isinstance(preview, str) and normalized_expected in _normalize_phrase(preview):
+                return True
+    return False
+
+
+def _resolved_span_digest(
+    packets: dict[str, dict[str, Any]], *, assertion_id: str, evidence_ref_id: str
+) -> str:
+    snippets = packets[assertion_id]["evidence_snippets"]
+    snippet = next(
+        s["preview_snippet"] for s in snippets if s["evidence_ref_id"] == evidence_ref_id
+    )
+    return hashlib.sha256(_normalize_phrase(snippet).encode("utf-8")).hexdigest()
+
+
+def _phrase_match_in_owned_snippet(
+    *,
+    returned_phrase: str | None,
+    evidence_ref_ids: list[str],
+    packets: dict[str, dict[str, Any]],
+    assertion_id: str,
+) -> tuple[bool, str | None, int | None]:
+    if returned_phrase is None:
+        return False, None, None
+    normalized_phrase = _normalize_phrase(returned_phrase)
+    if not normalized_phrase:
+        return False, None, None
+    snippets = packets[assertion_id]["evidence_snippets"]
+    for evidence_id in evidence_ref_ids:
+        match = next(
+            (s for s in snippets if s["evidence_ref_id"] == evidence_id),
+            None,
+        )
+        if match is None:
+            continue
+        snippet = match["preview_snippet"]
+        normalized_snippet = _normalize_phrase(snippet)
+        offset = normalized_snippet.find(normalized_phrase)
+        if offset >= 0:
+            return True, evidence_id, offset
+    return False, None, None
+
+
+@dataclass
+class ProviderCallLedger:
+    phase: RunPhase
+    calls: int = 0
+    response_ids: list[str] = field(default_factory=list)
+
+    def record(self, meta: ProviderMeta) -> None:
+        self.calls += 1
+        if meta.response_id:
+            self.response_ids.append(meta.response_id)
+
+    def assert_budget(self) -> None:
+        if self.calls > PHASE_CALL_BUDGET:
+            raise TemporalShadowExtractionError(
+                f"Provider call budget exceeded for phase {self.phase!r}",
+                code="invalid_case",
+                diagnostics=[f"calls={self.calls}", f"budget={PHASE_CALL_BUDGET}"],
+            )
+
+
+class RecordingTemporalShadowClient:
+    """Observe request/response boundary without mutating values."""
+
+    def __init__(
+        self,
+        delegate: TemporalShadowExtractionClient,
+        *,
+        ledger: ProviderCallLedger | None = None,
+        record_provider_calls: bool = False,
+    ) -> None:
+        self._delegate = delegate
+        self.ledger = ledger
+        self.record_provider_calls = record_provider_calls
+        self.last_instructions: str | None = None
+        self.last_user_content: str | None = None
+        self.last_raw_batch: dict[str, Any] | None = None
+        self.last_provider_meta: ProviderMeta | None = None
+        self.call_count = 0
+
+    def extract_annotations(
+        self,
+        *,
+        instructions: str,
+        user_content: str,
+        model_id: str,
+    ) -> tuple[dict[str, Any], ProviderMeta]:
+        self.last_instructions = instructions
+        self.last_user_content = user_content
+        raw_batch, meta = self._delegate.extract_annotations(
+            instructions=instructions,
+            user_content=user_content,
+            model_id=model_id,
+        )
+        self.last_raw_batch = raw_batch
+        self.last_provider_meta = meta
+        self.call_count += 1
+        if self.ledger is not None and self.record_provider_calls:
+            self.ledger.record(meta)
+        return raw_batch, meta
+
+
+def classify_lane_result(
+    *,
+    packet_phrase_present: bool,
+    renderer_phrase_present: bool,
+    run_mode: RunMode,
+    error: TemporalShadowExtractionError | None,
+    raw_batch: dict[str, Any] | None,
+    packets: dict[str, dict[str, Any]],
+    assertion_id: str,
+    owned_evidence_ref_ids: list[str],
+    comparison_metrics_present: bool,
+    succeeded: bool,
+) -> LaneResult:
+    if not packet_phrase_present:
+        return "PACKET_MISSING_PHRASE"
+    if not renderer_phrase_present:
+        return "RENDERER_MISSING_PHRASE"
+    if error is not None:
+        if error.code in {"provider_refusal", "provider_incomplete", "provider_error"}:
+            return "PROVIDER_EXECUTION_FAILED"
+        if error.code == "invalid_model_output":
+            return "TRANSPORT_REJECTED"
+        if error.code == "overlay_assembly_failed":
+            return "OVERLAY_ASSEMBLY_FAILED"
+        if error.code == "grounding_failure":
+            if error.foreign_evidence_attempts > 0:
+                return "EVIDENCE_OWNERSHIP_MISMATCH"
+            returned_phrase = None
+            returned_refs: list[str] = []
+            if raw_batch is not None:
+                for item in raw_batch.get("annotations", []):
+                    if item.get("base_assertion_id") == assertion_id:
+                        returned_phrase = item.get("source_phrase")
+                        returned_refs = list(item.get("evidence_ref_ids") or [])
+                        break
+            refs = returned_refs or owned_evidence_ref_ids
+            present, _, _ = _phrase_match_in_owned_snippet(
+                returned_phrase=returned_phrase,
+                evidence_ref_ids=refs,
+                packets=packets,
+                assertion_id=assertion_id,
+            )
+            if present:
+                return "GROUNDING_VALIDATOR_DEFECT"
+            if run_mode == "live" or raw_batch is not None:
+                return "PROVIDER_PHRASE_FIDELITY_BLOCKED"
+            return "UNRESOLVED_DIAGNOSTIC_GAP"
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if succeeded and not comparison_metrics_present:
+        return "COMPARISON_METRICS_UNOBSERVED"
+    if succeeded:
+        return "EVALUABLE"
+    return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+
+def compute_overall_conclusion(
+    *,
+    control: LaneResult,
+    candidate: LaneResult,
+    run_mode: RunMode,
+    provider_calls: int,
+    live_attempted: bool,
+) -> OverallConclusion:
+    both_evaluable = control == "EVALUABLE" and candidate == "EVALUABLE"
+    if both_evaluable and run_mode == "live" and live_attempted and provider_calls >= 2:
+        return "GROUNDING_PATH_READY"
+    if both_evaluable and run_mode == "deterministic":
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if both_evaluable:
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if control == "EVALUABLE" and candidate in {
+        "PROVIDER_PHRASE_FIDELITY_BLOCKED",
+        "PROVIDER_EXECUTION_FAILED",
+    }:
+        return "PROVIDER_PHRASE_FIDELITY_BLOCKED"
+    if candidate == "EVALUABLE" and control in {
+        "PROVIDER_PHRASE_FIDELITY_BLOCKED",
+        "PROVIDER_EXECUTION_FAILED",
+    }:
+        return "PROVIDER_PHRASE_FIDELITY_BLOCKED"
+    if any(
+        lane
+        in {
+            "PACKET_MISSING_PHRASE",
+            "RENDERER_MISSING_PHRASE",
+            "GROUNDING_VALIDATOR_DEFECT",
+            "OVERLAY_ASSEMBLY_FAILED",
+            "COMPARISON_METRICS_UNOBSERVED",
+        }
+        for lane in (control, candidate)
+    ):
+        return "LOCAL_REPAIR_REQUIRED"
+    if not live_attempted and run_mode == "live":
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+
+@dataclass
+class LaneDiagnostic:
+    lane: LaneName
+    case_id: str
+    case_digest: str
+    prompt_version: str
+    prompt_sha256: str
+    packet_version: str
+    renderer_identity: str
+    model_id: str
+    assertion_id: str
+    evidence_ref_ids: list[str]
+    resolved_span_digest: str
+    expected_phrase: str
+    packet_phrase_present: bool
+    renderer_phrase_present: bool
+    transport_accepted: bool | None
+    returned_evidence_ref_ids: list[str] | None
+    returned_source_phrase: str | None
+    owned_evidence_check: str | None
+    phrase_match: bool | None
+    phrase_match_evidence_ref_id: str | None
+    phrase_match_offset: int | None
+    production_error_code: str | None
+    production_diagnostics: list[str] | None
+    overlay_id: str | None
+    comparison_metrics_present: bool
+    comparison_metrics: dict[str, Any] | None
+    provider_response_id: str | None
+    lane_result: LaneResult
+    run_mode: RunMode
+    phase: RunPhase
+    repository_sha: str
+
+    def to_trace_dict(self) -> dict[str, Any]:
+        return {
+            "repository_sha": self.repository_sha,
+            "run_mode": self.run_mode,
+            "phase": self.phase,
+            "lane": self.lane,
+            "case_id": self.case_id,
+            "case_digest": self.case_digest,
+            "prompt_version": self.prompt_version,
+            "prompt_sha256": self.prompt_sha256,
+            "packet_version": self.packet_version,
+            "renderer_identity": self.renderer_identity,
+            "model_id": self.model_id,
+            "provider_response_id": self.provider_response_id,
+            "assertion_id": self.assertion_id,
+            "evidence_ref_ids": self.evidence_ref_ids,
+            "resolved_span_digest": self.resolved_span_digest,
+            "expected_phrase": _bounded_text(self.expected_phrase),
+            "packet_phrase_present": self.packet_phrase_present,
+            "renderer_phrase_present": self.renderer_phrase_present,
+            "transport_accepted": self.transport_accepted,
+            "returned_evidence_ref_ids": self.returned_evidence_ref_ids,
+            "returned_source_phrase": _bounded_text(self.returned_source_phrase),
+            "owned_evidence_check": self.owned_evidence_check,
+            "phrase_match": self.phrase_match,
+            "phrase_match_evidence_ref_id": self.phrase_match_evidence_ref_id,
+            "phrase_match_offset": self.phrase_match_offset,
+            "production_error_code": self.production_error_code,
+            "production_diagnostics": self.production_diagnostics,
+            "overlay_id": self.overlay_id,
+            "comparison_metrics_present": self.comparison_metrics_present,
+            "comparison_metrics": self.comparison_metrics,
+            "lane_result": self.lane_result,
+        }
+
+
+def run_lane_diagnostic(
+    *,
+    lane: LaneName,
+    case_path: Path,
+    output_dir: Path,
+    mode: RunMode,
+    phase: RunPhase,
+    model_id: str,
+    client: TemporalShadowExtractionClient,
+    repo_root: Path,
+    ledger: ProviderCallLedger | None = None,
+    overwrite: bool = False,
+) -> LaneDiagnostic:
+    case = load_temporal_shadow_extraction_case(case_path, repo_root=repo_root)
+    contribution = _load_contribution(case_path, repo_root=repo_root)
+    spec = resolve_prompt_spec(case.prompt_version)
+    packets = build_assertion_evidence_packets(
+        contribution,
+        case,
+        repo_root=repo_root,
+        packet_version=spec.packet_version,
+    )
+    expected_phrase, assertion_id, owned_refs = expected_phrase_from_fixture(
+        contribution=contribution,
+        case=case,
+        repo_root=repo_root,
+    )
+    packet_present = packet_contains_phrase(
+        packets,
+        assertion_id=assertion_id,
+        evidence_ref_ids=owned_refs,
+        expected_phrase=expected_phrase,
+    )
+    user_content = spec.render_user_content(packets, case.selected_assertion_ids)
+    renderer_present = decoded_renderer_contains_phrase(user_content, expected_phrase)
+    span_digest = _resolved_span_digest(
+        packets, assertion_id=assertion_id, evidence_ref_id=owned_refs[0]
+    )
+
+    recording = RecordingTemporalShadowClient(
+        client, ledger=ledger, record_provider_calls=(mode == "live")
+    )
+    lane_out = output_dir / lane
+    error: TemporalShadowExtractionError | None = None
+    succeeded = False
+    overlay_id: str | None = None
+    comparison_metrics: dict[str, Any] | None = None
+    comparison_metrics_present = False
+    transport_accepted: bool | None = None
+    returned_phrase: str | None = None
+    returned_refs: list[str] | None = None
+    phrase_match: bool | None = None
+    phrase_match_ref: str | None = None
+    phrase_match_offset: int | None = None
+    owned_check: str | None = None
+    provider_response_id: str | None = None
+
+    if packet_present and renderer_present:
+        try:
+            run = run_temporal_shadow_extraction(
+                case_path,
+                lane_out,
+                client=recording,
+                model_id=model_id,
+                repo_root=repo_root,
+                overwrite=overwrite,
+            )
+            succeeded = True
+            overlay_id = run.overlay_id
+            provider_response_id = run.provider_response_id or None
+            transport_accepted = True
+            comparison_path = lane_out / "comparison.json"
+            if comparison_path.is_file():
+                comparison_payload = json.loads(comparison_path.read_text(encoding="utf-8"))
+                metrics = comparison_payload.get("metrics")
+                if isinstance(metrics, dict):
+                    comparison_metrics = {
+                        k: metrics[k]
+                        for k in sorted(metrics)
+                        if isinstance(metrics[k], (int, float, bool))
+                    }
+                    comparison_metrics_present = True
+        except TemporalShadowExtractionError as exc:
+            error = exc
+            provider_response_id = exc.provider_response_id or (
+                recording.last_provider_meta.response_id
+                if recording.last_provider_meta is not None
+                else None
+            )
+            transport_accepted = exc.code != "invalid_model_output" or recording.last_raw_batch is not None
+    else:
+        transport_accepted = None
+
+    raw_batch = recording.last_raw_batch
+    if raw_batch is not None:
+        for item in raw_batch.get("annotations", []):
+            if item.get("base_assertion_id") == assertion_id:
+                returned_phrase = item.get("source_phrase")
+                returned_refs = list(item.get("evidence_ref_ids") or [])
+                break
+        phrase_match, phrase_match_ref, phrase_match_offset = _phrase_match_in_owned_snippet(
+            returned_phrase=returned_phrase,
+            evidence_ref_ids=returned_refs or owned_refs,
+            packets=packets,
+            assertion_id=assertion_id,
+        )
+        if error is not None and error.foreign_evidence_attempts > 0:
+            owned_check = "foreign_or_missing"
+        elif phrase_match:
+            owned_check = "owned_match"
+        elif returned_phrase is not None:
+            owned_check = "phrase_not_in_owned_snippet"
+        else:
+            owned_check = "missing_returned_phrase"
+
+    lane_result = classify_lane_result(
+        packet_phrase_present=packet_present,
+        renderer_phrase_present=renderer_present,
+        run_mode=mode,
+        error=error,
+        raw_batch=raw_batch,
+        packets=packets,
+        assertion_id=assertion_id,
+        owned_evidence_ref_ids=owned_refs,
+        comparison_metrics_present=comparison_metrics_present,
+        succeeded=succeeded,
+    )
+
+    diagnostic = LaneDiagnostic(
+        lane=lane,
+        case_id=case.case_id,
+        case_digest=_file_sha256(case_path),
+        prompt_version=case.prompt_version,
+        prompt_sha256=compute_prompt_sha256(case.prompt_version),
+        packet_version=spec.packet_version,
+        renderer_identity=RENDERER_IDENTITY,
+        model_id=model_id,
+        assertion_id=assertion_id,
+        evidence_ref_ids=owned_refs,
+        resolved_span_digest=span_digest,
+        expected_phrase=expected_phrase,
+        packet_phrase_present=packet_present,
+        renderer_phrase_present=renderer_present,
+        transport_accepted=transport_accepted,
+        returned_evidence_ref_ids=returned_refs,
+        returned_source_phrase=returned_phrase,
+        owned_evidence_check=owned_check,
+        phrase_match=phrase_match,
+        phrase_match_evidence_ref_id=phrase_match_ref,
+        phrase_match_offset=phrase_match_offset,
+        production_error_code=error.code if error is not None else None,
+        production_diagnostics=(error.diagnostics[:8] if error is not None else None),
+        overlay_id=overlay_id,
+        comparison_metrics_present=comparison_metrics_present,
+        comparison_metrics=comparison_metrics,
+        provider_response_id=provider_response_id,
+        lane_result=lane_result,
+        run_mode=mode,
+        phase=phase,
+        repository_sha=_repository_sha(repo_root=repo_root),
+    )
+    return diagnostic
+
+
+def write_trace_artifact(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    serialized = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    for forbidden in FORBIDDEN_TRACE_SUBSTRINGS:
+        if forbidden in serialized:
+            raise TemporalShadowExtractionError(
+                f"Trace artifact contains forbidden content: {forbidden!r}",
+                code="invalid_case",
+            )
+    path.write_text(serialized, encoding="utf-8")
+
+
+@dataclass
+class PairedDiagnosticResult:
+    control: LaneDiagnostic
+    candidate: LaneDiagnostic
+    provider_calls: int
+    overall_conclusion: OverallConclusion
+    live_attempted: bool
+
+
+def run_paired_grounding_path_diagnostic(
+    *,
+    control_case_path: Path,
+    candidate_case_path: Path,
+    output_dir: Path,
+    mode: RunMode,
+    phase: RunPhase,
+    model_id: str,
+    fake_output: dict[str, Any] | None,
+    repo_root: Path,
+    overwrite: bool = False,
+) -> PairedDiagnosticResult:
+    validate_paired_cases(control_case_path, candidate_case_path, repo_root=repo_root)
+
+    live_attempted = False
+    if mode == "live":
+        if os.environ.get(LIVE_OPT_IN_ENV) != "1":
+            raise TemporalShadowExtractionError(
+                f"Live mode requires {LIVE_OPT_IN_ENV}=1",
+                code="invalid_case",
+            )
+        if model_id != LIVE_MODEL_ID:
+            raise TemporalShadowExtractionError(
+                f"Live smoke requires model_id={LIVE_MODEL_ID!r}",
+                code="invalid_case",
+                diagnostics=[f"got={model_id!r}"],
+            )
+        delegate: TemporalShadowExtractionClient = OpenAITemporalShadowExtractionClient()
+        live_attempted = True
+    else:
+        if fake_output is None:
+            raise TemporalShadowExtractionError(
+                "Deterministic mode requires fake_output",
+                code="invalid_case",
+            )
+        delegate = FakeTemporalShadowExtractionClient(fake_output)
+
+    ledger = ProviderCallLedger(phase=phase)
+    control = run_lane_diagnostic(
+        lane="control",
+        case_path=control_case_path,
+        output_dir=output_dir,
+        mode=mode,
+        phase=phase,
+        model_id=model_id,
+        client=delegate,
+        repo_root=repo_root,
+        ledger=ledger,
+        overwrite=overwrite,
+    )
+    ledger.assert_budget()
+    candidate = run_lane_diagnostic(
+        lane="candidate",
+        case_path=candidate_case_path,
+        output_dir=output_dir,
+        mode=mode,
+        phase=phase,
+        model_id=model_id,
+        client=delegate,
+        repo_root=repo_root,
+        ledger=ledger,
+        overwrite=overwrite,
+    )
+    ledger.assert_budget()
+    if ledger.calls > MAX_TOTAL_PROVIDER_CALLS:
+        raise TemporalShadowExtractionError(
+            "Global provider call budget exceeded",
+            code="invalid_case",
+            diagnostics=[f"calls={ledger.calls}", f"max={MAX_TOTAL_PROVIDER_CALLS}"],
+        )
+
+    overall = compute_overall_conclusion(
+        control=control.lane_result,
+        candidate=candidate.lane_result,
+        run_mode=mode,
+        provider_calls=ledger.calls,
+        live_attempted=live_attempted,
+    )
+
+    summary = {
+        "repository_sha": _repository_sha(repo_root=repo_root),
+        "run_mode": mode,
+        "phase": phase,
+        "provider_calls": ledger.calls,
+        "provider_response_ids": ledger.response_ids,
+        "overall_conclusion": overall,
+        "control": control.to_trace_dict(),
+        "candidate": candidate.to_trace_dict(),
+    }
+    write_trace_artifact(output_dir / "paired-summary.json", summary)
+    write_trace_artifact(output_dir / "control-trace.json", control.to_trace_dict())
+    write_trace_artifact(output_dir / "candidate-trace.json", candidate.to_trace_dict())
+
+    return PairedDiagnosticResult(
+        control=control,
+        candidate=candidate,
+        provider_calls=ledger.calls,
+        overall_conclusion=overall,
+        live_attempted=live_attempted,
+    )
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--control-case", type=Path, required=True)
+    parser.add_argument("--candidate-case", type=Path, required=True)
+    parser.add_argument("--fake-output", type=Path, default=None)
+    parser.add_argument("--model-id", default=LIVE_MODEL_ID)
+    parser.add_argument(
+        "--mode",
+        choices=("deterministic", "live"),
+        default="deterministic",
+    )
+    parser.add_argument(
+        "--phase",
+        choices=("initial", "post_fix"),
+        default="initial",
+    )
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--overwrite", action="store_true")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_arg_parser().parse_args(argv)
+    fake_output: dict[str, Any] | None = None
+    if args.mode == "deterministic":
+        if args.fake_output is None:
+            print("deterministic mode requires --fake-output", file=sys.stderr)
+            return 2
+        fake_output = json.loads(args.fake_output.read_text(encoding="utf-8"))
+
+    result = run_paired_grounding_path_diagnostic(
+        control_case_path=args.control_case,
+        candidate_case_path=args.candidate_case,
+        output_dir=args.output_dir,
+        mode=args.mode,
+        phase=args.phase,
+        model_id=args.model_id,
+        fake_output=fake_output,
+        repo_root=_REPO_ROOT,
+        overwrite=args.overwrite,
+    )
+    print(f"control:   {result.control.lane_result}")
+    print(f"candidate: {result.candidate.lane_result}")
+    print(f"provider calls: {result.provider_calls}")
+    print(
+        "comparison metrics present: "
+        f"{result.control.comparison_metrics_present} / "
+        f"{result.candidate.comparison_metrics_present}"
+    )
+    print(f"overall: {result.overall_conclusion}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

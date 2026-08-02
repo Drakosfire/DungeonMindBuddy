@@ -1,0 +1,48 @@
+{
+  "accepted_assertions": [],
+  "authored_by": null,
+  "campaign_scope": "longmont-c2",
+  "candidate_assertions": [
+    {
+      "acceptance_state": "candidate",
+      "assertion_id": "assertion:b8a9e88438e5c6a5",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:f78a3624784cb84b",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:tl01-grounding-smoke-v1:bell-strike"
+      ],
+      "identity_resolution_outcome": null,
+      "label": "The brass moth struck the north bell exactly twice during session 3",
+      "predicate": "struck_north_bell",
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "subject_node_id": "event:bell-strike",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01-grounding-smoke-v1:bell-strike",
+            "session_id": "session-3"
+          }
+        ]
+      },
+      "visibility": null
+    }
+  ],
+  "contribution_id": "contribution:f78a3624784cb84b",
+  "diagnostics": [],
+  "extraction_profile": "tl01-grounding-smoke-v1",
+  "identity_decision_ids": [],
+  "produced_at": "2026-08-01T23:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": null,
+  "source_kind": "source_extraction",
+  "source_revision_id": null,
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}
