@@ -4,7 +4,7 @@ import type {
   GraphReferenceResolution,
   OpenGraphReferenceArgs,
 } from "../../graphReference/types";
-import type { ActiveProjection, ProjectionSize } from "../types";
+import type { ActiveProjection, ProjectionSize } from "../../surfaceInteraction/projection/types";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
   RegisterableToolProjectionId,

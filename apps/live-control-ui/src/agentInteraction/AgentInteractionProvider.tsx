@@ -20,7 +20,7 @@ import type {
   ToolProjectionPayloadMap,
 } from "../planSurface/projection/projectionBindings";
 import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "../planSurface/projection/projectionBindings";
-import type { ActiveProjection, ProjectionSize } from "../planSurface/types";
+import type { ActiveProjection, ProjectionSize } from "../surfaceInteraction/projection/types";
 import {
   AGENT_TURN_HISTORY_CAP,
   clearAgentThread,

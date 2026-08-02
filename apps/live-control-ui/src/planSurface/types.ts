@@ -1,8 +1,8 @@
+import type { ProjectionSize } from "../surfaceInteraction/projection/types";
+
 export type SurfaceMode = "plan" | "ingest" | "build" | "combat" | "play";
 
-export type ProjectionKind = "tool" | "content";
-
-export type ProjectionSize = "compact" | "wide" | "fullscreen";
+export type { ProjectionSize };
 
 export interface SurfaceThemeConfig {
   themeId?: string;
@@ -75,12 +75,4 @@ export interface PlanSurfaceConfig extends Omit<SurfaceConfig, "id" | "sessionDe
   id: "plan";
   context: PlanContextDescriptor;
   sessionDescriptor: PlanSessionDescriptor;
-}
-
-export interface ActiveProjection {
-  kind: ProjectionKind;
-  key: string;
-  size: ProjectionSize;
-  title: string;
-  glanceOnly?: boolean;
 }
