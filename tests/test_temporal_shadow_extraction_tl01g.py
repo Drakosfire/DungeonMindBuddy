@@ -726,22 +726,33 @@ def _proposition_template_jaccard(left: dict, right: dict) -> float:
 
 
 _RESULTING_STATE_MARKERS = ("no longer", "still ", "continues to", "remains")
+_BOUNDARY_NARRATION_CUES = (
+    "became",
+    "stopped",
+    "ceased",
+    "ended",
+    "began to",
+    "started to",
+    "when they",
+)
+
+
+def _source_narrates_boundary(source_text: str) -> bool:
+    """True when prose narrates a state/event transition (positive Gate E3 grounding)."""
+    text = source_text.lower()
+    return any(cue in text for cue in _BOUNDARY_NARRATION_CUES)
+
+
+def _any_evidence_narrates_boundary(sources: list[str]) -> bool:
+    """Acceptance: at least one resolved evidence span narrates the boundary transition."""
+    return any(_source_narrates_boundary(source) for source in sources)
 
 
 def _source_reports_resulting_state_without_narrated_boundary(source_text: str) -> bool:
-    """True when prose reports a resulting attitude/state without narrating the transition event."""
+    """Diagnostic: resulting attitude/state without narrated transition (not acceptance)."""
     text = source_text.lower()
-    return any(m in text for m in _RESULTING_STATE_MARKERS) and not any(
-        cue in text
-        for cue in (
-            "became",
-            "stopped",
-            "ceased",
-            "ended",
-            "began to",
-            "started to",
-            "when they",
-        )
+    return any(m in text for m in _RESULTING_STATE_MARKERS) and not _source_narrates_boundary(
+        source_text
     )
 
 
@@ -837,7 +848,7 @@ def _assert_successors_proposition_jaccard_cumulative(
 
 
 def _all_evidence_is_resulting_state_without_boundary(sources: list[str]) -> bool:
-    """True only when every resolved source is a resulting-state report without boundary."""
+    """Diagnostic helper: every resolved source is a resulting-state report without boundary."""
     if not sources:
         return False
     return all(
@@ -1280,18 +1291,18 @@ def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() 
                         continue
                     resolved_sources.append(_resolved_span_text(entry))
                 if valid_start is not None and resolved_sources:
-                    if _all_evidence_is_resulting_state_without_boundary(resolved_sources):
+                    if not _any_evidence_narrates_boundary(resolved_sources):
                         raise AssertionError(
                             f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} — "
-                            "valid_time.start lacks any narrating/boundary evidence span "
-                            "(all attached evidence are resulting-state reports)"
+                            "valid_time.start lacks any evidence span that narrates "
+                            "the boundary transition"
                         )
                 if valid_end is not None and resolved_sources:
-                    if _all_evidence_is_resulting_state_without_boundary(resolved_sources):
+                    if not _any_evidence_narrates_boundary(resolved_sources):
                         raise AssertionError(
                             f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} — "
-                            "valid_time.end lacks any narrating/boundary evidence span "
-                            "(all attached evidence are resulting-state reports)"
+                            "valid_time.end lacks any evidence span that narrates "
+                            "the boundary transition"
                         )
             occ_time = ann.get("occurrence_time") or {}
             occ_point = occ_time.get("point") or {}
@@ -1522,15 +1533,33 @@ def test_retired_regression_gold_audit_matches_base_and_overlay() -> None:
             )
 
 
-def test_gate_e3_audit_allows_mixed_boundary_and_state_restatement_evidence() -> None:
+def test_gate_e3_audit_requires_positive_boundary_narration() -> None:
+    """Acceptance is positive boundary proof, not absence of resulting-state markers."""
     boundary = "When they became mayor, the council stopped meeting at dawn."
     state_only = (
         "They are a group of humans that no longer feel represented in the city "
         "and want to cause as much trouble as possible."
     )
+    # Neutral restatement: neither resulting-state marker nor boundary cue.
+    neutral = "The treaty is in effect during Session 8."
+
+    assert _source_narrates_boundary(boundary)
+    assert not _source_narrates_boundary(state_only)
+    assert not _source_narrates_boundary(neutral)
+
+    assert _any_evidence_narrates_boundary([boundary, state_only])
+    assert _any_evidence_narrates_boundary([boundary, neutral])
+    assert not _any_evidence_narrates_boundary([state_only])
+    assert not _any_evidence_narrates_boundary([neutral])
+    assert not _any_evidence_narrates_boundary([state_only, neutral])
+    assert not _any_evidence_narrates_boundary([])
+
+    # Diagnostic heuristic may remain, but must not be the acceptance condition.
     assert not _all_evidence_is_resulting_state_without_boundary([boundary, state_only])
     assert _all_evidence_is_resulting_state_without_boundary([state_only])
-    assert not _all_evidence_is_resulting_state_without_boundary([])
+    # Neutral prose fails positive proof even though it is not a "resulting-state" hit.
+    assert not _all_evidence_is_resulting_state_without_boundary([neutral])
+    assert not _any_evidence_narrates_boundary([neutral])
 
 
 def test_gate_e3_audit_rejects_source_time_for_resulting_state_report() -> None:
@@ -1539,6 +1568,7 @@ def test_gate_e3_audit_rejects_source_time_for_resulting_state_report() -> None:
         "and want to cause as much trouble as possible."
     )
     assert _source_reports_resulting_state_without_narrated_boundary(source)
+    assert not _source_narrates_boundary(source)
     # Resolving valid_end=session for this phrase is NOT Gate-E3-faithful.
 
 
@@ -1567,6 +1597,8 @@ def test_holdout_v13_retains_observed_gate_e3_and_postponement_value_defects() -
     rebels_evidence_id = (by_id[rebels_id].get("evidence_ref_ids") or [None])[0]
     rebels_source = _resolved_span_text(evidence[rebels_evidence_id])
     assert _source_reports_resulting_state_without_narrated_boundary(rebels_source)
+    assert not _source_narrates_boundary(rebels_source)
+    assert not _any_evidence_narrates_boundary([rebels_source])
 
     postpone_id = "assertion:d25ec476e8268f16"
     postpone_ann = overlay_by_id[postpone_id]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import statistics
 import subprocess
 import sys
@@ -129,8 +130,15 @@ class ReaggregateError(ValueError):
 
     Covers absent manifests, both success and failure manifests present, inconsistent
     provider execution SHAs, case_digest mismatches against the executed case file,
-    and other fail-closed provenance checks before rewriting aggregate.json.
+    requested-vs-disk run matrix mismatches, and other fail-closed provenance checks
+    before rewriting aggregate.json.
     """
+
+
+_FULL_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_KNOWN_PROMPT_LANES = frozenset({"baseline", "candidate"})
+_KNOWN_COHORTS = frozenset({"development", "holdout", "adversarial"})
+_RUN_DIR_RE = re.compile(r"^run-(\d{2})$")
 
 
 def _repo_root() -> Path:
@@ -1336,13 +1344,45 @@ def _manifest_case_digest(manifest: dict[str, Any] | None) -> str | None:
     return digest if isinstance(digest, str) and digest else None
 
 
+def _require_full_immutable_commit_sha(
+    value: str,
+    *,
+    repo_root: Path,
+    label: str = "repository_sha",
+) -> str:
+    """Require a full lowercase 40-char hex SHA that rev-parses to itself."""
+    sha = value.strip()
+    if "+" in sha:
+        raise ReaggregateError(
+            "dirty or provenance-suffixed repository_sha rejected for "
+            f"reaggregation: {sha!r}"
+        )
+    if not _FULL_COMMIT_SHA_RE.fullmatch(sha):
+        raise ReaggregateError(
+            f"{label} must be a full lowercase 40-character hex commit SHA, "
+            f"got {sha!r}"
+        )
+    try:
+        resolved = _git_stdout(repo_root, "rev-parse", sha)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ReaggregateError(
+            f"{label} is not resolvable as a git commit: {sha!r}"
+        ) from exc
+    if resolved != sha:
+        raise ReaggregateError(
+            f"{label} does not resolve to itself via git rev-parse: "
+            f"supplied={sha!r} resolved={resolved!r}"
+        )
+    return sha
+
+
 def _require_single_provider_execution_sha(
     outcomes: list[RunOutcome],
     *,
     repo_root: Path,
 ) -> str:
-    """Collect one exact non-empty repository_sha from published run/failure manifests."""
-    shas: list[str] = []
+    """Collect one exact full-hex repository_sha from published run/failure manifests."""
+    validated: list[str] = []
     for outcome in outcomes:
         manifest = outcome.run_manifest if outcome.succeeded else outcome.failure_manifest
         if manifest is None:
@@ -1359,16 +1399,19 @@ def _require_single_provider_execution_sha(
                 f"{outcome.spec.prompt_lane}/{outcome.spec.cohort}/"
                 f"run-{outcome.spec.repetition:02d}"
             )
-        shas.append(repository_sha.strip())
-
-    for sha in shas:
-        if "+" in sha:
-            raise ReaggregateError(
-                "dirty or provenance-suffixed repository_sha rejected for "
-                f"reaggregation: {sha!r}"
+        label = (
+            f"repository_sha for {outcome.spec.prompt_lane}/"
+            f"{outcome.spec.cohort}/run-{outcome.spec.repetition:02d}"
+        )
+        validated.append(
+            _require_full_immutable_commit_sha(
+                repository_sha.strip(),
+                repo_root=repo_root,
+                label=label,
             )
+        )
 
-    unique = set(shas)
+    unique = set(validated)
     if len(unique) != 1:
         raise ReaggregateError(
             f"inconsistent provider execution SHAs across matrix: {sorted(unique)}"
@@ -1377,13 +1420,66 @@ def _require_single_provider_execution_sha(
     provider_sha = next(iter(unique))
     if not provider_sha or provider_sha == "unknown":
         raise ReaggregateError("provider execution SHA is empty or unknown")
-
-    if not _git_ok(repo_root, "cat-file", "-e", f"{provider_sha}^{{commit}}"):
-        raise ReaggregateError(
-            f"provider execution SHA is not a git commit object: {provider_sha!r}"
-        )
-
     return provider_sha
+
+
+def _discover_published_run_keys(output_dir: Path) -> set[tuple[str, str, int]]:
+    """Discover every published run/failure manifest under ``output_dir/calibration``."""
+    calibration_root = output_dir / "calibration"
+    keys: set[tuple[str, str, int]] = set()
+    if not calibration_root.is_dir():
+        return keys
+    for prompt_lane_dir in sorted(calibration_root.iterdir()):
+        if not prompt_lane_dir.is_dir():
+            continue
+        prompt_lane = prompt_lane_dir.name
+        if prompt_lane not in _KNOWN_PROMPT_LANES:
+            raise ReaggregateError(
+                f"unexpected prompt lane directory under calibration/: {prompt_lane!r}"
+            )
+        for cohort_dir in sorted(prompt_lane_dir.iterdir()):
+            if not cohort_dir.is_dir():
+                continue
+            cohort = cohort_dir.name
+            if cohort not in _KNOWN_COHORTS:
+                raise ReaggregateError(
+                    f"unexpected cohort directory under calibration/{prompt_lane}/: "
+                    f"{cohort!r}"
+                )
+            for run_dir in sorted(cohort_dir.iterdir()):
+                if not run_dir.is_dir():
+                    continue
+                match = _RUN_DIR_RE.fullmatch(run_dir.name)
+                if match is None:
+                    continue
+                has_run = (run_dir / "run-manifest.json").is_file()
+                has_failure = (run_dir / "failure-manifest.json").is_file()
+                if not has_run and not has_failure:
+                    continue
+                keys.add((prompt_lane, cohort, int(match.group(1))))
+    return keys
+
+
+def _run_spec_keys(run_specs: list[CalibrationRunSpec]) -> set[tuple[str, str, int]]:
+    return {(spec.prompt_lane, spec.cohort, spec.repetition) for spec in run_specs}
+
+
+def _require_requested_matrix_matches_disk(
+    *,
+    output_dir: Path,
+    run_specs: list[CalibrationRunSpec],
+) -> None:
+    """Refuse reaggregation when caller matrix omits or invents published runs."""
+    discovered = _discover_published_run_keys(output_dir)
+    expected = _run_spec_keys(run_specs)
+    if discovered == expected:
+        return
+    missing = sorted(expected - discovered)
+    unexpected = sorted(discovered - expected)
+    raise ReaggregateError(
+        "requested run matrix does not match published on-disk manifests: "
+        f"missing={missing!r} unexpected={unexpected!r}"
+    )
 
 
 def load_calibration_outcomes_from_disk(
@@ -1931,6 +2027,10 @@ def reaggregate_existing_calibration_runs(
         adversarial_case=adversarial_case,
         repetitions=repetitions,
         baseline_adversarial_case=baseline_adversarial_case,
+    )
+    _require_requested_matrix_matches_disk(
+        output_dir=output_dir,
+        run_specs=run_specs,
     )
     outcomes = load_calibration_outcomes_from_disk(
         output_dir=output_dir,

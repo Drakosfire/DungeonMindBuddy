@@ -1,7 +1,7 @@
 # REPORT — TL01G: Resolution-Proof Abstention Gate
 
 **Created:** 2026-08-01
-**Updated:** 2026-08-01 (V13/Adv V11 retired; grounding collapse diagnosed; aggregate rebuilt from on-disk manifests; no new promotion cohort)
+**Updated:** 2026-08-02 (positive Gate E3 boundary proof; exact on-disk reaggregate matrix; full-hex provider SHA)
 **Control:** frozen `tl01f-v1`
 **Candidate:** frozen `tl01g-v1`
 **Packet / renderer:** `tl01c-packet-v1` / `render_temporal_shadow_user_content_v2`
@@ -36,7 +36,7 @@ TL01 may **not** advance to broader-shadow readiness. There is currently **no au
 | Retire V10/Adv V8; audit ID/status tests; span EOF bounds; seal V11 / Adv V9 | `a3f108f2fa64a3ac5c0146acbc25d7b904fcacc2` | **retired** — reused observed spans; Adv V9 paraphrased Adv V8 |
 | Retire V11/Adv V9; restore span `isdisjoint`; Jaccard templates; audit proposition/lane/phrase; seal V12 / Adv V10 | `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` | **retired** — gold/Gate defects |
 | Retire V12/Adv V10; proposition-template Jaccard (holdout); seal V13/Adv V11 | `33bae3485babb0d15373b91b0cbcb13282b42491` | **retired after observation** — Adv proposition replay; V13 Gate E3 / postponement-value defects; grounding collapse |
-| Preserve grounding diagnostics; fail-closed auto-discovery for fresh adversarial/holdout proposition-template Jaccard; Gate E3 / value audit cases; rebuild committed aggregate from on-disk manifests; provenance-safe reaggregate (case_digest, single provider SHA, fixture bytes at execution commit) | *(this recovery tip)* | process — **no new promotion cohort** |
+| Preserve grounding diagnostics; fail-closed auto-discovery for fresh adversarial/holdout proposition-template Jaccard; positive Gate E3 boundary narration; exact on-disk matrix match for reaggregate; full-hex immutable provider SHA; rebuild committed aggregate from on-disk manifests | *(this recovery tip)* | process — **no new promotion cohort** |
 
 ### Why V13/Adv V11 cannot remain promotion authority
 
@@ -68,17 +68,18 @@ Resolved-span fingerprints fail before hashing when evidence refs are missing, p
 
 Audit rows must bind ID, status, proposition, lane, and supporting phrase to sealed fixtures. **This proves mechanical fixture consistency only — not human Gate-faithfulness.** Additional audit cases check Gate E3 (episode boundary vs resulting-state report) and proposition-first value grounding (value must temporally modify the selected proposition).
 
-**Future holdout overlays** (versions above the holdout cutoff) audit **both** `valid_time.start` and `valid_time.end` when non-null. For each boundary, at least one attached evidence span must narrate the transition; **state-restatement alone is insufficient**. Additional resulting-state restatement spans are OK when boundary evidence exists. Postponement-value defects still audit occurrence `raw_expression` on resolved rows.
+**Future holdout overlays** (versions above the holdout cutoff) audit **both** `valid_time.start` and `valid_time.end` when non-null. Acceptance is **positive** boundary proof: at least one attached evidence span must match `_source_narrates_boundary` (transition cues such as became / stopped / ceased / ended / began to / started to / when they). Neutral restatements without those cues (e.g. “The treaty is in effect during Session 8”) fail. The resulting-state heuristic remains diagnostic only and is not the acceptance condition. Postponement-value defects still audit occurrence `raw_expression` on resolved rows.
 
 ### Reaggregate provenance (durable evidence)
 
 `--reaggregate-only` now refuses unless the git worktree is clean (calibration artifacts excluded). Before rewriting `aggregate.json` it:
 
-1. Loads on-disk manifests and rejects ambiguous dirs (both success and failure manifests).
-2. Requires each published manifest `case_digest` to match the executed case file SHA256.
-3. Requires exactly one provider `repository_sha` across the matrix (`provider_execution_sha`); **exact manifest strings only** — dirty or provenance-suffixed values (e.g. `abc+dirty`) are rejected without normalization.
-4. Verifies development/holdout/adversarial case/base/gold/evidence bytes at that provider commit (sealed holdout/adversarial via `verify_cohort_seal` with `execution_commit_sha=provider_execution_sha`).
-5. Passes `expected_repository_sha=provider_execution_sha` into cohort aggregation; records `provider_run_repository_shas=[provider_execution_sha]` while `aggregate_build_sha` / aggregate `repository_sha` remain the current clean HEAD rebuild tip.
+1. Discovers every published `run-manifest.json` / `failure-manifest.json` under `calibration/` and requires the requested lane/cohort/repetition matrix to equal that set exactly (omitted repetitions or omitted baseline-adversarial lanes fail closed).
+2. Loads on-disk manifests and rejects ambiguous dirs (both success and failure manifests).
+3. Requires each published manifest `case_digest` to match the executed case file SHA256.
+4. Requires exactly one provider `repository_sha` across the matrix (`provider_execution_sha`); **exact full lowercase 40-char hex commit SHAs only** — dirty/suffixed values, branch/tag refs, and abbreviated SHAs are rejected; `git rev-parse <sha>` must equal the supplied value.
+5. Verifies development/holdout/adversarial case/base/gold/evidence bytes at that provider commit (sealed holdout/adversarial via `verify_cohort_seal` with `execution_commit_sha=provider_execution_sha`).
+6. Passes `expected_repository_sha=provider_execution_sha` into cohort aggregation; records `provider_run_repository_shas=[provider_execution_sha]` while `aggregate_build_sha` / aggregate `repository_sha` remain the current clean HEAD rebuild tip.
 
 ### Grounding diagnostics
 

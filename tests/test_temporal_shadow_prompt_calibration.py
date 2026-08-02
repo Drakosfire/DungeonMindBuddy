@@ -1416,18 +1416,32 @@ def test_load_outcomes_rejects_case_digest_mismatch(tmp_path: Path) -> None:
 
 
 def test_require_single_provider_execution_sha_rejects_mismatch() -> None:
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    parent = subprocess.run(
+        ["git", "rev-parse", "HEAD^"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     outcomes = [
         calibration.RunOutcome(
             spec=_spec("candidate", "development", 1),
             run_dir=Path("."),
             succeeded=False,
-            failure_manifest={"repository_sha": "aaa111deadbeefdeadbeefdeadbeefdeadbeef"},
+            failure_manifest={"repository_sha": head},
         ),
         calibration.RunOutcome(
             spec=_spec("candidate", "holdout", 1),
             run_dir=Path("."),
             succeeded=False,
-            failure_manifest={"repository_sha": "bbb222deadbeefdeadbeefdeadbeefdeadbeef"},
+            failure_manifest={"repository_sha": parent},
         ),
     ]
     with pytest.raises(calibration.ReaggregateError, match="inconsistent provider execution"):
@@ -1463,6 +1477,46 @@ def test_require_single_provider_execution_sha_rejects_dirty_suffix() -> None:
         calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
 
 
+def test_require_single_provider_execution_sha_rejects_mutable_ref() -> None:
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": "main"},
+        ),
+    ]
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="full lowercase 40-character hex commit SHA",
+    ):
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+
+
+def test_require_single_provider_execution_sha_rejects_abbreviated_sha() -> None:
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    abbreviated = head[:12]
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": abbreviated},
+        ),
+    ]
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="full lowercase 40-character hex commit SHA",
+    ):
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+
+
 def test_require_single_provider_execution_sha_accepts_clean_head_sha() -> None:
     sha = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -1488,6 +1542,125 @@ def test_require_single_provider_execution_sha_accepts_clean_head_sha() -> None:
     assert (
         calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
         == sha
+    )
+
+
+def test_require_requested_matrix_matches_disk_rejects_omitted_repetition(
+    tmp_path: Path,
+) -> None:
+    """--repetitions 2 must not silently omit an on-disk run-03."""
+    for lane, cohort, rep in (
+        ("baseline", "development", 1),
+        ("baseline", "development", 2),
+        ("baseline", "development", 3),
+        ("candidate", "development", 1),
+        ("candidate", "development", 2),
+        ("candidate", "development", 3),
+    ):
+        run_dir = calibration._lane_run_dir(
+            output_dir=tmp_path,
+            prompt_lane=lane,
+            cohort=cohort,
+            repetition=rep,
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "failure-manifest.json").write_text(
+            json.dumps({"failure_code": "grounding_failure"}),
+            encoding="utf-8",
+        )
+
+    requested = calibration._build_calibration_run_specs(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        repetitions=2,
+        baseline_adversarial_case=None,
+    )
+    # Narrow to development lanes only for this fixture.
+    requested = [s for s in requested if s.cohort == "development"]
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="requested run matrix does not match published on-disk manifests",
+    ):
+        calibration._require_requested_matrix_matches_disk(
+            output_dir=tmp_path,
+            run_specs=requested,
+        )
+
+
+def test_require_requested_matrix_matches_disk_rejects_omitted_baseline_adversarial(
+    tmp_path: Path,
+) -> None:
+    """Omitting baseline adversarial must not silently ignore an on-disk lane."""
+    for lane, cohort in (
+        ("baseline", "development"),
+        ("baseline", "holdout"),
+        ("baseline", "adversarial"),
+        ("candidate", "development"),
+        ("candidate", "holdout"),
+        ("candidate", "adversarial"),
+    ):
+        run_dir = calibration._lane_run_dir(
+            output_dir=tmp_path,
+            prompt_lane=lane,
+            cohort=cohort,
+            repetition=1,
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "failure-manifest.json").write_text(
+            json.dumps({"failure_code": "grounding_failure"}),
+            encoding="utf-8",
+        )
+
+    # Requested matrix without baseline adversarial (5 lanes × 1 rep).
+    requested = calibration._build_calibration_run_specs(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        repetitions=1,
+        baseline_adversarial_case=None,
+    )
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="unexpected=.*baseline.*adversarial",
+    ):
+        calibration._require_requested_matrix_matches_disk(
+            output_dir=tmp_path,
+            run_specs=requested,
+        )
+
+
+def test_require_requested_matrix_matches_disk_accepts_exact_matrix(
+    tmp_path: Path,
+) -> None:
+    requested = calibration._build_calibration_run_specs(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        repetitions=1,
+        baseline_adversarial_case=ADVERSARIAL_CASE,
+    )
+    for spec in requested:
+        run_dir = calibration._lane_run_dir(
+            output_dir=tmp_path,
+            prompt_lane=spec.prompt_lane,
+            cohort=spec.cohort,
+            repetition=spec.repetition,
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "failure-manifest.json").write_text(
+            json.dumps({"failure_code": "grounding_failure"}),
+            encoding="utf-8",
+        )
+    calibration._require_requested_matrix_matches_disk(
+        output_dir=tmp_path,
+        run_specs=requested,
     )
 
 
