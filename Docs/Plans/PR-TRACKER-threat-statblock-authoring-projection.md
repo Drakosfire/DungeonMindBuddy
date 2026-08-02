@@ -2,11 +2,11 @@
 
 **Status:** ACTIVE PUBLICATION-FIRST TRACKER  
 **Date:** 2026-08-01  
-**Repository anchor:** `9d7acea97b257a87f636efdf18d206381fba5938` — current `main` after merged PRs `#476` + `#478` + doc-only `#481`  
+**Repository anchor:** `36def9e102c3e58f0ad00cd8ad7a4fbfe15de594` — re-anchor base for SBW09c2b authority PR `#474` (contains merged `#476` + `#478`)  
 **Latest merged Threat implementations:** `#478` — exact durable no-write Threat publication proposal; `#476` — exact contribution-operation-to-immutable-revision lookup  
 **Latest merged Threat authority:** `#473` — SBW09c2a exact operation-to-revision lookup handoff  
 **Immediate implementation authority:**
-- [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — proposal-bound commit, durable recovery, and exact verification; re-anchored against the merged c1/c2a contracts in PR `#474`; dispatch gated on that merge plus a post-merge immutable-SHA authority sync  
+- [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — ACTIVE / NEXT PUBLICATION IMPLEMENTATION; re-anchored against merged c1/c2a; dispatch only after this authority PR merges and the immutable main SHA is recorded  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Publication re-anchor:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
@@ -71,7 +71,7 @@ Required deletion owner:
 | `SBW09b` | `MERGED #467` | Exact Threat identity authority. | Complete. |
 | `SBW09c1` | `MERGED #478` | Durable exact no-write publication proposal. | Complete. |
 | `SBW09c2a` | `MERGED #476` | Public read-only exact operation→immutable revision lookup. | Complete. |
-| `SBW09c2b` | RE-ANCHORED AUTHORITY / NEXT | Proposal claim, exact commit, durable intent/receipt, recovery, verification. | Merge PR `#474`, record immutable dispatch SHA, dispatch one implementation PR. |
+| `SBW09c2b` | ACTIVE / NEXT PUBLICATION IMPLEMENTATION | Proposal claim, exact commit, durable intent/receipt, recovery, verification. | Merge PR `#474`, record immutable dispatch SHA, dispatch one implementation PR. |
 
 ## 4. Critical publication queue
 
@@ -83,7 +83,7 @@ The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` remains s
 | `SBW09b` | MERGED `#467` | Exact Threat identity resolution. | Explicit create/connect/refuse; no automatic identity. |
 | `SBW09c1` | MERGED `#478` | Exact durable no-write Threat publication proposal. | Sealed deterministic create/connect effects; persist/replay/supersede without graph mutation. |
 | `SBW09c2a` | MERGED `#476` | Exact operation-to-revision lookup across all immutable revision manifests. | Zero/one/many plural result; head advance/rollback cannot hide a match; manifest identity hardening; no write. |
-| `SBW09c2b` | ACTIVE / NEXT PRODUCT CAPABILITY | Proposal-bound commit, durable intent/receipt/recovery, and exact verification. | Authority: [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md), re-anchored against merged c1/c2a in PR `#474`. Dispatch one implementation PR after that merge and its immutable-SHA sync. |
+| `SBW09c2b` | ACTIVE / NEXT PUBLICATION IMPLEMENTATION | Proposal-bound commit, durable intent/receipt/recovery, and exact verification. | Authority: [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md). Dispatch one implementation PR after this authority merges and the immutable main SHA is recorded. |
 | `SBW10a` | BLOCKED ON PUBLICATION | Hermes query and exact mechanics hydration. | Name/role/capability/relationship/context; explicit zero/one/many bindings. |
 | `SBW10b` | BLOCKED ON `SBW10a` | Compact/full exact-revision Threat projection. | Useful game information first. |
 
@@ -107,18 +107,19 @@ World Graph revisions immutably retain `operation_ids`; merged Kernel publicatio
 
 The re-anchored handoff freezes:
 
-- the merged c1 operation-scoped `.proposal.lock`, exposed through a public alias, as the sole proposal/commit lifecycle lock;
-- a c1 supersession gate: any durable commit record for the operation permanently refuses supersession with `publication_proposal_commit_claimed` (`409`) under that same lock;
-- c1's pre-lock no-artifact fast paths preserved; commit flows introduce no new storage artifacts on terminal paths;
-- intent persisted before the first Kernel merge;
+- the merged c1 operation-scoped `.proposal.lock`, exposed as `threat_publication_lifecycle_lock`, as the sole proposal/commit lifecycle lock;
+- once any valid commit record exists, c1 refuses new-proposal creation and supersession with `publication_proposal_busy` and an explicit commit-claim message (no new c1 result label);
+- c1 no-artifact fast paths remain valid only when both the proposal ledger and the commit ledger are absent; an orphaned commit claim fails integrity under the shared lock;
+- contribution reconstruction uses `proposal.created_by` as `confirming_principal`; the c2b request actor is commit audit identity only and cannot alter contribution ID;
+- intent persisted before the first Kernel merge; exact contribution ID and lifecycle-neutral source digest persisted in the commit record;
 - recovery lookup keyed by the exact expected contribution ID (merged Kernel records `operation_ids=[contribution_id]`), not the SBW09a publication operation ID;
-- every `published=false` reconciled through c2a exactly once — the merged Kernel's idempotent already-applied no-op proves `published=false` can coexist with a committed revision;
-- stale-parent `ValueError` treated as deterministic refusal; zero matches plus unchanged parent permitting at most one exact retry;
-- one exact immutable match requiring full contribution/effect verification;
+- every uncertain Kernel outcome — including typed `published=False` — reconciles through c2a exactly once before terminal classification;
+- zero matches plus unchanged parent and full authority revalidation permitting at most one exact retry;
+- one exact immutable match requiring core publication-proof checks (parent, integrity load, contribution digest, replay entry); a unique match that fails those checks is ambiguity;
 - multiple matches remaining an integrity ambiguity despite deterministic result ordering;
 - immediate `committed_unverified` persistence before rebuild/projection audits;
 - no merge retry after any committed revision is known;
-- response envelopes carrying no sentinel identities (merged c1 `resolution_id=null` precedent).
+- response envelopes carrying no sentinel identities.
 
 ## 5. Placement and shared-capability queue
 

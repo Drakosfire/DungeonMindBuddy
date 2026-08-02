@@ -2,11 +2,11 @@
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP — PUBLICATION-FIRST  
 **Date:** 2026-08-01  
-**Repository anchor:** `9d7acea97b257a87f636efdf18d206381fba5938` — current `main` after merged PRs `#476` + `#478` + doc-only `#481`  
+**Repository anchor:** `36def9e102c3e58f0ad00cd8ad7a4fbfe15de594` — re-anchor base for SBW09c2b authority PR `#474` (contains merged `#476` + `#478`)  
 **Latest completed Threat implementations:** `SBW09c1` merged in PR `#478`; `SBW09c2a` merged in PR `#476`  
 **Latest Threat authority:** PR `#473` established SBW09c2a operation-to-revision lookup authority  
 **Immediate implementation authority:**
-- [`../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — re-anchored against the merged c1/c2a contracts in PR `#474`; dispatch gated on that merge plus a post-merge immutable-SHA authority sync  
+- [`../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — ACTIVE / NEXT PUBLICATION IMPLEMENTATION; re-anchored against merged c1/c2a; dispatch only after this authority PR merges and the immutable main SHA is recorded  
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
 **Publication re-anchor:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
@@ -160,7 +160,7 @@ Why this is separate:
 
 Merged public signature: `find_world_graph_revisions_by_operation_id(root, world_id, operation_id) -> tuple[WorldGraphRevision, ...]`; plural zero/one/many semantics; results ordered by `(created_at, revision_id)` as evidence order only; `WorldGraphIntegrityError` when a manifest's embedded world/revision identity disagrees with its store path; no durable writes.
 
-### `SBW09c2b` — Proposal-bound commit, durable recovery, exact verification — ACTIVE / NEXT
+### `SBW09c2b` — Proposal-bound commit, durable recovery, exact verification — ACTIVE / NEXT PUBLICATION IMPLEMENTATION
 
 Authority: [`../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md), re-anchored against the merged c1/c2a contracts in PR `#474`.
 
@@ -179,23 +179,23 @@ claim exact active proposal under its lifecycle lock
 
 Frozen properties:
 
-- the merged c1 operation-scoped `.proposal.lock`, exposed through a public alias, is the sole proposal/commit lifecycle lock;
-- any commit record permanently blocks proposal supersession through a c1 gate returning `publication_proposal_commit_claimed`;
-- c1's pre-lock no-artifact fast paths are preserved; commit flows introduce no new storage artifacts on terminal paths;
+- the merged c1 operation-scoped `.proposal.lock`, exposed as `threat_publication_lifecycle_lock`, is the sole proposal/commit lifecycle lock;
+- once any valid commit record exists, c1 refuses new-proposal creation and supersession with `publication_proposal_busy` and an explicit commit-claim message (no new c1 result label);
+- c1 no-artifact fast paths remain valid only when both the proposal ledger and the commit ledger are absent;
+- contribution reconstruction uses `proposal.created_by` as `confirming_principal`; the c2b request actor is commit audit identity only;
 - no assertion subset selection exists;
 - the recovery lookup key is the exact expected Graph contribution ID, not the SBW09a publication operation ID;
-- every `published=false` result reconciles through c2a exactly once — the merged Kernel's idempotent already-applied no-op proves `published=false` can coexist with a committed revision;
-- stale-parent `ValueError` is a deterministic refusal and never consumes the recovery retry;
-- zero matches plus unchanged original parent may permit at most one exact retry;
-- one match becomes a recovery candidate only after exact parent/contribution/effect verification;
-- multiple matches remain integrity ambiguity despite deterministic result ordering;
+- every uncertain Kernel outcome — including typed `published=False` — reconciles through c2a exactly once before terminal classification;
+- zero matches plus unchanged original parent and full authority revalidation may permit at most one exact retry;
+- one match becomes a recovery candidate only after core publication-proof checks (parent, integrity load, contribution digest, replay entry);
+- a unique match that fails those checks is ambiguity; multiple matches remain integrity ambiguity despite deterministic result ordering;
 - head advance or rollback cannot hide an existing immutable revision;
 - current head is never substituted for committed revision identity;
 - commit success plus verification failure remains committed-but-unverified and cannot retry;
 - graph failure never recreates, revises, or repins accepted mechanics;
 - no direct graph-file write or second graph-governance framework is introduced.
 
-Dispatch remains gated: PR `#474` must merge, a post-merge authority sync must record the immutable `origin/main` dispatch SHA in the handoff header, and one implementation PR dispatches from that exact SHA. No c2b code exists before then.
+Dispatch remains gated: PR `#474` must merge, the immutable `origin/main` dispatch SHA must be recorded in the handoff header, and one implementation PR dispatches from that exact SHA. No c2b code exists before then.
 
 The old bundled SBW09 handoff remains superseded research.
 
@@ -273,7 +273,7 @@ R0-B closeout, AOW01/AOW02, authoring artifact/library, graph chips, SBW06d, rev
 | `SBW09b` | `MERGED #467` | Proposal unlocked |
 | `SBW09c1` | `MERGED #478` | Commit unlocked |
 | `SBW09c2a` | `MERGED #476` | Recovery unlocked |
-| `SBW09c2b` | RE-ANCHORED / NEXT | Query/hydration unlocked |
+| `SBW09c2b` | ACTIVE / NEXT PUBLICATION IMPLEMENTATION | Query/hydration unlocked |
 | `MAGIC-D1/D2` | DOGFOOD REQUIRED / PARALLEL | Authoring convenience proofs |
 | `MAGIC-D3` | BLOCKED on `SBW09c2b`, `SBW10a`, `SBW10b` | Placement |
 | `MAGIC-D4` | BLOCKED | Combat |
