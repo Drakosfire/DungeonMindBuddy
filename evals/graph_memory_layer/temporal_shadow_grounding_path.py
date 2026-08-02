@@ -253,10 +253,14 @@ class ProviderCallLedger:
     calls: int = 0
     response_ids: list[str] = field(default_factory=list)
 
-    def record(self, meta: ProviderMeta) -> None:
+    def record_attempt(self, response_id: str | None = None) -> None:
+        """Charge one provider attempt, including refusals/errors/exceptions."""
         self.calls += 1
-        if meta.response_id:
-            self.response_ids.append(meta.response_id)
+        if response_id:
+            self.response_ids.append(response_id)
+
+    def record(self, meta: ProviderMeta) -> None:
+        self.record_attempt(meta.response_id)
 
     def assert_budget(self) -> None:
         if self.calls > PHASE_CALL_BUDGET:
@@ -295,17 +299,51 @@ class RecordingTemporalShadowClient:
     ) -> tuple[dict[str, Any], ProviderMeta]:
         self.last_instructions = instructions
         self.last_user_content = user_content
-        raw_batch, meta = self._delegate.extract_annotations(
-            instructions=instructions,
-            user_content=user_content,
-            model_id=model_id,
-        )
+        # Charge the attempt before delegation so refusals/errors still consume budget.
+        if self.ledger is not None and self.record_provider_calls:
+            self.ledger.record_attempt(None)
+        try:
+            raw_batch, meta = self._delegate.extract_annotations(
+                instructions=instructions,
+                user_content=user_content,
+                model_id=model_id,
+            )
+        except TemporalShadowExtractionError as exc:
+            self.call_count += 1
+            if (
+                self.ledger is not None
+                and self.record_provider_calls
+                and exc.provider_response_id
+            ):
+                self.ledger.response_ids.append(exc.provider_response_id)
+            raise
+        except Exception:
+            self.call_count += 1
+            raise
         self.last_raw_batch = raw_batch
         self.last_provider_meta = meta
         self.call_count += 1
-        if self.ledger is not None and self.record_provider_calls:
-            self.ledger.record(meta)
+        if self.ledger is not None and self.record_provider_calls and meta.response_id:
+            self.ledger.response_ids.append(meta.response_id)
         return raw_batch, meta
+
+
+def _annotation_from_raw_batch(
+    raw_batch: dict[str, Any] | None,
+    *,
+    assertion_id: str,
+) -> tuple[str | None, list[str] | None]:
+    """Return (source_phrase, evidence_ref_ids) for assertion_id, or (None, None)."""
+    if raw_batch is None:
+        return None, None
+    for item in raw_batch.get("annotations", []):
+        if item.get("base_assertion_id") == assertion_id:
+            phrase = item.get("source_phrase")
+            refs_raw = item.get("evidence_ref_ids")
+            if refs_raw is None:
+                return phrase if isinstance(phrase, str) else None, None
+            return phrase if isinstance(phrase, str) else None, list(refs_raw)
+    return None, None
 
 
 def classify_lane_result(
@@ -333,20 +371,21 @@ def classify_lane_result(
         if error.code == "overlay_assembly_failed":
             return "OVERLAY_ASSEMBLY_FAILED"
         if error.code == "grounding_failure":
+            returned_phrase, returned_refs = _annotation_from_raw_batch(
+                raw_batch, assertion_id=assertion_id
+            )
+            # Absent refs (missing key, null, or empty list) are ownership failures.
+            # Never fall back to the assertion's owned refs for phrase matching.
+            if returned_refs is None or len(returned_refs) == 0:
+                return "EVIDENCE_OWNERSHIP_MISMATCH"
             if error.foreign_evidence_attempts > 0:
                 return "EVIDENCE_OWNERSHIP_MISMATCH"
-            returned_phrase = None
-            returned_refs: list[str] = []
-            if raw_batch is not None:
-                for item in raw_batch.get("annotations", []):
-                    if item.get("base_assertion_id") == assertion_id:
-                        returned_phrase = item.get("source_phrase")
-                        returned_refs = list(item.get("evidence_ref_ids") or [])
-                        break
-            refs = returned_refs or owned_evidence_ref_ids
+            owned = set(owned_evidence_ref_ids)
+            if not set(returned_refs).issubset(owned):
+                return "EVIDENCE_OWNERSHIP_MISMATCH"
             present, _, _ = _phrase_match_in_owned_snippet(
                 returned_phrase=returned_phrase,
-                evidence_ref_ids=refs,
+                evidence_ref_ids=returned_refs,
                 packets=packets,
                 assertion_id=assertion_id,
             )
@@ -363,46 +402,76 @@ def classify_lane_result(
     return "UNRESOLVED_DIAGNOSTIC_GAP"
 
 
+_LOCAL_REPAIR_LANE_RESULTS: frozenset[LaneResult] = frozenset(
+    {
+        "PACKET_MISSING_PHRASE",
+        "RENDERER_MISSING_PHRASE",
+        "GROUNDING_VALIDATOR_DEFECT",
+        "OVERLAY_ASSEMBLY_FAILED",
+        "COMPARISON_METRICS_UNOBSERVED",
+    }
+)
+
+
 def compute_overall_conclusion(
     *,
-    control: LaneResult,
-    candidate: LaneResult,
-    run_mode: RunMode,
-    provider_calls: int,
-    live_attempted: bool,
+    deterministic_control: LaneResult | None = None,
+    deterministic_candidate: LaneResult | None = None,
+    live_control: LaneResult | None = None,
+    live_candidate: LaneResult | None = None,
 ) -> OverallConclusion:
-    both_evaluable = control == "EVALUABLE" and candidate == "EVALUABLE"
-    if both_evaluable and run_mode == "live" and live_attempted and provider_calls >= 2:
+    """Combine explicit deterministic + live lane evidence into one overall conclusion.
+
+    GROUNDING_PATH_READY requires both deterministic lanes and both live lanes to be
+    EVALUABLE. A live-only or deterministic-only invocation cannot unlock readiness.
+    Provider execution failure maps to UNRESOLVED_DIAGNOSTIC_GAP. Phrase-fidelity
+    blockage requires deterministic EVALUABLE proof plus at least one live phrase
+    fidelity failure.
+    """
+    det_lanes = (deterministic_control, deterministic_candidate)
+    live_lanes = (live_control, live_candidate)
+    det_complete = all(lane is not None for lane in det_lanes)
+    live_complete = all(lane is not None for lane in live_lanes)
+    both_det_evaluable = det_complete and all(lane == "EVALUABLE" for lane in det_lanes)
+    both_live_evaluable = live_complete and all(lane == "EVALUABLE" for lane in live_lanes)
+
+    if both_det_evaluable and both_live_evaluable:
         return "GROUNDING_PATH_READY"
-    if both_evaluable and run_mode == "deterministic":
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if both_evaluable:
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if control == "EVALUABLE" and candidate in {
-        "PROVIDER_PHRASE_FIDELITY_BLOCKED",
-        "PROVIDER_EXECUTION_FAILED",
-    }:
-        return "PROVIDER_PHRASE_FIDELITY_BLOCKED"
-    if candidate == "EVALUABLE" and control in {
-        "PROVIDER_PHRASE_FIDELITY_BLOCKED",
-        "PROVIDER_EXECUTION_FAILED",
-    }:
-        return "PROVIDER_PHRASE_FIDELITY_BLOCKED"
-    if any(
-        lane
-        in {
-            "PACKET_MISSING_PHRASE",
-            "RENDERER_MISSING_PHRASE",
-            "GROUNDING_VALIDATOR_DEFECT",
-            "OVERLAY_ASSEMBLY_FAILED",
-            "COMPARISON_METRICS_UNOBSERVED",
-        }
-        for lane in (control, candidate)
-    ):
+
+    observed = [lane for lane in (*det_lanes, *live_lanes) if lane is not None]
+    if any(lane in _LOCAL_REPAIR_LANE_RESULTS for lane in observed):
         return "LOCAL_REPAIR_REQUIRED"
-    if not live_attempted and run_mode == "live":
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+    if both_det_evaluable and live_complete:
+        if any(lane == "PROVIDER_EXECUTION_FAILED" for lane in live_lanes):
+            return "UNRESOLVED_DIAGNOSTIC_GAP"
+        if any(lane == "PROVIDER_PHRASE_FIDELITY_BLOCKED" for lane in live_lanes):
+            return "PROVIDER_PHRASE_FIDELITY_BLOCKED"
+
     return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+
+def transport_accepted_for_error(
+    error: TemporalShadowExtractionError | None,
+    *,
+    succeeded: bool,
+    raw_batch: dict[str, Any] | None,
+) -> bool | None:
+    """Whether transport validation accepted a usable raw batch.
+
+    Must not report True beside TRANSPORT_REJECTED or provider execution failure.
+    """
+    if succeeded:
+        return True
+    if error is None:
+        return None if raw_batch is None else True
+    if error.code in {"provider_refusal", "provider_incomplete", "provider_error"}:
+        return False
+    if error.code == "invalid_model_output":
+        return False
+    if raw_batch is not None:
+        return True
+    return False
 
 
 @dataclass
@@ -564,31 +633,43 @@ def run_lane_diagnostic(
                 if recording.last_provider_meta is not None
                 else None
             )
-            transport_accepted = exc.code != "invalid_model_output" or recording.last_raw_batch is not None
+            transport_accepted = transport_accepted_for_error(
+                exc,
+                succeeded=False,
+                raw_batch=recording.last_raw_batch,
+            )
     else:
         transport_accepted = None
 
     raw_batch = recording.last_raw_batch
+    returned_phrase, returned_refs = _annotation_from_raw_batch(
+        raw_batch, assertion_id=assertion_id
+    )
     if raw_batch is not None:
-        for item in raw_batch.get("annotations", []):
-            if item.get("base_assertion_id") == assertion_id:
-                returned_phrase = item.get("source_phrase")
-                returned_refs = list(item.get("evidence_ref_ids") or [])
-                break
-        phrase_match, phrase_match_ref, phrase_match_offset = _phrase_match_in_owned_snippet(
-            returned_phrase=returned_phrase,
-            evidence_ref_ids=returned_refs or owned_refs,
-            packets=packets,
-            assertion_id=assertion_id,
-        )
-        if error is not None and error.foreign_evidence_attempts > 0:
+        if returned_refs is None or len(returned_refs) == 0:
+            phrase_match = False
+            phrase_match_ref = None
+            phrase_match_offset = None
             owned_check = "foreign_or_missing"
-        elif phrase_match:
-            owned_check = "owned_match"
-        elif returned_phrase is not None:
-            owned_check = "phrase_not_in_owned_snippet"
         else:
-            owned_check = "missing_returned_phrase"
+            phrase_match, phrase_match_ref, phrase_match_offset = (
+                _phrase_match_in_owned_snippet(
+                    returned_phrase=returned_phrase,
+                    evidence_ref_ids=returned_refs,
+                    packets=packets,
+                    assertion_id=assertion_id,
+                )
+            )
+            if error is not None and error.foreign_evidence_attempts > 0:
+                owned_check = "foreign_or_missing"
+            elif not set(returned_refs).issubset(set(owned_refs)):
+                owned_check = "foreign_or_missing"
+            elif phrase_match:
+                owned_check = "owned_match"
+            elif returned_phrase is not None:
+                owned_check = "phrase_not_in_owned_snippet"
+            else:
+                owned_check = "missing_returned_phrase"
 
     lane_result = classify_lane_result(
         packet_phrase_present=packet_present,
@@ -731,13 +812,18 @@ def run_paired_grounding_path_diagnostic(
             diagnostics=[f"calls={ledger.calls}", f"max={MAX_TOTAL_PROVIDER_CALLS}"],
         )
 
-    overall = compute_overall_conclusion(
-        control=control.lane_result,
-        candidate=candidate.lane_result,
-        run_mode=mode,
-        provider_calls=ledger.calls,
-        live_attempted=live_attempted,
-    )
+    # Single-mode invocations cannot claim GROUNDING_PATH_READY; that requires
+    # combining explicit deterministic + live EVALUABLE evidence at report time.
+    if mode == "deterministic":
+        overall = compute_overall_conclusion(
+            deterministic_control=control.lane_result,
+            deterministic_candidate=candidate.lane_result,
+        )
+    else:
+        overall = compute_overall_conclusion(
+            live_control=control.lane_result,
+            live_candidate=candidate.lane_result,
+        )
 
     summary = {
         "repository_sha": _repository_sha(repo_root=repo_root),

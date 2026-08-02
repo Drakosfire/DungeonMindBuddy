@@ -157,6 +157,10 @@ def test_fake_control_and_candidate_reach_evaluable_with_metrics(tmp_path: Path)
             "EVIDENCE_OWNERSHIP_MISMATCH",
         ),
         (
+            lambda batch: batch["annotations"][0].update({"evidence_ref_ids": []}),
+            "EVIDENCE_OWNERSHIP_MISMATCH",
+        ),
+        (
             lambda batch: batch["annotations"][0].update({"interpretation_status": "not_a_status"}),
             "TRANSPORT_REJECTED",
         ),
@@ -431,3 +435,217 @@ def test_cli_deterministic_invocation(tmp_path: Path) -> None:
     assert "control:   EVALUABLE" in proc.stdout
     assert "candidate: EVALUABLE" in proc.stdout
     assert "provider calls: 0" in proc.stdout
+    assert "overall: UNRESOLVED_DIAGNOSTIC_GAP" in proc.stdout
+
+
+def test_empty_evidence_refs_are_ownership_mismatch_not_validator_defect(
+    tmp_path: Path,
+) -> None:
+    """Absent returned refs must not fall back to owned refs (§3 / §6.7)."""
+    fake = copy.deepcopy(_load_fake_output())
+    fake["annotations"][0]["evidence_ref_ids"] = []
+    # Exact phrase still present — old fallback would mislabel as validator defect.
+    assert EXPECTED_PHRASE in fake["annotations"][0]["source_phrase"]
+    result = grounding.run_lane_diagnostic(
+        lane="control",
+        case_path=CONTROL_CASE,
+        output_dir=tmp_path / "empty-refs",
+        mode="deterministic",
+        phase="initial",
+        model_id="fake-model",
+        client=FakeTemporalShadowExtractionClient(fake),
+        repo_root=REPO_ROOT,
+        overwrite=True,
+    )
+    assert result.lane_result == "EVIDENCE_OWNERSHIP_MISMATCH"
+    assert result.returned_evidence_ref_ids == []
+    assert result.owned_evidence_check == "foreign_or_missing"
+    assert result.phrase_match is False
+
+
+def test_empty_evidence_refs_with_paraphrase_still_ownership_mismatch(
+    tmp_path: Path,
+) -> None:
+    fake = copy.deepcopy(_load_fake_output())
+    fake["annotations"][0]["evidence_ref_ids"] = []
+    fake["annotations"][0]["source_phrase"] = "paraphrased moth struck something"
+    result = grounding.run_lane_diagnostic(
+        lane="control",
+        case_path=CONTROL_CASE,
+        output_dir=tmp_path / "empty-paraphrase",
+        mode="deterministic",
+        phase="initial",
+        model_id="fake-model",
+        client=FakeTemporalShadowExtractionClient(fake),
+        repo_root=REPO_ROOT,
+        overwrite=True,
+    )
+    assert result.lane_result == "EVIDENCE_OWNERSHIP_MISMATCH"
+
+
+def test_overall_conclusion_requires_both_deterministic_and_live_evaluable() -> None:
+    assert (
+        grounding.compute_overall_conclusion(
+            live_control="EVALUABLE",
+            live_candidate="EVALUABLE",
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+    assert (
+        grounding.compute_overall_conclusion(
+            deterministic_control="EVALUABLE",
+            deterministic_candidate="EVALUABLE",
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+    assert (
+        grounding.compute_overall_conclusion(
+            deterministic_control="EVALUABLE",
+            deterministic_candidate="EVALUABLE",
+            live_control="EVALUABLE",
+            live_candidate="EVALUABLE",
+        )
+        == "GROUNDING_PATH_READY"
+    )
+
+
+def test_overall_conclusion_provider_execution_is_unresolved_gap() -> None:
+    assert (
+        grounding.compute_overall_conclusion(
+            deterministic_control="EVALUABLE",
+            deterministic_candidate="EVALUABLE",
+            live_control="EVALUABLE",
+            live_candidate="PROVIDER_EXECUTION_FAILED",
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+
+
+def test_overall_conclusion_phrase_fidelity_requires_deterministic_proof() -> None:
+    # Live-only phrase failure cannot claim PROVIDER_PHRASE_FIDELITY_BLOCKED.
+    assert (
+        grounding.compute_overall_conclusion(
+            live_control="EVALUABLE",
+            live_candidate="PROVIDER_PHRASE_FIDELITY_BLOCKED",
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+    # Both live phrase-fidelity failures, after deterministic EVALUABLE → blocked.
+    assert (
+        grounding.compute_overall_conclusion(
+            deterministic_control="EVALUABLE",
+            deterministic_candidate="EVALUABLE",
+            live_control="PROVIDER_PHRASE_FIDELITY_BLOCKED",
+            live_candidate="PROVIDER_PHRASE_FIDELITY_BLOCKED",
+        )
+        == "PROVIDER_PHRASE_FIDELITY_BLOCKED"
+    )
+    # One live phrase-fidelity failure is enough once deterministic proof exists.
+    assert (
+        grounding.compute_overall_conclusion(
+            deterministic_control="EVALUABLE",
+            deterministic_candidate="EVALUABLE",
+            live_control="EVALUABLE",
+            live_candidate="PROVIDER_PHRASE_FIDELITY_BLOCKED",
+        )
+        == "PROVIDER_PHRASE_FIDELITY_BLOCKED"
+    )
+
+
+def test_failed_provider_attempts_are_charged_to_budget() -> None:
+    class FailingDelegate:
+        def extract_annotations(self, *, instructions: str, user_content: str, model_id: str):
+            raise TemporalShadowExtractionError(
+                "provider refused",
+                code="provider_refusal",
+                provider_response_id="resp_failed_attempt",
+            )
+
+    ledger = grounding.ProviderCallLedger(phase="initial")
+    recording = grounding.RecordingTemporalShadowClient(
+        FailingDelegate(),  # type: ignore[arg-type]
+        ledger=ledger,
+        record_provider_calls=True,
+    )
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        recording.extract_annotations(
+            instructions="x",
+            user_content="y",
+            model_id=grounding.LIVE_MODEL_ID,
+        )
+    assert exc.value.code == "provider_refusal"
+    assert ledger.calls == 1
+    assert ledger.response_ids == ["resp_failed_attempt"]
+    assert recording.call_count == 1
+
+
+def test_transport_accepted_false_for_invalid_model_output_and_provider_errors() -> None:
+    invalid = TemporalShadowExtractionError(
+        "bad transport",
+        code="invalid_model_output",
+    )
+    assert (
+        grounding.transport_accepted_for_error(
+            invalid, succeeded=False, raw_batch={"annotations": []}
+        )
+        is False
+    )
+    provider = TemporalShadowExtractionError(
+        "network",
+        code="provider_error",
+    )
+    assert (
+        grounding.transport_accepted_for_error(
+            provider, succeeded=False, raw_batch=None
+        )
+        is False
+    )
+    grounding_err = TemporalShadowExtractionError(
+        "phrase miss",
+        code="grounding_failure",
+    )
+    assert (
+        grounding.transport_accepted_for_error(
+            grounding_err,
+            succeeded=False,
+            raw_batch={"annotations": []},
+        )
+        is True
+    )
+
+
+def test_transport_rejected_lane_records_transport_accepted_false(
+    tmp_path: Path,
+) -> None:
+    fake = copy.deepcopy(_load_fake_output())
+    fake["annotations"][0]["interpretation_status"] = "not_a_status"
+    result = grounding.run_lane_diagnostic(
+        lane="control",
+        case_path=CONTROL_CASE,
+        output_dir=tmp_path / "transport",
+        mode="deterministic",
+        phase="initial",
+        model_id="fake-model",
+        client=FakeTemporalShadowExtractionClient(fake),
+        repo_root=REPO_ROOT,
+        overwrite=True,
+    )
+    assert result.lane_result == "TRANSPORT_REJECTED"
+    assert result.transport_accepted is False
+
+
+def test_deterministic_paired_overall_is_not_grounding_path_ready(tmp_path: Path) -> None:
+    result = grounding.run_paired_grounding_path_diagnostic(
+        control_case_path=CONTROL_CASE,
+        candidate_case_path=CANDIDATE_CASE,
+        output_dir=tmp_path / "det-overall",
+        mode="deterministic",
+        phase="initial",
+        model_id="fake-model",
+        fake_output=_load_fake_output(),
+        repo_root=REPO_ROOT,
+        overwrite=True,
+    )
+    assert result.control.lane_result == "EVALUABLE"
+    assert result.candidate.lane_result == "EVALUABLE"
+    assert result.overall_conclusion == "UNRESOLVED_DIAGNOSTIC_GAP"

@@ -1,10 +1,29 @@
 # REPORT — TL01 Shared Source-Phrase Grounding-Path Recovery
 
-**Status:** Durable diagnostic evidence  
-**Implementation base:** `58c186dd666bceaee1296d5e44c7710261aaad35`  
+**Status:** Classification/accounting defects fixed; prior `GROUNDING_PATH_READY` **revoked** (not authoritative)  
 **Handoff:** `Docs/Plans/HANDOFF-pr488-tl01-grounding-path-recovery.md`  
 **Fixture:** `evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/`  
 **Expected phrase:** `the brass moth struck the north bell exactly twice`
+
+## Authority / provenance gate
+
+PR #486 remains an open draft. Implementation was continued on this branch under an
+operator override to keep a single PR, which **deviates** from the handoff’s
+“immutable `origin/main` containing merged jumpstart + handoff” dispatch gate.
+
+Consequently:
+
+- The prior report claim of `GROUNDING_PATH_READY` at commit `83917009…` is **not
+  authoritative** and **must not unlock V14 / Adv V12**.
+- Live response IDs recorded under that head are retained below as historical
+  observation only; they are **not** bound to a post-fix clean execution SHA.
+- A durable `GROUNDING_PATH_READY` requires: (1) both deterministic lanes
+  `EVALUABLE`, (2) both live lanes `EVALUABLE`, (3) exact clean repository SHA of
+  the committed diagnostic that produced the live response IDs, and (4) merge of
+  that evidence onto `main` before successor cohort authoring.
+
+**Live-execution SHA (post-fix):** _pending — re-run live only after this repair
+commit is clean and record the exact `git rev-parse HEAD` here with response IDs._
 
 ## Scope
 
@@ -15,6 +34,15 @@ prompt identities on one shared assertion/evidence fixture.
 No production repair was required or applied. Frozen prompt hashes, packet version
 (`tl01c-packet-v1`), and renderer identity (`render_temporal_shadow_user_content_v2`) are
 unchanged.
+
+## Review repair (blocking findings on `83917009`)
+
+| Finding | Fix |
+|---|---|
+| Empty returned `evidence_ref_ids` fell back to owned refs | No fallback; absent/empty refs → `EVIDENCE_OWNERSHIP_MISMATCH` |
+| `compute_overall_conclusion` could READY from live-only; mis-mapped provider fail | Requires explicit deterministic **and** live `EVALUABLE`; provider execution → `UNRESOLVED_DIAGNOSTIC_GAP`; phrase-fidelity requires deterministic proof |
+| Failed provider attempts not charged | Ledger increments **before** delegate; refusals/errors consume budget |
+| `transport_accepted` contradicted lane result | `False` for `invalid_model_output` and provider execution failures |
 
 ## Frozen identity guards
 
@@ -38,34 +66,31 @@ directory was created.
 
 Provider calls: **0** (deterministic fake replay; no live delegate counted).
 
-Pre-provider observations on both lanes:
+Single-mode overall classifier output: `UNRESOLVED_DIAGNOSTIC_GAP` (live evidence +
+combined conclusion required by §6.8).
 
-- packet phrase present: true
-- decoded renderer phrase present: true
-- resolved span digest: `4d98be8e9ac48a0f17fe9bae3a4810092612bba83a15be1982224be18444f345`
+## Historical live observation (pre-repair; not provenance-bound)
 
-Deterministic-only overall classifier output: `UNRESOLVED_DIAGNOSTIC_GAP` (live evidence still
-required by §6.8 until paired live smoke completes).
+Observed under dirty/pre-repair workflow on draft PR #486 (response IDs only; **do not**
+treat as readiness authority):
 
-## Live lane results (`DMB_RUN_LIVE_TL01_GROUNDING_SMOKE=1 --mode live --phase initial`)
+| Lane | Prompt | Lane result | Provider response ID |
+|---|---|---|---|
+| control | `tl01f-v1` | `EVALUABLE` (historical) | `resp_0207dffb227fbed2006a6ed36f4bbc81949cfa5214373f1ac0` |
+| candidate | `tl01g-v1` | `EVALUABLE` (historical) | `resp_07fc478c5452975c006a6ed371c7188196af0bfb23a17d04ae` |
 
-| Lane | Prompt | Lane result | Provider response ID | Metrics present |
-|---|---|---|---|---|
-| control | `tl01f-v1` | `EVALUABLE` | `resp_0207dffb227fbed2006a6ed36f4bbc81949cfa5214373f1ac0` | true |
-| candidate | `tl01g-v1` | `EVALUABLE` | `resp_07fc478c5452975c006a6ed371c7188196af0bfb23a17d04ae` | true |
-
-Provider calls: **2** (one control + one candidate; no automatic retries).
-
-Both live lanes returned an owned-evidence-grounded phrase containing the expected contiguous
-substring (`the brass moth struck the north bell exactly twice`) and reached ordinary comparison
-metrics on the same fixture/model/renderer.
+Exact clean repository SHA that produced those response IDs was **not** recorded.
 
 ## Overall conclusion
 
-**`GROUNDING_PATH_READY`**
+**`UNRESOLVED_DIAGNOSTIC_GAP`** (authoritative disposition until post-fix live re-proof)
 
-Both deterministic lanes and both initial live lanes are `EVALUABLE` on the shared smoke fixture
-with real comparison metrics observed. No local shared-path repair was required.
+Reasons:
+
+1. Prior READY claim lacked an exact clean live-execution SHA.
+2. Classifier/accounting defects above invalidate readiness until re-proven.
+3. Combined conclusion API now refuses READY without both deterministic and live
+   `EVALUABLE` evidence supplied together.
 
 ## Conditional production repair
 
@@ -74,21 +99,17 @@ with real comparison metrics observed. No local shared-path repair was required.
 
 ## Successor gate
 
-`GROUNDING_PATH_READY` unlocks consideration of fresh V14 holdout + Adv V12 cohort authoring in a
-**separate** successor slice. This report does **not** authorize `tl01h-v1`, prompt mutation,
-promotion, Kernel/graph writes, projection, or UI work.
+**Blocked.** V14 / Adv V12 / `tl01h-v1` remain forbidden until a later report revision binds
+post-fix live evidence to an exact clean execution SHA and that evidence merges to
+`main`. Happy-path phrase grounding in historical live smoke is encouraging but not
+sufficient.
 
 ## Verification commands (author-local)
 
 ```text
-uv run pytest -q tests/test_temporal_shadow_grounding_path.py          → 18 passed
-uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py       → passed (suite)
-uv run pytest -q tests/test_temporal_shadow_prompt_calibration.py     → passed (suite)
+uv run pytest -q tests/test_temporal_shadow_grounding_path.py
 uv run ruff check evals/graph_memory_layer/temporal_shadow_grounding_path.py \
-                 tests/test_temporal_shadow_grounding_path.py           → All checks passed!
-deterministic CLI → control/candidate EVALUABLE, provider calls 0
-live CLI (opt-in) → control/candidate EVALUABLE, provider calls 2, overall GROUNDING_PATH_READY
+                 tests/test_temporal_shadow_grounding_path.py
+deterministic CLI → control/candidate EVALUABLE, provider calls 0,
+                    overall UNRESOLVED_DIAGNOSTIC_GAP
 ```
-
-Evidence provenance: author-local deterministic replay + author-local provider-observed live smoke
-(initial phase only; budget 2/4 calls spent).
