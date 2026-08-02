@@ -8,7 +8,7 @@ proposition-template and source-template novelty guards.
 
 ## Seal protocol
 
-- Seal SHA will be recorded here after the pre-live seal commit.
+- **Seal SHA:** `cde3b48d5b95ba4fc1f7c779993c2497f66914f7` (fixture/gold/source/case seal; this README record is a follow-on pre-live commit).
 - Fixture, gold, audit, source, and case bytes are immutable after the first provider call.
 - **No post-observation edits** to this cohort.
 
