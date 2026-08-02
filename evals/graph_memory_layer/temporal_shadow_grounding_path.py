@@ -25,6 +25,7 @@ from graph_memory.temporal_shadow_extraction import (  # noqa: E402
     FakeTemporalShadowExtractionClient,
     OpenAITemporalShadowExtractionClient,
     ProviderMeta,
+    TL01C_PACKET_VERSION,
     TemporalShadowExtractionClient,
     TemporalShadowExtractionError,
     build_assertion_evidence_packets,
@@ -42,6 +43,17 @@ RunPhase = Literal["initial", "post_fix"]
 LIVE_OPT_IN_ENV = "DMB_RUN_LIVE_TL01_GROUNDING_SMOKE"
 LIVE_MODEL_ID = "gpt-5.4-mini"
 RENDERER_IDENTITY = "render_temporal_shadow_user_content_v2"
+FROZEN_CONTROL_PROMPT_VERSION = "tl01f-v1"
+FROZEN_CANDIDATE_PROMPT_VERSION = "tl01g-v1"
+FROZEN_CONTROL_PROMPT_SHA256 = (
+    "7a9d27c3a9980893f18757d7a5fe0612cf67f9aad8dfd2ccb20f9e3c667b7143"
+)
+FROZEN_CANDIDATE_PROMPT_SHA256 = (
+    "3af1e470e304008d2490ba73e1a53628519c211bb54e17a10cd4c694beae9013"
+)
+SMOKE_FIXTURE_RELATIVE = Path(
+    "evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1"
+)
 
 LaneResult = Literal[
     "EVALUABLE",
@@ -508,6 +520,70 @@ def _is_clean_commit_sha(value: str | None) -> bool:
     return len(value) == 40 and all(c in "0123456789abcdef" for c in value)
 
 
+def _frozen_prompt_errors(
+    *,
+    control_version: str | None,
+    control_sha: str | None,
+    candidate_version: str | None,
+    candidate_sha: str | None,
+) -> list[str]:
+    errors: list[str] = []
+    if control_version != FROZEN_CONTROL_PROMPT_VERSION:
+        errors.append(
+            f"control prompt_version must be {FROZEN_CONTROL_PROMPT_VERSION!r}"
+        )
+    if candidate_version != FROZEN_CANDIDATE_PROMPT_VERSION:
+        errors.append(
+            f"candidate prompt_version must be {FROZEN_CANDIDATE_PROMPT_VERSION!r}"
+        )
+    if control_sha != FROZEN_CONTROL_PROMPT_SHA256:
+        errors.append("control prompt_sha256 must match frozen tl01f-v1 hash")
+    if candidate_sha != FROZEN_CANDIDATE_PROMPT_SHA256:
+        errors.append("candidate prompt_sha256 must match frozen tl01g-v1 hash")
+    if control_version == FROZEN_CONTROL_PROMPT_VERSION:
+        if compute_prompt_sha256(FROZEN_CONTROL_PROMPT_VERSION) != control_sha:
+            errors.append("control prompt_sha256 does not match compute_prompt_sha256")
+    if candidate_version == FROZEN_CANDIDATE_PROMPT_VERSION:
+        if compute_prompt_sha256(FROZEN_CANDIDATE_PROMPT_VERSION) != candidate_sha:
+            errors.append("candidate prompt_sha256 does not match compute_prompt_sha256")
+    return errors
+
+
+def _evaluable_success_field_errors_from_mapping(trace: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if trace.get("lane_result") != "EVALUABLE":
+        return errors
+    if trace.get("transport_accepted") is not True:
+        errors.append("EVALUABLE requires transport_accepted=True")
+    if trace.get("owned_evidence_check") != "owned_match":
+        errors.append("EVALUABLE requires owned_evidence_check='owned_match'")
+    if trace.get("phrase_match") is not True:
+        errors.append("EVALUABLE requires phrase_match=True")
+    returned_refs = trace.get("returned_evidence_ref_ids")
+    owned_refs = trace.get("evidence_ref_ids")
+    if not isinstance(returned_refs, list) or not returned_refs:
+        errors.append("EVALUABLE requires non-empty returned_evidence_ref_ids")
+    elif not all(isinstance(ref, str) for ref in returned_refs):
+        errors.append("EVALUABLE returned_evidence_ref_ids must be strings")
+    elif not isinstance(owned_refs, list) or not set(returned_refs).issubset(set(owned_refs)):
+        errors.append("EVALUABLE returned refs must be owned by the assertion")
+    if trace.get("production_error_code") is not None:
+        errors.append("EVALUABLE requires production_error_code=None")
+    if not isinstance(trace.get("overlay_id"), str) or not trace.get("overlay_id"):
+        errors.append("EVALUABLE requires a non-empty overlay_id")
+    if trace.get("comparison_metrics_present") is not True:
+        errors.append("EVALUABLE requires comparison_metrics_present=True")
+    if trace.get("packet_version") != TL01C_PACKET_VERSION:
+        errors.append(f"packet_version must be {TL01C_PACKET_VERSION!r}")
+    if trace.get("renderer_identity") != RENDERER_IDENTITY:
+        errors.append(f"renderer_identity must be {RENDERER_IDENTITY!r}")
+    return errors
+
+
+def _evaluable_success_field_errors(lane: LaneDiagnostic) -> list[str]:
+    return _evaluable_success_field_errors_from_mapping(lane.to_trace_dict())
+
+
 def _paired_identity_mismatches(
     deterministic: PairedDiagnosticResult,
     live: PairedDiagnosticResult,
@@ -522,29 +598,71 @@ def _paired_identity_mismatches(
     identities = {_fixture_identity_key(lane) for lane in lanes}
     if len(identities) != 1:
         errors.append("fixture identity mismatch across deterministic/live lanes")
+
+    if deterministic.control.lane != "control" or live.control.lane != "control":
+        errors.append("control lane identity must be 'control'")
+    if deterministic.candidate.lane != "candidate" or live.candidate.lane != "candidate":
+        errors.append("candidate lane identity must be 'candidate'")
+    if (
+        deterministic.control.run_mode != "deterministic"
+        or deterministic.candidate.run_mode != "deterministic"
+    ):
+        errors.append("deterministic pair run_mode must be 'deterministic'")
+    if live.control.run_mode != "live" or live.candidate.run_mode != "live":
+        errors.append("live pair run_mode must be 'live'")
+
+    errors.extend(
+        _frozen_prompt_errors(
+            control_version=deterministic.control.prompt_version,
+            control_sha=deterministic.control.prompt_sha256,
+            candidate_version=deterministic.candidate.prompt_version,
+            candidate_sha=deterministic.candidate.prompt_sha256,
+        )
+    )
+    errors.extend(
+        _frozen_prompt_errors(
+            control_version=live.control.prompt_version,
+            control_sha=live.control.prompt_sha256,
+            candidate_version=live.candidate.prompt_version,
+            candidate_sha=live.candidate.prompt_sha256,
+        )
+    )
+
     if deterministic.control.case_digest != live.control.case_digest:
         errors.append("control case_digest mismatch across modes")
     if deterministic.candidate.case_digest != live.candidate.case_digest:
         errors.append("candidate case_digest mismatch across modes")
-    if deterministic.control.prompt_version != live.control.prompt_version:
-        errors.append("control prompt_version mismatch across modes")
-    if deterministic.candidate.prompt_version != live.candidate.prompt_version:
-        errors.append("candidate prompt_version mismatch across modes")
-    if deterministic.control.prompt_version == deterministic.candidate.prompt_version:
-        errors.append("control and candidate prompt identities must differ")
+
+    for lane in lanes:
+        if lane.packet_version != TL01C_PACKET_VERSION:
+            errors.append(f"{lane.run_mode}/{lane.lane} packet_version mismatch")
+        if lane.renderer_identity != RENDERER_IDENTITY:
+            errors.append(f"{lane.run_mode}/{lane.lane} renderer_identity mismatch")
+
     if live.control.model_id != LIVE_MODEL_ID or live.candidate.model_id != LIVE_MODEL_ID:
         errors.append(f"live model_id must be {LIVE_MODEL_ID!r}")
-    if live.control.repository_sha != live.candidate.repository_sha:
-        errors.append("live lane repository_sha mismatch")
-    if not _is_clean_commit_sha(live.control.repository_sha):
-        errors.append("live repository_sha must be a clean full commit SHA")
+
+    implementation_shas = {
+        deterministic.control.repository_sha,
+        deterministic.candidate.repository_sha,
+        live.control.repository_sha,
+        live.candidate.repository_sha,
+    }
+    if len(implementation_shas) != 1:
+        errors.append(
+            "deterministic and live evidence must share one clean implementation SHA"
+        )
+    shared_sha = next(iter(implementation_shas))
+    if not _is_clean_commit_sha(shared_sha):
+        errors.append("shared implementation SHA must be a clean full commit SHA")
+
     if live.provider_calls < 2:
         errors.append("live provider_calls must be at least 2")
     if not live.control.provider_response_id or not live.candidate.provider_response_id:
         errors.append("live lanes require provider_response_id")
+
     for lane in lanes:
-        if lane.lane_result == "EVALUABLE" and not lane.comparison_metrics_present:
-            errors.append(f"{lane.run_mode}/{lane.lane} EVALUABLE without metrics")
+        errors.extend(_evaluable_success_field_errors(lane))
     return errors
 
 
@@ -577,17 +695,84 @@ def combine_paired_diagnostic_conclusions(
     mismatches = _paired_identity_mismatches(deterministic, live)
     if mismatches:
         return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if not all(
-        lane.comparison_metrics_present
-        for lane in (
-            deterministic.control,
-            deterministic.candidate,
-            live.control,
-            live.candidate,
-        )
-    ):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
     return "GROUNDING_PATH_READY"
+
+
+def _summary_pair_contract_errors(
+    *,
+    deterministic_summary: dict[str, Any],
+    live_summary: dict[str, Any],
+    det_control: dict[str, Any],
+    det_candidate: dict[str, Any],
+    live_control: dict[str, Any],
+    live_candidate: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    if det_control.get("lane") != "control" or live_control.get("lane") != "control":
+        errors.append("control lane identity must be 'control'")
+    if det_candidate.get("lane") != "candidate" or live_candidate.get("lane") != "candidate":
+        errors.append("candidate lane identity must be 'candidate'")
+    if det_control.get("run_mode") != "deterministic" or det_candidate.get("run_mode") != "deterministic":
+        errors.append("deterministic traces require run_mode='deterministic'")
+    if live_control.get("run_mode") != "live" or live_candidate.get("run_mode") != "live":
+        errors.append("live traces require run_mode='live'")
+
+    errors.extend(
+        _frozen_prompt_errors(
+            control_version=det_control.get("prompt_version"),
+            control_sha=det_control.get("prompt_sha256"),
+            candidate_version=det_candidate.get("prompt_version"),
+            candidate_sha=det_candidate.get("prompt_sha256"),
+        )
+    )
+    errors.extend(
+        _frozen_prompt_errors(
+            control_version=live_control.get("prompt_version"),
+            control_sha=live_control.get("prompt_sha256"),
+            candidate_version=live_candidate.get("prompt_version"),
+            candidate_sha=live_candidate.get("prompt_sha256"),
+        )
+    )
+
+    identities = [
+        _trace_fixture_identity_key(trace)
+        for trace in (det_control, det_candidate, live_control, live_candidate)
+    ]
+    if any(identity is None for identity in identities) or len(set(identities)) != 1:
+        errors.append("fixture identity mismatch across deterministic/live traces")
+    if det_control.get("case_digest") != live_control.get("case_digest"):
+        errors.append("control case_digest mismatch across modes")
+    if det_candidate.get("case_digest") != live_candidate.get("case_digest"):
+        errors.append("candidate case_digest mismatch across modes")
+    if live_control.get("model_id") != LIVE_MODEL_ID or live_candidate.get("model_id") != LIVE_MODEL_ID:
+        errors.append(f"live model_id must be {LIVE_MODEL_ID!r}")
+
+    implementation_shas = {
+        det_control.get("repository_sha"),
+        det_candidate.get("repository_sha"),
+        live_control.get("repository_sha"),
+        live_candidate.get("repository_sha"),
+        deterministic_summary.get("repository_sha"),
+        live_summary.get("repository_sha"),
+    }
+    if len(implementation_shas) != 1:
+        errors.append(
+            "deterministic and live evidence must share one clean implementation SHA"
+        )
+    shared_sha = next(iter(implementation_shas))
+    if not _is_clean_commit_sha(shared_sha if isinstance(shared_sha, str) else None):
+        errors.append("shared implementation SHA must be a clean full commit SHA")
+
+    if int(live_summary.get("provider_calls") or 0) < 2:
+        errors.append("live provider_calls must be at least 2")
+    if not live_control.get("provider_response_id") or not live_candidate.get(
+        "provider_response_id"
+    ):
+        errors.append("live lanes require provider_response_id")
+
+    for trace in (det_control, det_candidate, live_control, live_candidate):
+        errors.extend(_evaluable_success_field_errors_from_mapping(trace))
+    return errors
 
 
 def combine_paired_summary_conclusions(
@@ -624,38 +809,13 @@ def combine_paired_summary_conclusions(
     if not both_evaluable:
         return triage
 
-    identities = [
-        _trace_fixture_identity_key(trace)
-        for trace in (det_control, det_candidate, live_control, live_candidate)
-    ]
-    if any(identity is None for identity in identities) or len(set(identities)) != 1:
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if det_control.get("case_digest") != live_control.get("case_digest"):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if det_candidate.get("case_digest") != live_candidate.get("case_digest"):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if det_control.get("prompt_version") != live_control.get("prompt_version"):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if det_candidate.get("prompt_version") != live_candidate.get("prompt_version"):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if det_control.get("prompt_version") == det_candidate.get("prompt_version"):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if live_control.get("model_id") != LIVE_MODEL_ID or live_candidate.get("model_id") != LIVE_MODEL_ID:
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    live_sha = live_control.get("repository_sha")
-    if live_sha != live_candidate.get("repository_sha") or not _is_clean_commit_sha(
-        live_sha if isinstance(live_sha, str) else None
-    ):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if int(live_summary.get("provider_calls") or 0) < 2:
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if not live_control.get("provider_response_id") or not live_candidate.get(
-        "provider_response_id"
-    ):
-        return "UNRESOLVED_DIAGNOSTIC_GAP"
-    if not all(
-        trace.get("comparison_metrics_present") is True
-        for trace in (det_control, det_candidate, live_control, live_candidate)
+    if _summary_pair_contract_errors(
+        deterministic_summary=deterministic_summary,
+        live_summary=live_summary,
+        det_control=det_control,
+        det_candidate=det_candidate,
+        live_control=live_control,
+        live_candidate=live_candidate,
     ):
         return "UNRESOLVED_DIAGNOSTIC_GAP"
     return "GROUNDING_PATH_READY"
@@ -673,9 +833,47 @@ class ProviderBudgetLedger:
         return max(0, MAX_TOTAL_PROVIDER_CALLS - self.total_calls)
 
 
+def canonical_budget_ledger_path(repo_root: Path) -> Path:
+    return (repo_root / SMOKE_FIXTURE_RELATIVE / DEFAULT_BUDGET_LEDGER_NAME).resolve()
+
+
+def resolve_live_budget_ledger_path(
+    *,
+    repo_root: Path,
+    requested: Path | None,
+) -> Path:
+    """Live mode may use only the canonical fixture ledger path."""
+    canonical = canonical_budget_ledger_path(repo_root)
+    if requested is None:
+        return canonical
+    try:
+        resolved = requested.resolve()
+    except OSError as exc:
+        raise TemporalShadowExtractionError(
+            "Unable to resolve budget ledger path",
+            code="invalid_case",
+            diagnostics=[str(requested)],
+        ) from exc
+    if resolved != canonical:
+        raise TemporalShadowExtractionError(
+            "Alternate provider budget ledger path rejected",
+            code="invalid_case",
+            diagnostics=[
+                f"requested={str(resolved)}",
+                f"canonical={str(canonical)}",
+                "live mode requires the canonical smoke fixture ledger",
+            ],
+        )
+    return canonical
+
+
 def load_provider_budget_ledger(path: Path) -> ProviderBudgetLedger:
     if not path.is_file():
-        return ProviderBudgetLedger(path=path, total_calls=0, response_ids=[], entries=[])
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger is missing",
+            code="invalid_case",
+            diagnostics=[f"path={str(path)}"],
+        )
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise TemporalShadowExtractionError(
@@ -688,17 +886,74 @@ def load_provider_budget_ledger(path: Path) -> ProviderBudgetLedger:
             code="invalid_case",
             diagnostics=[f"expected={BUDGET_LEDGER_SCHEMA!r}"],
         )
-    total = int(payload.get("total_calls") or 0)
-    response_ids = [
-        item for item in (payload.get("response_ids") or []) if isinstance(item, str)
-    ]
     entries = [
         item for item in (payload.get("entries") or []) if isinstance(item, dict)
     ]
+    entry_calls = 0
+    entry_response_ids: list[str] = []
+    for entry in entries:
+        calls = entry.get("calls")
+        if not isinstance(calls, int) or calls < 0:
+            raise TemporalShadowExtractionError(
+                "Provider budget ledger entry has invalid calls",
+                code="invalid_case",
+            )
+        entry_calls += calls
+        refs = entry.get("response_ids") or []
+        if not isinstance(refs, list) or not all(isinstance(item, str) for item in refs):
+            raise TemporalShadowExtractionError(
+                "Provider budget ledger entry response_ids must be strings",
+                code="invalid_case",
+            )
+        if len(refs) != calls:
+            raise TemporalShadowExtractionError(
+                "Provider budget ledger entry calls/response_ids length mismatch",
+                code="invalid_case",
+                diagnostics=[f"calls={calls}", f"response_ids={len(refs)}"],
+            )
+        entry_response_ids.extend(refs)
+
+    declared_total = payload.get("total_calls")
+    if not isinstance(declared_total, int):
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger total_calls must be an int",
+            code="invalid_case",
+        )
+    if declared_total != entry_calls:
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger total_calls does not reconcile to entries",
+            code="invalid_case",
+            diagnostics=[
+                f"total_calls={declared_total}",
+                f"entry_sum={entry_calls}",
+            ],
+        )
+    declared_ids = payload.get("response_ids") or []
+    if not isinstance(declared_ids, list) or not all(
+        isinstance(item, str) for item in declared_ids
+    ):
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger response_ids must be a string list",
+            code="invalid_case",
+        )
+    if declared_ids != entry_response_ids:
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger response_ids do not reconcile to entries",
+            code="invalid_case",
+        )
+    if declared_total > MAX_TOTAL_PROVIDER_CALLS:
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger exceeds maximum total provider calls",
+            code="invalid_case",
+            diagnostics=[
+                f"total_calls={declared_total}",
+                f"max={MAX_TOTAL_PROVIDER_CALLS}",
+            ],
+        )
     return ProviderBudgetLedger(
         path=path,
-        total_calls=total,
-        response_ids=response_ids,
+        total_calls=declared_total,
+        response_ids=list(declared_ids),
         entries=entries,
     )
 
@@ -1105,10 +1360,11 @@ def run_paired_grounding_path_diagnostic(
                 diagnostics=[f"got={model_id!r}"],
             )
         if budget_ledger_path is None:
-            raise TemporalShadowExtractionError(
-                "Live mode requires budget_ledger_path for global call accounting",
-                code="invalid_case",
-            )
+            budget_ledger_path = canonical_budget_ledger_path(repo_root)
+        budget_ledger_path = resolve_live_budget_ledger_path(
+            repo_root=repo_root,
+            requested=budget_ledger_path,
+        )
         persistent_budget = load_provider_budget_ledger(budget_ledger_path)
         assert_provider_budget_available(
             persistent_budget, calls_needed=PHASE_CALL_BUDGET
@@ -1232,7 +1488,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--budget-ledger",
         type=Path,
         default=None,
-        help="Persistent provider-call budget ledger (required for live mode)",
+        help=(
+            "Must be the canonical smoke fixture provider-budget-ledger.json "
+            "(alternate paths are rejected)"
+        ),
     )
     parser.add_argument(
         "--combine-with-deterministic-summary",
@@ -1253,8 +1512,11 @@ def main(argv: list[str] | None = None) -> int:
         fake_output = json.loads(args.fake_output.read_text(encoding="utf-8"))
 
     budget_ledger = args.budget_ledger
-    if args.mode == "live" and budget_ledger is None:
-        budget_ledger = args.control_case.parent / DEFAULT_BUDGET_LEDGER_NAME
+    if args.mode == "live":
+        budget_ledger = resolve_live_budget_ledger_path(
+            repo_root=_REPO_ROOT,
+            requested=budget_ledger,
+        )
 
     result = run_paired_grounding_path_diagnostic(
         control_case_path=args.control_case,

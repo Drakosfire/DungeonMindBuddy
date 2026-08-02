@@ -567,28 +567,37 @@ def _minimal_lane(
     evidence_ref_ids: list[str] | None = None,
     expected_phrase: str = EXPECTED_PHRASE,
     resolved_span_digest: str = "spandigest",
+    prompt_sha256: str | None = None,
 ) -> grounding.LaneDiagnostic:
+    owned = evidence_ref_ids or ["evidence:shared"]
+    if prompt_sha256 is None:
+        if prompt_version == grounding.FROZEN_CONTROL_PROMPT_VERSION:
+            prompt_sha256 = grounding.FROZEN_CONTROL_PROMPT_SHA256
+        elif prompt_version == grounding.FROZEN_CANDIDATE_PROMPT_VERSION:
+            prompt_sha256 = grounding.FROZEN_CANDIDATE_PROMPT_SHA256
+        else:
+            prompt_sha256 = "deadbeef"
     return grounding.LaneDiagnostic(
         lane=lane,  # type: ignore[arg-type]
         case_id=f"case-{lane}",
         case_digest=case_digest,
         prompt_version=prompt_version,
-        prompt_sha256="deadbeef",
+        prompt_sha256=prompt_sha256,
         packet_version=TL01C_PACKET_VERSION,
         renderer_identity=grounding.RENDERER_IDENTITY,
         model_id=model_id,
         assertion_id=assertion_id,
-        evidence_ref_ids=evidence_ref_ids or ["evidence:shared"],
+        evidence_ref_ids=owned,
         resolved_span_digest=resolved_span_digest,
         expected_phrase=expected_phrase,
         packet_phrase_present=True,
         renderer_phrase_present=True,
         transport_accepted=True,
-        returned_evidence_ref_ids=evidence_ref_ids or ["evidence:shared"],
+        returned_evidence_ref_ids=list(owned),
         returned_source_phrase=expected_phrase,
         owned_evidence_check="owned_match",
         phrase_match=True,
-        phrase_match_evidence_ref_id=(evidence_ref_ids or ["evidence:shared"])[0],
+        phrase_match_evidence_ref_id=owned[0],
         phrase_match_offset=0,
         production_error_code=None,
         production_diagnostics=None,
@@ -609,7 +618,7 @@ def test_combine_paired_ready_requires_shared_identity_and_live_provenance() -> 
         control=_minimal_lane(
             lane="control",
             run_mode="deterministic",
-            prompt_version="tl01f-v1",
+            prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
             case_digest="digest-control",
             repository_sha=clean_sha,
             model_id="fake-model",
@@ -618,7 +627,7 @@ def test_combine_paired_ready_requires_shared_identity_and_live_provenance() -> 
         candidate=_minimal_lane(
             lane="candidate",
             run_mode="deterministic",
-            prompt_version="tl01g-v1",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
             case_digest="digest-candidate",
             repository_sha=clean_sha,
             model_id="fake-model",
@@ -632,7 +641,7 @@ def test_combine_paired_ready_requires_shared_identity_and_live_provenance() -> 
         control=_minimal_lane(
             lane="control",
             run_mode="live",
-            prompt_version="tl01f-v1",
+            prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
             case_digest="digest-control",
             repository_sha=clean_sha,
             model_id=grounding.LIVE_MODEL_ID,
@@ -641,7 +650,7 @@ def test_combine_paired_ready_requires_shared_identity_and_live_provenance() -> 
         candidate=_minimal_lane(
             lane="candidate",
             run_mode="live",
-            prompt_version="tl01g-v1",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
             case_digest="digest-candidate",
             repository_sha=clean_sha,
             model_id=grounding.LIVE_MODEL_ID,
@@ -663,7 +672,7 @@ def test_combine_paired_ready_requires_shared_identity_and_live_provenance() -> 
         candidate=_minimal_lane(
             lane="candidate",
             run_mode="live",
-            prompt_version="tl01g-v1",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
             case_digest="digest-candidate",
             repository_sha=clean_sha,
             model_id=grounding.LIVE_MODEL_ID,
@@ -677,6 +686,181 @@ def test_combine_paired_ready_requires_shared_identity_and_live_provenance() -> 
     assert (
         grounding.combine_paired_diagnostic_conclusions(
             deterministic=det, live=broken
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+
+
+def test_combine_rejects_unfrozen_prompt_hash_even_when_versions_match() -> None:
+    clean_sha = "b" * 40
+    det = grounding.PairedDiagnosticResult(
+        control=_minimal_lane(
+            lane="control",
+            run_mode="deterministic",
+            prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
+            case_digest="digest-control",
+            repository_sha=clean_sha,
+            model_id="fake-model",
+            provider_response_id="fake",
+            prompt_sha256="deadbeef" * 8,
+        ),
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="deterministic",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
+            case_digest="digest-candidate",
+            repository_sha=clean_sha,
+            model_id="fake-model",
+            provider_response_id="fake",
+        ),
+        provider_calls=0,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=False,
+    )
+    live = grounding.PairedDiagnosticResult(
+        control=_minimal_lane(
+            lane="control",
+            run_mode="live",
+            prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
+            case_digest="digest-control",
+            repository_sha=clean_sha,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_control",
+            prompt_sha256="deadbeef" * 8,
+        ),
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="live",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
+            case_digest="digest-candidate",
+            repository_sha=clean_sha,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_candidate",
+        ),
+        provider_calls=2,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=True,
+    )
+    assert (
+        grounding.combine_paired_diagnostic_conclusions(
+            deterministic=det, live=live
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+
+
+def test_combine_rejects_mismatched_implementation_sha() -> None:
+    det = grounding.PairedDiagnosticResult(
+        control=_minimal_lane(
+            lane="control",
+            run_mode="deterministic",
+            prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
+            case_digest="digest-control",
+            repository_sha="c" * 40,
+            model_id="fake-model",
+            provider_response_id="fake",
+        ),
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="deterministic",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
+            case_digest="digest-candidate",
+            repository_sha="c" * 40,
+            model_id="fake-model",
+            provider_response_id="fake",
+        ),
+        provider_calls=0,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=False,
+    )
+    live = grounding.PairedDiagnosticResult(
+        control=_minimal_lane(
+            lane="control",
+            run_mode="live",
+            prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
+            case_digest="digest-control",
+            repository_sha="d" * 40,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_control",
+        ),
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="live",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
+            case_digest="digest-candidate",
+            repository_sha="d" * 40,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_candidate",
+        ),
+        provider_calls=2,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=True,
+    )
+    assert (
+        grounding.combine_paired_diagnostic_conclusions(
+            deterministic=det, live=live
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+
+
+def test_combine_rejects_evaluable_with_contradictory_failure_fields() -> None:
+    clean_sha = "e" * 40
+    bad_control = _minimal_lane(
+        lane="control",
+        run_mode="deterministic",
+        prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
+        case_digest="digest-control",
+        repository_sha=clean_sha,
+        model_id="fake-model",
+        provider_response_id="fake",
+    )
+    bad_control.transport_accepted = False
+    bad_control.owned_evidence_check = "phrase_not_in_owned_snippet"
+    bad_control.phrase_match = False
+    bad_control.production_error_code = "grounding_failure"
+    bad_control.overlay_id = None
+    det = grounding.PairedDiagnosticResult(
+        control=bad_control,
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="deterministic",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
+            case_digest="digest-candidate",
+            repository_sha=clean_sha,
+            model_id="fake-model",
+            provider_response_id="fake",
+        ),
+        provider_calls=0,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=False,
+    )
+    live = grounding.PairedDiagnosticResult(
+        control=_minimal_lane(
+            lane="control",
+            run_mode="live",
+            prompt_version=grounding.FROZEN_CONTROL_PROMPT_VERSION,
+            case_digest="digest-control",
+            repository_sha=clean_sha,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_control",
+        ),
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="live",
+            prompt_version=grounding.FROZEN_CANDIDATE_PROMPT_VERSION,
+            case_digest="digest-candidate",
+            repository_sha=clean_sha,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_candidate",
+        ),
+        provider_calls=2,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=True,
+    )
+    assert (
+        grounding.combine_paired_diagnostic_conclusions(
+            deterministic=det, live=live
         )
         == "UNRESOLVED_DIAGNOSTIC_GAP"
     )
@@ -701,6 +885,28 @@ def test_combine_paired_summary_rejects_literal_evaluable_without_identity() -> 
             live_summary=live,
         )
         == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+
+
+def test_combine_post_fix_summaries_at_shared_clean_sha() -> None:
+    det_path = (
+        REPO_ROOT
+        / "out/evals/temporal_shadow_grounding_path/deterministic-post-fix/paired-summary.json"
+    )
+    live_path = (
+        REPO_ROOT
+        / "out/evals/temporal_shadow_grounding_path/live-post-fix/paired-summary.json"
+    )
+    if not det_path.is_file() or not live_path.is_file():
+        pytest.skip("author-local post-fix paired summaries not present")
+    det = json.loads(det_path.read_text(encoding="utf-8"))
+    live = json.loads(live_path.read_text(encoding="utf-8"))
+    assert (
+        grounding.combine_paired_summary_conclusions(
+            deterministic_summary=det,
+            live_summary=live,
+        )
+        == "GROUNDING_PATH_READY"
     )
 
 
@@ -731,15 +937,59 @@ def test_failed_provider_attempts_are_charged_to_budget() -> None:
     assert recording.call_count == 1
 
 
-def test_persistent_budget_ledger_blocks_fifth_live_invocation(tmp_path: Path) -> None:
-    ledger_path = tmp_path / "budget.json"
-    ledger = grounding.ProviderBudgetLedger(
-        path=ledger_path,
-        total_calls=4,
-        response_ids=["a", "b", "c", "d"],
-        entries=[],
+def test_alternate_budget_ledger_path_rejected(tmp_path: Path) -> None:
+    with patch.dict("os.environ", {grounding.LIVE_OPT_IN_ENV: "1"}):
+        with pytest.raises(TemporalShadowExtractionError) as exc:
+            grounding.run_paired_grounding_path_diagnostic(
+                control_case_path=CONTROL_CASE,
+                candidate_case_path=CANDIDATE_CASE,
+                output_dir=tmp_path / "blocked-alt",
+                mode="live",
+                phase="post_fix",
+                model_id=grounding.LIVE_MODEL_ID,
+                fake_output=None,
+                repo_root=REPO_ROOT,
+                overwrite=True,
+                budget_ledger_path=tmp_path / "fresh-zero.json",
+            )
+    assert "Alternate provider budget ledger path rejected" in str(exc.value)
+
+
+def test_missing_budget_ledger_fails_closed(tmp_path: Path) -> None:
+    missing = tmp_path / "missing-ledger.json"
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        grounding.load_provider_budget_ledger(missing)
+    assert "missing" in str(exc.value).lower()
+
+
+def test_budget_ledger_reconciles_total_against_entries(tmp_path: Path) -> None:
+    path = tmp_path / "bad-ledger.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": grounding.BUDGET_LEDGER_SCHEMA,
+                "max_total_provider_calls": 4,
+                "total_calls": 0,
+                "response_ids": [],
+                "entries": [
+                    {
+                        "phase": "initial",
+                        "repository_sha": "a" * 40,
+                        "calls": 2,
+                        "response_ids": ["r1", "r2"],
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
     )
-    grounding.save_provider_budget_ledger(ledger)
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        grounding.load_provider_budget_ledger(path)
+    assert "reconcile" in str(exc.value).lower()
+
+
+def test_persistent_budget_ledger_blocks_fifth_live_invocation(tmp_path: Path) -> None:
     with patch.dict("os.environ", {grounding.LIVE_OPT_IN_ENV: "1"}):
         with pytest.raises(TemporalShadowExtractionError) as exc:
             grounding.run_paired_grounding_path_diagnostic(
@@ -752,19 +1002,34 @@ def test_persistent_budget_ledger_blocks_fifth_live_invocation(tmp_path: Path) -
                 fake_output=None,
                 repo_root=REPO_ROOT,
                 overwrite=True,
-                budget_ledger_path=ledger_path,
+                budget_ledger_path=grounding.canonical_budget_ledger_path(REPO_ROOT),
             )
     assert "budget" in str(exc.value).lower() or "exhausted" in str(exc.value).lower()
-    assert grounding.load_provider_budget_ledger(ledger_path).total_calls == 4
 
 
 def test_fixture_budget_ledger_is_exhausted_at_four() -> None:
-    ledger_path = FIXTURE / grounding.DEFAULT_BUDGET_LEDGER_NAME
+    ledger_path = grounding.canonical_budget_ledger_path(REPO_ROOT)
     ledger = grounding.load_provider_budget_ledger(ledger_path)
     assert ledger.total_calls == 4
     assert ledger.remaining == 0
     with pytest.raises(TemporalShadowExtractionError):
         grounding.assert_provider_budget_available(ledger, calls_needed=1)
+
+
+def test_resolve_live_budget_defaults_to_canonical() -> None:
+    canonical = grounding.canonical_budget_ledger_path(REPO_ROOT)
+    assert (
+        grounding.resolve_live_budget_ledger_path(
+            repo_root=REPO_ROOT, requested=None
+        )
+        == canonical
+    )
+    assert (
+        grounding.resolve_live_budget_ledger_path(
+            repo_root=REPO_ROOT, requested=canonical
+        )
+        == canonical
+    )
 
 
 def test_transport_accepted_false_for_invalid_model_output_and_provider_errors() -> None:

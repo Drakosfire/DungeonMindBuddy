@@ -1,47 +1,42 @@
 # REPORT — TL01 Shared Source-Phrase Grounding-Path Recovery
 
-**Status:** Evidence-bound diagnostic READY; global live budget **4/4 exhausted**  
+**Status:** Evidence-bound diagnostic READY under frozen contract; global live budget **4/4 exhausted**  
 **Handoff:** `Docs/Plans/HANDOFF-pr488-tl01-grounding-path-recovery.md`  
 **Fixture:** `evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/`  
 **Expected phrase:** `the brass moth struck the north bell exactly twice`  
-**Budget ledger:** `evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/provider-budget-ledger.json`
+**Canonical budget ledger:** `evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/provider-budget-ledger.json`
 
 ## Authority / provenance gate
 
 | Item | Value |
 |---|---|
-| Authoritative live-execution SHA | `46158038c8f29c1b6fbaba70039a71bb5cf6f063` (clean) |
+| Shared clean implementation SHA (det + live) | `46158038c8f29c1b6fbaba70039a71bb5cf6f063` |
 | Global provider budget | **4/4 spent — no further live calls authorized** |
-| PR #486 | Still open draft (operator override to keep one PR) |
-| Prior enum-only READY | **Revoked** — READY now requires `combine_paired_*` identity binding |
+| Budget enforcement | Canonical fixture ledger only; missing/alternate paths rejected; `total_calls` reconciled to entries |
+| PR #486 | Open draft (operator override to keep one PR) |
 
 **Successor unlock (V14 / Adv V12 / `tl01h-v1`) remains blocked until this report merges to `main`.**
 
 ## Scope
 
-Diagnostic-only paired smoke (not promotion authority) exercising production
-`run_temporal_shadow_extraction` through frozen `tl01f-v1` and `tl01g-v1` on one
-shared assertion/evidence fixture. No production repair applied. Frozen prompt
-hashes, packet version (`tl01c-packet-v1`), and renderer identity unchanged.
+Diagnostic-only paired smoke (not promotion authority). No production repair. Frozen
+prompt hashes, packet version (`tl01c-packet-v1`), and renderer identity unchanged.
 
-## Review repairs
+`provider-budget-ledger.json` is a review-driven path outside the original exact
+allowlist; it is required to enforce the handoff §6.10 global call budget across
+invocations.
 
-### On `83917009` (first blocking review)
+## Review repairs (cumulative)
 
 | Finding | Fix |
 |---|---|
-| Empty refs fell back to owned refs | Absent/empty → `EVIDENCE_OWNERSHIP_MISMATCH` |
-| Live-only READY / provider→phrase mis-map | String triage never READY; provider → unresolved |
+| Empty refs → owned fallback | `EVIDENCE_OWNERSHIP_MISMATCH` |
+| Live-only / bare-enum READY | String triage never READY |
 | Failed attempts uncharged | Charge before delegate |
 | `transport_accepted` contradictions | False for provider/transport failures |
-
-### On `fca35289` (second blocking review)
-
-| Finding | Fix |
-|---|---|
-| READY from four bare `EVALUABLE` strings | `compute_overall_conclusion` never returns READY; `combine_paired_diagnostic_conclusions` / `combine_paired_summary_conclusions` require shared assertion/evidence/phrase/span/packet/renderer, cross-mode case digests + prompts, live clean SHA, metrics, response IDs, and ≥2 live calls |
-| 4/4 budget unreported / unenforceable across invocations | Persistent `provider-budget-ledger.json`; live mode requires ledger and fail-closes when remaining &lt; phase need; report states **4/4** |
-| Malformed raw batch crashed observer | Shape guards on annotations / entries / `evidence_ref_ids`; malformed → `TRANSPORT_REJECTED` without TypeError |
+| Malformed raw batch crash | Shape guards → `TRANSPORT_REJECTED` |
+| Alternate/missing ledger resets budget | Canonical path only; missing fails closed; totals reconcile to entries |
+| READY equality without frozen authority | Exact `tl01f-v1`/`tl01g-v1` + frozen SHA256s, packet/renderer constants, shared clean SHA, nested lane/run-mode, success fields |
 
 ## Provider-call budget (global, §6.10)
 
@@ -51,8 +46,10 @@ hashes, packet version (`tl01c-packet-v1`), and renderer identity unchanged.
 | Post-fix (`post_fix`) | `46158038…` | 2 | `resp_0b4be0ad…`, `resp_02052a11…` |
 | **Total** | | **4 / 4** | |
 
-Remaining: **0**. Further live invocations are unauthorized without an explicit operator
-budget amendment. Enforcement is the on-disk ledger (not a per-process counter).
+Remaining: **0**. Live mode binds only to the canonical ledger path under the smoke
+fixture; a fifth pair cannot invent a new filename or copy cases elsewhere to reset
+the counter. Budget amendment requires a governed edit of that ledger (not an
+alternate path).
 
 ## Frozen identity guards
 
@@ -64,41 +61,27 @@ budget amendment. Enforcement is the on-disk ledger (not a per-process counter).
 | Renderer | `render_temporal_shadow_user_content_v2` | No |
 | Live model | `gpt-5.4-mini` | N/A |
 
-No V14 / Adv V12 directories created. Retired cohorts untouched.
+## Deterministic + live evidence (SHA `46158038…`)
 
-## Deterministic lane results
-
-| Lane | Prompt | Lane result | Metrics present |
-|---|---|---|---|
-| control | `tl01f-v1` | `EVALUABLE` | true |
-| candidate | `tl01g-v1` | `EVALUABLE` | true |
-
-Provider calls: **0**. Single-mode overall: `UNRESOLVED_DIAGNOSTIC_GAP`.
-
-## Live lane results (clean SHA `46158038…`)
-
-| Lane | Prompt | Lane result | Provider response ID | Metrics present |
+| Mode | Lane | Result | Metrics | Success fields |
 |---|---|---|---|---|
-| control | `tl01f-v1` | `EVALUABLE` | `resp_0b4be0ad599b8170006a6f5cd725dc81959c76796092286538` | true |
-| candidate | `tl01g-v1` | `EVALUABLE` | `resp_02052a11ad001b49006a6f5cd964a88196a303d6fea79c5f35` | true |
+| deterministic | control `tl01f-v1` | `EVALUABLE` | true | transport/owned_match/phrase/overlay OK |
+| deterministic | candidate `tl01g-v1` | `EVALUABLE` | true | same |
+| live | control `tl01f-v1` | `EVALUABLE` | true | `resp_0b4be0ad…` |
+| live | candidate `tl01g-v1` | `EVALUABLE` | true | `resp_02052a11…` |
 
-This pair spent the final 2 calls of the global 4-call budget.
-
-## Overall conclusion (evidence-bound)
+## Overall conclusion (evidence-bound frozen contract)
 
 **`GROUNDING_PATH_READY`**
 
-Computed by `combine_paired_summary_conclusions(deterministic_summary, live_summary)`
-against saved paired-summary traces sharing:
+Computed by `combine_paired_summary_conclusions` on author-local paired summaries
+from the same clean SHA `46158038…`, requiring frozen prompt identities/hashes,
+authoritative packet/renderer constants, nested lane/run-mode identity, shared
+implementation SHA, and EVALUABLE success fields (`transport_accepted`,
+`owned_evidence_check=owned_match`, `phrase_match`, owned returned refs, no
+production error, overlay ID, metrics).
 
-- assertion `assertion:b8a9e88438e5c6a5`
-- evidence `evidence:tl01-grounding-smoke-v1:bell-strike`
-- phrase / resolved-span digest / packet / renderer
-- cross-mode case digests and prompt identities
-- live clean repository SHA `46158038…`, model `gpt-5.4-mini`, metrics present, response IDs
-
-Bare `compute_overall_conclusion(EVALUABLE×4)` returns `UNRESOLVED_DIAGNOSTIC_GAP`
-and cannot unlock READY.
+`prompt_sha256="deadbeef"` (or any non-frozen hash) cannot unlock READY.
 
 ## Conditional production repair
 
@@ -106,17 +89,16 @@ and cannot unlock READY.
 
 ## Successor gate
 
-**Blocked until merge to `main`.** Diagnostic READY does not authorize V14 / Adv V12 /
-`tl01h-v1`. **No further live grounding smokes** on this fixture without a new budget
-authorization (ledger already at 4/4).
+**Blocked until merge to `main`.** No further live smokes without governed ledger
+amendment (4/4).
 
 ## Verification commands (author-local)
 
 ```text
-uv run pytest -q tests/test_temporal_shadow_grounding_path.py          → 36 passed
+uv run pytest -q tests/test_temporal_shadow_grounding_path.py          → 44 passed
 uv run ruff check evals/graph_memory_layer/temporal_shadow_grounding_path.py \
                  tests/test_temporal_shadow_grounding_path.py           → All checks passed!
-deterministic CLI → EVALUABLE / EVALUABLE, calls 0, overall UNRESOLVED_DIAGNOSTIC_GAP
-combine_paired_summary_conclusions(det, live@46158038) → GROUNDING_PATH_READY
-provider-budget-ledger.json total_calls → 4 (remaining 0)
+canonical ledger total_calls reconciled → 4 (remaining 0)
+alternate --budget-ledger path → rejected
+combine(det@46158038, live@46158038) → GROUNDING_PATH_READY
 ```
