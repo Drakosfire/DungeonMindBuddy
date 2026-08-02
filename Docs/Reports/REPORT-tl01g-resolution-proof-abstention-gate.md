@@ -123,7 +123,7 @@ Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagno
 
 ## Matrix D — last observed run (holdout V13 / Adv V11) — not authority
 
-Seal/execution: `33bae3485babb0d15373b91b0cbcb13282b42491` · candidate SHA `3af1e470…` · calibration `temporal-prompt-calibration:0d86dcf12602d6e3` · aggregate build `04447eaf…`
+Seal/execution: `33bae3485babb0d15373b91b0cbcb13282b42491` · candidate SHA `3af1e470…` · calibration `temporal-prompt-calibration:a1dd130979808f2f` · aggregate build `8e2fe045…`
 
 ### Candidate
 
