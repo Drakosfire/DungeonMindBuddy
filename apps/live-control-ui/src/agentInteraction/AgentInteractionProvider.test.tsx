@@ -1102,6 +1102,102 @@ describe("AgentInteractionProvider projection lease semantics", () => {
 
     expect(getByTestId("lease-probe").textContent).toBe("none|Plan");
   });
+
+  it("clears graph-reference binding and active projection when invalid chrome fragment invalidates effective publication", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    act(() => {
+      openResolution(result.current.openGraphReference);
+    });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
+    expect(result.current.active?.kind).toBe("content");
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "recap", label: "Duplicate recap", onClick: vi.fn() }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
+    expect(result.current.active).toBeNull();
+
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.graphReferenceBinding).toBeNull();
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).not.toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
+
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
+  });
+
+  it("clears diagnostics payload when invalid chrome fragment invalidates effective publication and recovers after valid composition", () => {
+    const payload = { selectedDeltaNodeId: "npc-a" } as GraphReviewDiagnosticsProjectionPayload;
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payload);
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "ingest-recap", label: "Duplicate recap", onClick: vi.fn() }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).not.toBeNull();
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payload);
+  });
 });
 
 describe("AgentInteractionProvider neutral surface interaction lease", () => {
@@ -1339,6 +1435,49 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
     if (launch?.activation.kind !== "command") throw new Error("expected command activation");
     act(() => {
       void launch.activation.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks AppChrome page-tool invoke after invalid chrome fragment nullifies effective publication", () => {
+    const onClick = vi.fn();
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "page-tool", label: "Page tool", onClick }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const firstInvoke = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "page-tool")
+      ?.activation;
+    expect(firstInvoke?.kind).toBe("command");
+    if (firstInvoke?.kind !== "command") throw new Error("expected command activation");
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: {
+            pinnedActions: [{ id: "bold", label: "Bold", onClick: vi.fn() }],
+          },
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+
+    act(() => {
+      void firstInvoke.invoke();
     });
     expect(onClick).toHaveBeenCalledTimes(1);
   });

@@ -12,17 +12,15 @@ export function usePublishSurfaceInteraction(publication: SurfaceInteractionPubl
   const { publishSurfaceInteractionPublication, updateSurfaceInteractionPublication } = useAgentInteraction();
   const publicationRef = useRef(publication);
   publicationRef.current = publication;
-  const identityKey = publication
-    ? `${publication.identity.surfaceId}:${publication.identity.instanceKey}`
-    : null;
+  const surfaceId = publication?.identity.surfaceId ?? null;
+  const instanceKey = publication?.identity.instanceKey ?? null;
 
   useEffect(() => {
-    if (!publicationRef.current) return;
     return publishSurfaceInteractionPublication(publicationRef.current);
-  }, [identityKey, publishSurfaceInteractionPublication]);
+  }, [surfaceId, instanceKey, publishSurfaceInteractionPublication]);
 
   useEffect(() => {
-    if (!publicationRef.current) return;
-    updateSurfaceInteractionPublication(publicationRef.current);
+    if (!publication) return;
+    updateSurfaceInteractionPublication(publication);
   }, [publication, updateSurfaceInteractionPublication]);
 }

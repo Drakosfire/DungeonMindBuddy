@@ -249,4 +249,45 @@ describe("surfaceInteractionLease", () => {
     const wrapped = wrapPublicationCallbacks(makePublication(), createSurfaceInteractionLeaseToken(), gate);
     expect(validateSurfaceInteractionPublication(wrapped).valid).toBe(true);
   });
+
+  it("rejects wrapped callback invoke when invalid chrome fragment nullifies effective publication", () => {
+    const original = vi.fn();
+    let current = bindSurfaceInteractionLease(makePublication({
+      tools: [{
+        id: "action",
+        label: "Action",
+        placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+        availability: { status: "enabled" },
+        activation: { kind: "command", invoke: original },
+      }],
+    }), "legacy_route", makeGate(() => current));
+    const wrapped = current.effectivePublication!.tools[0]!.activation;
+    expect(wrapped.kind).toBe("command");
+    if (wrapped.kind !== "command") throw new Error("expected command activation");
+    wrapped.invoke();
+    expect(original).toHaveBeenCalledTimes(1);
+
+    current = registerChromeCompatibilityFragment(
+      current,
+      current.token,
+      Symbol("fragment"),
+      {
+        tools: [],
+        editCommands: [{
+          id: "bold",
+          label: "Bold",
+          placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+          availability: { status: "enabled" },
+          target: { kind: "", id: "" },
+          invoke: () => {},
+        }],
+      },
+      makeGate(() => current),
+    )!;
+    expect(current.effectivePublication).toBeNull();
+    expect(current.rawEffectivePublication).not.toBeNull();
+
+    wrapped.invoke();
+    expect(original).toHaveBeenCalledTimes(1);
+  });
 });

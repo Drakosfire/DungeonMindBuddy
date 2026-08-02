@@ -52,4 +52,26 @@ describe("AppChrome surface interaction bridge", () => {
     );
     expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
   });
+
+  it("republishes same-id page action when callback identity changes", () => {
+    const callback1 = vi.fn();
+    const callback2 = vi.fn();
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <IndexRouteChromeHarness pageActions={[{ id: "launch", label: "Launch", onClick: callback1 }]} />
+      </AgentInteractionProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+    expect(callback1).toHaveBeenCalledTimes(1);
+    expect(callback2).not.toHaveBeenCalled();
+
+    rerender(
+      <AgentInteractionProvider>
+        <IndexRouteChromeHarness pageActions={[{ id: "launch", label: "Launch", onClick: callback2 }]} />
+      </AgentInteractionProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+    expect(callback1).toHaveBeenCalledTimes(1);
+    expect(callback2).toHaveBeenCalledTimes(1);
+  });
 });

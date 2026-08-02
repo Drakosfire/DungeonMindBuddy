@@ -167,6 +167,7 @@ export function createLeaseCallbackGate(
     isAuthorized(token, kind, contributionId, originalInvoke) {
       const snapshot = getSnapshot();
       if (!snapshot || snapshot.token !== token) return false;
+      if (!snapshot.effectivePublication) return false;
       if (!snapshot.rawEffectivePublication) return false;
       if (kind === "tool") {
         const contribution = snapshot.rawEffectivePublication.tools.find((entry) => entry.id === contributionId);

@@ -8,6 +8,19 @@ import {
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 
+const callbackIdentityKeys = new WeakMap<() => void, number>();
+let nextCallbackIdentityKey = 1;
+
+function callbackIdentityKey(callback: () => void): number {
+  let key = callbackIdentityKeys.get(callback);
+  if (key === undefined) {
+    key = nextCallbackIdentityKey;
+    nextCallbackIdentityKey += 1;
+    callbackIdentityKeys.set(callback, key);
+  }
+  return key;
+}
+
 export interface AppChromeAction {
   id: string;
   label: string;
@@ -235,13 +248,18 @@ export function AppChrome({
   pageActionsRef.current = pageActions;
   const editorToolsRef = useRef(editorTools);
   editorToolsRef.current = editorTools;
-  const pageActionSignature = pageActions.map((action) => `${action.id}:${action.disabled ? "d" : "e"}`).join("|");
+  const pageActionSignature = pageActions
+    .map((action) =>
+      `${action.id}:${action.disabled ? "d" : "e"}:${action.label}:${action.eyebrow ?? ""}:${callbackIdentityKey(action.onClick)}`)
+    .join("|");
   const pinnedSignature = (editorTools?.pinnedActions ?? [])
-    .map((action) => `${action.id}:${action.disabled ? "d" : "e"}`)
+    .map((action) =>
+      `${action.id}:${action.disabled ? "d" : "e"}:${action.label}:${action.eyebrow ?? ""}:${callbackIdentityKey(action.onClick)}`)
     .join("|");
   const sectionSignature = (editorTools?.sections ?? [])
     .map((section) =>
-      `${section.id}:${section.actions.map((action) => `${action.id}:${action.disabled ? "d" : "e"}`).join(",")}`)
+      `${section.id}:${section.title}:${section.actions.map((action) =>
+        `${action.id}:${action.disabled ? "d" : "e"}:${action.label}:${action.eyebrow ?? ""}:${callbackIdentityKey(action.onClick)}`).join(",")}`)
     .join("|");
   const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
   const [isToolsOpen, setIsToolsOpen] = useState(false);

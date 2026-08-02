@@ -145,6 +145,7 @@ function revalidateLeasedProjection(
  * Build remains disabled by design; this is not a fully surface-neutral auth policy.
  */
 function isAuthorizedPlanPublication(bundle: ProviderLeaseBundle | null): boolean {
+  if (!bundle?.snapshot.effectivePublication) return false;
   const validated = bundle?.legacyProjection?.validated;
   if (!validated?.projectionsEnabled) return false;
   const { identity, config } = validated.publication;
@@ -153,6 +154,7 @@ function isAuthorizedPlanPublication(bundle: ProviderLeaseBundle | null): boolea
 }
 
 function isAuthorizedDiagnosticsPublication(bundle: ProviderLeaseBundle | null): boolean {
+  if (!bundle?.snapshot.effectivePublication) return false;
   const validated = bundle?.legacyProjection?.validated;
   if (!validated?.projectionsEnabled) return false;
   const { identity, config } = validated.publication;
@@ -223,6 +225,36 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     setLeasedGraphProjectionState(null);
   }, []);
 
+  const revalidateLeasedAttachmentsAfterSnapshot = useCallback(() => {
+    const bundle = leaseBundleRef.current;
+    if (!bundle?.snapshot.effectivePublication) {
+      clearSelectedProjection();
+      graphReferenceRegistrationRef.current = null;
+      setGraphReferenceRegistration(null);
+      diagnosticsRegistrationRef.current = null;
+      setDiagnosticsRegistration(null);
+      return;
+    }
+    const legacyValidated = bundle.legacyProjection?.validated;
+    if (legacyValidated) {
+      const nextLeased = revalidateLeasedProjection(legacyValidated, leasedActiveRef.current);
+      leasedActiveRef.current = nextLeased;
+      setLeasedActive(nextLeased);
+      if (!nextLeased || nextLeased.projection.kind !== "content") {
+        setLeasedGraphReference(null);
+        setLeasedGraphProjectionState(null);
+      }
+    }
+    if (!isAuthorizedPlanPublication(bundle)) {
+      graphReferenceRegistrationRef.current = null;
+      setGraphReferenceRegistration(null);
+    }
+    if (!isAuthorizedDiagnosticsPublication(bundle)) {
+      diagnosticsRegistrationRef.current = null;
+      setDiagnosticsRegistration(null);
+    }
+  }, [clearSelectedProjection]);
+
   const applySameIdentityConfigUpdate = useCallback(
     (validated: ValidatedProjectionSurface): boolean => {
       const current = leaseBundleRef.current;
@@ -249,24 +281,10 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         authorizationEpoch: current.authorizationEpoch,
         appChromePublisherEpoch: current.appChromePublisherEpoch,
       });
-      const nextLeased = revalidateLeasedProjection(validated, leasedActiveRef.current);
-      leasedActiveRef.current = nextLeased;
-      setLeasedActive(nextLeased);
-      if (!nextLeased || nextLeased.projection.kind !== "content") {
-        setLeasedGraphReference(null);
-        setLeasedGraphProjectionState(null);
-      }
-      if (!isAuthorizedPlanPublication(leaseBundleRef.current)) {
-        graphReferenceRegistrationRef.current = null;
-        setGraphReferenceRegistration(null);
-      }
-      if (!isAuthorizedDiagnosticsPublication(leaseBundleRef.current)) {
-        diagnosticsRegistrationRef.current = null;
-        setDiagnosticsRegistration(null);
-      }
+      revalidateLeasedAttachmentsAfterSnapshot();
       return true;
     },
-    [applyLeaseBundle],
+    [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot],
   );
 
   const publishSurfaceInteractionPublication = useCallback(
@@ -307,21 +325,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       ...current,
       snapshot: updated,
     });
-    if (!updated.effectivePublication) {
-      clearSelectedProjection();
-      graphReferenceRegistrationRef.current = null;
-      setGraphReferenceRegistration(null);
-      diagnosticsRegistrationRef.current = null;
-      setDiagnosticsRegistration(null);
-      return;
-    }
-    const legacyValidated = current.legacyProjection?.validated;
-    if (legacyValidated) {
-      const nextLeased = revalidateLeasedProjection(legacyValidated, leasedActiveRef.current);
-      leasedActiveRef.current = nextLeased;
-      setLeasedActive(nextLeased);
-    }
-  }, [applyLeaseBundle, clearSelectedProjection]);
+    revalidateLeasedAttachmentsAfterSnapshot();
+  }, [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot]);
 
   const publishAppChromeCompatibility = useCallback((fragment: SurfaceInteractionChromeFragment) => {
     const current = leaseBundleRef.current;
@@ -338,6 +343,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     );
     if (!next) return () => undefined;
     applyLeaseBundle({ ...current, snapshot: next });
+    revalidateLeasedAttachmentsAfterSnapshot();
     return () => {
       const live = leaseBundleRef.current;
       if (!live || live.snapshot.token !== capturedToken) return;
@@ -350,8 +356,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       );
       if (!updated) return;
       applyLeaseBundle({ ...live, snapshot: updated });
+      revalidateLeasedAttachmentsAfterSnapshot();
     };
-  }, [applyLeaseBundle, leaseBundle?.appChromePublisherEpoch, leaseBundle?.authorizationEpoch]);
+  }, [applyLeaseBundle, leaseBundle?.appChromePublisherEpoch, leaseBundle?.authorizationEpoch, revalidateLeasedAttachmentsAfterSnapshot]);
 
   const publishProjectionSurface = useCallback(
     (publication: ProjectionSurfacePublication | null) => {
