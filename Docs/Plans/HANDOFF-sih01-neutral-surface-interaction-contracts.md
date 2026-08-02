@@ -329,7 +329,7 @@ Required stable issue codes:
 
 | Code | Trigger |
 |---|---|
-| `publication_shape_invalid` | Publication is not a non-null object; a contribution collection is missing, not an array, or sparse; or Canvas/Agent context is not exactly `null` or a non-null object (`undefined`/missing is invalid) |
+| `publication_shape_invalid` | Publication is not a non-null object; a contribution collection is missing or not an array; or Canvas/Agent context is not exactly `null` or a non-null object (`undefined`/missing is invalid). A sparse collection is an array with missing entries — each hole is `contribution_shape_invalid`, not this code |
 | `contribution_shape_invalid` | A Tool/Edit/Projection/binding/pointer entry is missing (sparse array index) or not a non-null object; a required nested object (identity, placement, availability, activation, target, work object) is missing or not an object; a Projection `bindingIds` array is missing, not an array, sparse, or contains a non-string element; an availability `status` discriminant is neither `"enabled"` nor `"disabled"`; or a supplied optional `eyebrow` is not a string |
 | `surface_id_blank` | Publication or identity surface ID is blank |
 | `instance_key_blank` | Identity instance key is blank |
