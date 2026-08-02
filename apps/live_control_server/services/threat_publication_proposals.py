@@ -774,13 +774,18 @@ def _build_sealed_package(
     return package
 
 
-def _expected_contribution_id(
+def _reconstruct_expected_contribution(
     *,
     package: dict[str, object],
     operation: ThreatPublicationOperationV1,
     actor: str,
     world_root: Path,
-) -> str:
+):
+    """Return the unmodified reconstructed contribution for c1 authority.
+
+    ``accepted_assertion_ids`` must record this reconstruction order so c2b can
+    prove exact ordered equality without rearranging the reconstructed object.
+    """
     _verified, contribution = resolve_merged_contribution_from_package(
         review_package=package,
         confirming_principal=actor,
@@ -790,7 +795,22 @@ def _expected_contribution_id(
         assertion_ids=None,
         verify_source=False,
     )
-    return contribution.contribution_id
+    return contribution
+
+
+def _expected_contribution_id(
+    *,
+    package: dict[str, object],
+    operation: ThreatPublicationOperationV1,
+    actor: str,
+    world_root: Path,
+) -> str:
+    return _reconstruct_expected_contribution(
+        package=package,
+        operation=operation,
+        actor=actor,
+        world_root=world_root,
+    ).contribution_id
 
 
 def _node_matches_candidate(
@@ -1307,7 +1327,7 @@ def prepare_threat_publication_proposal(
             threat_node_id=threat_node_id,
         )
         try:
-            expected_contribution_id = _expected_contribution_id(
+            reconstructed = _reconstruct_expected_contribution(
                 package=sealed_package,
                 operation=operation,
                 actor=request.actor,
@@ -1321,6 +1341,23 @@ def prepare_threat_publication_proposal(
                     safe_resolution,
                     "publication_proposal_integrity_failure",
                     message=str(exc),
+                )
+            )
+        expected_contribution_id = reconstructed.contribution_id
+        # Canonical reconstruction order — not the local seal-time list order.
+        accepted_assertion_ids = [
+            item.assertion_id for item in reconstructed.accepted_assertions
+        ]
+        if set(accepted_assertion_ids) != {
+            item.assertion_id for item in accepted_assertions
+        }:
+            return ProposalOutcome(
+                _response(
+                    safe_draft,
+                    safe_op,
+                    safe_resolution,
+                    "publication_proposal_integrity_failure",
+                    message="reconstructed contribution assertion set disagrees with sealed effect",
                 )
             )
 
@@ -1346,7 +1383,7 @@ def prepare_threat_publication_proposal(
                 "sealed_proposal_version": int(sealed_package["proposal_version"]),
                 "sealed_proposal": sealed_package,
                 "expected_contribution_id": expected_contribution_id,
-                "accepted_assertion_ids": [item.assertion_id for item in accepted_assertions],
+                "accepted_assertion_ids": accepted_assertion_ids,
                 "effect_summary": _effect_summary(
                     decision=decision,
                     threat_node_id=threat_node_id,
