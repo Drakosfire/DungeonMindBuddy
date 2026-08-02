@@ -35,6 +35,10 @@ export function encodeSurfaceInteractionInstanceKey(
 ): string {
   // Indexed iteration: forEach skips holes, but JSON.stringify serializes them
   // as null — a sparse array would silently collide with explicit null parts.
+  // Serialize a fresh canonical array of the validated values, never the
+  // caller-owned array: a custom toJSON on it, or an accessor element whose
+  // value changes between reads, cannot alter the key after validation.
+  const canonical: SurfaceInteractionInstancePart[] = [];
   for (let index = 0; index < parts.length; index += 1) {
     if (!Object.hasOwn(parts, index)) {
       throw new TypeError(
@@ -42,9 +46,11 @@ export function encodeSurfaceInteractionInstanceKey(
           `holes serialize as null and would break encoding injectivity.`,
       );
     }
-    assertEncodablePart(parts[index] as SurfaceInteractionInstancePart, index);
+    const part = parts[index] as SurfaceInteractionInstancePart;
+    assertEncodablePart(part, index);
+    canonical.push(part);
   }
-  return JSON.stringify(parts);
+  return JSON.stringify(canonical);
 }
 
 /**

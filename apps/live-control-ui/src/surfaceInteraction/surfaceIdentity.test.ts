@@ -62,6 +62,34 @@ describe("encodeSurfaceInteractionInstanceKey", () => {
     // Explicit null remains encodable and can no longer collide with a hole.
     expect(encodeSurfaceInteractionInstanceKey([null])).toBe("[null]");
   });
+
+  it("ignores a custom toJSON on the caller-owned parts array", () => {
+    const adversarial = ["plan"] as SurfaceInteractionInstancePart[] & {
+      toJSON?: () => unknown;
+    };
+    adversarial.toJSON = () => ["other"];
+
+    // The key is serialized from the validated values, not the decorated array.
+    expect(encodeSurfaceInteractionInstanceKey(adversarial)).toBe('["plan"]');
+    expect(encodeSurfaceInteractionInstanceKey(adversarial)).not.toBe(
+      encodeSurfaceInteractionInstanceKey(["other"]),
+    );
+  });
+
+  it("serializes the value read during validation when an accessor changes between reads", () => {
+    let reads = 0;
+    const adversarial = [] as SurfaceInteractionInstancePart[];
+    Object.defineProperty(adversarial, "0", {
+      get() {
+        reads += 1;
+        return reads === 1 ? "plan" : "other";
+      },
+      enumerable: true,
+    });
+
+    expect(encodeSurfaceInteractionInstanceKey(adversarial)).toBe('["plan"]');
+    expect(reads).toBe(1);
+  });
 });
 
 describe("buildSurfaceInteractionIdentity", () => {

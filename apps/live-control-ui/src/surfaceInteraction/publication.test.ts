@@ -1319,3 +1319,281 @@ describe("validateSurfaceInteractionPublication — identity surface ID blanknes
     expect(codes.filter((code) => code === "surface_id_blank")).toHaveLength(2);
   });
 });
+
+describe("validateSurfaceInteractionPublication — data-record boundary", () => {
+  it("never invokes a throwing getter on a publication collection field and fails closed", () => {
+    const publication = makePublication();
+    let invoked = 0;
+    Object.defineProperty(publication, "tools", {
+      get() {
+        invoked += 1;
+        throw new Error("boom");
+      },
+    });
+
+    let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+    expect(() => {
+      result = validateSurfaceInteractionPublication(publication);
+    }).not.toThrow();
+
+    expect(invoked).toBe(0);
+    expect(result?.valid).toBe(false);
+    const resolved = result as NonNullable<typeof result>;
+    if (!resolved.valid) {
+      expect(resolved.publication).toBe(publication);
+      expect(codesOf(resolved)).toContain("publication_shape_invalid");
+    }
+  });
+
+  it("rejects accessor canvas/agentContext fields at the publication level without invoking them", () => {
+    for (const field of ["canvas", "agentContext"] as const) {
+      const publication = makePublication();
+      let invoked = 0;
+      Object.defineProperty(publication, field, {
+        get() {
+          invoked += 1;
+          throw new Error("boom");
+        },
+      });
+      let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+      expect(() => {
+        result = validateSurfaceInteractionPublication(publication);
+      }).not.toThrow();
+      expect(invoked).toBe(0);
+      expect(result?.valid).toBe(false);
+      expect(codesOf(result as NonNullable<typeof result>)).toContain("publication_shape_invalid");
+    }
+  });
+
+  it("rejects accessor fields on contribution entries without invoking them", () => {
+    const tool = makeTool("t");
+    let invoked = 0;
+    Object.defineProperty(tool, "placement", {
+      get() {
+        invoked += 1;
+        throw new Error("boom");
+      },
+    });
+    const result = validateSurfaceInteractionPublication(makePublication({ tools: [tool] }));
+    expect(invoked).toBe(0);
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("rejects an accessor availability status discriminant without invoking it", () => {
+    const availability: Record<string, unknown> = { status: "enabled" };
+    let invoked = 0;
+    Object.defineProperty(availability, "status", {
+      get() {
+        invoked += 1;
+        throw new Error("boom");
+      },
+    });
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        tools: [
+          makeTool("t", {
+            availability: availability as unknown as SurfaceInteractionAvailability,
+          }),
+        ],
+      }),
+    );
+    expect(invoked).toBe(0);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("rejects an enabled availability whose disabledReason is inherited from the prototype", () => {
+    const availability = Object.assign(Object.create({ disabledReason: "inherited" }), {
+      status: "enabled",
+    }) as unknown as SurfaceInteractionAvailability;
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ tools: [makeTool("t", { availability })] }),
+    );
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("rejects contribution records with non-standard prototypes even when own fields look complete", () => {
+    class ToolRecord {}
+    const tool = Object.assign(new ToolRecord(), makeTool("t"));
+    const result = validateSurfaceInteractionPublication(makePublication({ tools: [tool] }));
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("rejects a publication record with a non-standard prototype", () => {
+    class PublicationRecord {}
+    const publication = Object.assign(new PublicationRecord(), makePublication());
+    const result = validateSurfaceInteractionPublication(publication);
+    expect(codesOf(result)).toEqual(["publication_shape_invalid"]);
+  });
+
+  it("accepts null-prototype records as plain data records", () => {
+    const publication = Object.assign(Object.create(null), makePublication());
+    expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
+
+    const tool = Object.assign(Object.create(null), makeTool("t"));
+    expect(
+      validateSurfaceInteractionPublication(makePublication({ tools: [tool] })).valid,
+    ).toBe(true);
+  });
+
+  it("guards throwing proxy traps into shape issues instead of propagating them", () => {
+    const descriptorBomb = new Proxy(makePublication(), {
+      getOwnPropertyDescriptor() {
+        throw new Error("trap must be guarded");
+      },
+    });
+    let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+    expect(() => {
+      result = validateSurfaceInteractionPublication(descriptorBomb);
+    }).not.toThrow();
+    expect(result?.valid).toBe(false);
+    expect(
+      codesOf(result as NonNullable<typeof result>).every(
+        (code) => code === "publication_shape_invalid",
+      ),
+    ).toBe(true);
+
+    const prototypeBomb = new Proxy(makePublication(), {
+      getPrototypeOf() {
+        throw new Error("trap must be guarded");
+      },
+    });
+    expect(() => {
+      result = validateSurfaceInteractionPublication(prototypeBomb);
+    }).not.toThrow();
+    expect(result?.valid).toBe(false);
+    expect(codesOf(result as NonNullable<typeof result>)).toEqual(["publication_shape_invalid"]);
+  });
+
+  it("rejects a revoked proxy publication without throwing", () => {
+    const { proxy, revoke } = Proxy.revocable(makePublication(), {});
+    revoke();
+    let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+    expect(() => {
+      result = validateSurfaceInteractionPublication(proxy);
+    }).not.toThrow();
+    expect(result?.valid).toBe(false);
+    expect(codesOf(result as NonNullable<typeof result>)).toEqual(["publication_shape_invalid"]);
+  });
+
+  it("rejects accessor elements in collections without invoking them", () => {
+    const tools = [makeTool("t")];
+    let invoked = 0;
+    Object.defineProperty(tools, "0", {
+      get() {
+        invoked += 1;
+        throw new Error("boom");
+      },
+    });
+    const result = validateSurfaceInteractionPublication(makePublication({ tools }));
+    expect(invoked).toBe(0);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+    if (!result.valid) {
+      expect(result.issues[0]).toMatchObject({ contributionIndex: 0 });
+    }
+  });
+
+  it("rejects accessor elements in bindingIds and pointers arrays", () => {
+    const bindingIds = ["b"];
+    Object.defineProperty(bindingIds, "0", {
+      get() {
+        throw new Error("boom");
+      },
+    });
+    const withBindingIds = validateSurfaceInteractionPublication(
+      makePublication({
+        projections: [makeProjection("p", { bindingIds })],
+        projectionBindings: [makeBinding("b")],
+      }),
+    );
+    expect(codesOf(withBindingIds)).toEqual(["contribution_shape_invalid"]);
+
+    const pointers = [{ kind: "document", value: "doc-1" }];
+    Object.defineProperty(pointers, "0", {
+      get() {
+        throw new Error("boom");
+      },
+    });
+    const withPointers = validateSurfaceInteractionPublication(
+      makePublication({
+        agentContext: {
+          label: "Ctx",
+          campaignId: null,
+          documentId: null,
+          sessionNumber: null,
+          ambientSummary: null,
+          pointers,
+        },
+      }),
+    );
+    expect(codesOf(withPointers)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("rejects a binding whose value is an accessor — presence must be an own data property", () => {
+    const binding: Record<string, unknown> = { id: "b" };
+    let invoked = 0;
+    Object.defineProperty(binding, "value", {
+      get() {
+        invoked += 1;
+        return {};
+      },
+    });
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        projections: [makeProjection("p", { bindingIds: ["b"] })],
+        projectionBindings: [binding as SurfaceInteractionProjectionBinding],
+      }),
+    );
+    expect(invoked).toBe(0);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("rejects an identity record with accessor fields without throwing", () => {
+    const publication = makePublication();
+    Object.defineProperty(publication.identity, "surfaceId", {
+      get() {
+        throw new Error("boom");
+      },
+    });
+    let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+    expect(() => {
+      result = validateSurfaceInteractionPublication(publication);
+    }).not.toThrow();
+    expect(result?.valid).toBe(false);
+    expect(codesOf(result as NonNullable<typeof result>)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("treats an unreadable collection length as a shape failure without throwing", () => {
+    const tools = new Proxy([makeTool("t")], {
+      get(target, property) {
+        if (property === "length") throw new Error("length trap must be guarded");
+        return Reflect.get(target, property);
+      },
+    });
+    let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+    expect(() => {
+      result = validateSurfaceInteractionPublication(makePublication({ tools }));
+    }).not.toThrow();
+    expect(result?.valid).toBe(false);
+    expect(codesOf(result as NonNullable<typeof result>)).toEqual(["publication_shape_invalid"]);
+  });
+
+  it("still accumulates independent field issues alongside accessor-malformed entries", () => {
+    const badTool = makeTool("bad");
+    Object.defineProperty(badTool, "availability", {
+      get() {
+        throw new Error("boom");
+      },
+    });
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ tools: [badTool, makeTool("", { label: "" })] }),
+    );
+    expect(codesOf(result)).toEqual([
+      "contribution_shape_invalid",
+      "contribution_id_blank",
+      "contribution_label_blank",
+    ]);
+  });
+});
