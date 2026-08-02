@@ -1,11 +1,12 @@
 # Graph Document Audit — Campaign Supergraph Reset
 
-**Date:** 2026-07-10  
-**Updated:** 2026-07-11 (PR005B — agent-tool / authored-prep contract classified)  
-**Status:** Active audit record for Phase 0 (+ PR005A source reanchor; PR005B contract)  
-**Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
-**Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
+**Date:** 2026-07-10
+**Updated:** 2026-08-02 (design-agent Project Sources snapshot reconciled; curated source INDEX added)
+**Status:** Active audit record for Phase 0 (+ PR005A source reanchor; PR005B contract; design-agent source bridge)
+**Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
+**Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **PR tracker:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
+**Design-agent source index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md)
 
 ## Purpose
 
@@ -43,22 +44,54 @@ Historical / research / proposal docs cannot direct implementation.
 
 Process template in-repo: [`Docs/Plans/JUMPSTART-docs-relevance-first.md`](../Plans/JUMPSTART-docs-relevance-first.md). If the jumpstart and the tracker disagree, **the tracker wins**.
 
+Curated design-agent source bridge: [`Docs/Design/INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md). Prefer that INDEX when choosing which repository paths to attach as Project Sources.
+
 ### Local / Project Source classification (when present)
 
 These names often appear as Project Sources or local drafts. Classification below is normative for agents even when the file is not (yet) in the GitHub tree:
 
 | Document / name | Classification | Notes |
 |---|---|---|
-| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **ACTIVE_REFERENCE** / process template | Process only; cannot override tracker |
-| `PROPOSAL-context-audit-source-reanchor.md` | **PROPOSAL** | Proposal-only until absorbed into tracker/audit |
-| `LLM-graph-construction.md` | **RESEARCH_ONLY** | Extraction/eval patterns; not roadmap authority |
+| `Docs/Design/INDEX-design-agent-source-set.md` | **ACTIVE_REFERENCE** / process index | Curated design-agent source bridge; not architecture/roadmap authority |
+| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **SOURCE_ONLY** when absent; process intent covered by Jumpstart + INDEX | Not found in tree as of 2026-08-02; do not recreate blindly |
+| `PROPOSAL-context-audit-source-reanchor.md` | **SOURCE_ONLY** / **PROPOSAL** | Not found in tree as of 2026-08-02; proposal-only if attached |
+| `source-reconciliation-report(2).md` | **SOURCE_ONLY** | Not found in tree as of 2026-08-02; local/operator report only |
+| `LLM-graph-construction.md` | **SOURCE_ONLY** / **RESEARCH_ONLY** | Not found in tree as of 2026-08-02; extraction/eval patterns only |
+| `TEMPLATE-pr-handoff(1).md` | **SOURCE_ONLY**; use checked-in HANDOFF template | Map to `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md` |
 | `Docs/Design/dungeonbuddy_spec_architecture_v0_2.md` | **SUPERSEDED** / **HISTORICAL** | Banner required; conceptual ancestor only |
 | `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | **SUPERSEDED** | Stub points at Campaign Supergraph authority |
 | `Docs/Archive/Architecture/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` (archived full copy) | **HISTORICAL** | Full historical copy; cannot direct work |
 | `Docs/Anchors/CORPUS-ANCHOR.md` | **SOURCE_ANCHOR** / **KEEP_CONTRACT** | Corpus path grounding |
-| `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` | **ACTIVE_REFERENCE** | Surface composition; not Campaign Supergraph sequencing |
+| `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` | **ACTIVE_REFERENCE** | Plan composition; not Campaign Supergraph sequencing; UI chrome → surface-interaction architecture |
+| `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` | **ACTIVE AUTHORITY** (UI shell) | Shared bars / projection hosts; does not sequence graph PRs |
 | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` | **ACTIVE_REFERENCE** | Layout note; sequencing lives in tracker |
 | `Docs/Plans/JUMPSTART-docs-relevance-first.md` | **ACTIVE_REFERENCE** / process template | Must defer to tracker on sequence |
+
+### 2026-08-02 design-agent Sources snapshot
+
+**Base:** `917b9d5dff3985b3664aa274eafad7eacb776658` (`origin/main` at audit time)
+**Evidence:** design-agent Sources pane filenames (screenshot inventory); content not available for every basename under the DungeonOverMind tree.
+**Result:** reconciled into [`Docs/Design/INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md).
+
+| Project Source basename | Result |
+|---|---|
+| `GRAPH-MEMORY-PROJECT-LAYOUT.md` | MATCH → Design layout note (**ACTIVE_REFERENCE**) |
+| `ARCHITECTURE-plan-surface-toolbox.md` | MATCH → Plan composition (**ACTIVE_REFERENCE**) |
+| `GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | MATCH → Design stub (**SUPERSEDED**) |
+| `dungeonbuddy_spec_architecture_v0_2.md` | MATCH → Design historical (**SUPERSEDED**) |
+| `CORPUS-ANCHOR.md` | MATCH → Anchors (**SOURCE_ANCHOR**) |
+| `README.md` | AMBIGUOUS basename; root README treated as overview only |
+| `archived-full-GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | SOURCE_ONLY name; Archive body is HISTORICAL counterpart |
+| `TEMPLATE-pr-handoff(1).md` | SOURCE_ONLY; map to checked-in `HANDOFF.template.md` |
+| `PROPOSAL-context-audit-source-reanchor.md` | SOURCE_ONLY / PROPOSAL — not in tree |
+| `source-reconciliation-report(2).md` | SOURCE_ONLY — not in tree |
+| `LLM-graph-construction.md` | SOURCE_ONLY / RESEARCH_ONLY — not in tree |
+| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | SOURCE_ONLY — not in tree; Jumpstart + INDEX cover process |
+
+**Unresolved source-only basenames (do not invent content):**
+`PROPOSAL-context-audit-source-reanchor.md`, `source-reconciliation-report(2).md`, `LLM-graph-construction.md`, `PROJECT-SOURCES-OPERATING-TEMPLATE.md`, `TEMPLATE-pr-handoff(1).md`, `archived-full-GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`.
+
+**Operator action after merge:** refresh Project Sources from the INDEX compact active set; demote superseded/historical attachments; leave unresolved local drafts out unless explicitly needed as research/proposal context.
 
 ---
 
@@ -70,6 +103,7 @@ These names often appear as Project Sources or local drafts. Classification belo
 | `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | Canonical roadmap |
 | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | Sole Campaign Supergraph implementation sequence |
 | `Docs/Reports/graph-document-audit.md` | This audit (governance of docs, not runtime) |
+| `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` | Shared UI chrome / interaction-host ownership (not graph sequencing) |
 
 ## Archive conventions
 
@@ -144,6 +178,8 @@ Stub pointers remain at former paths.
 
 No other document may invent a competing Campaign Supergraph PR sequence.
 
+**Adjacent UI authority (not graph sequencing):** `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` owns shared bar/projection-host composition. It must not invent graph PR order.
+
 ---
 
 ## E. ACTIVE REFERENCE — current context; cannot override tracker
@@ -151,6 +187,7 @@ No other document may invent a competing Campaign Supergraph PR sequence.
 | Document | Purpose | Action | Why not authority |
 |---|---|---|---|
 | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` | Path boundaries runtime/eval | **ACTIVE REFERENCE** | Layout note; sequencing lives in tracker |
+| `Docs/Design/INDEX-design-agent-source-set.md` | Design-agent Project Sources bridge | **ACTIVE REFERENCE** | Index only; cannot invent architecture or PR sequence |
 | `Docs/Plans/JUMPSTART-docs-relevance-first.md` | Docs relevance / sync process | **ACTIVE REFERENCE** | Cannot invent PR sequence; defers to tracker |
 | `Docs/Design/DESIGN-graph-object-authoring-surface.md` | Graph Review write-path checkpoint | **ACTIVE REFERENCE** | Write-surface product; subordinate to architecture §4/§8 and tracker merge slices |
 | `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` | Ingest preview → Graph Review → World Graph promote ladder (PR011A*) | **ACTIVE REFERENCE** | Product binding design; sequencing lives in tracker PR011A1–A3/B |
@@ -226,8 +263,10 @@ Already under archive trees, or in-place historical:
 | Identity outcomes / split-unmerge? | Architecture §10 |
 | What is the Graph Kernel? | Architecture §12 |
 | First real populated union (named corpus)? | Roadmap Phase 3 · Tracker **PR006** |
-| Project Sources vs GitHub authority? | This audit · Project Sources boundary · Tracker **PR005A** |
+| Project Sources vs GitHub authority? | This audit · Project Sources boundary · Tracker **PR005A** · [`INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md) |
+| Which docs should the design agent attach? | [`INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md) compact active set |
 | Agent tool / authored prep contracts? | [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md) · Tracker **PR005B** (docs); runtime **PR011** |
 | Long-term roadmap? | `ROADMAP-campaign-supergraph.md` |
 | Implementation PRs? | `PR-TRACKER-campaign-supergraph.md` only |
+| Shared UI bars / Canvas ownership? | `ARCHITECTURE-surface-interaction-layer.md` (UI); Plan composition remains `ARCHITECTURE-plan-surface-toolbox.md` |
 | What was superseded? | This audit + `Docs/Archive/Architecture/README.md` |
