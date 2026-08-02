@@ -80,7 +80,7 @@ These names often appear as Project Sources or local drafts. Classification belo
 | `GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | MATCH → Design stub (**SUPERSEDED**) |
 | `dungeonbuddy_spec_architecture_v0_2.md` | MATCH → Design historical (**SUPERSEDED**) |
 | `CORPUS-ANCHOR.md` | MATCH → Anchors (**SOURCE_ANCHOR**) |
-| `README.md` | AMBIGUOUS basename; root README treated as overview only |
+| `README.md` | MATCH → repository root `README.md` (**ACTIVE_REFERENCE**) | Product overview only; not architecture or sequencing authority |
 | `archived-full-GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | SOURCE_ONLY name; Archive body is HISTORICAL counterpart |
 | `TEMPLATE-pr-handoff(1).md` | SOURCE_ONLY; map to checked-in `HANDOFF.template.md` |
 | `PROPOSAL-context-audit-source-reanchor.md` | SOURCE_ONLY / PROPOSAL — not in tree |
