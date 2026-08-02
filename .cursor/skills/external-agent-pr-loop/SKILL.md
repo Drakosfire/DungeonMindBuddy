@@ -31,11 +31,12 @@ unless a hard blocker makes delegation impossible.
 ## The loop
 
 ```text
-invariant + evidence critique
-  → HANDOFF write
-  → external PR opens with merge contract
+conversation + flow identity
+  → invariant + evidence critique
+  → DESIGN → CODE HANDOFF write
+  → external PR opens with code diff
   → judgment record
-  → doc sync (atomic)
+  → separate doc sync (atomic)
 ```
 
 The cycle does **not** end at "merged green" — it ends when plan YAML,
@@ -53,13 +54,14 @@ match `main`.
 > already verified `Last green artifact (path)` and `next_gate_command` are
 > current — the slice you are about to brief depends on both.
 
-Filename convention: once a PR number is known (or expected), name the file
-`Docs/Plans/HANDOFF-pr<N>-<short-slug>.md` so reviewers and the post-merge
-archive index can match handoff ↔ PR at a glance (see `AGENTS.md` §
-*Handoff filenames carry the planned PR number*).
+Filename convention: name the file
+`Docs/Plans/HANDOFF-<FLOW>-<short-slug>.md`, where `<FLOW>` is exactly one of
+`BUILD`, `STATBLOCK`, `TIMELINE`, or `DOCUMENTS`. The PR title uses
+`<FLOW>: <short capability>`. Do not wait for or encode a PR number; a GitHub
+PR URL or number is optional transport metadata after the PR opens.
 
 1. Copy `templates/HANDOFF.template.md` from this skill folder to
-   `Docs/Plans/HANDOFF-pr<N>-<short-slug>.md`.
+   `Docs/Plans/HANDOFF-<FLOW>-<short-slug>.md`.
 2. Fill every `{{TODO: …}}` slot. Do **not** delete a section; the worker and
    reviewer scripts both expect §1–§9.
 3. Complete the §1 pre-dispatch critique before implementation launches:
@@ -67,11 +69,11 @@ archive index can match handoff ↔ PR at a glance (see `AGENTS.md` §
    - what adversarial sequence is most likely to falsify it;
    - would the proposed §7 evidence actually detect that failure;
    - what fact forces a split or stop.
-4. Keep the YAML `pr_body_template` frontmatter. It is the mandatory PR-body
-   skeleton. The worker copies it into GitHub and keeps the invariant, required
-   evidence, produced results, provenance, gaps, waivers, and stop conditions
-   current. `review_external_pr.py` does not parse the body today, so reviewers
-   must compare it manually against §1 and §7.
+4. Keep the YAML `pr_body_template` frontmatter as a minimal transport pointer.
+   The checked-in HANDOFF, cumulative code diff, nano commits, and verification
+   output are authoritative. Do not spend design or code-agent effort
+   maintaining a narrative PR description. `review_external_pr.py` does not
+   treat the body as proof.
 5. Run the **collision-risk pre-flight** before sending:
 
    ```bash
@@ -112,28 +114,28 @@ Three idempotent subcommands, all read-only by default; only `verify` mutates
 the working tree (auto-stash + checkout + restore) and only `post` writes to
 GitHub.
 
-Before reading implementation details, compare the PR description to the
-handoff:
-
-1. Outcome matches §1 Mission verbatim.
-2. Merge-ready invariant matches §1 verbatim.
-3. Every material §7 guarantee appears in the evidence ledger.
-4. Required evidence is distinguished from evidence actually produced.
-5. Missing proof, waivers, and stop conditions are visible.
-
-A generic “Summary / Test plan” body is a review finding.
+Before reading implementation details, establish the exact PR/branch/head SHA
+and the corresponding checked-in HANDOFF. Then inspect the cumulative diff and
+nano-commit sequence. Do not use the PR description as evidence or authority.
+The reviewer may require as many discrete, specific fixes and re-review rounds
+as necessary to move the invariant to merge. Each finding must state the
+failure or missing proof, affected path, owning boundary, and concrete fix
+required to close it.
 
 ### 2a. Fetch + check allowlist / denylist / §7 commands
 
 ```bash
 uv run python scripts/review_external_pr.py fetch <N> \
-  --handoff Docs/Plans/HANDOFF-pr<N>-<short-slug>.md \
+  --handoff Docs/Plans/HANDOFF-<FLOW>-<short-slug>.md \
   --extract-rubric
 ```
 
 `--extract-rubric` is optional; it adds `handoff.rubric_bullets[]` (§9 list
 lines) so you can draft verdicts and PLAN YAML without re-opening the handoff
 for rubric copy/paste.
+
+Here `<N>` is only the GitHub API lookup identifier; it is not part of the
+handoff filename or naming convention.
 
 Returns one JSON blob:
 
@@ -150,7 +152,7 @@ Returns one JSON blob:
 
 ```bash
 uv run python scripts/review_external_pr.py verify <N> \
-  --handoff Docs/Plans/HANDOFF-pr<N>-<short-slug>.md \
+  --handoff Docs/Plans/HANDOFF-<FLOW>-<short-slug>.md \
   --parse-counts
 ```
 
@@ -342,7 +344,7 @@ edit batch.
 
 - ❌ Dispatching before the invariant and required evidence survive critique.
 - ❌ Briefing without §4 allowlist or §7 verification.
-- ❌ Deleting the mandatory `pr_body_template` or opening a generic Summary/Test plan PR.
+- ❌ Deleting the expected `pr_body_template` transport pointer or treating a generic PR body as review evidence.
 - ❌ Silently expanding scope in review for a “tiny adjacent fix.”
 - ❌ Accepting a green PR description without rerunning §7.
 - ❌ Testing only a helper when the guarantee lives in a workflow or ordered sequence.

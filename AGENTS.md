@@ -20,8 +20,24 @@ Never run destructive commands without explicit user approval.
 
 When work lands via a GitHub PR opened by a Codex-style external agent (HANDOFF write → external PR → judgment record → atomic doc-sync), the procedure / runbook is `.cursor/skills/external-agent-pr-loop/SKILL.md` (read on demand). The non-negotiable invariants are in `.cursor/rules/external-agent-pr-loop.mdc` (always-on). Use `scripts/review_external_pr.py {fetch | verify | post}` for the review loop — manual `gh + git + sed` is the anti-pattern.
 
-### Handoff filenames carry the planned PR number
+### Handoff and PR naming follows the operating flow
 
-Handoff documents under `Docs/Plans/` use the form `HANDOFF-pr<N>-<short-slug>.md` (e.g. `HANDOFF-pr6-cohort-baseline-runner-c1s1-to-c1s3.md`). Resolve `<N>` at authoring time from the PLAN's PR-anchor table or `gh pr list --state all --limit 5 --json number --jq '.[].number' | sort -n | tail -1` plus one. The prefix makes it cheap to find a handoff from a PR number and vice versa, and keeps the post-merge archive self-describing without renaming. If `<N>` is genuinely unknowable at authoring time (rare — usually means two slices are being authored in parallel before either PR opens), omit the prefix and rename at archive time as part of the post-merge doc-sync.
+Handoff documents under `Docs/Plans/` use the form
+`HANDOFF-<FLOW>-<short-slug>.md`, where `<FLOW>` is exactly one of
+`BUILD`, `STATBLOCK`, `TIMELINE`, or `DOCUMENTS`. For example:
+`HANDOFF-DOCUMENTS-design-agent-source-set-sync.md`.
 
-The convention applies to **active** handoffs going forward; older handoffs in `Docs/Plans/archive/<date>/handoffs/` are not retroactively renamed. New handoffs that land in those archive folders post-merge SHOULD already carry the prefix from authoring time.
+PR titles use the same flow identifier:
+
+```text
+<FLOW>: <short capability>
+```
+
+Examples: `BUILD: persist surface lease`,
+`STATBLOCK: validate draft mechanics`, `TIMELINE: append recap event`, and
+`DOCUMENTS: sync design-agent sources`.
+
+PR numbers are optional GitHub transport metadata. They are not part of the
+handoff filename, branch name, PR title, or design authority. Existing
+`HANDOFF-pr<N>-…` files remain historical names and are not retroactively
+renamed.

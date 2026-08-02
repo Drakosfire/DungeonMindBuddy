@@ -17,6 +17,10 @@ import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { activeThreadStorageKey, createAgentInteractionThread, persistAgentThread, threadStorageKey } from "./agentInteractionStorage";
 import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
 import type { ProjectionSurfacePublication } from "./projectionSurfacePublication";
+import {
+  buildAppChromeCompatibilityFragment,
+  ROUTE_COMPATIBILITY_PUBLICATIONS,
+} from "./surfaceInteractionCompat";
 import { useAgentInteraction } from "./useAgentInteraction";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -1097,5 +1101,384 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     );
 
     expect(getByTestId("lease-probe").textContent).toBe("none|Plan");
+  });
+
+  it("clears graph-reference binding and active projection when invalid chrome fragment invalidates effective publication", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    act(() => {
+      openResolution(result.current.openGraphReference);
+    });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
+    expect(result.current.active?.kind).toBe("content");
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "recap", label: "Duplicate recap", onClick: vi.fn() }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
+    expect(result.current.active).toBeNull();
+
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.graphReferenceBinding).toBeNull();
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).not.toBeNull();
+    expect(result.current.graphReferenceBinding).toBeNull();
+
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
+  });
+
+  it("clears diagnostics payload when invalid chrome fragment invalidates effective publication and recovers after valid composition", () => {
+    const payload = { selectedDeltaNodeId: "npc-a" } as GraphReviewDiagnosticsProjectionPayload;
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payload);
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "ingest-recap", label: "Duplicate recap", onClick: vi.fn() }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).not.toBeNull();
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payload);
+  });
+});
+
+describe("AgentInteractionProvider neutral surface interaction lease", () => {
+  it("exposes lease-guarded neutral publication for legacy projection binds", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: { surfaceId: "plan", instanceKey: "plan\u001fneutral-test" },
+        config: {
+          id: "plan",
+          label: "Plan",
+          context: {
+            campaignId: "longmont-c2",
+            liveSession: 22,
+            ingestSession: 21,
+            headerLabel: "Plan",
+          },
+          tools: [{ id: "recap", label: "Recap", size: "wide" }],
+          canvas: { documentId: FIXTURE_DOC_ID },
+          theme: {},
+        },
+      });
+    });
+    expect(result.current.surfaceInteractionPublication?.surfaceId).toBe("plan");
+    expect(result.current.surfaceInteractionPublication?.tools[0]?.id).toBe("recap");
+  });
+
+  it("preserves singular token and returns no-op cleanup for same-identity publishProjectionSurface", () => {
+    const publication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fsame-id" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const buildPublication = {
+      identity: { surfaceId: "build", instanceKey: "build\u001fsame-id-rotate" },
+      config: {
+        id: "build" as const,
+        label: "Build",
+        context: null,
+        tools: [],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+    const onClick = vi.fn();
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+
+    act(() => {
+      result.current.publishProjectionSurface(publication);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "page-tool", label: "Page tool", onClick }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const beforePublication = result.current.surfaceInteractionPublication;
+    const firstInvoke = beforePublication?.tools.find((tool) => tool.id === "page-tool")?.activation;
+    expect(firstInvoke?.kind).toBe("command");
+    if (firstInvoke?.kind !== "command") throw new Error("expected command activation");
+
+    let cleanupSameIdentity: (() => void) | undefined;
+    act(() => {
+      cleanupSameIdentity = result.current.publishProjectionSurface({
+        ...publication,
+        config: { ...publication.config, label: "Plan revised" },
+      });
+    });
+    expect(result.current.surfaceInteractionPublication?.label).toBe("Plan revised");
+    expect(result.current.surfaceInteractionPublication?.identity).toEqual(beforePublication?.identity);
+
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      cleanupSameIdentity?.();
+    });
+    expect(result.current.surfaceInteractionPublication?.label).toBe("Plan revised");
+
+    act(() => {
+      result.current.publishProjectionSurface(buildPublication);
+    });
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("publishSurfaceInteractionPublication always creates a fresh lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = ROUTE_COMPATIBILITY_PUBLICATIONS.index;
+    const firstSpy = vi.fn();
+    const secondSpy = vi.fn();
+    let firstCleanup: (() => void) | undefined;
+
+    act(() => {
+      firstCleanup = result.current.publishSurfaceInteractionPublication(publication);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "first-action", label: "First", onClick: firstSpy }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const firstLabel = result.current.surfaceInteractionPublication?.label;
+    const firstInvoke = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "first-action")
+      ?.activation;
+    expect(firstInvoke?.kind).toBe("command");
+    if (firstInvoke?.kind !== "command") throw new Error("expected command activation");
+
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(publication);
+    });
+    expect(result.current.surfaceInteractionPublication?.label).toBe(firstLabel);
+
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(firstSpy).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "second-action", label: "Second", onClick: secondSpy }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const secondInvoke = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "second-action")
+      ?.activation;
+    expect(secondInvoke?.kind).toBe("command");
+    if (secondInvoke?.kind !== "command") throw new Error("expected command activation");
+    act(() => {
+      void secondInvoke.invoke();
+    });
+    expect(secondSpy).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      firstCleanup?.();
+    });
+    expect(result.current.surfaceInteractionPublication?.label).toBe(firstLabel);
+  });
+
+  it("binds AppChrome compatibility fragments without overwriting Plan legacy lease", () => {
+    const planPublication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fchrome-fragment" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(planPublication);
+    });
+    const planIdentity = result.current.surfaceInteractionPublication?.identity;
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "page-tool", label: "Page tool", onClick: vi.fn() }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication?.identity).toEqual(planIdentity);
+    expect(result.current.surfaceInteractionPublication?.tools.some((tool) => tool.id === "page-tool")).toBe(true);
+  });
+
+  it("invalid AppChrome edit fragments invalidate the effective publication", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: {
+            pinnedActions: [{ id: "bold", label: "Bold", onClick: vi.fn() }],
+          },
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+  });
+
+  it("executes AppChrome page actions through guarded effective publication", () => {
+    const onClick = vi.fn();
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "launch", label: "Launch", onClick }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const launch = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "launch");
+    expect(launch?.activation.kind).toBe("command");
+    if (launch?.activation.kind !== "command") throw new Error("expected command activation");
+    act(() => {
+      void launch.activation.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks AppChrome page-tool invoke after invalid chrome fragment nullifies effective publication", () => {
+    const onClick = vi.fn();
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "page-tool", label: "Page tool", onClick }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const firstInvoke = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "page-tool")
+      ?.activation;
+    expect(firstInvoke?.kind).toBe("command");
+    if (firstInvoke?.kind !== "command") throw new Error("expected command activation");
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: {
+            pinnedActions: [{ id: "bold", label: "Bold", onClick: vi.fn() }],
+          },
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
