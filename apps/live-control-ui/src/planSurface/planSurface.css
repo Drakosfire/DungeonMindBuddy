@@ -283,6 +283,10 @@
   z-index: 980;
 }
 
+body.surface-projection-open .plan-agent-shell {
+  z-index: 840;
+}
+
 .plan-agent-shell > * {
   pointer-events: auto;
 }
