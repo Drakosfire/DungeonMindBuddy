@@ -11,14 +11,34 @@ For **in-IDE** subagents (the parent agent dispatches a `Task` and reads its out
 
 The procedure for each stage — how to run `scripts/review_external_pr.py`, the markdown spec for review bodies, the doc-sync edit list, and templates — lives in **`.cursor/skills/external-agent-pr-loop/SKILL.md`**. This rule states only the non-negotiable invariants.
 
+## Agent flow and nano-commit naming
+
+Every handoff records the exact Cursor conversation name and uses the explicit
+direction `DESIGN agent → CODE agent → reviewer`.
+
+The four operating flows are:
+
+- `BUILD`
+- `STATBLOCK`
+- `TIMELINE`
+- `DOCUMENTS`
+
+Handoff filenames use `HANDOFF-<FLOW>-<short-slug>.md`; PR titles use
+`<FLOW>: <short capability>`. PR numbers are optional GitHub transport
+metadata and are not naming authority.
+
+Implementation branches should use nano commits: one discrete fix, contract
+adjustment, regression proof, or review response per commit. Keep unrelated
+cleanup and document sync out of the implementation sequence.
+
 ## Invariants (do not regress)
 
 1. **Critique before dispatch.** Before finalizing a handoff, critique the proposed merge-ready invariant and the evidence required to prove it. Identify adversarial sequences, split the slice when one invariant cannot govern every observable path, and do not launch while proof ownership is unresolved.
 2. **HANDOFF must include §4 allowlist and §7 verification.** §4 is a markdown table the agent's expected `git diff --stat` can be expressed from. If you cannot enumerate the allowlist, the slice is not ready to dispatch.
-3. **The PR description is the merge contract.** It MUST restate the handoff mission and merge-ready invariant verbatim, list the evidence required to merge, record evidence actually produced with provenance, and expose gaps, waivers, and stop conditions. A generic summary plus “tests passed” is insufficient.
-4. **Test the boundary and sequence that own the rubric.** Every §9 behavioral guarantee MUST be paired with §7 evidence at the owning boundary and, for stateful/concurrent/partially durable work, the adversarial sequence that could falsify it. Loader-side or unit-side coverage is necessary but not sufficient. **Lesson sources:** PR #4 boundary mismatch; PR #399 post-commit, cross-surface, editor-hydration, and parent-update fix loops.
-5. **Use the scripts, not manual `gh + git + sed`.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the canonical path for fetch, allowlist-check, §7 rerun, verdict-with-inline-comments, and merge-and-ff-main.
-6. **Doc-sync after merge is one atomic edit batch.** Plan, checklist, and handoff archive must move together so fresh agents never read contradictory state.
+3. **The checked-in HANDOFF and cumulative code diff are the merge contract.** The reviewer MUST identify the exact PR/branch/head SHA, nano-commit sequence, changed paths, and verification evidence. The PR description is transport metadata only; it is not authority or proof.
+4. **Review may require as many discrete fixes as necessary.** Every finding MUST identify the concrete failure or missing proof, affected observable path, owning boundary, and specific fix required to move the invariant toward merge. Re-review the cumulative invariant after each fix; do not stop at one review round.
+5. **Use the scripts, not manual `gh + git + sed`.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the canonical path for fetch, allowlist-check, §7 rerun, verdict-with-inline-comments, and merge-and-ff-main. A PR number may be supplied to tooling as transport metadata only.
+6. **Document sync is separate from implementation review.** After merge, plan/checklist/handoff-status updates move together as one doc-sync operation, but they are not bundled into code fixes or justified by a PR description.
 7. **The judgment-record rubric is a learning surface.** Every supersession MUST add a bullet to `rubric_when_we_judge`. Every accepted PR SHOULD leave the rubric tighter, not unchanged.
 8. **Stale-note discipline.** Notes that describe what a PR did age well; notes that describe what is still pending age badly. Re-verify temporal claims before quoting them downstream.
 
@@ -26,9 +46,11 @@ The procedure for each stage — how to run `scripts/review_external_pr.py`, the
 
 - ❌ Dispatching before the invariant and required evidence survive critique.
 - ❌ Briefing without an allowlist or owning-boundary verification command.
-- ❌ Opening a PR whose description omits the invariant or collapses required evidence into a generic test list.
+- ❌ Treating a PR description as a substitute for the checked-in handoff, cumulative diff, nano commits, or verification evidence.
+- ❌ Opening a flow without a conversation name, design-to-code direction, or standard flow identifier.
+- ❌ Bundling unrelated fixes into one commit when a nano-commit would tell the review story more clearly.
 - ❌ Silently accepting “tiny adjacent” scope creep at review time. Revert or re-brief.
-- ❌ Accepting a green PR description without rerunning §7 yourself.
+- ❌ Accepting a green PR description without reviewing the diff and rerunning §7 yourself.
 - ❌ Testing only the helper when the guarantee lives in a service, workflow, surface, or multi-step sequence.
 - ❌ Reusing prior `judgment_record.notes` without re-verifying temporal claims.
 - ❌ Hand-anchoring inline review comments to context lines.

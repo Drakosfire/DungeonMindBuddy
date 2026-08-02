@@ -1,33 +1,23 @@
 ---
-# Literal Markdown the worker MUST use as the PR-body skeleton.
-# The complete checked-in handoff remains authoritative.
+# Optional transport pointer for the GitHub PR body.
+# The checked-in HANDOFF, nano-commit diff, and verification output are authoritative.
+# Do not spend design or code-agent effort maintaining a narrative PR description.
 pr_body_template: |
-  ## Outcome
-  {{TODO: copy §1 Mission exactly}}
+  ## Handoff pointer
+  - Conversation: {{TODO: exact Cursor conversation name}}
+  - Flow / agent: {{TODO: BUILD | STATBLOCK | TIMELINE | DOCUMENTS}}
+  - Direction: DESIGN → CODE
+  - Handoff: {{TODO: checked-in HANDOFF path}}
+  - PR / branch: {{TODO: optional URL or branch; PR number is not naming authority}}
 
-  ## Merge-ready invariant
-  {{TODO: copy §1 Invariant exactly}}
+  ## Verification pointer
+  - Base/head: {{TODO}}
+  - Changed paths: {{TODO}}
+  - Verification: {{TODO: exact command/result}}
 
-  ## Evidence required to merge
-  | Guarantee | Owning boundary | Required evidence | Result |
-  |---|---|---|---|
-  | {{TODO: copy each material §7 guarantee}} | {{TODO}} | {{TODO: command/scenario + evidence class}} | {{TODO: pass/fail/not run + provenance}} |
-
-  ## Scope and explicit deferrals
-  {{TODO: base/head, actual changed paths, paths outside §4, and named successors still false}}
-
-  ## Evidence produced
-  ### Automated
-  {{TODO}}
-  ### Adversarial
-  {{TODO}}
-  ### Regression
-  {{TODO}}
-  ### Manual / dogfood
-  {{TODO}}
-
-  ## Gaps, waivers, and stop conditions
-  {{TODO: none, or exact missing evidence, operator waiver, and stop condition}}
+  The checked-in handoff, cumulative code diff, nano commits, and independently
+  rerun verification are the review contract. The PR description is transport
+  metadata only. Document sync is a separate operation.
 ---
 
 # HANDOFF — {{TODO: one implementation capability}}
@@ -35,10 +25,16 @@ pr_body_template: |
 **Created:** {{TODO: YYYY-MM-DD}}.
 **Status:** ACTIVE — dispatch exactly one implementation capability.
 **Canonical handoff path:** `{{TODO: repository path}}`
+**Conversation name:** `{{TODO: exact Cursor conversation name}}`
+**Flow / agent:** `{{TODO: BUILD | STATBLOCK | TIMELINE | DOCUMENTS}}`
+**Handoff direction:** `DESIGN → CODE`
+**Design agent:** `{{TODO: design agent name / session}}`
+**Code agent:** `{{TODO: code agent name / session}}`
+**PR title:** `{{TODO: FLOW: short capability}}`
 
 > **Dispatch gate:** Dispatch is prohibited until capability decomposition is complete, one independently useful mission remains, the merge-ready invariant and required evidence survive critique, every expected path is known, required contract matrices are resolved, and every acceptance claim has an owning proof.
 >
-> This checked-in handoff is the complete authority. The worker must not compress, omit, replace, or rewrite it before implementation. The PR description must use the frontmatter skeleton and remain a truthful merge contract; it cannot substitute for the handoff.
+> This checked-in handoff is the complete authority. The worker must not compress, omit, replace, or rewrite it before implementation. The PR description is only a transport pointer; it cannot substitute for the handoff, code diff, nano-commit story, or verification evidence.
 
 ## Shared vocabulary
 
@@ -52,6 +48,52 @@ pr_body_template: |
 | **Invariant** | The single property every changed layer and observable path establishes or proves. |
 | **Evidence ledger** | The mapping from each invariant clause to its owning boundary, required proof, produced result, provenance, and merge-blocking stop condition. |
 | **Stop condition** | A discovered fact that invalidates the current slice boundaries or required proof and must be reported before implementation continues. |
+
+## Agent flow and nano-commit contract
+
+Use exactly one flow identifier:
+
+| Flow / agent | Use |
+|---|---|
+| `BUILD` | Build-surface code and design work |
+| `STATBLOCK` | Statblock code and design work |
+| `TIMELINE` | Timeline code and design work |
+| `DOCUMENTS` | Documentation, source-set, plan, checklist, and handoff work |
+
+The standard PR title is:
+
+```text
+<FLOW>: <short capability>
+```
+
+Examples: `BUILD: persist surface lease`, `STATBLOCK: validate draft mechanics`,
+`TIMELINE: append recap event`, `DOCUMENTS: sync design-agent sources`.
+
+The flow name identifies the operating agent. Do not encode a PR number in the
+title, branch name, handoff filename, or design authority. A GitHub PR URL or
+number may be recorded later only as transport metadata for API/tool lookup.
+
+Design agents pass the checked-in handoff to the code agent. The code agent
+implements the named capability and reports back against the handoff. Keep the
+implementation in nano commits: each commit should tell one discrete fix or
+proof story, be independently reviewable, and avoid bundling unrelated cleanup.
+For `BUILD`, carry the same exact conversation name on both the BUILD design
+agent handoff and the BUILD code-agent invocation.
+
+## Review and doc-sync contract
+
+The reviewer must identify the exact PR/branch/head SHA being reviewed, then
+review the cumulative diff and nano-commit sequence against this handoff. The
+review is not limited to one round or one comment: require as many discrete,
+specific fixes as are necessary to move the invariant to merge. Each finding
+must name the failure, affected path, owning boundary, and concrete fix or
+proof required to close it.
+
+Do not use the PR description as evidence or authority. The handoff, code diff,
+nano commits, and independently rerun verification are authoritative. Plan,
+checklist, handoff-status, and other durable documentation updates are a
+separate document-sync operation after the implementation review/merge; do not
+hide them in a code fix or treat them as part of the PR narrative.
 
 ## §1 Mission and merge-ready invariant
 
@@ -269,25 +311,26 @@ For any required command already failing on base:
 - do not call the gate green;
 - name the explicit operator waiver required if it remains an acceptance gate.
 
-## §8 Required PR description and handback
+## §8 Required review handback
 
-The PR description must remain current and include:
+The review handback, not the PR description, must include:
 
-1. §1 Mission copied exactly.
-2. §1 merge-ready invariant copied exactly.
+1. Exact PR URL or branch/head SHA being reviewed; PR number is optional metadata.
+2. §1 Mission and merge-ready invariant copied exactly.
 3. The §7 evidence ledger: required evidence, produced result, and provenance.
-4. Base SHA/revision and head SHA/revision.
-5. Actual changed paths and focused diff stat limited to §4.
-6. Every §7 command/scenario and exact result.
-7. Provenance of each result: author-local, independently rerun local, CI, or manual/dogfood.
-8. Baseline failures with base/head comparison.
-9. Explicit operator waivers; `none` when none exist.
-10. Paths outside §4; `none` or a stop report.
-11. Stop conditions encountered and resolution; `none` when none exist.
-12. Successor capabilities deferred and still false.
-13. Confirmation that the authoritative handoff was implemented without compressed or omitted constraints.
+4. Nano-commit list and the discrete fix/proof story for each commit.
+5. Base SHA/revision and head SHA/revision.
+6. Actual changed paths and focused diff stat limited to §4.
+7. Every §7 command/scenario and exact result.
+8. Provenance of each result: author-local, independently rerun local, CI, or manual/dogfood.
+9. Baseline failures with base/head comparison.
+10. Explicit operator waivers; `none` when none exist.
+11. Paths outside §4; `none` or a stop report.
+12. Stop conditions encountered and resolution; `none` when none exist.
+13. Successor capabilities deferred and still false.
+14. Confirmation that the authoritative handoff was implemented without compressed or omitted constraints.
 
-A generic “Summary / Test plan” PR body does not satisfy this section.
+A generic PR body is neither required nor sufficient for this section.
 
 ## §9 Acceptance rubric
 
@@ -295,7 +338,7 @@ The reviewer accepts only when every bullet is true and each behavioral bullet n
 
 - [ ] Exactly one independently useful capability from §1 was delivered — proved by `<§7 proof>`.
 - [ ] The merge-ready invariant holds across every observable path and adversarial sequence in §3 — proved by `<§7 proofs>`.
-- [ ] The PR description restates the exact invariant and exposes a complete, truthful evidence ledger.
+- [ ] The review identifies the exact PR/branch/head SHA and checks the exact invariant against the handoff and cumulative diff.
 - [ ] Every required proof has a produced result and provenance, or an explicit operator waiver.
 - [ ] No second public/durable contract was silently introduced — proved by `<diff inspection + contract tests>`.
 - [ ] State, fallback, identity, persistence, and predecessor behavior follow every applicable §6 matrix — proved by `<§7 proofs>`.

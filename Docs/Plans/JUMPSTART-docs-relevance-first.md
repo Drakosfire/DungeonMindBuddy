@@ -10,7 +10,15 @@
 Use this prompt when transferring stewardship:
 
 ```text
-Reconcile current repository authority and current change state. Identify candidate capabilities, decompose them before dispatch, and select one independently useful implementation outcome. Write one complete PR handoff whose constraints survive without chat context. Review the resulting change skeptically at the owning boundaries, then re-anchor repository state after merge before selecting another slice.
+Reconcile current repository authority and current change state. Record the exact
+Cursor conversation name, identify the operating flow, and identify the design
+agent handing the work to the code agent. Decompose candidate capabilities
+before dispatch and select one independently useful implementation outcome. Write
+one complete PR handoff whose constraints survive without chat context. Review
+the exact cumulative diff and nano-commit story skeptically at the owning
+boundaries, requiring every discrete fix needed to reach merge. Treat the PR
+description as transport metadata only; perform document sync separately after
+implementation review and merge.
 ```
 
 The steward owns the full cycle:
@@ -19,6 +27,68 @@ The steward owns the full cycle:
 authority reconciliation → capability decomposition → one-slice dispatch
 → invariant-based review → finding-led re-review → post-merge re-anchor
 ```
+
+## 0.1 Agent identity, conversation, and flow naming
+
+Every handoff must state the exact **Cursor conversation name** that produced
+the design and the code agent is expected to use. The conversation name is
+provenance, not a substitute for the checked-in handoff.
+For `BUILD`, carry that same exact conversation name on both the BUILD design
+agent and the BUILD code-agent dispatch.
+
+The handoff direction is explicit:
+
+```text
+DESIGN agent → CODE agent → reviewer
+```
+
+Use exactly one operating flow:
+
+| Flow / agent | Scope |
+|---|---|
+| `BUILD` | Build-surface code and design |
+| `STATBLOCK` | Statblock code and design |
+| `TIMELINE` | Timeline code and design |
+| `DOCUMENTS` | Documentation, source-set, plan, checklist, and handoff work |
+
+The standard PR title is:
+
+```text
+<FLOW>: <short capability>
+```
+
+Examples:
+
+```text
+BUILD: persist surface lease
+STATBLOCK: validate draft mechanics
+TIMELINE: append recap event
+DOCUMENTS: sync design-agent sources
+```
+
+Do not use PR numbers as the flow name, PR title, branch name, or handoff
+filename. A PR URL or number may be recorded after opening only as GitHub
+transport metadata required by tooling.
+
+## 0.2 Nano-commit and review expectations
+
+Implementation is delivered as **nano commits**. Each commit should express
+one discrete fix, contract adjustment, regression proof, or review response.
+Keep unrelated cleanup out of the sequence. Nano commits make the code story
+and review delta legible; they do not authorize scope expansion.
+
+The reviewer must first identify the exact PR/branch/head SHA, then inspect the
+cumulative diff and each nano-commit story. Do not rely on the PR description.
+Reviews may require as many rounds and discrete fixes as necessary to move the
+invariant to merge. Every finding must state:
+
+- the concrete failure or missing proof;
+- the affected observable path;
+- the owning boundary;
+- the specific fix or evidence required to close it.
+
+Plan, checklist, handoff-status, and other durable documentation changes are
+**document syncs** and are performed separately from implementation fixes.
 
 ## 1. Shared vocabulary
 
@@ -106,7 +176,7 @@ Any unresolved answer means: split, perform reconnaissance/design work, or resol
 4. Treat unresolved architecture as reconnaissance or design work, not implementation guesswork.
 5. Select one implementation capability and state what remains false.
 6. Name successors without implementing or claiming them.
-7. Write the complete PR handoff from the canonical template.
+7. Write the complete flow-named handoff from the canonical template.
 
 Size, changed-file count, and layer count are warning signals—not decision rules. Cross-layer work may remain unified when each layer implements or proves one invariant.
 
@@ -137,15 +207,17 @@ Require one of: an exact captured response fixture, a canonical schema/type defi
 Review the invariant across paths before reviewing files one by one.
 
 1. Restate the mission, invariant, named successor, and expected changed paths.
-2. Enumerate every entry path governed by the invariant.
-3. Compare actual diff to the mission and allowlist; unexpected paths are scope findings.
-4. Look for hidden second contracts: persistence, identifiers, caller types, management surfaces, reports, or diagnostics.
-5. Verify identity, state/fallback, and persistence matrices against every sibling path.
-6. Confirm predecessor fixtures and mappings use real vocabulary, shapes, optionality, and error semantics.
-7. Trace each acceptance claim to its owning proof. Lower-level helper tests cannot prove higher-level guarantees.
-8. Exercise exact round trips, failure injection, and replay where applicable.
-9. Distinguish the smallest live proof from new product behavior. Search, notes, classifications, controls, reports, or a dedicated panel are product capabilities, not “just dogfood.”
-10. Compare required gates on base and head when base is already failing. Do not call a failing gate green.
+2. Identify the exact PR/branch/head SHA; the PR description is not evidence.
+3. Enumerate every entry path governed by the invariant.
+4. Compare the cumulative diff and nano commits to the mission and allowlist; unexpected paths are scope findings.
+5. Look for hidden second contracts: persistence, identifiers, caller types, management surfaces, reports, or diagnostics.
+6. Verify identity, state/fallback, and persistence matrices against every sibling path.
+7. Confirm predecessor fixtures and mappings use real vocabulary, shapes, optionality, and error semantics.
+8. Trace each acceptance claim to its owning proof. Lower-level helper tests cannot prove higher-level guarantees.
+9. Exercise exact round trips, failure injection, and replay where applicable.
+10. Distinguish the smallest live proof from new product behavior. Search, notes, classifications, controls, reports, or a dedicated panel are product capabilities, not “just dogfood.”
+11. Compare required gates on base and head when base is already failing. Do not call a failing gate green.
+12. Capture every discrete fix needed to reach merge; do not stop after one review round merely because the PR description looks complete.
 
 Typical owning proofs:
 
@@ -199,6 +271,10 @@ Do not chain-dispatch from pre-merge assumptions or stale handoff prose.
 | “Add a notes panel so we can dogfood the migration.” | Prove migration through the smallest existing surface; dispatch notes management separately. |
 | “Store the new reference string inside the adapter.” | Treat the persisted reference format as a public/durable contract with round-trip and rollback semantics. |
 | “Fall back normally on errors.” | Fill the state/fallback matrix for each governed path and source. |
-| “The PR summary contains the important constraints.” | Check the complete authority into the handoff; summaries may link but not replace it. |
+| “The PR description contains the important constraints.” | Check the complete authority into the handoff; review the cumulative diff and verification, not the PR description. |
 | “The mock returns approximately the predecessor fields.” | Use a captured fixture, canonical schema/type, or exact field mapping. |
 | “Frontend plus backend is too large.” | Keep them together when both establish and prove one invariant; split only on capability boundaries. |
+
+The PR description is optional transport metadata. It does not replace the
+handoff, code diff, nano-commit story, review findings, or verification
+evidence. Document sync is a separate post-merge operation.
