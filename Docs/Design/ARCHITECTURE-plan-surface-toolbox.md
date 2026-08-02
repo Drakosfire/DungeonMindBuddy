@@ -321,7 +321,7 @@ This plan's output is a sequence of agent handoffs, not a single monolithic chan
 
 - **Trunk:** `experiment/plan-surface-ladder`, with a short tracking/anchor doc on `main` for planning visibility (mirror the ontology ladder's anchor pattern; do not treat the trunk as a merge-back of every rung).
 - **Rung branches:** one per PR story, agent-authored (`Codex`-style `codex/...` or `surface-exp/NN-<slug>`), each opening a PR against the trunk.
-- **Loop:** every rung follows the four-stage external-agent PR loop — HANDOFF write → external PR → judgment record → atomic doc-sync — per `.cursor/skills/external-agent-pr-loop/SKILL.md` and the invariants in `.cursor/rules/external-agent-pr-loop.mdc`. Use `scripts/review_external_pr.py {fetch | verify | post | merge}`; handoffs are named `HANDOFF-pr<N>-<slug>.md` per `AGENTS.md`.
+- **Loop:** every rung follows the four-stage external-agent PR loop — HANDOFF write → external PR → judgment record → separate atomic doc-sync — per `.cursor/skills/external-agent-pr-loop/SKILL.md` and the invariants in `.cursor/rules/external-agent-pr-loop.mdc`. Use `scripts/review_external_pr.py {fetch | verify | post | merge}`; handoffs are named `HANDOFF-<FLOW>-<slug>.md` and PR titles use `<FLOW>: <short capability>` per `AGENTS.md`.
 
 ### The "defensible" rubric (every PR's section 9 acceptance bar)
 
