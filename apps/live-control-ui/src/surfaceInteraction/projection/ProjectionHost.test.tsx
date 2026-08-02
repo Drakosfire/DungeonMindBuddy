@@ -3,12 +3,30 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProjectionHost } from "./ProjectionHost";
-import type { ActiveProjection } from "./types";
+import type { ActiveProjection, ProjectionHostLabels } from "./types";
+
+const NEUTRAL_LABELS: ProjectionHostLabels = {
+  toggleTitle: "Surface tools",
+  closedDrawerLabel: "Surface tools",
+  navigationLabel: "Tools",
+  closeLabel: "Close",
+  toolKicker: "Tool",
+  contentKicker: "Content",
+  toolTitle: "Tools",
+  contentTitle: "Content",
+};
 
 const navigationItems = [
   { id: "recap", label: "Recap" },
   { id: "party-registry", label: "Party Registry" },
 ];
+
+const toolActive: ActiveProjection = {
+  kind: "tool",
+  key: "recap",
+  size: "wide",
+  title: "Recap",
+};
 
 function renderHost(
   overrides: Partial<Parameters<typeof ProjectionHost>[0]> = {},
@@ -22,7 +40,7 @@ function renderHost(
     <ProjectionHost
       active={null}
       navigationItems={navigationItems}
-      labels={{}}
+      labels={NEUTRAL_LABELS}
       body={null}
       onNavigate={onNavigate}
       onToggle={onToggle}
@@ -44,14 +62,165 @@ describe("ProjectionHost shell", () => {
     document.body.classList.remove("surface-projection-open");
   });
 
+  it("calls onClose when the modal backdrop is clicked", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderHost({ active: toolActive, body: <p>Body</p>, onClose });
+
+    const backdrop = document.querySelector(".surface-projection-backdrop");
+    expect(backdrop).not.toHaveAttribute("hidden");
+    await user.click(backdrop!);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onClose when the header close button is clicked", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderHost({ active: toolActive, body: <p>Body</p>, onClose });
+
+    await user.click(screen.getByRole("button", { name: NEUTRAL_LABELS.closeLabel }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onExpand when the Expand button is clicked for glance-only content", async () => {
+    const user = userEvent.setup();
+    const onExpand = vi.fn();
+    renderHost({
+      active: {
+        kind: "content",
+        key: "reference",
+        size: "compact",
+        title: "North Reach Gate",
+        glanceOnly: true,
+      },
+      body: <p>Reference body</p>,
+      onExpand,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Expand" }));
+    expect(onExpand).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes surface-projection-open from body when active transitions open to null", () => {
+    const { rerender } = renderHost({ active: toolActive, body: <p>Body</p> });
+    expect(document.body).toHaveClass("surface-projection-open");
+
+    rerender(
+      <ProjectionHost
+        active={null}
+        navigationItems={navigationItems}
+        labels={NEUTRAL_LABELS}
+        body={null}
+        onNavigate={vi.fn()}
+        onToggle={vi.fn()}
+        onClose={vi.fn()}
+        onExpand={vi.fn()}
+      />,
+    );
+    expect(document.body).not.toHaveClass("surface-projection-open");
+  });
+
+  it("removes the Escape listener after close and on unmount", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { rerender, unmount } = renderHost({
+      active: toolActive,
+      body: <p>Body</p>,
+      onClose,
+    });
+
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+    onClose.mockClear();
+
+    rerender(
+      <ProjectionHost
+        active={null}
+        navigationItems={navigationItems}
+        labels={NEUTRAL_LABELS}
+        body={null}
+        onNavigate={vi.fn()}
+        onToggle={vi.fn()}
+        onClose={onClose}
+        onExpand={vi.fn()}
+      />,
+    );
+
+    await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+
+    rerender(
+      <ProjectionHost
+        active={toolActive}
+        navigationItems={navigationItems}
+        labels={NEUTRAL_LABELS}
+        body={<p>Body</p>}
+        onNavigate={vi.fn()}
+        onToggle={vi.fn()}
+        onClose={onClose}
+        onExpand={vi.fn()}
+      />,
+    );
+    unmount();
+
+    await user.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("replaces theme tokens and data-md-theme when theme changes A to B", () => {
+    const themeA = { themeId: "theme-a", tokens: { "--accent": "#111111" } };
+    const themeB = { themeId: "theme-b", tokens: { "--accent": "#222222" } };
+    const { rerender } = renderHost({
+      active: toolActive,
+      body: <p>Body</p>,
+      theme: themeA,
+    });
+
+    const host = document.querySelector(".surface-projection-host") as HTMLElement;
+    expect(host).toHaveAttribute("data-md-theme", "theme-a");
+    expect(host.style.getPropertyValue("--accent")).toBe("#111111");
+
+    rerender(
+      <ProjectionHost
+        active={toolActive}
+        navigationItems={navigationItems}
+        labels={NEUTRAL_LABELS}
+        body={<p>Body</p>}
+        theme={themeB}
+        onNavigate={vi.fn()}
+        onToggle={vi.fn()}
+        onClose={vi.fn()}
+        onExpand={vi.fn()}
+      />,
+    );
+
+    expect(host).toHaveAttribute("data-md-theme", "theme-b");
+    expect(host.style.getPropertyValue("--accent")).toBe("#222222");
+    expect(host.style.getPropertyValue("--accent")).not.toBe("#111111");
+  });
+
+  it("does not apply reference class for adversarial tool keys and keeps tool backdrop/nav behavior", () => {
+    const adversarialKey = "x surface-projection-host--reference";
+    renderHost({
+      active: {
+        kind: "tool",
+        key: adversarialKey,
+        size: "wide",
+        title: "Evil",
+      },
+      body: <p>Body</p>,
+    });
+
+    const host = document.querySelector(".surface-projection-host");
+    expect(host).not.toHaveClass("surface-projection-host--reference");
+    expect(host).toHaveAttribute("data-projection-key", adversarialKey);
+
+    expect(document.querySelector(".surface-projection-backdrop")).not.toHaveAttribute("hidden");
+    expect(document.querySelector(".surface-projection-nav")).not.toHaveAttribute("hidden");
+  });
+
   it("toggles open via Tools and closes via the same control when open", async () => {
     const user = userEvent.setup();
-    const toolActive: ActiveProjection = {
-      kind: "tool",
-      key: "recap",
-      size: "wide",
-      title: "Recap",
-    };
     const { onToggle, onClose, rerender } = renderHost();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -61,7 +230,7 @@ describe("ProjectionHost shell", () => {
       <ProjectionHost
         active={toolActive}
         navigationItems={navigationItems}
-        labels={{}}
+        labels={NEUTRAL_LABELS}
         body={<p>Body</p>}
         onNavigate={vi.fn()}
         onToggle={onToggle}
@@ -74,36 +243,9 @@ describe("ProjectionHost shell", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("closes on Escape while open", async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-    renderHost({
-      active: { kind: "tool", key: "recap", size: "compact", title: "Recap" },
-      body: <p>Body</p>,
-      onClose,
-    });
-
-    await user.keyboard("{Escape}");
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("applies surface-projection-open on body only while open and removes it on unmount", () => {
-    const active: ActiveProjection = {
-      kind: "tool",
-      key: "recap",
-      size: "wide",
-      title: "Recap",
-    };
-    const { unmount } = renderHost({ active, body: <p>Body</p> });
-
-    expect(document.body).toHaveClass("surface-projection-open");
-    unmount();
-    expect(document.body).not.toHaveClass("surface-projection-open");
-  });
-
   it("shows modal backdrop for tool projections but not content", () => {
     const { rerender } = renderHost({
-      active: { kind: "tool", key: "recap", size: "wide", title: "Recap" },
+      active: toolActive,
       body: <p>Tool body</p>,
     });
 
@@ -119,7 +261,7 @@ describe("ProjectionHost shell", () => {
           glanceOnly: true,
         }}
         navigationItems={navigationItems}
-        labels={{}}
+        labels={NEUTRAL_LABELS}
         body={<p>Reference body</p>}
         onNavigate={vi.fn()}
         onToggle={vi.fn()}
@@ -148,7 +290,7 @@ describe("ProjectionHost shell", () => {
 
     const nav = document.querySelector(".surface-projection-nav");
     expect(nav).toHaveAttribute("hidden");
-    expect(nav).toHaveAttribute("aria-label", "Toolbox tools");
+    expect(nav).toHaveAttribute("aria-label", NEUTRAL_LABELS.navigationLabel);
     expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
 
     rerender(
@@ -160,7 +302,7 @@ describe("ProjectionHost shell", () => {
           title: "North Reach Gate",
         }}
         navigationItems={navigationItems}
-        labels={{}}
+        labels={NEUTRAL_LABELS}
         body={<p>Reference body</p>}
         onNavigate={vi.fn()}
         onToggle={vi.fn()}
@@ -190,7 +332,7 @@ describe("ProjectionHost shell", () => {
   it("calls onNavigate with the exact nav item id", async () => {
     const user = userEvent.setup();
     const { onNavigate } = renderHost({
-      active: { kind: "tool", key: "recap", size: "wide", title: "Recap" },
+      active: toolActive,
       body: <p>Body</p>,
     });
 
