@@ -1,0 +1,25 @@
+{
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/base-contribution.json",
+  "base_contribution_sha256": "12e5ed7e450fa19b3d6795c4440aeb4b5d1b571af9a92576c5740e007840d87a",
+  "case_id": "tl01g-temporal-shadow-grounding-smoke-v1",
+  "evidence_registry": [
+    {
+      "content_sha256": "a583fbdaebacddad88fa4609fff545144f53d3086db9f6f97adeaa11254bdbc2",
+      "end_line": 5,
+      "evidence_ref_id": "evidence:tl01-grounding-smoke-v1:bell-strike",
+      "label": "source.md",
+      "source_artifact_id": "source-artifact:grounding-smoke-v1-bell",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/source.md",
+      "source_ref_id": "source-ref:grounding-smoke-v1-bell",
+      "start_line": 5
+    }
+  ],
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/gold-overlay.json",
+  "gold_overlay_sha256": "62c332ffe7e9d4618173d37989ad18e7daf4b4f1180d5d590f944794b021ddc8",
+  "prompt_version": "tl01g-v1",
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "selected_assertion_ids": [
+    "assertion:b8a9e88438e5c6a5"
+  ],
+  "snippet_max_chars": 2000
+}

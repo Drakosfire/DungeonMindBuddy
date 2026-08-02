@@ -1,0 +1,33 @@
+{
+  "entries": [
+    {
+      "calls": 2,
+      "note": "pre-repair historical live pair at 83917009; charged against global §6.10 budget",
+      "phase": "initial",
+      "repository_sha": "83917009f0b15c0024400354e111f00e9de2e3fa",
+      "response_ids": [
+        "resp_0207dffb227fbed2006a6ed36f4bbc81949cfa5214373f1ac0",
+        "resp_07fc478c5452975c006a6ed371c7188196af0bfb23a17d04ae"
+      ]
+    },
+    {
+      "calls": 2,
+      "note": "post-fix live pair at 46158038; final authorized live observation",
+      "phase": "post_fix",
+      "repository_sha": "46158038c8f29c1b6fbaba70039a71bb5cf6f063",
+      "response_ids": [
+        "resp_0b4be0ad599b8170006a6f5cd725dc81959c76796092286538",
+        "resp_02052a11ad001b49006a6f5cd964a88196a303d6fea79c5f35"
+      ]
+    }
+  ],
+  "max_total_provider_calls": 4,
+  "response_ids": [
+    "resp_0207dffb227fbed2006a6ed36f4bbc81949cfa5214373f1ac0",
+    "resp_07fc478c5452975c006a6ed371c7188196af0bfb23a17d04ae",
+    "resp_0b4be0ad599b8170006a6f5cd725dc81959c76796092286538",
+    "resp_02052a11ad001b49006a6f5cd964a88196a303d6fea79c5f35"
+  ],
+  "schema": "tl01_grounding_path_budget_v1",
+  "total_calls": 4
+}
