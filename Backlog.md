@@ -7,6 +7,20 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Worktree test/typecheck environment needs sibling server + forced tsc — captured 2026-08-01
+**Context:** SIH-01 (#477) and baseline-fix (#479) evidence runs in `/tmp` git worktrees.
+**Insight:** Two worktree traps: (1) `dungeonbuddyStatblockV1Contract.test.ts` resolves `DungeonMindServer` as a sibling of the repo root, so `/tmp` worktrees fail 3 tests environmentally — fix with `ln -sfn ~/Projects/DungeonOverMind/DungeonMindServer /tmp/DungeonMindServer`; (2) symlinking `node_modules` into a worktree shares `node_modules/.tmp/*.tsbuildinfo`, so incremental `tsc -b` can silently skip checking and report false-clean results.
+**Action:** For any worktree evidence run: create the server symlink first, and always use `npx tsc -b --force` (never bare `tsc -b`) for typecheck proof. Consider documenting in AGENTS.md or a worktree-setup script.
+**Surfaces when:** running tests or typecheck from a git worktree; opening PRs with test/typecheck evidence from worktrees.
+**Refs:** apps/live-control-ui/src/contracts/dungeonbuddy-statblocks-v1/dungeonbuddyStatblockV1Contract.test.ts, PRs #477/#479
+
+## [IDEA] Kind-compatibility filtering in bulk merge scan — captured 2026-08-01
+**Context:** `graphObjectMergeCandidates.ts` had an unused `kindsCompatible(left, right)` helper (kind equality unless either kind blank/"unknown"); removed as dead code in #479.
+**Insight:** Someone wrote kind-compatibility logic for merge candidates but never wired it in — possibly an abandoned intent. Wiring it into `findProjectionMergeCandidates`/`buildMergeCandidateFromNodes` would shrink bulk-scan candidate sets (behavior change).
+**Action:** Decide whether bulk merge scan should reject cross-kind pairs (e.g. location vs NPC); if yes, reintroduce the check with tests showing candidate-set deltas.
+**Surfaces when:** merge-candidate quality complaints; graph review workbench authoring UX work.
+**Refs:** apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphObjectMergeCandidates.ts, PR #479
+
 ## [READY] Hermes authoring needs a dynamic copyable markdown artifact — captured 2026-07-30
 **Context:** R0-B float-goat probe produced a useful copy-pasteable Threat description, but it was embedded in a long conversational answer. The operator wants a skill to tell Hermes when to emit a dedicated dynamic UI markdown section; that tool/card does not exist yet.
 **Insight:** “Copyable” is a product interaction, not just an instruction to put Markdown fences in prose. The authoring skill needs a structured artifact tool that renders a distinct, editable/copyable block while keeping provenance, uncertainty, and internal trace details outside the copied content.
