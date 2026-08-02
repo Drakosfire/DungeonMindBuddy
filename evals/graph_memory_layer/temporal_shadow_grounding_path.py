@@ -905,9 +905,9 @@ def load_provider_budget_ledger(path: Path) -> ProviderBudgetLedger:
                 "Provider budget ledger entry response_ids must be strings",
                 code="invalid_case",
             )
-        if len(refs) != calls:
+        if len(refs) > calls:
             raise TemporalShadowExtractionError(
-                "Provider budget ledger entry calls/response_ids length mismatch",
+                "Provider budget ledger entry has more response_ids than calls",
                 code="invalid_case",
                 diagnostics=[f"calls={calls}", f"response_ids={len(refs)}"],
             )
@@ -1002,6 +1002,13 @@ def record_provider_budget_entry(
     response_ids: list[str],
     note: str | None = None,
 ) -> ProviderBudgetLedger:
+    """Persist one budget entry. Response IDs are optional per charged attempt."""
+    if len(response_ids) > calls:
+        raise TemporalShadowExtractionError(
+            "Provider budget entry has more response_ids than calls",
+            code="invalid_case",
+            diagnostics=[f"calls={calls}", f"response_ids={len(response_ids)}"],
+        )
     assert_provider_budget_available(ledger, calls_needed=calls)
     entry: dict[str, Any] = {
         "phase": phase,

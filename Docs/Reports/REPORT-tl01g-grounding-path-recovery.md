@@ -36,6 +36,7 @@ invocations.
 | `transport_accepted` contradictions | False for provider/transport failures |
 | Malformed raw batch crash | Shape guards → `TRANSPORT_REJECTED` |
 | Alternate/missing ledger resets budget | Canonical path only; missing fails closed; totals reconcile to entries |
+| Missing response IDs on failed attempts | Attempts charged independently; ledger reload accepts `len(response_ids) <= calls` |
 | READY equality without frozen authority | Exact `tl01f-v1`/`tl01g-v1` + frozen SHA256s, packet/renderer constants, shared clean SHA, nested lane/run-mode, success fields |
 
 ## Provider-call budget (global, §6.10)
@@ -49,7 +50,8 @@ invocations.
 Remaining: **0**. Live mode binds only to the canonical ledger path under the smoke
 fixture; a fifth pair cannot invent a new filename or copy cases elsewhere to reset
 the counter. Budget amendment requires a governed edit of that ledger (not an
-alternate path).
+alternate path). Provider attempts are charged even when no `provider_response_id`
+is returned; ledger reload no longer self-invalidates on missing IDs.
 
 ## Frozen identity guards
 

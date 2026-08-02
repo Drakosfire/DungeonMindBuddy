@@ -989,6 +989,188 @@ def test_budget_ledger_reconciles_total_against_entries(tmp_path: Path) -> None:
     assert "reconcile" in str(exc.value).lower()
 
 
+def test_budget_ledger_accepts_fewer_response_ids_than_calls(tmp_path: Path) -> None:
+    path = tmp_path / "partial-ids-ledger.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": grounding.BUDGET_LEDGER_SCHEMA,
+                "max_total_provider_calls": 4,
+                "total_calls": 2,
+                "response_ids": ["r1"],
+                "entries": [
+                    {
+                        "phase": "initial",
+                        "repository_sha": "a" * 40,
+                        "calls": 2,
+                        "response_ids": ["r1"],
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    ledger = grounding.load_provider_budget_ledger(path)
+    assert ledger.total_calls == 2
+    assert ledger.response_ids == ["r1"]
+
+    empty_ids_path = tmp_path / "empty-ids-ledger.json"
+    empty_ids_path.write_text(
+        json.dumps(
+            {
+                "schema": grounding.BUDGET_LEDGER_SCHEMA,
+                "max_total_provider_calls": 4,
+                "total_calls": 2,
+                "response_ids": [],
+                "entries": [
+                    {
+                        "phase": "initial",
+                        "repository_sha": "a" * 40,
+                        "calls": 2,
+                        "response_ids": [],
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    empty_ledger = grounding.load_provider_budget_ledger(empty_ids_path)
+    assert empty_ledger.total_calls == 2
+    assert empty_ledger.response_ids == []
+
+
+def test_budget_ledger_rejects_more_response_ids_than_calls(tmp_path: Path) -> None:
+    path = tmp_path / "too-many-ids.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": grounding.BUDGET_LEDGER_SCHEMA,
+                "max_total_provider_calls": 4,
+                "total_calls": 1,
+                "response_ids": ["r1", "r2"],
+                "entries": [
+                    {
+                        "phase": "initial",
+                        "repository_sha": "a" * 40,
+                        "calls": 1,
+                        "response_ids": ["r1", "r2"],
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        grounding.load_provider_budget_ledger(path)
+    assert "more response_ids than calls" in str(exc.value).lower()
+
+
+def test_record_provider_budget_entry_rejects_more_ids_than_calls(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "fresh-ledger.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema": grounding.BUDGET_LEDGER_SCHEMA,
+                "max_total_provider_calls": 4,
+                "total_calls": 0,
+                "response_ids": [],
+                "entries": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    ledger = grounding.load_provider_budget_ledger(path)
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        grounding.record_provider_budget_entry(
+            ledger,
+            phase="initial",
+            repository_sha="a" * 40,
+            calls=1,
+            response_ids=["r1", "r2"],
+        )
+    assert "more response_ids than calls" in str(exc.value).lower()
+
+
+def test_persistent_ledger_survives_provider_failure_without_response_id(
+    tmp_path: Path,
+) -> None:
+    ledger_path = tmp_path / "provider-budget-ledger.json"
+    ledger_path.write_text(
+        json.dumps(
+            {
+                "schema": grounding.BUDGET_LEDGER_SCHEMA,
+                "max_total_provider_calls": 4,
+                "total_calls": 0,
+                "response_ids": [],
+                "entries": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "live-out"
+
+    class ProviderErrorNoResponseId:
+        def extract_annotations(
+            self, *, instructions: str, user_content: str, model_id: str
+        ):
+            raise TemporalShadowExtractionError(
+                "simulated network failure",
+                code="provider_error",
+            )
+
+    with patch.dict("os.environ", {grounding.LIVE_OPT_IN_ENV: "1"}):
+        with (
+            patch.object(
+                grounding,
+                "canonical_budget_ledger_path",
+                return_value=ledger_path,
+            ),
+            patch.object(
+                grounding,
+                "OpenAITemporalShadowExtractionClient",
+                return_value=ProviderErrorNoResponseId(),
+            ),
+        ):
+            result = grounding.run_paired_grounding_path_diagnostic(
+                control_case_path=CONTROL_CASE,
+                candidate_case_path=CANDIDATE_CASE,
+                output_dir=out,
+                mode="live",
+                phase="initial",
+                model_id=grounding.LIVE_MODEL_ID,
+                fake_output=None,
+                repo_root=REPO_ROOT,
+                overwrite=True,
+            )
+
+    assert result.control.lane_result == "PROVIDER_EXECUTION_FAILED"
+    assert result.candidate.lane_result == "PROVIDER_EXECUTION_FAILED"
+    assert result.provider_calls == 2
+    assert result.overall_conclusion == "UNRESOLVED_DIAGNOSTIC_GAP"
+
+    summary_path = out / "paired-summary.json"
+    assert summary_path.is_file()
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["budget_total_calls"] == 2
+    assert summary["budget_remaining"] == 2
+    assert summary["provider_response_ids"] == []
+
+    assert (out / "control-trace.json").is_file()
+    assert (out / "candidate-trace.json").is_file()
+
+    reloaded = grounding.load_provider_budget_ledger(ledger_path)
+    assert reloaded.total_calls == 2
+    assert len(reloaded.response_ids) <= reloaded.total_calls
+    assert reloaded.response_ids == []
+
+
 def test_persistent_budget_ledger_blocks_fifth_live_invocation(tmp_path: Path) -> None:
     with patch.dict("os.environ", {grounding.LIVE_OPT_IN_ENV: "1"}):
         with pytest.raises(TemporalShadowExtractionError) as exc:
