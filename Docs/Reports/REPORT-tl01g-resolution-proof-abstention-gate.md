@@ -62,7 +62,7 @@ Resolved-span fingerprints fail before hashing when evidence refs are missing, p
 
 - Holdout: proposition-template Jaccard (label+predicate, entity scrub) `< 0.40` vs all prior canonical holdouts **and** earlier discovered holdout successors (cumulative comparison pool).
 - Adversarial: source-prose Jaccard is **insufficient**. Fresh adversarial cohorts also require proposition-template Jaccard `< 0.40` vs all prior adversarial assertion labels/predicates **and** earlier discovered adversarial successors (cumulative comparison pool).
-- **Fresh-cohort discovery** uses immutable cutoffs `LAST_RETIRED_HOLDOUT_VERSION=14` and `LAST_RETIRED_ADVERSARIAL_VERSION=12` (versioned dirs with suffix `> cutoff`). PRIOR tuple membership does **not** disable guards; non-numeric suffixes fail closed. Observed V14 / Adv V12 are retired incomplete promotion evidence (defective Adv V12 gold); disposition `PROMOTION_EVIDENCE_INCOMPLETE`.
+- **Fresh-cohort discovery** uses immutable cutoffs `LAST_RETIRED_HOLDOUT_VERSION=13` and `LAST_RETIRED_ADVERSARIAL_VERSION=11` (versioned dirs with suffix `> cutoff`). PRIOR tuple membership does **not** disable guards; non-numeric suffixes fail closed.
 
 ### GOLD-AUDIT ↔ fixture binding
 

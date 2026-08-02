@@ -1672,52 +1672,35 @@ def test_fresh_holdout_span_and_semantic_fingerprints_disjoint_from_retired_and_
         prior_span_text |= successor_span_text
 
 
-def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() -> None:
-    """Fresh holdout gold overlays must not encode Gate E3 or postponement-value defects."""
+def test_fresh_successor_overlays_require_resolved_value_grounding() -> None:
+    """Auto-discovered holdout (>14) and adversarial (>12) successors must be Gate-faithful.
+
+    Uses the comprehensive owned-evidence helper so ungrounded values (the Adv V12
+    equinox-flood class of defect) cannot pass pre-live. Retired V14/Adv V12 remain
+    covered only by the negative retirement regression, not this guard.
+    """
     fresh_dirs = _discover_cohorts_above_retired_cutoff(
         prefix="temporal_shadow_holdout_v",
         last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
+    ) + _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_adversarial_v",
+        last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
     )
     if not fresh_dirs:
         return
     for fresh_dir in fresh_dirs:
         _require_fresh_cohort(fresh_dir)
+        defects = _collect_resolved_value_grounding_defects(fresh_dir)
+        assert defects == [], defects
+        # Retain postponement/reschedule special-case for resolved occurrence values.
         gold = json.loads((fresh_dir / "gold-overlay.json").read_text(encoding="utf-8"))
         base = json.loads((fresh_dir / "base-contribution.json").read_text(encoding="utf-8"))
         by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
-        evidence = _case_evidence_by_id(fresh_dir)
         for ann in gold.get("annotations", []):
             if ann.get("interpretation_status") != "resolved":
                 continue
-            valid_time = ann.get("valid_time") or {}
-            valid_start = valid_time.get("start")
-            valid_end = valid_time.get("end")
             assertion_id = ann.get("base_assertion_id")
             assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
-            if valid_start is not None or valid_end is not None:
-                if assertion is None:
-                    raise AssertionError(
-                        f"{fresh_dir.name}: resolved valid-time annotation "
-                        f"{assertion_id!r} missing base assertion"
-                    )
-                if valid_start is not None:
-                    _assert_annotation_gate_e3_boundary_proof(
-                        annotation=ann,
-                        assertion=assertion,
-                        evidence_by_id=evidence,
-                        context=f"{fresh_dir.name}:{assertion_id}:valid_time.start",
-                        boundary_kind="start",
-                        boundary_value=valid_start,
-                    )
-                if valid_end is not None:
-                    _assert_annotation_gate_e3_boundary_proof(
-                        annotation=ann,
-                        assertion=assertion,
-                        evidence_by_id=evidence,
-                        context=f"{fresh_dir.name}:{assertion_id}:valid_time.end",
-                        boundary_kind="end",
-                        boundary_value=valid_end,
-                    )
             occ_time = ann.get("occurrence_time") or {}
             occ_point = occ_time.get("point") or {}
             raw_expression = str(occ_point.get("raw_expression") or "")
