@@ -79,7 +79,7 @@ The design-agent Sources pane listed these **basenames**. Exact content was not 
 | # | Project Source basename | Repo counterpart | Classification | Conflict / note |
 |---:|---|---|---|---|
 | 1 | `TEMPLATE-pr-handoff(1).md` | none found; use `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md` | **SOURCE_ONLY** → map to **PROCESS_TEMPLATE** | Download-style `(1)` name; not checked in under that basename |
-| 2 | `README.md` | ambiguous basename; likely [`README.md`](../../README.md) | **AMBIGUOUS** → treat root README as **ACTIVE_REFERENCE** | Do not attach arbitrary nested `README.md` files as architecture |
+| 2 | `README.md` | [`README.md`](../../README.md) | **ACTIVE_REFERENCE** | Exact repository root path; product overview only, not architecture or sequencing authority |
 | 3 | `GRAPH-MEMORY-PROJECT-LAYOUT.md` | [`Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`](GRAPH-MEMORY-PROJECT-LAYOUT.md) | **ACTIVE_REFERENCE** | MATCH |
 | 4 | `ARCHITECTURE-plan-surface-toolbox.md` | [`Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md) | **ACTIVE_REFERENCE** | MATCH — Plan composition only; UI chrome → surface-interaction architecture |
 | 5 | `GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | [`Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`](GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md) | **SUPERSEDED** | MATCH stub; must not direct sequencing |
