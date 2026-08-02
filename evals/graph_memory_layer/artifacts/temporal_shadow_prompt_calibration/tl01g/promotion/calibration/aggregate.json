@@ -1,0 +1,1177 @@
+{
+  "adversarial_base_sha256": "7b845c64048f7bd5b2b3cc064adb104e5120df9636bd90c7eb446b1d4d9162e6",
+  "adversarial_case_sha256": "7392768cb17a252a3434f4e3a95b1d3134790253e834bde99c982b25a56da804",
+  "adversarial_gold_sha256": "d9dd818998aa40208b211e6c06f84a2cc724a562b37947204de43d499cac2629",
+  "adversarial_seal_commit_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+  "aggregate_build_sha": "8e2fe04546fe10e715b4b80061a28ce65c5734ad",
+  "baseline_prompt_sha256": "7a9d27c3a9980893f18757d7a5fe0612cf67f9aad8dfd2ccb20f9e3c667b7143",
+  "baseline_prompt_version": "tl01f-v1",
+  "calibration_id": "temporal-prompt-calibration:a1dd130979808f2f",
+  "candidate_prompt_sha256": "3af1e470e304008d2490ba73e1a53628519c211bb54e17a10cd4c694beae9013",
+  "candidate_prompt_version": "tl01g-v1",
+  "control_adversarial_case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
+  "control_adversarial_enabled": true,
+  "decision": "ITERATE_PROMPT",
+  "diagnostics": [
+    "candidate_grounding_failures=9",
+    "candidate_comparison_metrics_unobserved"
+  ],
+  "experiment_role": "promotion",
+  "holdout_base_sha256": "5eac94325078f8e8a8bada25caf61258cb1112201a21012fd30dce1a34974d38",
+  "holdout_case_sha256": "09ef38a669d7016505629f49eca0f5473d3f5ca05a20de3a9417bd120b11489e",
+  "holdout_gold_sha256": "05c284aa2b2aed89c25f572bb2621ae6f02b82100864446312da4d64f79c7357",
+  "holdout_seal_commit_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+  "model_id": "gpt-5.4-mini",
+  "provider_run_repository_shas": [
+    "33bae3485babb0d15373b91b0cbcb13282b42491"
+  ],
+  "repetitions": 3,
+  "repository_sha": "8e2fe04546fe10e715b4b80061a28ce65c5734ad",
+  "run_matrix": [
+    {
+      "case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
+      "cohort": "adversarial",
+      "prompt_lane": "baseline"
+    },
+    {
+      "case_id": "tl01f-temporal-shadow-cohort-v1",
+      "cohort": "development",
+      "prompt_lane": "baseline"
+    },
+    {
+      "case_id": "tl01f-temporal-shadow-holdout-v13-v1",
+      "cohort": "holdout",
+      "prompt_lane": "baseline"
+    },
+    {
+      "case_id": "tl01g-temporal-shadow-adversarial-v11-v1",
+      "cohort": "adversarial",
+      "prompt_lane": "candidate"
+    },
+    {
+      "case_id": "tl01g-temporal-shadow-cohort-v1",
+      "cohort": "development",
+      "prompt_lane": "candidate"
+    },
+    {
+      "case_id": "tl01g-temporal-shadow-holdout-v13-v1",
+      "cohort": "holdout",
+      "prompt_lane": "candidate"
+    }
+  ],
+  "schema": "dmb_temporal_prompt_calibration_v1",
+  "seals_verified": true,
+  "slices": [
+    {
+      "blocked_count": 0,
+      "case_ids": [
+        "tl01f-temporal-shadow-adversarial-v11-v1",
+        "tl01f-temporal-shadow-cohort-v1",
+        "tl01f-temporal-shadow-holdout-v13-v1"
+      ],
+      "cohort_aggregates": [
+        {
+          "assertion_stability": [],
+          "case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
+          "cohort": "adversarial",
+          "exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 3,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.0,
+          "min_not_applicable_accuracy": 0.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.0,
+          "prompt_lane": "baseline",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "affected_assertion_id": "assertion:3defdfe7707d5302",
+              "case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='reaches Glimmerfen at dawn'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0131c342dd988a96006a6e65bdebb08196a5c717e433e93578",
+              "repetition": 1,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:3defdfe7707d5302",
+              "case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='reaches Glimmerfen at dawn'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_03a7e86153c35e2b006a6e65e2cf44819080efe6e004738172",
+              "repetition": 2,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:3defdfe7707d5302",
+              "case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='The salt caravan reaches Glimmerfen at dawn'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_036b254f85c69f41006a6e660a04448197bc1a39a260d300a1",
+              "repetition": 3,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 0,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 3,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 0,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        },
+        {
+          "assertion_stability": [],
+          "case_id": "tl01f-temporal-shadow-cohort-v1",
+          "cohort": "development",
+          "exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 3,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.0,
+          "min_not_applicable_accuracy": 0.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.0,
+          "prompt_lane": "baseline",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "affected_assertion_id": "assertion:4e24f0fa3c99d487",
+              "case_id": "tl01f-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='Party at Copper and Quartz'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0d2fcdb8aa4b62ba006a6e65b2884881939492169a8ffd0941",
+              "repetition": 1,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:4e24f0fa3c99d487",
+              "case_id": "tl01f-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='Party at Copper and Quartz'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0e5c833d79eb0cfb006a6e65d8148481938048119f319282a5",
+              "repetition": 2,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:a73b9dc9bdfaa72c",
+              "case_id": "tl01f-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='connected_by_road'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_019ae8606d189ae1006a6e65fc30d48194afd2de667582b3d9",
+              "repetition": 3,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 0,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 3,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 0,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        },
+        {
+          "assertion_stability": [
+            {
+              "base_assertion_id": "assertion:0365f051c8e59219",
+              "classification_counts": {
+                "run_failed": 2,
+                "status_mismatch": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "not_applicable": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:15bef3a0902f3d44",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "unresolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:2664411c0ccd65d0",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":null,\"raw_expression\":null,\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-3\",\"value\":null}}": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:37dcfb0a72eae5e9",
+              "classification_counts": {
+                "run_failed": 2,
+                "wrong_temporal_value": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"Around five years ago\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:44c8cce73e18e0a4",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "ambiguous": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:7c3d1fab00dd7353",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "not_applicable": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:9ae2721c7e601c4f",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "not_applicable": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:9baab53e44466c80",
+              "classification_counts": {
+                "run_failed": 2,
+                "wrong_temporal_value": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"removes the head of the Storm Elemental\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:d25ec476e8268f16",
+              "classification_counts": {
+                "run_failed": 2,
+                "wrong_temporal_value": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"until dawn\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:d350cf2cef4c678b",
+              "classification_counts": {
+                "run_failed": 2,
+                "wrong_temporal_value": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c1\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"starts in the morning\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:f1a6f1780edc1fc2",
+              "classification_counts": {
+                "run_failed": 2,
+                "wrong_temporal_value": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":null,\"raw_expression\":null,\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-16\",\"value\":null}}": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:f59b518d7e4767f6",
+              "classification_counts": {
+                "run_failed": 2,
+                "status_mismatch": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1,
+                "invalid_model_output": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "not_applicable": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            }
+          ],
+          "case_id": "tl01f-temporal-shadow-holdout-v13-v1",
+          "cohort": "holdout",
+          "exact_match": {
+            "max": 5.0,
+            "median": 5.0,
+            "min": 5.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 1.0,
+            "median": 1.0,
+            "min": 1.0
+          },
+          "failure_count": 2,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.4166666666666667,
+          "min_not_applicable_accuracy": 1.0,
+          "min_resolved_exact_ratio": 0.14285714285714285,
+          "min_status_accuracy": 0.8333333333333334,
+          "prompt_lane": "baseline",
+          "resolved_exact_match": {
+            "max": 1.0,
+            "median": 1.0,
+            "min": 1.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "affected_assertion_id": "assertion:f59b518d7e4767f6",
+              "case_id": "tl01f-temporal-shadow-holdout-v13-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "invalid_model_output",
+              "failure_diagnostics": [
+                "1 validation error for TemporalAssertionAnnotationV1\n  Value error, interpretation_status=\"resolved\" requires occurrence_time and/or valid_time [type=value_error, input_value={'annotation_id': 'tempor...start or end boundary']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/value_error"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0b525ec7f5411bf9006a6e65b676dc81979d2a0ae8b492a1e8",
+              "repetition": 1,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": null,
+              "case_id": "tl01f-temporal-shadow-holdout-v13-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 5,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 1,
+              "failure_code": null,
+              "failure_diagnostics": [],
+              "foreign_evidence_attempts": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0d7545fc4964e77c006a6e65dc4fe48194a3977e38eaa372f1",
+              "repetition": 2,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": 1,
+              "run_id": "temporal-shadow-run:9d60a4d2cb49508c",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 1,
+              "status_accuracy": 0.8333333333333334,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            },
+            {
+              "affected_assertion_id": "assertion:9ae2721c7e601c4f",
+              "case_id": "tl01f-temporal-shadow-holdout-v13-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='The true Shepherd is still at large'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_042123488725d611006a6e660308008197b47aefc9e9dc9c27",
+              "repetition": 3,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 1,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 1,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 1,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 1,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 1,
+          "total_status_mismatch": 2,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 5
+        }
+      ],
+      "fail_count": 2,
+      "partial_count": 0,
+      "pass_count": 1,
+      "prompt_lane": "baseline",
+      "prompt_sha256": "7a9d27c3a9980893f18757d7a5fe0612cf67f9aad8dfd2ccb20f9e3c667b7143",
+      "prompt_version": "tl01f-v1"
+    },
+    {
+      "blocked_count": 0,
+      "case_ids": [
+        "tl01g-temporal-shadow-adversarial-v11-v1",
+        "tl01g-temporal-shadow-cohort-v1",
+        "tl01g-temporal-shadow-holdout-v13-v1"
+      ],
+      "cohort_aggregates": [
+        {
+          "assertion_stability": [],
+          "case_id": "tl01g-temporal-shadow-adversarial-v11-v1",
+          "cohort": "adversarial",
+          "exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 3,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.0,
+          "min_not_applicable_accuracy": 0.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.0,
+          "prompt_lane": "candidate",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "affected_assertion_id": "assertion:b43efd877f1d6e0d",
+              "case_id": "tl01g-temporal-shadow-adversarial-v11-v1",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='hands the Glasspetal Codex to the Brinearch Quay receiver after the harbor beacon fires'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_01266d2222a01437006a6e65d19b5881909affb6c0514678a1",
+              "repetition": 1,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:3defdfe7707d5302",
+              "case_id": "tl01g-temporal-shadow-adversarial-v11-v1",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='reaches Glimmerfen at dawn'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_01de83050bd2716c006a6e65f651d481978433ae56d5b066a5",
+              "repetition": 2,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:b43efd877f1d6e0d",
+              "case_id": "tl01g-temporal-shadow-adversarial-v11-v1",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='hands the Glasspetal Codex to the Brinearch Quay receiver after the harbor beacon fires'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0d44c1aa6e0dbcea006a6e6620a04881978ebfab6b23f18ba5",
+              "repetition": 3,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 0,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 3,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 0,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        },
+        {
+          "assertion_stability": [],
+          "case_id": "tl01g-temporal-shadow-cohort-v1",
+          "cohort": "development",
+          "exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 3,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.0,
+          "min_not_applicable_accuracy": 0.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.0,
+          "prompt_lane": "candidate",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "affected_assertion_id": "assertion:4e24f0fa3c99d487",
+              "case_id": "tl01g-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='Party at Copper and Quartz'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0534890a002d09c7006a6e65c4f3e08190b08e5a0bbcfd7cc3",
+              "repetition": 1,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:4e24f0fa3c99d487",
+              "case_id": "tl01g-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='Party at Copper and Quartz'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0259de6f5066320e006a6e65e98650819687c12e81ae30d04e",
+              "repetition": 2,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:4e24f0fa3c99d487",
+              "case_id": "tl01g-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='Party at Copper and Quartz'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_04016ed2da41dbea006a6e6612b9a481948c60f040dc943a29",
+              "repetition": 3,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 0,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 3,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 0,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        },
+        {
+          "assertion_stability": [],
+          "case_id": "tl01g-temporal-shadow-holdout-v13-v1",
+          "cohort": "holdout",
+          "exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 3,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.0,
+          "min_not_applicable_accuracy": 0.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.0,
+          "prompt_lane": "candidate",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "affected_assertion_id": "assertion:9ae2721c7e601c4f",
+              "case_id": "tl01g-temporal-shadow-holdout-v13-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='The true Shepherd is still at large'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0f5dafd50de6ad0f006a6e65c88abc8196b9721b96bfe2c64c",
+              "repetition": 1,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:f1a6f1780edc1fc2",
+              "case_id": "tl01g-temporal-shadow-holdout-v13-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='has been ransacked by the cult'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_01168a3082bd951c006a6e65ed55788196a3f18bfbb4185a4e",
+              "repetition": 2,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "affected_assertion_id": "assertion:f1a6f1780edc1fc2",
+              "case_id": "tl01g-temporal-shadow-holdout-v13-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "failure_diagnostics": [
+                "source_phrase='has been ransacked by the cult'"
+              ],
+              "foreign_evidence_attempts": 0,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0890c630b5cbcb24006a6e66183d2481968122460c5e4f0505",
+              "repetition": 3,
+              "repository_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 0,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 3,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 0,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        }
+      ],
+      "fail_count": 3,
+      "partial_count": 0,
+      "pass_count": 0,
+      "prompt_lane": "candidate",
+      "prompt_sha256": "3af1e470e304008d2490ba73e1a53628519c211bb54e17a10cd4c694beae9013",
+      "prompt_version": "tl01g-v1"
+    }
+  ]
+}

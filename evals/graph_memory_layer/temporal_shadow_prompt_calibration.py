@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import statistics
 import subprocess
 import sys
@@ -122,6 +123,22 @@ class PromptVersionMismatchError(ValueError):
 
 class DirtyWorktreeError(ValueError):
     """Live calibration refused because the git worktree is dirty."""
+
+
+class ReaggregateError(ValueError):
+    """Reaggregate refused due to missing/ambiguous artifacts or provenance mismatch.
+
+    Covers absent manifests, both success and failure manifests present, inconsistent
+    provider execution SHAs, case_digest mismatches against the executed case file,
+    requested-vs-disk run matrix mismatches, and other fail-closed provenance checks
+    before rewriting aggregate.json.
+    """
+
+
+_FULL_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_KNOWN_PROMPT_LANES = frozenset({"baseline", "candidate"})
+_KNOWN_COHORTS = frozenset({"development", "holdout", "adversarial"})
+_RUN_DIR_RE = re.compile(r"^run-(\d{2})$")
 
 
 def _repo_root() -> Path:
@@ -923,6 +940,17 @@ def aggregate_cohort_runs(
                     provider_response_id=str(payload.get("provider_response_id") or "")
                     or None,
                     failure_code=code,
+                    affected_assertion_id=(
+                        failure.get("affected_assertion_id")
+                        if isinstance(failure.get("affected_assertion_id"), str)
+                        else None
+                    ),
+                    failure_diagnostics=list(failure.get("diagnostics") or []),
+                    foreign_evidence_attempts=(
+                        int(failure["foreign_evidence_attempts"])
+                        if failure.get("foreign_evidence_attempts") is not None
+                        else None
+                    ),
                     manifest_consistent=consistent,
                     manifest_diagnostics=list(record_diags),
                 )
@@ -1071,12 +1099,16 @@ def compute_calibration_decision(
         # Phrase grounding misses are prompt/model quality unless spans are unusable
         # (those land in evidence_or_case_failures → BLOCKED_BY_EVIDENCE above).
         notes.append(f"candidate_grounding_failures={total_grounding}")
+        if sum(a.success_count for a in candidate) == 0:
+            notes.append("candidate_comparison_metrics_unobserved")
         return "ITERATE_PROMPT", notes
 
     total_model_output = sum(a.total_model_output_failures for a in candidate)
     if total_model_output > 0:
         # Schema-invalid / target-set noncompliance against a representable contract.
         notes.append(f"candidate_model_output_failures={total_model_output}")
+        if sum(a.success_count for a in candidate) == 0:
+            notes.append("candidate_comparison_metrics_unobserved")
         return "ITERATE_PROMPT", notes
 
     total_wrong_value = sum(a.total_wrong_temporal_value for a in candidate)
@@ -1103,6 +1135,12 @@ def compute_calibration_decision(
 
     if any(a.failure_count > 0 for a in candidate):
         notes.append("candidate_has_failed_runs")
+        if sum(a.success_count for a in candidate) == 0:
+            notes.append("candidate_comparison_metrics_unobserved")
+        return "ITERATE_PROMPT", notes
+
+    if sum(a.success_count for a in candidate) == 0:
+        notes.append("candidate_comparison_metrics_unobserved")
         return "ITERATE_PROMPT", notes
 
     if any(not a.manifest_consistency_ok for a in cohort_aggregates):
@@ -1258,6 +1296,250 @@ def _resolve_fake_client(
     return FakeTemporalShadowExtractionClient(
         _trivial_fake_batch(spec.case_path, repo_root=repo_root)
     )
+
+
+def _build_calibration_run_specs(
+    *,
+    development_case: Path,
+    candidate_development_case: Path,
+    holdout_case: Path,
+    candidate_holdout_case: Path,
+    adversarial_case: Path,
+    repetitions: int,
+    baseline_adversarial_case: Path | None = None,
+) -> list[CalibrationRunSpec]:
+    run_specs: list[CalibrationRunSpec] = []
+    for repetition in range(1, repetitions + 1):
+        lane_specs = [
+            CalibrationRunSpec("baseline", "development", development_case, repetition),
+            CalibrationRunSpec("baseline", "holdout", holdout_case, repetition),
+            CalibrationRunSpec(
+                "candidate", "development", candidate_development_case, repetition
+            ),
+            CalibrationRunSpec(
+                "candidate", "holdout", candidate_holdout_case, repetition
+            ),
+            CalibrationRunSpec(
+                "candidate", "adversarial", adversarial_case, repetition
+            ),
+        ]
+        if baseline_adversarial_case is not None:
+            lane_specs.insert(
+                2,
+                CalibrationRunSpec(
+                    "baseline",
+                    "adversarial",
+                    baseline_adversarial_case,
+                    repetition,
+                ),
+            )
+        run_specs.extend(lane_specs)
+    return run_specs
+
+
+def _manifest_case_digest(manifest: dict[str, Any] | None) -> str | None:
+    if manifest is None:
+        return None
+    digest = manifest.get("case_digest")
+    return digest if isinstance(digest, str) and digest else None
+
+
+def _require_full_immutable_commit_sha(
+    value: str,
+    *,
+    repo_root: Path,
+    label: str = "repository_sha",
+) -> str:
+    """Require a full lowercase 40-char hex SHA that rev-parses to itself."""
+    sha = value.strip()
+    if "+" in sha:
+        raise ReaggregateError(
+            "dirty or provenance-suffixed repository_sha rejected for "
+            f"reaggregation: {sha!r}"
+        )
+    if not _FULL_COMMIT_SHA_RE.fullmatch(sha):
+        raise ReaggregateError(
+            f"{label} must be a full lowercase 40-character hex commit SHA, "
+            f"got {sha!r}"
+        )
+    try:
+        resolved = _git_stdout(repo_root, "rev-parse", sha)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ReaggregateError(
+            f"{label} is not resolvable as a git commit: {sha!r}"
+        ) from exc
+    if resolved != sha:
+        raise ReaggregateError(
+            f"{label} does not resolve to itself via git rev-parse: "
+            f"supplied={sha!r} resolved={resolved!r}"
+        )
+    return sha
+
+
+def _require_single_provider_execution_sha(
+    outcomes: list[RunOutcome],
+    *,
+    repo_root: Path,
+) -> str:
+    """Collect one exact full-hex repository_sha from published run/failure manifests."""
+    validated: list[str] = []
+    for outcome in outcomes:
+        manifest = outcome.run_manifest if outcome.succeeded else outcome.failure_manifest
+        if manifest is None:
+            manifest = outcome.failure_manifest or outcome.run_manifest
+        if manifest is None:
+            raise ReaggregateError(
+                f"missing published manifest for {outcome.spec.prompt_lane}/"
+                f"{outcome.spec.cohort}/run-{outcome.spec.repetition:02d}"
+            )
+        repository_sha = manifest.get("repository_sha")
+        if not isinstance(repository_sha, str) or not repository_sha.strip():
+            raise ReaggregateError(
+                f"missing repository_sha in published manifest for "
+                f"{outcome.spec.prompt_lane}/{outcome.spec.cohort}/"
+                f"run-{outcome.spec.repetition:02d}"
+            )
+        label = (
+            f"repository_sha for {outcome.spec.prompt_lane}/"
+            f"{outcome.spec.cohort}/run-{outcome.spec.repetition:02d}"
+        )
+        validated.append(
+            _require_full_immutable_commit_sha(
+                repository_sha.strip(),
+                repo_root=repo_root,
+                label=label,
+            )
+        )
+
+    unique = set(validated)
+    if len(unique) != 1:
+        raise ReaggregateError(
+            f"inconsistent provider execution SHAs across matrix: {sorted(unique)}"
+        )
+
+    provider_sha = next(iter(unique))
+    if not provider_sha or provider_sha == "unknown":
+        raise ReaggregateError("provider execution SHA is empty or unknown")
+    return provider_sha
+
+
+def _discover_published_run_keys(output_dir: Path) -> set[tuple[str, str, int]]:
+    """Discover every published run/failure manifest under ``output_dir/calibration``.
+
+    Manifests must live at ``calibration/<lane>/<cohort>/run-XX/<manifest>``.
+    Any published manifest under a known lane/cohort outside that shape fails closed.
+    """
+    calibration_root = output_dir / "calibration"
+    keys: set[tuple[str, str, int]] = set()
+    if not calibration_root.is_dir():
+        return keys
+    for prompt_lane_dir in sorted(calibration_root.iterdir()):
+        if not prompt_lane_dir.is_dir():
+            continue
+        prompt_lane = prompt_lane_dir.name
+        if prompt_lane not in _KNOWN_PROMPT_LANES:
+            raise ReaggregateError(
+                f"unexpected prompt lane directory under calibration/: {prompt_lane!r}"
+            )
+        for cohort_dir in sorted(prompt_lane_dir.iterdir()):
+            if not cohort_dir.is_dir():
+                continue
+            cohort = cohort_dir.name
+            if cohort not in _KNOWN_COHORTS:
+                raise ReaggregateError(
+                    f"unexpected cohort directory under calibration/{prompt_lane}/: "
+                    f"{cohort!r}"
+                )
+            for manifest_name in ("run-manifest.json", "failure-manifest.json"):
+                for manifest_path in sorted(cohort_dir.rglob(manifest_name)):
+                    rel = manifest_path.relative_to(cohort_dir)
+                    parts = rel.parts
+                    if len(parts) != 2:
+                        raise ReaggregateError(
+                            "published manifest outside canonical run-XX directory: "
+                            f"{prompt_lane}/{cohort}/{rel.as_posix()}"
+                        )
+                    run_name = parts[0]
+                    match = _RUN_DIR_RE.fullmatch(run_name)
+                    if match is None:
+                        raise ReaggregateError(
+                            "published manifest under non-canonical run directory: "
+                            f"{prompt_lane}/{cohort}/{run_name}"
+                        )
+                    keys.add((prompt_lane, cohort, int(match.group(1))))
+    return keys
+
+
+def _run_spec_keys(run_specs: list[CalibrationRunSpec]) -> set[tuple[str, str, int]]:
+    return {(spec.prompt_lane, spec.cohort, spec.repetition) for spec in run_specs}
+
+
+def _require_requested_matrix_matches_disk(
+    *,
+    output_dir: Path,
+    run_specs: list[CalibrationRunSpec],
+) -> None:
+    """Refuse reaggregation when caller matrix omits or invents published runs."""
+    discovered = _discover_published_run_keys(output_dir)
+    expected = _run_spec_keys(run_specs)
+    if discovered == expected:
+        return
+    missing = sorted(expected - discovered)
+    unexpected = sorted(discovered - expected)
+    raise ReaggregateError(
+        "requested run matrix does not match published on-disk manifests: "
+        f"missing={missing!r} unexpected={unexpected!r}"
+    )
+
+
+def load_calibration_outcomes_from_disk(
+    *,
+    output_dir: Path,
+    run_specs: list[CalibrationRunSpec],
+) -> list[RunOutcome]:
+    """Load published run outcomes without invoking the provider."""
+    outcomes: list[RunOutcome] = []
+    for spec in run_specs:
+        run_dir = _lane_run_dir(
+            output_dir=output_dir,
+            prompt_lane=spec.prompt_lane,
+            cohort=spec.cohort,
+            repetition=spec.repetition,
+        )
+        has_run = (run_dir / "run-manifest.json").is_file()
+        has_failure = (run_dir / "failure-manifest.json").is_file()
+        if has_run and has_failure:
+            raise ReaggregateError(
+                f"ambiguous run outcome for {spec.prompt_lane}/{spec.cohort}/"
+                f"run-{spec.repetition:02d}: both run-manifest.json and "
+                f"failure-manifest.json found under {run_dir}"
+            )
+        if not has_run and not has_failure:
+            raise ReaggregateError(
+                f"missing run artifacts for {spec.prompt_lane}/{spec.cohort}/"
+                f"run-{spec.repetition:02d}: neither run-manifest.json nor "
+                f"failure-manifest.json found under {run_dir}"
+            )
+        outcome = load_run_outcome(spec, run_dir)
+        published = (
+            outcome.run_manifest if outcome.succeeded else outcome.failure_manifest
+        )
+        expected_digest = _file_sha256(spec.case_path)
+        actual_digest = _manifest_case_digest(published)
+        if actual_digest is None:
+            raise ReaggregateError(
+                f"missing case_digest in published manifest for "
+                f"{spec.prompt_lane}/{spec.cohort}/run-{spec.repetition:02d} "
+                f"case_path={spec.case_path} expected={expected_digest}"
+            )
+        if actual_digest != expected_digest:
+            raise ReaggregateError(
+                f"case_digest mismatch for {spec.prompt_lane}/{spec.cohort}/"
+                f"run-{spec.repetition:02d} case_path={spec.case_path} "
+                f"expected={expected_digest} actual={actual_digest}"
+            )
+        outcomes.append(outcome)
+    return outcomes
 
 
 def run_calibration_repetition(
@@ -1524,32 +1806,15 @@ def run_prompt_calibration(
         else None
     )
 
-    run_specs: list[CalibrationRunSpec] = []
-    for repetition in range(1, repetitions + 1):
-        lane_specs = [
-            CalibrationRunSpec("baseline", "development", development_case, repetition),
-            CalibrationRunSpec("baseline", "holdout", holdout_case, repetition),
-            CalibrationRunSpec(
-                "candidate", "development", candidate_development_case, repetition
-            ),
-            CalibrationRunSpec(
-                "candidate", "holdout", candidate_holdout_case, repetition
-            ),
-            CalibrationRunSpec(
-                "candidate", "adversarial", adversarial_case, repetition
-            ),
-        ]
-        if baseline_adversarial_case is not None:
-            lane_specs.insert(
-                2,
-                CalibrationRunSpec(
-                    "baseline",
-                    "adversarial",
-                    baseline_adversarial_case,
-                    repetition,
-                ),
-            )
-        run_specs.extend(lane_specs)
+    run_specs = _build_calibration_run_specs(
+        development_case=development_case,
+        candidate_development_case=candidate_development_case,
+        holdout_case=holdout_case,
+        candidate_holdout_case=candidate_holdout_case,
+        adversarial_case=adversarial_case,
+        repetitions=repetitions,
+        baseline_adversarial_case=baseline_adversarial_case,
+    )
 
     outcomes: list[RunOutcome] = []
     for spec in run_specs:
@@ -1704,6 +1969,272 @@ def run_prompt_calibration(
     return aggregate
 
 
+def reaggregate_existing_calibration_runs(
+    *,
+    development_case: Path,
+    candidate_development_case: Path,
+    holdout_case: Path,
+    candidate_holdout_case: Path,
+    adversarial_case: Path,
+    output_dir: Path,
+    model_id: str,
+    repetitions: int,
+    experiment_role: ExperimentRole,
+    repo_root: Path | None = None,
+    holdout_seal_commit_sha: str | None = None,
+    adversarial_seal_commit_sha: str | None = None,
+    baseline_adversarial_case: Path | None = None,
+) -> TemporalPromptCalibrationAggregateV1:
+    """Rebuild aggregate.json from on-disk run manifests without provider calls."""
+    root = repo_root or _repo_root()
+    build_sha = _repository_sha(repo_root=root)
+
+    _assert_clean_worktree_for_live(repo_root=root, fake=False)
+
+    if not holdout_seal_commit_sha:
+        raise CohortSealError(
+            "--holdout-seal-commit is required for --reaggregate-only"
+        )
+    if not adversarial_seal_commit_sha:
+        raise CohortSealError(
+            "--adversarial-seal-commit is required for --reaggregate-only"
+        )
+
+    baseline_prompt_version, candidate_prompt_version = derive_prompt_versions_from_cases(
+        control_case_paths=[
+            development_case,
+            holdout_case,
+            *([baseline_adversarial_case] if baseline_adversarial_case else []),
+        ],
+        candidate_case_paths=[
+            candidate_development_case,
+            candidate_holdout_case,
+            adversarial_case,
+        ],
+        repo_root=root,
+    )
+
+    baseline_development = load_temporal_shadow_extraction_case(
+        development_case, repo_root=root
+    )
+    candidate_development = load_temporal_shadow_extraction_case(
+        candidate_development_case, repo_root=root
+    )
+    baseline_holdout = load_temporal_shadow_extraction_case(
+        holdout_case, repo_root=root
+    )
+    baseline_adversarial = (
+        load_temporal_shadow_extraction_case(baseline_adversarial_case, repo_root=root)
+        if baseline_adversarial_case is not None
+        else None
+    )
+
+    run_specs = _build_calibration_run_specs(
+        development_case=development_case,
+        candidate_development_case=candidate_development_case,
+        holdout_case=holdout_case,
+        candidate_holdout_case=candidate_holdout_case,
+        adversarial_case=adversarial_case,
+        repetitions=repetitions,
+        baseline_adversarial_case=baseline_adversarial_case,
+    )
+    _require_requested_matrix_matches_disk(
+        output_dir=output_dir,
+        run_specs=run_specs,
+    )
+    outcomes = load_calibration_outcomes_from_disk(
+        output_dir=output_dir,
+        run_specs=run_specs,
+    )
+    provider_execution_sha = _require_single_provider_execution_sha(
+        outcomes, repo_root=root
+    )
+
+    holdout_seal = verify_cohort_seal(
+        case_path=candidate_holdout_case,
+        seal_commit_sha=holdout_seal_commit_sha,
+        repo_root=root,
+        execution_commit_sha=provider_execution_sha,
+    )
+    adversarial_seal = verify_cohort_seal(
+        case_path=adversarial_case,
+        seal_commit_sha=adversarial_seal_commit_sha,
+        repo_root=root,
+        execution_commit_sha=provider_execution_sha,
+    )
+    verify_fixtures_tracked_at_commit(
+        case_path=development_case,
+        commit_sha=provider_execution_sha,
+        repo_root=root,
+    )
+    verify_fixtures_tracked_at_commit(
+        case_path=candidate_development_case,
+        commit_sha=provider_execution_sha,
+        repo_root=root,
+    )
+    verify_fixtures_tracked_at_commit(
+        case_path=holdout_case,
+        commit_sha=provider_execution_sha,
+        repo_root=root,
+    )
+    if baseline_adversarial_case is not None:
+        verify_fixtures_tracked_at_commit(
+            case_path=baseline_adversarial_case,
+            commit_sha=provider_execution_sha,
+            repo_root=root,
+        )
+
+    validate_paired_case_equivalence(
+        baseline_case_path=development_case,
+        candidate_case_path=candidate_development_case,
+        repo_root=root,
+        pair_name="development",
+    )
+    validate_paired_case_equivalence(
+        baseline_case_path=holdout_case,
+        candidate_case_path=candidate_holdout_case,
+        repo_root=root,
+        pair_name="holdout",
+    )
+    if baseline_adversarial_case is not None:
+        validate_paired_case_equivalence(
+            baseline_case_path=baseline_adversarial_case,
+            candidate_case_path=adversarial_case,
+            repo_root=root,
+            pair_name="adversarial",
+        )
+
+    expected_prompt: dict[tuple[PromptLane, CohortName], str] = {
+        ("baseline", "development"): baseline_prompt_version,
+        ("baseline", "holdout"): baseline_prompt_version,
+        ("candidate", "development"): candidate_prompt_version,
+        ("candidate", "holdout"): candidate_prompt_version,
+        ("candidate", "adversarial"): candidate_prompt_version,
+    }
+    expected_case: dict[tuple[PromptLane, CohortName], str] = {
+        ("baseline", "development"): baseline_development.case_id,
+        ("baseline", "holdout"): baseline_holdout.case_id,
+        ("candidate", "development"): candidate_development.case_id,
+        ("candidate", "holdout"): holdout_seal.case_id,
+        ("candidate", "adversarial"): adversarial_seal.case_id,
+    }
+    if baseline_adversarial is not None:
+        expected_prompt[("baseline", "adversarial")] = baseline_prompt_version
+        expected_case[("baseline", "adversarial")] = baseline_adversarial.case_id
+
+    run_matrix = build_calibration_run_matrix(expected_case=expected_case)
+    control_adversarial_enabled = baseline_adversarial_case is not None
+    control_adversarial_case_id = (
+        baseline_adversarial.case_id if baseline_adversarial is not None else None
+    )
+
+    cohort_groups: dict[tuple[PromptLane, CohortName], list[RunOutcome]] = defaultdict(
+        list
+    )
+    for outcome in outcomes:
+        cohort_groups[(outcome.spec.prompt_lane, outcome.spec.cohort)].append(outcome)
+
+    cohort_aggregates = [
+        aggregate_cohort_runs(
+            prompt_lane=prompt_lane,
+            cohort=cohort,
+            outcomes=group_outcomes,
+            expected_model_id=model_id,
+            expected_prompt_version=expected_prompt.get((prompt_lane, cohort)),
+            expected_case_id=expected_case[(prompt_lane, cohort)],
+            expected_repository_sha=provider_execution_sha,
+        )
+        for (prompt_lane, cohort), group_outcomes in sorted(cohort_groups.items())
+    ]
+
+    provider_run_repository_shas = [provider_execution_sha]
+
+    decision, diagnostics = compute_calibration_decision(
+        cohort_aggregates=cohort_aggregates,
+        seals_verified=True,
+        aggregate_build_sha=build_sha,
+        provider_run_repository_shas=provider_run_repository_shas,
+    )
+
+    calibration_id_payload = {
+        "baseline_prompt_version": baseline_prompt_version,
+        "candidate_prompt_version": candidate_prompt_version,
+        "baseline_prompt_sha256": compute_prompt_sha256(baseline_prompt_version),
+        "candidate_prompt_sha256": compute_prompt_sha256(candidate_prompt_version),
+        "holdout_case_sha256": holdout_seal.case_sha256,
+        "holdout_seal_commit_sha": holdout_seal.seal_commit_sha,
+        "adversarial_case_sha256": adversarial_seal.case_sha256,
+        "adversarial_seal_commit_sha": adversarial_seal.seal_commit_sha,
+        "model_id": model_id,
+        "repetitions": repetitions,
+        "repository_sha": build_sha,
+        "aggregate_build_sha": build_sha,
+        "provider_run_repository_shas": provider_run_repository_shas,
+        "experiment_role": experiment_role,
+        "control_adversarial_enabled": control_adversarial_enabled,
+        "control_adversarial_case_id": control_adversarial_case_id,
+        "run_matrix": [
+            {
+                "prompt_lane": entry.prompt_lane,
+                "cohort": entry.cohort,
+                "case_id": entry.case_id,
+            }
+            for entry in run_matrix
+        ],
+    }
+    calibration_id = hashlib.sha256(
+        json.dumps(calibration_id_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
+
+    aggregate = TemporalPromptCalibrationAggregateV1(
+        calibration_id=f"temporal-prompt-calibration:{calibration_id}",
+        repository_sha=build_sha,
+        aggregate_build_sha=build_sha,
+        provider_run_repository_shas=provider_run_repository_shas,
+        holdout_case_sha256=holdout_seal.case_sha256,
+        holdout_base_sha256=holdout_seal.base_sha256,
+        holdout_gold_sha256=holdout_seal.gold_sha256,
+        holdout_seal_commit_sha=holdout_seal.seal_commit_sha,
+        adversarial_case_sha256=adversarial_seal.case_sha256,
+        adversarial_base_sha256=adversarial_seal.base_sha256,
+        adversarial_gold_sha256=adversarial_seal.gold_sha256,
+        adversarial_seal_commit_sha=adversarial_seal.seal_commit_sha,
+        seals_verified=True,
+        baseline_prompt_version=baseline_prompt_version,
+        candidate_prompt_version=candidate_prompt_version,
+        candidate_prompt_sha256=compute_prompt_sha256(candidate_prompt_version),
+        baseline_prompt_sha256=compute_prompt_sha256(baseline_prompt_version),
+        model_id=model_id,
+        repetitions=repetitions,
+        experiment_role=experiment_role,
+        run_matrix=run_matrix,
+        control_adversarial_enabled=control_adversarial_enabled,
+        control_adversarial_case_id=control_adversarial_case_id,
+        slices=[
+            _build_metrics_slice(
+                prompt_lane="baseline",
+                prompt_version=baseline_prompt_version,
+                cohort_aggregates=cohort_aggregates,
+            ),
+            _build_metrics_slice(
+                prompt_lane="candidate",
+                prompt_version=candidate_prompt_version,
+                cohort_aggregates=cohort_aggregates,
+            ),
+        ],
+        decision=decision,
+        diagnostics=diagnostics,
+    )
+
+    aggregate_path = output_dir / "calibration" / "aggregate.json"
+    aggregate_path.parent.mkdir(parents=True, exist_ok=True)
+    aggregate_path.write_text(
+        json.dumps(aggregate.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return aggregate
+
+
 def _load_fake_batches(path: Path | None) -> dict[str, dict[str, Any]] | None:
     if path is None:
         return None
@@ -1760,6 +2291,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional JSON map of lane keys (baseline:development, etc.) to model batches",
     )
+    parser.add_argument(
+        "--reaggregate-only",
+        action="store_true",
+        help="Rebuild aggregate.json from on-disk run manifests (no provider calls)",
+    )
     args = parser.parse_args(argv)
 
     repo_root = _repo_root()
@@ -1770,28 +2306,54 @@ def main(argv: list[str] | None = None) -> int:
     # --fake implies skip; --skip-seal-verification alone is rejected unless fake=True.
     skip_seal = bool(args.skip_seal_verification or args.fake)
 
-    aggregate = run_prompt_calibration(
-        development_case=Path(args.development_case),
-        candidate_development_case=Path(args.candidate_development_case),
-        holdout_case=Path(args.holdout_case),
-        candidate_holdout_case=Path(args.candidate_holdout_case),
-        adversarial_case=Path(args.adversarial_case),
-        output_dir=output_dir,
-        model_id=args.model_id,
-        repetitions=args.repetitions,
-        experiment_role=args.experiment_role,
-        repo_root=repo_root,
-        holdout_seal_commit_sha=args.holdout_seal_commit,
-        adversarial_seal_commit_sha=args.adversarial_seal_commit,
-        baseline_adversarial_case=(
-            Path(args.baseline_adversarial_case)
-            if args.baseline_adversarial_case
-            else None
-        ),
-        skip_seal_verification=skip_seal,
-        fake=args.fake,
-        fake_batches=fake_batches,
-    )
+    if args.reaggregate_only:
+        if args.fake or args.skip_seal_verification:
+            raise SystemExit(
+                "--reaggregate-only cannot be combined with --fake or "
+                "--skip-seal-verification"
+            )
+        aggregate = reaggregate_existing_calibration_runs(
+            development_case=Path(args.development_case),
+            candidate_development_case=Path(args.candidate_development_case),
+            holdout_case=Path(args.holdout_case),
+            candidate_holdout_case=Path(args.candidate_holdout_case),
+            adversarial_case=Path(args.adversarial_case),
+            output_dir=output_dir,
+            model_id=args.model_id,
+            repetitions=args.repetitions,
+            experiment_role=args.experiment_role,
+            repo_root=repo_root,
+            holdout_seal_commit_sha=args.holdout_seal_commit,
+            adversarial_seal_commit_sha=args.adversarial_seal_commit,
+            baseline_adversarial_case=(
+                Path(args.baseline_adversarial_case)
+                if args.baseline_adversarial_case
+                else None
+            ),
+        )
+    else:
+        aggregate = run_prompt_calibration(
+            development_case=Path(args.development_case),
+            candidate_development_case=Path(args.candidate_development_case),
+            holdout_case=Path(args.holdout_case),
+            candidate_holdout_case=Path(args.candidate_holdout_case),
+            adversarial_case=Path(args.adversarial_case),
+            output_dir=output_dir,
+            model_id=args.model_id,
+            repetitions=args.repetitions,
+            experiment_role=args.experiment_role,
+            repo_root=repo_root,
+            holdout_seal_commit_sha=args.holdout_seal_commit,
+            adversarial_seal_commit_sha=args.adversarial_seal_commit,
+            baseline_adversarial_case=(
+                Path(args.baseline_adversarial_case)
+                if args.baseline_adversarial_case
+                else None
+            ),
+            skip_seal_verification=skip_seal,
+            fake=args.fake,
+            fake_batches=fake_batches,
+        )
     print(
         json.dumps(
             {

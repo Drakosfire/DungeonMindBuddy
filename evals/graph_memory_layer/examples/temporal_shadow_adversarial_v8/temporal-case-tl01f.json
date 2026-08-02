@@ -1,0 +1,124 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:54abc8ee0063987b",
+    "assertion:8dcf5c7d478a2612",
+    "assertion:1f441d9524c742ec",
+    "assertion:014ea4f4c1f7fc2a",
+    "assertion:1463a94a4bbb16d9",
+    "assertion:ba1dfafca14abf82",
+    "assertion:2be86ce1954e91ce",
+    "assertion:ea3165b10d3c0a33",
+    "assertion:d3b60b24092b0a35",
+    "assertion:7e167c0ecc5e572d"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:future-with-tomorrow",
+      "source_artifact_id": "source-artifact:adv8-future-with-tomorrow",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/future-with-tomorrow.md",
+      "content_sha256": "3a735f6b390d08d1d2717dc9254021da2ee720341b52feae21a5a0dd714a2e2e",
+      "source_ref_id": "source-ref:adv8-future-with-tomorrow",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "future-with-tomorrow.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:future-promise-unresolved",
+      "source_artifact_id": "source-artifact:adv8-future-promise-unresolved",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/future-promise-unresolved.md",
+      "content_sha256": "f9609e8eb3c0f2c93a4b9b8e3cd8a1d68f4bdc892e8bf239f6c2098f4112105a",
+      "source_ref_id": "source-ref:adv8-future-promise-unresolved",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "future-promise-unresolved.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:eventive-on-state",
+      "source_artifact_id": "source-artifact:adv8-eventive-on-state",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/eventive-on-state.md",
+      "content_sha256": "55e60244b71664d9ade195463a3cf0391272ac2f3bf558b54f22b21a01404824",
+      "source_ref_id": "source-ref:adv8-eventive-on-state",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "eventive-on-state.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:stative-on-event",
+      "source_artifact_id": "source-artifact:adv8-stative-on-event",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/stative-on-event.md",
+      "content_sha256": "ea316be5765a8d381f93d9251105a58dc0bfe59cb874dc9a746bf4d4b3042697",
+      "source_ref_id": "source-ref:adv8-stative-on-event",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "stative-on-event.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:valid-start-textual",
+      "source_artifact_id": "source-artifact:adv8-valid-start-textual",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/valid-start-textual.md",
+      "content_sha256": "862dbec7a153bfeedc9950605eb10559d9104e5e7b29b95c0b87fea493a55895",
+      "source_ref_id": "source-ref:adv8-valid-start-textual",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-start-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:valid-end",
+      "source_artifact_id": "source-artifact:adv8-valid-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/valid-end.md",
+      "content_sha256": "701ccb55a278bd5449e63c15acd57614a2167bcb1fcefd22a6091d2850c9ff91",
+      "source_ref_id": "source-ref:adv8-valid-end",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-end.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:still-remains",
+      "source_artifact_id": "source-artifact:adv8-still-remains",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/still-remains.md",
+      "content_sha256": "3686ef7560e7faa3a9534f163e01b4f7408180050d0493f7e89c7ba549bb2329",
+      "source_ref_id": "source-ref:adv8-still-remains",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "still-remains.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:ambiguous-lane",
+      "source_artifact_id": "source-artifact:adv8-ambiguous-lane",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/ambiguous-lane.md",
+      "content_sha256": "1f607815b8fbef58799a62f8b48bd4db7f9f465530b9d10e84d6c04202e7ee63",
+      "source_ref_id": "source-ref:adv8-ambiguous-lane",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ambiguous-lane.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:source-diff",
+      "source_artifact_id": "source-artifact:adv8-source-diff",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/source-diff.md",
+      "content_sha256": "1870ad58c15721e4de0327c0bfaeb1b0f3a9f66557a44384331a6a7cef51ac35",
+      "source_ref_id": "source-ref:adv8-source-diff",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "source-diff.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv8:grounding-trap",
+      "source_artifact_id": "source-artifact:adv8-grounding-trap",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8/sources/grounding-trap.md",
+      "content_sha256": "9ee791ed6a5a42c5b21d0ae2b30ebba93b699cb00c2056404a140598bfad89fc",
+      "source_ref_id": "source-ref:adv8-grounding-trap",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "grounding-trap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "ebd7dc8bbc7c593722fa3900cb9a91140e7197e4e895935e4a4286edf4a4a1c4",
+  "gold_overlay_sha256": "46cb2dabda7614e8c81e71d9e60a555394e537a5756916aae3e8878df48d1feb",
+  "case_id": "tl01f-temporal-shadow-adversarial-v8-v1",
+  "prompt_version": "tl01f-v1"
+}

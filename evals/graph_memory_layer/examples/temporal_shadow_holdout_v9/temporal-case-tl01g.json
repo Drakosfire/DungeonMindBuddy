@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v9/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v9/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:55773972170d06dc",
+    "assertion:9d5330af5e3759ac",
+    "assertion:7069c33bb7dba633",
+    "assertion:eecb5985f067e703",
+    "assertion:102e5a65f91f360b",
+    "assertion:89e69b985a6e9c64",
+    "assertion:f14a35b4a2bccbd2",
+    "assertion:f304db98b752c5e0",
+    "assertion:5f367431e38a0dc5",
+    "assertion:d60eaab03fc3fafe",
+    "assertion:c46d76facdaf39c7",
+    "assertion:602f7c788b16559f"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s11-meteor",
+      "source_artifact_id": "source-artifact:v9-s11-meteor",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "content_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+      "source_ref_id": "source-ref:v9-s11-meteor",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 11 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s16-forest-forecast",
+      "source_artifact_id": "source-artifact:v9-s16-forest-forecast",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+      "content_sha256": "38fe100ba220bb6faf544fe79f6b77a4c8aa0219d9535aa608ca04743caef535",
+      "source_ref_id": "source-ref:v9-s16-forest-forecast",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 16 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s3-deputize",
+      "source_artifact_id": "source-artifact:v9-s3-deputize",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+      "content_sha256": "7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec",
+      "source_ref_id": "source-ref:v9-s3-deputize",
+      "start_line": 32,
+      "end_line": 32,
+      "label": "Session 3 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s5-lysandra-rest",
+      "source_artifact_id": "source-artifact:v9-s5-lysandra-rest",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+      "content_sha256": "40a1bbd868a37af9594ae94ee5d2f6150826039e52e516727863cbc46899500c",
+      "source_ref_id": "source-ref:v9-s5-lysandra-rest",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 5 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:ledger-crystal-end",
+      "source_artifact_id": "source-artifact:v9-ledger-crystal-end",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Elderwyld_Narrative_Ledger_2.md",
+      "content_sha256": "be8c858d378358e6be11661a148a41567606845d9513e3fc02761b323d5a2b5f",
+      "source_ref_id": "source-ref:v9-ledger-crystal-end",
+      "start_line": 185,
+      "end_line": 185,
+      "label": "Elderwyld_Narrative_Ledger_2.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:mirathorn-gods",
+      "source_artifact_id": "source-artifact:v9-mirathorn-gods",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "content_sha256": "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+      "source_ref_id": "source-ref:v9-mirathorn-gods",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "The City of Mirathorn.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s9-costume",
+      "source_artifact_id": "source-artifact:v9-s9-costume",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 9 - Recap.md",
+      "content_sha256": "49ef13907bd8dff0d320fae33f88caec80bef842cd99f5412df9cb687321179a",
+      "source_ref_id": "source-ref:v9-s9-costume",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 9 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s16-roots-bowl",
+      "source_artifact_id": "source-artifact:v9-s16-roots-bowl",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+      "content_sha256": "38fe100ba220bb6faf544fe79f6b77a4c8aa0219d9535aa608ca04743caef535",
+      "source_ref_id": "source-ref:v9-s16-roots-bowl",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 16 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s5-bonogo-search",
+      "source_artifact_id": "source-artifact:v9-s5-bonogo-search",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 5 - Recap.md",
+      "content_sha256": "40a1bbd868a37af9594ae94ee5d2f6150826039e52e516727863cbc46899500c",
+      "source_ref_id": "source-ref:v9-s5-bonogo-search",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 5 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s16-dusk-decision",
+      "source_artifact_id": "source-artifact:v9-s16-dusk-decision",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+      "content_sha256": "38fe100ba220bb6faf544fe79f6b77a4c8aa0219d9535aa608ca04743caef535",
+      "source_ref_id": "source-ref:v9-s16-dusk-decision",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 16 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s17-wyvern-ambiguous",
+      "source_artifact_id": "source-artifact:v9-s17-wyvern-ambiguous",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+      "content_sha256": "6f01fc518deabfd705cfc76ba9754a72de6061f4e3e8443a0df2dbf8e088f97a",
+      "source_ref_id": "source-ref:v9-s17-wyvern-ambiguous",
+      "start_line": 22,
+      "end_line": 22,
+      "label": "Session 17 - Migrating Forest and Thrin.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v9:s1-scale-identity",
+      "source_artifact_id": "source-artifact:v9-s1-scale-identity",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 1 - Let the Games Begin.md",
+      "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+      "source_ref_id": "source-ref:v9-s1-scale-identity",
+      "start_line": 12,
+      "end_line": 13,
+      "label": "Session 1 - Let the Games Begin.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "bba8f77425429493f77e0917fefaffd04e41dea2c7b0b27b959fa0394f44c915",
+  "gold_overlay_sha256": "db774b7ed65bcc57a377a6192b2ce8e5bf6751b292f781cabc45a91a98f4cb20",
+  "case_id": "tl01g-temporal-shadow-holdout-v9-v1",
+  "prompt_version": "tl01g-v1"
+}

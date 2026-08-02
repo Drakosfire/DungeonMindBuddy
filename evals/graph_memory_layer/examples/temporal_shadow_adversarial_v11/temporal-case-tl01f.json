@@ -1,0 +1,124 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:3defdfe7707d5302",
+    "assertion:94f28a9fb6cc7abe",
+    "assertion:c8cdc823bdfb0738",
+    "assertion:b43efd877f1d6e0d",
+    "assertion:91307591c1b9b88e",
+    "assertion:ffa4b1b0b867f9b2",
+    "assertion:e89048acfdd4a926",
+    "assertion:1311d661bdfde863",
+    "assertion:33cca1e58b233fa5",
+    "assertion:3c2d04f3d858099c"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:forecast-dawn",
+      "source_artifact_id": "source-artifact:adv11-forecast-dawn",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/forecast-dawn.md",
+      "content_sha256": "144a52516e548139a6cfde1283b311eacd11f3bbcbc540aa58d429dbd5a6e9b8",
+      "source_ref_id": "source-ref:adv11-forecast-dawn",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "forecast-dawn.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:future-promise-unresolved",
+      "source_artifact_id": "source-artifact:adv11-future-promise",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/future-promise-unresolved.md",
+      "content_sha256": "541295efc96b64220b32d8a02f2af0a3330a495677cc6e6d0d9ba9d5c7415b06",
+      "source_ref_id": "source-ref:adv11-future-promise",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "future-promise-unresolved.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:persistent-restatement",
+      "source_artifact_id": "source-artifact:adv11-persistent-restatement",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/persistent-restatement.md",
+      "content_sha256": "845cfa04a8e0ef21970043e7a26805a2c3045624ca2a451c97603b5ab9589dc2",
+      "source_ref_id": "source-ref:adv11-persistent-restatement",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "persistent-restatement.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:occurrence-textual-gate-e2",
+      "source_artifact_id": "source-artifact:adv11-occurrence-e2",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/occurrence-textual-gate-e2.md",
+      "content_sha256": "aacf17890ac0a3394ec048da72fb503f6e4de87a5f9319ed7398f338bea4bbb2",
+      "source_ref_id": "source-ref:adv11-occurrence-e2",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "occurrence-textual-gate-e2.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:valid-start-textual",
+      "source_artifact_id": "source-artifact:adv11-valid-start",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/valid-start-textual.md",
+      "content_sha256": "9b4f0f10d70d4fece4f39bda876688eca00529775b8bb8e1a6cf6bdca88c4067",
+      "source_ref_id": "source-ref:adv11-valid-start",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-start-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:valid-end-textual",
+      "source_artifact_id": "source-artifact:adv11-valid-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/valid-end-textual.md",
+      "content_sha256": "e3d595f34ff5d9ca48229a9a39f9f484b67f629e45914f982a6df389c9e845c0",
+      "source_ref_id": "source-ref:adv11-valid-end",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-end-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:still-remains",
+      "source_artifact_id": "source-artifact:adv11-still-remains",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/still-remains.md",
+      "content_sha256": "5349dcbf8a8714a2cf833c3e16906ededdfc37fa1f38954805a5296e00fad97c",
+      "source_ref_id": "source-ref:adv11-still-remains",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "still-remains.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:ambiguous-lane",
+      "source_artifact_id": "source-artifact:adv11-ambiguous-lane",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/ambiguous-lane.md",
+      "content_sha256": "79932da5de3e45b7e63fcfb099d8f068122b1b45bdb245595ba9033006230d57",
+      "source_ref_id": "source-ref:adv11-ambiguous-lane",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ambiguous-lane.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:historical-textual",
+      "source_artifact_id": "source-artifact:adv11-historical",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/historical-textual.md",
+      "content_sha256": "f03acb83cd891354917c1e56c4aa67c925e472f2a3a53abddb800e0ea65f0ebd",
+      "source_ref_id": "source-ref:adv11-historical",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "historical-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv11:grounding-trap",
+      "source_artifact_id": "source-artifact:adv11-grounding-trap",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/sources/grounding-trap.md",
+      "content_sha256": "9e14bf5a05a283f8b7f334cbc67b3f629b76721e019c87e653f127b62d078596",
+      "source_ref_id": "source-ref:adv11-grounding-trap",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "grounding-trap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
+  "prompt_version": "tl01f-v1",
+  "base_contribution_sha256": "7b845c64048f7bd5b2b3cc064adb104e5120df9636bd90c7eb446b1d4d9162e6",
+  "gold_overlay_sha256": "d9dd818998aa40208b211e6c06f84a2cc724a562b37947204de43d499cac2629"
+}

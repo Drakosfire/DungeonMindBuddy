@@ -1,0 +1,124 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:77aea867bb3dbc8a",
+    "assertion:0f2eff82753b4879",
+    "assertion:6d3818f2bfe92fb1",
+    "assertion:6e23891b620a0c97",
+    "assertion:ea69d4c08a9e2373",
+    "assertion:89f983c69ca1a2b4",
+    "assertion:c245fb913a7f6cb3",
+    "assertion:a0f0ef0556974ada",
+    "assertion:6cea20d1de125912",
+    "assertion:2be1e229a5db3a88"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:forecast-dusk",
+      "source_artifact_id": "source-artifact:adv10-forecast-dusk",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/forecast-dusk.md",
+      "content_sha256": "774895f254cd6eda549a030a373aac951c19d1eb0e3eef903ddb342e50d1776f",
+      "source_ref_id": "source-ref:adv10-forecast-dusk",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "forecast-dusk.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:future-promise-unresolved",
+      "source_artifact_id": "source-artifact:adv10-future-promise-unresolved",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/future-promise-unresolved.md",
+      "content_sha256": "78f4246065aac908ac3fc09d07ba67857bf43f38f48fece34ddf32836d9cc7b0",
+      "source_ref_id": "source-ref:adv10-future-promise-unresolved",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "future-promise-unresolved.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:persistent-restatement",
+      "source_artifact_id": "source-artifact:adv10-persistent-restatement",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/persistent-restatement.md",
+      "content_sha256": "416158b8f2a9ec471a0fc5003ee0ee618506dcbf1ed582eeef03600663efcca6",
+      "source_ref_id": "source-ref:adv10-persistent-restatement",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "persistent-restatement.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:occurrence-textual-gate-e2",
+      "source_artifact_id": "source-artifact:adv10-occurrence-textual-gate-e2",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/occurrence-textual-gate-e2.md",
+      "content_sha256": "92ebdff8e2e5fe2feabd78541e8af4909b196e656dc0a7756cd140491cf92dd1",
+      "source_ref_id": "source-ref:adv10-occurrence-textual-gate-e2",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "occurrence-textual-gate-e2.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:valid-start-textual",
+      "source_artifact_id": "source-artifact:adv10-valid-start-textual",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/valid-start-textual.md",
+      "content_sha256": "cdd7282293519736bc9dc944739185490820cd52dc1e9ca1dbe89b9fb649d098",
+      "source_ref_id": "source-ref:adv10-valid-start-textual",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-start-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:valid-end-textual",
+      "source_artifact_id": "source-artifact:adv10-valid-end-textual",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/valid-end-textual.md",
+      "content_sha256": "c45b064425f67d7d8ac4ba819457c3367b2a191253399151670ef364889e9da2",
+      "source_ref_id": "source-ref:adv10-valid-end-textual",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-end-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:still-remains",
+      "source_artifact_id": "source-artifact:adv10-still-remains",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/still-remains.md",
+      "content_sha256": "9bf6854aca4ddb5eed5459f583ede18914e4047ea6a7e6ef9014a766e905ade2",
+      "source_ref_id": "source-ref:adv10-still-remains",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "still-remains.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:ambiguous-lane",
+      "source_artifact_id": "source-artifact:adv10-ambiguous-lane",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/ambiguous-lane.md",
+      "content_sha256": "309897c21edaccb5b33e377122bd9c23e560c3b1c3aadf8f730efeb822733a10",
+      "source_ref_id": "source-ref:adv10-ambiguous-lane",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ambiguous-lane.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:historical-textual",
+      "source_artifact_id": "source-artifact:adv10-historical-textual",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/historical-textual.md",
+      "content_sha256": "59a0e6a241a80f0e668db9484f160faa2300b48dba9c05d7d9b81865407db38a",
+      "source_ref_id": "source-ref:adv10-historical-textual",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "historical-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv10:grounding-trap",
+      "source_artifact_id": "source-artifact:adv10-grounding-trap",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10/sources/grounding-trap.md",
+      "content_sha256": "4d36ce003b1a8c10d096847509cf98e08e8c2c09b7c140bf75abb83fea430da7",
+      "source_ref_id": "source-ref:adv10-grounding-trap",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "grounding-trap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "6302fe13e26eda89e697d6c124dd386e0fb05708e483ab0d6fd23526b9f0c158",
+  "gold_overlay_sha256": "408cd8ddb0faeb1fe8e03b038e57bcde7ee4fac28e66953ef1d996477eedef7f",
+  "case_id": "tl01f-temporal-shadow-adversarial-v10-v1",
+  "prompt_version": "tl01f-v1"
+}

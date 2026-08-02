@@ -1,0 +1,230 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:ab2f8e08083c2636",
+  "base_contribution_id": "contribution:ddc50210d08c18c9",
+  "base_contribution_source_payload_sha256": "206d5a95f925c1099006d6e37a3b2d0b899a544fb22043c33c2e49e0e87f87c5",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-adversarial-v9",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:a900000000000001",
+      "base_assertion_id": "assertion:ea73946bbeaeab04",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "opens tomorrow",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:future-with-tomorrow"
+      ],
+      "source_phrase": "it opens tomorrow at the Ironroot Compact bell",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000002",
+      "base_assertion_id": "assertion:ac15be5e6c616661",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:future-promise-unresolved"
+      ],
+      "source_phrase": "will reopen, but only after Thornwick is secure again — with no date named",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000003",
+      "base_assertion_id": "assertion:499d287809bae583",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:eventive-on-state"
+      ],
+      "source_phrase": "Quartermaster duties at the Thornwick depot still fall to Velessa Mar",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000004",
+      "base_assertion_id": "assertion:751173f90fd7f895",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "After the Frostmere Causeway beacon topples",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:stative-on-event"
+      ],
+      "source_phrase": "After the Frostmere Causeway beacon topples, the Amberquill Codex ledger passes to Quorin Hale's custody.",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane textual; Gate E2 rejects session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000005",
+      "base_assertion_id": "assertion:4f9c81e9ebbb53c8",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has been sealed for no more than a fortnight",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:valid-start-textual"
+      ],
+      "source_phrase": "the Amberquill Codex has been sealed for no more than a fortnight",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000006",
+      "base_assertion_id": "assertion:e97a448099a98811",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "after the Thornwick audit",
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:valid-end"
+      ],
+      "source_phrase": "Velessa Mar released custody of the Ironroot Compact keys after the Thornwick audit.",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end textual; Gate E2 rejects session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000007",
+      "base_assertion_id": "assertion:fdb32e03b48c7e07",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:still-remains"
+      ],
+      "source_phrase": "Quorin Hale's Thornwick posting has not changed",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000008",
+      "base_assertion_id": "assertion:8c5f71ae9a3e553f",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:ambiguous-lane"
+      ],
+      "source_phrase": "kept the Amberquill Codex since the quay fire, or he may only have recovered it during that fire",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings: custody start vs recovery event; evidence does not reject either"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000009",
+      "base_assertion_id": "assertion:e5111722054d185e",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "about forty years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:source-diff"
+      ],
+      "source_phrase": "settled in Thornwick about forty years ago after departing the Frostmere Causeway",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event proposition; occurrence lane textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a900000000000010",
+      "base_assertion_id": "assertion:87b024606fc39c36",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:grounding-trap"
+      ],
+      "source_phrase": "claims he opened the Amberquill Codex",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "opening claim lacks grounded temporal value; object NP is not a temporal expression"
+      ]
+    }
+  ]
+}

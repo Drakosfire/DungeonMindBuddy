@@ -1,0 +1,355 @@
+{
+  "contribution_id": "contribution:dd89d67793bac0af",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v10",
+  "produced_at": "2026-08-01T17:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:b1032ae92c80e8a6",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:baergrom",
+      "target_node_id": "npc:morvian-ashen",
+      "predicate": "pushed_out_of_ring",
+      "label": "Baergrom pushed Morvian the Ashen out of the ring",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s2-monk-out",
+            "session_id": "session-2"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s2-monk-out"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:7bb98055a894cfe1",
+      "assertion_kind": "attribute",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "loc:mireward",
+      "predicate": "will_reach",
+      "label": "The group will reach Mireward around ten o'clock",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s22-mireward-arrival",
+            "session_id": "session-22"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s22-mireward-arrival"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:59c034b2884f4b64",
+      "assertion_kind": "attribute",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": null,
+      "predicate": "added_as_guest_judge",
+      "label": "Bonogo was added as a guest bake-off judge",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s3-guest-judge",
+            "session_id": "session-3"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s3-guest-judge"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:0296f5bee498e7ee",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:winna",
+      "target_node_id": null,
+      "predicate": "has_been_up_all_night",
+      "label": "Winna has been up all night keeping watch over the Dustwalker",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s9-winna-all-night",
+            "session_id": "session-9"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s9-winna-all-night"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:1afbc930bb497328",
+      "assertion_kind": "attribute",
+      "subject_node_id": "event:mirathorn-festival",
+      "target_node_id": null,
+      "predicate": "has_been_postponed",
+      "label": "The Mirathorn festival has been postponed",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s15-festival-postponed",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s15-festival-postponed"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:5b61a772b50e37f7",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": "npc:delwen-rast",
+      "predicate": "left_mireward",
+      "label": "Lysandra left Delwen Rast about eight years ago",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:lysandra-history-delwen"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:lysandra-history-delwen"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:25855c24db471810",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:town-square",
+      "target_node_id": null,
+      "predicate": "has_large_hole",
+      "label": "The town square still has a large hole in the ground",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s10-hole-still",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s10-hole-still"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:9a891f57fd6f4649",
+      "assertion_kind": "attribute",
+      "subject_node_id": "item:ephanna-fossil",
+      "target_node_id": null,
+      "predicate": "is_porcelain_fake",
+      "label": "Ephanna's fossil is porcelain rather than a real fossil",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s1-fossil-fake",
+            "session_id": "session-1"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s1-fossil-fake"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:1f40f6a3f97f3904",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "loc:swamp",
+      "predicate": "must_choose_mission",
+      "label": "The group must decide whether to continue to the swamp or turn back to Mirathorn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s21-mission-decision",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s21-mission-decision"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:1312c2e8676ea1e3",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "npc:dustwalker",
+      "predicate": "must_track_down",
+      "label": "The group must track down the bard Dustwalker for answers",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s2-dustwalker-plan",
+            "session_id": "session-2"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s2-dustwalker-plan"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:8d106dfb3664e9d2",
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:migrating-forest",
+      "target_node_id": null,
+      "predicate": "holds_schedule_or_broke_path",
+      "label": "The tree migration holds its usual schedule or broke from its usual path",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s15-migration-ambiguous",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s15-migration-ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    },
+    {
+      "assertion_id": "assertion:3cd2267165a887e5",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:hooded-observer",
+      "target_node_id": "pc:bonogo",
+      "predicate": "watched_from_stands",
+      "label": "A hooded figure watched Bonogo from the Coliseum stands",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v10:s10-hooded-watcher",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s10-hooded-watcher"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:dd89d67793bac0af"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

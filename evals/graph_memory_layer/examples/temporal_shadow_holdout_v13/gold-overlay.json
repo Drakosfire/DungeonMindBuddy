@@ -1,0 +1,287 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:0bf7b3b9a258349a",
+  "base_contribution_id": "contribution:2dd612caa509aa15",
+  "base_contribution_source_payload_sha256": "e7b690a69db392d25cd8895f50078f16b52129ad36831ed016ee7ff051ffbd26",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v13",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v130000000000001",
+      "base_assertion_id": "assertion:9baab53e44466c80",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-11",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:ogonob-storm-head"
+      ],
+      "source_phrase": "removes the head of the Storm Elemental",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane session-11"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000002",
+      "base_assertion_id": "assertion:d350cf2cef4c678b",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "starts in the morning",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:bbq-morning"
+      ],
+      "source_phrase": "There is a city wide BBQ that starts in the morning.",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "future forecast with explicit relative phrase; occurrence lane textual; Gate E2 rejects session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000003",
+      "base_assertion_id": "assertion:2664411c0ccd65d0",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-3",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:wolf-manor-base"
+      ],
+      "source_phrase": "Now the adventures have a home base inside Mirathorn",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start when deed handed in episode; Gate E3 rejects title restatement"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000004",
+      "base_assertion_id": "assertion:f1a6f1780edc1fc2",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "recently found and ransacked",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:sewer-ransacked"
+      ],
+      "source_phrase": "recently found and ransacked",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000005",
+      "base_assertion_id": "assertion:f59b518d7e4767f6",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c1",
+          "session_id": "session-7",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:rebels-represented"
+      ],
+      "source_phrase": "no longer feel represented",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end session-7; not spell-end transition"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000006",
+      "base_assertion_id": "assertion:37dcfb0a72eae5e9",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "Around five years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:shepherd-schism"
+      ],
+      "source_phrase": "Around five years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical event proposition; occurrence lane textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000007",
+      "base_assertion_id": "assertion:9ae2721c7e601c4f",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:shepherd-at-large"
+      ],
+      "source_phrase": "still at large",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000008",
+      "base_assertion_id": "assertion:7c3d1fab00dd7353",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:young-drakes"
+      ],
+      "source_phrase": "they are young drakes",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "identity/classification restatement; no temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000009",
+      "base_assertion_id": "assertion:15bef3a0902f3d44",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:wolf-decision"
+      ],
+      "source_phrase": "must decide what to do with the Wolf",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "open decision without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000010",
+      "base_assertion_id": "assertion:0365f051c8e59219",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:guard-potions"
+      ],
+      "source_phrase": "make sure each guard in the city also receives a potion",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "future commitment/plan without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000011",
+      "base_assertion_id": "assertion:44c8cce73e18e0a4",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:ambiguous-warden"
+      ],
+      "source_phrase": "became festival revenue warden when the council voted, or maybe he was only proposed then",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "competing election vs proposal readings licensed by proposition or-fork"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v130000000000012",
+      "base_assertion_id": "assertion:d25ec476e8268f16",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "postponed until dawn",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:raid-postponed"
+      ],
+      "source_phrase": "postponed until dawn",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "postponement is event/transition occurrence textual; Gate C rejects valid-end"
+      ]
+    }
+  ]
+}

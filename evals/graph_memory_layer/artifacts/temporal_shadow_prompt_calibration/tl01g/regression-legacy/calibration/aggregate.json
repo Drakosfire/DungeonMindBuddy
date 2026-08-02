@@ -1,0 +1,1254 @@
+{
+  "adversarial_base_sha256": "759a4272eca13eda6161068760cb73e0322d35ec1a8f0a91d2f12880dcb43418",
+  "adversarial_case_sha256": "03514f9196d8a975dde73d80f81b4384c92b6ff3c14c99bf87203121c9b5559f",
+  "adversarial_gold_sha256": "5faed58e0e1262eda024096df4f843845a87e6d5462d420accaba4b10376ef9d",
+  "adversarial_seal_commit_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+  "aggregate_build_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+  "baseline_prompt_sha256": "7a9d27c3a9980893f18757d7a5fe0612cf67f9aad8dfd2ccb20f9e3c667b7143",
+  "baseline_prompt_version": "tl01f-v1",
+  "calibration_id": "temporal-prompt-calibration:328ab3c9cc0c5048",
+  "candidate_prompt_sha256": "60680e1f5f574e76cfa2c9809f1292ef7daa17bab9b4b320d0427440c661b0f9",
+  "candidate_prompt_version": "tl01g-v1",
+  "control_adversarial_case_id": "tl01f-temporal-shadow-adversarial-v2",
+  "control_adversarial_enabled": true,
+  "decision": "ITERATE_PROMPT",
+  "diagnostics": [
+    "candidate_unsafe_over_resolution=2"
+  ],
+  "experiment_role": "observed_regression",
+  "holdout_base_sha256": "d24ce74f614973b6eefce9b31c17e398e906ba4413a8138ce26a0fca03abcbe9",
+  "holdout_case_sha256": "1b5e25e40a3d4769bee36a7953c9509e70481a7c446003998da731dfc469c99c",
+  "holdout_gold_sha256": "e8e62418b689eba5b2b19bf2c6b3581376e1dc72e4e15ca5fe9f6a5f9a8d947c",
+  "holdout_seal_commit_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+  "model_id": "gpt-5.4-mini",
+  "provider_run_repository_shas": [
+    "ed65f1409ff389238c6a7d8233b2c7309d7d436d"
+  ],
+  "repetitions": 3,
+  "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+  "run_matrix": [
+    {
+      "case_id": "tl01f-temporal-shadow-adversarial-v2",
+      "cohort": "adversarial",
+      "prompt_lane": "baseline"
+    },
+    {
+      "case_id": "tl01f-temporal-shadow-cohort-v1",
+      "cohort": "development",
+      "prompt_lane": "baseline"
+    },
+    {
+      "case_id": "tl01f-temporal-shadow-holdout-v1",
+      "cohort": "holdout",
+      "prompt_lane": "baseline"
+    },
+    {
+      "case_id": "tl01g-temporal-shadow-adversarial-v2",
+      "cohort": "adversarial",
+      "prompt_lane": "candidate"
+    },
+    {
+      "case_id": "tl01g-temporal-shadow-cohort-v1",
+      "cohort": "development",
+      "prompt_lane": "candidate"
+    },
+    {
+      "case_id": "tl01g-temporal-shadow-holdout-v1",
+      "cohort": "holdout",
+      "prompt_lane": "candidate"
+    }
+  ],
+  "schema": "dmb_temporal_prompt_calibration_v1",
+  "seals_verified": true,
+  "slices": [
+    {
+      "blocked_count": 0,
+      "case_ids": [
+        "tl01f-temporal-shadow-adversarial-v2",
+        "tl01f-temporal-shadow-cohort-v1",
+        "tl01f-temporal-shadow-holdout-v1"
+      ],
+      "cohort_aggregates": [
+        {
+          "assertion_stability": [
+            {
+              "base_assertion_id": "assertion:176650b913c1b469",
+              "classification_counts": {
+                "wrong_temporal_value": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 3
+              },
+              "status_counts": {
+                "resolved": 3
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-18\",\"value\":null},\"raw_expression\":\"In this episode\",\"start\":null}": 1,
+                "{\"end\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"In this episode, Pella relinquishes the harbor keys\",\"relation\":null,\"session_id\":null,\"value\":null},\"raw_expression\":null,\"start\":null}": 1,
+                "{\"end\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"relinquishes the harbor keys and returns them to the quay clerk\",\"relation\":null,\"session_id\":null,\"value\":null},\"raw_expression\":\"In this episode, Pella relinquishes the harbor keys and returns them to the quay clerk.\",\"start\":null}": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:57e6edbc69c271ec",
+              "classification_counts": {
+                "status_mismatch": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 3
+              },
+              "status_counts": {
+                "unresolved": 3
+              },
+              "valid_time_normalized_counts": {
+                "null": 3
+              }
+            },
+            {
+              "base_assertion_id": "assertion:7b251c1ef7fd9b59",
+              "classification_counts": {
+                "exact_match": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 3
+              },
+              "status_counts": {
+                "not_applicable": 3
+              },
+              "valid_time_normalized_counts": {
+                "null": 3
+              }
+            },
+            {
+              "base_assertion_id": "assertion:80ab2f97e9399d23",
+              "classification_counts": {
+                "wrong_temporal_value": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"Jorin cracked the frost seal during Session 3\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1,
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"cracked the frost seal during Session 3\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1,
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"during Session 3, long before this recounting\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 3
+              },
+              "valid_time_normalized_counts": {
+                "null": 3
+              }
+            },
+            {
+              "base_assertion_id": "assertion:9adb1fc11471c417",
+              "classification_counts": {
+                "wrong_temporal_value": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 3
+              },
+              "status_counts": {
+                "resolved": 3
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":null,\"raw_expression\":\"Records show Pella first held the harbor keys in Session 9.\",\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"first held the harbor keys in Session 9\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1,
+                "{\"end\":null,\"raw_expression\":\"Session 9\",\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-9\",\"value\":null}}": 1,
+                "{\"end\":null,\"raw_expression\":null,\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"Pella first held the harbor keys in Session 9\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              }
+            }
+          ],
+          "case_id": "tl01f-temporal-shadow-adversarial-v2",
+          "cohort": "adversarial",
+          "exact_match": {
+            "max": 1.0,
+            "median": 1.0,
+            "min": 1.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 0,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.2,
+          "min_not_applicable_accuracy": 1.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.8,
+          "prompt_lane": "baseline",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "case_id": "tl01f-temporal-shadow-adversarial-v2",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 1,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 0,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0803407c17632422006a6d73d88e4c819695004af735a365f0",
+              "repetition": 1,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 0,
+              "run_id": "temporal-shadow-run:43e388e4db8f540b",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            },
+            {
+              "case_id": "tl01f-temporal-shadow-adversarial-v2",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 1,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 0,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_06517f2cc5039833006a6d73f529d081959175eb1a69d6fae1",
+              "repetition": 2,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 0,
+              "run_id": "temporal-shadow-run:f772cf90a1b57cce",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            },
+            {
+              "case_id": "tl01f-temporal-shadow-adversarial-v2",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 1,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 0,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_033e6baa3778b297006a6d740d994081939961e1b498f47cbb",
+              "repetition": 3,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 0,
+              "run_id": "temporal-shadow-run:814a3edca2c26bba",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            }
+          ],
+          "success_count": 3,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 0,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 3,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 9
+        },
+        {
+          "assertion_stability": [
+            {
+              "base_assertion_id": "assertion:033de7c2063119b5",
+              "classification_counts": {
+                "run_failed": 2,
+                "wrong_temporal_value": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 2
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"reviving her all in one action\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:4e24f0fa3c99d487",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 2
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "not_applicable": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:a027cc13edc1ac7c",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 2
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":null,\"raw_expression\":null,\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-13\",\"value\":null}}": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:a38de7f76f5f59e3",
+              "classification_counts": {
+                "run_failed": 2,
+                "status_mismatch": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 2
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "not_applicable": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:a73b9dc9bdfaa72c",
+              "classification_counts": {
+                "exact_match": 1,
+                "run_failed": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 2
+              },
+              "occurrence_normalized_counts": {
+                "null": 1
+              },
+              "status_counts": {
+                "not_applicable": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:b2830e3195a3a692",
+              "classification_counts": {
+                "run_failed": 2,
+                "wrong_temporal_value": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 2
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"the monster is destroyed\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 1
+              }
+            }
+          ],
+          "case_id": "tl01f-temporal-shadow-cohort-v1",
+          "cohort": "development",
+          "exact_match": {
+            "max": 3.0,
+            "median": 3.0,
+            "min": 3.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 1.0,
+            "median": 1.0,
+            "min": 1.0
+          },
+          "failure_count": 2,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.5,
+          "min_not_applicable_accuracy": 1.0,
+          "min_resolved_exact_ratio": 0.3333333333333333,
+          "min_status_accuracy": 0.8333333333333334,
+          "prompt_lane": "baseline",
+          "resolved_exact_match": {
+            "max": 1.0,
+            "median": 1.0,
+            "min": 1.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "case_id": "tl01f-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 3,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 1,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_054704bc8f30b471006a6d73ce751c819686b8c924b0937934",
+              "repetition": 1,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 1,
+              "run_id": "temporal-shadow-run:6d83d8d8d8e09655",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8333333333333334,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            },
+            {
+              "case_id": "tl01f-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0ae8623281c5cd62006a6d73ec7cec8196ad4a26ac1a14f2b8",
+              "repetition": 2,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "case_id": "tl01f-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_0755488ac5889d96006a6d74058d648197bbf6584df47c97f4",
+              "repetition": 3,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 1,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 2,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 1,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 2
+        },
+        {
+          "assertion_stability": [],
+          "case_id": "tl01f-temporal-shadow-holdout-v1",
+          "cohort": "holdout",
+          "exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 3,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.0,
+          "min_not_applicable_accuracy": 0.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.0,
+          "prompt_lane": "baseline",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "case_id": "tl01f-temporal-shadow-holdout-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_09a41c2716c4cc6f006a6d73d39a448190ba96c23c64c7f1a8",
+              "repetition": 1,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "case_id": "tl01f-temporal-shadow-holdout-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_034147531c86331d006a6d73f03f3c8193af273c2587913728",
+              "repetition": 2,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "case_id": "tl01f-temporal-shadow-holdout-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "baseline",
+              "prompt_version": "tl01f-v1",
+              "provider_response_id": "resp_05c61e4cfbafad99006a6d740940d08195815dbac6a0bb5005",
+              "repetition": 3,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 0,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 3,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 0,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        }
+      ],
+      "fail_count": 1,
+      "partial_count": 0,
+      "pass_count": 2,
+      "prompt_lane": "baseline",
+      "prompt_sha256": "7a9d27c3a9980893f18757d7a5fe0612cf67f9aad8dfd2ccb20f9e3c667b7143",
+      "prompt_version": "tl01f-v1"
+    },
+    {
+      "blocked_count": 0,
+      "case_ids": [
+        "tl01g-temporal-shadow-adversarial-v2",
+        "tl01g-temporal-shadow-cohort-v1",
+        "tl01g-temporal-shadow-holdout-v1"
+      ],
+      "cohort_aggregates": [
+        {
+          "assertion_stability": [
+            {
+              "base_assertion_id": "assertion:176650b913c1b469",
+              "classification_counts": {
+                "wrong_temporal_value": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 3
+              },
+              "status_counts": {
+                "resolved": 3
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"In this episode, Pella relinquishes the harbor keys\",\"relation\":null,\"session_id\":null,\"value\":null},\"raw_expression\":\"In this episode, Pella relinquishes the harbor keys and returns them to the quay clerk.\",\"start\":null}": 1,
+                "{\"end\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"relinquishes the harbor keys\",\"relation\":null,\"session_id\":null,\"value\":null},\"raw_expression\":\"relinquishes the harbor keys\",\"start\":null}": 1,
+                "{\"end\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"relinquishes the harbor keys\",\"relation\":null,\"session_id\":null,\"value\":null},\"raw_expression\":null,\"start\":null}": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:57e6edbc69c271ec",
+              "classification_counts": {
+                "status_mismatch": 1,
+                "unsafe_over_resolution": 2
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 2,
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"countless seasons ago\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              },
+              "status_counts": {
+                "resolved": 2,
+                "unresolved": 1
+              },
+              "valid_time_normalized_counts": {
+                "null": 2,
+                "{\"end\":null,\"raw_expression\":null,\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"countless seasons ago\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              }
+            },
+            {
+              "base_assertion_id": "assertion:7b251c1ef7fd9b59",
+              "classification_counts": {
+                "exact_match": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 3
+              },
+              "status_counts": {
+                "not_applicable": 3
+              },
+              "valid_time_normalized_counts": {
+                "null": 3
+              }
+            },
+            {
+              "base_assertion_id": "assertion:80ab2f97e9399d23",
+              "classification_counts": {
+                "wrong_temporal_value": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"during Session 3\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1,
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"during Session 3, long before this recounting\",\"relation\":null,\"session_id\":null,\"value\":null}}": 2
+              },
+              "status_counts": {
+                "resolved": 3
+              },
+              "valid_time_normalized_counts": {
+                "null": 3
+              }
+            },
+            {
+              "base_assertion_id": "assertion:9adb1fc11471c417",
+              "classification_counts": {
+                "wrong_temporal_value": 3
+              },
+              "failure_counts": {},
+              "occurrence_normalized_counts": {
+                "null": 3
+              },
+              "status_counts": {
+                "resolved": 3
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":null,\"raw_expression\":\"Records show Pella first held the harbor keys in Session 9.\",\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"first held the harbor keys in Session 9\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1,
+                "{\"end\":null,\"raw_expression\":\"first held the harbor keys in Session 9\",\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"first held the harbor keys in Session 9\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1,
+                "{\"end\":null,\"raw_expression\":null,\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"textual\",\"raw_expression\":\"first held the harbor keys in Session 9\",\"relation\":null,\"session_id\":null,\"value\":null}}": 1
+              }
+            }
+          ],
+          "case_id": "tl01g-temporal-shadow-adversarial-v2",
+          "cohort": "adversarial",
+          "exact_match": {
+            "max": 1.0,
+            "median": 1.0,
+            "min": 1.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 0,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.2,
+          "min_not_applicable_accuracy": 1.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.8,
+          "prompt_lane": "candidate",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "case_id": "tl01g-temporal-shadow-adversarial-v2",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 1,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 0,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0ed1b8ba80942ae0006a6d73e73a7c81949c83543c376f9548",
+              "repetition": 1,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 0,
+              "run_id": "temporal-shadow-run:1b9cfd62a0d686e2",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            },
+            {
+              "case_id": "tl01g-temporal-shadow-adversarial-v2",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 1,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 0,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0603169e6df7cea3006a6d7401ba088193ad836e95ae4eb926",
+              "repetition": 2,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 0,
+              "run_id": "temporal-shadow-run:cd5f26ef018203d3",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 1
+            },
+            {
+              "case_id": "tl01g-temporal-shadow-adversarial-v2",
+              "cohort": "adversarial",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 1,
+              "exact_occurrence_match_count": 0,
+              "exact_valid_time_match_count": 0,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0317f74669309afb006a6d74193a6c81959cbb1c049412f520",
+              "repetition": 3,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 0,
+              "run_id": "temporal-shadow-run:bafdd2e06afd3053",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 1
+            }
+          ],
+          "success_count": 3,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 0,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 1,
+          "total_unsafe_over_resolution": 2,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 9
+        },
+        {
+          "assertion_stability": [
+            {
+              "base_assertion_id": "assertion:033de7c2063119b5",
+              "classification_counts": {
+                "exact_match": 2,
+                "run_failed": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-7\",\"value\":null}}": 2
+              },
+              "status_counts": {
+                "resolved": 2
+              },
+              "valid_time_normalized_counts": {
+                "null": 2
+              }
+            },
+            {
+              "base_assertion_id": "assertion:4e24f0fa3c99d487",
+              "classification_counts": {
+                "exact_match": 2,
+                "run_failed": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 2
+              },
+              "status_counts": {
+                "not_applicable": 2
+              },
+              "valid_time_normalized_counts": {
+                "null": 2
+              }
+            },
+            {
+              "base_assertion_id": "assertion:a027cc13edc1ac7c",
+              "classification_counts": {
+                "exact_match": 2,
+                "run_failed": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 2
+              },
+              "status_counts": {
+                "resolved": 2
+              },
+              "valid_time_normalized_counts": {
+                "{\"end\":null,\"raw_expression\":null,\"start\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-13\",\"value\":null}}": 2
+              }
+            },
+            {
+              "base_assertion_id": "assertion:a38de7f76f5f59e3",
+              "classification_counts": {
+                "run_failed": 1,
+                "status_mismatch": 2
+              },
+              "failure_counts": {
+                "grounding_failure": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 2
+              },
+              "status_counts": {
+                "not_applicable": 2
+              },
+              "valid_time_normalized_counts": {
+                "null": 2
+              }
+            },
+            {
+              "base_assertion_id": "assertion:a73b9dc9bdfaa72c",
+              "classification_counts": {
+                "exact_match": 2,
+                "run_failed": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1
+              },
+              "occurrence_normalized_counts": {
+                "null": 2
+              },
+              "status_counts": {
+                "not_applicable": 2
+              },
+              "valid_time_normalized_counts": {
+                "null": 2
+              }
+            },
+            {
+              "base_assertion_id": "assertion:b2830e3195a3a692",
+              "classification_counts": {
+                "exact_match": 2,
+                "run_failed": 1
+              },
+              "failure_counts": {
+                "grounding_failure": 1
+              },
+              "occurrence_normalized_counts": {
+                "{\"kind\":\"point\",\"point\":{\"anchor_ref\":null,\"calendar_id\":null,\"campaign_id\":\"longmont-c2\",\"certainty\":\"explicit\",\"kind\":\"session\",\"raw_expression\":null,\"relation\":null,\"session_id\":\"session-24\",\"value\":null}}": 2
+              },
+              "status_counts": {
+                "resolved": 2
+              },
+              "valid_time_normalized_counts": {
+                "null": 2
+              }
+            }
+          ],
+          "case_id": "tl01g-temporal-shadow-cohort-v1",
+          "cohort": "development",
+          "exact_match": {
+            "max": 5.0,
+            "median": 5.0,
+            "min": 5.0
+          },
+          "exact_occurrence_match": {
+            "max": 2.0,
+            "median": 2.0,
+            "min": 2.0
+          },
+          "exact_valid_time_match": {
+            "max": 1.0,
+            "median": 1.0,
+            "min": 1.0
+          },
+          "failure_count": 1,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.8333333333333334,
+          "min_not_applicable_accuracy": 1.0,
+          "min_resolved_exact_ratio": 1.0,
+          "min_status_accuracy": 0.8333333333333334,
+          "prompt_lane": "candidate",
+          "resolved_exact_match": {
+            "max": 3.0,
+            "median": 3.0,
+            "min": 3.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "case_id": "tl01g-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 5,
+              "exact_occurrence_match_count": 2,
+              "exact_valid_time_match_count": 1,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_07aba9cd10e969ac006a6d73dd167481978d90ac2dcbb04dd1",
+              "repetition": 1,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 3,
+              "run_id": "temporal-shadow-run:5231285f54d1a393",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8333333333333334,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            },
+            {
+              "case_id": "tl01g-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0b691dc5824962d4006a6d73f9351c819687d5fcaf25b38529",
+              "repetition": 2,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "case_id": "tl01g-temporal-shadow-cohort-v1",
+              "cohort": "development",
+              "evidence_selection_mismatch_count": 0,
+              "exact_match_count": 5,
+              "exact_occurrence_match_count": 2,
+              "exact_valid_time_match_count": 1,
+              "failure_code": null,
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": 1.0,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_01d8bb3288a79c70006a6d74114e7481938b4dd82b8d93db65",
+              "repetition": 3,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": 3,
+              "run_id": "temporal-shadow-run:9fe9b6b496cc4769",
+              "source_to_occurrence_false_positives": 0,
+              "source_to_valid_time_false_positives": 0,
+              "status_accuracy": 0.8333333333333334,
+              "succeeded": true,
+              "unsafe_over_resolution_count": 0
+            }
+          ],
+          "success_count": 2,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 1,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 2,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        },
+        {
+          "assertion_stability": [],
+          "case_id": "tl01g-temporal-shadow-holdout-v1",
+          "cohort": "holdout",
+          "exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_occurrence_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "exact_valid_time_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "failure_count": 3,
+          "manifest_consistency_ok": true,
+          "manifest_diagnostics": [],
+          "min_exact_match_ratio": 0.0,
+          "min_not_applicable_accuracy": 0.0,
+          "min_resolved_exact_ratio": 0.0,
+          "min_status_accuracy": 0.0,
+          "prompt_lane": "candidate",
+          "resolved_exact_match": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0
+          },
+          "run_count": 3,
+          "run_records": [
+            {
+              "case_id": "tl01g-temporal-shadow-holdout-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_014a5aaf89d1936d006a6d73e2d21481969c3790f04effcdd3",
+              "repetition": 1,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "case_id": "tl01g-temporal-shadow-holdout-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0e3db7022358985a006a6d73fd07108194a307cb4921d6d055",
+              "repetition": 2,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            },
+            {
+              "case_id": "tl01g-temporal-shadow-holdout-v1",
+              "cohort": "holdout",
+              "evidence_selection_mismatch_count": null,
+              "exact_match_count": null,
+              "exact_occurrence_match_count": null,
+              "exact_valid_time_match_count": null,
+              "failure_code": "grounding_failure",
+              "manifest_consistent": true,
+              "manifest_diagnostics": [],
+              "model_id": "gpt-5.4-mini",
+              "not_applicable_accuracy": null,
+              "prompt_lane": "candidate",
+              "prompt_version": "tl01g-v1",
+              "provider_response_id": "resp_0055d79680a29eb4006a6d74151060819497a05f359b6a4ab3",
+              "repetition": 3,
+              "repository_sha": "ed65f1409ff389238c6a7d8233b2c7309d7d436d",
+              "resolved_exact_match_count": null,
+              "run_id": null,
+              "source_to_occurrence_false_positives": null,
+              "source_to_valid_time_false_positives": null,
+              "status_accuracy": null,
+              "succeeded": false,
+              "unsafe_over_resolution_count": null
+            }
+          ],
+          "success_count": 0,
+          "total_evidence_or_case_failures": 0,
+          "total_evidence_selection_mismatches": 0,
+          "total_grounding_failures": 3,
+          "total_invalid_payloads": 0,
+          "total_model_output_failures": 0,
+          "total_provider_failures": 0,
+          "total_source_leakage_false_positives": 0,
+          "total_source_to_occurrence_false_positives": 0,
+          "total_source_to_valid_time_false_positives": 0,
+          "total_status_mismatch": 0,
+          "total_unsafe_over_resolution": 0,
+          "total_wrong_temporal_lane": 0,
+          "total_wrong_temporal_value": 0
+        }
+      ],
+      "fail_count": 2,
+      "partial_count": 0,
+      "pass_count": 1,
+      "prompt_lane": "candidate",
+      "prompt_sha256": "60680e1f5f574e76cfa2c9809f1292ef7daa17bab9b4b320d0427440c661b0f9",
+      "prompt_version": "tl01g-v1"
+    }
+  ]
+}

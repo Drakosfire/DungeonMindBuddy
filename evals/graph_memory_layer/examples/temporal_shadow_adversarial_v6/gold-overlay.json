@@ -1,0 +1,243 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:4bf32eb09e5de0a1",
+  "base_contribution_id": "contribution:f2a97bd6d4bfedd0",
+  "base_contribution_source_payload_sha256": "f4c44c04bc7083678d2351952182c90d18378de3319a34e597f4c8e739700f40",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-adversarial-v6",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:a600000000000001",
+      "base_assertion_id": "assertion:f9c1ab0f287836b9",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:future-promise"
+      ],
+      "source_phrase": "promised to deliver the Saltglass Register to the Dawnspine Compact before the next moon",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000002",
+      "base_assertion_id": "assertion:22c520837a9412a0",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "in about three hours",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:relative-forecast"
+      ],
+      "source_phrase": "will arrive in about three hours",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000003",
+      "base_assertion_id": "assertion:ebf11828bd139342",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:eventive-on-state"
+      ],
+      "source_phrase": "Nymera as she continues to hold the Saltglass Register",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000004",
+      "base_assertion_id": "assertion:0da780f066aa0084",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:stative-on-event"
+      ],
+      "source_phrase": "she seals Briarwick against Kestrel Vale raiders",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000005",
+      "base_assertion_id": "assertion:fc2d5410a9718cef",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "Only since the Saltglass Register was opened last winter",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:valid-start-textual"
+      ],
+      "source_phrase": "Only since the Saltglass Register was opened last winter has Nymera reported",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000006",
+      "base_assertion_id": "assertion:02449b27060f145c",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-11",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:valid-end"
+      ],
+      "source_phrase": "Nymera no longer controls the Ironreed Causeway seal",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000007",
+      "base_assertion_id": "assertion:9e0360f8db54db89",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:still-remains"
+      ],
+      "source_phrase": "Nymera still serves with the Dawnspine Compact wardens",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000008",
+      "base_assertion_id": "assertion:0961a0569de5e37c",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:ambiguous-lane"
+      ],
+      "source_phrase": "has held the Saltglass Register since the Briarwick fire, or maybe she only recovered it then",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings: custody start vs recovery event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000009",
+      "base_assertion_id": "assertion:c8101a02448d4330",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "about thirty years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:source-diff"
+      ],
+      "source_phrase": "Nymera left the Ironreed Causeway about thirty years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event proposition; occurrence lane textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a600000000000010",
+      "base_assertion_id": "assertion:e3e1a47d21a94a23",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "opened the Saltglass Register at Briarwick yesterday",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv6:grounding-trap"
+      ],
+      "source_phrase": "opened the Saltglass Register at Briarwick yesterday",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event proposition; verbatim grounding required; paraphrase invalid"
+      ]
+    }
+  ]
+}

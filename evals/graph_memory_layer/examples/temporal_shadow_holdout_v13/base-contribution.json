@@ -1,0 +1,350 @@
+{
+  "contribution_id": "contribution:2dd612caa509aa15",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v13",
+  "produced_at": "2026-08-01T21:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:9baab53e44466c80",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:ogonob",
+      "target_node_id": null,
+      "predicate": "removes_head",
+      "label": "Ogonob removes the head of the Storm Elemental",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:ogonob-storm-head",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:ogonob-storm-head"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:d350cf2cef4c678b",
+      "assertion_kind": "edge",
+      "subject_node_id": "event:city-wide-bbq",
+      "target_node_id": null,
+      "predicate": "bbq_starts",
+      "label": "A city-wide BBQ will start in the morning",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:bbq-morning",
+            "session_id": "session-9"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:bbq-morning"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c1",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:2664411c0ccd65d0",
+      "assertion_kind": "edge",
+      "subject_node_id": "org:questionable-company",
+      "target_node_id": "loc:wolf-manor",
+      "predicate": "holds_home_base",
+      "label": "Questionable Company holds Wolf's Manor as their Mirathorn home base",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:wolf-manor-base",
+            "session_id": "session-3"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:wolf-manor-base"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:f1a6f1780edc1fc2",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:sewer-loot-chamber",
+      "target_node_id": null,
+      "predicate": "is_ransacked",
+      "label": "The sewer loot chamber has been ransacked by the cult",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:sewer-ransacked",
+            "session_id": "session-16"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:sewer-ransacked"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:f59b518d7e4767f6",
+      "assertion_kind": "attribute",
+      "subject_node_id": "org:mirathorn-rebels",
+      "target_node_id": null,
+      "predicate": "feel_represented",
+      "label": "The rebel humans feel represented in Mirathorn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:rebels-represented",
+            "session_id": "session-7"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:rebels-represented"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c1",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:37dcfb0a72eae5e9",
+      "assertion_kind": "edge",
+      "subject_node_id": "org:proto-shepherd-faction",
+      "target_node_id": null,
+      "predicate": "departed_mirathorn",
+      "label": "The proto-Shepherd faction departed Mirathorn in a schism about five years ago",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:shepherd-schism",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:shepherd-schism"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:9ae2721c7e601c4f",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:true-shepherd",
+      "target_node_id": null,
+      "predicate": "is_at_large",
+      "label": "The true Shepherd is still at large",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:shepherd-at-large",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:shepherd-at-large"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:7c3d1fab00dd7353",
+      "assertion_kind": "attribute",
+      "subject_node_id": "creature:nest-reptiles",
+      "target_node_id": null,
+      "predicate": "classified_as",
+      "label": "The nest reptiles are young drakes",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:young-drakes",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:young-drakes"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:15bef3a0902f3d44",
+      "assertion_kind": "edge",
+      "subject_node_id": "org:questionable-company",
+      "target_node_id": null,
+      "predicate": "must_decide_wolf",
+      "label": "The group must decide what to do with the Wolf",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:wolf-decision",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:wolf-decision"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c1",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:0365f051c8e59219",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:thalia-ashenvale",
+      "target_node_id": null,
+      "predicate": "intends_guard_potions",
+      "label": "Thalia intends that every city guard receives a potion",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:guard-potions",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:guard-potions"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c1",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:44c8cce73e18e0a4",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:grobnok",
+      "target_node_id": null,
+      "predicate": "became_warden_or_proposed",
+      "label": "Grobnok became festival revenue warden when the council voted or was only proposed then",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:ambiguous-warden",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:ambiguous-warden"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    },
+    {
+      "assertion_id": "assertion:d25ec476e8268f16",
+      "assertion_kind": "edge",
+      "subject_node_id": "event:council-raid",
+      "target_node_id": null,
+      "predicate": "raid_postponed",
+      "label": "The council raid on the compromised guardhouse has been postponed until dawn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v13:raid-postponed",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v13:raid-postponed"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2dd612caa509aa15"
+    }
+  ]
+}

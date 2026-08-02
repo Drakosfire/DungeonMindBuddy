@@ -1,0 +1,274 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:8bf2bf9a5055ec86",
+  "base_contribution_id": "contribution:aeb023c880aac132",
+  "base_contribution_source_payload_sha256": "3b031894c37b1ccaf135bc8cc158a1fd36fe89313ad0e762893d46df56fdd5ff",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v9",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v900000000000001",
+      "base_assertion_id": "assertion:55773972170d06dc",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-11",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s11-meteor"
+      ],
+      "source_phrase": "a huge meteor crashes down into the arena",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000002",
+      "base_assertion_id": "assertion:9d5330af5e3759ac",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "in a day and a half",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s16-forest-forecast"
+      ],
+      "source_phrase": "the trees would reach Mossford in a day and a half",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000003",
+      "base_assertion_id": "assertion:7069c33bb7dba633",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-3",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s3-deputize"
+      ],
+      "source_phrase": "agrees to deputize the adventures",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000004",
+      "base_assertion_id": "assertion:eecb5985f067e703",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has not been able to get any rest",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s5-lysandra-rest"
+      ],
+      "source_phrase": "she has not been able to get any rest",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual; reject copying session-5 as start"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000005",
+      "base_assertion_id": "assertion:102e5a65f91f360b",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "no longer neutral",
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:ledger-crystal-end"
+      ],
+      "source_phrase": "The crystal is no longer neutral",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000006",
+      "base_assertion_id": "assertion:89e69b985a6e9c64",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "Long ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:mirathorn-gods"
+      ],
+      "source_phrase": "Long ago, the gods lost to the other things",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical event proposition; occurrence lane textual without session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000007",
+      "base_assertion_id": "assertion:f14a35b4a2bccbd2",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s9-costume"
+      ],
+      "source_phrase": "head to Miss Thistlebottom\u2019s Emporium to sign up for the costume contest",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "ongoing plan restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000008",
+      "base_assertion_id": "assertion:f304db98b752c5e0",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s16-roots-bowl"
+      ],
+      "source_phrase": "an enormous web of roots acting as a bowl holding water",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "static structural proposition; no temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000009",
+      "base_assertion_id": "assertion:5f367431e38a0dc5",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s5-bonogo-search"
+      ],
+      "source_phrase": "Bonogo leaves the manor in search of the Gilded Fold",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000010",
+      "base_assertion_id": "assertion:d60eaab03fc3fafe",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s16-dusk-decision"
+      ],
+      "source_phrase": "The group must make a final decision on the next steps",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "plan urgency without grounded occurrence time distinct from session provenance"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000011",
+      "base_assertion_id": "assertion:c46d76facdaf39c7",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s17-wyvern-ambiguous"
+      ],
+      "source_phrase": "the wyvern that has been tracking them emerges from the mist",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings encoded in proposition: ongoing tracking state vs emergence event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v900000000000012",
+      "base_assertion_id": "assertion:602f7c788b16559f",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s1-scale-identity"
+      ],
+      "source_phrase": "it was not of a dragon that currently exists",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "identity/contradictory readings about scale origin without unique-lane proof"
+      ]
+    }
+  ]
+}

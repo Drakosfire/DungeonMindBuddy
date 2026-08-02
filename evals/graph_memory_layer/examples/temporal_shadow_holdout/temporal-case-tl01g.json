@@ -1,0 +1,91 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01g-temporal-shadow-holdout-v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout/base-contribution.json",
+  "base_contribution_sha256": "d24ce74f614973b6eefce9b31c17e398e906ba4413a8138ce26a0fca03abcbe9",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout/gold-overlay.json",
+  "gold_overlay_sha256": "e8e62418b689eba5b2b19bf2c6b3581376e1dc72e4e15ca5fe9f6a5f9a8d947c",
+  "selected_assertion_ids": [
+    "assertion:e8928fdf42ed899b",
+    "assertion:e1107056b95677ea",
+    "assertion:dc5df997c1f83736",
+    "assertion:611986efd886c01f",
+    "assertion:c6b660b1b92cfa6e",
+    "assertion:724a3007ebdf2478",
+    "assertion:9ae29cfddddf92c9"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01c-holdout:s8-portal",
+      "source_artifact_id": "source-artifact:s8-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+      "content_sha256": "f62cfae78793590a732b13de389be31c1299270d3823b65bd0d8d325e9c96840",
+      "source_ref_id": "source-ref:s8-recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 8 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-holdout:s8-coord",
+      "source_artifact_id": "source-artifact:s8-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+      "content_sha256": "f62cfae78793590a732b13de389be31c1299270d3823b65bd0d8d325e9c96840",
+      "source_ref_id": "source-ref:s8-recap",
+      "start_line": 17,
+      "end_line": 17,
+      "label": "Session 8 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-holdout:s14-crypt",
+      "source_artifact_id": "source-artifact:s14-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+      "content_sha256": "99ea4cce27aca2db6670fdfab3bc76e495bbf8a886733441a93416ab7a503823",
+      "source_ref_id": "source-ref:s14-recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 14 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-holdout:s11-inn",
+      "source_artifact_id": "source-artifact:s11-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "content_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+      "source_ref_id": "source-ref:s11-recap",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 11 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-holdout:s8-sorin",
+      "source_artifact_id": "source-artifact:s8-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+      "content_sha256": "f62cfae78793590a732b13de389be31c1299270d3823b65bd0d8d325e9c96840",
+      "source_ref_id": "source-ref:s8-recap",
+      "start_line": 17,
+      "end_line": 17,
+      "label": "Session 8 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-holdout:s11-professor",
+      "source_artifact_id": "source-artifact:s11-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "content_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+      "source_ref_id": "source-ref:s11-recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 11 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-holdout:s18-mother",
+      "source_artifact_id": "source-artifact:s18-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 18 - Recap.md",
+      "content_sha256": "e920bb658a5bc5bd56cb576d3a9071fbb9df71a30e93117596efb7a98e8d1d7c",
+      "source_ref_id": "source-ref:s18-recap",
+      "start_line": 22,
+      "end_line": 22,
+      "label": "Session 18 - Recap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01g-v1"
+}

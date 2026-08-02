@@ -1,0 +1,294 @@
+{
+  "contribution_id": "contribution:d7fe2d9530de5f5a",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v11",
+  "produced_at": "2026-08-01T21:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:3defdfe7707d5302",
+      "assertion_kind": "edge",
+      "subject_node_id": "event:salt-caravan",
+      "target_node_id": "loc:glimmerfen",
+      "predicate": "reaches_at_dawn",
+      "label": "The salt caravan reaches Glimmerfen at dawn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:forecast-dawn",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:forecast-dawn"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:94f28a9fb6cc7abe",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": "org:rootward-compact",
+      "predicate": "pledges_petition",
+      "label": "Orla Fenwick pledges to petition the Rootward Compact when preparations allow",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:future-promise-unresolved",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:future-promise-unresolved"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:c8cdc823bdfb0738",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": null,
+      "predicate": "holds_fen_watching_duties",
+      "label": "Fen-watching duties still rest with Orla Fenwick",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:persistent-restatement",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:persistent-restatement"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:b43efd877f1d6e0d",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": "feature:glasspetal-codex",
+      "predicate": "hands_codex",
+      "label": "Orla Fenwick hands the Glasspetal Codex to the Brinearch Quay receiver after the harbor beacon fires",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:occurrence-textual-gate-e2",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:occurrence-textual-gate-e2"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:91307591c1b9b88e",
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:glasspetal-codex",
+      "target_node_id": null,
+      "predicate": "stayed_sealed",
+      "label": "The Glasspetal Codex has stayed sealed since midwinter",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:valid-start-textual",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:valid-start-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:ffa4b1b0b867f9b2",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": "org:rootward-compact",
+      "predicate": "no_longer_speaks_for",
+      "label": "Orla Fenwick no longer speaks for the Rootward Compact following the fen vote",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:valid-end-textual",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:valid-end-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:e89048acfdd4a926",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": null,
+      "predicate": "refuses_summons",
+      "label": "Orla Fenwick still refuses every Glimmerfen summons",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:still-remains",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:still-remains"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:1311d661bdfde863",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": null,
+      "predicate": "elected_or_announced",
+      "label": "Orla Fenwick was elected chancellor at the solstice moot or only announced then",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:ambiguous-lane",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:ambiguous-lane"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:33cca1e58b233fa5",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": "loc:glimmerfen",
+      "predicate": "left_coast",
+      "label": "Orla Fenwick left the coast three winters earlier",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:historical-textual",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:historical-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    },
+    {
+      "assertion_id": "assertion:3c2d04f3d858099c",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:orla-fenwick",
+      "target_node_id": "feature:glasspetal-codex",
+      "predicate": "claims_codex_opened",
+      "label": "Orla Fenwick claims the Glasspetal Codex opened",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv11:grounding-trap",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv11:grounding-trap"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:d7fe2d9530de5f5a"
+    }
+  ]
+}

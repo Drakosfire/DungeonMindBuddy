@@ -1,0 +1,287 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:fff4ffb494373d72",
+  "base_contribution_id": "contribution:dd89d67793bac0af",
+  "base_contribution_source_payload_sha256": "00672b96121061c4314f893b11950e4159bfcb58c49af344f29b543fd1a45fc8",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v10",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v1000000000000001",
+      "base_assertion_id": "assertion:b1032ae92c80e8a6",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-2",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s2-monk-out"
+      ],
+      "source_phrase": "Baergrom is first to react, jumping up and then with a mighty shove, pushes the monk out of the ring",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000002",
+      "base_assertion_id": "assertion:7bb98055a894cfe1",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "around 10 o'clock",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s22-mireward-arrival"
+      ],
+      "source_phrase": "they can make it to Mireward around 10 o'clock",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000003",
+      "base_assertion_id": "assertion:59c034b2884f4b64",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "session_id": "session-3",
+          "campaign_id": "longmont-c2",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "inferred"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s22-lieutenant-rank"
+      ],
+      "source_phrase": "he was added as guest judge",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start lane; Bonogo added as guest judge"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000004",
+      "base_assertion_id": "assertion:0296f5bee498e7ee",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "session_id": null,
+          "campaign_id": "longmont-c2",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has been up all night",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s5-guards-festival"
+      ],
+      "source_phrase": "She has been up all night keeping watch over the Dustwalker",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000005",
+      "base_assertion_id": "assertion:1afbc930bb497328",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has been postponed",
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s15-festival-postponed"
+      ],
+      "source_phrase": "Much less lively now that the festival has been postponed",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000006",
+      "base_assertion_id": "assertion:5b61a772b50e37f7",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "~8 years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:lysandra-history-delwen"
+      ],
+      "source_phrase": "almost-fiancée (~8 years ago). Lysandra left for one Mirathorn season",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical event proposition; occurrence lane textual without session source_time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000007",
+      "base_assertion_id": "assertion:25855c24db471810",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s10-hole-still"
+      ],
+      "source_phrase": "the large hole still in the ground",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000008",
+      "base_assertion_id": "assertion:9a891f57fd6f4649",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s1-fossil-fake"
+      ],
+      "source_phrase": "this fossil is a fake",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "identity or classification proposition; Gate B not eligible"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000009",
+      "base_assertion_id": "assertion:1f40f6a3f97f3904",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s21-mission-decision"
+      ],
+      "source_phrase": "Now the group must decide: continue on their mission to the swamp, or turn back",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "plan urgency without grounded occurrence time distinct from session provenance"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000010",
+      "base_assertion_id": "assertion:1312c2e8676ea1e3",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s2-dustwalker-plan"
+      ],
+      "source_phrase": "they need to track down that bard, Dustwalker, and get some answers",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000011",
+      "base_assertion_id": "assertion:8d106dfb3664e9d2",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s15-migration-ambiguous"
+      ],
+      "source_phrase": "The tree migration usually follows a schedule and a usual path, but this migration is following neither",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings encoded in proposition: on-schedule migration vs off-path deviation"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1000000000000012",
+      "base_assertion_id": "assertion:3cd2267165a887e5",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-10",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v10:s10-hooded-watcher"
+      ],
+      "source_phrase": "a dark hooded figure watching from the stands",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    }
+  ]
+}

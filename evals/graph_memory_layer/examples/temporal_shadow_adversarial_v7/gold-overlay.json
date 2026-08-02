@@ -1,0 +1,243 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:084259ad2cf2b619",
+  "base_contribution_id": "contribution:057905bf6148d120",
+  "base_contribution_source_payload_sha256": "2745950e543a386ffbfc901eb2c6af5ba9bdc4b115613f6de2233c2d93d84089",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-adversarial-v7",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:a700000000000001",
+      "base_assertion_id": "assertion:9b628ba543c7272a",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:future-promise-unresolved"
+      ],
+      "source_phrase": "swears the Moonshard Index will be opened tomorrow",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000002",
+      "base_assertion_id": "assertion:1ae92706476f933c",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "in three hours",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:future-relative-forecast"
+      ],
+      "source_phrase": "will reach Hollowmere in three hours",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000003",
+      "base_assertion_id": "assertion:29c2942e16f88208",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:eventive-on-state"
+      ],
+      "source_phrase": "Sablewick remains quartermaster of the Ashen Compact",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000004",
+      "base_assertion_id": "assertion:d9f09ff40eaf1b70",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:stative-on-event"
+      ],
+      "source_phrase": "after the Hollowmere beacon topples",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000005",
+      "base_assertion_id": "assertion:88538dc85550a4f1",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "has been sealed for no more than a fortnight",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:valid-start-textual"
+      ],
+      "source_phrase": "The Moonshard Index has been sealed for no more than a fortnight",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000006",
+      "base_assertion_id": "assertion:3a6b1ffb645c4658",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-11",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:valid-end"
+      ],
+      "source_phrase": "Sablewick no longer keeps the Ashen Compact keys",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000007",
+      "base_assertion_id": "assertion:3d1dd595fa691432",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:still-remains"
+      ],
+      "source_phrase": "Torren Vale still serves Hollowmere",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000008",
+      "base_assertion_id": "assertion:72955eea4480beaa",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:ambiguous-lane"
+      ],
+      "source_phrase": "has the Moonshard Index since the quay fire, or maybe he only recovered it then",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing readings: custody start vs recovery event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000009",
+      "base_assertion_id": "assertion:43c2e5a1fa3b97c4",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "about forty years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:source-diff"
+      ],
+      "source_phrase": "Sablewick left Glassfen Causeway about forty years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event proposition; occurrence lane textual; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a700000000000010",
+      "base_assertion_id": "assertion:0bf0c61c77162940",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "Ashen Compact oath-bell",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:grounding-trap"
+      ],
+      "source_phrase": "Ashen Compact oath-bell",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event proposition; verbatim grounding required; paraphrase invalid"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,287 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:57697a14f6702a5e",
+  "base_contribution_id": "contribution:9d3959551ab8adf6",
+  "base_contribution_source_payload_sha256": "13b515d5c552c434c0e1c5efe3648afc19efffda7ca3c5e967175c148e4cd70a",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v12",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v1200000000000001",
+      "base_assertion_id": "assertion:efc298e2a6bec2b0",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-24",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s24-battle-end"
+      ],
+      "source_phrase": "Finally Thrin finishes off the writhing creature, ending the battle",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane session-24"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000002",
+      "base_assertion_id": "assertion:2b5ef3de2b4b1059",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "the next day",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s24-call-back"
+      ],
+      "source_phrase": "He will call them back the next day to check in",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "future forecast with explicit relative phrase; occurrence lane textual; Gate E2 rejects session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000003",
+      "base_assertion_id": "assertion:834ecae619a6b1b7",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-14",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s14-plume-supplies"
+      ],
+      "source_phrase": "He agrees to prepare the basic travel supplies and will have them ready in the morning",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; responsibility accepted in episode; valid-start session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000004",
+      "base_assertion_id": "assertion:96970bf74a4cce6b",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "Recently freed",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:thalia-free-wolf"
+      ],
+      "source_phrase": "Recently freed from The Wolf’s manipulation",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual; Gate E2 rejects session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000005",
+      "base_assertion_id": "assertion:dae970dc08ef5ef1",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-20",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s20-spell-ends"
+      ],
+      "source_phrase": "Finally, after drinking the tea, Lysandra comes out of the spell",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end session-20; Gate C end boundary (comes out of)"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000006",
+      "base_assertion_id": "assertion:49f1ac3344d4de55",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "~8 years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:delwen-fiancee"
+      ],
+      "source_phrase": "**Almost-fiancée** of young **Lysandra Ironveil** (~8 years ago)",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical relationship proposition; occurrence lane textual; Gate E2 rejects session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000007",
+      "base_assertion_id": "assertion:8c7ef835b1dcf67c",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s14-winna-stressed"
+      ],
+      "source_phrase": "Winna is even more stressed out than usual",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent observation restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000008",
+      "base_assertion_id": "assertion:46d5c1457586affc",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s17-woodland-elf"
+      ],
+      "source_phrase": "The figure looks like a woodland elf",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "identity or classification proposition; Gate B not eligible"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000009",
+      "base_assertion_id": "assertion:5b4b858b5da878d0",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s23-mission-decide"
+      ],
+      "source_phrase": "help out her hometown or go directly north to help Edge",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "decision urgency without grounded occurrence time distinct from session provenance"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000010",
+      "base_assertion_id": "assertion:fe496e343ef117a7",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s19-stafl-plan"
+      ],
+      "source_phrase": "Stafl begins to form a plan",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000011",
+      "base_assertion_id": "assertion:1ae2b75b88380c5f",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:s21-iridescent-scale"
+      ],
+      "source_phrase": "She picks up an iridescent scale, still warm to the touch",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "competing occurrence vs valid-start readings licensed by proposition or-fork"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1200000000000012",
+      "base_assertion_id": "assertion:898d34312f32993b",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "postponed indefinitely",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v12:ledger-festival"
+      ],
+      "source_phrase": "Festival postponed indefinitely",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "postponement is event/transition occurrence textual; Gate C rejects valid-end for postponement"
+      ]
+    }
+  ]
+}

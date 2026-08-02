@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v13/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v13/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:9baab53e44466c80",
+    "assertion:d350cf2cef4c678b",
+    "assertion:2664411c0ccd65d0",
+    "assertion:f1a6f1780edc1fc2",
+    "assertion:f59b518d7e4767f6",
+    "assertion:37dcfb0a72eae5e9",
+    "assertion:9ae2721c7e601c4f",
+    "assertion:7c3d1fab00dd7353",
+    "assertion:15bef3a0902f3d44",
+    "assertion:0365f051c8e59219",
+    "assertion:44c8cce73e18e0a4",
+    "assertion:d25ec476e8268f16"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:ogonob-storm-head",
+      "source_artifact_id": "source-artifact:holdout-v13-ogonob-storm-head",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 11 - Recap.md",
+      "content_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+      "source_ref_id": "source-ref:holdout-v13-ogonob-storm-head",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 11 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:bbq-morning",
+      "source_artifact_id": "source-artifact:holdout-v13-bbq-morning",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+      "content_sha256": "ee4c45abbc94269adf0c5d3de90d92b27c4d77f46fa3a8e8259ae9327e8a31f7",
+      "source_ref_id": "source-ref:holdout-v13-bbq-morning",
+      "start_line": 26,
+      "end_line": 26,
+      "label": "Session 9 - Battle with the Meat Monsters.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:wolf-manor-base",
+      "source_artifact_id": "source-artifact:holdout-v13-wolf-manor-base",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+      "content_sha256": "7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec",
+      "source_ref_id": "source-ref:holdout-v13-wolf-manor-base",
+      "start_line": 28,
+      "end_line": 28,
+      "label": "Session 3 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:sewer-ransacked",
+      "source_artifact_id": "source-artifact:holdout-v13-sewer-ransacked",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/Sewers/loot_room.md",
+      "content_sha256": "13e3a467dd150a69a4e0e5efa2b2e980e8957d4e9cd6b1aade0799e41e67cdb2",
+      "source_ref_id": "source-ref:holdout-v13-sewer-ransacked",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "loot_room.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:rebels-represented",
+      "source_artifact_id": "source-artifact:holdout-v13-rebels-represented",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+      "content_sha256": "cca895ea6c64d72d248cf40e50de48ad3f710d3681237a749cc689efad9ec365",
+      "source_ref_id": "source-ref:holdout-v13-rebels-represented",
+      "start_line": 44,
+      "end_line": 44,
+      "label": "Session 7 - Passing Mirathorn Gates.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:shepherd-schism",
+      "source_artifact_id": "source-artifact:holdout-v13-shepherd-schism",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/The cult of the Great  Shephard.md",
+      "content_sha256": "59f5cd30187d17a6c3e78fef8d5b27d3972984bb5913c0e43ef1c8d4b421ad1e",
+      "source_ref_id": "source-ref:holdout-v13-shepherd-schism",
+      "start_line": 21,
+      "end_line": 21,
+      "label": "The cult of the Great  Shephard.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:shepherd-at-large",
+      "source_artifact_id": "source-artifact:holdout-v13-shepherd-at-large",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md",
+      "content_sha256": "7f1d6c36675f9910d13f6dbeff3fd11847e943eec3f32b83f3727043a6779c83",
+      "source_ref_id": "source-ref:holdout-v13-shepherd-at-large",
+      "start_line": 84,
+      "end_line": 84,
+      "label": "# _Campaign Summary_ Mirathorn Post-Cultist Battle_.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:young-drakes",
+      "source_artifact_id": "source-artifact:holdout-v13-young-drakes",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "content_sha256": "ad4ecd013dad92cdcb1a11d412c9f73adb446b15f2ce62cfc50a98358588423f",
+      "source_ref_id": "source-ref:holdout-v13-young-drakes",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 21 - Drake Nest Mirathorn Call.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:wolf-decision",
+      "source_artifact_id": "source-artifact:holdout-v13-wolf-decision",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+      "content_sha256": "26abfa1c2dbac1f8e5a486ea847ca2c5ae1d83c622a18ef552263f848fe2081d",
+      "source_ref_id": "source-ref:holdout-v13-wolf-decision",
+      "start_line": 56,
+      "end_line": 56,
+      "label": "Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:guard-potions",
+      "source_artifact_id": "source-artifact:holdout-v13-guard-potions",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md",
+      "content_sha256": "26abfa1c2dbac1f8e5a486ea847ca2c5ae1d83c622a18ef552263f848fe2081d",
+      "source_ref_id": "source-ref:holdout-v13-guard-potions",
+      "start_line": 56,
+      "end_line": 56,
+      "label": "Session 12 - One Persistent Bugbear or Sneaky Fucking Bugbear.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:ambiguous-warden",
+      "source_artifact_id": "source-artifact:holdout-v13-ambiguous-warden",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v13/sources/ambiguous-warden.md",
+      "content_sha256": "627a306b4f89403ebc6088339662b5d1d42d28f3c9d98bb0d2a2e62a84e0d763",
+      "source_ref_id": "source-ref:holdout-v13-ambiguous-warden",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ambiguous-warden.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v13:raid-postponed",
+      "source_artifact_id": "source-artifact:holdout-v13-raid-postponed",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v13/sources/raid-postponed.md",
+      "content_sha256": "15a3c1f440b9492e7009fe8ee1be60e5fe792bc91f44d4dace3a039a6eba1f63",
+      "source_ref_id": "source-ref:holdout-v13-raid-postponed",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "raid-postponed.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "case_id": "tl01f-temporal-shadow-holdout-v13-v1",
+  "prompt_version": "tl01f-v1",
+  "base_contribution_sha256": "5eac94325078f8e8a8bada25caf61258cb1112201a21012fd30dce1a34974d38",
+  "gold_overlay_sha256": "05c284aa2b2aed89c25f572bb2621ae6f02b82100864446312da4d64f79c7357"
+}

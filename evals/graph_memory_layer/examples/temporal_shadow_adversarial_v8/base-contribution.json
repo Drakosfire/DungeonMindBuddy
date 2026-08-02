@@ -1,0 +1,294 @@
+{
+  "contribution_id": "contribution:9a5e2a5b3c358efd",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v8",
+  "produced_at": "2026-08-01T17:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:calyx-thorne",
+      "target_node_id": "feature:emberleaf-index",
+      "predicate": "will_open_emberleaf_index",
+      "label": "Calyx Thorne confirms the Emberleaf Index opens tomorrow",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:future-with-tomorrow",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:future-with-tomorrow"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:54abc8ee0063987b",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:merridan",
+      "target_node_id": "loc:stormglass-causeway-vault",
+      "predicate": "promised_reopen_vault",
+      "label": "Merridan pledged the Stormglass Causeway vault will reopen",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:future-promise-unresolved",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:future-promise-unresolved"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:8dcf5c7d478a2612",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:merridan",
+      "target_node_id": null,
+      "predicate": "remains_quartermaster",
+      "label": "Merridan remains quartermaster of the Cinder Compact",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:eventive-on-state",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:eventive-on-state"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:1f441d9524c742ec",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:calyx-thorne",
+      "target_node_id": "feature:emberleaf-index",
+      "predicate": "secured_ledger",
+      "label": "Calyx Thorne secured the Emberleaf Index ledger",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:stative-on-event",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:stative-on-event"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:014ea4f4c1f7fc2a",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:emberleaf-index",
+      "target_node_id": null,
+      "predicate": "has_been_sealed",
+      "label": "The Emberleaf Index has been sealed",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:valid-start-textual",
+            "session_id": "session-9"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:valid-start-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:1463a94a4bbb16d9",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:merridan",
+      "target_node_id": null,
+      "predicate": "keeps_cinder_compact_keys",
+      "label": "Merridan keeps the Cinder Compact keys",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:valid-end",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:ba1dfafca14abf82",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:calyx-thorne",
+      "target_node_id": "loc:rookhaven",
+      "predicate": "still_serves",
+      "label": "Calyx Thorne still serves Rookhaven",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:still-remains",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:still-remains"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:2be86ce1954e91ce",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:calyx-thorne",
+      "target_node_id": null,
+      "predicate": "holds_or_recovered_emberleaf_index",
+      "label": "Calyx Thorne holds or recovered the Emberleaf Index at the quay fire",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:ambiguous-lane",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:ambiguous-lane"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:ea3165b10d3c0a33",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:merridan",
+      "target_node_id": "loc:stormglass-causeway",
+      "predicate": "left",
+      "label": "Merridan left the Stormglass Causeway",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:source-diff",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:source-diff"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:d3b60b24092b0a35",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    },
+    {
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:calyx-thorne",
+      "target_node_id": "feature:emberleaf-index",
+      "predicate": "opened_emberleaf_index",
+      "label": "Calyx Thorne opened the Emberleaf Index at the quay",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv8:grounding-trap",
+            "session_id": "session-8"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv8:grounding-trap"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "assertion_id": "assertion:7e167c0ecc5e572d",
+      "contribution_id": "contribution:9a5e2a5b3c358efd"
+    }
+  ]
+}

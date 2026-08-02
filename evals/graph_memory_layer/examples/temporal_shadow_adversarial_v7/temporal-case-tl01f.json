@@ -1,0 +1,124 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:9b628ba543c7272a",
+    "assertion:1ae92706476f933c",
+    "assertion:29c2942e16f88208",
+    "assertion:d9f09ff40eaf1b70",
+    "assertion:88538dc85550a4f1",
+    "assertion:3a6b1ffb645c4658",
+    "assertion:3d1dd595fa691432",
+    "assertion:72955eea4480beaa",
+    "assertion:43c2e5a1fa3b97c4",
+    "assertion:0bf0c61c77162940"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:future-promise-unresolved",
+      "source_artifact_id": "source-artifact:adv7-future-promise-unresolved",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/future-promise-unresolved.md",
+      "content_sha256": "10b23886488753be4b0c53d64962d6f52f06eb610343e4ab8dcb3c9bfe0150b9",
+      "source_ref_id": "source-ref:adv7-future-promise-unresolved",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "future-promise-unresolved.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:future-relative-forecast",
+      "source_artifact_id": "source-artifact:adv7-future-relative-forecast",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/future-relative-forecast.md",
+      "content_sha256": "0b96f7f1fed23c7887b9ef6f5fb0575a76dca724adff897f9107ade691ca9b57",
+      "source_ref_id": "source-ref:adv7-future-relative-forecast",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "future-relative-forecast.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:eventive-on-state",
+      "source_artifact_id": "source-artifact:adv7-eventive-on-state",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/eventive-on-state.md",
+      "content_sha256": "0f2abdf2475172f069e659442874e00f55b0bf033bedac3e7932692a772520ad",
+      "source_ref_id": "source-ref:adv7-eventive-on-state",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "eventive-on-state.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:stative-on-event",
+      "source_artifact_id": "source-artifact:adv7-stative-on-event",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/stative-on-event.md",
+      "content_sha256": "67d059579d94bbd98c76d84cfa53a9bf861399cd4f06d351fd057923cbb3ee06",
+      "source_ref_id": "source-ref:adv7-stative-on-event",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "stative-on-event.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:valid-start-textual",
+      "source_artifact_id": "source-artifact:adv7-valid-start-textual",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/valid-start-textual.md",
+      "content_sha256": "3a3dfd9ce7ff295ce3574851ac851da4bb3c708df224663c92b1e745d96e3485",
+      "source_ref_id": "source-ref:adv7-valid-start-textual",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-start-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:valid-end",
+      "source_artifact_id": "source-artifact:adv7-valid-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/valid-end.md",
+      "content_sha256": "aee1b728dac4d1872f09e904df8603ebe28c195fdd13053b4183a96412c50f71",
+      "source_ref_id": "source-ref:adv7-valid-end",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-end.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:still-remains",
+      "source_artifact_id": "source-artifact:adv7-still-remains",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/still-remains.md",
+      "content_sha256": "3ba3d057881fa8d8ab36fe5d65af707a0229da3e4bd53a28e0c041b5fd75ec48",
+      "source_ref_id": "source-ref:adv7-still-remains",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "still-remains.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:ambiguous-lane",
+      "source_artifact_id": "source-artifact:adv7-ambiguous-lane",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/ambiguous-lane.md",
+      "content_sha256": "afa0b7c501933e740d500248b1d1681d0b3e6bb7230900a6d15a995406b57f65",
+      "source_ref_id": "source-ref:adv7-ambiguous-lane",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ambiguous-lane.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:source-diff",
+      "source_artifact_id": "source-artifact:adv7-source-diff",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/source-diff.md",
+      "content_sha256": "f6f9088794e62a52d5c14aafa87f9e8609edcf1bea8f0ba82a48b02ce74ac510",
+      "source_ref_id": "source-ref:adv7-source-diff",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "source-diff.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv7:grounding-trap",
+      "source_artifact_id": "source-artifact:adv7-grounding-trap",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7/sources/grounding-trap.md",
+      "content_sha256": "ab3b64d149151596cc3097716a300eff3285568fae09fa9d88d66f3f40e23084",
+      "source_ref_id": "source-ref:adv7-grounding-trap",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "grounding-trap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "8a32822e3c28e36d485accfed51bb0fbe7f665986d58107d8d3bc27afed184b4",
+  "gold_overlay_sha256": "0179d17ac56ef59bb00fa6066a5d1e17c143da74bbe77f7d58a4ef86cccb7bda",
+  "case_id": "tl01f-temporal-shadow-adversarial-v7-v1",
+  "prompt_version": "tl01f-v1"
+}

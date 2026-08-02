@@ -1,0 +1,348 @@
+{
+  "contribution_id": "contribution:aeb023c880aac132",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v9",
+  "produced_at": "2026-07-31T23:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:55773972170d06dc",
+      "assertion_kind": "edge",
+      "subject_node_id": "event:meteor-arena-crash",
+      "target_node_id": "loc:coliseum-arena",
+      "predicate": "crashed_into",
+      "label": "A huge meteor crashed down into the arena",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s11-meteor",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s11-meteor"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:9d5330af5e3759ac",
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:migrating-forest-trees",
+      "target_node_id": "loc:mossford",
+      "predicate": "will_reach",
+      "label": "The migrating forest trees will reach Mossford",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s16-forest-forecast",
+            "session_id": "session-16"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s16-forest-forecast"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:7069c33bb7dba633",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": "party:questionable-company",
+      "predicate": "deputized",
+      "label": "Lysandra agreed to deputize the adventurers",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s3-deputize",
+            "session_id": "session-3"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s3-deputize"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:eecb5985f067e703",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "has_not_been_rested",
+      "label": "Lysandra has not been able to get any rest",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s5-lysandra-rest",
+            "session_id": "session-5"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s5-lysandra-rest"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:102e5a65f91f360b",
+      "assertion_kind": "attribute",
+      "subject_node_id": "item:narrative-crystal",
+      "target_node_id": null,
+      "predicate": "is_neutral",
+      "label": "The crystal is neutral",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:ledger-crystal-end"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:ledger-crystal-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:89e69b985a6e9c64",
+      "assertion_kind": "attribute",
+      "subject_node_id": "concept:gods-elderwyld",
+      "target_node_id": null,
+      "predicate": "lost_to_other_things",
+      "label": "The gods lost to the other things long ago",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:mirathorn-gods"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:mirathorn-gods"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:f14a35b4a2bccbd2",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "event:costume-contest",
+      "predicate": "signed_up_for",
+      "label": "Karsemine, Ephanna and Bonogo signed up for the costume contest",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s9-costume",
+            "session_id": "session-9"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s9-costume"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:f304db98b752c5e0",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:migrating-forest",
+      "target_node_id": "feature:root-water-bowl",
+      "predicate": "contains",
+      "label": "The forest has an enormous web of roots acting as a bowl holding water",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s16-roots-bowl",
+            "session_id": "session-16"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s16-roots-bowl"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:5f367431e38a0dc5",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "loc:gilded-fold",
+      "predicate": "hopes_to_find_answers",
+      "label": "Bonogo hopes to find answers about his cursed letter at the Gilded Fold",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s5-bonogo-search",
+            "session_id": "session-5"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s5-bonogo-search"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:d60eaab03fc3fafe",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "loc:mossford",
+      "predicate": "must_decide_next_steps",
+      "label": "The group must make a final decision on the next steps toward Mossford",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s16-dusk-decision",
+            "session_id": "session-16"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s16-dusk-decision"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:c46d76facdaf39c7",
+      "assertion_kind": "edge",
+      "subject_node_id": "creature:apex-canopy",
+      "target_node_id": "party:questionable-company",
+      "predicate": "has_been_tracking_or_emerges_from_mist",
+      "label": "The Apex of the Canopy has been tracking the party or emerges from the mist",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s17-wyvern-ambiguous",
+            "session_id": "session-17"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s17-wyvern-ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    },
+    {
+      "assertion_id": "assertion:602f7c788b16559f",
+      "assertion_kind": "attribute",
+      "subject_node_id": "item:dragon-scale",
+      "target_node_id": null,
+      "predicate": "origin_is_extinct_or_identity_unknown",
+      "label": "The dragon scale is from an extinct dragon or from a dragon that currently exists",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v9:s1-scale-identity",
+            "session_id": "session-1"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v9:s1-scale-identity"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:aeb023c880aac132"
+    }
+  ]
+}

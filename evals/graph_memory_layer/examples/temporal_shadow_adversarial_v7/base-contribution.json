@@ -1,0 +1,294 @@
+{
+  "contribution_id": "contribution:057905bf6148d120",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v7",
+  "produced_at": "2026-07-31T23:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:9b628ba543c7272a",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:torren-vale",
+      "target_node_id": "feature:moonshard-index",
+      "predicate": "promised_open_moonshard_index",
+      "label": "Torren Vale swore the Moonshard Index will be opened tomorrow",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:future-promise-unresolved",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:future-promise-unresolved"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:1ae92706476f933c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "weather:glassfen-flood",
+      "target_node_id": "loc:hollowmere",
+      "predicate": "will_reach",
+      "label": "The Glassfen flood crest will reach Hollowmere",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:future-relative-forecast",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:future-relative-forecast"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:29c2942e16f88208",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:sablewick",
+      "target_node_id": null,
+      "predicate": "remains_quartermaster",
+      "label": "Sablewick remains quartermaster of the Ashen Compact",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:eventive-on-state",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:eventive-on-state"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:d9f09ff40eaf1b70",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:torren-vale",
+      "target_node_id": "loc:hollowmere-beacon",
+      "predicate": "toppled_beacon",
+      "label": "Torren Vale toppled the Hollowmere beacon",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:stative-on-event",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:stative-on-event"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:88538dc85550a4f1",
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:moonshard-index",
+      "target_node_id": null,
+      "predicate": "has_been_sealed",
+      "label": "The Moonshard Index has been sealed",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:valid-start-textual",
+            "session_id": "session-9"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:valid-start-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:3a6b1ffb645c4658",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:sablewick",
+      "target_node_id": null,
+      "predicate": "keeps_ashen_compact_keys",
+      "label": "Sablewick keeps the Ashen Compact keys",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:valid-end",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:3d1dd595fa691432",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:torren-vale",
+      "target_node_id": "loc:hollowmere",
+      "predicate": "still_serves",
+      "label": "Torren Vale still serves Hollowmere",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:still-remains",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:still-remains"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:72955eea4480beaa",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:torren-vale",
+      "target_node_id": null,
+      "predicate": "holds_or_recovered_moonshard_index",
+      "label": "Torren Vale holds or recovered the Moonshard Index at the quay fire",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:ambiguous-lane",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:ambiguous-lane"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:43c2e5a1fa3b97c4",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:sablewick",
+      "target_node_id": "loc:glassfen-causeway",
+      "predicate": "left",
+      "label": "Sablewick left Glassfen Causeway",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:source-diff",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:source-diff"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    },
+    {
+      "assertion_id": "assertion:0bf0c61c77162940",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:torren-vale",
+      "target_node_id": "feature:moonshard-index",
+      "predicate": "opened_moonshard_index",
+      "label": "Torren Vale opened the Moonshard Index at the quay",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv7:grounding-trap",
+            "session_id": "session-8"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv7:grounding-trap"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:057905bf6148d120"
+    }
+  ]
+}

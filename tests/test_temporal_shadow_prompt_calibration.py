@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from evals.graph_memory_layer import temporal_shadow_prompt_calibration as calibration
+from graph_memory.temporal_shadow_extraction import TemporalShadowExtractionError
 from graph_memory.temporal_shadow_extraction_schema import (
     CalibrationCohortAggregateV1,
     CalibrationMetricDistributionV1,
@@ -1206,6 +1207,598 @@ def test_aggregate_counts_invalid_model_output_as_model_output_failure(
     )
     assert decision == "ITERATE_PROMPT"
     assert any("model_output_failures" in note for note in diagnostics)
+
+
+def test_aggregate_preserves_grounding_failure_diagnostics(tmp_path: Path) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "dmb_temporal_shadow_extraction_failure_v1",
+                "case_id": "tl01g-temporal-shadow-holdout-v13",
+                "case_digest": "b" * 64,
+                "model_id": "fake-model",
+                "executed_prompt_version": "tl01g-v1",
+                "prompt_version": "tl01g-v1",
+                "failure_code": "grounding_failure",
+                "affected_assertion_id": "assertion:deadbeef",
+                "diagnostics": [
+                    "source_phrase not found…",
+                    "source_phrase='Party at Copper and Quartz'",
+                ],
+                "foreign_evidence_attempts": 0,
+                "repository_sha": "deadbeef",
+                "provider_response_id": "resp_grounding_preserved_456",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    outcome = calibration.load_run_outcome(
+        _spec("candidate", "holdout", 1), run_dir
+    )
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="holdout",
+        outcomes=[outcome],
+        expected_case_id="tl01g-temporal-shadow-holdout-v13",
+        expected_model_id="fake-model",
+        expected_prompt_version="tl01g-v1",
+        expected_repository_sha="deadbeef",
+    )
+    assert aggregate.total_grounding_failures == 1
+    record = aggregate.run_records[0]
+    assert record.succeeded is False
+    assert record.failure_code == "grounding_failure"
+    assert record.affected_assertion_id == "assertion:deadbeef"
+    assert record.failure_diagnostics == [
+        "source_phrase not found…",
+        "source_phrase='Party at Copper and Quartz'",
+    ]
+    assert record.foreign_evidence_attempts == 0
+    assert record.provider_response_id == "resp_grounding_preserved_456"
+
+
+def test_load_calibration_outcomes_from_disk_preserves_failure_fields(
+    tmp_path: Path,
+) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    case_digest = calibration._file_sha256(CANDIDATE_HOLDOUT_CASE)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "dmb_temporal_shadow_extraction_failure_v1",
+                "case_id": "tl01g-temporal-shadow-holdout-v13",
+                "case_digest": case_digest,
+                "model_id": "fake-model",
+                "executed_prompt_version": "tl01g-v1",
+                "prompt_version": "tl01g-v1",
+                "failure_code": "grounding_failure",
+                "affected_assertion_id": "assertion:deadbeef",
+                "diagnostics": ["source_phrase='Party at Copper and Quartz'"],
+                "foreign_evidence_attempts": 0,
+                "repository_sha": "deadbeef",
+                "provider_response_id": "resp_loader_test",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "holdout",
+        CANDIDATE_HOLDOUT_CASE,
+        1,
+    )
+    outcomes = calibration.load_calibration_outcomes_from_disk(
+        output_dir=tmp_path,
+        run_specs=[spec],
+    )
+    assert len(outcomes) == 1
+    outcome = outcomes[0]
+    assert outcome.succeeded is False
+    assert outcome.failure_manifest is not None
+    assert outcome.failure_manifest["affected_assertion_id"] == "assertion:deadbeef"
+    assert outcome.failure_manifest["foreign_evidence_attempts"] == 0
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="holdout",
+        outcomes=outcomes,
+        expected_case_id="tl01g-temporal-shadow-holdout-v13",
+        expected_model_id="fake-model",
+        expected_prompt_version="tl01g-v1",
+    )
+    record = aggregate.run_records[0]
+    assert record.affected_assertion_id == "assertion:deadbeef"
+    assert record.failure_diagnostics == ["source_phrase='Party at Copper and Quartz'"]
+    assert record.foreign_evidence_attempts == 0
+
+
+def test_load_calibration_outcomes_from_disk_raises_when_manifests_missing(
+    tmp_path: Path,
+) -> None:
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "holdout",
+        CANDIDATE_HOLDOUT_CASE,
+        1,
+    )
+    with pytest.raises(calibration.ReaggregateError, match="missing run artifacts"):
+        calibration.load_calibration_outcomes_from_disk(
+            output_dir=tmp_path,
+            run_specs=[spec],
+        )
+
+
+def test_load_outcomes_rejects_both_success_and_failure_manifests(
+    tmp_path: Path,
+) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "run-manifest.json").write_text("{}\n", encoding="utf-8")
+    (run_dir / "failure-manifest.json").write_text("{}\n", encoding="utf-8")
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "holdout",
+        CANDIDATE_HOLDOUT_CASE,
+        1,
+    )
+    with pytest.raises(calibration.ReaggregateError, match="ambiguous run outcome"):
+        calibration.load_calibration_outcomes_from_disk(
+            output_dir=tmp_path,
+            run_specs=[spec],
+        )
+
+
+def test_load_outcomes_rejects_case_digest_mismatch(tmp_path: Path) -> None:
+    case_path = tmp_path / "tiny-case.json"
+    case_path.write_text('{"case_id":"tiny"}\n', encoding="utf-8")
+    expected_digest = calibration._file_sha256(case_path)
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="development",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "dmb_temporal_shadow_extraction_failure_v1",
+                "case_id": "tiny",
+                "case_digest": "0" * 64,
+                "model_id": "fake-model",
+                "prompt_version": "tl01g-v1",
+                "failure_code": "provider_error",
+                "repository_sha": "abc123",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "development",
+        case_path,
+        1,
+    )
+    with pytest.raises(calibration.ReaggregateError, match="case_digest mismatch") as exc:
+        calibration.load_calibration_outcomes_from_disk(
+            output_dir=tmp_path,
+            run_specs=[spec],
+        )
+    message = str(exc.value)
+    assert expected_digest in message
+    assert ("0" * 64) in message
+
+
+def test_require_single_provider_execution_sha_rejects_mismatch() -> None:
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    parent = subprocess.run(
+        ["git", "rev-parse", "HEAD^"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": head},
+        ),
+        calibration.RunOutcome(
+            spec=_spec("candidate", "holdout", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": parent},
+        ),
+    ]
+    with pytest.raises(calibration.ReaggregateError, match="inconsistent provider execution"):
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+
+
+def test_require_single_provider_execution_sha_rejects_dirty_suffix() -> None:
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": f"{sha}+dirty"},
+        ),
+        calibration.RunOutcome(
+            spec=_spec("candidate", "holdout", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": sha},
+        ),
+    ]
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="dirty or provenance-suffixed repository_sha rejected",
+    ):
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+
+
+def test_require_single_provider_execution_sha_rejects_mutable_ref() -> None:
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": "main"},
+        ),
+    ]
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="full lowercase 40-character hex commit SHA",
+    ):
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+
+
+def test_require_single_provider_execution_sha_rejects_abbreviated_sha() -> None:
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    abbreviated = head[:12]
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": abbreviated},
+        ),
+    ]
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="full lowercase 40-character hex commit SHA",
+    ):
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+
+
+def test_require_single_provider_execution_sha_accepts_clean_head_sha() -> None:
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": sha},
+        ),
+        calibration.RunOutcome(
+            spec=_spec("candidate", "holdout", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": sha},
+        ),
+    ]
+    assert (
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+        == sha
+    )
+
+
+def test_require_requested_matrix_matches_disk_rejects_omitted_repetition(
+    tmp_path: Path,
+) -> None:
+    """--repetitions 2 must not silently omit an on-disk run-03."""
+    for lane, cohort, rep in (
+        ("baseline", "development", 1),
+        ("baseline", "development", 2),
+        ("baseline", "development", 3),
+        ("candidate", "development", 1),
+        ("candidate", "development", 2),
+        ("candidate", "development", 3),
+    ):
+        run_dir = calibration._lane_run_dir(
+            output_dir=tmp_path,
+            prompt_lane=lane,
+            cohort=cohort,
+            repetition=rep,
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "failure-manifest.json").write_text(
+            json.dumps({"failure_code": "grounding_failure"}),
+            encoding="utf-8",
+        )
+
+    requested = calibration._build_calibration_run_specs(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        repetitions=2,
+        baseline_adversarial_case=None,
+    )
+    # Narrow to development lanes only for this fixture.
+    requested = [s for s in requested if s.cohort == "development"]
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="requested run matrix does not match published on-disk manifests",
+    ):
+        calibration._require_requested_matrix_matches_disk(
+            output_dir=tmp_path,
+            run_specs=requested,
+        )
+
+
+def test_require_requested_matrix_matches_disk_rejects_omitted_baseline_adversarial(
+    tmp_path: Path,
+) -> None:
+    """Omitting baseline adversarial must not silently ignore an on-disk lane."""
+    for lane, cohort in (
+        ("baseline", "development"),
+        ("baseline", "holdout"),
+        ("baseline", "adversarial"),
+        ("candidate", "development"),
+        ("candidate", "holdout"),
+        ("candidate", "adversarial"),
+    ):
+        run_dir = calibration._lane_run_dir(
+            output_dir=tmp_path,
+            prompt_lane=lane,
+            cohort=cohort,
+            repetition=1,
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "failure-manifest.json").write_text(
+            json.dumps({"failure_code": "grounding_failure"}),
+            encoding="utf-8",
+        )
+
+    # Requested matrix without baseline adversarial (5 lanes × 1 rep).
+    requested = calibration._build_calibration_run_specs(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        repetitions=1,
+        baseline_adversarial_case=None,
+    )
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="unexpected=.*baseline.*adversarial",
+    ):
+        calibration._require_requested_matrix_matches_disk(
+            output_dir=tmp_path,
+            run_specs=requested,
+        )
+
+
+def test_require_requested_matrix_matches_disk_accepts_exact_matrix(
+    tmp_path: Path,
+) -> None:
+    requested = calibration._build_calibration_run_specs(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        repetitions=1,
+        baseline_adversarial_case=ADVERSARIAL_CASE,
+    )
+    for spec in requested:
+        run_dir = calibration._lane_run_dir(
+            output_dir=tmp_path,
+            prompt_lane=spec.prompt_lane,
+            cohort=spec.cohort,
+            repetition=spec.repetition,
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "failure-manifest.json").write_text(
+            json.dumps({"failure_code": "grounding_failure"}),
+            encoding="utf-8",
+        )
+    calibration._require_requested_matrix_matches_disk(
+        output_dir=tmp_path,
+        run_specs=requested,
+    )
+
+
+@pytest.mark.parametrize(
+    "malformed_name",
+    ("run-3", "run-003", "legacy-smoke"),
+)
+def test_discover_published_run_keys_rejects_malformed_run_dirs_with_manifests(
+    tmp_path: Path,
+    malformed_name: str,
+) -> None:
+    """Manifests under non-canonical run dirs must fail closed, not be ignored."""
+    canonical = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    canonical.mkdir(parents=True, exist_ok=True)
+    (canonical / "failure-manifest.json").write_text(
+        json.dumps({"failure_code": "grounding_failure"}),
+        encoding="utf-8",
+    )
+    malformed = (
+        tmp_path
+        / "calibration"
+        / "candidate"
+        / "holdout"
+        / malformed_name
+    )
+    malformed.mkdir(parents=True, exist_ok=True)
+    (malformed / "run-manifest.json").write_text(
+        json.dumps({"repository_sha": "x"}),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="non-canonical run directory",
+    ):
+        calibration._discover_published_run_keys(tmp_path)
+
+
+def test_discover_published_run_keys_rejects_nested_manifest_outside_run_xx(
+    tmp_path: Path,
+) -> None:
+    nested = (
+        tmp_path
+        / "calibration"
+        / "baseline"
+        / "development"
+        / "extras"
+        / "nested"
+    )
+    nested.mkdir(parents=True, exist_ok=True)
+    (nested / "failure-manifest.json").write_text(
+        json.dumps({"failure_code": "grounding_failure"}),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="outside canonical run-XX directory",
+    ):
+        calibration._discover_published_run_keys(tmp_path)
+
+
+def test_temporal_shadow_extraction_error_prepends_message_to_custom_diagnostics() -> None:
+    exc = TemporalShadowExtractionError(
+        "grounding miss",
+        code="grounding_failure",
+        diagnostics=["source_phrase not found"],
+    )
+    assert exc.diagnostics == ["grounding miss", "source_phrase not found"]
+
+    exc_with_message = TemporalShadowExtractionError(
+        "already listed",
+        code="grounding_failure",
+        diagnostics=["already listed", "detail"],
+    )
+    assert exc_with_message.diagnostics == ["already listed", "detail"]
+
+    exc_default = TemporalShadowExtractionError("only message", code="path_escape")
+    assert exc_default.diagnostics == ["only message"]
+
+
+def test_compute_calibration_decision_unobserved_when_all_candidate_runs_fail() -> None:
+    holdout = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="holdout",
+        run_count=2,
+        success_count=0,
+        failure_count=2,
+    )
+    development = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=2,
+        success_count=0,
+        failure_count=2,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[holdout, development],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert "candidate_has_failed_runs" in diagnostics
+    assert "candidate_comparison_metrics_unobserved" in diagnostics
+
+
+def test_compute_calibration_decision_unobserved_alongside_grounding_failures() -> None:
+    holdout = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="holdout",
+        run_count=3,
+        success_count=0,
+        failure_count=3,
+        total_grounding_failures=3,
+    )
+    development = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=3,
+        success_count=0,
+        failure_count=3,
+        total_grounding_failures=3,
+    )
+    adversarial = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="adversarial",
+        run_count=3,
+        success_count=0,
+        failure_count=3,
+        total_grounding_failures=3,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[holdout, development, adversarial],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert "candidate_grounding_failures=9" in diagnostics
+    assert "candidate_comparison_metrics_unobserved" in diagnostics
 
 
 def test_historical_tl01c_fake_run_derives_tl01c_candidate_version(

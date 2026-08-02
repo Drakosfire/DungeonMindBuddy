@@ -1,0 +1,300 @@
+{
+  "contribution_id": "contribution:ddc50210d08c18c9",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v9",
+  "produced_at": "2026-08-01T18:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:ea73946bbeaeab04",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:quorin-hale",
+      "target_node_id": "feature:amberquill-codex",
+      "predicate": "will_open_codex",
+      "label": "Quorin Hale reads that the Amberquill Codex opens tomorrow",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:future-with-tomorrow",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:future-with-tomorrow"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:ac15be5e6c616661",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:velessa-mar",
+      "target_node_id": "loc:frostmere-causeway-vault",
+      "predicate": "promised_reopen_vault",
+      "label": "Velessa Mar vows the Frostmere Causeway vault will reopen",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:future-promise-unresolved",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:future-promise-unresolved"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:499d287809bae583",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:velessa-mar",
+      "target_node_id": null,
+      "predicate": "holds_quartermaster_duties",
+      "label": "Quartermaster duties at the Thornwick depot fall to Velessa Mar",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:eventive-on-state",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:eventive-on-state"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:751173f90fd7f895",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:quorin-hale",
+      "target_node_id": "feature:amberquill-codex-ledger",
+      "predicate": "ledger_passes_to_custody",
+      "label": "The Amberquill Codex ledger passes to Quorin Hale's custody",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:stative-on-event",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:stative-on-event"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:4f9c81e9ebbb53c8",
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:amberquill-codex",
+      "target_node_id": null,
+      "predicate": "has_been_sealed",
+      "label": "Archivists note the Amberquill Codex has been sealed",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:valid-start-textual",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:valid-start-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:e97a448099a98811",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:velessa-mar",
+      "target_node_id": null,
+      "predicate": "released_compact_keys",
+      "label": "Velessa Mar released custody of the Ironroot Compact keys",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:valid-end",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:fdb32e03b48c7e07",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:quorin-hale",
+      "target_node_id": null,
+      "predicate": "thornwick_posting_unchanged",
+      "label": "Quorin Hale's Thornwick posting has not changed",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:still-remains",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:still-remains"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:8c5f71ae9a3e553f",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:quorin-hale",
+      "target_node_id": "feature:amberquill-codex",
+      "predicate": "kept_or_recovered_codex",
+      "label": "Quorin Hale kept the Amberquill Codex since the quay fire or only recovered it during that fire",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:ambiguous-lane",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:ambiguous-lane"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:e5111722054d185e",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:velessa-mar",
+      "target_node_id": "loc:frostmere-causeway",
+      "predicate": "settled_in_thornwick",
+      "label": "Velessa Mar settled in Thornwick after departing the Frostmere Causeway",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:source-diff",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:source-diff"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    },
+    {
+      "assertion_id": "assertion:87b024606fc39c36",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:quorin-hale",
+      "target_node_id": "feature:amberquill-codex",
+      "predicate": "opened_codex_claim",
+      "label": "Quorin Hale claims he opened the Amberquill Codex",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv9:grounding-trap",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv9:grounding-trap"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:ddc50210d08c18c9"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
