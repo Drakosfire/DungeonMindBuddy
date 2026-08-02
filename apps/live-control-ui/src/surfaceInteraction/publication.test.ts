@@ -395,6 +395,19 @@ describe("validateSurfaceInteractionPublication — availability and placement",
     expect(codesOf(result)).toEqual(["enabled_has_disabled_reason"]);
   });
 
+  it("rejects an enabled contribution supplying disabledReason at all — even null or undefined", () => {
+    for (const disabledReason of [null, undefined]) {
+      const availability = {
+        status: "enabled",
+        disabledReason,
+      } as unknown as SurfaceInteractionAvailability;
+      const result = validateSurfaceInteractionPublication(
+        makePublication({ tools: [makeTool("t", { availability })] }),
+      );
+      expect(codesOf(result)).toEqual(["enabled_has_disabled_reason"]);
+    }
+  });
+
   it("rejects incoherent placement states", () => {
     const cases: SurfaceInteractionPlacement[] = [
       makePlacement({ groupId: null, groupLabel: "Tools" }),
@@ -729,6 +742,33 @@ describe("validateSurfaceInteractionPublication — projection binding cross-ref
       makePublication({
         projections: [makeProjection("p", { bindingIds: ["b"] })],
         projectionBindings: [makeBinding("b", explosive)],
+      }),
+    );
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a projection binding missing its required value field", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        projections: [makeProjection("p", { bindingIds: ["b"] })],
+        projectionBindings: [{ id: "b" } as unknown as SurfaceInteractionProjectionBinding],
+      }),
+    );
+
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+    if (!result.valid) {
+      expect(result.issues[0]).toMatchObject({ contributionId: "b", contributionIndex: 0 });
+    }
+  });
+
+  it("accepts a binding whose value is explicitly undefined — presence is required, the value stays opaque", () => {
+    const binding: Record<string, unknown> = { id: "b" };
+    binding.value = undefined;
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        projections: [makeProjection("p", { bindingIds: ["b"] })],
+        projectionBindings: [binding as SurfaceInteractionProjectionBinding],
       }),
     );
 

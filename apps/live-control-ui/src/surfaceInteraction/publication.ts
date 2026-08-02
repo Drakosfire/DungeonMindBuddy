@@ -61,10 +61,15 @@ function validateAvailability(
       ...owner,
     });
   }
-  if (availability.status === "enabled" && availability.disabledReason != null) {
+  // The enabled union member is `disabledReason?: never` — supplying the
+  // property at all (even null or undefined) violates it.
+  if (
+    availability.status === "enabled" &&
+    Object.hasOwn(availability, "disabledReason")
+  ) {
     issues.push({
       code: "enabled_has_disabled_reason",
-      message: `Contribution "${owner.contributionId}" is enabled but carries a disabled reason.`,
+      message: `Contribution "${owner.contributionId}" is enabled but supplies a disabled reason.`,
       ...owner,
     });
   }
@@ -362,6 +367,18 @@ export function validateSurfaceInteractionPublication(
       issues.push({
         code: "contribution_shape_invalid",
         message: `Projection binding at index ${index} must be a non-null object, got ${describeType(entry)}.`,
+        contributionIndex: index,
+      });
+      bindingShapeValid[index] = false;
+      continue;
+    }
+    // Presence only — the value is opaque and is never read (Object.hasOwn
+    // inspects the descriptor without invoking getters).
+    if (!Object.hasOwn(entry, "value")) {
+      issues.push({
+        code: "contribution_shape_invalid",
+        message: `Projection binding at index ${index} is missing its required value field.`,
+        contributionId: typeof entry.id === "string" ? entry.id : "",
         contributionIndex: index,
       });
       bindingShapeValid[index] = false;

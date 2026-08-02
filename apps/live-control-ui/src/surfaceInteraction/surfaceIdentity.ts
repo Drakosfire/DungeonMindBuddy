@@ -33,7 +33,17 @@ function assertEncodablePart(
 export function encodeSurfaceInteractionInstanceKey(
   parts: readonly SurfaceInteractionInstancePart[],
 ): string {
-  parts.forEach((part, index) => assertEncodablePart(part, index));
+  // Indexed iteration: forEach skips holes, but JSON.stringify serializes them
+  // as null — a sparse array would silently collide with explicit null parts.
+  for (let index = 0; index < parts.length; index += 1) {
+    if (!Object.hasOwn(parts, index)) {
+      throw new TypeError(
+        `Surface interaction instance part at index ${index} is missing (sparse array); ` +
+          `holes serialize as null and would break encoding injectivity.`,
+      );
+    }
+    assertEncodablePart(parts[index] as SurfaceInteractionInstancePart, index);
+  }
   return JSON.stringify(parts);
 }
 

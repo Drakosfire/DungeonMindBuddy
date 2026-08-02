@@ -51,6 +51,17 @@ describe("encodeSurfaceInteractionInstanceKey", () => {
       ).toThrow(TypeError);
     }
   });
+
+  it("rejects sparse part arrays instead of collapsing holes into explicit null", () => {
+    const sparse = new Array(1) as unknown as SurfaceInteractionInstancePart[];
+    expect(() => encodeSurfaceInteractionInstanceKey(sparse)).toThrow(TypeError);
+
+    const sparseMiddle = ["plan", , "doc-1"] as unknown as SurfaceInteractionInstancePart[];
+    expect(() => encodeSurfaceInteractionInstanceKey(sparseMiddle)).toThrow(TypeError);
+
+    // Explicit null remains encodable and can no longer collide with a hole.
+    expect(encodeSurfaceInteractionInstanceKey([null])).toBe("[null]");
+  });
 });
 
 describe("buildSurfaceInteractionIdentity", () => {
