@@ -75,6 +75,8 @@ FORBIDDEN_TRACE_SUBSTRINGS = (
 
 PHASE_CALL_BUDGET = 2
 MAX_TOTAL_PROVIDER_CALLS = 4
+BUDGET_LEDGER_SCHEMA = "tl01_grounding_path_budget_v1"
+DEFAULT_BUDGET_LEDGER_NAME = "provider-budget-ledger.json"
 
 
 def _normalize_phrase(text: str) -> str:
@@ -332,18 +334,41 @@ def _annotation_from_raw_batch(
     raw_batch: dict[str, Any] | None,
     *,
     assertion_id: str,
-) -> tuple[str | None, list[str] | None]:
-    """Return (source_phrase, evidence_ref_ids) for assertion_id, or (None, None)."""
+) -> tuple[str | None, list[str] | None, bool]:
+    """Observe (source_phrase, evidence_ref_ids, well_formed) without trusting shape.
+
+    Raw provider output is untrusted. Malformed annotations / evidence_ref_ids must
+    not raise; callers treat well_formed=False as transport observation failure.
+    """
     if raw_batch is None:
-        return None, None
-    for item in raw_batch.get("annotations", []):
-        if item.get("base_assertion_id") == assertion_id:
-            phrase = item.get("source_phrase")
-            refs_raw = item.get("evidence_ref_ids")
-            if refs_raw is None:
-                return phrase if isinstance(phrase, str) else None, None
-            return phrase if isinstance(phrase, str) else None, list(refs_raw)
-    return None, None
+        return None, None, True
+    if not isinstance(raw_batch, dict):
+        return None, None, False
+    if "annotations" not in raw_batch:
+        return None, None, True
+    annotations = raw_batch.get("annotations")
+    if not isinstance(annotations, list):
+        return None, None, False
+    for item in annotations:
+        if not isinstance(item, dict):
+            return None, None, False
+        if item.get("base_assertion_id") != assertion_id:
+            continue
+        phrase_raw = item.get("source_phrase")
+        if phrase_raw is not None and not isinstance(phrase_raw, str):
+            return None, None, False
+        phrase = phrase_raw if isinstance(phrase_raw, str) else None
+        if "evidence_ref_ids" not in item:
+            return phrase, None, True
+        refs_raw = item.get("evidence_ref_ids")
+        if refs_raw is None:
+            return phrase, None, True
+        if not isinstance(refs_raw, list):
+            return None, None, False
+        if not all(isinstance(ref, str) for ref in refs_raw):
+            return None, None, False
+        return phrase, list(refs_raw), True
+    return None, None, True
 
 
 def classify_lane_result(
@@ -358,11 +383,14 @@ def classify_lane_result(
     owned_evidence_ref_ids: list[str],
     comparison_metrics_present: bool,
     succeeded: bool,
+    raw_batch_well_formed: bool = True,
 ) -> LaneResult:
     if not packet_phrase_present:
         return "PACKET_MISSING_PHRASE"
     if not renderer_phrase_present:
         return "RENDERER_MISSING_PHRASE"
+    if not raw_batch_well_formed:
+        return "TRANSPORT_REJECTED"
     if error is not None:
         if error.code in {"provider_refusal", "provider_incomplete", "provider_error"}:
             return "PROVIDER_EXECUTION_FAILED"
@@ -371,9 +399,11 @@ def classify_lane_result(
         if error.code == "overlay_assembly_failed":
             return "OVERLAY_ASSEMBLY_FAILED"
         if error.code == "grounding_failure":
-            returned_phrase, returned_refs = _annotation_from_raw_batch(
+            returned_phrase, returned_refs, well_formed = _annotation_from_raw_batch(
                 raw_batch, assertion_id=assertion_id
             )
+            if not well_formed:
+                return "TRANSPORT_REJECTED"
             # Absent refs (missing key, null, or empty list) are ownership failures.
             # Never fall back to the assertion's owned refs for phrase matching.
             if returned_refs is None or len(returned_refs) == 0:
@@ -420,23 +450,17 @@ def compute_overall_conclusion(
     live_control: LaneResult | None = None,
     live_candidate: LaneResult | None = None,
 ) -> OverallConclusion:
-    """Combine explicit deterministic + live lane evidence into one overall conclusion.
+    """Lane-result triage only. Never returns GROUNDING_PATH_READY.
 
-    GROUNDING_PATH_READY requires both deterministic lanes and both live lanes to be
-    EVALUABLE. A live-only or deterministic-only invocation cannot unlock readiness.
-    Provider execution failure maps to UNRESOLVED_DIAGNOSTIC_GAP. Phrase-fidelity
-    blockage requires deterministic EVALUABLE proof plus at least one live phrase
-    fidelity failure.
+    Readiness requires evidence-bound combination via
+    ``combine_paired_diagnostic_conclusions`` (or summary traces), which verifies
+    shared fixture/identity fields before READY.
     """
     det_lanes = (deterministic_control, deterministic_candidate)
     live_lanes = (live_control, live_candidate)
     det_complete = all(lane is not None for lane in det_lanes)
     live_complete = all(lane is not None for lane in live_lanes)
     both_det_evaluable = det_complete and all(lane == "EVALUABLE" for lane in det_lanes)
-    both_live_evaluable = live_complete and all(lane == "EVALUABLE" for lane in live_lanes)
-
-    if both_det_evaluable and both_live_evaluable:
-        return "GROUNDING_PATH_READY"
 
     observed = [lane for lane in (*det_lanes, *live_lanes) if lane is not None]
     if any(lane in _LOCAL_REPAIR_LANE_RESULTS for lane in observed):
@@ -449,6 +473,297 @@ def compute_overall_conclusion(
             return "PROVIDER_PHRASE_FIDELITY_BLOCKED"
 
     return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+
+def _fixture_identity_key(lane: LaneDiagnostic) -> tuple[Any, ...]:
+    return (
+        lane.assertion_id,
+        tuple(lane.evidence_ref_ids),
+        lane.expected_phrase,
+        lane.resolved_span_digest,
+        lane.packet_version,
+        lane.renderer_identity,
+    )
+
+
+def _trace_fixture_identity_key(trace: dict[str, Any]) -> tuple[Any, ...] | None:
+    try:
+        return (
+            trace["assertion_id"],
+            tuple(trace["evidence_ref_ids"]),
+            trace["expected_phrase"],
+            trace["resolved_span_digest"],
+            trace["packet_version"],
+            trace["renderer_identity"],
+        )
+    except (KeyError, TypeError):
+        return None
+
+
+def _is_clean_commit_sha(value: str | None) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    if "+" in value or value == "unknown":
+        return False
+    return len(value) == 40 and all(c in "0123456789abcdef" for c in value)
+
+
+def _paired_identity_mismatches(
+    deterministic: PairedDiagnosticResult,
+    live: PairedDiagnosticResult,
+) -> list[str]:
+    errors: list[str] = []
+    lanes = (
+        deterministic.control,
+        deterministic.candidate,
+        live.control,
+        live.candidate,
+    )
+    identities = {_fixture_identity_key(lane) for lane in lanes}
+    if len(identities) != 1:
+        errors.append("fixture identity mismatch across deterministic/live lanes")
+    if deterministic.control.case_digest != live.control.case_digest:
+        errors.append("control case_digest mismatch across modes")
+    if deterministic.candidate.case_digest != live.candidate.case_digest:
+        errors.append("candidate case_digest mismatch across modes")
+    if deterministic.control.prompt_version != live.control.prompt_version:
+        errors.append("control prompt_version mismatch across modes")
+    if deterministic.candidate.prompt_version != live.candidate.prompt_version:
+        errors.append("candidate prompt_version mismatch across modes")
+    if deterministic.control.prompt_version == deterministic.candidate.prompt_version:
+        errors.append("control and candidate prompt identities must differ")
+    if live.control.model_id != LIVE_MODEL_ID or live.candidate.model_id != LIVE_MODEL_ID:
+        errors.append(f"live model_id must be {LIVE_MODEL_ID!r}")
+    if live.control.repository_sha != live.candidate.repository_sha:
+        errors.append("live lane repository_sha mismatch")
+    if not _is_clean_commit_sha(live.control.repository_sha):
+        errors.append("live repository_sha must be a clean full commit SHA")
+    if live.provider_calls < 2:
+        errors.append("live provider_calls must be at least 2")
+    if not live.control.provider_response_id or not live.candidate.provider_response_id:
+        errors.append("live lanes require provider_response_id")
+    for lane in lanes:
+        if lane.lane_result == "EVALUABLE" and not lane.comparison_metrics_present:
+            errors.append(f"{lane.run_mode}/{lane.lane} EVALUABLE without metrics")
+    return errors
+
+
+def combine_paired_diagnostic_conclusions(
+    *,
+    deterministic: PairedDiagnosticResult,
+    live: PairedDiagnosticResult,
+) -> OverallConclusion:
+    """Evidence-bound overall conclusion from actual paired diagnostic objects."""
+    if deterministic.live_attempted or deterministic.control.run_mode != "deterministic":
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if not live.live_attempted or live.control.run_mode != "live":
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+    triage = compute_overall_conclusion(
+        deterministic_control=deterministic.control.lane_result,
+        deterministic_candidate=deterministic.candidate.lane_result,
+        live_control=live.control.lane_result,
+        live_candidate=live.candidate.lane_result,
+    )
+    both_evaluable = (
+        deterministic.control.lane_result == "EVALUABLE"
+        and deterministic.candidate.lane_result == "EVALUABLE"
+        and live.control.lane_result == "EVALUABLE"
+        and live.candidate.lane_result == "EVALUABLE"
+    )
+    if not both_evaluable:
+        return triage
+
+    mismatches = _paired_identity_mismatches(deterministic, live)
+    if mismatches:
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if not all(
+        lane.comparison_metrics_present
+        for lane in (
+            deterministic.control,
+            deterministic.candidate,
+            live.control,
+            live.candidate,
+        )
+    ):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    return "GROUNDING_PATH_READY"
+
+
+def combine_paired_summary_conclusions(
+    *,
+    deterministic_summary: dict[str, Any],
+    live_summary: dict[str, Any],
+) -> OverallConclusion:
+    """Evidence-bound conclusion from saved paired-summary.json traces."""
+    if deterministic_summary.get("run_mode") != "deterministic":
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if live_summary.get("run_mode") != "live":
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+    det_control = deterministic_summary.get("control")
+    det_candidate = deterministic_summary.get("candidate")
+    live_control = live_summary.get("control")
+    live_candidate = live_summary.get("candidate")
+    if not all(
+        isinstance(trace, dict)
+        for trace in (det_control, det_candidate, live_control, live_candidate)
+    ):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+
+    triage = compute_overall_conclusion(
+        deterministic_control=det_control.get("lane_result"),
+        deterministic_candidate=det_candidate.get("lane_result"),
+        live_control=live_control.get("lane_result"),
+        live_candidate=live_candidate.get("lane_result"),
+    )
+    both_evaluable = all(
+        trace.get("lane_result") == "EVALUABLE"
+        for trace in (det_control, det_candidate, live_control, live_candidate)
+    )
+    if not both_evaluable:
+        return triage
+
+    identities = [
+        _trace_fixture_identity_key(trace)
+        for trace in (det_control, det_candidate, live_control, live_candidate)
+    ]
+    if any(identity is None for identity in identities) or len(set(identities)) != 1:
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if det_control.get("case_digest") != live_control.get("case_digest"):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if det_candidate.get("case_digest") != live_candidate.get("case_digest"):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if det_control.get("prompt_version") != live_control.get("prompt_version"):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if det_candidate.get("prompt_version") != live_candidate.get("prompt_version"):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if det_control.get("prompt_version") == det_candidate.get("prompt_version"):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if live_control.get("model_id") != LIVE_MODEL_ID or live_candidate.get("model_id") != LIVE_MODEL_ID:
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    live_sha = live_control.get("repository_sha")
+    if live_sha != live_candidate.get("repository_sha") or not _is_clean_commit_sha(
+        live_sha if isinstance(live_sha, str) else None
+    ):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if int(live_summary.get("provider_calls") or 0) < 2:
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if not live_control.get("provider_response_id") or not live_candidate.get(
+        "provider_response_id"
+    ):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    if not all(
+        trace.get("comparison_metrics_present") is True
+        for trace in (det_control, det_candidate, live_control, live_candidate)
+    ):
+        return "UNRESOLVED_DIAGNOSTIC_GAP"
+    return "GROUNDING_PATH_READY"
+
+
+@dataclass
+class ProviderBudgetLedger:
+    path: Path
+    total_calls: int
+    response_ids: list[str]
+    entries: list[dict[str, Any]]
+
+    @property
+    def remaining(self) -> int:
+        return max(0, MAX_TOTAL_PROVIDER_CALLS - self.total_calls)
+
+
+def load_provider_budget_ledger(path: Path) -> ProviderBudgetLedger:
+    if not path.is_file():
+        return ProviderBudgetLedger(path=path, total_calls=0, response_ids=[], entries=[])
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger must be a JSON object",
+            code="invalid_case",
+        )
+    if payload.get("schema") != BUDGET_LEDGER_SCHEMA:
+        raise TemporalShadowExtractionError(
+            "Provider budget ledger schema mismatch",
+            code="invalid_case",
+            diagnostics=[f"expected={BUDGET_LEDGER_SCHEMA!r}"],
+        )
+    total = int(payload.get("total_calls") or 0)
+    response_ids = [
+        item for item in (payload.get("response_ids") or []) if isinstance(item, str)
+    ]
+    entries = [
+        item for item in (payload.get("entries") or []) if isinstance(item, dict)
+    ]
+    return ProviderBudgetLedger(
+        path=path,
+        total_calls=total,
+        response_ids=response_ids,
+        entries=entries,
+    )
+
+
+def save_provider_budget_ledger(ledger: ProviderBudgetLedger) -> None:
+    payload = {
+        "schema": BUDGET_LEDGER_SCHEMA,
+        "max_total_provider_calls": MAX_TOTAL_PROVIDER_CALLS,
+        "total_calls": ledger.total_calls,
+        "response_ids": list(ledger.response_ids),
+        "entries": list(ledger.entries),
+    }
+    ledger.path.parent.mkdir(parents=True, exist_ok=True)
+    ledger.path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def assert_provider_budget_available(
+    ledger: ProviderBudgetLedger, *, calls_needed: int
+) -> None:
+    if calls_needed < 0:
+        raise TemporalShadowExtractionError(
+            "Provider budget reservation must be non-negative",
+            code="invalid_case",
+        )
+    if ledger.total_calls + calls_needed > MAX_TOTAL_PROVIDER_CALLS:
+        raise TemporalShadowExtractionError(
+            "Global provider call budget exhausted or insufficient remaining",
+            code="invalid_case",
+            diagnostics=[
+                f"total_calls={ledger.total_calls}",
+                f"calls_needed={calls_needed}",
+                f"max={MAX_TOTAL_PROVIDER_CALLS}",
+                f"ledger={str(ledger.path)}",
+            ],
+        )
+
+
+def record_provider_budget_entry(
+    ledger: ProviderBudgetLedger,
+    *,
+    phase: RunPhase,
+    repository_sha: str,
+    calls: int,
+    response_ids: list[str],
+    note: str | None = None,
+) -> ProviderBudgetLedger:
+    assert_provider_budget_available(ledger, calls_needed=calls)
+    entry: dict[str, Any] = {
+        "phase": phase,
+        "repository_sha": repository_sha,
+        "calls": calls,
+        "response_ids": list(response_ids),
+    }
+    if note:
+        entry["note"] = note
+    updated = ProviderBudgetLedger(
+        path=ledger.path,
+        total_calls=ledger.total_calls + calls,
+        response_ids=[*ledger.response_ids, *response_ids],
+        entries=[*ledger.entries, entry],
+    )
+    save_provider_budget_ledger(updated)
+    return updated
 
 
 def transport_accepted_for_error(
@@ -642,10 +957,28 @@ def run_lane_diagnostic(
         transport_accepted = None
 
     raw_batch = recording.last_raw_batch
-    returned_phrase, returned_refs = _annotation_from_raw_batch(
+    returned_phrase, returned_refs, raw_well_formed = _annotation_from_raw_batch(
         raw_batch, assertion_id=assertion_id
     )
-    if raw_batch is not None:
+    if not raw_well_formed:
+        transport_accepted = False
+        returned_phrase = None
+        returned_refs = None
+        phrase_match = None
+        phrase_match_ref = None
+        phrase_match_offset = None
+        owned_check = "malformed_raw_batch"
+        if error is None or error.code != "invalid_model_output":
+            error = TemporalShadowExtractionError(
+                "Diagnostic observed malformed provider raw batch",
+                code="invalid_model_output",
+                provider_response_id=provider_response_id,
+            )
+            succeeded = False
+            comparison_metrics_present = False
+            comparison_metrics = None
+            overlay_id = None
+    elif raw_batch is not None:
         if returned_refs is None or len(returned_refs) == 0:
             phrase_match = False
             phrase_match_ref = None
@@ -676,12 +1009,13 @@ def run_lane_diagnostic(
         renderer_phrase_present=renderer_present,
         run_mode=mode,
         error=error,
-        raw_batch=raw_batch,
+        raw_batch=raw_batch if raw_well_formed else None,
         packets=packets,
         assertion_id=assertion_id,
         owned_evidence_ref_ids=owned_refs,
         comparison_metrics_present=comparison_metrics_present,
         succeeded=succeeded,
+        raw_batch_well_formed=raw_well_formed,
     )
 
     diagnostic = LaneDiagnostic(
@@ -752,10 +1086,12 @@ def run_paired_grounding_path_diagnostic(
     fake_output: dict[str, Any] | None,
     repo_root: Path,
     overwrite: bool = False,
+    budget_ledger_path: Path | None = None,
 ) -> PairedDiagnosticResult:
     validate_paired_cases(control_case_path, candidate_case_path, repo_root=repo_root)
 
     live_attempted = False
+    persistent_budget: ProviderBudgetLedger | None = None
     if mode == "live":
         if os.environ.get(LIVE_OPT_IN_ENV) != "1":
             raise TemporalShadowExtractionError(
@@ -768,6 +1104,15 @@ def run_paired_grounding_path_diagnostic(
                 code="invalid_case",
                 diagnostics=[f"got={model_id!r}"],
             )
+        if budget_ledger_path is None:
+            raise TemporalShadowExtractionError(
+                "Live mode requires budget_ledger_path for global call accounting",
+                code="invalid_case",
+            )
+        persistent_budget = load_provider_budget_ledger(budget_ledger_path)
+        assert_provider_budget_available(
+            persistent_budget, calls_needed=PHASE_CALL_BUDGET
+        )
         delegate: TemporalShadowExtractionClient = OpenAITemporalShadowExtractionClient()
         live_attempted = True
     else:
@@ -779,32 +1124,43 @@ def run_paired_grounding_path_diagnostic(
         delegate = FakeTemporalShadowExtractionClient(fake_output)
 
     ledger = ProviderCallLedger(phase=phase)
-    control = run_lane_diagnostic(
-        lane="control",
-        case_path=control_case_path,
-        output_dir=output_dir,
-        mode=mode,
-        phase=phase,
-        model_id=model_id,
-        client=delegate,
-        repo_root=repo_root,
-        ledger=ledger,
-        overwrite=overwrite,
-    )
-    ledger.assert_budget()
-    candidate = run_lane_diagnostic(
-        lane="candidate",
-        case_path=candidate_case_path,
-        output_dir=output_dir,
-        mode=mode,
-        phase=phase,
-        model_id=model_id,
-        client=delegate,
-        repo_root=repo_root,
-        ledger=ledger,
-        overwrite=overwrite,
-    )
-    ledger.assert_budget()
+    try:
+        control = run_lane_diagnostic(
+            lane="control",
+            case_path=control_case_path,
+            output_dir=output_dir,
+            mode=mode,
+            phase=phase,
+            model_id=model_id,
+            client=delegate,
+            repo_root=repo_root,
+            ledger=ledger,
+            overwrite=overwrite,
+        )
+        ledger.assert_budget()
+        candidate = run_lane_diagnostic(
+            lane="candidate",
+            case_path=candidate_case_path,
+            output_dir=output_dir,
+            mode=mode,
+            phase=phase,
+            model_id=model_id,
+            client=delegate,
+            repo_root=repo_root,
+            ledger=ledger,
+            overwrite=overwrite,
+        )
+        ledger.assert_budget()
+    finally:
+        if persistent_budget is not None and ledger.calls > 0:
+            record_provider_budget_entry(
+                persistent_budget,
+                phase=phase,
+                repository_sha=_repository_sha(repo_root=repo_root),
+                calls=ledger.calls,
+                response_ids=list(ledger.response_ids),
+            )
+
     if ledger.calls > MAX_TOTAL_PROVIDER_CALLS:
         raise TemporalShadowExtractionError(
             "Global provider call budget exceeded",
@@ -813,7 +1169,7 @@ def run_paired_grounding_path_diagnostic(
         )
 
     # Single-mode invocations cannot claim GROUNDING_PATH_READY; that requires
-    # combining explicit deterministic + live EVALUABLE evidence at report time.
+    # evidence-bound combination of deterministic + live PairedDiagnosticResult.
     if mode == "deterministic":
         overall = compute_overall_conclusion(
             deterministic_control=control.lane_result,
@@ -835,6 +1191,12 @@ def run_paired_grounding_path_diagnostic(
         "control": control.to_trace_dict(),
         "candidate": candidate.to_trace_dict(),
     }
+    if persistent_budget is not None:
+        refreshed = load_provider_budget_ledger(persistent_budget.path)
+        summary["budget_ledger_path"] = str(persistent_budget.path)
+        summary["budget_total_calls"] = refreshed.total_calls
+        summary["budget_max_total_calls"] = MAX_TOTAL_PROVIDER_CALLS
+        summary["budget_remaining"] = refreshed.remaining
     write_trace_artifact(output_dir / "paired-summary.json", summary)
     write_trace_artifact(output_dir / "control-trace.json", control.to_trace_dict())
     write_trace_artifact(output_dir / "candidate-trace.json", candidate.to_trace_dict())
@@ -866,6 +1228,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--budget-ledger",
+        type=Path,
+        default=None,
+        help="Persistent provider-call budget ledger (required for live mode)",
+    )
+    parser.add_argument(
+        "--combine-with-deterministic-summary",
+        type=Path,
+        default=None,
+        help="Optional deterministic paired-summary.json to evidence-bind overall READY",
+    )
     return parser
 
 
@@ -878,6 +1252,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         fake_output = json.loads(args.fake_output.read_text(encoding="utf-8"))
 
+    budget_ledger = args.budget_ledger
+    if args.mode == "live" and budget_ledger is None:
+        budget_ledger = args.control_case.parent / DEFAULT_BUDGET_LEDGER_NAME
+
     result = run_paired_grounding_path_diagnostic(
         control_case_path=args.control_case,
         candidate_case_path=args.candidate_case,
@@ -888,6 +1266,7 @@ def main(argv: list[str] | None = None) -> int:
         fake_output=fake_output,
         repo_root=_REPO_ROOT,
         overwrite=args.overwrite,
+        budget_ledger_path=budget_ledger,
     )
     print(f"control:   {result.control.lane_result}")
     print(f"candidate: {result.candidate.lane_result}")
@@ -897,7 +1276,21 @@ def main(argv: list[str] | None = None) -> int:
         f"{result.control.comparison_metrics_present} / "
         f"{result.candidate.comparison_metrics_present}"
     )
-    print(f"overall: {result.overall_conclusion}")
+    overall = result.overall_conclusion
+    if args.combine_with_deterministic_summary is not None:
+        det_summary = json.loads(
+            args.combine_with_deterministic_summary.read_text(encoding="utf-8")
+        )
+        live_summary = json.loads(
+            (args.output_dir / "paired-summary.json").read_text(encoding="utf-8")
+        )
+        overall = combine_paired_summary_conclusions(
+            deterministic_summary=det_summary,
+            live_summary=live_summary,
+        )
+        print(f"combined overall: {overall}")
+    else:
+        print(f"overall: {overall}")
     return 0
 
 

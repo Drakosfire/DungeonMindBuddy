@@ -484,6 +484,7 @@ def test_empty_evidence_refs_with_paraphrase_still_ownership_mismatch(
 
 
 def test_overall_conclusion_requires_both_deterministic_and_live_evaluable() -> None:
+    # Bare enums must never unlock READY — only evidence-bound combiners can.
     assert (
         grounding.compute_overall_conclusion(
             live_control="EVALUABLE",
@@ -505,7 +506,7 @@ def test_overall_conclusion_requires_both_deterministic_and_live_evaluable() -> 
             live_control="EVALUABLE",
             live_candidate="EVALUABLE",
         )
-        == "GROUNDING_PATH_READY"
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
     )
 
 
@@ -552,6 +553,157 @@ def test_overall_conclusion_phrase_fidelity_requires_deterministic_proof() -> No
     )
 
 
+def _minimal_lane(
+    *,
+    lane: str,
+    run_mode: str,
+    prompt_version: str,
+    case_digest: str,
+    repository_sha: str,
+    model_id: str,
+    provider_response_id: str | None,
+    lane_result: str = "EVALUABLE",
+    assertion_id: str = "assertion:shared",
+    evidence_ref_ids: list[str] | None = None,
+    expected_phrase: str = EXPECTED_PHRASE,
+    resolved_span_digest: str = "spandigest",
+) -> grounding.LaneDiagnostic:
+    return grounding.LaneDiagnostic(
+        lane=lane,  # type: ignore[arg-type]
+        case_id=f"case-{lane}",
+        case_digest=case_digest,
+        prompt_version=prompt_version,
+        prompt_sha256="deadbeef",
+        packet_version=TL01C_PACKET_VERSION,
+        renderer_identity=grounding.RENDERER_IDENTITY,
+        model_id=model_id,
+        assertion_id=assertion_id,
+        evidence_ref_ids=evidence_ref_ids or ["evidence:shared"],
+        resolved_span_digest=resolved_span_digest,
+        expected_phrase=expected_phrase,
+        packet_phrase_present=True,
+        renderer_phrase_present=True,
+        transport_accepted=True,
+        returned_evidence_ref_ids=evidence_ref_ids or ["evidence:shared"],
+        returned_source_phrase=expected_phrase,
+        owned_evidence_check="owned_match",
+        phrase_match=True,
+        phrase_match_evidence_ref_id=(evidence_ref_ids or ["evidence:shared"])[0],
+        phrase_match_offset=0,
+        production_error_code=None,
+        production_diagnostics=None,
+        overlay_id="temporal-overlay:x",
+        comparison_metrics_present=True,
+        comparison_metrics={"exact_match_count": 1},
+        provider_response_id=provider_response_id,
+        lane_result=lane_result,  # type: ignore[arg-type]
+        run_mode=run_mode,  # type: ignore[arg-type]
+        phase="initial",
+        repository_sha=repository_sha,
+    )
+
+
+def test_combine_paired_ready_requires_shared_identity_and_live_provenance() -> None:
+    clean_sha = "a" * 40
+    det = grounding.PairedDiagnosticResult(
+        control=_minimal_lane(
+            lane="control",
+            run_mode="deterministic",
+            prompt_version="tl01f-v1",
+            case_digest="digest-control",
+            repository_sha=clean_sha,
+            model_id="fake-model",
+            provider_response_id="fake",
+        ),
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="deterministic",
+            prompt_version="tl01g-v1",
+            case_digest="digest-candidate",
+            repository_sha=clean_sha,
+            model_id="fake-model",
+            provider_response_id="fake",
+        ),
+        provider_calls=0,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=False,
+    )
+    live = grounding.PairedDiagnosticResult(
+        control=_minimal_lane(
+            lane="control",
+            run_mode="live",
+            prompt_version="tl01f-v1",
+            case_digest="digest-control",
+            repository_sha=clean_sha,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_control",
+        ),
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="live",
+            prompt_version="tl01g-v1",
+            case_digest="digest-candidate",
+            repository_sha=clean_sha,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_candidate",
+        ),
+        provider_calls=2,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=True,
+    )
+    assert (
+        grounding.combine_paired_diagnostic_conclusions(
+            deterministic=det, live=live
+        )
+        == "GROUNDING_PATH_READY"
+    )
+
+    broken = grounding.PairedDiagnosticResult(
+        control=live.control,
+        candidate=_minimal_lane(
+            lane="candidate",
+            run_mode="live",
+            prompt_version="tl01g-v1",
+            case_digest="digest-candidate",
+            repository_sha=clean_sha,
+            model_id=grounding.LIVE_MODEL_ID,
+            provider_response_id="resp_candidate",
+            assertion_id="assertion:other",
+        ),
+        provider_calls=2,
+        overall_conclusion="UNRESOLVED_DIAGNOSTIC_GAP",
+        live_attempted=True,
+    )
+    assert (
+        grounding.combine_paired_diagnostic_conclusions(
+            deterministic=det, live=broken
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+
+
+def test_combine_paired_summary_rejects_literal_evaluable_without_identity() -> None:
+    summary = {
+        "run_mode": "deterministic",
+        "provider_calls": 0,
+        "control": {"lane_result": "EVALUABLE"},
+        "candidate": {"lane_result": "EVALUABLE"},
+    }
+    live = {
+        "run_mode": "live",
+        "provider_calls": 2,
+        "control": {"lane_result": "EVALUABLE"},
+        "candidate": {"lane_result": "EVALUABLE"},
+    }
+    assert (
+        grounding.combine_paired_summary_conclusions(
+            deterministic_summary=summary,
+            live_summary=live,
+        )
+        == "UNRESOLVED_DIAGNOSTIC_GAP"
+    )
+
+
 def test_failed_provider_attempts_are_charged_to_budget() -> None:
     class FailingDelegate:
         def extract_annotations(self, *, instructions: str, user_content: str, model_id: str):
@@ -577,6 +729,42 @@ def test_failed_provider_attempts_are_charged_to_budget() -> None:
     assert ledger.calls == 1
     assert ledger.response_ids == ["resp_failed_attempt"]
     assert recording.call_count == 1
+
+
+def test_persistent_budget_ledger_blocks_fifth_live_invocation(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "budget.json"
+    ledger = grounding.ProviderBudgetLedger(
+        path=ledger_path,
+        total_calls=4,
+        response_ids=["a", "b", "c", "d"],
+        entries=[],
+    )
+    grounding.save_provider_budget_ledger(ledger)
+    with patch.dict("os.environ", {grounding.LIVE_OPT_IN_ENV: "1"}):
+        with pytest.raises(TemporalShadowExtractionError) as exc:
+            grounding.run_paired_grounding_path_diagnostic(
+                control_case_path=CONTROL_CASE,
+                candidate_case_path=CANDIDATE_CASE,
+                output_dir=tmp_path / "blocked",
+                mode="live",
+                phase="post_fix",
+                model_id=grounding.LIVE_MODEL_ID,
+                fake_output=None,
+                repo_root=REPO_ROOT,
+                overwrite=True,
+                budget_ledger_path=ledger_path,
+            )
+    assert "budget" in str(exc.value).lower() or "exhausted" in str(exc.value).lower()
+    assert grounding.load_provider_budget_ledger(ledger_path).total_calls == 4
+
+
+def test_fixture_budget_ledger_is_exhausted_at_four() -> None:
+    ledger_path = FIXTURE / grounding.DEFAULT_BUDGET_LEDGER_NAME
+    ledger = grounding.load_provider_budget_ledger(ledger_path)
+    assert ledger.total_calls == 4
+    assert ledger.remaining == 0
+    with pytest.raises(TemporalShadowExtractionError):
+        grounding.assert_provider_budget_available(ledger, calls_needed=1)
 
 
 def test_transport_accepted_false_for_invalid_model_output_and_provider_errors() -> None:
@@ -632,6 +820,55 @@ def test_transport_rejected_lane_records_transport_accepted_false(
     )
     assert result.lane_result == "TRANSPORT_REJECTED"
     assert result.transport_accepted is False
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        lambda batch: batch.update({"annotations": "not-a-list"}),
+        lambda batch: batch.update({"annotations": ["not-an-object"]}),
+        lambda batch: batch["annotations"][0].update({"evidence_ref_ids": 7}),
+    ],
+)
+def test_malformed_raw_batch_observation_yields_transport_rejected(
+    tmp_path: Path,
+    mutator: Any,
+) -> None:
+    fake = copy.deepcopy(_load_fake_output())
+    mutator(fake)
+    result = grounding.run_lane_diagnostic(
+        lane="control",
+        case_path=CONTROL_CASE,
+        output_dir=tmp_path / "malformed",
+        mode="deterministic",
+        phase="initial",
+        model_id="fake-model",
+        client=FakeTemporalShadowExtractionClient(fake),
+        repo_root=REPO_ROOT,
+        overwrite=True,
+    )
+    assert result.lane_result == "TRANSPORT_REJECTED"
+    assert result.transport_accepted is False
+
+
+def test_annotation_from_raw_batch_shape_guards() -> None:
+    assertion_id = "assertion:x"
+    phrase, refs, ok = grounding._annotation_from_raw_batch(
+        {"annotations": [{"base_assertion_id": assertion_id, "evidence_ref_ids": 7}]},
+        assertion_id=assertion_id,
+    )
+    assert ok is False
+    assert phrase is None and refs is None
+    phrase, refs, ok = grounding._annotation_from_raw_batch(
+        {"annotations": "nope"},
+        assertion_id=assertion_id,
+    )
+    assert ok is False
+    phrase, refs, ok = grounding._annotation_from_raw_batch(
+        {"annotations": [42]},
+        assertion_id=assertion_id,
+    )
+    assert ok is False
 
 
 def test_deterministic_paired_overall_is_not_grounding_path_ready(tmp_path: Path) -> None:
