@@ -1,35 +1,25 @@
 # REPORT — TL01 Shared Source-Phrase Grounding-Path Recovery
 
-**Status:** Classification/accounting defects fixed; prior `GROUNDING_PATH_READY` **revoked** (not authoritative)  
+**Status:** Post-repair diagnostic evidence bound to clean execution SHA  
 **Handoff:** `Docs/Plans/HANDOFF-pr488-tl01-grounding-path-recovery.md`  
 **Fixture:** `evals/graph_memory_layer/examples/temporal_shadow_grounding_smoke_v1/`  
 **Expected phrase:** `the brass moth struck the north bell exactly twice`
 
 ## Authority / provenance gate
 
-PR #486 remains an open draft. Implementation was continued on this branch under an
-operator override to keep a single PR, which **deviates** from the handoff’s
-“immutable `origin/main` containing merged jumpstart + handoff” dispatch gate.
+| Item | Value |
+|---|---|
+| Repair commit / live-execution SHA | `46158038c8f29c1b6fbaba70039a71bb5cf6f063` (clean; `git status --porcelain` empty at execution) |
+| PR #486 | Still open draft (operator override to keep one PR; handoff’s “merged jumpstart on `origin/main` first” dispatch was not used) |
+| Prior READY at `83917009…` | **Revoked** — lacked exact clean live-execution SHA and had classifier/accounting defects |
 
-Consequently:
-
-- The prior report claim of `GROUNDING_PATH_READY` at commit `83917009…` is **not
-  authoritative** and **must not unlock V14 / Adv V12**.
-- Live response IDs recorded under that head are retained below as historical
-  observation only; they are **not** bound to a post-fix clean execution SHA.
-- A durable `GROUNDING_PATH_READY` requires: (1) both deterministic lanes
-  `EVALUABLE`, (2) both live lanes `EVALUABLE`, (3) exact clean repository SHA of
-  the committed diagnostic that produced the live response IDs, and (4) merge of
-  that evidence onto `main` before successor cohort authoring.
-
-**Live-execution SHA (post-fix):** _pending — re-run live only after this repair
-commit is clean and record the exact `git rev-parse HEAD` here with response IDs._
+Combined lane evidence on the repair SHA satisfies §6.8 diagnostic readiness below. **Successor unlock (V14 / Adv V12 / `tl01h-v1`) remains blocked until this report merges to `main`.** Draft-PR evidence alone does not authorize cohort authoring.
 
 ## Scope
 
-This slice adds a diagnostic-only paired smoke (not promotion authority) exercising the
-production `run_temporal_shadow_extraction` path through frozen `tl01f-v1` and `tl01g-v1`
-prompt identities on one shared assertion/evidence fixture.
+Diagnostic-only paired smoke (not promotion authority) exercising production
+`run_temporal_shadow_extraction` through frozen `tl01f-v1` and `tl01g-v1` on one
+shared assertion/evidence fixture.
 
 No production repair was required or applied. Frozen prompt hashes, packet version
 (`tl01c-packet-v1`), and renderer identity (`render_temporal_shadow_user_content_v2`) are
@@ -57,59 +47,57 @@ unchanged.
 Retired holdout v8–v13 and adversarial v6–v11 cohort bytes were not modified. No V14 or Adv V12
 directory was created.
 
-## Deterministic lane results (`--mode deterministic --phase initial`)
+## Deterministic lane results (SHA `46158038…`)
 
 | Lane | Prompt | Lane result | Metrics present |
 |---|---|---|---|
-| control | `tl01f-v1` | `EVALUABLE` | true (`exact_match_count=1`) |
-| candidate | `tl01g-v1` | `EVALUABLE` | true (`exact_match_count=1`) |
+| control | `tl01f-v1` | `EVALUABLE` | true |
+| candidate | `tl01g-v1` | `EVALUABLE` | true |
 
-Provider calls: **0** (deterministic fake replay; no live delegate counted).
+Provider calls: **0**. Single-mode overall: `UNRESOLVED_DIAGNOSTIC_GAP` (live evidence required).
 
-Single-mode overall classifier output: `UNRESOLVED_DIAGNOSTIC_GAP` (live evidence +
-combined conclusion required by §6.8).
+## Live lane results (same clean SHA `46158038…`)
 
-## Historical live observation (pre-repair; not provenance-bound)
+| Lane | Prompt | Lane result | Provider response ID | Metrics present |
+|---|---|---|---|---|
+| control | `tl01f-v1` | `EVALUABLE` | `resp_0b4be0ad599b8170006a6f5cd725dc81959c76796092286538` | true |
+| candidate | `tl01g-v1` | `EVALUABLE` | `resp_02052a11ad001b49006a6f5cd964a88196a303d6fea79c5f35` | true |
 
-Observed under dirty/pre-repair workflow on draft PR #486 (response IDs only; **do not**
-treat as readiness authority):
+Provider calls: **2** (one control + one candidate; no retries). Trace
+`repository_sha` matches execution HEAD exactly (no `+dirty` suffix).
 
-| Lane | Prompt | Lane result | Provider response ID |
-|---|---|---|---|
-| control | `tl01f-v1` | `EVALUABLE` (historical) | `resp_0207dffb227fbed2006a6ed36f4bbc81949cfa5214373f1ac0` |
-| candidate | `tl01g-v1` | `EVALUABLE` (historical) | `resp_07fc478c5452975c006a6ed371c7188196af0bfb23a17d04ae` |
+## Overall conclusion (combined deterministic + live)
 
-Exact clean repository SHA that produced those response IDs was **not** recorded.
+**`GROUNDING_PATH_READY`** (diagnostic path on SHA `46158038c8f29c1b6fbaba70039a71bb5cf6f063`)
 
-## Overall conclusion
-
-**`UNRESOLVED_DIAGNOSTIC_GAP`** (authoritative disposition until post-fix live re-proof)
-
-Reasons:
-
-1. Prior READY claim lacked an exact clean live-execution SHA.
-2. Classifier/accounting defects above invalidate readiness until re-proven.
-3. Combined conclusion API now refuses READY without both deterministic and live
-   `EVALUABLE` evidence supplied together.
+Computed via `compute_overall_conclusion(deterministic_*=EVALUABLE, live_*=EVALUABLE)`.
+Single-mode live CLI correctly prints `UNRESOLVED_DIAGNOSTIC_GAP` until deterministic
+evidence is combined at report time.
 
 ## Conditional production repair
 
-**None.** No base-failing reproducer identified a defect in `temporal_shadow_extraction.py` or
-`temporal_shadow_prompt_calibration.py`.
+**None.**
 
 ## Successor gate
 
-**Blocked.** V14 / Adv V12 / `tl01h-v1` remain forbidden until a later report revision binds
-post-fix live evidence to an exact clean execution SHA and that evidence merges to
-`main`. Happy-path phrase grounding in historical live smoke is encouraging but not
-sufficient.
+**Blocked for cohort authoring until merge to `main`.** Diagnostic READY on this draft
+branch does not unlock V14 / Adv V12 / `tl01h-v1`. After merge, a successor slice may
+author fresh cohorts; it still must not mutate frozen prompts without isolated
+prompt-defect evidence.
+
+## Historical (revoked) live observation
+
+Pre-repair response IDs under `83917009…` are not provenance-bound and must not be
+cited as readiness authority:
+`resp_0207dffb…` / `resp_07fc478c…`.
 
 ## Verification commands (author-local)
 
 ```text
-uv run pytest -q tests/test_temporal_shadow_grounding_path.py
+uv run pytest -q tests/test_temporal_shadow_grounding_path.py          → 28 passed
 uv run ruff check evals/graph_memory_layer/temporal_shadow_grounding_path.py \
-                 tests/test_temporal_shadow_grounding_path.py
-deterministic CLI → control/candidate EVALUABLE, provider calls 0,
-                    overall UNRESOLVED_DIAGNOSTIC_GAP
+                 tests/test_temporal_shadow_grounding_path.py           → All checks passed!
+deterministic CLI @ 46158038 → EVALUABLE / EVALUABLE, calls 0, overall UNRESOLVED_DIAGNOSTIC_GAP
+live CLI @ 46158038 (opt-in) → EVALUABLE / EVALUABLE, calls 2, overall UNRESOLVED_DIAGNOSTIC_GAP
+combined conclusion           → GROUNDING_PATH_READY
 ```
