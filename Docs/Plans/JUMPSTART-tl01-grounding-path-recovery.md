@@ -6,6 +6,7 @@
 > Repository: `Drakosfire/DungeonMindBuddy`
 > Verified `main` anchor: `3d5e66b53b09112178dda99063fd9acade3fb087`
 > Merged TL01G anchor: PR `#468`, merge `2c827f2bb3055eec3969a31a0262462650e1607f`
+> Implementation dispatch: `Docs/Plans/HANDOFF-pr488-tl01-grounding-path-recovery.md` (same PR). Do not implement from this JUMPSTART alone.
 > Completion condition: the shared packet → renderer → provider → transport → owned-evidence grounding path is isolated with durable assertion-level evidence, and the same diagnostic smoke produces observed comparison metrics through both frozen prompt lanes before fresh promotion work is authorized.
 
 # JUMPSTART — TL01 Grounding-Path Recovery
