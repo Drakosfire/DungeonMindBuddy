@@ -175,8 +175,8 @@ PRIOR_ADVERSARIAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11",
 )
 
-# Set when a fresh adversarial promotion cohort (V12+) is authored — removed;
-# fresh dirs are auto-discovered via _discover_dirs_not_in_declared.
+LAST_RETIRED_ADVERSARIAL_VERSION = 11
+LAST_RETIRED_HOLDOUT_VERSION = 13
 
 ADV_V6_VOCABULARY = (
     "Kestrel Vale",
@@ -774,37 +774,32 @@ def _template_jaccard(a: str, b: str) -> float:
     return len(left & right) / len(union)
 
 
-def _discover_dirs_not_in_declared(pattern: str, declared: tuple[Path, ...]) -> list[Path]:
-    examples = REPO_ROOT / "evals/graph_memory_layer/examples"
-    declared_resolved = {p.resolve() for p in declared}
-    found = []
-    for path in sorted(examples.glob(pattern)):
-        if path.is_dir() and path.resolve() not in declared_resolved:
+def _discover_cohorts_above_retired_cutoff(
+    *,
+    prefix: str,
+    last_retired_version: int,
+    examples_root: Path | None = None,
+) -> list[Path]:
+    """Discover on-disk versioned cohorts with version > last_retired_version.
+
+    Ignores PRIOR_* membership. Non-numeric suffixes under ``prefix*`` fail closed.
+    """
+    examples = examples_root or (REPO_ROOT / "evals/graph_memory_layer/examples")
+    found: list[Path] = []
+    for path in sorted(examples.glob(f"{prefix}*")):
+        if not path.is_dir():
+            continue
+        name = path.name
+        if not name.startswith(prefix):
+            continue
+        suffix = name[len(prefix) :]
+        if not suffix or not suffix.isdigit():
+            raise AssertionError(
+                f"unknown or non-numeric versioned cohort suffix: {name!r}"
+            )
+        if int(suffix) > last_retired_version:
             found.append(path)
     return found
-
-
-def _max_versioned_suffix(dirs: tuple[Path, ...], prefix: str) -> int:
-    max_version = 0
-    for path in dirs:
-        if not path.name.startswith(prefix):
-            continue
-        suffix = path.name[len(prefix) :]
-        if suffix.isdigit():
-            max_version = max(max_version, int(suffix))
-    return max_version
-
-
-def _discover_fresh_versioned_dirs(pattern: str, declared: tuple[Path, ...]) -> list[Path]:
-    """Fresh = versioned dir exists on disk but version exceeds max in declared set."""
-    prefix = pattern.rstrip("*")
-    max_declared = _max_versioned_suffix(declared, prefix)
-    fresh: list[Path] = []
-    for path in _discover_dirs_not_in_declared(pattern, declared):
-        suffix = path.name[len(prefix) :]
-        if suffix.isdigit() and int(suffix) > max_declared:
-            fresh.append(path)
-    return fresh
 
 
 def _require_fresh_cohort(folder: Path) -> None:
@@ -1076,9 +1071,9 @@ def test_adversarial_v11_proposition_template_jaccard_replays_adv_v10() -> None:
 
 def test_adversarial_cohort_proposition_template_jaccard_must_be_below_threshold_vs_prior() -> None:
     """Fail-closed guard for fresh adversarial promotion cohorts (V12+)."""
-    fresh_dirs = _discover_fresh_versioned_dirs(
-        "temporal_shadow_adversarial_v*",
-        PRIOR_ADVERSARIAL_COHORT_DIRS,
+    fresh_dirs = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_adversarial_v",
+        last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
     )
     if not fresh_dirs:
         return
@@ -1108,9 +1103,9 @@ def test_adversarial_cohort_proposition_template_jaccard_must_be_below_threshold
 
 def test_holdout_cohort_proposition_template_jaccard_must_be_below_threshold_vs_prior() -> None:
     """Fail-closed guard for fresh holdout promotion cohorts (V14+)."""
-    fresh_dirs = _discover_fresh_versioned_dirs(
-        "temporal_shadow_holdout_v*",
-        PRIOR_CANONICAL_COHORT_DIRS,
+    fresh_dirs = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_holdout_v",
+        last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
     )
     if not fresh_dirs:
         return
@@ -1140,9 +1135,9 @@ def test_holdout_cohort_proposition_template_jaccard_must_be_below_threshold_vs_
 
 def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() -> None:
     """Fresh holdout gold overlays must not encode Gate E3 or postponement-value defects."""
-    fresh_dirs = _discover_fresh_versioned_dirs(
-        "temporal_shadow_holdout_v*",
-        PRIOR_CANONICAL_COHORT_DIRS,
+    fresh_dirs = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_holdout_v",
+        last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
     )
     if not fresh_dirs:
         return
@@ -1156,37 +1151,77 @@ def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() 
             if ann.get("interpretation_status") != "resolved":
                 continue
             valid_time = ann.get("valid_time") or {}
+            valid_start = valid_time.get("start")
             valid_end = valid_time.get("end")
-            if valid_end is not None:
-                assertion_id = ann.get("base_assertion_id")
-                assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
-                if assertion is not None:
-                    evidence_id = (assertion.get("evidence_ref_ids") or [None])[0]
-                    entry = evidence.get(evidence_id) if evidence_id else None
-                    if entry is not None:
-                        source = _resolved_span_text(entry)
-                        if _source_reports_resulting_state_without_narrated_boundary(source):
-                            raise AssertionError(
-                                f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} — "
-                                "valid_time.end set from resulting-state report without "
-                                "narrated boundary"
-                            )
+            assertion_id = ann.get("base_assertion_id")
+            assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
+            if assertion is not None and (valid_start is not None or valid_end is not None):
+                for evidence_id in assertion.get("evidence_ref_ids") or []:
+                    entry = evidence.get(evidence_id)
+                    if entry is None:
+                        continue
+                    source = _resolved_span_text(entry)
+                    if valid_start is not None and _source_reports_resulting_state_without_narrated_boundary(
+                        source
+                    ):
+                        raise AssertionError(
+                            f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} "
+                            f"evidence {evidence_id!r} — valid_time.start set from "
+                            "resulting-state report without narrated boundary"
+                        )
+                    if valid_end is not None and _source_reports_resulting_state_without_narrated_boundary(
+                        source
+                    ):
+                        raise AssertionError(
+                            f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} "
+                            f"evidence {evidence_id!r} — valid_time.end set from "
+                            "resulting-state report without narrated boundary"
+                        )
             occ_time = ann.get("occurrence_time") or {}
             occ_point = occ_time.get("point") or {}
             raw_expression = str(occ_point.get("raw_expression") or "")
-            if raw_expression:
-                assertion_id = ann.get("base_assertion_id")
-                assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
-                if assertion is not None:
-                    proposition = str(assertion.get("label") or "")
-                    if _postponement_occurrence_uses_reschedule_time(
-                        proposition, raw_expression
-                    ):
-                        raise AssertionError(
-                            f"{fresh_dir.name}: postponement-value defect on "
-                            f"{assertion_id!r} — occurrence uses reschedule time "
-                            f"{raw_expression!r}"
-                        )
+            if raw_expression and assertion is not None:
+                proposition = str(assertion.get("label") or "")
+                if _postponement_occurrence_uses_reschedule_time(
+                    proposition, raw_expression
+                ):
+                    raise AssertionError(
+                        f"{fresh_dir.name}: postponement-value defect on "
+                        f"{assertion_id!r} — occurrence uses reschedule time "
+                        f"{raw_expression!r}"
+                    )
+
+
+def test_discover_cohorts_above_retired_cutoff_ignores_prior_membership(
+    tmp_path: Path,
+) -> None:
+    """PRIOR tuple membership must not disable fresh-cohort guards."""
+    (tmp_path / "temporal_shadow_adversarial_v11").mkdir()
+    v12 = tmp_path / "temporal_shadow_adversarial_v12"
+    v12.mkdir()
+    discovered = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_adversarial_v",
+        last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
+        examples_root=tmp_path,
+    )
+    assert discovered == [v12]
+
+    (tmp_path / "temporal_shadow_adversarial_v12b").mkdir()
+    with pytest.raises(AssertionError, match="non-numeric"):
+        _discover_cohorts_above_retired_cutoff(
+            prefix="temporal_shadow_adversarial_v",
+            last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
+            examples_root=tmp_path,
+        )
+
+
+def test_discover_cohorts_above_retired_cutoff_empty_when_only_retired_versions() -> None:
+    """Real examples tree with no versions above cutoff yields an empty list."""
+    discovered = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_holdout_v",
+        last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
+    )
+    assert discovered == []
 
 
 def test_v13_and_v11_ids_mutually_disjoint() -> None:

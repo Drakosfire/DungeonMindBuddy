@@ -125,7 +125,12 @@ class DirtyWorktreeError(ValueError):
 
 
 class ReaggregateError(ValueError):
-    """Reaggregate refused because expected on-disk run artifacts are missing."""
+    """Reaggregate refused due to missing/ambiguous artifacts or provenance mismatch.
+
+    Covers absent manifests, both success and failure manifests present, inconsistent
+    provider execution SHAs, case_digest mismatches against the executed case file,
+    and other fail-closed provenance checks before rewriting aggregate.json.
+    """
 
 
 def _repo_root() -> Path:
@@ -1324,6 +1329,43 @@ def _build_calibration_run_specs(
     return run_specs
 
 
+def _manifest_case_digest(manifest: dict[str, Any] | None) -> str | None:
+    if manifest is None:
+        return None
+    digest = manifest.get("case_digest")
+    return digest if isinstance(digest, str) and digest else None
+
+
+def _require_single_provider_execution_sha(outcomes: list[RunOutcome]) -> str:
+    """Collect one non-empty repository_sha from published run/failure manifests."""
+    shas: set[str] = set()
+    for outcome in outcomes:
+        manifest = outcome.run_manifest if outcome.succeeded else outcome.failure_manifest
+        if manifest is None:
+            manifest = outcome.failure_manifest or outcome.run_manifest
+        if manifest is None:
+            raise ReaggregateError(
+                f"missing published manifest for {outcome.spec.prompt_lane}/"
+                f"{outcome.spec.cohort}/run-{outcome.spec.repetition:02d}"
+            )
+        repository_sha = manifest.get("repository_sha")
+        if not isinstance(repository_sha, str) or not repository_sha.strip():
+            raise ReaggregateError(
+                f"missing repository_sha in published manifest for "
+                f"{outcome.spec.prompt_lane}/{outcome.spec.cohort}/"
+                f"run-{outcome.spec.repetition:02d}"
+            )
+        shas.add(_git_commit_sha(repository_sha.strip()))
+    if len(shas) != 1:
+        raise ReaggregateError(
+            f"inconsistent provider execution SHAs across matrix: {sorted(shas)}"
+        )
+    provider_sha = next(iter(shas))
+    if not provider_sha or provider_sha == "unknown":
+        raise ReaggregateError("provider execution SHA is empty or unknown")
+    return provider_sha
+
+
 def load_calibration_outcomes_from_disk(
     *,
     output_dir: Path,
@@ -1340,13 +1382,37 @@ def load_calibration_outcomes_from_disk(
         )
         has_run = (run_dir / "run-manifest.json").is_file()
         has_failure = (run_dir / "failure-manifest.json").is_file()
+        if has_run and has_failure:
+            raise ReaggregateError(
+                f"ambiguous run outcome for {spec.prompt_lane}/{spec.cohort}/"
+                f"run-{spec.repetition:02d}: both run-manifest.json and "
+                f"failure-manifest.json found under {run_dir}"
+            )
         if not has_run and not has_failure:
             raise ReaggregateError(
                 f"missing run artifacts for {spec.prompt_lane}/{spec.cohort}/"
                 f"run-{spec.repetition:02d}: neither run-manifest.json nor "
                 f"failure-manifest.json found under {run_dir}"
             )
-        outcomes.append(load_run_outcome(spec, run_dir))
+        outcome = load_run_outcome(spec, run_dir)
+        published = (
+            outcome.run_manifest if outcome.succeeded else outcome.failure_manifest
+        )
+        expected_digest = _file_sha256(spec.case_path)
+        actual_digest = _manifest_case_digest(published)
+        if actual_digest is None:
+            raise ReaggregateError(
+                f"missing case_digest in published manifest for "
+                f"{spec.prompt_lane}/{spec.cohort}/run-{spec.repetition:02d} "
+                f"case_path={spec.case_path} expected={expected_digest}"
+            )
+        if actual_digest != expected_digest:
+            raise ReaggregateError(
+                f"case_digest mismatch for {spec.prompt_lane}/{spec.cohort}/"
+                f"run-{spec.repetition:02d} case_path={spec.case_path} "
+                f"expected={expected_digest} actual={actual_digest}"
+            )
+        outcomes.append(outcome)
     return outcomes
 
 
@@ -1797,6 +1863,8 @@ def reaggregate_existing_calibration_runs(
     root = repo_root or _repo_root()
     build_sha = _repository_sha(repo_root=root)
 
+    _assert_clean_worktree_for_live(repo_root=root, fake=False)
+
     if not holdout_seal_commit_sha:
         raise CohortSealError(
             "--holdout-seal-commit is required for --reaggregate-only"
@@ -1805,19 +1873,6 @@ def reaggregate_existing_calibration_runs(
         raise CohortSealError(
             "--adversarial-seal-commit is required for --reaggregate-only"
         )
-
-    holdout_seal = verify_cohort_seal(
-        case_path=candidate_holdout_case,
-        seal_commit_sha=holdout_seal_commit_sha,
-        repo_root=root,
-        execution_commit_sha=build_sha,
-    )
-    adversarial_seal = verify_cohort_seal(
-        case_path=adversarial_case,
-        seal_commit_sha=adversarial_seal_commit_sha,
-        repo_root=root,
-        execution_commit_sha=build_sha,
-    )
 
     baseline_prompt_version, candidate_prompt_version = derive_prompt_versions_from_cases(
         control_case_paths=[
@@ -1861,6 +1916,61 @@ def reaggregate_existing_calibration_runs(
         output_dir=output_dir,
         run_specs=run_specs,
     )
+    provider_execution_sha = _require_single_provider_execution_sha(outcomes)
+
+    holdout_seal = verify_cohort_seal(
+        case_path=candidate_holdout_case,
+        seal_commit_sha=holdout_seal_commit_sha,
+        repo_root=root,
+        execution_commit_sha=provider_execution_sha,
+    )
+    adversarial_seal = verify_cohort_seal(
+        case_path=adversarial_case,
+        seal_commit_sha=adversarial_seal_commit_sha,
+        repo_root=root,
+        execution_commit_sha=provider_execution_sha,
+    )
+    verify_fixtures_tracked_at_commit(
+        case_path=development_case,
+        commit_sha=provider_execution_sha,
+        repo_root=root,
+    )
+    verify_fixtures_tracked_at_commit(
+        case_path=candidate_development_case,
+        commit_sha=provider_execution_sha,
+        repo_root=root,
+    )
+    verify_fixtures_tracked_at_commit(
+        case_path=holdout_case,
+        commit_sha=provider_execution_sha,
+        repo_root=root,
+    )
+    if baseline_adversarial_case is not None:
+        verify_fixtures_tracked_at_commit(
+            case_path=baseline_adversarial_case,
+            commit_sha=provider_execution_sha,
+            repo_root=root,
+        )
+
+    validate_paired_case_equivalence(
+        baseline_case_path=development_case,
+        candidate_case_path=candidate_development_case,
+        repo_root=root,
+        pair_name="development",
+    )
+    validate_paired_case_equivalence(
+        baseline_case_path=holdout_case,
+        candidate_case_path=candidate_holdout_case,
+        repo_root=root,
+        pair_name="holdout",
+    )
+    if baseline_adversarial_case is not None:
+        validate_paired_case_equivalence(
+            baseline_case_path=baseline_adversarial_case,
+            candidate_case_path=adversarial_case,
+            repo_root=root,
+            pair_name="adversarial",
+        )
 
     expected_prompt: dict[tuple[PromptLane, CohortName], str] = {
         ("baseline", "development"): baseline_prompt_version,
@@ -1900,19 +2010,12 @@ def reaggregate_existing_calibration_runs(
             expected_model_id=model_id,
             expected_prompt_version=expected_prompt.get((prompt_lane, cohort)),
             expected_case_id=expected_case[(prompt_lane, cohort)],
-            expected_repository_sha=None,
+            expected_repository_sha=provider_execution_sha,
         )
         for (prompt_lane, cohort), group_outcomes in sorted(cohort_groups.items())
     ]
 
-    provider_run_repository_shas = sorted(
-        {
-            record.repository_sha
-            for aggregate in cohort_aggregates
-            for record in aggregate.run_records
-            if isinstance(record.repository_sha, str) and record.repository_sha
-        }
-    )
+    provider_run_repository_shas = [provider_execution_sha]
 
     decision, diagnostics = compute_calibration_decision(
         cohort_aggregates=cohort_aggregates,

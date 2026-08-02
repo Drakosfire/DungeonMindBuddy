@@ -1276,13 +1276,14 @@ def test_load_calibration_outcomes_from_disk_preserves_failure_fields(
         cohort="holdout",
         repetition=1,
     )
+    case_digest = calibration._file_sha256(CANDIDATE_HOLDOUT_CASE)
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "failure-manifest.json").write_text(
         json.dumps(
             {
                 "schema": "dmb_temporal_shadow_extraction_failure_v1",
                 "case_id": "tl01g-temporal-shadow-holdout-v13",
-                "case_digest": "b" * 64,
+                "case_digest": case_digest,
                 "model_id": "fake-model",
                 "executed_prompt_version": "tl01g-v1",
                 "prompt_version": "tl01g-v1",
@@ -1299,7 +1300,12 @@ def test_load_calibration_outcomes_from_disk_preserves_failure_fields(
         + "\n",
         encoding="utf-8",
     )
-    spec = _spec("candidate", "holdout", 1)
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "holdout",
+        CANDIDATE_HOLDOUT_CASE,
+        1,
+    )
     outcomes = calibration.load_calibration_outcomes_from_disk(
         output_dir=tmp_path,
         run_specs=[spec],
@@ -1327,12 +1333,124 @@ def test_load_calibration_outcomes_from_disk_preserves_failure_fields(
 def test_load_calibration_outcomes_from_disk_raises_when_manifests_missing(
     tmp_path: Path,
 ) -> None:
-    spec = _spec("candidate", "holdout", 1)
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "holdout",
+        CANDIDATE_HOLDOUT_CASE,
+        1,
+    )
     with pytest.raises(calibration.ReaggregateError, match="missing run artifacts"):
         calibration.load_calibration_outcomes_from_disk(
             output_dir=tmp_path,
             run_specs=[spec],
         )
+
+
+def test_load_outcomes_rejects_both_success_and_failure_manifests(
+    tmp_path: Path,
+) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "run-manifest.json").write_text("{}\n", encoding="utf-8")
+    (run_dir / "failure-manifest.json").write_text("{}\n", encoding="utf-8")
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "holdout",
+        CANDIDATE_HOLDOUT_CASE,
+        1,
+    )
+    with pytest.raises(calibration.ReaggregateError, match="ambiguous run outcome"):
+        calibration.load_calibration_outcomes_from_disk(
+            output_dir=tmp_path,
+            run_specs=[spec],
+        )
+
+
+def test_load_outcomes_rejects_case_digest_mismatch(tmp_path: Path) -> None:
+    case_path = tmp_path / "tiny-case.json"
+    case_path.write_text('{"case_id":"tiny"}\n', encoding="utf-8")
+    expected_digest = calibration._file_sha256(case_path)
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="development",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "dmb_temporal_shadow_extraction_failure_v1",
+                "case_id": "tiny",
+                "case_digest": "0" * 64,
+                "model_id": "fake-model",
+                "prompt_version": "tl01g-v1",
+                "failure_code": "provider_error",
+                "repository_sha": "abc123",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "development",
+        case_path,
+        1,
+    )
+    with pytest.raises(calibration.ReaggregateError, match="case_digest mismatch") as exc:
+        calibration.load_calibration_outcomes_from_disk(
+            output_dir=tmp_path,
+            run_specs=[spec],
+        )
+    message = str(exc.value)
+    assert expected_digest in message
+    assert ("0" * 64) in message
+
+
+def test_require_single_provider_execution_sha_rejects_mismatch() -> None:
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": "aaa111deadbeefdeadbeefdeadbeefdeadbeef"},
+        ),
+        calibration.RunOutcome(
+            spec=_spec("candidate", "holdout", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": "bbb222deadbeefdeadbeefdeadbeefdeadbeef"},
+        ),
+    ]
+    with pytest.raises(calibration.ReaggregateError, match="inconsistent provider execution"):
+        calibration._require_single_provider_execution_sha(outcomes)
+
+
+def test_require_single_provider_execution_sha_strips_dirty_suffix() -> None:
+    sha = "aaa111deadbeefdeadbeefdeadbeefdeadbeef"
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": f"{sha}+dirty"},
+        ),
+        calibration.RunOutcome(
+            spec=_spec("candidate", "holdout", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": sha},
+        ),
+    ]
+    assert calibration._require_single_provider_execution_sha(outcomes) == sha
 
 
 def test_temporal_shadow_extraction_error_prepends_message_to_custom_diagnostics() -> None:

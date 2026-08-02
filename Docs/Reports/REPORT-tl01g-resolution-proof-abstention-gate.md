@@ -36,7 +36,7 @@ TL01 may **not** advance to broader-shadow readiness. There is currently **no au
 | Retire V10/Adv V8; audit ID/status tests; span EOF bounds; seal V11 / Adv V9 | `a3f108f2fa64a3ac5c0146acbc25d7b904fcacc2` | **retired** — reused observed spans; Adv V9 paraphrased Adv V8 |
 | Retire V11/Adv V9; restore span `isdisjoint`; Jaccard templates; audit proposition/lane/phrase; seal V12 / Adv V10 | `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` | **retired** — gold/Gate defects |
 | Retire V12/Adv V10; proposition-template Jaccard (holdout); seal V13/Adv V11 | `33bae3485babb0d15373b91b0cbcb13282b42491` | **retired after observation** — Adv proposition replay; V13 Gate E3 / postponement-value defects; grounding collapse |
-| Preserve grounding diagnostics; fail-closed auto-discovery for fresh adversarial/holdout proposition-template Jaccard; Gate E3 / value audit cases; rebuild committed aggregate from on-disk manifests | *(this recovery tip)* | process — **no new promotion cohort** |
+| Preserve grounding diagnostics; fail-closed auto-discovery for fresh adversarial/holdout proposition-template Jaccard; Gate E3 / value audit cases; rebuild committed aggregate from on-disk manifests; provenance-safe reaggregate (case_digest, single provider SHA, fixture bytes at execution commit) | *(this recovery tip)* | process — **no new promotion cohort** |
 
 ### Why V13/Adv V11 cannot remain promotion authority
 
@@ -62,10 +62,23 @@ Resolved-span fingerprints fail before hashing when evidence refs are missing, p
 
 - Holdout: proposition-template Jaccard (label+predicate, entity scrub) `< 0.40` vs all prior canonical holdouts.
 - Adversarial: source-prose Jaccard is **insufficient**. Fresh adversarial cohorts also require proposition-template Jaccard `< 0.40` vs all prior adversarial assertion labels/predicates.
+- **Fresh-cohort discovery** uses immutable cutoffs `LAST_RETIRED_HOLDOUT_VERSION=13` and `LAST_RETIRED_ADVERSARIAL_VERSION=11` (versioned dirs with suffix `> cutoff`). PRIOR tuple membership does **not** disable guards; non-numeric suffixes fail closed.
 
 ### GOLD-AUDIT ↔ fixture binding
 
 Audit rows must bind ID, status, proposition, lane, and supporting phrase to sealed fixtures. **This proves mechanical fixture consistency only — not human Gate-faithfulness.** Additional audit cases check Gate E3 (episode boundary vs resulting-state report) and proposition-first value grounding (value must temporally modify the selected proposition).
+
+**Future holdout overlays** (versions above the holdout cutoff) audit **both** `valid_time.start` and `valid_time.end` across **every** `evidence_ref_id` on resolved assertions — not a V13-only end/first-ref check. Postponement-value defects still audit occurrence `raw_expression` on resolved rows.
+
+### Reaggregate provenance (durable evidence)
+
+`--reaggregate-only` now refuses unless the git worktree is clean (calibration artifacts excluded). Before rewriting `aggregate.json` it:
+
+1. Loads on-disk manifests and rejects ambiguous dirs (both success and failure manifests).
+2. Requires each published manifest `case_digest` to match the executed case file SHA256.
+3. Requires exactly one provider `repository_sha` across the matrix (`provider_execution_sha`).
+4. Verifies development/holdout/adversarial case/base/gold/evidence bytes at that provider commit (sealed holdout/adversarial via `verify_cohort_seal` with `execution_commit_sha=provider_execution_sha`).
+5. Passes `expected_repository_sha=provider_execution_sha` into cohort aggregation; records `provider_run_repository_shas=[provider_execution_sha]` while `aggregate_build_sha` / aggregate `repository_sha` remain the current clean HEAD rebuild tip.
 
 ### Grounding diagnostics
 
