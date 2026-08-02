@@ -3,23 +3,37 @@
  *
  * Authority: handoff §6.3–§6.10. Pure, deterministic, non-throwing for any
  * malformed input. Never invokes callbacks, never inspects binding values,
- * never clones the input, never coerces malformed collections, and never
- * converts untrusted values (no String()/toString/Symbol.toPrimitive paths —
- * diagnostics name malformed types instead). Nullability means exactly null,
- * required arrays must be dense (indexed iteration with own-property checks),
- * discriminant set checks require primitive strings via typeof, and every
- * record position holds the data-record boundary: own data-property
- * descriptors only (accessors are malformed, never invoked), standard
- * prototypes only (inherited fields never satisfy or violate the contract),
- * and guarded inspection (throwing proxy traps become shape issues, never
- * escaped exceptions). Each untrusted field is read exactly once; field and
- * cross-reference checks consume those same snapshotted values. Any material
+ * never coerces malformed collections, and never converts untrusted values
+ * (no String()/toString/Symbol.toPrimitive paths — diagnostics name malformed
+ * types instead). Nullability means exactly null, required arrays must be
+ * dense (indexed iteration with own-property checks), discriminant set checks
+ * require primitive strings via typeof, and every record position holds the
+ * data-record boundary: own data-property descriptors only (accessors are
+ * malformed, never invoked), standard prototypes only (inherited fields never
+ * satisfy or violate the contract), and guarded inspection (throwing proxy
+ * traps become shape issues, never escaped exceptions). Each untrusted field
+ * is read exactly once per validated position; field and cross-reference
+ * checks consume those same snapshotted values. On success the returned
+ * publication is a canonical validated snapshot — fresh records and arrays
+ * carrying exactly the contract fields, with callbacks and binding values
+ * carried by reference — so a proxy whose descriptor inspection and property
+ * access disagree, or one record aliased into several positions, cannot
+ * smuggle unproven values into the narrowed result. Any material
  * contradiction invalidates the whole publication; no partially accepted
  * contribution set is ever returned.
  */
 
 import type {
+  SurfaceInteractionAvailability,
+  SurfaceInteractionEditCommandContribution,
+  SurfaceInteractionPlacement,
+  SurfaceInteractionProjectionBinding,
+  SurfaceInteractionProjectionDescriptor,
+  SurfaceInteractionProjectionKind,
+  SurfaceInteractionProjectionSize,
   SurfaceInteractionPublication,
+  SurfaceInteractionToolActivation,
+  SurfaceInteractionToolContribution,
   SurfaceInteractionValidationIssue,
   SurfaceInteractionValidationResult,
 } from "./types";
@@ -347,6 +361,102 @@ function stringField(fields: ReadonlyMap<string, unknown>, key: string): string 
   return typeof value === "string" ? value : "";
 }
 
+// ---------------------------------------------------------------------------
+// Canonical validated snapshot (success path only).
+//
+// The returned publication is re-materialized from the proven snapshot values:
+// fresh records and arrays carrying exactly the contract fields. Callbacks and
+// binding values are carried by reference; everything else is rebuilt, so the
+// narrowed result can never observe a value other than the one proven at that
+// position — regardless of how the input object's property access behaves.
+// The `as` casts below are sound only because these builders run exclusively
+// in the issues.length === 0 branch, where every field has already been proven.
+// ---------------------------------------------------------------------------
+
+function canonicalPlacement(placement: RecordSnapshot): SurfaceInteractionPlacement {
+  return {
+    groupId: placement.fields.get("groupId") as string | null,
+    groupLabel: placement.fields.get("groupLabel") as string | null,
+    groupOrder: placement.fields.get("groupOrder") as number,
+    itemOrder: placement.fields.get("itemOrder") as number,
+  };
+}
+
+function canonicalAvailability(availability: RecordSnapshot): SurfaceInteractionAvailability {
+  if (availability.fields.get("status") === "disabled") {
+    return {
+      status: "disabled",
+      disabledReason: availability.fields.get("disabledReason") as string,
+    };
+  }
+  // Enabled: disabledReason was proven absent — the snapshot carries no key.
+  return { status: "enabled" };
+}
+
+function canonicalTool(
+  snap: ToolSnapshot & { shapeValid: true },
+): SurfaceInteractionToolContribution {
+  const activation: SurfaceInteractionToolActivation =
+    snap.activation.fields.get("kind") === "projection"
+      ? {
+          kind: "projection",
+          projectionId: snap.activation.fields.get("projectionId") as string,
+        }
+      : {
+          kind: "command",
+          invoke: snap.activation.fields.get("invoke") as () => void | Promise<void>,
+        };
+  return {
+    id: snap.fields.get("id") as string,
+    label: snap.fields.get("label") as string,
+    ...(snap.fields.has("eyebrow") ? { eyebrow: snap.fields.get("eyebrow") as string } : {}),
+    placement: canonicalPlacement(snap.placement),
+    availability: canonicalAvailability(snap.availability),
+    activation,
+  };
+}
+
+function canonicalEdit(
+  snap: EditSnapshot & { shapeValid: true },
+): SurfaceInteractionEditCommandContribution {
+  return {
+    id: snap.fields.get("id") as string,
+    label: snap.fields.get("label") as string,
+    ...(snap.fields.has("eyebrow") ? { eyebrow: snap.fields.get("eyebrow") as string } : {}),
+    placement: canonicalPlacement(snap.placement),
+    availability: canonicalAvailability(snap.availability),
+    target: {
+      kind: snap.target.fields.get("kind") as string,
+      id: snap.target.fields.get("id") as string,
+    },
+    invoke: snap.fields.get("invoke") as () => void | Promise<void>,
+  };
+}
+
+function canonicalProjection(
+  snap: ProjectionSnapshot & { shapeValid: true },
+): SurfaceInteractionProjectionDescriptor {
+  const bindingIds: string[] = [];
+  for (let index = 0; index < snap.bindingIds.length; index += 1) {
+    bindingIds.push(snap.bindingIds.elements.get(index) as string);
+  }
+  return {
+    id: snap.fields.get("id") as string,
+    kind: snap.fields.get("kind") as SurfaceInteractionProjectionKind,
+    preferredSize: snap.fields.get("preferredSize") as SurfaceInteractionProjectionSize,
+    bindingIds,
+  };
+}
+
+function canonicalBinding(snap: BindingSnapshot): SurfaceInteractionProjectionBinding {
+  return {
+    id: snap.fields.get("id") as string,
+    // Opaque value: the reference captured during descriptor inspection is
+    // carried through untouched — it is never read or semantically inspected.
+    value: snap.fields.get("value"),
+  };
+}
+
 export function validateSurfaceInteractionPublication(
   publication: unknown,
 ): SurfaceInteractionValidationResult {
@@ -477,9 +587,13 @@ export function validateSurfaceInteractionPublication(
     } else if (activation.nonDataFields.size > 0) {
       nestedProblems.push(`activation has non-data fields (accessor or unreadable): ${describeNonDataFields(activation.nonDataFields)}`);
     }
-    const eyebrow = snap.fields.get("eyebrow");
-    if (eyebrow !== undefined && typeof eyebrow !== "string") {
-      nestedProblems.push(`supplied eyebrow is not a string (got ${describeType(eyebrow)})`);
+    // "Supplied" means an own data property is present — an explicit
+    // undefined eyebrow is malformed exactly like a non-string one.
+    if (snap.fields.has("eyebrow")) {
+      const eyebrow = snap.fields.get("eyebrow");
+      if (typeof eyebrow !== "string") {
+        nestedProblems.push(`supplied eyebrow is not a string (got ${describeType(eyebrow)})`);
+      }
     }
     if (nestedProblems.length > 0) {
       issues.push({
@@ -563,9 +677,13 @@ export function validateSurfaceInteractionPublication(
     } else if (target.nonDataFields.size > 0) {
       nestedProblems.push(`target has non-data fields (accessor or unreadable): ${describeNonDataFields(target.nonDataFields)}`);
     }
-    const eyebrow = snap.fields.get("eyebrow");
-    if (eyebrow !== undefined && typeof eyebrow !== "string") {
-      nestedProblems.push(`supplied eyebrow is not a string (got ${describeType(eyebrow)})`);
+    // "Supplied" means an own data property is present — an explicit
+    // undefined eyebrow is malformed exactly like a non-string one.
+    if (snap.fields.has("eyebrow")) {
+      const eyebrow = snap.fields.get("eyebrow");
+      if (typeof eyebrow !== "string") {
+        nestedProblems.push(`supplied eyebrow is not a string (got ${describeType(eyebrow)})`);
+      }
     }
     if (nestedProblems.length > 0) {
       issues.push({
@@ -1261,10 +1379,68 @@ export function validateSurfaceInteractionPublication(
   }
 
   if (issues.length === 0) {
-    return {
-      valid: true,
-      publication: publication as unknown as SurfaceInteractionPublication,
+    // Every shape and field check passed, so every snapshot is shape-valid;
+    // the narrowing guards below are unreachable but keep the types honest
+    // without ever throwing on untrusted input.
+    const tools: SurfaceInteractionToolContribution[] = [];
+    for (const snap of toolSnaps) {
+      if (!snap.shapeValid) continue;
+      tools.push(canonicalTool(snap));
+    }
+    const editCommands: SurfaceInteractionEditCommandContribution[] = [];
+    for (const snap of editSnaps) {
+      if (!snap.shapeValid) continue;
+      editCommands.push(canonicalEdit(snap));
+    }
+    const projections: SurfaceInteractionProjectionDescriptor[] = [];
+    for (const snap of projectionSnaps) {
+      if (!snap.shapeValid) continue;
+      projections.push(canonicalProjection(snap));
+    }
+    const projectionBindings: SurfaceInteractionProjectionBinding[] = [];
+    for (const snap of bindingSnaps) {
+      if (!snap.shapeValid) continue;
+      projectionBindings.push(canonicalBinding(snap));
+    }
+    const canonical: SurfaceInteractionPublication = {
+      surfaceId: pubSnap.fields.get("surfaceId") as string,
+      label: pubSnap.fields.get("label") as string,
+      identity: {
+        surfaceId: identitySnap?.fields.get("surfaceId") as string,
+        instanceKey: identitySnap?.fields.get("instanceKey") as string,
+      },
+      canvas:
+        canvasSnap === null || workObjectSnap === null
+          ? null
+          : {
+              canvasId: canvasSnap.fields.get("canvasId") as string,
+              workObject: {
+                kind: workObjectSnap.fields.get("kind") as string,
+                id: workObjectSnap.fields.get("id") as string,
+              },
+            },
+      agentContext:
+        agentCtxSnap === null
+          ? null
+          : {
+              label: agentCtxSnap.fields.get("label") as string,
+              campaignId: agentCtxSnap.fields.get("campaignId") as string | null,
+              documentId: agentCtxSnap.fields.get("documentId") as string | null,
+              sessionNumber: agentCtxSnap.fields.get("sessionNumber") as number | null,
+              ambientSummary: agentCtxSnap.fields.get("ambientSummary") as string | null,
+              pointers: pointerSnaps
+                .filter((pointerSnap): pointerSnap is RecordSnapshot => pointerSnap !== null)
+                .map((pointerSnap) => ({
+                  kind: pointerSnap.fields.get("kind") as string,
+                  value: pointerSnap.fields.get("value") as string,
+                })),
+            },
+      tools,
+      editCommands,
+      projections,
+      projectionBindings,
     };
+    return { valid: true, publication: canonical };
   }
   return { valid: false, publication, issues };
 }

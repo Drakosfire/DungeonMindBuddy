@@ -129,8 +129,18 @@ describe("validateSurfaceInteractionPublication — valid publications", () => {
 
     expect(result.valid).toBe(true);
     if (result.valid) {
-      expect(result.publication).toBe(publication);
+      // Canonical validated snapshot: deeply equal to the proven contract
+      // fields, but re-materialized — no record or array aliases the input.
+      expect(result.publication).not.toBe(publication);
+      expect(result.publication).toEqual(publication);
+      expect(result.publication.tools).not.toBe(publication.tools);
+      expect(result.publication.tools[0]).not.toBe(publication.tools[0]);
+      // Callback and binding-value identities are preserved by reference.
       expect(result.publication.projectionBindings[0]?.value).toBe(bindingValue);
+      const commandActivation = result.publication.tools[1]?.activation;
+      expect(
+        commandActivation?.kind === "command" && commandActivation.invoke === invoke,
+      ).toBe(true);
     }
     expect(invoke).not.toHaveBeenCalled();
   });
@@ -953,8 +963,16 @@ describe("validateSurfaceInteractionPublication — purity and determinism", () 
     expect(first.valid).toBe(true);
     expect(second).toEqual(first);
     if (first.valid) {
-      expect(first.publication).toBe(publication);
+      // Canonical snapshot: deeply equal to the proven input, sharing only
+      // callback and binding-value references — never record/array identity.
+      expect(first.publication).not.toBe(publication);
+      expect(first.publication).toEqual(publication);
       expect(first.publication.projectionBindings[0]?.value).toBe(bindingValue);
+      const commandActivation = first.publication.tools[1]?.activation;
+      expect(
+        commandActivation?.kind === "command" && commandActivation.invoke === invoke,
+      ).toBe(true);
+      expect(first.publication.editCommands[0]?.invoke).toBe(invoke);
     }
     expect(invoke).not.toHaveBeenCalled();
   });
@@ -1595,5 +1613,125 @@ describe("validateSurfaceInteractionPublication — data-record boundary", () =>
       "contribution_id_blank",
       "contribution_label_blank",
     ]);
+  });
+});
+
+describe("validateSurfaceInteractionPublication — canonical validated snapshot", () => {
+  it("returns proven values even when a proxy's property access disagrees with its descriptors", () => {
+    const target = makePublication({ tools: [makeTool("t")] });
+    const proxy = new Proxy(target, {
+      get(object, key, receiver) {
+        if (key === "tools") return "not-an-array";
+        return Reflect.get(object, key, receiver);
+      },
+    });
+
+    const result = validateSurfaceInteractionPublication(proxy);
+
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      // The descriptor-proven values are what the narrowed publication
+      // observes — the proxy's hostile get trap is never consulted.
+      expect(result.publication).not.toBe(proxy);
+      expect(result.publication).not.toBe(target);
+      expect(Array.isArray(result.publication.tools)).toBe(true);
+      expect(result.publication.tools).toHaveLength(1);
+      expect(result.publication.tools[0]?.id).toBe("t");
+    }
+  });
+
+  it("carries each position's own proven values when one record is aliased across positions", () => {
+    let itemOrderReads = 0;
+    const aliased = new Proxy(makePlacement(), {
+      getOwnPropertyDescriptor(object, key) {
+        const descriptor = Reflect.getOwnPropertyDescriptor(object, key);
+        if (key === "itemOrder" && descriptor && "value" in descriptor) {
+          itemOrderReads += 1;
+          return { ...descriptor, value: itemOrderReads };
+        }
+        return descriptor;
+      },
+    });
+
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        tools: [makeTool("a", { placement: aliased }), makeTool("b", { placement: aliased })],
+      }),
+    );
+
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      // Each position was proven against its own inspection, and the
+      // snapshot carries exactly those per-position values.
+      expect(result.publication.tools[0]?.placement.itemOrder).toBe(1);
+      expect(result.publication.tools[1]?.placement.itemOrder).toBe(2);
+    }
+  });
+
+  it("rejects an explicit undefined eyebrow as a supplied non-string optional (Tool and Edit)", () => {
+    const toolResult = validateSurfaceInteractionPublication(
+      makePublication({ tools: [makeTool("t", { eyebrow: undefined })] }),
+    );
+    expect(codesOf(toolResult)).toEqual(["contribution_shape_invalid"]);
+
+    const editResult = validateSurfaceInteractionPublication(
+      makePublication({ editCommands: [makeEditCommand("e", { eyebrow: undefined })] }),
+    );
+    expect(codesOf(editResult)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("drops non-contract extra fields from the returned snapshot", () => {
+    const tool = makeTool("t") as SurfaceInteractionToolContribution & { extra?: string };
+    tool.extra = "not-in-the-contract";
+    const result = validateSurfaceInteractionPublication(makePublication({ tools: [tool] }));
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.publication.tools[0]).not.toHaveProperty("extra");
+      expect(result.publication.tools[0]?.id).toBe("t");
+    }
+  });
+
+  it("carries no disabledReason key on enabled availability in the snapshot", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ tools: [makeTool("t")] }),
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      const availability = result.publication.tools[0]?.availability;
+      expect(availability).toEqual({ status: "enabled" });
+      expect(Object.hasOwn(availability ?? {}, "disabledReason")).toBe(false);
+    }
+  });
+
+  it("does not alias input records or arrays anywhere in the returned snapshot", () => {
+    const pointer = { kind: "document", value: "doc-1" };
+    const tool = makeTool("t");
+    const publication = makePublication({
+      agentContext: {
+        label: "Ctx",
+        campaignId: null,
+        documentId: null,
+        sessionNumber: null,
+        ambientSummary: null,
+        pointers: [pointer],
+      },
+      tools: [tool],
+    });
+
+    const result = validateSurfaceInteractionPublication(publication);
+
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.publication.identity).not.toBe(publication.identity);
+      expect(result.publication.tools).not.toBe(publication.tools);
+      expect(result.publication.tools[0]).not.toBe(tool);
+      expect(result.publication.tools[0]?.placement).not.toBe(tool.placement);
+      expect(result.publication.tools[0]?.availability).not.toBe(tool.availability);
+      expect(result.publication.agentContext).not.toBe(publication.agentContext);
+      expect(result.publication.agentContext?.pointers).not.toBe(
+        publication.agentContext?.pointers,
+      );
+      expect(result.publication.agentContext?.pointers[0]).not.toBe(pointer);
+    }
   });
 });
