@@ -5,7 +5,6 @@ import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionPro
 import { ROUTE_COMPATIBILITY_PUBLICATIONS } from "./agentInteraction/surfaceInteractionCompat";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
 import { useAgentInteraction } from "./agentInteraction/useAgentInteraction";
-import { buildSurfaceInteractionIdentity } from "./surfaceInteraction/surfaceIdentity";
 import type { SurfaceInteractionPublication } from "./surfaceInteraction/types";
 
 function RouteLeaseProbe({ publication }: { publication: SurfaceInteractionPublication | null }) {
@@ -58,17 +57,19 @@ describe("App surface route leases", () => {
   });
 
   it("treats delimiter-colliding identities as distinct binds", () => {
+    // Literal instance keys that collide under `${surfaceId}:${instanceKey}`:
+    // "a:b"+"c" and "a"+"b:c" both join to "a:b:c".
     const publicationA: SurfaceInteractionPublication = {
       ...ROUTE_COMPATIBILITY_PUBLICATIONS.index,
       surfaceId: "a:b",
       label: "Identity A",
-      identity: buildSurfaceInteractionIdentity({ surfaceId: "a:b", instanceParts: ["c"] }),
+      identity: { surfaceId: "a:b", instanceKey: "c" },
     };
     const publicationB: SurfaceInteractionPublication = {
       ...ROUTE_COMPATIBILITY_PUBLICATIONS.index,
       surfaceId: "a",
       label: "Identity B",
-      identity: buildSurfaceInteractionIdentity({ surfaceId: "a", instanceParts: ["b", "c"] }),
+      identity: { surfaceId: "a", instanceKey: "b:c" },
     };
     const { rerender } = render(
       <AgentInteractionProvider>
@@ -83,5 +84,33 @@ describe("App surface route leases", () => {
       </AgentInteractionProvider>,
     );
     expect(screen.getByTestId("lease-probe").textContent).toBe("a:Identity B");
+  });
+
+  it("binds when only surfaceId changes under an equal instanceKey", () => {
+    const publicationA: SurfaceInteractionPublication = {
+      ...ROUTE_COMPATIBILITY_PUBLICATIONS.index,
+      surfaceId: "a",
+      label: "Surface A",
+      identity: { surfaceId: "a", instanceKey: "shared" },
+    };
+    const publicationB: SurfaceInteractionPublication = {
+      ...ROUTE_COMPATIBILITY_PUBLICATIONS.index,
+      surfaceId: "b",
+      label: "Surface B",
+      identity: { surfaceId: "b", instanceKey: "shared" },
+    };
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <RouteLeaseProbe publication={publicationA} />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByTestId("lease-probe").textContent).toBe("a:Surface A");
+
+    rerender(
+      <AgentInteractionProvider>
+        <RouteLeaseProbe publication={publicationB} />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByTestId("lease-probe").textContent).toBe("b:Surface B");
   });
 });

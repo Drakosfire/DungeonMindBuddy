@@ -248,19 +248,37 @@ export function AppChrome({
   pageActionsRef.current = pageActions;
   const editorToolsRef = useRef(editorTools);
   editorToolsRef.current = editorTools;
-  const pageActionSignature = pageActions
-    .map((action) =>
-      `${action.id}:${action.disabled ? "d" : "e"}:${action.label}:${action.eyebrow ?? ""}:${callbackIdentityKey(action.onClick)}`)
-    .join("|");
-  const pinnedSignature = (editorTools?.pinnedActions ?? [])
-    .map((action) =>
-      `${action.id}:${action.disabled ? "d" : "e"}:${action.label}:${action.eyebrow ?? ""}:${callbackIdentityKey(action.onClick)}`)
-    .join("|");
-  const sectionSignature = (editorTools?.sections ?? [])
-    .map((section) =>
-      `${section.id}:${section.title}:${section.actions.map((action) =>
-        `${action.id}:${action.disabled ? "d" : "e"}:${action.label}:${action.eyebrow ?? ""}:${callbackIdentityKey(action.onClick)}`).join(",")}`)
-    .join("|");
+  const pageActionSignature = JSON.stringify(
+    pageActions.map((action) => [
+      action.id,
+      action.disabled === true,
+      action.label,
+      action.eyebrow ?? null,
+      callbackIdentityKey(action.onClick),
+    ]),
+  );
+  const pinnedSignature = JSON.stringify(
+    (editorTools?.pinnedActions ?? []).map((action) => [
+      action.id,
+      action.disabled === true,
+      action.label,
+      action.eyebrow ?? null,
+      callbackIdentityKey(action.onClick),
+    ]),
+  );
+  const sectionSignature = JSON.stringify(
+    (editorTools?.sections ?? []).map((section) => [
+      section.id,
+      section.title,
+      section.actions.map((action) => [
+        action.id,
+        action.disabled === true,
+        action.label,
+        action.eyebrow ?? null,
+        callbackIdentityKey(action.onClick),
+      ]),
+    ]),
+  );
   const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const pinnedActions = editorTools?.pinnedActions ?? [];
@@ -271,8 +289,17 @@ export function AppChrome({
 
   const agentInteractionRef = useRef(agentInteraction);
   agentInteractionRef.current = agentInteraction;
-  const basePublicationKey =
-    agentInteraction?.surfaceInteractionBasePublication?.identity.instanceKey ?? null;
+  // Canonical base publication object identity changes on every bind/update, so
+  // the bridge republishes under the current lease even when instanceKey alone
+  // would collide across surfaceIds. Content tuple also tracks Canvas targets.
+  const basePublication = agentInteraction?.surfaceInteractionBasePublication ?? null;
+  const basePublicationSyncKey = JSON.stringify([
+    basePublication?.identity.surfaceId ?? null,
+    basePublication?.identity.instanceKey ?? null,
+    basePublication?.canvas?.canvasId ?? null,
+    basePublication?.canvas?.workObject.kind ?? null,
+    basePublication?.canvas?.workObject.id ?? null,
+  ]);
 
   const publishAppChromeCompatibilityRef = useRef(agentInteraction.publishAppChromeCompatibility);
   publishAppChromeCompatibilityRef.current = agentInteraction.publishAppChromeCompatibility;
@@ -283,17 +310,18 @@ export function AppChrome({
 
   useLayoutEffect(() => {
     const publish = publishAppChromeCompatibilityRef.current;
-    const basePublication = agentInteractionRef.current?.surfaceInteractionBasePublication ?? null;
-    if (!publish || !basePublication) return;
+    const currentBase = agentInteractionRef.current?.surfaceInteractionBasePublication ?? null;
+    if (!publish || !currentBase) return;
     return publish(
       buildAppChromeCompatibilityFragment({
         pageActions: pageActionsRef.current,
         editorTools: editorToolsRef.current,
-        basePublication,
+        basePublication: currentBase,
       }),
     );
   }, [
-    basePublicationKey,
+    basePublication,
+    basePublicationSyncKey,
     hasEffectivePublication,
     agentInteraction.publishAppChromeCompatibility,
     pageActionSignature,
