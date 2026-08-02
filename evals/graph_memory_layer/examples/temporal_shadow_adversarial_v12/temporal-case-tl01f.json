@@ -1,0 +1,124 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:2dd80544df537f33",
+    "assertion:5330d6fcdaa53c78",
+    "assertion:48b2c827ceb5d4dd",
+    "assertion:4d6b9c13efd2aaa7",
+    "assertion:5ebdb8abe4bc43db",
+    "assertion:8f5217fb6555d807",
+    "assertion:5b2de2de7f64fb0f",
+    "assertion:3c64dbe264269da3",
+    "assertion:1888fabc054e29a8",
+    "assertion:cd2854dbd286f6b6"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:forecast-dusk",
+      "source_artifact_id": "source-artifact:adv12-forecast-dusk",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/forecast-dusk.md",
+      "content_sha256": "e66ebd4ef406d01e69327064323a463739a01c1796ce229ac1a52572fee0b154",
+      "source_ref_id": "source-ref:adv12-forecast-dusk",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "forecast-dusk.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:future-promise-unresolved",
+      "source_artifact_id": "source-artifact:adv12-future-promise-unresolved",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/future-promise-unresolved.md",
+      "content_sha256": "b7e53329a2f0f1b00f32abf94258518587c348378fbca7c14d5c064be69397d8",
+      "source_ref_id": "source-ref:adv12-future-promise-unresolved",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "future-promise-unresolved.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:persistent-restatement",
+      "source_artifact_id": "source-artifact:adv12-persistent-restatement",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/persistent-restatement.md",
+      "content_sha256": "9336c047018a4ae74d8e4efedddfc7d6c78a18afae8236ef1931903c25e3af46",
+      "source_ref_id": "source-ref:adv12-persistent-restatement",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "persistent-restatement.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:occurrence-after-comet",
+      "source_artifact_id": "source-artifact:adv12-occurrence-after-comet",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/occurrence-after-comet.md",
+      "content_sha256": "7c659b1e97c664db01d219ae0bf7d7e325990d340fc3e6ee1dd49e03418059a0",
+      "source_ref_id": "source-ref:adv12-occurrence-after-comet",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "occurrence-after-comet.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:valid-start-textual",
+      "source_artifact_id": "source-artifact:adv12-valid-start-textual",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/valid-start-textual.md",
+      "content_sha256": "41732056f73c68e76d135deaf22ed1d2d87bc8d85a23c69a6ce0350e12b159db",
+      "source_ref_id": "source-ref:adv12-valid-start-textual",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-start-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:valid-end-textual",
+      "source_artifact_id": "source-artifact:adv12-valid-end-textual",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/valid-end-textual.md",
+      "content_sha256": "c19c4c2e7de9cbf4a888e89b16bcc95dfca852e1772ea7afb8ac42a83492e439",
+      "source_ref_id": "source-ref:adv12-valid-end-textual",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "valid-end-textual.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:still-declines",
+      "source_artifact_id": "source-artifact:adv12-still-declines",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/still-declines.md",
+      "content_sha256": "4da1692e4b1a7bb026abd1be2cc783a4bb44da238dc592364b5cee994394ddda",
+      "source_ref_id": "source-ref:adv12-still-declines",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "still-declines.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:ambiguous-dome-keeper",
+      "source_artifact_id": "source-artifact:adv12-ambiguous-dome-keeper",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/ambiguous-dome-keeper.md",
+      "content_sha256": "e29607f3f03154a5c0fb2064782c831b3bcf3033727f5758150d5d1ffffffc9a",
+      "source_ref_id": "source-ref:adv12-ambiguous-dome-keeper",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ambiguous-dome-keeper.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:historical-stair",
+      "source_artifact_id": "source-artifact:adv12-historical-stair",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/historical-stair.md",
+      "content_sha256": "3eae16f06d1b766d0f9445b1e54b8ac98be3abb9a538cf134854eb08828a6713",
+      "source_ref_id": "source-ref:adv12-historical-stair",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "historical-stair.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adv12:grounding-trap",
+      "source_artifact_id": "source-artifact:adv12-grounding-trap",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12/sources/grounding-trap.md",
+      "content_sha256": "4d0e28d27695445c5da0f42fd3e0382238b093d3fd4bec1d91bdb27814fa7342",
+      "source_ref_id": "source-ref:adv12-grounding-trap",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "grounding-trap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "ebcecd0d21fcd166beaaea021255be115d1cb3115af2086a753a43d0b3d56d24",
+  "gold_overlay_sha256": "f1be6950b7132276b901006dbcdc24b61eeec7f338490ca4ac3d429c76c7058a",
+  "case_id": "tl01f-temporal-shadow-adversarial-v12-v1",
+  "prompt_version": "tl01f-v1"
+}

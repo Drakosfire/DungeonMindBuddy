@@ -1,0 +1,230 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:e09a79af16ccdf35",
+  "base_contribution_id": "contribution:a38ccd447819d258",
+  "base_contribution_source_payload_sha256": "f89a81c14f1a3c9a6c9e37b810c81f6c4e9459a856a5a3e388debf199ded957c",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-adversarial-v12",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:a1200000000000001",
+      "base_assertion_id": "assertion:2dd80544df537f33",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "by dusk",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:forecast-dusk"
+      ],
+      "source_phrase": "climbs past the red notch by dusk",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "forecast with explicit relative phrase; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000002",
+      "base_assertion_id": "assertion:5330d6fcdaa53c78",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:future-promise-unresolved"
+      ],
+      "source_phrase": "when the lenses arrive, without naming a calendar day",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "future commitment without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000003",
+      "base_assertion_id": "assertion:48b2c827ceb5d4dd",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:persistent-restatement"
+      ],
+      "source_phrase": "retains sole custody of the east-dome badge ring",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000004",
+      "base_assertion_id": "assertion:4d6b9c13efd2aaa7",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "After the comet warning",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:occurrence-after-comet"
+      ],
+      "source_phrase": "After the comet warning, Hadric Moone seals the east dome hatch",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event transition after licensed fictional time; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000005",
+      "base_assertion_id": "assertion:5ebdb8abe4bc43db",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "since the equinox flood",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:valid-start-textual"
+      ],
+      "source_phrase": "became shuttered at the equinox flood",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000006",
+      "base_assertion_id": "assertion:8f5217fb6555d807",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "following the pier vote",
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:valid-end-textual"
+      ],
+      "source_phrase": "quit recording Ambercliff transit logs",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000007",
+      "base_assertion_id": "assertion:5b2de2de7f64fb0f",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:still-declines"
+      ],
+      "source_phrase": "ignores every Saltwick Pier writ from the harbor magistrates",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "still/remains restatement without temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000008",
+      "base_assertion_id": "assertion:3c64dbe264269da3",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:ambiguous-dome-keeper"
+      ],
+      "source_phrase": "was appointed dome keeper at the frost moot or only named then",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "competing appointment vs naming readings licensed by proposition or-fork"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000009",
+      "base_assertion_id": "assertion:1888fabc054e29a8",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "four summers earlier",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:historical-stair"
+      ],
+      "source_phrase": "abandoned the south stair four summers earlier",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical event; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a1200000000000010",
+      "base_assertion_id": "assertion:cd2854dbd286f6b6",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:grounding-trap"
+      ],
+      "source_phrase": "alleges the Nightloom Archive stacks stand open",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "grounding trap without temporal adverb; both lanes null"
+      ]
+    }
+  ]
+}

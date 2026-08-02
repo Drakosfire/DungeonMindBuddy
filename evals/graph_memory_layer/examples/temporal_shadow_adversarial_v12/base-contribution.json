@@ -1,0 +1,300 @@
+{
+  "contribution_id": "contribution:a38ccd447819d258",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v12",
+  "produced_at": "2026-08-02T18:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:2dd80544df537f33",
+      "assertion_kind": "edge",
+      "subject_node_id": "obj:tide-gauge",
+      "target_node_id": "loc:saltwick-pier",
+      "predicate": "climbs_past_red_notch",
+      "label": "The tide-gauge reading climbs past the red notch by dusk",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:forecast-dusk",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:forecast-dusk"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:5330d6fcdaa53c78",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:hadric-moone",
+      "target_node_id": "loc:nightloom-archive",
+      "predicate": "vows_recalibrate",
+      "label": "Hadric Moone vows to recalibrate the Nightloom Archive when the lenses arrive",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:future-promise-unresolved",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:future-promise-unresolved"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:48b2c827ceb5d4dd",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:pel-raith",
+      "target_node_id": "obj:east-dome-badge-ring",
+      "predicate": "retains_custody",
+      "label": "Pel Raith retains sole custody of the east-dome badge ring",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:persistent-restatement",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:persistent-restatement"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:4d6b9c13efd2aaa7",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:hadric-moone",
+      "target_node_id": "loc:east-dome-hatch",
+      "predicate": "seals_hatch",
+      "label": "After the comet warning, Hadric Moone seals the east dome hatch",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:occurrence-after-comet",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:occurrence-after-comet"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:5ebdb8abe4bc43db",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:nightloom-archive",
+      "target_node_id": null,
+      "predicate": "is_shuttered",
+      "label": "The Nightloom Archive has remained shuttered since the equinox flood",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:valid-start-textual",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:valid-start-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:8f5217fb6555d807",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:pel-raith",
+      "target_node_id": "obj:ambercliff-transit-logs",
+      "predicate": "quit_recording_logs",
+      "label": "Pel Raith quit recording Ambercliff transit logs following the pier vote",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:valid-end-textual",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:valid-end-textual"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:5b2de2de7f64fb0f",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:hadric-moone",
+      "target_node_id": "loc:saltwick-pier",
+      "predicate": "ignores_writs",
+      "label": "Hadric Moone ignores every Saltwick Pier writ from the harbor magistrates",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:still-declines",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:still-declines"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:3c64dbe264269da3",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:hadric-moone",
+      "target_node_id": "role:dome-keeper",
+      "predicate": "appointed_or_named",
+      "label": "Hadric Moone was appointed dome keeper at the frost moot or only named then",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:ambiguous-dome-keeper",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:ambiguous-dome-keeper"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:1888fabc054e29a8",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:pel-raith",
+      "target_node_id": "loc:south-stair",
+      "predicate": "abandoned_stair",
+      "label": "Pel Raith abandoned the south stair four summers earlier",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:historical-stair",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:historical-stair"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    },
+    {
+      "assertion_id": "assertion:cd2854dbd286f6b6",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:hadric-moone",
+      "target_node_id": "loc:nightloom-archive",
+      "predicate": "alleges_open",
+      "label": "Hadric Moone alleges the Nightloom Archive stacks stand open",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adv12:grounding-trap",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adv12:grounding-trap"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a38ccd447819d258"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
