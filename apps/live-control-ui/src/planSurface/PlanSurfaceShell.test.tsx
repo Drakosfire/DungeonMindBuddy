@@ -52,7 +52,7 @@ import {
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
-import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
+import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
@@ -139,7 +139,7 @@ function PlanSurfaceTestHarness() {
         <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
           <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
         </AppChrome>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
         <AgentInteractionChrome />
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
@@ -1588,7 +1588,7 @@ describe("PlanSurfaceShell", () => {
     expect(within(projection).getByLabelText(/North Reach Gate corpus fallback object/i)).toBeInTheDocument();
     expect(within(projection).getByText(/Location reference resolved from corpus index/i)).toBeInTheDocument();
     expect(within(projection).queryByLabelText(/selected object/i)).not.toBeInTheDocument();
-    expect(document.querySelector(".plan-toolbox-backdrop")).toHaveAttribute("hidden");
+    expect(document.querySelector(".surface-projection-backdrop")).toHaveAttribute("hidden");
     expect(fetchSpy).toHaveBeenCalledWith(
       "/api/live/world-graph/projection",
       expect.objectContaining({ method: "POST" }),
@@ -1618,7 +1618,7 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     expect(screen.getByRole("complementary", { name: /Recap projection/i })).toBeInTheDocument();
-    expect(document.querySelector(".plan-toolbox-backdrop")).not.toHaveAttribute("hidden");
+    expect(document.querySelector(".surface-projection-backdrop")).not.toHaveAttribute("hidden");
 
     const canvas = screen.getByTestId("plan-surface-canvas-editor");
     const chip = canvas.querySelector(".md-ref-chip") as HTMLElement;
@@ -1627,7 +1627,7 @@ describe("PlanSurfaceShell", () => {
     await waitFor(() => {
       expect(screen.getByRole("complementary", { name: /North Reach Gate projection/i })).toBeInTheDocument();
     });
-    expect(document.querySelector(".plan-toolbox-backdrop")).toHaveAttribute("hidden");
+    expect(document.querySelector(".surface-projection-backdrop")).toHaveAttribute("hidden");
   });
 
   it("shows Markdown save control in the edit toolbar", async () => {

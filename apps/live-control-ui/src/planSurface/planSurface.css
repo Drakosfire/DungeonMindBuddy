@@ -283,6 +283,10 @@
   z-index: 980;
 }
 
+body.surface-projection-open .plan-agent-shell {
+  z-index: 840;
+}
+
 .plan-agent-shell > * {
   pointer-events: auto;
 }
@@ -1464,176 +1468,6 @@
   padding: 0.75rem;
 }
 
-.plan-toolbox-toggle {
-  position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 850;
-  border: 1px solid var(--border, #2a3142);
-  border-right: none;
-  border-radius: 8px 0 0 8px;
-  background: rgba(22, 25, 34, 0.96);
-  color: var(--fg, #e8eaef);
-  padding: 10px 8px 10px 10px;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-}
-
-.plan-toolbox-toggle:hover,
-.plan-toolbox.open .plan-toolbox-toggle {
-  border-color: var(--accent, #7aa2f7);
-  color: var(--accent, #7aa2f7);
-}
-
-.plan-toolbox-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 855;
-  background: rgba(8, 10, 14, 0.45);
-}
-
-.plan-toolbox-backdrop[hidden] {
-  display: none !important;
-}
-
-/* Defense in depth: reference content must never block canvas chip hit-testing. */
-.plan-toolbox.tool-reference .plan-toolbox-backdrop {
-  display: none !important;
-  pointer-events: none;
-}
-
-/* Object reference glance is not a tool switcher — hide Recap/Party/Statblock nav. */
-.plan-toolbox.tool-reference .plan-toolbox-nav,
-.plan-toolbox-nav[hidden] {
-  display: none !important;
-}
-
-.plan-toolbox-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border, #2a3142);
-  flex-shrink: 0;
-}
-
-.plan-toolbox-nav button {
-  border: 1px solid var(--border, #2a3142);
-  border-radius: 999px;
-  background: var(--bg-input, #12141a);
-  color: var(--fg-mute, #9aa3b5);
-  padding: 5px 12px;
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.plan-toolbox-nav button:hover,
-.plan-toolbox-nav button.active,
-.plan-toolbox-nav button[aria-pressed="true"] {
-  border-color: var(--accent, #7aa2f7);
-  color: var(--accent, #7aa2f7);
-  background: rgba(122, 162, 247, 0.12);
-}
-
-.plan-projection-container {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 860;
-  border: 1px solid var(--border, #2a3142);
-  border-right: none;
-  border-top: none;
-  border-bottom: none;
-  border-radius: 0;
-  background: var(--bg-card, var(--panel, #171b24));
-  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
-  max-height: none;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transform: translateX(100%);
-  transition: transform 0.2s ease;
-}
-
-.plan-toolbox.open .plan-projection-container {
-  transform: translateX(0);
-}
-
-.plan-projection-compact {
-  width: min(440px, 94vw);
-}
-
-.plan-projection-wide {
-  width: min(1080px, 96vw);
-}
-
-.plan-projection-fullscreen {
-  position: fixed;
-  inset: 0;
-  width: auto;
-  z-index: 1000;
-  max-height: none;
-}
-
-.plan-projection-fullscreen .plan-projection-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-  padding: 0.65rem 0.75rem 0.75rem;
-}
-
-.plan-projection-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--border, #2a3142);
-  background: rgba(18, 20, 26, 0.88);
-  flex-shrink: 0;
-}
-
-.plan-projection-header h2 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.plan-projection-header-actions {
-  display: flex;
-  gap: 0.45rem;
-}
-
-.plan-projection-header-actions button {
-  min-width: 32px;
-  height: 32px;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid var(--border, #2a3142);
-  border-radius: 7px;
-  background: var(--bg-input, #12141a);
-  color: var(--fg, #e8eaef);
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.plan-projection-body {
-  flex: 1;
-  padding: 0.85rem 1rem 1rem;
-  overflow: auto;
-}
-
 .plan-projection-empty,
 .plan-content-note {
   color: var(--fg-mute, #9aa3b5);
@@ -1925,31 +1759,6 @@
   .plan-canvas-heading {
     grid-template-columns: 1fr;
   }
-
-  .plan-projection-wide,
-  .plan-projection-compact {
-    width: min(100vw, 100%);
-  }
-}
-
-@media (max-width: 640px) {
-  .plan-toolbox-toggle {
-    top: auto;
-    bottom: 72px;
-    transform: none;
-    writing-mode: horizontal-tb;
-    border-right: 1px solid var(--border, #2a3142);
-    border-radius: 8px 0 0 8px;
-    padding: 8px 12px;
-  }
-}
-
-body.plan-toolbox-open {
-  overflow: hidden;
-}
-
-body.plan-toolbox-open .plan-agent-shell {
-  z-index: 840;
 }
 
 .plan-agent-answer-card,
@@ -6029,10 +5838,6 @@ body.plan-toolbox-open .plan-agent-shell {
 }
 
 @media (max-width: 640px) {
-  .plan-projection-fullscreen .plan-projection-body {
-    padding: 0.5rem;
-  }
-
   .graph-review-author-draft-layout {
     gap: 0.55rem;
     grid-template-rows: minmax(10rem, 0.9fr) minmax(10rem, 1.1fr);

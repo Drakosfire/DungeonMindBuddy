@@ -10,7 +10,7 @@ import type {
 } from "../../api/types";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import type { PlanContextDescriptor } from "../types";
-import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionContainer";
+import { LegacyProjectionHostAdapter } from "../projection/LegacyProjectionHostAdapter";
 import { GraphReviewLiveStateProvider, useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 import {
@@ -33,7 +33,7 @@ function renderWorkbench() {
   return render(
     <AgentInteractionProvider>
       <GraphReviewWorkbenchModule context={context} />
-      <AdaptiveProjectionContainer />
+      <LegacyProjectionHostAdapter />
     </AgentInteractionProvider>,
   );
 }
@@ -202,7 +202,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    document.body.classList.remove("plan-toolbox-open");
+    document.body.classList.remove("surface-projection-open");
     window.sessionStorage.clear();
   });
 
@@ -456,7 +456,7 @@ describe("GraphReviewWorkbenchModule", () => {
         <GraphReviewWorkbenchModule
           context={{ ...context, campaignId: "longmont-c1", ingestSession: 2 }}
         />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProvider>,
     );
 

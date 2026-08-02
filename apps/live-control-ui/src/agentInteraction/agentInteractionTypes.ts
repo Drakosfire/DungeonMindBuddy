@@ -18,7 +18,7 @@ import type {
   RegisterableToolProjectionId,
   ToolProjectionPayloadMap,
 } from "../planSurface/projection/projectionBindings";
-import type { ActiveProjection, ProjectionSize } from "../planSurface/types";
+import type { ActiveProjection, ProjectionSize } from "../surfaceInteraction/projection/types";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
 import type {
   ProjectionSurfacePublication,

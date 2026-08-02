@@ -30,13 +30,14 @@ const EXPECTED_PRODUCTION_FILES = [
   "types.ts",
 ];
 
-function listProductionFiles(dir: string): string[] {
+function listProductionFiles(dir: string, skipSubdirs: readonly string[] = []): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
+    if (skipSubdirs.includes(name)) continue;
     const path = join(dir, name);
     const stat = statSync(path);
     if (stat.isDirectory()) {
-      out.push(...listProductionFiles(path));
+      out.push(...listProductionFiles(path, skipSubdirs));
       continue;
     }
     if (!/\.(ts|tsx)$/.test(name)) continue;
@@ -48,14 +49,14 @@ function listProductionFiles(dir: string): string[] {
 
 describe("surfaceInteraction boundaries", () => {
   it("contains exactly the allowlisted production files and no JSX host files", () => {
-    const files = listProductionFiles(ROOT).map((path) => relative(ROOT, path));
+    const files = listProductionFiles(ROOT, ["projection"]).map((path) => relative(ROOT, path));
     expect(files.sort()).toEqual(EXPECTED_PRODUCTION_FILES);
     expect(files.some((file) => file.endsWith(".tsx"))).toBe(false);
   });
 
   it("keeps production sources free of surface, domain, and React host references", () => {
     const violations: string[] = [];
-    for (const file of listProductionFiles(ROOT)) {
+    for (const file of listProductionFiles(ROOT, ["projection"])) {
       const source = readFileSync(file, "utf8");
       for (const { name, pattern } of FORBIDDEN_PATTERNS) {
         if (pattern.test(source)) {

@@ -177,7 +177,7 @@ describe("App inspector integration", () => {
     expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
     const toolbox = await screen.findByRole("navigation", { name: "Toolbox tools" });
     expect(toolbox).toBeInTheDocument();
-    expect(document.querySelectorAll(".plan-toolbox")).toHaveLength(1);
+    expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
     expect(within(toolbox).queryByRole("button", { name: "Ingest Recap" })).not.toBeInTheDocument();
     expect(within(toolbox).queryByRole("button", { name: "Graph Preview" })).not.toBeInTheDocument();
     expect(within(toolbox).queryByRole("button", { name: "Graph Gold Review" })).not.toBeInTheDocument();
