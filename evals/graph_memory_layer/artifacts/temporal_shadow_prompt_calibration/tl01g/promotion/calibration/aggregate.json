@@ -3,10 +3,10 @@
   "adversarial_case_sha256": "7392768cb17a252a3434f4e3a95b1d3134790253e834bde99c982b25a56da804",
   "adversarial_gold_sha256": "d9dd818998aa40208b211e6c06f84a2cc724a562b37947204de43d499cac2629",
   "adversarial_seal_commit_sha": "33bae3485babb0d15373b91b0cbcb13282b42491",
-  "aggregate_build_sha": "04447eaf35192683d72dcb12293ca5f77027d832",
+  "aggregate_build_sha": "8e2fe04546fe10e715b4b80061a28ce65c5734ad",
   "baseline_prompt_sha256": "7a9d27c3a9980893f18757d7a5fe0612cf67f9aad8dfd2ccb20f9e3c667b7143",
   "baseline_prompt_version": "tl01f-v1",
-  "calibration_id": "temporal-prompt-calibration:0d86dcf12602d6e3",
+  "calibration_id": "temporal-prompt-calibration:a1dd130979808f2f",
   "candidate_prompt_sha256": "3af1e470e304008d2490ba73e1a53628519c211bb54e17a10cd4c694beae9013",
   "candidate_prompt_version": "tl01g-v1",
   "control_adversarial_case_id": "tl01f-temporal-shadow-adversarial-v11-v1",
@@ -26,7 +26,7 @@
     "33bae3485babb0d15373b91b0cbcb13282b42491"
   ],
   "repetitions": 3,
-  "repository_sha": "04447eaf35192683d72dcb12293ca5f77027d832",
+  "repository_sha": "8e2fe04546fe10e715b4b80061a28ce65c5734ad",
   "run_matrix": [
     {
       "case_id": "tl01f-temporal-shadow-adversarial-v11-v1",

@@ -83,7 +83,7 @@ Audit rows must bind ID, status, proposition, lane, and supporting phrase to sea
 
 ### Grounding diagnostics
 
-Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagnostics`, and `foreign_evidence_attempts`. The **rebuilt committed aggregate** (`0d86dcf12602d6e3`, build SHA `04447eaf…`) now preserves those fields in `run_records` (not only `failure_code` + `provider_response_id`). All 17 failed runs include `affected_assertion_id` and `failure_diagnostics`; `foreign_evidence_attempts` is `0` on sampled grounding rows. Decision diagnostics include `candidate_grounding_failures=9` and `candidate_comparison_metrics_unobserved`.
+Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagnostics`, and `foreign_evidence_attempts`. The **rebuilt committed aggregate** (`a1dd130979808f2f`, build SHA `8e2fe045…`) now preserves those fields in `run_records` (not only `failure_code` + `provider_response_id`). All 17 failed runs include `affected_assertion_id` and `failure_diagnostics`; `foreign_evidence_attempts` is `0` on sampled grounding rows. Decision diagnostics include `candidate_grounding_failures=9` and `candidate_comparison_metrics_unobserved`.
 
 ## Frozen identities
 
@@ -106,7 +106,7 @@ Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagno
   * `.../tl01g/regression-lane|abstention|legacy/calibration/aggregate.json`
   * Prior V8–V12 / Adv V6–V10 promotion aggregates (git history / overwritten on disk)
 * **Last observed matrix (V13 / Adv V11) — not promotion authority:**
-  * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:0d86dcf12602d6e3` (**rebuilt** from on-disk run manifests at `04447eaf…`; durable evidence with `affected_assertion_id`, `failure_diagnostics`, `foreign_evidence_attempts`, and decision note `candidate_comparison_metrics_unobserved`)
+  * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:a1dd130979808f2f` (**rebuilt** from on-disk run manifests at `8e2fe045…`; durable evidence with `affected_assertion_id`, `failure_diagnostics`, `foreign_evidence_attempts`, and decision note `candidate_comparison_metrics_unobserved`)
   * Per-run manifests under `.../promotion/calibration/{baseline,candidate}/{development,holdout,adversarial}/run-0N/` remain gitignored; the committed aggregate is the durable evidence surface
 
 ## Cohorts
