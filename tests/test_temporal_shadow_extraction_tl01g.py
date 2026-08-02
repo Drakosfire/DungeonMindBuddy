@@ -162,6 +162,7 @@ PRIOR_CANONICAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v11",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v12",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v13",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14",
 )
 
 PRIOR_ADVERSARIAL_COHORT_DIRS = (
@@ -175,10 +176,11 @@ PRIOR_ADVERSARIAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v9",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10",
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12",
 )
 
-LAST_RETIRED_ADVERSARIAL_VERSION = 11
-LAST_RETIRED_HOLDOUT_VERSION = 13
+LAST_RETIRED_ADVERSARIAL_VERSION = 12
+LAST_RETIRED_HOLDOUT_VERSION = 14
 
 ADV_V6_VOCABULARY = (
     "Kestrel Vale",
@@ -996,6 +998,75 @@ def _assert_annotation_gate_e3_boundary_proof(
         )
 
 
+def _collect_resolved_value_grounding_defects(folder: Path) -> list[str]:
+    """Gate-faithfulness defects for every resolved occurrence/boundary value.
+
+    Unlike GOLD-AUDIT binding, this exercises owned-evidence grounding and Gate E3
+    boundary proof. Used to document retirement of observed cohorts — never to
+    authorize post-observation gold edits.
+    """
+    gold = json.loads((folder / "gold-overlay.json").read_text(encoding="utf-8"))
+    base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+    by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+    evidence = _case_evidence_by_id(folder)
+    defects: list[str] = []
+    for ann in gold.get("annotations", []):
+        if ann.get("interpretation_status") != "resolved":
+            continue
+        assertion_id = ann.get("base_assertion_id")
+        assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
+        if assertion is None:
+            defects.append(f"{folder.name}:{assertion_id}: missing base assertion")
+            continue
+        context_base = f"{folder.name}:{assertion_id}"
+        valid_time = ann.get("valid_time") or {}
+        for boundary_kind, boundary_value in (
+            ("start", valid_time.get("start")),
+            ("end", valid_time.get("end")),
+        ):
+            if boundary_value is None:
+                continue
+            try:
+                _assert_annotation_gate_e3_boundary_proof(
+                    annotation=ann,
+                    assertion=assertion,
+                    evidence_by_id=evidence,
+                    context=f"{context_base}:valid_time.{boundary_kind}",
+                    boundary_kind=boundary_kind,
+                    boundary_value=boundary_value,
+                )
+            except AssertionError as exc:
+                defects.append(str(exc))
+        occurrence = ann.get("occurrence_time") or {}
+        point = occurrence.get("point") if isinstance(occurrence, dict) else None
+        if isinstance(point, dict):
+            pairs = _resolve_annotation_evidence(ann, evidence)
+            spans = [span for _, span in pairs]
+            raw = point.get("raw_expression")
+            if isinstance(raw, str) and raw.strip():
+                if not _source_phrase_grounded_in_spans(raw, spans):
+                    defects.append(
+                        f"{context_base}:occurrence raw_expression not grounded "
+                        f"in owned evidence ({raw!r})"
+                    )
+            elif point.get("kind") == "session" or point.get("session_id"):
+                if not _boundary_value_grounded_in_evidence(point, pairs):
+                    defects.append(
+                        f"{context_base}:occurrence session value not grounded "
+                        f"in owned evidence ({point!r})"
+                    )
+        phrase = ann.get("source_phrase")
+        if isinstance(phrase, str) and phrase.strip():
+            pairs = _resolve_annotation_evidence(ann, evidence)
+            spans = [span for _, span in pairs]
+            if not _source_phrase_grounded_in_spans(phrase, spans):
+                defects.append(
+                    f"{context_base}:source_phrase not grounded in owned evidence "
+                    f"({phrase!r})"
+                )
+    return defects
+
+
 def _source_reports_resulting_state_without_narrated_boundary(source_text: str) -> bool:
     """Diagnostic: resulting attitude/state without narrated transition (not acceptance)."""
     text = source_text.lower()
@@ -1666,32 +1737,40 @@ def test_discover_cohorts_above_retired_cutoff_ignores_prior_membership(
     tmp_path: Path,
 ) -> None:
     """PRIOR tuple membership must not disable fresh-cohort guards."""
-    (tmp_path / "temporal_shadow_adversarial_v11").mkdir()
-    v12 = tmp_path / "temporal_shadow_adversarial_v12"
-    v12.mkdir()
+    (tmp_path / "temporal_shadow_adversarial_v12").mkdir()
+    v13 = tmp_path / "temporal_shadow_adversarial_v13"
+    v13.mkdir()
+    # Explicit cutoff exercises discovery mechanics independent of production constant.
     discovered = _discover_cohorts_above_retired_cutoff(
         prefix="temporal_shadow_adversarial_v",
-        last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
+        last_retired_version=12,
         examples_root=tmp_path,
     )
-    assert discovered == [v12]
+    assert discovered == [v13]
 
-    (tmp_path / "temporal_shadow_adversarial_v12b").mkdir()
+    (tmp_path / "temporal_shadow_adversarial_v13b").mkdir()
     with pytest.raises(AssertionError, match="non-numeric"):
         _discover_cohorts_above_retired_cutoff(
             prefix="temporal_shadow_adversarial_v",
-            last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
+            last_retired_version=12,
             examples_root=tmp_path,
         )
 
 
 def test_discover_cohorts_above_retired_cutoff_empty_when_only_retired_versions() -> None:
     """Discovery returns only fresh promotion successors above the retired cutoff."""
-    discovered = _discover_cohorts_above_retired_cutoff(
+    discovered_holdout = _discover_cohorts_above_retired_cutoff(
         prefix="temporal_shadow_holdout_v",
         last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
     )
-    assert discovered == [HOLDOUT_V14]
+    discovered_adv = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_adversarial_v",
+        last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
+    )
+    assert discovered_holdout == []
+    assert discovered_adv == []
+    assert LAST_RETIRED_HOLDOUT_VERSION == 14
+    assert LAST_RETIRED_ADVERSARIAL_VERSION == 12
 
 
 def test_v13_and_v11_ids_mutually_disjoint() -> None:
@@ -2265,7 +2344,7 @@ def test_holdout_v14_semantic_and_source_text_fingerprints_disjoint_from_prior()
     prior_semantic: set[tuple] = set()
     prior_span_text: set[str] = set()
     for folder in PRIOR_CANONICAL_COHORT_DIRS:
-        if not folder.is_dir():
+        if folder == HOLDOUT_V14 or not folder.is_dir():
             continue
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         evidence = _case_evidence_by_id(folder)
@@ -2284,7 +2363,7 @@ def test_holdout_v14_proposition_template_jaccard_disjoint_from_prior() -> None:
     v14_assertions = v14_base.get("candidate_assertions", [])
     prior_assertions: list[tuple[str, dict]] = []
     for folder in PRIOR_CANONICAL_COHORT_DIRS:
-        if not folder.is_dir():
+        if folder == HOLDOUT_V14 or not folder.is_dir():
             continue
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         for assertion in base.get("candidate_assertions", []):
@@ -2351,9 +2430,22 @@ def test_holdout_v14_gold_audit_matches_base_and_overlay() -> None:
     _assert_gold_audit_matches_base_and_overlay(HOLDOUT_V14)
 
 
+def test_holdout_v14_retired_as_incomplete_promotion_evidence() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V14)
+    readme = (HOLDOUT_V14 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    assert "PROMOTION_EVIDENCE_INCOMPLETE" in readme
+    assert "do not patch" in readme.lower()
+    assert (HOLDOUT_V14 / "base-contribution.json").is_file()
+    assert (HOLDOUT_V14 / "gold-overlay.json").is_file()
+
+
 def test_holdout_v14_readme_and_vocabulary_guards() -> None:
     _require_fresh_cohort_mandatory(HOLDOUT_V14)
-    _assert_fresh_cohort_readme_protocol(HOLDOUT_V14)
+    readme = (HOLDOUT_V14 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    assert "seal" in readme.lower()
+    assert "cde3b48d5b95ba4fc1f7c779993c2497f66914f7" in readme
     _assert_cohort_excludes_reserved_and_forbidden_terms(HOLDOUT_V14)
 
 
@@ -2383,7 +2475,7 @@ def test_adv_v12_paired_cases_differ_only_by_prompt_identity() -> None:
 def test_adv_v12_ids_vocab_source_and_template_disjoint() -> None:
     _require_fresh_cohort_mandatory(ADV_V12)
     adv_a, adv_e = _collect_ids(ADV_V12)
-    prior_dirs = tuple(f for f in PRIOR_ADVERSARIAL_COHORT_DIRS if f.is_dir())
+    prior_dirs = tuple(f for f in PRIOR_ADVERSARIAL_COHORT_DIRS if f.is_dir() and f != ADV_V12)
     prior_a, prior_e = _union_ids(prior_dirs)
     assert adv_a.isdisjoint(prior_a)
     assert adv_e.isdisjoint(prior_e)
@@ -2427,7 +2519,7 @@ def test_adv_v12_proposition_template_jaccard_disjoint_from_prior() -> None:
     v12_assertions = v12_base.get("candidate_assertions", [])
     prior_assertions: list[tuple[str, dict]] = []
     for folder in PRIOR_ADVERSARIAL_COHORT_DIRS:
-        if not folder.is_dir():
+        if folder == ADV_V12 or not folder.is_dir():
             continue
         base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
         for assertion in base.get("candidate_assertions", []):
@@ -2449,9 +2541,33 @@ def test_adv_v12_gold_audit_matches_base_and_overlay() -> None:
     _assert_gold_audit_matches_base_and_overlay(ADV_V12)
 
 
+def test_adversarial_v12_retired_as_incomplete_promotion_evidence() -> None:
+    _require_fresh_cohort_mandatory(ADV_V12)
+    readme = (ADV_V12 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    assert "since the equinox flood" in readme
+    assert "PROMOTION_EVIDENCE_INCOMPLETE" in readme
+    assert "do not patch" in readme.lower()
+    gold = json.loads((ADV_V12 / "gold-overlay.json").read_text(encoding="utf-8"))
+    equinox = [
+        a
+        for a in gold.get("annotations", [])
+        if a.get("base_assertion_id") == "assertion:5ebdb8abe4bc43db"
+    ]
+    assert len(equinox) == 1
+    start = ((equinox[0].get("valid_time") or {}).get("start") or {})
+    assert start.get("raw_expression") == "since the equinox flood"
+    source = (ADV_V12 / "sources" / "valid-start-textual.md").read_text(encoding="utf-8")
+    assert "became shuttered at the equinox flood" in source
+    assert "since the equinox flood" not in source
+
+
 def test_adv_v12_readme_and_vocabulary_guards() -> None:
     _require_fresh_cohort_mandatory(ADV_V12)
-    _assert_fresh_cohort_readme_protocol(ADV_V12)
+    readme = (ADV_V12 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as independent TL01G promotion evidence" in readme
+    assert "seal" in readme.lower()
+    assert "cde3b48d5b95ba4fc1f7c779993c2497f66914f7" in readme
     _assert_cohort_excludes_reserved_and_forbidden_terms(ADV_V12)
 
 
@@ -2462,6 +2578,40 @@ def test_v14_and_adv_v12_ids_mutually_disjoint() -> None:
     v12_a, v12_e = _collect_ids(ADV_V12)
     assert v14_a.isdisjoint(v12_a)
     assert v14_e.isdisjoint(v12_e)
+
+
+def test_sealed_v14_adv_v12_value_grounding_documents_retirement() -> None:
+    """End-to-end Gate E3/value grounding over sealed V14/Adv V12 gold.
+
+    Documents why the observed matrix is retired. Must not authorize gold edits
+    or live retries: preserved defective Adv V12 bytes are the retirement proof.
+    """
+    _require_fresh_cohort_mandatory(HOLDOUT_V14)
+    _require_fresh_cohort_mandatory(ADV_V12)
+    v14_defects = _collect_resolved_value_grounding_defects(HOLDOUT_V14)
+    adv_defects = _collect_resolved_value_grounding_defects(ADV_V12)
+    assert v14_defects == [], v14_defects
+    assert any(
+        "since the equinox flood" in defect for defect in adv_defects
+    ), adv_defects
+    assert any(
+        "assertion:5ebdb8abe4bc43db" in defect for defect in adv_defects
+    ), adv_defects
+    # Preserve sealed invalid gold — do not "fix" it to make this test green.
+    gold = json.loads((ADV_V12 / "gold-overlay.json").read_text(encoding="utf-8"))
+    start_raw = next(
+        (
+            ((a.get("valid_time") or {}).get("start") or {}).get("raw_expression")
+            for a in gold.get("annotations", [])
+            if a.get("base_assertion_id") == "assertion:5ebdb8abe4bc43db"
+        ),
+        None,
+    )
+    assert start_raw == "since the equinox flood"
+    for readme_path in (HOLDOUT_V14 / "README.md", ADV_V12 / "README.md"):
+        readme = readme_path.read_text(encoding="utf-8")
+        assert "RETIRED as independent TL01G promotion evidence" in readme
+        assert "PROMOTION_EVIDENCE_INCOMPLETE" in readme
 
 
 def test_resolved_span_text_rejects_line_beyond_eof() -> None:
