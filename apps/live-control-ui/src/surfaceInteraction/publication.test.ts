@@ -1033,3 +1033,249 @@ describe("validateSurfaceInteractionPublication — whole-publication accumulati
     expect(codesOf(result)).toEqual(expectedOrder);
   });
 });
+
+describe("validateSurfaceInteractionPublication — exact nullability", () => {
+  it("rejects undefined canvas and agentContext — undefined is not null", () => {
+    const withUndefinedCanvas = validateSurfaceInteractionPublication(
+      makePublication({ canvas: undefined as unknown as null }),
+    );
+    expect(codesOf(withUndefinedCanvas)).toEqual(["publication_shape_invalid"]);
+
+    const withUndefinedAgentContext = validateSurfaceInteractionPublication(
+      makePublication({ agentContext: undefined as unknown as null }),
+    );
+    expect(codesOf(withUndefinedAgentContext)).toEqual(["publication_shape_invalid"]);
+  });
+
+  it("rejects a missing canvas key", () => {
+    const publication = makePublication();
+    delete (publication as Record<string, unknown>).canvas;
+    expect(codesOf(validateSurfaceInteractionPublication(publication))).toEqual([
+      "publication_shape_invalid",
+    ]);
+  });
+
+  it("rejects undefined placement group fields", () => {
+    const undefinedGroupId = validateSurfaceInteractionPublication(
+      makePublication({
+        tools: [
+          makeTool("t", {
+            placement: makePlacement({ groupId: undefined as unknown as null, groupLabel: null }),
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(undefinedGroupId)).toEqual(["placement_invalid"]);
+
+    const undefinedGroupLabel = validateSurfaceInteractionPublication(
+      makePublication({
+        tools: [
+          makeTool("t", {
+            placement: makePlacement({
+              groupId: "g",
+              groupLabel: undefined as unknown as null,
+              groupOrder: 1,
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(undefinedGroupLabel)).toEqual(["placement_invalid"]);
+  });
+});
+
+describe("validateSurfaceInteractionPublication — availability discriminant and eyebrow shape", () => {
+  it("rejects availability objects with unrecognized status discriminants", () => {
+    for (const availability of [{}, { status: "maybe" }, { status: null }, { status: 1 }]) {
+      const result = validateSurfaceInteractionPublication(
+        makePublication({
+          tools: [
+            makeTool("t", { availability: availability as unknown as SurfaceInteractionAvailability }),
+          ],
+        }),
+      );
+      expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+    }
+  });
+
+  it("rejects unrecognized Edit availability discriminants", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        editCommands: [
+          makeEditCommand("e", {
+            availability: { status: "maybe" } as unknown as SurfaceInteractionAvailability,
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("rejects supplied non-string eyebrows and accepts absent or string eyebrows", () => {
+    for (const eyebrow of [42, {}, null]) {
+      const result = validateSurfaceInteractionPublication(
+        makePublication({ tools: [makeTool("t", { eyebrow: eyebrow as unknown as string })] }),
+      );
+      expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+    }
+    expect(validateSurfaceInteractionPublication(makePublication({ tools: [makeTool("t")] })).valid).toBe(true);
+    expect(
+      validateSurfaceInteractionPublication(
+        makePublication({ tools: [makeTool("t", { eyebrow: "Group" })] }),
+      ).valid,
+    ).toBe(true);
+  });
+});
+
+describe("validateSurfaceInteractionPublication — no conversion of untrusted values", () => {
+  it("rejects boxed projection discriminants instead of accepting them via coercion", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        projections: [
+          makeProjection("p", {
+            kind: new String("tool") as unknown as "tool",
+            preferredSize: new String("compact") as unknown as "compact",
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(result)).toEqual(["projection_kind_unknown", "projection_size_unknown"]);
+  });
+
+  it("never invokes toString/Symbol.toPrimitive on projection discriminants", () => {
+    const nullProto = Object.create(null) as unknown as "tool";
+    const throwing = {
+      toString() {
+        throw new Error("must not be called");
+      },
+      [Symbol.toPrimitive]() {
+        throw new Error("must not be called");
+      },
+    } as unknown as "tool";
+
+    for (const kind of [nullProto, throwing]) {
+      let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+      expect(() => {
+        result = validateSurfaceInteractionPublication(
+          makePublication({ projections: [makeProjection("p", { kind })] }),
+        );
+      }).not.toThrow();
+      expect(result?.valid).toBe(false);
+      expect(codesOf(result as NonNullable<typeof result>)).toEqual(["projection_kind_unknown"]);
+    }
+  });
+
+  it("never converts untrusted contribution IDs or binding reference elements", () => {
+    const throwing = {
+      toString() {
+        throw new Error("must not be called");
+      },
+      [Symbol.toPrimitive]() {
+        throw new Error("must not be called");
+      },
+    } as unknown as string;
+
+    let result: ReturnType<typeof validateSurfaceInteractionPublication> | undefined;
+    expect(() => {
+      result = validateSurfaceInteractionPublication(
+        makePublication({
+          tools: [makeTool("a", { id: throwing }), makeTool("a")],
+          projections: [makeProjection("p", { bindingIds: [throwing] })],
+          projectionBindings: [makeBinding("b")],
+        }),
+      );
+    }).not.toThrow();
+    expect(result?.valid).toBe(false);
+    expect(codesOf(result as NonNullable<typeof result>)).toEqual(
+      expect.arrayContaining(["contribution_id_blank", "contribution_shape_invalid"]),
+    );
+  });
+});
+
+describe("validateSurfaceInteractionPublication — sparse arrays fail closed", () => {
+  it("rejects a sparse tools collection at the hole index", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ tools: new Array(1) as unknown as SurfaceInteractionToolContribution[] }),
+    );
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+    if (!result.valid) {
+      expect(result.issues[0]).toMatchObject({ contributionIndex: 0 });
+    }
+  });
+
+  it("rejects holes in every collection at each hole index", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        tools: new Array(1) as unknown as SurfaceInteractionToolContribution[],
+        editCommands: new Array(2) as unknown as SurfaceInteractionEditCommandContribution[],
+        projections: new Array(1) as unknown as SurfaceInteractionProjectionDescriptor[],
+        projectionBindings: new Array(3) as unknown as SurfaceInteractionProjectionBinding[],
+      }),
+    );
+    expect(codesOf(result)).toEqual([
+      "contribution_shape_invalid",
+      "contribution_shape_invalid",
+      "contribution_shape_invalid",
+      "contribution_shape_invalid",
+      "contribution_shape_invalid",
+      "contribution_shape_invalid",
+      "contribution_shape_invalid",
+    ]);
+  });
+
+  it("rejects sparse Agent-context pointers", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        agentContext: {
+          label: "Ctx",
+          campaignId: null,
+          documentId: null,
+          sessionNumber: null,
+          ambientSummary: null,
+          pointers: new Array(2) as unknown as { kind: string; value: string }[],
+        },
+      }),
+    );
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid", "contribution_shape_invalid"]);
+  });
+
+  it("rejects sparse Projection bindingIds", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({
+        projections: [
+          makeProjection("p", { bindingIds: new Array(1) as unknown as string[] }),
+        ],
+      }),
+    );
+    expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+  });
+
+  it("still validates present entries around holes", () => {
+    const tools = [makeTool("", { label: "" }), , makeTool("ok")] as unknown as SurfaceInteractionToolContribution[];
+    const result = validateSurfaceInteractionPublication(makePublication({ tools }));
+    expect(codesOf(result)).toEqual([
+      "contribution_shape_invalid",
+      "contribution_id_blank",
+      "contribution_label_blank",
+    ]);
+  });
+});
+
+describe("validateSurfaceInteractionPublication — identity surface ID blankness", () => {
+  it("reports surface_id_blank for a blank identity surface ID alongside the mismatch", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ identity: { surfaceId: "", instanceKey: "valid" } }),
+    );
+    expect(result.valid).toBe(false);
+    expect(codesOf(result)).toEqual(["surface_id_blank", "identity_surface_mismatch"]);
+  });
+
+  it("reports surface_id_blank once per blank field", () => {
+    const result = validateSurfaceInteractionPublication(
+      makePublication({ surfaceId: "", identity: { surfaceId: "  ", instanceKey: "k" } }),
+    );
+    const codes = codesOf(result);
+    expect(codes.filter((code) => code === "surface_id_blank")).toHaveLength(2);
+  });
+});

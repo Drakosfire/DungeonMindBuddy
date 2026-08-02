@@ -3,7 +3,11 @@
  *
  * Authority: handoff §6.3–§6.10. Pure, deterministic, non-throwing for any
  * malformed input. Never invokes callbacks, never inspects binding values,
- * never clones the input, and never coerces malformed collections. Any material
+ * never clones the input, never coerces malformed collections, and never
+ * converts untrusted values (no String()/toString/Symbol.toPrimitive paths —
+ * diagnostics name malformed types instead). Nullability means exactly null,
+ * required arrays must be dense (indexed iteration with Object.hasOwn), and
+ * discriminant set checks require primitive strings via typeof. Any material
  * contradiction invalidates the whole publication; no partially accepted
  * contribution set is ever returned.
  */
@@ -31,6 +35,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function isBlank(value: unknown): boolean {
   return typeof value !== "string" || value.trim().length === 0;
+}
+
+/** Type name for diagnostics — never invokes conversions on untrusted values. */
+function describeType(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+/** Safe diagnostic rendering: strings are quoted verbatim; anything else is named by type. */
+function preview(value: unknown): string {
+  return typeof value === "string" ? JSON.stringify(value) : describeType(value);
 }
 
 function validateAvailability(
@@ -64,11 +80,11 @@ function validatePlacementFields(
   const groupOrder = placement.groupOrder;
   const itemOrder = placement.itemOrder;
   const problems: string[] = [];
-  if ((groupId == null) !== (groupLabel == null)) {
-    problems.push("group ID/label nullability disagrees");
+  if ((groupId === null) !== (groupLabel === null)) {
+    problems.push("group ID/label nullability disagrees (both exactly null, or both nonblank strings)");
   }
-  if (groupId != null && isBlank(groupId)) problems.push("group ID is blank");
-  if (groupLabel != null && isBlank(groupLabel)) problems.push("group label is blank");
+  if (groupId !== null && isBlank(groupId)) problems.push("group ID is blank or not a string");
+  if (groupLabel !== null && isBlank(groupLabel)) problems.push("group label is blank or not a string");
   if (!Number.isInteger(groupOrder)) problems.push("group order is not a finite integer");
   if (!Number.isInteger(itemOrder)) problems.push("item order is not a finite integer");
   if (problems.length > 0) {
@@ -82,14 +98,24 @@ function validatePlacementFields(
 
 function hasValidPlacementForGroupConflict(placement: Record<string, unknown>): boolean {
   const groupId = placement.groupId;
-  if (groupId == null || isBlank(groupId)) return false;
+  if (groupId === null || isBlank(groupId)) return false;
   const groupLabel = placement.groupLabel;
   const groupOrder = placement.groupOrder;
   const itemOrder = placement.itemOrder;
-  if ((groupId == null) !== (groupLabel == null)) return false;
-  if (groupLabel != null && isBlank(groupLabel)) return false;
+  if ((groupId === null) !== (groupLabel === null)) return false;
+  if (groupLabel !== null && isBlank(groupLabel)) return false;
   if (!Number.isInteger(groupOrder) || !Number.isInteger(itemOrder)) return false;
   return true;
+}
+
+/** Primitive-string IDs only, indexed so sparse arrays cannot skip entries. */
+function collectIds(entries: readonly unknown[]): string[] {
+  const ids: string[] = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    ids.push(isPlainObject(entry) && typeof entry.id === "string" ? entry.id : "");
+  }
+  return ids;
 }
 
 function collectDuplicateIds(
@@ -125,7 +151,7 @@ export function validateSurfaceInteractionPublication(
   if (!isPlainObject(publication)) {
     issues.push({
       code: "publication_shape_invalid",
-      message: "Publication must be a non-null object.",
+      message: `Publication must be a non-null object, got ${describeType(publication)}.`,
     });
     return { valid: false, publication, issues };
   }
@@ -136,143 +162,230 @@ export function validateSurfaceInteractionPublication(
     if (!Array.isArray(pub[field])) {
       issues.push({
         code: "publication_shape_invalid",
-        message: `Publication "${field}" must be an array.`,
+        message: `Publication "${field}" must be an array, got ${describeType(pub[field])}.`,
       });
     }
   }
-  if (pub.canvas != null && !isPlainObject(pub.canvas)) {
+  if (pub.canvas !== null && !isPlainObject(pub.canvas)) {
     issues.push({
       code: "publication_shape_invalid",
-      message: "Publication canvas must be null or an object.",
+      message: `Publication canvas must be exactly null or an object, got ${describeType(pub.canvas)}.`,
     });
   }
-  if (pub.agentContext != null && !isPlainObject(pub.agentContext)) {
+  if (pub.agentContext !== null && !isPlainObject(pub.agentContext)) {
     issues.push({
       code: "publication_shape_invalid",
-      message: "Publication agentContext must be null or an object.",
+      message: `Publication agentContext must be exactly null or an object, got ${describeType(pub.agentContext)}.`,
     });
   }
 
-  const rawTools = Array.isArray(pub.tools) ? pub.tools : [];
-  const rawEditCommands = Array.isArray(pub.editCommands) ? pub.editCommands : [];
-  const rawProjections = Array.isArray(pub.projections) ? pub.projections : [];
-  const rawBindings = Array.isArray(pub.projectionBindings) ? pub.projectionBindings : [];
+  const rawTools: unknown[] = Array.isArray(pub.tools) ? pub.tools : [];
+  const rawEditCommands: unknown[] = Array.isArray(pub.editCommands) ? pub.editCommands : [];
+  const rawProjections: unknown[] = Array.isArray(pub.projections) ? pub.projections : [];
+  const rawBindings: unknown[] = Array.isArray(pub.projectionBindings) ? pub.projectionBindings : [];
   const toolShapeValid: boolean[] = [];
   const editShapeValid: boolean[] = [];
   const projectionShapeValid: boolean[] = [];
   const bindingShapeValid: boolean[] = [];
 
-  // 2. Per-collection entry shape (Tool, Edit, Projection, binding order).
-  rawTools.forEach((entry, index) => {
-    if (!isPlainObject(entry)) {
+  // 2. Per-collection entry shape (Tool, Edit, Projection, binding order),
+  //    indexed so sparse arrays cannot skip entries.
+  for (let index = 0; index < rawTools.length; index += 1) {
+    if (!Object.hasOwn(rawTools, index)) {
       issues.push({
         code: "contribution_shape_invalid",
-        message: `Tool contribution at index ${index} must be a non-null object.`,
+        message: `Tool contribution at index ${index} is missing (sparse array).`,
         contributionIndex: index,
       });
       toolShapeValid[index] = false;
-      return;
+      continue;
+    }
+    const entry = rawTools[index];
+    if (!isPlainObject(entry)) {
+      issues.push({
+        code: "contribution_shape_invalid",
+        message: `Tool contribution at index ${index} must be a non-null object, got ${describeType(entry)}.`,
+        contributionIndex: index,
+      });
+      toolShapeValid[index] = false;
+      continue;
     }
     const nestedProblems: string[] = [];
     if (!isPlainObject(entry.placement)) nestedProblems.push("placement");
-    if (!isPlainObject(entry.availability)) nestedProblems.push("availability");
+    if (!isPlainObject(entry.availability)) {
+      nestedProblems.push("availability");
+    } else {
+      const status = (entry.availability as Record<string, unknown>).status;
+      if (status !== "enabled" && status !== "disabled") {
+        nestedProblems.push(`availability status discriminant is neither "enabled" nor "disabled" (got ${preview(status)})`);
+      }
+    }
     if (!isPlainObject(entry.activation)) nestedProblems.push("activation");
+    if (entry.eyebrow !== undefined && typeof entry.eyebrow !== "string") {
+      nestedProblems.push(`supplied eyebrow is not a string (got ${describeType(entry.eyebrow)})`);
+    }
     if (nestedProblems.length > 0) {
       issues.push({
         code: "contribution_shape_invalid",
         message:
-          `Tool contribution at index ${index} is missing required nested object(s): ` +
-          `${nestedProblems.join(", ")}.`,
+          `Tool contribution at index ${index} has malformed structure: ` +
+          `${nestedProblems.join("; ")}.`,
         contributionId: typeof entry.id === "string" ? entry.id : "",
         contributionIndex: index,
       });
       toolShapeValid[index] = false;
-      return;
+      continue;
     }
     toolShapeValid[index] = true;
-  });
+  }
 
-  rawEditCommands.forEach((entry, index) => {
-    if (!isPlainObject(entry)) {
+  for (let index = 0; index < rawEditCommands.length; index += 1) {
+    if (!Object.hasOwn(rawEditCommands, index)) {
       issues.push({
         code: "contribution_shape_invalid",
-        message: `Edit command contribution at index ${index} must be a non-null object.`,
+        message: `Edit command contribution at index ${index} is missing (sparse array).`,
         contributionIndex: index,
       });
       editShapeValid[index] = false;
-      return;
+      continue;
+    }
+    const entry = rawEditCommands[index];
+    if (!isPlainObject(entry)) {
+      issues.push({
+        code: "contribution_shape_invalid",
+        message: `Edit command contribution at index ${index} must be a non-null object, got ${describeType(entry)}.`,
+        contributionIndex: index,
+      });
+      editShapeValid[index] = false;
+      continue;
     }
     const nestedProblems: string[] = [];
     if (!isPlainObject(entry.placement)) nestedProblems.push("placement");
-    if (!isPlainObject(entry.availability)) nestedProblems.push("availability");
+    if (!isPlainObject(entry.availability)) {
+      nestedProblems.push("availability");
+    } else {
+      const status = (entry.availability as Record<string, unknown>).status;
+      if (status !== "enabled" && status !== "disabled") {
+        nestedProblems.push(`availability status discriminant is neither "enabled" nor "disabled" (got ${preview(status)})`);
+      }
+    }
     if (!isPlainObject(entry.target)) nestedProblems.push("target");
+    if (entry.eyebrow !== undefined && typeof entry.eyebrow !== "string") {
+      nestedProblems.push(`supplied eyebrow is not a string (got ${describeType(entry.eyebrow)})`);
+    }
     if (nestedProblems.length > 0) {
       issues.push({
         code: "contribution_shape_invalid",
         message:
-          `Edit command contribution at index ${index} is missing required nested object(s): ` +
-          `${nestedProblems.join(", ")}.`,
+          `Edit command contribution at index ${index} has malformed structure: ` +
+          `${nestedProblems.join("; ")}.`,
         contributionId: typeof entry.id === "string" ? entry.id : "",
         contributionIndex: index,
       });
       editShapeValid[index] = false;
-      return;
+      continue;
     }
     editShapeValid[index] = true;
-  });
+  }
 
-  rawProjections.forEach((entry, index) => {
-    if (!isPlainObject(entry)) {
+  for (let index = 0; index < rawProjections.length; index += 1) {
+    if (!Object.hasOwn(rawProjections, index)) {
       issues.push({
         code: "contribution_shape_invalid",
-        message: `Projection contribution at index ${index} must be a non-null object.`,
+        message: `Projection contribution at index ${index} is missing (sparse array).`,
         contributionIndex: index,
       });
       projectionShapeValid[index] = false;
-      return;
+      continue;
     }
+    const entry = rawProjections[index];
+    if (!isPlainObject(entry)) {
+      issues.push({
+        code: "contribution_shape_invalid",
+        message: `Projection contribution at index ${index} must be a non-null object, got ${describeType(entry)}.`,
+        contributionIndex: index,
+      });
+      projectionShapeValid[index] = false;
+      continue;
+    }
+    const projectionId = typeof entry.id === "string" ? entry.id : "";
     if (!Array.isArray(entry.bindingIds)) {
       issues.push({
         code: "contribution_shape_invalid",
-        message: `Projection contribution at index ${index} bindingIds must be an array.`,
-        contributionId: typeof entry.id === "string" ? entry.id : "",
+        message: `Projection contribution at index ${index} bindingIds must be an array, got ${describeType(entry.bindingIds)}.`,
+        contributionId: projectionId,
         contributionIndex: index,
       });
       projectionShapeValid[index] = false;
-      return;
+      continue;
     }
-    projectionShapeValid[index] = true;
-  });
+    const bindingIds = entry.bindingIds as unknown[];
+    let bindingIdsValid = true;
+    for (let elementIndex = 0; elementIndex < bindingIds.length; elementIndex += 1) {
+      if (!Object.hasOwn(bindingIds, elementIndex)) {
+        issues.push({
+          code: "contribution_shape_invalid",
+          message: `Projection "${projectionId}" bindingIds index ${elementIndex} is missing (sparse array).`,
+          contributionId: projectionId,
+          contributionIndex: index,
+        });
+        bindingIdsValid = false;
+        continue;
+      }
+      if (typeof bindingIds[elementIndex] !== "string") {
+        issues.push({
+          code: "contribution_shape_invalid",
+          message:
+            `Projection "${projectionId}" bindingIds index ${elementIndex} must be a string, ` +
+            `got ${describeType(bindingIds[elementIndex])}.`,
+          contributionId: projectionId,
+          contributionIndex: index,
+        });
+        bindingIdsValid = false;
+      }
+    }
+    projectionShapeValid[index] = bindingIdsValid;
+  }
 
-  rawBindings.forEach((entry, index) => {
-    if (!isPlainObject(entry)) {
+  for (let index = 0; index < rawBindings.length; index += 1) {
+    if (!Object.hasOwn(rawBindings, index)) {
       issues.push({
         code: "contribution_shape_invalid",
-        message: `Projection binding at index ${index} must be a non-null object.`,
+        message: `Projection binding at index ${index} is missing (sparse array).`,
         contributionIndex: index,
       });
       bindingShapeValid[index] = false;
-      return;
+      continue;
+    }
+    const entry = rawBindings[index];
+    if (!isPlainObject(entry)) {
+      issues.push({
+        code: "contribution_shape_invalid",
+        message: `Projection binding at index ${index} must be a non-null object, got ${describeType(entry)}.`,
+        contributionIndex: index,
+      });
+      bindingShapeValid[index] = false;
+      continue;
     }
     bindingShapeValid[index] = true;
-  });
+  }
 
   let identityShapeValid = false;
   if (!isPlainObject(pub.identity)) {
     issues.push({
       code: "contribution_shape_invalid",
-      message: "Publication identity must be a non-null object.",
+      message: `Publication identity must be a non-null object, got ${describeType(pub.identity)}.`,
     });
   } else {
     identityShapeValid = true;
   }
 
   let canvasShapeValid = false;
-  if (pub.canvas != null && isPlainObject(pub.canvas)) {
+  if (pub.canvas !== null && isPlainObject(pub.canvas)) {
     if (!isPlainObject(pub.canvas.workObject)) {
       issues.push({
         code: "contribution_shape_invalid",
-        message: "Canvas workObject must be a non-null object.",
+        message: `Canvas workObject must be a non-null object, got ${describeType(pub.canvas.workObject)}.`,
         contributionId: typeof pub.canvas.canvasId === "string" ? pub.canvas.canvasId : "",
       });
     } else {
@@ -280,31 +393,43 @@ export function validateSurfaceInteractionPublication(
     }
   }
 
-  if (pub.agentContext != null && isPlainObject(pub.agentContext)) {
-    const ctx = pub.agentContext;
+  const agentContextIsObject = pub.agentContext !== null && isPlainObject(pub.agentContext);
+  if (agentContextIsObject) {
+    const ctx = pub.agentContext as Record<string, unknown>;
     if (!Array.isArray(ctx.pointers)) {
       issues.push({
         code: "contribution_shape_invalid",
-        message: "Agent-context pointers must be an array.",
+        message: `Agent-context pointers must be an array, got ${describeType(ctx.pointers)}.`,
       });
     } else {
-      ctx.pointers.forEach((pointer, index) => {
-        if (!isPlainObject(pointer)) {
+      const pointers = ctx.pointers as unknown[];
+      for (let index = 0; index < pointers.length; index += 1) {
+        if (!Object.hasOwn(pointers, index)) {
           issues.push({
             code: "contribution_shape_invalid",
-            message: `Agent-context pointer at index ${index} must be a non-null object.`,
+            message: `Agent-context pointer at index ${index} is missing (sparse array).`,
+            contributionIndex: index,
+          });
+          continue;
+        }
+        if (!isPlainObject(pointers[index])) {
+          issues.push({
+            code: "contribution_shape_invalid",
+            message: `Agent-context pointer at index ${index} must be a non-null object, got ${describeType(pointers[index])}.`,
             contributionIndex: index,
           });
         }
-      });
+      }
     }
   }
 
   // 3. Publication and identity fields.
-  const identity =
-    identityShapeValid && isPlainObject(pub.identity) ? pub.identity : null;
+  const identity = identityShapeValid && isPlainObject(pub.identity) ? pub.identity : null;
   if (isBlank(pub.surfaceId)) {
     issues.push({ code: "surface_id_blank", message: "Publication surface ID is blank." });
+  }
+  if (identity != null && isBlank(identity.surfaceId)) {
+    issues.push({ code: "surface_id_blank", message: "Identity surface ID is blank." });
   }
   if (identity != null && isBlank(identity.instanceKey)) {
     issues.push({
@@ -316,8 +441,8 @@ export function validateSurfaceInteractionPublication(
     issues.push({
       code: "identity_surface_mismatch",
       message:
-        `Publication surface ID "${String(pub.surfaceId)}" does not match identity ` +
-        `surface ID "${String(identity.surfaceId)}".`,
+        `Publication surface ID ${preview(pub.surfaceId)} does not match identity ` +
+        `surface ID ${preview(identity.surfaceId)}.`,
     });
   }
   if (isBlank(pub.label)) {
@@ -325,7 +450,7 @@ export function validateSurfaceInteractionPublication(
   }
 
   // 4. Canvas field checks.
-  if (canvasShapeValid && pub.canvas != null && isPlainObject(pub.canvas)) {
+  if (canvasShapeValid && pub.canvas !== null && isPlainObject(pub.canvas)) {
     const canvas = pub.canvas;
     const workObject = canvas.workObject as Record<string, unknown>;
     if (
@@ -342,8 +467,8 @@ export function validateSurfaceInteractionPublication(
   }
 
   // 5. Agent context field checks.
-  if (pub.agentContext != null && isPlainObject(pub.agentContext)) {
-    const context = pub.agentContext;
+  if (agentContextIsObject) {
+    const context = pub.agentContext as Record<string, unknown>;
     const problems: string[] = [];
     if (isBlank(context.label)) problems.push("label is blank");
     const stringOrNullFields = [
@@ -353,14 +478,14 @@ export function validateSurfaceInteractionPublication(
     ] as const;
     for (const [field, value] of stringOrNullFields) {
       if (value !== null && typeof value !== "string") {
-        problems.push(`${field} must be a string or null`);
+        problems.push(`${field} must be a string or null, got ${describeType(value)}`);
       }
     }
     if (
       context.sessionNumber !== null &&
       (typeof context.sessionNumber !== "number" || !Number.isFinite(context.sessionNumber))
     ) {
-      problems.push("sessionNumber must be a finite number or null");
+      problems.push(`sessionNumber must be a finite number or null, got ${describeType(context.sessionNumber)}`);
     }
     if (problems.length > 0) {
       issues.push({
@@ -383,19 +508,20 @@ export function validateSurfaceInteractionPublication(
     }
 
     if (Array.isArray(context.pointers)) {
-      if (
-        context.pointers.length > SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointersMaxEntries
-      ) {
+      const pointers = context.pointers as unknown[];
+      if (pointers.length > SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointersMaxEntries) {
         issues.push({
           code: "agent_context_bounds_exceeded",
           message:
             `Agent-context pointers exceed the ${SURFACE_INTERACTION_AGENT_CONTEXT_BOUNDS.pointersMaxEntries}-entry bound ` +
-            `(count ${context.pointers.length}).`,
+            `(count ${pointers.length}).`,
         });
       }
 
-      context.pointers.forEach((pointer, index) => {
-        if (!isPlainObject(pointer)) return;
+      for (let index = 0; index < pointers.length; index += 1) {
+        if (!Object.hasOwn(pointers, index)) continue;
+        const pointer = pointers[index];
+        if (!isPlainObject(pointer)) continue;
         const kind = pointer.kind;
         const value = pointer.value;
         if (isBlank(kind) || isBlank(value)) {
@@ -429,14 +555,14 @@ export function validateSurfaceInteractionPublication(
             contributionIndex: index,
           });
         }
-      });
+      }
     }
   }
 
   // 6. Tool field checks in collection order.
-  rawTools.forEach((entry, index) => {
-    if (!toolShapeValid[index] || !isPlainObject(entry)) return;
-    const tool = entry;
+  for (let index = 0; index < rawTools.length; index += 1) {
+    if (!toolShapeValid[index]) continue;
+    const tool = rawTools[index] as Record<string, unknown>;
     const id = typeof tool.id === "string" ? tool.id : "";
     const owner = { contributionId: id, contributionIndex: index };
     if (isBlank(tool.id)) {
@@ -460,10 +586,10 @@ export function validateSurfaceInteractionPublication(
     if (activation.kind !== "projection" && activation.kind !== "command") {
       issues.push({
         code: "tool_activation_invalid",
-        message: `Tool contribution "${id}" has a missing or unknown activation discriminant.`,
+        message: `Tool contribution "${id}" has a missing or unknown activation discriminant (${preview(activation.kind)}).`,
         ...owner,
       });
-      return;
+      continue;
     }
     if (activation.kind === "command" && typeof activation.invoke !== "function") {
       issues.push({
@@ -472,12 +598,12 @@ export function validateSurfaceInteractionPublication(
         ...owner,
       });
     }
-  });
+  }
 
   // 7. Edit field checks in collection order.
-  rawEditCommands.forEach((entry, index) => {
-    if (!editShapeValid[index] || !isPlainObject(entry)) return;
-    const command = entry;
+  for (let index = 0; index < rawEditCommands.length; index += 1) {
+    if (!editShapeValid[index]) continue;
+    const command = rawEditCommands[index] as Record<string, unknown>;
     const id = typeof command.id === "string" ? command.id : "";
     const owner = { contributionId: id, contributionIndex: index };
     if (isBlank(command.id)) {
@@ -512,12 +638,12 @@ export function validateSurfaceInteractionPublication(
         ...owner,
       });
     }
-  });
+  }
 
   // 8. Projection field checks in collection order.
-  rawProjections.forEach((entry, index) => {
-    if (!projectionShapeValid[index] || !isPlainObject(entry)) return;
-    const projection = entry;
+  for (let index = 0; index < rawProjections.length; index += 1) {
+    if (!projectionShapeValid[index]) continue;
+    const projection = rawProjections[index] as Record<string, unknown>;
     const id = typeof projection.id === "string" ? projection.id : "";
     const owner = { contributionId: id, contributionIndex: index };
     if (isBlank(projection.id)) {
@@ -528,28 +654,28 @@ export function validateSurfaceInteractionPublication(
         contributionIndex: index,
       });
     }
-    if (!PROJECTION_KINDS.has(String(projection.kind))) {
+    const kind = projection.kind;
+    if (typeof kind !== "string" || !PROJECTION_KINDS.has(kind)) {
       issues.push({
         code: "projection_kind_unknown",
-        message: `Projection "${id}" has unknown kind "${String(projection.kind)}".`,
+        message: `Projection "${id}" has unknown kind ${preview(kind)}.`,
         ...owner,
       });
     }
-    if (!PROJECTION_SIZES.has(String(projection.preferredSize))) {
+    const preferredSize = projection.preferredSize;
+    if (typeof preferredSize !== "string" || !PROJECTION_SIZES.has(preferredSize)) {
       issues.push({
         code: "projection_size_unknown",
-        message:
-          `Projection "${id}" has unknown preferred size ` +
-          `"${String(projection.preferredSize)}".`,
+        message: `Projection "${id}" has unknown preferred size ${preview(preferredSize)}.`,
         ...owner,
       });
     }
-  });
+  }
 
   // 9. Binding field checks in collection order.
-  rawBindings.forEach((entry, index) => {
-    if (!bindingShapeValid[index] || !isPlainObject(entry)) return;
-    const binding = entry;
+  for (let index = 0; index < rawBindings.length; index += 1) {
+    if (!bindingShapeValid[index]) continue;
+    const binding = rawBindings[index] as Record<string, unknown>;
     if (isBlank(binding.id)) {
       issues.push({
         code: "contribution_id_blank",
@@ -558,116 +684,100 @@ export function validateSurfaceInteractionPublication(
         contributionIndex: index,
       });
     }
-  });
+  }
 
   // 10. Cross-reference checks.
-  collectDuplicateIds(
-    rawTools.map((tool) => (isPlainObject(tool) ? String(tool.id ?? "") : "")),
-    "duplicate_tool_id",
-    "Tool contribution",
-    issues,
-  );
-  collectDuplicateIds(
-    rawEditCommands.map((command) => (isPlainObject(command) ? String(command.id ?? "") : "")),
-    "duplicate_edit_command_id",
-    "Edit command contribution",
-    issues,
-  );
-  collectDuplicateIds(
-    rawProjections.map((projection) => (isPlainObject(projection) ? String(projection.id ?? "") : "")),
-    "duplicate_projection_id",
-    "Projection contribution",
-    issues,
-  );
-  collectDuplicateIds(
-    rawBindings.map((binding) => (isPlainObject(binding) ? String(binding.id ?? "") : "")),
-    "duplicate_projection_binding_id",
-    "Projection binding",
-    issues,
-  );
+  collectDuplicateIds(collectIds(rawTools), "duplicate_tool_id", "Tool contribution", issues);
+  collectDuplicateIds(collectIds(rawEditCommands), "duplicate_edit_command_id", "Edit command contribution", issues);
+  collectDuplicateIds(collectIds(rawProjections), "duplicate_projection_id", "Projection contribution", issues);
+  collectDuplicateIds(collectIds(rawBindings), "duplicate_projection_binding_id", "Projection binding", issues);
 
   const declaredProjections = new Map<string, Record<string, unknown>>();
-  for (const projection of rawProjections) {
+  for (let index = 0; index < rawProjections.length; index += 1) {
+    const projection = rawProjections[index];
     if (!isPlainObject(projection)) continue;
     const pid = typeof projection.id === "string" ? projection.id : "";
     if (isBlank(pid) || declaredProjections.has(pid)) continue;
     declaredProjections.set(pid, projection);
   }
 
-  rawTools.forEach((entry, index) => {
-    if (!toolShapeValid[index] || !isPlainObject(entry)) return;
-    const tool = entry;
+  for (let index = 0; index < rawTools.length; index += 1) {
+    if (!toolShapeValid[index]) continue;
+    const tool = rawTools[index] as Record<string, unknown>;
     const activation = tool.activation as Record<string, unknown>;
-    if (activation.kind !== "projection") return;
+    if (activation.kind !== "projection") continue;
     const toolId = typeof tool.id === "string" ? tool.id : "";
     const targetId = activation.projectionId;
     const target =
-      !isBlank(targetId) && typeof targetId === "string"
+      typeof targetId === "string" && !isBlank(targetId)
         ? declaredProjections.get(targetId)
         : undefined;
     if (!target) {
       issues.push({
         code: "tool_projection_missing",
         message:
-          `Tool contribution "${toolId}" targets projection "${String(targetId)}", ` +
+          `Tool contribution "${toolId}" targets projection ${preview(targetId)}, ` +
           "which is not declared.",
         contributionId: toolId,
         contributionIndex: index,
         referencedId: typeof targetId === "string" ? targetId : "",
       });
-      return;
+      continue;
     }
     if (target.kind !== "tool") {
       issues.push({
         code: "tool_projection_kind_mismatch",
         message:
-          `Tool contribution "${toolId}" targets projection "${String(target.id)}" of kind ` +
-          `"${String(target.kind)}"; only kind "tool" may be activated.`,
+          `Tool contribution "${toolId}" targets projection ${preview(target.id)} of kind ` +
+          `${preview(target.kind)}; only kind "tool" may be activated.`,
         contributionId: toolId,
         contributionIndex: index,
         referencedId: typeof target.id === "string" ? target.id : "",
       });
     }
-  });
+  }
 
   const declaredBindingIds = new Set<string>();
-  for (const binding of rawBindings) {
+  for (let index = 0; index < rawBindings.length; index += 1) {
+    const binding = rawBindings[index];
     if (!isPlainObject(binding)) continue;
     const bid = typeof binding.id === "string" ? binding.id : "";
     if (!isBlank(bid)) declaredBindingIds.add(bid);
   }
 
-  rawProjections.forEach((entry, projectionIndex) => {
-    if (!projectionShapeValid[projectionIndex] || !isPlainObject(entry)) return;
-    const projection = entry;
+  for (let projectionIndex = 0; projectionIndex < rawProjections.length; projectionIndex += 1) {
+    if (!projectionShapeValid[projectionIndex]) continue;
+    const projection = rawProjections[projectionIndex] as Record<string, unknown>;
     const projectionId = typeof projection.id === "string" ? projection.id : "";
-    const bindingIds = projection.bindingIds as unknown[];
+    const bindingIds = projection.bindingIds as string[];
     const seen = new Set<string>();
-    bindingIds.forEach((bindingId) => {
-      const bid = typeof bindingId === "string" ? bindingId : String(bindingId);
-      if (seen.has(bid)) {
+    for (let elementIndex = 0; elementIndex < bindingIds.length; elementIndex += 1) {
+      if (!Object.hasOwn(bindingIds, elementIndex)) continue;
+      const bindingId = bindingIds[elementIndex];
+      if (typeof bindingId !== "string") continue;
+      if (seen.has(bindingId)) {
         issues.push({
           code: "projection_binding_duplicate_reference",
-          message: `Projection "${projectionId}" repeats binding reference "${bid}".`,
+          message: `Projection "${projectionId}" repeats binding reference "${bindingId}".`,
           contributionId: projectionId,
           contributionIndex: projectionIndex,
-          referencedId: bid,
+          referencedId: bindingId,
         });
-        return;
+        continue;
       }
-      seen.add(bid);
-      if (isBlank(bindingId) || !declaredBindingIds.has(bid)) {
+      seen.add(bindingId);
+      if (isBlank(bindingId) || !declaredBindingIds.has(bindingId)) {
         issues.push({
           code: "projection_binding_missing",
           message:
-            `Projection "${projectionId}" requires binding "${bid}", which is not declared.`,
+            `Projection "${projectionId}" requires binding "${bindingId}", which is not declared.`,
           contributionId: projectionId,
           contributionIndex: projectionIndex,
-          referencedId: bid,
+          referencedId: bindingId,
         });
       }
-    });
-  });
+    }
+  }
 
   // placement_group_conflict: Tool order, then Edit; first declaration canonical.
   const groupCanonical = new Map<
@@ -707,14 +817,16 @@ export function validateSurfaceInteractionPublication(
     }
   };
 
-  rawTools.forEach((entry, index) => {
-    if (!toolShapeValid[index] || !isPlainObject(entry)) return;
+  for (let index = 0; index < rawTools.length; index += 1) {
+    if (!toolShapeValid[index]) continue;
+    const entry = rawTools[index] as Record<string, unknown>;
     scanForGroupConflict(entry, typeof entry.id === "string" ? entry.id : "");
-  });
-  rawEditCommands.forEach((entry, index) => {
-    if (!editShapeValid[index] || !isPlainObject(entry)) return;
+  }
+  for (let index = 0; index < rawEditCommands.length; index += 1) {
+    if (!editShapeValid[index]) continue;
+    const entry = rawEditCommands[index] as Record<string, unknown>;
     scanForGroupConflict(entry, typeof entry.id === "string" ? entry.id : "");
-  });
+  }
 
   if (issues.length === 0) {
     return {
