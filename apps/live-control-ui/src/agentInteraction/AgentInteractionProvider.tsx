@@ -44,6 +44,18 @@ import type {
 } from "./agentInteractionTypes";
 import type { OpenGraphReferenceArgs } from "../graphReference/types";
 import {
+  adaptProjectionSurfaceToNeutralBase,
+} from "./surfaceInteractionCompat";
+import {
+  bindSurfaceInteractionLease,
+  createLeaseCallbackGate,
+  registerChromeCompatibilityFragment,
+  unregisterChromeCompatibilityFragment,
+  updateSurfaceInteractionLease,
+  type SurfaceInteractionChromeFragment,
+  type SurfaceInteractionLeaseSnapshot,
+} from "./surfaceInteractionLease";
+import {
   sameProjectionSurfaceIdentity,
   validateProjectionSurfacePublication,
   type ProjectionSurfacePublication,
@@ -62,9 +74,15 @@ function sameScope(left: AgentInteractionScope | null, right: AgentInteractionSc
   );
 }
 
-interface SurfaceRegistration {
-  token: symbol;
+interface LegacyProjectionAttachment {
   validated: ValidatedProjectionSurface | null;
+}
+
+interface ProviderLeaseBundle {
+  snapshot: SurfaceInteractionLeaseSnapshot;
+  legacyProjection: LegacyProjectionAttachment | null;
+  authorizationEpoch: number;
+  appChromePublisherEpoch: number;
 }
 
 interface BindingRegistration<T> {
@@ -126,24 +144,29 @@ function revalidateLeasedProjection(
  * identity/config modes agree as plan, and required render context is present.
  * Build remains disabled by design; this is not a fully surface-neutral auth policy.
  */
-function isAuthorizedPlanPublication(reg: SurfaceRegistration | null): boolean {
-  const validated = reg?.validated;
+function isAuthorizedPlanPublication(bundle: ProviderLeaseBundle | null): boolean {
+  if (!bundle?.snapshot.effectivePublication) return false;
+  const validated = bundle?.legacyProjection?.validated;
   if (!validated?.projectionsEnabled) return false;
   const { identity, config } = validated.publication;
   if (identity.surfaceId !== "plan" || config.id !== "plan") return false;
   return config.context != null;
 }
 
-/**
- * Authorized diagnostics publication: projections enabled, identity/config modes
- * agree as ingest, and the diagnostics tool is currently listed.
- */
-function isAuthorizedDiagnosticsPublication(reg: SurfaceRegistration | null): boolean {
-  const validated = reg?.validated;
+function isAuthorizedDiagnosticsPublication(bundle: ProviderLeaseBundle | null): boolean {
+  if (!bundle?.snapshot.effectivePublication) return false;
+  const validated = bundle?.legacyProjection?.validated;
   if (!validated?.projectionsEnabled) return false;
   const { identity, config } = validated.publication;
   if (identity.surfaceId !== "ingest" || config.id !== "ingest") return false;
   return config.tools.some((entry) => entry.id === GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID);
+}
+
+function computeAuthorizationEpoch(bundle: ProviderLeaseBundle): number {
+  const plan = isAuthorizedPlanPublication(bundle) ? 1 : 0;
+  const diagnostics = isAuthorizedDiagnosticsPublication(bundle) ? 1 : 0;
+  const effective = bundle.snapshot.effectivePublication ? 1 : 0;
+  return (plan << 2) | (diagnostics << 1) | effective;
 }
 
 export function AgentInteractionProvider({ children }: { children: ReactNode }) {
@@ -154,8 +177,28 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const [activeSurfaceContext, setActiveSurfaceContext] = useState<AgentInteractionSurfaceContext | null>(null);
   const [selectedSource, setSelectedSource] = useState<AgentInteractionSelectedSource | null>(null);
 
-  const surfaceRegistrationRef = useRef<SurfaceRegistration | null>(null);
-  const [surfaceRegistration, setSurfaceRegistration] = useState<SurfaceRegistration | null>(null);
+  const leaseBundleRef = useRef<ProviderLeaseBundle | null>(null);
+  const [leaseBundle, setLeaseBundle] = useState<ProviderLeaseBundle | null>(null);
+  const leaseCallbackGateRef = useRef(createLeaseCallbackGate(() => leaseBundleRef.current?.snapshot ?? null));
+
+  const applyLeaseBundle = useCallback((next: ProviderLeaseBundle) => {
+    const nextEpoch = computeAuthorizationEpoch(next);
+    const priorEpoch = leaseBundleRef.current ? computeAuthorizationEpoch(leaseBundleRef.current) : -1;
+    const bundle: ProviderLeaseBundle = {
+      ...next,
+      authorizationEpoch: nextEpoch,
+      appChromePublisherEpoch: priorEpoch !== nextEpoch
+        ? (leaseBundleRef.current?.appChromePublisherEpoch ?? 0) + 1
+        : (next.appChromePublisherEpoch ?? leaseBundleRef.current?.appChromePublisherEpoch ?? 0),
+    };
+    leaseBundleRef.current = bundle;
+    setLeaseBundle(bundle);
+  }, []);
+
+  const clearLeaseBundle = useCallback(() => {
+    leaseBundleRef.current = null;
+    setLeaseBundle(null);
+  }, []);
 
   const [leasedActive, setLeasedActive] = useState<LeasedActiveProjection | null>(null);
   const leasedActiveRef = useRef<LeasedActiveProjection | null>(null);
@@ -182,73 +225,189 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     setLeasedGraphProjectionState(null);
   }, []);
 
-  // Same-identity update: the surface lease continues, so its token and live
-  // callbacks are retained; latest config wins, the active lease is revalidated,
-  // and dependency registrations that are no longer authorized are cleared.
-  const applySameIdentityConfigUpdate = useCallback(
-    (validated: ValidatedProjectionSurface): boolean => {
-      const current = surfaceRegistrationRef.current;
-      if (!current?.validated) return false;
-      if (!sameProjectionSurfaceIdentity(current.validated.publication.identity, validated.publication.identity)) {
-        return false;
-      }
-      const next: SurfaceRegistration = { token: current.token, validated };
-      surfaceRegistrationRef.current = next;
-      setSurfaceRegistration(next);
-      const nextLeased = revalidateLeasedProjection(validated, leasedActiveRef.current);
+  const revalidateLeasedAttachmentsAfterSnapshot = useCallback(() => {
+    const bundle = leaseBundleRef.current;
+    if (!bundle?.snapshot.effectivePublication) {
+      clearSelectedProjection();
+      graphReferenceRegistrationRef.current = null;
+      setGraphReferenceRegistration(null);
+      diagnosticsRegistrationRef.current = null;
+      setDiagnosticsRegistration(null);
+      return;
+    }
+    const legacyValidated = bundle.legacyProjection?.validated;
+    if (legacyValidated) {
+      const nextLeased = revalidateLeasedProjection(legacyValidated, leasedActiveRef.current);
       leasedActiveRef.current = nextLeased;
       setLeasedActive(nextLeased);
       if (!nextLeased || nextLeased.projection.kind !== "content") {
         setLeasedGraphReference(null);
         setLeasedGraphProjectionState(null);
       }
-      // Invalid same-identity publications must not retain readable dependencies.
-      if (!isAuthorizedPlanPublication(next)) {
-        graphReferenceRegistrationRef.current = null;
-        setGraphReferenceRegistration(null);
+    }
+    if (!isAuthorizedPlanPublication(bundle)) {
+      graphReferenceRegistrationRef.current = null;
+      setGraphReferenceRegistration(null);
+    }
+    if (!isAuthorizedDiagnosticsPublication(bundle)) {
+      diagnosticsRegistrationRef.current = null;
+      setDiagnosticsRegistration(null);
+    }
+  }, [clearSelectedProjection]);
+
+  const applySameIdentityConfigUpdate = useCallback(
+    (validated: ValidatedProjectionSurface): boolean => {
+      const current = leaseBundleRef.current;
+      if (!current?.legacyProjection?.validated) return false;
+      if (
+        !sameProjectionSurfaceIdentity(
+          current.legacyProjection.validated.publication.identity,
+          validated.publication.identity,
+        )
+      ) {
+        return false;
       }
-      if (!isAuthorizedDiagnosticsPublication(next)) {
-        diagnosticsRegistrationRef.current = null;
-        setDiagnosticsRegistration(null);
-      }
+      const neutralBase = adaptProjectionSurfaceToNeutralBase(validated);
+      const updated = updateSurfaceInteractionLease(
+        current.snapshot,
+        current.snapshot.token,
+        neutralBase,
+        leaseCallbackGateRef.current,
+      );
+      if (!updated) return false;
+      applyLeaseBundle({
+        snapshot: updated,
+        legacyProjection: { validated },
+        authorizationEpoch: current.authorizationEpoch,
+        appChromePublisherEpoch: current.appChromePublisherEpoch,
+      });
+      revalidateLeasedAttachmentsAfterSnapshot();
       return true;
     },
-    [],
+    [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot],
   );
+
+  const publishSurfaceInteractionPublication = useCallback(
+    (publication: unknown | null) => {
+      const snapshot = bindSurfaceInteractionLease(
+        publication,
+        "legacy_route",
+        leaseCallbackGateRef.current,
+      );
+      clearSelectedProjection();
+      applyLeaseBundle({
+        snapshot,
+        legacyProjection: null,
+        authorizationEpoch: 0,
+        appChromePublisherEpoch: leaseBundleRef.current?.appChromePublisherEpoch ?? 0,
+      });
+      const token = snapshot.token;
+      return () => {
+        if (leaseBundleRef.current?.snapshot.token !== token) return;
+        clearSelectedProjection();
+        clearLeaseBundle();
+      };
+    },
+    [applyLeaseBundle, clearLeaseBundle, clearSelectedProjection],
+  );
+
+  const updateSurfaceInteractionPublication = useCallback((publication: unknown) => {
+    const current = leaseBundleRef.current;
+    if (!current?.snapshot.boundIdentity) return;
+    const updated = updateSurfaceInteractionLease(
+      current.snapshot,
+      current.snapshot.token,
+      publication,
+      leaseCallbackGateRef.current,
+    );
+    if (!updated) return;
+    applyLeaseBundle({
+      ...current,
+      snapshot: updated,
+    });
+    revalidateLeasedAttachmentsAfterSnapshot();
+  }, [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot]);
+
+  const publishAppChromeCompatibility = useCallback((fragment: SurfaceInteractionChromeFragment) => {
+    const current = leaseBundleRef.current;
+    const capturedToken = current?.snapshot.token ?? null;
+    const capturedPublisherEpoch = current?.appChromePublisherEpoch ?? 0;
+    if (!capturedToken || !current) return () => undefined;
+    const fragmentToken = Symbol("app-chrome-fragment");
+    const next = registerChromeCompatibilityFragment(
+      current.snapshot,
+      capturedToken,
+      fragmentToken,
+      fragment,
+      leaseCallbackGateRef.current,
+    );
+    if (!next) return () => undefined;
+    applyLeaseBundle({ ...current, snapshot: next });
+    revalidateLeasedAttachmentsAfterSnapshot();
+    return () => {
+      const live = leaseBundleRef.current;
+      if (!live || live.snapshot.token !== capturedToken) return;
+      if (live.appChromePublisherEpoch !== capturedPublisherEpoch) return;
+      const updated = unregisterChromeCompatibilityFragment(
+        live.snapshot,
+        capturedToken,
+        fragmentToken,
+        leaseCallbackGateRef.current,
+      );
+      if (!updated) return;
+      applyLeaseBundle({ ...live, snapshot: updated });
+      revalidateLeasedAttachmentsAfterSnapshot();
+    };
+  }, [applyLeaseBundle, leaseBundle?.appChromePublisherEpoch, leaseBundle?.authorizationEpoch, revalidateLeasedAttachmentsAfterSnapshot]);
 
   const publishProjectionSurface = useCallback(
     (publication: ProjectionSurfacePublication | null) => {
       if (publication !== null) {
         const validated = validateProjectionSurfacePublication(publication);
         if (applySameIdentityConfigUpdate(validated)) {
-          // Config update on the existing lease — no new registration, so the
-          // returned cleanup must not unbind anything.
           return () => undefined;
         }
-        const token = Symbol("projection-surface");
-        surfaceRegistrationRef.current = { token, validated };
+        const neutralBase = adaptProjectionSurfaceToNeutralBase(validated);
+        const snapshot = bindSurfaceInteractionLease(
+          neutralBase,
+          "legacy_projection",
+          leaseCallbackGateRef.current,
+        );
         clearSelectedProjection();
-        setSurfaceRegistration({ token, validated });
+        applyLeaseBundle({
+          snapshot,
+          legacyProjection: { validated },
+          authorizationEpoch: 0,
+          appChromePublisherEpoch: leaseBundleRef.current?.appChromePublisherEpoch ?? 0,
+        });
+        const token = snapshot.token;
         return () => {
-          if (surfaceRegistrationRef.current?.token !== token) return;
-          surfaceRegistrationRef.current = null;
+          if (leaseBundleRef.current?.snapshot.token !== token) return;
           clearSelectedProjection();
-          setSurfaceRegistration(null);
+          clearLeaseBundle();
         };
       }
 
-      const token = Symbol("projection-surface");
-      surfaceRegistrationRef.current = { token, validated: null };
+      const snapshot = bindSurfaceInteractionLease(
+        null,
+        "legacy_projection",
+        leaseCallbackGateRef.current,
+      );
       clearSelectedProjection();
-      setSurfaceRegistration({ token, validated: null });
+      applyLeaseBundle({
+        snapshot,
+        legacyProjection: { validated: null },
+        authorizationEpoch: 0,
+        appChromePublisherEpoch: leaseBundleRef.current?.appChromePublisherEpoch ?? 0,
+      });
+      const token = snapshot.token;
       return () => {
-        if (surfaceRegistrationRef.current?.token !== token) return;
-        surfaceRegistrationRef.current = null;
+        if (leaseBundleRef.current?.snapshot.token !== token) return;
         clearSelectedProjection();
-        setSurfaceRegistration(null);
+        clearLeaseBundle();
       };
     },
-    [applySameIdentityConfigUpdate, clearSelectedProjection],
+    [applyLeaseBundle, applySameIdentityConfigUpdate, clearLeaseBundle, clearSelectedProjection],
   );
 
   const updateProjectionSurfaceConfig = useCallback(
@@ -260,29 +419,31 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   // Exact lease authorization: a callback captured without a current surface
   // lease (null token) must stay a no-op permanently, never a wildcard.
-  const surfaceTokenGuard = (capturedToken: symbol | null, reg: SurfaceRegistration | null) => {
-    if (capturedToken === null || !reg) return false;
-    return reg.token === capturedToken;
+  const surfaceTokenGuard = (capturedToken: symbol | null, bundle: ProviderLeaseBundle | null) => {
+    if (capturedToken === null || !bundle) return false;
+    return bundle.snapshot.token === capturedToken;
   };
 
-  const currentSurfaceToken = surfaceRegistration?.token ?? null;
+  const currentSurfaceToken = leaseBundle?.snapshot.token ?? null;
 
   const close = useCallback(() => {
     const capturedToken = currentSurfaceToken;
-    const reg = surfaceRegistrationRef.current;
-    if (!surfaceTokenGuard(capturedToken, reg)) return;
+    const bundle = leaseBundleRef.current;
+    if (!surfaceTokenGuard(capturedToken, bundle)) return;
     clearSelectedProjection();
   }, [clearSelectedProjection, currentSurfaceToken]);
 
   const openTool = useCallback(
     (toolId: string) => {
       const capturedToken = currentSurfaceToken;
-      const reg = surfaceRegistrationRef.current;
-      if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-      const { identity, config } = reg!.validated.publication;
-      // Contradictory identity/config modes enable nothing.
+      const bundle = leaseBundleRef.current;
+      if (!surfaceTokenGuard(capturedToken, bundle) || !bundle!.legacyProjection?.validated?.projectionsEnabled) {
+        return;
+      }
+      if (!bundle!.snapshot.effectivePublication) return;
+      const { identity, config } = bundle!.legacyProjection!.validated!.publication;
       if (identity.surfaceId !== config.id) return;
-      const activeToken = reg!.token;
+      const activeToken = bundle!.snapshot.token;
       const tool = config.tools.find((entry) => entry.id === toolId);
       if (!tool) return;
       const next: LeasedActiveProjection = {
@@ -311,9 +472,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         reference = resolution.reference,
       } = args;
       const capturedToken = currentSurfaceToken;
-      const reg = surfaceRegistrationRef.current;
-      if (!surfaceTokenGuard(capturedToken, reg) || !isAuthorizedPlanPublication(reg)) return;
-      const activeToken = reg!.token;
+      const bundle = leaseBundleRef.current;
+      if (!surfaceTokenGuard(capturedToken, bundle) || !isAuthorizedPlanPublication(bundle)) return;
+      const activeToken = bundle!.snapshot.token;
       const title =
         (resolution.kind === "resolved_graph" ? resolution.graphObject?.label : null)
         ?? (resolution.kind === "resolved_corpus_fallback" ? resolution.fallback.ref.label : null)
@@ -340,9 +501,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const expandContent = useCallback(() => {
     const capturedToken = currentSurfaceToken;
-    const reg = surfaceRegistrationRef.current;
-    if (!surfaceTokenGuard(capturedToken, reg) || !isAuthorizedPlanPublication(reg)) return;
-    const activeToken = reg!.token;
+    const bundle = leaseBundleRef.current;
+    if (!surfaceTokenGuard(capturedToken, bundle) || !isAuthorizedPlanPublication(bundle)) return;
+    const activeToken = bundle!.snapshot.token;
     setLeasedActive((current) => {
       if (!current || current.surfaceToken !== activeToken || current.projection.kind !== "content") {
         return current;
@@ -361,8 +522,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const registerGraphReferenceBinding = useCallback(
     (binding: GraphReferenceProjectionBinding) => {
       const capturedToken = currentSurfaceToken;
-      const reg = surfaceRegistrationRef.current;
-      if (!capturedToken || reg?.token !== capturedToken || !isAuthorizedPlanPublication(reg)) {
+      const capturedEpoch = leaseBundleRef.current?.authorizationEpoch ?? -1;
+      const bundle = leaseBundleRef.current;
+      if (!capturedToken || bundle?.snapshot.token !== capturedToken || !isAuthorizedPlanPublication(bundle)) {
         return () => undefined;
       }
       const token = Symbol("graph-reference-binding");
@@ -377,10 +539,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         if (graphReferenceRegistrationRef.current?.token === token) {
           graphReferenceRegistrationRef.current = null;
         }
+        if (leaseBundleRef.current?.authorizationEpoch !== capturedEpoch) return;
         setGraphReferenceRegistration((current) => (current?.token === token ? null : current));
       };
     },
-    [currentSurfaceToken],
+    [currentSurfaceToken, leaseBundle?.authorizationEpoch],
   );
 
   const registerToolProjectionPayload = useCallback(
@@ -389,11 +552,12 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         return () => undefined;
       }
       const capturedToken = currentSurfaceToken;
-      const reg = surfaceRegistrationRef.current;
+      const capturedEpoch = leaseBundleRef.current?.authorizationEpoch ?? -1;
+      const bundle = leaseBundleRef.current;
       if (
         !capturedToken
-        || reg?.token !== capturedToken
-        || !isAuthorizedDiagnosticsPublication(reg)
+        || bundle?.snapshot.token !== capturedToken
+        || !isAuthorizedDiagnosticsPublication(bundle)
       ) {
         return () => undefined;
       }
@@ -410,62 +574,63 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         if (diagnosticsRegistrationRef.current?.token === token) {
           diagnosticsRegistrationRef.current = null;
         }
+        if (leaseBundleRef.current?.authorizationEpoch !== capturedEpoch) return;
         setDiagnosticsRegistration((current) => (current?.token === token ? null : current));
       };
     },
-    [currentSurfaceToken],
+    [currentSurfaceToken, leaseBundle?.authorizationEpoch],
   );
 
   const graphReferenceBinding = useMemo((): GraphReferenceProjectionBinding | null => {
     const registration = graphReferenceRegistration;
-    const reg = surfaceRegistration;
-    const surfaceToken = reg?.token;
-    // Derived access re-checks authorized Plan publication, not only token equality.
+    const bundle = leaseBundle;
+    const surfaceToken = bundle?.snapshot.token;
     if (!registration || !surfaceToken || registration.surfaceToken !== surfaceToken) return null;
-    if (!isAuthorizedPlanPublication(reg)) return null;
+    if (!isAuthorizedPlanPublication(bundle)) return null;
     const { token, value: binding } = registration;
     return {
       resolverState: binding.resolverState,
       resolveRelationship: (relationship) => binding.resolveRelationship(relationship),
       openResolvedReference: (resolution, projectionState) => {
         const current = graphReferenceRegistrationRef.current;
-        const live = surfaceRegistrationRef.current;
+        const live = leaseBundleRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
-        if (!isAuthorizedPlanPublication(live) || live?.token !== surfaceToken) return;
+        if (!isAuthorizedPlanPublication(live) || live?.snapshot.token !== surfaceToken) return;
         current.value.openResolvedReference(resolution, projectionState);
       },
       openTool: (toolId) => {
         const current = graphReferenceRegistrationRef.current;
-        const live = surfaceRegistrationRef.current;
+        const live = leaseBundleRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
-        if (!isAuthorizedPlanPublication(live) || live?.token !== surfaceToken) return;
+        if (!isAuthorizedPlanPublication(live) || live?.snapshot.token !== surfaceToken) return;
         current.value.openTool(toolId);
       },
     };
-  }, [graphReferenceRegistration, surfaceRegistration]);
+  }, [graphReferenceRegistration, leaseBundle]);
 
-  const projectionSurface = surfaceRegistration?.validated ?? null;
+  const projectionSurface = leaseBundle?.legacyProjection?.validated ?? null;
+  const surfaceInteractionPublication = leaseBundle?.snapshot.effectivePublication ?? null;
+  const surfaceInteractionBasePublication = leaseBundle?.snapshot.rawBasePublication ?? null;
 
   const active = useMemo(() => {
     if (!leasedActive || !currentSurfaceToken || leasedActive.surfaceToken !== currentSurfaceToken) return null;
-    // Content projections are Plan-only under an authorized Plan publication.
-    if (leasedActive.projection.kind === "content" && !isAuthorizedPlanPublication(surfaceRegistration)) {
+    if (leasedActive.projection.kind === "content" && !isAuthorizedPlanPublication(leaseBundle)) {
       return null;
     }
-    // Tools also require an enabled projection set (§7.8).
-    if (leasedActive.projection.kind === "tool" && !surfaceRegistration?.validated?.projectionsEnabled) {
+    if (leasedActive.projection.kind === "tool" && !leaseBundle?.legacyProjection?.validated?.projectionsEnabled) {
       return null;
     }
+    if (!leaseBundle?.snapshot.effectivePublication) return null;
     return leasedActive.projection;
-  }, [currentSurfaceToken, leasedActive, surfaceRegistration]);
+  }, [currentSurfaceToken, leasedActive, leaseBundle]);
 
   const activeGraphReference = useMemo(() => {
     if (!leasedGraphReference || !currentSurfaceToken || leasedGraphReference.surfaceToken !== currentSurfaceToken) {
       return null;
     }
-    if (!isAuthorizedPlanPublication(surfaceRegistration)) return null;
+    if (!isAuthorizedPlanPublication(leaseBundle)) return null;
     return leasedGraphReference.resolution;
-  }, [currentSurfaceToken, leasedGraphReference, surfaceRegistration]);
+  }, [currentSurfaceToken, leasedGraphReference, leaseBundle]);
 
   const graphReferenceProjectionState = useMemo(() => {
     if (
@@ -475,18 +640,18 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     ) {
       return null;
     }
-    if (!isAuthorizedPlanPublication(surfaceRegistration)) return null;
+    if (!isAuthorizedPlanPublication(leaseBundle)) return null;
     return leasedGraphProjectionState.state;
-  }, [currentSurfaceToken, leasedGraphProjectionState, surfaceRegistration]);
+  }, [currentSurfaceToken, leasedGraphProjectionState, leaseBundle]);
 
   const graphReviewDiagnosticsPayload = useMemo(() => {
     const registration = diagnosticsRegistration;
-    const reg = surfaceRegistration;
-    const surfaceToken = reg?.token;
+    const bundle = leaseBundle;
+    const surfaceToken = bundle?.snapshot.token;
     if (!registration || !surfaceToken || registration.surfaceToken !== surfaceToken) return null;
-    if (!isAuthorizedDiagnosticsPublication(reg)) return null;
+    if (!isAuthorizedDiagnosticsPublication(bundle)) return null;
     return registration.value;
-  }, [diagnosticsRegistration, surfaceRegistration]);
+  }, [diagnosticsRegistration, leaseBundle]);
 
   const refreshSummaries = useCallback((nextScope: AgentInteractionScope | null = scope) => {
     if (!nextScope) {
@@ -638,6 +803,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     activeSurfaceContext,
     selectedSource,
     projectionSurface,
+    surfaceInteractionPublication,
+    surfaceInteractionBasePublication,
     active,
     activeGraphReference,
     graphReferenceProjectionState,
@@ -645,6 +812,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     graphReviewDiagnosticsPayload,
     publishProjectionSurface,
     updateProjectionSurfaceConfig,
+    publishSurfaceInteractionPublication,
+    updateSurfaceInteractionPublication,
+    publishAppChromeCompatibility,
     openTool,
     openGraphReference,
     expandContent,
@@ -685,7 +855,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     openTool,
     paneState,
     projectionSurface,
+    surfaceInteractionPublication,
+    surfaceInteractionBasePublication,
     publishProjectionSurface,
+    publishSurfaceInteractionPublication,
+    publishAppChromeCompatibility,
     rehydrateScope,
     registerGraphReferenceBinding,
     registerToolProjectionPayload,
@@ -696,6 +870,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     threadSummaries,
     updateActiveTurn,
     updateProjectionSurfaceConfig,
+    updateSurfaceInteractionPublication,
     updateThread,
     updateTurnFreshness,
   ]);
