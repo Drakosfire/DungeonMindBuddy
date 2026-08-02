@@ -65,7 +65,7 @@ export function ProjectionSurfacePublisher({
   return children;
 }
 
-/** Test host for projection hooks. Mount LegacyProjectionHostAdapter in the .test.tsx file when needed. */
+/** Test host for projection hooks. Mount AdaptiveProjectionContainer in the .test.tsx file when needed. */
 export function AgentInteractionProjectionTestHost({
   config,
   children,
