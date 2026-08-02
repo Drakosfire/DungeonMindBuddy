@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Callable, Literal
 
 import graph_memory.kernel as kernel
@@ -23,8 +24,17 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRequest,
 )
 from graph_memory.union_supergraph.statblock_binding import (
+    CONTRACT,
+    CONTRACT_VERSION,
+    ExternalResourceV1,
+    FORBIDDEN_MECHANICS_KEYS,
+    PROVIDER,
+    ThreatStatblockBindingV1,
     compute_binding_id,
     edge_id_from_binding_id,
+    external_statblock_node_id,
+    parse_threat_statblock_binding_assertion,
+    reject_mechanics_keys,
 )
 from graph_memory.world_supergraph.errors import WorldGraphIntegrityError
 from graph_memory.world_supergraph.model import WorldGraphRevision
@@ -165,17 +175,425 @@ def _extract_accepted_ids(contribution: GraphContribution) -> list[str]:
 
 
 def _assertion_ids_match(actual: list[str], expected: list[str]) -> bool:
-    """True when actual and expected are the same unique membership.
+    """True when actual and expected are the same ordered assertion-id list."""
+    return list(actual) == list(expected)
 
-    Reconstruction from the sealed package may permute assertion order relative to
-    the c1 proposal ledger. The commit record still persists the exact ordered c1
-    list; admission only requires identical membership and cardinality.
+
+def _contribution_ordered_to_expected_ids(
+    contribution: GraphContribution, expected_ids: list[str]
+) -> GraphContribution | None:
+    """Return a contribution whose accepted_assertions follow expected_ids exactly.
+
+    Reconstruction may permute assertion order relative to the sealed c1 list.
+    Membership must match; order is then restored to the proposal authority order
+    before digest computation, merge, and ordered equality checks.
     """
-    if len(actual) != len(expected):
-        return False
-    if len(set(actual)) != len(actual):
-        return False
-    return set(actual) == set(expected)
+    by_id: dict[str, Any] = {}
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_id in by_id:
+            return None
+        by_id[assertion.assertion_id] = assertion
+    if len(by_id) != len(expected_ids) or set(by_id) != set(expected_ids):
+        return None
+    ordered = [by_id[assertion_id] for assertion_id in expected_ids]
+    return contribution.model_copy(update={"accepted_assertions": ordered})
+
+
+_AUTHORED_FIELD_PREDICATES = frozenset({"description", "threat_kind", "intended_role", "tag"})
+_MECHANICS_SCAN_KEYS = FORBIDDEN_MECHANICS_KEYS | frozenset({"mechanics_body"})
+
+
+def _scan_forbidden_mechanics_keys(value: Any, *, context: str) -> str | None:
+    forbidden: set[str] = set()
+
+    def collect(candidate: Any) -> None:
+        if isinstance(candidate, Mapping):
+            forbidden.update(_MECHANICS_SCAN_KEYS.intersection(candidate))
+            for nested in candidate.values():
+                collect(nested)
+        elif isinstance(candidate, list):
+            for nested in candidate:
+                collect(nested)
+
+    collect(value)
+    if forbidden:
+        return f"{context} must not contain mechanics fields: {sorted(forbidden)}"
+    return None
+
+
+def _record_matches_proposal_authority(
+    record: ThreatPublicationCommitV1,
+    proposal: ThreatPublicationProposalV1,
+) -> str | None:
+    checks: tuple[tuple[Any, Any, str], ...] = (
+        (record.proposal_id, proposal.proposal_id, "proposal_id"),
+        (record.proposal_request_digest, proposal.request_digest, "proposal_request_digest"),
+        (record.sealed_proposal_digest, proposal.sealed_proposal_digest, "sealed_proposal_digest"),
+        (record.sealed_proposal_version, proposal.sealed_proposal_version, "sealed_proposal_version"),
+        (record.resolution_id, proposal.resolution_id, "resolution_id"),
+        (record.source_digest, proposal.source_digest, "source_digest"),
+        (record.resolution_request_digest, proposal.resolution_request_digest, "resolution_request_digest"),
+        (record.candidate_set_digest, proposal.candidate_set_digest, "candidate_set_digest"),
+        (record.expected_parent_revision_id, proposal.expected_parent_revision_id, "expected_parent_revision_id"),
+        (record.expected_contribution_id, proposal.expected_contribution_id, "expected_contribution_id"),
+        (list(record.accepted_assertion_ids), list(proposal.accepted_assertion_ids), "accepted_assertion_ids"),
+        (record.decision, proposal.decision, "decision"),
+        (record.threat_node_id, proposal.threat_node_id, "threat_node_id"),
+        (
+            record.external_resource_node_id,
+            proposal.effect_summary.external_resource_node_id,
+            "external_resource_node_id",
+        ),
+        (record.binding_edge_id, proposal.effect_summary.binding_edge_id, "binding_edge_id"),
+    )
+    for actual, expected, label in checks:
+        if actual != expected:
+            return f"{label}_mismatch"
+    return None
+
+
+def _record_contribution_matches_authority(
+    record: ThreatPublicationCommitV1,
+    proposal: ThreatPublicationProposalV1,
+    contribution: GraphContribution,
+) -> tuple[GraphContribution | None, str | None]:
+    authority = _record_matches_proposal_authority(record, proposal)
+    if authority is not None:
+        return None, authority
+    if contribution.contribution_id != record.expected_contribution_id:
+        return None, "contribution_id_mismatch"
+    ordered = _require_ordered_contribution(
+        contribution, list(record.accepted_assertion_ids)
+    )
+    if ordered is None:
+        return None, "accepted_assertion_ids_mismatch"
+    digest = kernel.compute_contribution_source_payload_sha256(ordered)
+    if digest != record.expected_contribution_source_payload_sha256:
+        return None, "contribution_source_digest_mismatch"
+    return ordered, None
+
+
+def _statblock_id_from_resource_node_id(node_id: str) -> str | None:
+    prefix = "external:dungeonmind:statblock:"
+    if not node_id.startswith(prefix):
+        return None
+    statblock_id = node_id[len(prefix) :]
+    return statblock_id or None
+
+
+def _resource_statblock_id_from_contribution(
+    contribution: GraphContribution, resource_node_id: str
+) -> str | None:
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_kind != "node":
+            continue
+        if assertion.subject_node_id != resource_node_id:
+            continue
+        payload = assertion.value.get("external_resource")
+        if isinstance(payload, Mapping):
+            resource_id = payload.get("resource_id")
+            if isinstance(resource_id, str) and resource_id:
+                return resource_id
+    return _statblock_id_from_resource_node_id(resource_node_id)
+
+
+def _identity_fields_match(selected_target: Any, node: Any) -> bool:
+    target_dump = selected_target.model_dump(mode="json", by_alias=True)
+    node_dump = {
+        "node_id": node.node_id,
+        "label": node.label,
+        "kind": node.kind,
+        "role": node.role,
+        "aliases": list(node.aliases),
+    }
+    for key in ("node_id", "label", "kind", "role", "aliases"):
+        if key not in target_dump:
+            continue
+        expected = target_dump[key]
+        actual = node_dump.get(key)
+        if key == "kind":
+            if str(expected).casefold() != str(actual).casefold():
+                return False
+        elif key == "aliases":
+            if sorted(expected or []) != sorted(actual or []):
+                return False
+        elif expected != actual:
+            return False
+    return True
+
+
+def _verify_external_resource_node(node: Any, *, statblock_id: str) -> str | None:
+    expected_node_id = external_statblock_node_id(statblock_id)
+    expected_label = f"External statblock {statblock_id}"
+    if node.node_id != expected_node_id:
+        return "external_resource_node_id_mismatch"
+    if str(node.kind).casefold() != "external_resource":
+        return "external_resource_kind_mismatch"
+    if node.role != "statblock":
+        return "external_resource_role_mismatch"
+    if node.label != expected_label:
+        return "external_resource_label_mismatch"
+    if sorted(node.aliases) != sorted([expected_label]):
+        return "external_resource_aliases_mismatch"
+    if sorted(node.source_domains) != ["manual_seed"]:
+        return "external_resource_source_domain_mismatch"
+    if node.external_resource is None:
+        return "external_resource_payload_missing"
+    try:
+        expected = ExternalResourceV1.model_validate(
+            {
+                "schema": "dmb_external_resource_v1",
+                "provider": PROVIDER,
+                "resource_type": "statblock",
+                "resource_id": statblock_id,
+                "contract": CONTRACT,
+                "contract_version": CONTRACT_VERSION,
+            }
+        )
+        ExternalResourceV1.model_validate(
+            node.external_resource.model_dump(mode="json", by_alias=True)
+        )
+    except Exception:
+        return "external_resource_payload_invalid"
+    if node.external_resource.model_dump(mode="json", by_alias=True) != expected.model_dump(
+        mode="json", by_alias=True
+    ):
+        return "external_resource_payload_mismatch"
+    return None
+
+
+def _binding_assertion_value(contribution: GraphContribution, record: ThreatPublicationCommitV1) -> Mapping[str, Any] | None:
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_kind != "edge":
+            continue
+        if assertion.subject_node_id != record.threat_node_id:
+            continue
+        if assertion.target_node_id != record.external_resource_node_id:
+            continue
+        if assertion.predicate != "uses_statblock":
+            continue
+        value = assertion.value
+        if isinstance(value, Mapping):
+            return value
+    return None
+
+
+def _verify_binding_edge(
+    edge: Any,
+    *,
+    record: ThreatPublicationCommitV1,
+    binding_value: Mapping[str, Any],
+) -> str | None:
+    if edge.edge_id != record.binding_edge_id:
+        return "binding_edge_id_mismatch"
+    if edge.source_node_id != record.threat_node_id:
+        return "binding_source_mismatch"
+    if edge.target_node_id != record.external_resource_node_id:
+        return "binding_target_mismatch"
+    if edge.predicate != "uses_statblock":
+        return "binding_predicate_mismatch"
+    if edge.direction != "outbound":
+        return "binding_direction_mismatch"
+    try:
+        parsed = parse_threat_statblock_binding_assertion(
+            subject_node_id=edge.source_node_id,
+            target_node_id=edge.target_node_id,
+            predicate=edge.predicate,
+            value=dict(binding_value),
+        )
+    except ValueError:
+        return "binding_assertion_parse_failed"
+    if parsed is None:
+        return "binding_assertion_missing"
+    if edge.threat_statblock_binding is None:
+        return "binding_payload_missing"
+    try:
+        ThreatStatblockBindingV1.model_validate(
+            edge.threat_statblock_binding.model_dump(mode="json", by_alias=True)
+        )
+    except Exception:
+        return "binding_payload_invalid"
+    if parsed.binding_id != record.binding_id:
+        return "binding_id_mismatch"
+    if edge.threat_statblock_binding != parsed:
+        return "binding_payload_mismatch"
+    return None
+
+
+def _threat_node_assertion(
+    contribution: GraphContribution, threat_node_id: str
+) -> Any | None:
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_kind != "node":
+            continue
+        if assertion.subject_node_id != threat_node_id:
+            continue
+        kind = str((assertion.value or {}).get("kind", "")).casefold()
+        if kind == "threat":
+            return assertion
+    return None
+
+
+def _authored_field_assertions(
+    contribution: GraphContribution, threat_node_id: str
+) -> list[Any]:
+    return [
+        assertion
+        for assertion in contribution.accepted_assertions
+        if assertion.assertion_kind == "attribute"
+        and assertion.subject_node_id == threat_node_id
+        and assertion.predicate in _AUTHORED_FIELD_PREDICATES
+    ]
+
+
+def _verify_create_new_materialization(
+    *,
+    store: Any,
+    contribution: GraphContribution,
+    record: ThreatPublicationCommitV1,
+) -> list[str]:
+    codes: list[str] = []
+    node_assertion = _threat_node_assertion(contribution, record.threat_node_id)
+    if node_assertion is None:
+        codes.append("missing_threat_node_assertion")
+        return codes
+    threat = store.nodes.get(record.threat_node_id)
+    if threat is None:
+        codes.append("missing_threat_node")
+        return codes
+    expected = node_assertion.value or {}
+    if str(threat.kind).casefold() != str(expected.get("kind", "")).casefold():
+        codes.append("threat_kind_materialization_mismatch")
+    if threat.role != expected.get("role"):
+        codes.append("threat_role_materialization_mismatch")
+    if threat.label != node_assertion.label:
+        codes.append("threat_label_materialization_mismatch")
+    if sorted(threat.aliases) != sorted(list(expected.get("aliases") or [])):
+        codes.append("threat_aliases_materialization_mismatch")
+    if sorted(threat.source_domains) != sorted(list(expected.get("source_domains") or [])):
+        codes.append("threat_source_domains_materialization_mismatch")
+
+    authored_ids = {item.assertion_id for item in _authored_field_assertions(contribution, record.threat_node_id)}
+    for assertion_id in record.accepted_assertion_ids:
+        if assertion_id not in authored_ids:
+            continue
+        raw = (store.assertion_support or {}).get(assertion_id)
+        if not isinstance(raw, dict):
+            codes.append(f"missing_authored_support:{assertion_id}")
+            continue
+        if raw.get("support_state") != "supported":
+            codes.append(f"unsupported_authored:{assertion_id}")
+        active = list(raw.get("active_contribution_ids") or [])
+        if record.expected_contribution_id not in active:
+            codes.append(f"authored_support_contribution_mismatch:{assertion_id}")
+    for assertion in _authored_field_assertions(contribution, record.threat_node_id):
+        if assertion.assertion_id not in record.accepted_assertion_ids:
+            codes.append(f"missing_authored_assertion:{assertion.assertion_id}")
+    return codes
+
+
+def _verify_connect_existing_constraints(
+    *,
+    store: Any,
+    contribution: GraphContribution,
+    record: ThreatPublicationCommitV1,
+) -> list[str]:
+    codes: list[str] = []
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_kind == "node_upsert" and (
+            assertion.subject_node_id == record.threat_node_id
+            or str((assertion.value or {}).get("kind", "")).casefold() == "threat"
+        ):
+            codes.append("connect_existing_threat_rewrite")
+            break
+        if assertion.assertion_kind == "attribute" and assertion.subject_node_id == record.threat_node_id:
+            codes.append("connect_existing_threat_attribute_rewrite")
+            break
+    if record.selected_target is not None:
+        target = store.nodes.get(record.threat_node_id)
+        if target is None:
+            codes.append("connect_target_missing")
+        elif not _identity_fields_match(record.selected_target, target):
+            codes.append("connect_target_mismatch")
+    return codes
+
+
+def _verify_projection_audit(
+    projection: Any,
+    *,
+    record: ThreatPublicationCommitV1,
+    statblock_id: str,
+) -> list[str]:
+    codes: list[str] = []
+    if projection.snapshot.revision_id != record.committed_revision_id:
+        codes.append("projection_revision_mismatch")
+        return codes
+
+    nodes_by_id = {node.node_id: node for node in projection.nodes}
+    if nodes_by_id.get(record.threat_node_id) is None:
+        codes.append("projection_missing_threat")
+
+    resource = nodes_by_id.get(record.external_resource_node_id)
+    if resource is None:
+        codes.append("projection_missing_resource")
+    else:
+        expected_label = f"External statblock {statblock_id}"
+        if resource.external_resource is None:
+            codes.append("projection_resource_missing_external_resource")
+        else:
+            try:
+                ExternalResourceV1.model_validate(
+                    resource.external_resource.model_dump(mode="json", by_alias=True)
+                )
+            except Exception:
+                codes.append("projection_resource_external_resource_invalid")
+            expected = ExternalResourceV1.model_validate(
+                {
+                    "schema": "dmb_external_resource_v1",
+                    "provider": PROVIDER,
+                    "resource_type": "statblock",
+                    "resource_id": statblock_id,
+                    "contract": CONTRACT,
+                    "contract_version": CONTRACT_VERSION,
+                }
+            )
+            if resource.external_resource.model_dump(mode="json", by_alias=True) != expected.model_dump(
+                mode="json", by_alias=True
+            ):
+                codes.append("projection_resource_external_resource_mismatch")
+        if resource.label != expected_label:
+            codes.append("projection_resource_label_mismatch")
+
+    binding_matches = [
+        rel
+        for rel in projection.relationships
+        if rel.edge_id == record.binding_edge_id
+    ]
+    if len(binding_matches) != 1:
+        codes.append("projection_missing_binding")
+    else:
+        rel = binding_matches[0]
+        if rel.source_node_id != record.threat_node_id:
+            codes.append("projection_binding_source_mismatch")
+        if rel.target_node_id != record.external_resource_node_id:
+            codes.append("projection_binding_target_mismatch")
+        if rel.predicate != "uses_statblock":
+            codes.append("projection_binding_predicate_mismatch")
+        if rel.direction != "outbound":
+            codes.append("projection_binding_direction_mismatch")
+        if rel.threat_statblock_binding is None:
+            codes.append("projection_binding_payload_missing")
+        else:
+            try:
+                ThreatStatblockBindingV1.model_validate(
+                    rel.threat_statblock_binding.model_dump(mode="json", by_alias=True)
+                )
+            except Exception:
+                codes.append("projection_binding_payload_invalid")
+            else:
+                if rel.threat_statblock_binding.binding_id != record.binding_id:
+                    codes.append("projection_binding_id_mismatch")
+    return codes
 
 
 def _contribution_matches_proposal(
@@ -183,9 +601,21 @@ def _contribution_matches_proposal(
 ) -> bool:
     if contribution.contribution_id != proposal.expected_contribution_id:
         return False
-    return _assertion_ids_match(
-        _extract_accepted_ids(contribution), list(proposal.accepted_assertion_ids)
+    ordered = _contribution_ordered_to_expected_ids(
+        contribution, list(proposal.accepted_assertion_ids)
     )
+    if ordered is None:
+        return False
+    return _assertion_ids_match(
+        _extract_accepted_ids(ordered), list(proposal.accepted_assertion_ids)
+    )
+
+
+def _require_ordered_contribution(
+    contribution: GraphContribution, expected_ids: list[str]
+) -> GraphContribution | None:
+    """Canonicalize reconstruction order to the exact expected assertion-id list."""
+    return _contribution_ordered_to_expected_ids(contribution, expected_ids)
 
 
 def _direct_publish_usable(
@@ -275,6 +705,21 @@ def _verify_committed(
     warnings: list[str] = []
     status: Literal["passed", "degraded", "failed", "not_started"] = "passed"
 
+    ordered = _require_ordered_contribution(
+        contribution, list(record.accepted_assertion_ids)
+    )
+    if ordered is None or not _assertion_ids_match(
+        _extract_accepted_ids(ordered), list(proposal.accepted_assertion_ids)
+    ):
+        return _with_updated(
+            record,
+            state="committed_unverified",
+            verification_status="failed",
+            verification_codes=["verification_assertion_order_mismatch"],
+            warnings=warnings,
+        )
+    contribution = ordered
+
     try:
         matches = lookup_fn(
             world_root, record.world_id, record.expected_contribution_id
@@ -299,7 +744,7 @@ def _verify_committed(
     if len(matches) != 1 or matches[0].revision_id != record.committed_revision_id:
         codes.append("verification_c2a_revision_mismatch")
         status = "failed"
-    else:
+    elif status != "failed":
         try:
             ok, reason = _core_proof_match(
                 manifest=matches[0], record=record, world_root=world_root
@@ -311,6 +756,10 @@ def _verify_committed(
             codes.append("verification_integrity_load")
             warnings.append(str(exc)[:180])
             status = "failed"
+
+    store = None
+    statblock_id: str | None = None
+    binding_value: Mapping[str, Any] | None = None
 
     if status != "failed":
         try:
@@ -324,6 +773,11 @@ def _verify_committed(
             store = None
 
         if store is not None:
+            statblock_id = _resource_statblock_id_from_contribution(
+                contribution, record.external_resource_node_id
+            )
+            binding_value = _binding_assertion_value(contribution, record)
+
             for assertion_id in record.accepted_assertion_ids:
                 raw = (store.assertion_support or {}).get(assertion_id)
                 if not isinstance(raw, dict):
@@ -343,45 +797,102 @@ def _verify_committed(
             if resource is None:
                 codes.append("missing_external_resource")
                 status = "failed"
+            elif statblock_id is None:
+                codes.append("missing_statblock_id")
+                status = "failed"
+            else:
+                resource_reason = _verify_external_resource_node(
+                    resource, statblock_id=statblock_id
+                )
+                if resource_reason is not None:
+                    codes.append(resource_reason)
+                    status = "failed"
+                try:
+                    reject_mechanics_keys(
+                        resource.model_dump(mode="json", by_alias=True),
+                        context="external resource node",
+                    )
+                except ValueError as exc:
+                    codes.append("external_resource_mechanics_leak")
+                    warnings.append(str(exc)[:180])
+                    status = "failed"
+                leak = _scan_forbidden_mechanics_keys(
+                    resource.model_dump(mode="json", by_alias=True),
+                    context="external resource node",
+                )
+                if leak is not None:
+                    codes.append("external_resource_mechanics_body_leak")
+                    warnings.append(leak[:180])
+                    status = "failed"
+
             if binding is None:
                 codes.append("missing_binding_edge")
                 status = "failed"
-            elif (
-                binding.source_node_id != record.threat_node_id
-                or binding.target_node_id != record.external_resource_node_id
-                or binding.predicate != "uses_statblock"
-            ):
-                codes.append("binding_endpoints_mismatch")
+            elif binding_value is None:
+                codes.append("missing_binding_assertion")
                 status = "failed"
-
-            if record.decision == "create_new":
-                threat = store.nodes.get(record.threat_node_id)
-                if threat is None:
-                    codes.append("missing_threat_node")
-                    status = "failed"
             else:
-                for assertion in contribution.accepted_assertions:
-                    kind = str((assertion.value or {}).get("kind", "")).casefold()
-                    if assertion.assertion_kind == "node_upsert" and (
-                        assertion.subject_node_id == record.threat_node_id or kind == "threat"
-                    ):
-                        codes.append("connect_existing_threat_rewrite")
+                binding_reason = _verify_binding_edge(
+                    binding,
+                    record=record,
+                    binding_value=binding_value,
+                )
+                if binding_reason is not None:
+                    codes.append(binding_reason)
+                    status = "failed"
+                try:
+                    reject_mechanics_keys(
+                        binding.model_dump(mode="json", by_alias=True),
+                        context="binding edge",
+                    )
+                except ValueError as exc:
+                    codes.append("binding_mechanics_leak")
+                    warnings.append(str(exc)[:180])
+                    status = "failed"
+                leak = _scan_forbidden_mechanics_keys(
+                    binding.model_dump(mode="json", by_alias=True),
+                    context="binding edge",
+                )
+                if leak is not None:
+                    codes.append("binding_mechanics_body_leak")
+                    warnings.append(leak[:180])
+                    status = "failed"
+
+            for assertion in contribution.accepted_assertions:
+                value = assertion.value
+                if isinstance(value, Mapping):
+                    try:
+                        reject_mechanics_keys(value, context="contribution assertion")
+                    except ValueError as exc:
+                        codes.append("mechanics_body_leak")
+                        warnings.append(str(exc)[:180])
                         status = "failed"
                         break
-                if record.selected_target is not None:
-                    target = store.nodes.get(record.threat_node_id)
-                    if target is None or target.node_id != record.selected_target.node_id:
-                        codes.append("connect_target_mismatch")
+                    leak = _scan_forbidden_mechanics_keys(
+                        value, context="contribution assertion"
+                    )
+                    if leak is not None:
+                        codes.append("mechanics_body_leak")
+                        warnings.append(leak[:180])
                         status = "failed"
+                        break
 
-            # Mechanics body must not appear in contribution values.
-            banned = ("mechanics_body", "rendered_markdown", "rules_elements", "assets")
-            for assertion in contribution.accepted_assertions:
-                blob = str(assertion.value)
-                if any(token in blob for token in banned):
-                    codes.append("mechanics_body_leak")
+            if record.decision == "create_new":
+                for code in _verify_create_new_materialization(
+                    store=store,
+                    contribution=contribution,
+                    record=record,
+                ):
+                    codes.append(code)
                     status = "failed"
-                    break
+            else:
+                for code in _verify_connect_existing_constraints(
+                    store=store,
+                    contribution=contribution,
+                    record=record,
+                ):
+                    codes.append(code)
+                    status = "failed"
 
     if status != "failed":
         try:
@@ -399,27 +910,32 @@ def _verify_committed(
             warnings.append(str(exc)[:180])
             status = "degraded" if status == "passed" else status
 
-        try:
-            projection = kernel.project_world_graph(
-                world_root,
-                WorldGraphProjectionRequest(
-                    schema=PROJECTION_REQUEST_SCHEMA,
-                    world_id=record.world_id,
-                    campaign_id=record.campaign_id,
-                    focus=WorldGraphProjectionFocus(kind="none"),
-                    admissibility="gm",
-                    scope_mode="campaign",
-                    revision_pin=record.committed_revision_id,
-                    query_text=record.threat_node_id,
-                ),
-            )
-            if projection.snapshot.revision_id != record.committed_revision_id:
-                codes.append("projection_revision_mismatch")
-                status = "failed"
-        except Exception as exc:  # noqa: BLE001
-            codes.append("projection_unavailable")
-            warnings.append(str(exc)[:180])
-            status = "degraded" if status == "passed" else status
+        if store is not None and statblock_id is not None:
+            try:
+                projection = kernel.project_world_graph(
+                    world_root,
+                    WorldGraphProjectionRequest(
+                        schema=PROJECTION_REQUEST_SCHEMA,
+                        world_id=record.world_id,
+                        campaign_id=record.campaign_id,
+                        focus=WorldGraphProjectionFocus(kind="none"),
+                        admissibility="gm",
+                        scope_mode="campaign",
+                        revision_pin=record.committed_revision_id,
+                        query_text=record.threat_node_id,
+                    ),
+                )
+                for code in _verify_projection_audit(
+                    projection,
+                    record=record,
+                    statblock_id=statblock_id,
+                ):
+                    codes.append(code)
+                    status = "failed"
+            except Exception as exc:  # noqa: BLE001
+                codes.append("projection_unavailable")
+                warnings.append(str(exc)[:180])
+                status = "degraded" if status == "passed" else status
 
     if status == "passed":
         return _with_updated(
@@ -704,6 +1220,22 @@ def _admit_and_build_record(
             )
         ), None, proposal
 
+    ordered = _require_ordered_contribution(
+        contribution, list(proposal.accepted_assertion_ids)
+    )
+    if ordered is None:
+        return None, CommitOutcome(
+            _response(
+                draft_id,
+                operation_id,
+                proposal_id,
+                request.commit_id,
+                "publication_commit_integrity_failure",
+                message="reconstructed contribution assertion order cannot be restored",
+            )
+        ), None, proposal
+    contribution = ordered
+
     source_digest = kernel.compute_contribution_source_payload_sha256(contribution)
     try:
         binding_id = _derive_binding_id(
@@ -876,17 +1408,22 @@ def _maybe_retry(
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_uncommitted"
 
+    rebuilt_ordered = _require_ordered_contribution(
+        rebuilt, list(record.accepted_assertion_ids)
+    )
     if (
-        rebuilt.contribution_id != record.expected_contribution_id
-        or kernel.compute_contribution_source_payload_sha256(rebuilt)
+        rebuilt_ordered is None
+        or rebuilt_ordered.contribution_id != record.expected_contribution_id
+        or kernel.compute_contribution_source_payload_sha256(rebuilt_ordered)
         != record.expected_contribution_source_payload_sha256
         or not _assertion_ids_match(
-            _extract_accepted_ids(rebuilt), list(record.accepted_assertion_ids)
+            _extract_accepted_ids(rebuilt_ordered), list(record.accepted_assertion_ids)
         )
     ):
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
         return updated, merge_calls, "publication_commit_uncommitted"
+    rebuilt = rebuilt_ordered
 
     attempt2 = _with_updated(record, merge_attempt_count=2)
     _save_commit(root, attempt2)
@@ -1017,6 +1554,72 @@ def confirm_threat_publication(
                     )
                 )
 
+            try:
+                proposal_ledger = load_threat_publication_proposal_ledger_unlocked(
+                    root, safe_draft, safe_op
+                )
+            except ThreatPublicationProposalStorageError as exc:
+                return _outcome_storage(
+                    safe_draft, safe_op, safe_proposal, safe_commit, exc
+                )
+            proposal = (
+                find_threat_publication_proposal(proposal_ledger, record.proposal_id)
+                if proposal_ledger is not None
+                else None
+            )
+            if proposal is None:
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_integrity_failure",
+                        commit=record,
+                        message="proposal missing while commit record exists",
+                    )
+                )
+
+            try:
+                _v, contribution = resolve_merged_contribution_from_package(
+                    review_package=proposal.sealed_proposal,
+                    confirming_principal=proposal.created_by,
+                    world_id_hint=record.world_id,
+                    root=configured_world,
+                    expected_parent_revision_id=record.expected_parent_revision_id,
+                    assertion_ids=None,
+                    verify_source=False,
+                )
+            except Exception as exc:  # noqa: BLE001
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_integrity_failure",
+                        commit=record,
+                        message=f"contribution reconstruction failed: {exc}",
+                    )
+                )
+
+            ordered_contribution, authority_err = _record_contribution_matches_authority(
+                record, proposal, contribution
+            )
+            if authority_err is not None or ordered_contribution is None:
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_integrity_failure",
+                        commit=record,
+                        message=f"commit record authority mismatch: {authority_err}",
+                    )
+                )
+            contribution = ordered_contribution
+
             if record.state == "committed_verified":
                 return CommitOutcome(
                     _response(
@@ -1040,47 +1643,7 @@ def confirm_threat_publication(
                     )
                 )
 
-            # Need proposal + contribution for verification / recovery paths.
-            try:
-                proposal_ledger = load_threat_publication_proposal_ledger_unlocked(
-                    root, safe_draft, safe_op
-                )
-            except ThreatPublicationProposalStorageError as exc:
-                return _outcome_storage(
-                    safe_draft, safe_op, safe_proposal, safe_commit, exc
-                )
-            proposal = (
-                find_threat_publication_proposal(proposal_ledger, record.proposal_id)
-                if proposal_ledger is not None
-                else None
-            )
-            contribution = None
-            if proposal is not None:
-                try:
-                    _v, contribution = resolve_merged_contribution_from_package(
-                        review_package=proposal.sealed_proposal,
-                        confirming_principal=proposal.created_by,
-                        world_id_hint=record.world_id,
-                        root=configured_world,
-                        expected_parent_revision_id=record.expected_parent_revision_id,
-                        assertion_ids=None,
-                        verify_source=False,
-                    )
-                except Exception:
-                    contribution = None
-
             if record.state == "committed_unverified":
-                if proposal is None or contribution is None:
-                    return CommitOutcome(
-                        _response(
-                            safe_draft,
-                            safe_op,
-                            safe_proposal,
-                            safe_commit,
-                            "publication_commit_committed_unverified",
-                            commit=record,
-                        )
-                    )
                 verified = _verify_committed(
                     root=root,
                     world_root=configured_world,
@@ -1091,9 +1654,18 @@ def confirm_threat_publication(
                 )
                 try:
                     _save_commit(root, verified)
-                except ThreatPublicationCommitStorageError as exc:
-                    return _outcome_storage(
-                        safe_draft, safe_op, safe_proposal, safe_commit, exc
+                except ThreatPublicationCommitStorageError:
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_committed_unverified",
+                            commit=record,
+                            retry_allowed=False,
+                            message="verification could not persist",
+                        )
                     )
                 return CommitOutcome(
                     _response(
@@ -1122,8 +1694,6 @@ def confirm_threat_publication(
                 allow_zero_match_retry
                 and updated.state == "committing"
                 and updated.merge_attempt_count == 1
-                and proposal is not None
-                and contribution is not None
             ):
                 updated, merge_calls, label = _maybe_retry(
                     root=root,
@@ -1232,6 +1802,8 @@ def confirm_threat_publication(
                         safe_commit,
                         "publication_commit_committed_unverified",
                         commit=updated,
+                        retry_allowed=False,
+                        message="verification could not persist",
                     ),
                     created=True,
                     merge_calls=merge_calls,
