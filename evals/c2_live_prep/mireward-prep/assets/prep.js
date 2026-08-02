@@ -12,7 +12,8 @@
     ? "/evals/c2_live_prep/mireward-prep/"
     : "/";
 
-  const NAV = [
+  /** Legacy static prep pages (Live Play, Retrieval, indexes, …). */
+  const PREP_NAV = [
     { id: "index", label: "Index", href: "index.html" },
     { id: "live-play", label: "Live play", href: "live-play.html" },
     { id: "retrieval", label: "Retrieval", href: "retrieval.html" },
@@ -24,6 +25,19 @@
     { id: "roll-tables", label: "Roll tables", href: "roll-tables.html" },
     { id: "statblocks", label: "Statblocks", href: "statblocks.html" },
     { id: "markdown-theme-fixtures", label: "Theme fixtures", href: "markdown-theme-fixtures.html" },
+  ];
+
+  /**
+   * Product Command Board nav — keep in sync with
+   * apps/live-control-ui/src/chrome/appChromeConfig.ts APP_NAV_ITEMS.
+   * Used by Combat Tracker when opened as a product surface (/combat).
+   */
+  const PRODUCT_NAV = [
+    { id: "index", label: "Index", href: "/" },
+    { id: "plan", label: "Plan", href: "/plan" },
+    { id: "ingest", label: "Ingest", href: "/ingest" },
+    { id: "build", label: "Build", href: "/build" },
+    { id: "combat", label: "Combat Tracker", href: "/combat" },
   ];
 
   function isFileProtocol() {
@@ -51,6 +65,7 @@
   }
 
   function navHref(page) {
+    if (typeof page === "string" && page.charAt(0) === "/") return page;
     if (isFileProtocol()) return page;
     return PREP_WEB_PREFIX + page;
   }
@@ -102,21 +117,34 @@
     });
   }
 
-  function initNav(activeId) {
+  /**
+   * @param {string} activeId
+   * @param {"product" | "prep"=} navMode — combat defaults to product Command Board nav
+   */
+  function initNav(activeId, navMode) {
     const host = document.getElementById("site-nav");
     if (!host) return;
-    host.innerHTML = NAV.map(function (item) {
-      const cls = item.id === activeId ? "active" : "";
-      return (
-        '<a class="' +
-        cls +
-        '" href="' +
-        navHref(item.href) +
-        '">' +
-        item.label +
-        "</a>"
-      );
-    }).join("");
+    const useProduct =
+      navMode === "product" || (navMode !== "prep" && activeId === "combat");
+    const items = useProduct ? PRODUCT_NAV : PREP_NAV;
+    host.setAttribute(
+      "aria-label",
+      useProduct ? "Command board navigation" : "Prep navigation",
+    );
+    host.innerHTML = items
+      .map(function (item) {
+        const cls = item.id === activeId ? "active" : "";
+        return (
+          '<a class="' +
+          cls +
+          '" href="' +
+          navHref(item.href) +
+          '">' +
+          item.label +
+          "</a>"
+        );
+      })
+      .join("");
   }
 
   function initScratchBand() {
