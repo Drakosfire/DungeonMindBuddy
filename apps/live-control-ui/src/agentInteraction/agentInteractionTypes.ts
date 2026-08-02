@@ -19,10 +19,12 @@ import type {
   ToolProjectionPayloadMap,
 } from "../planSurface/projection/projectionBindings";
 import type { ActiveProjection, ProjectionSize } from "../planSurface/types";
+import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
 import type {
   ProjectionSurfacePublication,
   ValidatedProjectionSurface,
 } from "./projectionSurfacePublication";
+import type { SurfaceInteractionChromeFragment } from "./surfaceInteractionLease";
 
 export type AgentInteractionSurfaceId = "plan" | "play" | "build" | string;
 
@@ -118,6 +120,20 @@ export interface AgentInteractionActions {
   updateActiveTurn: (turnId: string) => void;
 }
 
+export interface AgentInteractionSurfaceInteractionState {
+  /** Lease-guarded effective neutral publication; null when no valid lease exposure. */
+  surfaceInteractionPublication: SurfaceInteractionPublication | null;
+  /** Raw canonical base publication before AppChrome composition. */
+  surfaceInteractionBasePublication: SurfaceInteractionPublication | null;
+}
+
+export interface AgentInteractionSurfaceInteractionActions {
+  publishSurfaceInteractionPublication: (publication: unknown | null) => () => void;
+  /** Current-token, exact-same-identity update only. */
+  updateSurfaceInteractionPublication: (publication: unknown) => void;
+  publishAppChromeCompatibility: (fragment: SurfaceInteractionChromeFragment) => () => void;
+}
+
 export interface AgentInteractionProjectionState {
   projectionSurface: ValidatedProjectionSurface | null;
   active: ActiveProjection | null;
@@ -148,6 +164,8 @@ export interface AgentInteractionProjectionActions {
 export interface AgentInteractionContextValue
   extends AgentInteractionProviderState,
     AgentInteractionActions,
+    AgentInteractionSurfaceInteractionState,
+    AgentInteractionSurfaceInteractionActions,
     AgentInteractionProjectionState,
     AgentInteractionProjectionActions {
   scope: AgentInteractionScope | null;

@@ -17,6 +17,10 @@ import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { activeThreadStorageKey, createAgentInteractionThread, persistAgentThread, threadStorageKey } from "./agentInteractionStorage";
 import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
 import type { ProjectionSurfacePublication } from "./projectionSurfacePublication";
+import {
+  buildAppChromeCompatibilityFragment,
+  ROUTE_COMPATIBILITY_PUBLICATIONS,
+} from "./surfaceInteractionCompat";
 import { useAgentInteraction } from "./useAgentInteraction";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -1097,5 +1101,159 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     );
 
     expect(getByTestId("lease-probe").textContent).toBe("none|Plan");
+  });
+});
+
+describe("AgentInteractionProvider neutral surface interaction lease", () => {
+  it("exposes lease-guarded neutral publication for legacy projection binds", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: { surfaceId: "plan", instanceKey: "plan\u001fneutral-test" },
+        config: {
+          id: "plan",
+          label: "Plan",
+          context: {
+            campaignId: "longmont-c2",
+            liveSession: 22,
+            ingestSession: 21,
+            headerLabel: "Plan",
+          },
+          tools: [{ id: "recap", label: "Recap", size: "wide" }],
+          canvas: { documentId: FIXTURE_DOC_ID },
+          theme: {},
+        },
+      });
+    });
+    expect(result.current.surfaceInteractionPublication?.surfaceId).toBe("plan");
+    expect(result.current.surfaceInteractionPublication?.tools[0]?.id).toBe("recap");
+  });
+
+  it("preserves singular token and returns no-op cleanup for same-identity publishProjectionSurface", () => {
+    const publication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fsame-id" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    let firstToken: symbol | undefined;
+    act(() => {
+      result.current.publishProjectionSurface(publication);
+      firstToken = (result.current as unknown as { surfaceInteractionPublication: unknown }).surfaceInteractionPublication
+        ? undefined
+        : undefined;
+    });
+    const beforePublication = result.current.surfaceInteractionPublication;
+    let cleanup: (() => void) | undefined;
+    act(() => {
+      cleanup = result.current.publishProjectionSurface({ ...publication, config: { ...publication.config, label: "Plan revised" } });
+    });
+    expect(result.current.surfaceInteractionPublication?.label).toBe("Plan revised");
+    expect(result.current.surfaceInteractionPublication?.identity).toEqual(beforePublication?.identity);
+    act(() => cleanup?.());
+    expect(result.current.surfaceInteractionPublication?.label).toBe("Plan revised");
+    void firstToken;
+  });
+
+  it("publishSurfaceInteractionPublication always creates a fresh lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = ROUTE_COMPATIBILITY_PUBLICATIONS.index;
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(publication);
+    });
+    const firstTokenLabel = result.current.surfaceInteractionPublication?.label;
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(publication);
+    });
+    expect(result.current.surfaceInteractionPublication?.label).toBe(firstTokenLabel);
+  });
+
+  it("binds AppChrome compatibility fragments without overwriting Plan legacy lease", () => {
+    const planPublication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fchrome-fragment" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(planPublication);
+    });
+    const planIdentity = result.current.surfaceInteractionPublication?.identity;
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "page-tool", label: "Page tool", onClick: vi.fn() }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication?.identity).toEqual(planIdentity);
+    expect(result.current.surfaceInteractionPublication?.tools.some((tool) => tool.id === "page-tool")).toBe(true);
+  });
+
+  it("invalid AppChrome edit fragments invalidate the effective publication", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [],
+          editorTools: {
+            pinnedActions: [{ id: "bold", label: "Bold", onClick: vi.fn() }],
+          },
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    expect(result.current.surfaceInteractionPublication).toBeNull();
+  });
+
+  it("executes AppChrome page actions through guarded effective publication", () => {
+    const onClick = vi.fn();
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "launch", label: "Launch", onClick }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const launch = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "launch");
+    expect(launch?.activation.kind).toBe("command");
+    if (launch?.activation.kind !== "command") throw new Error("expected command activation");
+    act(() => {
+      void launch.activation.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

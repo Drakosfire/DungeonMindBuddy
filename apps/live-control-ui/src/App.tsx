@@ -15,6 +15,10 @@ import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionPro
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
 import { usePublishAgentSurfaceContext } from "./agentInteraction/usePublishAgentSurfaceContext";
+import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
+import {
+  ROUTE_COMPATIBILITY_PUBLICATIONS,
+} from "./agentInteraction/surfaceInteractionCompat";
 import { AdaptiveProjectionContainer } from "./planSurface/projection/AdaptiveProjectionContainer";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
@@ -52,6 +56,17 @@ function IndexSurfacePublisher() {
     [],
   );
   usePublishAgentSurfaceContext(context);
+  usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
+  return null;
+}
+
+function SurfaceRouteLeasePublisher() {
+  usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.surface);
+  return null;
+}
+
+function TiptapSpikeRouteLeasePublisher() {
+  usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.tiptapCalloutSpike);
   return null;
 }
 
@@ -98,6 +113,7 @@ function TiptapSpikeRoute() {
 
   return (
     <AppChrome activeRoute="tiptap-callout-spike" editorTools={editorTools}>
+      <TiptapSpikeRouteLeasePublisher />
       <TiptapCalloutBridgeSpike onEditorToolsChange={setEditorTools} />
     </AppChrome>
   );
@@ -188,6 +204,7 @@ function LiveControlApp() {
   if (status === "loading") {
     return (
       <AppChrome activeRoute="surface">
+        <SurfaceRouteLeasePublisher />
         <main className="app-status">
           <p>Loading live surface…</p>
         </main>
@@ -198,6 +215,7 @@ function LiveControlApp() {
   if (status === "error" || !layout || !state || !planView) {
     return (
       <AppChrome activeRoute="surface">
+        <SurfaceRouteLeasePublisher />
         <main className="app-status app-error">
           <h1>Live Control</h1>
           <p>{error ?? "Unable to load session surface."}</p>
@@ -222,6 +240,7 @@ function LiveControlApp() {
         },
       ]}
     >
+      <SurfaceRouteLeasePublisher />
       <SurfaceShell
         catalog={catalog}
         layout={layout}
