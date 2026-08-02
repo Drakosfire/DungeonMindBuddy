@@ -56,14 +56,95 @@ function readRelative(pathFromSrc: string): string {
   return readFileSync(join(SRC_ROOT, pathFromSrc), "utf8");
 }
 
+/**
+ * Strip // and block comments while preserving string/template literal contents
+ * so stale comment mentions do not trip ownership scans, but real imports/JSX do.
+ */
+function stripCommentsForScan(source: string): string {
+  let out = "";
+  let i = 0;
+  type State = "code" | "squote" | "dquote" | "template" | "line" | "block";
+  let state: State = "code";
+  while (i < source.length) {
+    const ch = source[i]!;
+    const next = source[i + 1];
+    if (state === "code") {
+      if (ch === "/" && next === "/") {
+        state = "line";
+        i += 2;
+        continue;
+      }
+      if (ch === "/" && next === "*") {
+        state = "block";
+        i += 2;
+        continue;
+      }
+      if (ch === "'") {
+        state = "squote";
+        out += ch;
+        i += 1;
+        continue;
+      }
+      if (ch === '"') {
+        state = "dquote";
+        out += ch;
+        i += 1;
+        continue;
+      }
+      if (ch === "`") {
+        state = "template";
+        out += ch;
+        i += 1;
+        continue;
+      }
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (state === "line") {
+      if (ch === "\n") {
+        state = "code";
+        out += ch;
+      }
+      i += 1;
+      continue;
+    }
+    if (state === "block") {
+      if (ch === "*" && next === "/") {
+        state = "code";
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    // string / template states — preserve escapes and content
+    out += ch;
+    if (ch === "\\" && next !== undefined) {
+      out += next;
+      i += 2;
+      continue;
+    }
+    if (state === "squote" && ch === "'") state = "code";
+    else if (state === "dquote" && ch === '"') state = "code";
+    else if (state === "template" && ch === "`") state = "code";
+    i += 1;
+  }
+  return out;
+}
+
+function hasAdaptiveProjectionContainerReference(source: string): boolean {
+  // After comment stripping, any remaining symbol is an import, mount, or runtime use.
+  return /\bAdaptiveProjectionContainer\b/.test(stripCommentsForScan(source));
+}
+
 describe("projection host ownership boundaries", () => {
   it("removes AdaptiveProjectionContainer from production sources", () => {
     const hits: string[] = [];
     for (const file of listProductionSourcesUnder("")) {
       const rel = relative(SRC_ROOT, file);
-      if (rel === "planSurface/projection/projectionTestHost.tsx") continue;
       const source = readFileSync(file, "utf8");
-      if (/\bAdaptiveProjectionContainer\b/.test(source)) {
+      if (hasAdaptiveProjectionContainerReference(source)) {
         hits.push(rel);
       }
     }

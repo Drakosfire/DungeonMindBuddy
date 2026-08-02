@@ -168,7 +168,10 @@ describe("ProjectionHost shell", () => {
   });
 
   it("replaces theme tokens and data-md-theme when theme changes A to B", () => {
-    const themeA = { themeId: "theme-a", tokens: { "--accent": "#111111" } };
+    const themeA = {
+      themeId: "theme-a",
+      tokens: { "--accent": "#111111", "--theme-a-only": "keep-me" },
+    };
     const themeB = { themeId: "theme-b", tokens: { "--accent": "#222222" } };
     const { rerender } = renderHost({
       active: toolActive,
@@ -179,6 +182,7 @@ describe("ProjectionHost shell", () => {
     const host = document.querySelector(".surface-projection-host") as HTMLElement;
     expect(host).toHaveAttribute("data-md-theme", "theme-a");
     expect(host.style.getPropertyValue("--accent")).toBe("#111111");
+    expect(host.style.getPropertyValue("--theme-a-only")).toBe("keep-me");
 
     rerender(
       <ProjectionHost
@@ -196,7 +200,8 @@ describe("ProjectionHost shell", () => {
 
     expect(host).toHaveAttribute("data-md-theme", "theme-b");
     expect(host.style.getPropertyValue("--accent")).toBe("#222222");
-    expect(host.style.getPropertyValue("--accent")).not.toBe("#111111");
+    // Obsolete A-only tokens must be cleared, not merged under B.
+    expect(host.style.getPropertyValue("--theme-a-only")).toBe("");
   });
 
   it("does not apply reference class for adversarial tool keys and keeps tool backdrop/nav behavior", () => {
