@@ -1664,6 +1664,68 @@ def test_require_requested_matrix_matches_disk_accepts_exact_matrix(
     )
 
 
+@pytest.mark.parametrize(
+    "malformed_name",
+    ("run-3", "run-003", "legacy-smoke"),
+)
+def test_discover_published_run_keys_rejects_malformed_run_dirs_with_manifests(
+    tmp_path: Path,
+    malformed_name: str,
+) -> None:
+    """Manifests under non-canonical run dirs must fail closed, not be ignored."""
+    canonical = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    canonical.mkdir(parents=True, exist_ok=True)
+    (canonical / "failure-manifest.json").write_text(
+        json.dumps({"failure_code": "grounding_failure"}),
+        encoding="utf-8",
+    )
+    malformed = (
+        tmp_path
+        / "calibration"
+        / "candidate"
+        / "holdout"
+        / malformed_name
+    )
+    malformed.mkdir(parents=True, exist_ok=True)
+    (malformed / "run-manifest.json").write_text(
+        json.dumps({"repository_sha": "x"}),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="non-canonical run directory",
+    ):
+        calibration._discover_published_run_keys(tmp_path)
+
+
+def test_discover_published_run_keys_rejects_nested_manifest_outside_run_xx(
+    tmp_path: Path,
+) -> None:
+    nested = (
+        tmp_path
+        / "calibration"
+        / "baseline"
+        / "development"
+        / "extras"
+        / "nested"
+    )
+    nested.mkdir(parents=True, exist_ok=True)
+    (nested / "failure-manifest.json").write_text(
+        json.dumps({"failure_code": "grounding_failure"}),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="outside canonical run-XX directory",
+    ):
+        calibration._discover_published_run_keys(tmp_path)
+
+
 def test_temporal_shadow_extraction_error_prepends_message_to_custom_diagnostics() -> None:
     exc = TemporalShadowExtractionError(
         "grounding miss",

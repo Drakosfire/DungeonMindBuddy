@@ -1424,7 +1424,11 @@ def _require_single_provider_execution_sha(
 
 
 def _discover_published_run_keys(output_dir: Path) -> set[tuple[str, str, int]]:
-    """Discover every published run/failure manifest under ``output_dir/calibration``."""
+    """Discover every published run/failure manifest under ``output_dir/calibration``.
+
+    Manifests must live at ``calibration/<lane>/<cohort>/run-XX/<manifest>``.
+    Any published manifest under a known lane/cohort outside that shape fails closed.
+    """
     calibration_root = output_dir / "calibration"
     keys: set[tuple[str, str, int]] = set()
     if not calibration_root.is_dir():
@@ -1446,17 +1450,23 @@ def _discover_published_run_keys(output_dir: Path) -> set[tuple[str, str, int]]:
                     f"unexpected cohort directory under calibration/{prompt_lane}/: "
                     f"{cohort!r}"
                 )
-            for run_dir in sorted(cohort_dir.iterdir()):
-                if not run_dir.is_dir():
-                    continue
-                match = _RUN_DIR_RE.fullmatch(run_dir.name)
-                if match is None:
-                    continue
-                has_run = (run_dir / "run-manifest.json").is_file()
-                has_failure = (run_dir / "failure-manifest.json").is_file()
-                if not has_run and not has_failure:
-                    continue
-                keys.add((prompt_lane, cohort, int(match.group(1))))
+            for manifest_name in ("run-manifest.json", "failure-manifest.json"):
+                for manifest_path in sorted(cohort_dir.rglob(manifest_name)):
+                    rel = manifest_path.relative_to(cohort_dir)
+                    parts = rel.parts
+                    if len(parts) != 2:
+                        raise ReaggregateError(
+                            "published manifest outside canonical run-XX directory: "
+                            f"{prompt_lane}/{cohort}/{rel.as_posix()}"
+                        )
+                    run_name = parts[0]
+                    match = _RUN_DIR_RE.fullmatch(run_name)
+                    if match is None:
+                        raise ReaggregateError(
+                            "published manifest under non-canonical run directory: "
+                            f"{prompt_lane}/{cohort}/{run_name}"
+                        )
+                    keys.add((prompt_lane, cohort, int(match.group(1))))
     return keys
 
 
