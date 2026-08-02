@@ -31,17 +31,6 @@ function projectionDrawerClass(size: ProjectionSize | undefined): string {
   return "surface-projection-drawer surface-projection-drawer--compact";
 }
 
-const DEFAULT_LABELS: ProjectionHostLabels = {
-  toggleTitle: "Plan toolbox",
-  closedDrawerLabel: "Plan toolbox",
-  navigationLabel: "Toolbox tools",
-  closeLabel: "Close toolbox",
-  toolKicker: "Command Board",
-  contentKicker: "Reference",
-  toolTitle: "Toolbox",
-  contentTitle: "Reference",
-};
-
 /**
  * Controlled Projection host shell (BLD-SIH-03a).
  * Owns DOM/lifecycle only — no Plan policy, registry, or selected-state ownership.
@@ -49,7 +38,7 @@ const DEFAULT_LABELS: ProjectionHostLabels = {
 export function ProjectionHost({
   active,
   navigationItems,
-  labels: labelsInput,
+  labels,
   theme,
   body,
   onNavigate,
@@ -57,7 +46,6 @@ export function ProjectionHost({
   onClose,
   onExpand,
 }: ProjectionHostProps) {
-  const labels = { ...DEFAULT_LABELS, ...labelsInput };
   const isOpen = active !== null;
   const activeToolId = active?.kind === "tool" ? active.key : null;
   const showModalBackdrop = isOpen && active?.kind === "tool";
@@ -65,7 +53,6 @@ export function ProjectionHost({
   const rootClass = [
     "surface-projection-host",
     isOpen ? "surface-projection-host--open" : "",
-    active?.kind === "tool" ? `surface-projection-host--tool-${active.key}` : "",
     active?.kind === "content" ? "surface-projection-host--reference" : "",
   ]
     .filter(Boolean)
@@ -91,7 +78,12 @@ export function ProjectionHost({
   }, [isOpen, onClose]);
 
   return (
-    <div className={rootClass} style={themeStyle} data-md-theme={theme?.themeId}>
+    <div
+      className={rootClass}
+      style={themeStyle}
+      data-md-theme={theme?.themeId}
+      data-projection-key={active?.key}
+    >
       <button
         type="button"
         className="surface-projection-toggle"
