@@ -1146,37 +1146,123 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
         theme: {},
       },
     };
+    const buildPublication = {
+      identity: { surfaceId: "build", instanceKey: "build\u001fsame-id-rotate" },
+      config: {
+        id: "build" as const,
+        label: "Build",
+        context: null,
+        tools: [],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+    const onClick = vi.fn();
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    let firstToken: symbol | undefined;
+
     act(() => {
       result.current.publishProjectionSurface(publication);
-      firstToken = (result.current as unknown as { surfaceInteractionPublication: unknown }).surfaceInteractionPublication
-        ? undefined
-        : undefined;
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "page-tool", label: "Page tool", onClick }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
     });
     const beforePublication = result.current.surfaceInteractionPublication;
-    let cleanup: (() => void) | undefined;
+    const firstInvoke = beforePublication?.tools.find((tool) => tool.id === "page-tool")?.activation;
+    expect(firstInvoke?.kind).toBe("command");
+    if (firstInvoke?.kind !== "command") throw new Error("expected command activation");
+
+    let cleanupSameIdentity: (() => void) | undefined;
     act(() => {
-      cleanup = result.current.publishProjectionSurface({ ...publication, config: { ...publication.config, label: "Plan revised" } });
+      cleanupSameIdentity = result.current.publishProjectionSurface({
+        ...publication,
+        config: { ...publication.config, label: "Plan revised" },
+      });
     });
     expect(result.current.surfaceInteractionPublication?.label).toBe("Plan revised");
     expect(result.current.surfaceInteractionPublication?.identity).toEqual(beforePublication?.identity);
-    act(() => cleanup?.());
+
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      cleanupSameIdentity?.();
+    });
     expect(result.current.surfaceInteractionPublication?.label).toBe("Plan revised");
-    void firstToken;
+
+    act(() => {
+      result.current.publishProjectionSurface(buildPublication);
+    });
+    act(() => {
+      void firstInvoke.invoke();
+    });
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("publishSurfaceInteractionPublication always creates a fresh lease", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     const publication = ROUTE_COMPATIBILITY_PUBLICATIONS.index;
+    const firstSpy = vi.fn();
+    const secondSpy = vi.fn();
+    let firstCleanup: (() => void) | undefined;
+
+    act(() => {
+      firstCleanup = result.current.publishSurfaceInteractionPublication(publication);
+    });
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "first-action", label: "First", onClick: firstSpy }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const firstLabel = result.current.surfaceInteractionPublication?.label;
+    const firstInvoke = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "first-action")
+      ?.activation;
+    expect(firstInvoke?.kind).toBe("command");
+    if (firstInvoke?.kind !== "command") throw new Error("expected command activation");
+
     act(() => {
       result.current.publishSurfaceInteractionPublication(publication);
     });
-    const firstTokenLabel = result.current.surfaceInteractionPublication?.label;
+    expect(result.current.surfaceInteractionPublication?.label).toBe(firstLabel);
+
     act(() => {
-      result.current.publishSurfaceInteractionPublication(publication);
+      void firstInvoke.invoke();
     });
-    expect(result.current.surfaceInteractionPublication?.label).toBe(firstTokenLabel);
+    expect(firstSpy).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.publishAppChromeCompatibility(
+        buildAppChromeCompatibilityFragment({
+          pageActions: [{ id: "second-action", label: "Second", onClick: secondSpy }],
+          editorTools: null,
+          basePublication: result.current.surfaceInteractionBasePublication,
+        }),
+      );
+    });
+    const secondInvoke = result.current.surfaceInteractionPublication?.tools.find((tool) => tool.id === "second-action")
+      ?.activation;
+    expect(secondInvoke?.kind).toBe("command");
+    if (secondInvoke?.kind !== "command") throw new Error("expected command activation");
+    act(() => {
+      void secondInvoke.invoke();
+    });
+    expect(secondSpy).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      firstCleanup?.();
+    });
+    expect(result.current.surfaceInteractionPublication?.label).toBe(firstLabel);
   });
 
   it("binds AppChrome compatibility fragments without overwriting Plan legacy lease", () => {
