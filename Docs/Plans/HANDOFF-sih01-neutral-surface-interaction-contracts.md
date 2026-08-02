@@ -41,6 +41,8 @@ pr_body_template: |
 
 **Amended 2026-08-01 (PR #472 review):** Validator trust boundary fixed to untyped `unknown` input with structural fail-closed validation (no coercion, no throws); §6.3 issue-code table completed to the full 29-code public vocabulary (2 shape codes, contribution label, group conflict, Agent-context bounds, plus the four §6.5/§6.6 runtime codes); Tool/Edit labels required nonblank; deterministic `placement_group_conflict`; enforceable Agent-context bounds (§6.7); Projection bindings de-typed to named opaque `unknown` values with per-ID typing deferred to SIH-03b; V9 guard re-anchored to import specifiers; V13/V14 evidence rows added.
 
+**Amended 2026-08-01 (PR #477 review, trigger clarifications only — no new codes):** §6.3 clarified so `valid: true` proves the exported interfaces: nullability means exactly `null` (`undefined`/missing nullable fields are malformed); required arrays must be dense (sparse indices are malformed); untyped values are never converted (`String()`/`toString`/`Symbol.toPrimitive` paths prohibited; discriminant set checks require primitive `typeof` strings; diagnostics name malformed types without stringifying); `contribution_shape_invalid` trigger text now explicitly covers unrecognized availability `status` discriminants, supplied non-string `eyebrow`, sparse entry/pointer arrays, and malformed `bindingIds` element arrays; `surface_id_blank` confirmed to cover the identity surface ID as well as the publication surface ID.
+
 > **Dispatch gate:** Implement only the neutral runtime contract described here. Do not change provider/store ownership, render hosts, route publications, or current Plan/Build/Ingest behavior.
 >
 > This checked-in handoff is the complete authority. The worker must not compress, omit, replace, or rewrite it before implementation. The PR description must use the frontmatter skeleton and remain a truthful merge contract; it cannot substitute for the handoff.
@@ -140,6 +142,11 @@ This slice has no user-facing UI path. Its observable paths are public TypeScrip
 | Encode parts `["a", "b:c"]` and `["a:b", "c"]` → compare | Distinct instance keys and identities | V1 |
 | Re-label a publication without changing identity → compare identities | Same identity; display label remains non-authoritative | V1 |
 | Validate the string `"not-a-publication"`, then `{ tools: {} }` | Both invalid with shape codes; no throw, no coercion, no partial acceptance | V13 |
+| Publication with `canvas: undefined`, or placement with `groupId: undefined` → validate | Invalid with `publication_shape_invalid` / `placement_invalid`; `undefined` is never accepted where the contract requires exactly `null` | V13 |
+| Tool with availability `{}` or `{ status: "maybe" }`, or a supplied non-string `eyebrow` → validate | Invalid with `contribution_shape_invalid`; unrecognized discriminants and wrong-typed supplied optionals are structural failures | V13 |
+| Projection with `kind: new String("tool")`, or a discriminant object whose `toString` throws → validate | Invalid with `projection_kind_unknown`; no conversion is invoked and validation never throws | V13 |
+| Publication with sparse `tools` (`new Array(1)`), sparse pointers, or sparse `bindingIds` → validate | Invalid with `contribution_shape_invalid` at each hole index; no entry is silently skipped | V13 |
+| Publication `surfaceId: "plan"` with identity `surfaceId: ""` → validate | Invalid with `surface_id_blank`; the blank identity surface ID is reported, not masked by `identity_surface_mismatch` | V2 |
 | Tool `a` declares group `graph` / `"Graph"` / order 1 → Edit command `b` declares group `graph` / `"World"` / order 7 → validate | Invalid `placement_group_conflict` naming `graph`, `a`, and `b`; Tool `a` is canonical | V6 |
 | Enabled Tool with `label: ""` → validate | Invalid `contribution_label_blank` | V6 |
 | Agent context with a 501-character ambient summary, 17 pointers, or a 257-character pointer value → validate | Invalid `agent_context_bounds_exceeded` naming the violated bound | V14 |
@@ -310,14 +317,20 @@ validateSurfaceInteractionPublication(publication: unknown)
 
 The input is an untyped runtime value. The validator first proves structural shape — the publication is a non-null object; `tools`, `editCommands`, `projections`, and `projectionBindings` are arrays; `canvas` and `agentContext` are null or objects; every contribution entry and every required nested object (`identity`, `placement`, `availability`, `activation`, `target`, `workObject`, pointer entries) is a non-null object — before any field-level or cross-reference check. Malformed values are rejected with shape issue codes, never coerced into valid-looking defaults: a non-array collection is invalid, never treated as empty. Field-level checks still run on every entry whose shape held, so independent issues accumulate in one pass; shape-invalid entries contribute their shape issues and are skipped for field checks.
 
+Three structural rules are exact, not conventional, and `valid: true` must prove every field the exported interfaces declare:
+
+- **Exact nullability.** `null` means exactly `null`. A missing or `undefined` value for a required nullable field (`canvas`, `agentContext`, placement `groupId`/`groupLabel`) is malformed, not absent-by-convention.
+- **Dense arrays.** Every index of a required array (`tools`, `editCommands`, `projections`, `projectionBindings`, Agent-context `pointers`, Projection `bindingIds`) must be an own property. Sparse arrays are malformed; validation iterates with indexed loops (`Object.hasOwn`), never hole-skipping `forEach`/`map`/`for...of`.
+- **No conversion of untrusted values.** Field, cross-reference, and diagnostic paths never call `String()`, `toString`, `valueOf`, or implicit `Symbol.toPrimitive` conversions on untyped input. Set-membership checks (Projection kind/size, availability `status`) require a primitive string via `typeof` before comparison; boxed primitives and objects with custom conversion behavior are malformed. Diagnostics name the malformed type (`"object"`, `"undefined"`, …) instead of stringifying the value.
+
 The returned `publication` must retain the caller's callback and binding value identities. Validation may inspect structure and identifiers only. It must not clone through JSON, invoke callbacks, inspect React values, access global state, or load a renderer catalog. On `valid: true` the returned publication is the caller's object, type-narrowed; on `valid: false` the raw input is returned unmodified.
 
 Required stable issue codes:
 
 | Code | Trigger |
 |---|---|
-| `publication_shape_invalid` | Publication is not a non-null object, a contribution collection is missing or not an array, or Canvas/Agent context is present but not an object |
-| `contribution_shape_invalid` | A Tool/Edit/Projection/binding/pointer entry is not a non-null object, or a required nested object (identity, placement, availability, activation, target, work object) is missing or not an object |
+| `publication_shape_invalid` | Publication is not a non-null object; a contribution collection is missing, not an array, or sparse; or Canvas/Agent context is not exactly `null` or a non-null object (`undefined`/missing is invalid) |
+| `contribution_shape_invalid` | A Tool/Edit/Projection/binding/pointer entry is missing (sparse array index) or not a non-null object; a required nested object (identity, placement, availability, activation, target, work object) is missing or not an object; a Projection `bindingIds` array is missing, not an array, sparse, or contains a non-string element; an availability `status` discriminant is neither `"enabled"` nor `"disabled"`; or a supplied optional `eyebrow` is not a string |
 | `surface_id_blank` | Publication or identity surface ID is blank |
 | `instance_key_blank` | Identity instance key is blank |
 | `identity_surface_mismatch` | `publication.surfaceId !== publication.identity.surfaceId` |
@@ -328,7 +341,7 @@ Required stable issue codes:
 | `duplicate_edit_command_id` | Same Edit command ID occurs more than once |
 | `duplicate_projection_id` | Same Projection ID occurs more than once |
 | `duplicate_projection_binding_id` | Same binding ID occurs more than once |
-| `placement_invalid` | Group ID/label nullability disagrees, label is blank, or order is not a finite integer |
+| `placement_invalid` | Group ID/label nullability disagrees (both exactly `null`, or both nonblank strings — `undefined` is invalid), label is blank, or order is not a finite integer |
 | `placement_group_conflict` | Two contributions share a non-null group ID but disagree on group label or group order; the first declaration in Tool-then-Edit collection order is canonical |
 | `disabled_reason_missing` | Disabled Tool/Edit contribution has blank reason |
 | `enabled_has_disabled_reason` | Enabled Tool/Edit contribution supplies a disabled reason |
@@ -502,7 +515,7 @@ Inventing a compatibility adapter, generic metadata bag, or copied Plan context 
 | V10 | Existing Plan/Build/AgentInteraction behavior remains unchanged | Existing suites | Regression | Exact command below | All focused predecessor tests pass on head | Any production path outside §4 required |
 | V11 | TypeScript and production build introduce no new diagnostics | UI package | Regression/build | Base/head protocol below | Green, or zero new errors versus base with explicit waiver | New diagnostic in §4 or unreported baseline drift |
 | V12 | Diff is exactly the §4 package | Repository | Scope | `git diff` commands | Only seven allowlisted files | Any additional path |
-| V13 | Untyped or malformed input fails closed without throw or coercion | `publication.ts` | Adversarial | Focused publication tests | Shape codes for non-object publication, non-array collections, non-object entries, and missing nested objects; field checks still accumulate where shape held | Any coercion to empty collections, thrown TypeError, or partial acceptance |
+| V13 | Untyped or malformed input fails closed without throw or coercion | `publication.ts` | Adversarial | Focused publication tests | Shape codes for non-object publication, non-array or sparse collections, non-object entries, missing nested objects, `undefined` nullable fields, unrecognized availability discriminants, and non-string supplied eyebrows; boxed/custom-conversion discriminants rejected without invoking conversions; field checks still accumulate where shape held | Any coercion to empty collections or strings, thrown TypeError, silently skipped sparse index, or partial acceptance |
 | V14 | Agent-context bounds are enforced | `publication.ts` | Contract | Focused publication tests | Each §6.7 bound rejected with `agent_context_bounds_exceeded` naming the violated bound | Unbounded summary or pointer payloads accepted |
 
 Run and record exact results:
