@@ -1116,6 +1116,227 @@ def test_wrong_envelope_external_resource_at_exact_parent_rejects_without_propos
     assert proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id) is None
 
 
+def _confirm_request_from_proposal(proposal, commit_id: str | None = None, **overrides: Any):
+    import apps.live_control_server.services.threat_publication_commits as commit_svc
+    from apps.live_control_server.models.threat_publication_commit import (
+        ConfirmThreatPublicationRequestV1,
+    )
+
+    payload: dict[str, Any] = {
+        "commit_id": commit_id or str(uuid.uuid4()),
+        "sealed_proposal_digest": proposal.sealed_proposal_digest,
+        "expected_parent_revision_id": proposal.expected_parent_revision_id,
+        "actor": "gm",
+    }
+    payload.update(overrides)
+    request = ConfirmThreatPublicationRequestV1.model_validate(payload)
+    return request, commit_svc
+
+
+def test_commit_claim_blocks_supersession_with_busy_message(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from graph_memory.kernel.contribution_models import ContributionMergeResult
+
+    import apps.live_control_server.services.threat_publication_commits as commit_svc
+
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    first_id = str(uuid.uuid4())
+    proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(first_id),
+        world_root=tmp_path / "graph",
+    )
+    ledger = proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id)
+    assert ledger is not None
+    proposal = next(item for item in ledger.proposals if item.proposal_id == first_id)
+    request, _ = _confirm_request_from_proposal(proposal)
+    commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        first_id,
+        request,
+        world_root=tmp_path / "graph",
+        merge_fn=lambda *_a, **_k: ContributionMergeResult(
+            world_id="world_1",
+            parent_revision_id=proposal.expected_parent_revision_id,
+            revision_id="rev:claimed",
+            contribution_ids=[proposal.expected_contribution_id],
+            accepted_assertion_ids=list(proposal.accepted_assertion_ids),
+            published=True,
+        ),
+        lookup_fn=lambda *_a, **_k: tuple(),
+    )
+
+    supersede = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(str(uuid.uuid4()), supersedes_proposal_id=first_id),
+        world_root=tmp_path / "graph",
+    )
+
+    assert supersede.response.result_label == "publication_proposal_busy"
+    message = supersede.response.message or ""
+    assert "commit" in message.casefold()
+    assert "supersession" in message.casefold()
+
+
+def test_orphan_commit_ledger_integrity_failure_on_prepare_and_read(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from graph_memory.kernel.contribution_models import ContributionMergeResult
+
+    import apps.live_control_server.services.threat_publication_commits as commit_svc
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        commit_root,
+    )
+
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    proposal_id = str(uuid.uuid4())
+    proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(proposal_id),
+        world_root=tmp_path / "graph",
+    )
+    ledger = proposal_svc._load_ledger_unlocked(tmp_path, draft.draft_id, op_id)
+    assert ledger is not None
+    proposal = next(item for item in ledger.proposals if item.proposal_id == proposal_id)
+    request, _ = _confirm_request_from_proposal(proposal)
+    commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        request,
+        world_root=tmp_path / "graph",
+        merge_fn=lambda *_a, **_k: ContributionMergeResult(
+            world_id="world_1",
+            parent_revision_id=proposal.expected_parent_revision_id,
+            revision_id="rev:orphan",
+            contribution_ids=[proposal.expected_contribution_id],
+            accepted_assertion_ids=list(proposal.accepted_assertion_ids),
+            published=True,
+        ),
+        lookup_fn=lambda *_a, **_k: tuple(),
+    )
+    proposal_svc._ledger_path(tmp_path, draft.draft_id, op_id).unlink()
+    assert not proposal_svc._ledger_path(tmp_path, draft.draft_id, op_id).exists()
+    assert (commit_root(tmp_path) / draft.draft_id / op_id / "ledger.json").is_file()
+
+    prepare_outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(str(uuid.uuid4())),
+        world_root=tmp_path / "graph",
+    )
+    assert prepare_outcome.response.result_label == "publication_proposal_integrity_failure"
+    assert "commit" in (prepare_outcome.response.message or "").casefold()
+    assert "proposal" in (prepare_outcome.response.message or "").casefold()
+
+    read_outcome = proposal_svc.read_threat_publication_proposal(
+        tmp_path, draft.draft_id, op_id, proposal_id
+    )
+    assert read_outcome.response.result_label == "publication_proposal_integrity_failure"
+    assert "commit" in (read_outcome.response.message or "").casefold()
+
+
+def test_exact_proposal_replay_still_works_after_commit_claim(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from graph_memory.kernel.contribution_models import ContributionMergeResult
+
+    import apps.live_control_server.services.threat_publication_commits as commit_svc
+
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    proposal_id = str(uuid.uuid4())
+    prepare_request = _prepare_request(proposal_id)
+    first = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        prepare_request,
+        world_root=tmp_path / "graph",
+    )
+    proposal = first.response.proposal
+    assert proposal is not None
+    request, _ = _confirm_request_from_proposal(proposal)
+    commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        request,
+        world_root=tmp_path / "graph",
+        merge_fn=lambda *_a, **_k: ContributionMergeResult(
+            world_id="world_1",
+            parent_revision_id=proposal.expected_parent_revision_id,
+            revision_id="rev:replay",
+            contribution_ids=[proposal.expected_contribution_id],
+            accepted_assertion_ids=list(proposal.accepted_assertion_ids),
+            published=True,
+        ),
+        lookup_fn=lambda *_a, **_k: tuple(),
+    )
+
+    replay = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        prepare_request,
+        world_root=tmp_path / "graph",
+    )
+
+    assert replay.created is False
+    assert replay.response.result_label == "publication_proposal_ready"
+    assert replay.response.proposal == proposal
+
+
+def test_dual_no_artifact_refuse_get_leaves_no_storage(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import apps.live_control_server.services.threat_publication_commits as commit_svc
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        commit_root,
+    )
+
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    _refuse_resolution(tmp_path, draft, op_id, parent)
+
+    proposal_outcome = proposal_svc.read_threat_publication_proposal(
+        tmp_path, draft.draft_id, op_id, str(uuid.uuid4())
+    )
+    assert proposal_outcome.response.result_label == "publication_proposal_not_found"
+    _assert_no_proposal_storage(tmp_path, draft.draft_id, op_id)
+    assert not (commit_root(tmp_path) / draft.draft_id / op_id).exists()
+
+    commit_outcome = commit_svc.read_threat_publication_commit(
+        tmp_path, draft.draft_id, op_id, str(uuid.uuid4())
+    )
+    assert commit_outcome.response.result_label == "publication_commit_not_found"
+    assert not (commit_root(tmp_path) / draft.draft_id / op_id).exists()
+    _assert_no_proposal_storage(tmp_path, draft.draft_id, op_id)
+
+
 def test_wrong_label_aliases_external_resource_at_exact_parent_rejects_without_proposal(
     tmp_path: Path, monkeypatch
 ) -> None:
