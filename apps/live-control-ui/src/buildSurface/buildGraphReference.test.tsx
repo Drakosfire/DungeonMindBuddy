@@ -147,6 +147,11 @@ describe("Build graph reference", () => {
       expect(screen.getByLabelText("Find objects")).toBeInTheDocument();
     });
 
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Unlock editing/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /Unlock editing/i }));
+
     const insertBtn = await screen.findByRole("button", { name: "Insert chip" });
     await waitFor(() => {
       expect(insertBtn).toBeEnabled();

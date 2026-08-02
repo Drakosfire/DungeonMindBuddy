@@ -14,11 +14,17 @@ import {
   type GraphNodeChipRuntimeValue,
   type GraphReferenceSearchItem,
 } from "../graphReference";
+import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import {
   toAppChromeTools,
   type MarkdownEditorToolbarModel,
 } from "../tiptap/MarkdownEditorToolbar";
+import {
+  CALLOUT_KINDS,
+  defaultCalloutLabel,
+  type CalloutKind,
+} from "../tiptap/markdown/calloutMarkdown";
 import {
   GRAPH_NODE_REF_TYPE,
   type RunbookReferenceAttrs,
@@ -68,9 +74,18 @@ export function BuildGraphReferenceShell({
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [isLocked, setIsLocked] = useState(true);
   const [graphRefSearchQuery, setGraphRefSearchQuery] = useState("");
+  const saveMarkdownRef = useRef(session.saveMarkdown);
+  saveMarkdownRef.current = session.saveMarkdown;
+  const saveDisabled = session.saveDisabled;
+
+  const toggleLock = useCallback(() => {
+    setIsLocked((current) => !current);
+  }, []);
 
   const editorInteractive = buildEditorInteractive(session.phase);
+  const canEdit = !isLocked && editorInteractive;
 
   const handleEditorChange = useCallback(
     (nextEditor: Editor | null) => {
@@ -87,6 +102,23 @@ export function BuildGraphReferenceShell({
     },
     [],
   );
+
+  const insertCallout = useCallback(
+    (kind: CalloutKind) => {
+      editor?.chain().focus().insertCallout({ kind }).run();
+    },
+    [editor],
+  );
+
+  const removeActiveBlock = useCallback(() => {
+    editor?.chain().focus().deleteActiveBlock().run();
+  }, [editor]);
+
+  const copyMarkdown = useCallback(async () => {
+    if (!editor || !navigator.clipboard?.writeText) return;
+    const markdown = defaultMarkdownDocumentAdapter.exportMarkdown(editor.getJSON());
+    await navigator.clipboard.writeText(markdown);
+  }, [editor]);
 
   const projectionNodes = useMemo(
     () => projection?.nodes.map((node) => adaptWorldGraphNodeForPlanCard(node)) ?? [],
@@ -135,7 +167,7 @@ export function BuildGraphReferenceShell({
         items={graphReferenceSearchItems}
         projectionState={projectionState}
         projectionError={projectionError}
-        insertDisabled={!editorReady || !editorInteractive}
+        insertDisabled={!editorReady || isLocked || !editorInteractive}
         initialQuery={graphRefSearchQuery}
         onInsert={handleInsertMarkdownReference}
         onView={handleViewGraphReference}
@@ -148,6 +180,7 @@ export function BuildGraphReferenceShell({
       graphReferenceSearchItems,
       handleInsertMarkdownReference,
       handleViewGraphReference,
+      isLocked,
       projectionError,
       projectionState,
     ],
@@ -220,6 +253,15 @@ export function BuildGraphReferenceShell({
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(
     () => ({
+      pinnedActions: [
+        {
+          id: "build-canvas-edit-lock",
+          eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
+          label: isLocked ? "Unlock editing" : "Lock editing",
+          onClick: toggleLock,
+          pressed: isLocked,
+        },
+      ],
       sections: [
         {
           id: "build-world-graph-objects",
@@ -228,18 +270,82 @@ export function BuildGraphReferenceShell({
           actions: [],
           panel: graphRefSearchPanel,
         },
+        {
+          id: "build-insert-blocks",
+          title: "Insert blocks",
+          defaultOpen: true,
+          actions: CALLOUT_KINDS.map((kind) => ({
+            id: `build-insert-${kind}`,
+            eyebrow: "Insert",
+            label: defaultCalloutLabel(kind),
+            onClick: () => insertCallout(kind),
+            disabled: !editor || isLocked || !editorInteractive,
+          })),
+        },
+        {
+          id: "build-edit-blocks",
+          title: "Edit blocks",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "build-remove-block",
+              eyebrow: "Remove",
+              label: "Remove block",
+              onClick: removeActiveBlock,
+              disabled: !editor || isLocked || !editorInteractive,
+            },
+          ],
+        },
+        {
+          id: "build-markdown-export",
+          title: "Markdown export",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "build-copy-markdown",
+              eyebrow: "Export",
+              label: "Copy Markdown",
+              onClick: () => {
+                void copyMarkdown();
+              },
+              disabled: !editor,
+            },
+          ],
+        },
+        {
+          id: "build-markdown-save",
+          title: "Markdown save",
+          defaultOpen: true,
+          actions: [
+            {
+              id: "build-save-markdown",
+              label: "Save to Markdown",
+              onClick: () => {
+                void saveMarkdownRef.current();
+              },
+              disabled: saveDisabled,
+            },
+          ],
+        },
       ],
     }),
-    [graphRefSearchPanel],
+    [
+      copyMarkdown,
+      editor,
+      editorInteractive,
+      graphRefSearchPanel,
+      insertCallout,
+      isLocked,
+      removeActiveBlock,
+      saveDisabled,
+      toggleLock,
+    ],
   );
 
   useEffect(() => {
     onEditorToolsChange?.(toAppChromeTools(toolbarModel));
-  }, [onEditorToolsChange, toolbarModel]);
-
-  useEffect(() => {
     return () => onEditorToolsChange?.(null);
-  }, [onEditorToolsChange]);
+  }, [onEditorToolsChange, toolbarModel]);
 
   const {
     title,
@@ -324,6 +430,7 @@ export function BuildGraphReferenceShell({
         <MarkdownEditorCore
           documentKey={session.documentKey}
           content={session.editorContent as Content}
+          editable={canEdit}
           onEditorChange={handleEditorChange}
           onUpdate={session.handleEditorUpdate}
           dataTestId={editorDataTestId}

@@ -1,10 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createWorkspaceDocument } from "../api/liveApi";
-import type {
-  WorldbuildingAuthorityState,
-  WorldbuildingVisibilityState,
-} from "../api/types";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { createBuildSurfacePublication } from "../agentInteraction/projectionSurfacePublication";
 import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
@@ -14,12 +10,15 @@ import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
-import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
-import { BUILD_NEW_SOURCE_HEADING, BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
-import { buildWorldbuildingStarterContent } from "./buildWorldbuildingStarter";
+import { BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
+import {
+  BUILD_WORLDBUILDING_STARTER_TITLE,
+  buildWorldbuildingStarterContent,
+} from "./buildWorldbuildingStarter";
 
 import "../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../tiptap/tiptapSpike.css";
+import "../graphReference/graphReference.css";
 import "./buildSurface.css";
 
 function navigateToDocument(documentId: string): void {
@@ -30,68 +29,46 @@ function navigateToDocument(documentId: string): void {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-interface NewSourceFormState {
-  title: string;
-  campaignId: string;
-  documentClass: string;
-  authorityState: WorldbuildingAuthorityState;
-  visibilityState: WorldbuildingVisibilityState;
-}
-
-const DEFAULT_FORM: NewSourceFormState = {
-  title: "",
-  campaignId: "eldyrwild",
-  documentClass: "lore",
-  authorityState: "draft",
-  visibilityState: "internal",
-};
-
 /**
- * Bare /build shows the new-source form; graph-pointer params prefill campaign context.
+ * Bare /build auto-creates a draft and lands on the preloaded markdown canvas.
  */
 export function BuildSurfacePage() {
   const documentId = useWorkspaceDocumentUrlSelection();
-  const graphPointer = parseBuildGraphPointerFromLocation();
   const { publishProjectionSurface } = useAgentInteraction();
-  const [form, setForm] = useState<NewSourceFormState>(() => ({
-    ...DEFAULT_FORM,
-    campaignId: graphPointer?.campaignId ?? DEFAULT_FORM.campaignId,
-  }));
-  const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const createStartedRef = useRef(false);
   const emptyMarkdownFallback = useMemo(() => buildWorldbuildingStarterContent(), []);
 
-  const handleCreate = useCallback(async (event: FormEvent) => {
-    event.preventDefault();
-    setCreating(true);
-    setCreateError(null);
-    try {
-      const created = await createWorkspaceDocument({
-        title: form.title.trim() || "Untitled worldbuilding source",
-        campaign_id: form.campaignId.trim(),
-        kind: "worldbuilding_source",
-        source_domain: "worldbuilding",
-        document_class: form.documentClass.trim(),
-        authority_state: form.authorityState,
-        visibility_state: form.visibilityState,
-      });
-      navigateToDocument(created.document_id);
-    } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Unable to create worldbuilding source.");
-    } finally {
-      setCreating(false);
-    }
-  }, [form]);
-
   useEffect(() => {
-    if (documentId || !graphPointer?.campaignId) return;
-    setForm((current) =>
-      current.campaignId === graphPointer.campaignId
-        ? current
-        : { ...current, campaignId: graphPointer.campaignId },
-    );
-  }, [documentId, graphPointer?.campaignId]);
+    if (documentId) {
+      createStartedRef.current = false;
+      return;
+    }
+    if (createStartedRef.current) {
+      return;
+    }
+    createStartedRef.current = true;
+    setCreateError(null);
+    void createWorkspaceDocument({
+      title: BUILD_WORLDBUILDING_STARTER_TITLE,
+      campaign_id: "eldyrwild",
+      kind: "worldbuilding_source",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    })
+      .then((created) => {
+        navigateToDocument(created.document_id);
+      })
+      .catch((error: unknown) => {
+        createStartedRef.current = false;
+        setCreateError(
+          error instanceof Error ? error.message : "Unable to create worldbuilding source.",
+        );
+      });
+  }, [documentId]);
 
   useEffect(() => {
     if (documentId) return;
@@ -100,79 +77,20 @@ export function BuildSurfacePage() {
     );
   }, [documentId, publishProjectionSurface]);
 
-  useEffect(() => {
-    if (documentId) return;
-    setCreateError(null);
-  }, [documentId]);
-
   if (!documentId) {
     return (
       <AppChrome activeRoute="build">
-        <main className="build-surface-new" data-testid="build-new-source-form">
-          <h1>{BUILD_SURFACE_LABEL}</h1>
-          <p>{BUILD_NEW_SOURCE_HEADING}</p>
-          <div className="build-surface-new-layout">
-            {graphPointer ? <BuildGraphObjectContext /> : null}
-            <form onSubmit={(event) => void handleCreate(event)}>
-              <label>
-                Title
-                <input
-                  data-testid="build-new-title"
-                  value={form.title}
-                  onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                />
-              </label>
-              <label>
-                Campaign
-                <input
-                  data-testid="build-new-campaign"
-                  value={form.campaignId}
-                  onChange={(event) => setForm((current) => ({ ...current, campaignId: event.target.value }))}
-                />
-              </label>
-              <label>
-                Class
-                <input
-                  data-testid="build-new-class"
-                  value={form.documentClass}
-                  onChange={(event) => setForm((current) => ({ ...current, documentClass: event.target.value }))}
-                />
-              </label>
-              <label>
-                Authority
-                <select
-                  data-testid="build-new-authority"
-                  value={form.authorityState}
-                  onChange={(event) => setForm((current) => ({
-                    ...current,
-                    authorityState: event.target.value as WorldbuildingAuthorityState,
-                  }))}
-                >
-                  <option value="draft">draft</option>
-                  <option value="reviewed">reviewed</option>
-                  <option value="canonical">canonical</option>
-                </select>
-              </label>
-              <label>
-                Visibility
-                <select
-                  data-testid="build-new-visibility"
-                  value={form.visibilityState}
-                  onChange={(event) => setForm((current) => ({
-                    ...current,
-                    visibilityState: event.target.value as WorldbuildingVisibilityState,
-                  }))}
-                >
-                  <option value="internal">internal</option>
-                  <option value="player_safe">player_safe</option>
-                </select>
-              </label>
-              {createError ? <p role="alert">{createError}</p> : null}
-              <button type="submit" data-testid="build-create-button" disabled={creating}>
-                Create source
-              </button>
-            </form>
-          </div>
+        <main className="app-status" data-testid="build-new-source-opening">
+          {createError ? (
+            <>
+              <h1>{BUILD_SURFACE_LABEL}</h1>
+              <p role="alert" data-testid="build-create-error">
+                {createError}
+              </p>
+            </>
+          ) : (
+            <p>Opening worldbuilding canvas…</p>
+          )}
         </main>
       </AppChrome>
     );

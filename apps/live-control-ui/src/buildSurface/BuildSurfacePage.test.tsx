@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -7,6 +6,7 @@ import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvide
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { BuildSurfacePage } from "./BuildSurfacePage";
+import { BUILD_WORLDBUILDING_STARTER_TITLE } from "./buildWorldbuildingStarter";
 
 function renderBuildPage() {
   return render(
@@ -38,6 +38,16 @@ vi.mock("../api/liveApi", async (importOriginal) => {
 });
 
 const DOC_ID = "11111111-1111-4111-8111-111111111111";
+
+const starterCreateArgs = {
+  title: BUILD_WORLDBUILDING_STARTER_TITLE,
+  campaign_id: "eldyrwild",
+  kind: "worldbuilding_source" as const,
+  source_domain: "worldbuilding" as const,
+  document_class: "lore",
+  authority_state: "draft" as const,
+  visibility_state: "internal" as const,
+};
 
 describe("BuildSurfacePage", () => {
   beforeEach(() => {
@@ -71,27 +81,10 @@ describe("BuildSurfacePage", () => {
       sourceArtifacts: [],
       diagnostics: [],
     } as never);
-  });
-
-  it("does not create a document on mount without documentId", () => {
-    render(
-      <AgentInteractionProvider>
-        <BuildSurfacePage />
-        <BuildProjectionProbe />
-      </AgentInteractionProvider>,
-    );
-    expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
-    expect(screen.getByTestId("build-projection-enabled")).toHaveTextContent("inactive");
-    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-  });
-
-  it("creates a document only when the new-source form is submitted", async () => {
-    const user = userEvent.setup();
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
       schema_version: "dmb_workspace_document_record_v1",
       document_id: DOC_ID,
-      title: "Faction Notes",
+      title: BUILD_WORLDBUILDING_STARTER_TITLE,
       campaign_id: "eldyrwild",
       target_session: null,
       kind: "worldbuilding_source",
@@ -102,7 +95,7 @@ describe("BuildSurfacePage", () => {
       created_at: "2026-07-22T00:00:00Z",
       updated_at: "2026-07-22T00:00:00Z",
       source_domain: "worldbuilding",
-      document_class: "faction",
+      document_class: "lore",
       authority_state: "draft",
       visibility_state: "internal",
     });
@@ -111,7 +104,7 @@ describe("BuildSurfacePage", () => {
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
-        title: "Faction Notes",
+        title: BUILD_WORLDBUILDING_STARTER_TITLE,
         campaign_id: "eldyrwild",
         target_session: null,
         kind: "worldbuilding_source",
@@ -122,7 +115,7 @@ describe("BuildSurfacePage", () => {
         created_at: "2026-07-22T00:00:00Z",
         updated_at: "2026-07-22T00:00:00Z",
         source_domain: "worldbuilding",
-        document_class: "faction",
+        document_class: "lore",
         authority_state: "draft",
         visibility_state: "internal",
       },
@@ -132,25 +125,24 @@ describe("BuildSurfacePage", () => {
       file_exists: false,
       loaded_revision: 1,
     });
+  });
 
-    renderBuildPage();
-    await user.type(screen.getByTestId("build-new-title"), "Faction Notes");
-    await user.clear(screen.getByTestId("build-new-class"));
-    await user.type(screen.getByTestId("build-new-class"), "faction");
-    await user.click(screen.getByTestId("build-create-button"));
+  it("mounts opening state and auto-creates a worldbuilding source on bare /build", async () => {
+    render(
+      <AgentInteractionProvider>
+        <BuildSurfacePage />
+        <BuildProjectionProbe />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByTestId("build-new-source-opening")).toBeInTheDocument();
+    expect(screen.getByText("Opening worldbuilding canvas…")).toBeInTheDocument();
+    expect(screen.getByTestId("build-projection-enabled")).toHaveTextContent("inactive");
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
     });
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith({
-      title: "Faction Notes",
-      campaign_id: "eldyrwild",
-      kind: "worldbuilding_source",
-      source_domain: "worldbuilding",
-      document_class: "faction",
-      authority_state: "draft",
-      visibility_state: "internal",
-    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(starterCreateArgs);
   });
 
   it("loads snapshot markdown when reopening with documentId", async () => {
@@ -231,10 +223,13 @@ describe("BuildSurfacePage", () => {
 
     window.history.pushState({}, "", "/build");
     window.dispatchEvent(new PopStateEvent("popstate"));
-    expect(await screen.findByTestId("build-new-source-form")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(starterCreateArgs);
   });
 
-  it("PR380B: shows graph-object context when pointer params are present", async () => {
+  it("PR380B: auto-creates when graph-pointer params are present without documentId", async () => {
     window.history.pushState(
       {},
       "",
@@ -259,7 +254,9 @@ describe("BuildSurfacePage", () => {
       diagnostics: [],
     });
     renderBuildPage();
-    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
-    expect(screen.getByTestId("build-new-campaign")).toHaveValue("longmont-c2");
+
+    await waitFor(() => {
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(starterCreateArgs);
+    });
   });
 });
