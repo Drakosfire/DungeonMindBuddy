@@ -37,10 +37,11 @@ const SESSION_AWARE_TOOLS = new Set([
 ]);
 
 /**
- * Temporary Plan-owned host (delegates shell DOM to ProjectionHost).
- * Nano-commit bridge before LegacyProjectionHostAdapter extraction (BLD-SIH-03a).
+ * Temporary Plan-owned projection host policy adapter (BLD-SIH-03a).
+ * Owns URL/session inference, stale identity checks, and renderer dispatch.
+ * Delete when BLD-SIH-03b / Plan recomposition lands a native publication path.
  */
-export function AdaptiveProjectionContainer() {
+export function LegacyProjectionHostAdapter() {
   const { projectionSurface } = useAgentInteraction();
   const {
     active,
@@ -61,7 +62,7 @@ export function AdaptiveProjectionContainer() {
   }
 
   return (
-    <AdaptiveProjectionContainerInner
+    <LegacyProjectionHostAdapterInner
       surfaceIdentity={projectionSurface!.publication.identity}
       config={config}
       active={active}
@@ -76,7 +77,7 @@ export function AdaptiveProjectionContainer() {
   );
 }
 
-interface AdaptiveProjectionContainerInnerProps {
+interface LegacyProjectionHostAdapterInnerProps {
   surfaceIdentity: ProjectionSurfaceIdentity;
   config: NonNullable<ReturnType<typeof useAgentInteraction>["projectionSurface"]>["publication"]["config"];
   active: ReturnType<typeof useProjection>["active"];
@@ -89,7 +90,7 @@ interface AdaptiveProjectionContainerInnerProps {
   graphReviewDiagnosticsPayload: ReturnType<typeof useProjection>["graphReviewDiagnosticsPayload"];
 }
 
-function AdaptiveProjectionContainerInner({
+function LegacyProjectionHostAdapterInner({
   surfaceIdentity,
   config,
   active,
@@ -100,7 +101,7 @@ function AdaptiveProjectionContainerInner({
   graphReferenceProjectionState,
   graphReferenceBinding,
   graphReviewDiagnosticsPayload,
-}: AdaptiveProjectionContainerInnerProps) {
+}: LegacyProjectionHostAdapterInnerProps) {
   const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(surfaceIdentity);
   surfaceIdentityRef.current = surfaceIdentity;
   useEffect(() => {

@@ -4,7 +4,7 @@ import type {
   GraphReferenceResolution,
   OpenGraphReferenceArgs,
 } from "../../graphReference/types";
-import type { ActiveProjection, ProjectionSize } from "../../surfaceInteraction/projection/types";
+import type { ActiveProjection } from "../../surfaceInteraction/projection/types";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
   RegisterableToolProjectionId,
@@ -60,10 +60,4 @@ export function useOptionalProjection(): ProjectionContextValue | null {
   const host = useOptionalAgentInteraction();
   if (!host) return null;
   return mapAgentInteractionToProjection(host);
-}
-
-export function projectionContainerClass(size: ProjectionSize | undefined): string {
-  if (size === "fullscreen") return "plan-projection-container plan-projection-fullscreen";
-  if (size === "wide") return "plan-projection-container plan-projection-wide";
-  return "plan-projection-container plan-projection-compact";
 }

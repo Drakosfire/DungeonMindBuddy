@@ -10,7 +10,7 @@ import { getRecapArtifacts } from "../../api/liveApi";
 import type { GraphProjectionNodeView, RecapArtifactsListResponse } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { SurfaceConfig } from "../types";
-import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
+import { LegacyProjectionHostAdapter } from "./LegacyProjectionHostAdapter";
 import {
   AgentInteractionProvider,
   useAgentInteraction,
@@ -91,7 +91,7 @@ function OpenReferenceButton() {
   );
 }
 
-describe("AdaptiveProjectionContainer content reference chrome", () => {
+describe("LegacyProjectionHostAdapter content reference chrome", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/plan");
   });
@@ -99,7 +99,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
   it("renders no projection chrome when the app host is inactive", () => {
     render(
       <AgentInteractionProvider>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProvider>,
     );
 
@@ -119,7 +119,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
 
     render(
       <AgentInteractionProjectionTestHost config={buildConfig}>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -156,7 +156,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     render(
       <AgentInteractionProvider>
         <ContradictoryPublisher />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProvider>,
     );
 
@@ -176,7 +176,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <CaptureApi />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -223,7 +223,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
 
     render(
       <AgentInteractionProjectionTestHost config={themedConfig}>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -238,7 +238,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -262,7 +262,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -284,7 +284,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
 
     const { rerender } = render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -301,7 +301,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
 
     rerender(
       <AgentInteractionProjectionTestHost config={revisedConfig}>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -318,7 +318,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
   });
 });
 
-describe("AdaptiveProjectionContainer nav session lookup lease safety", () => {
+describe("LegacyProjectionHostAdapter nav session lookup lease safety", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/plan");
     vi.mocked(getRecapArtifacts).mockReset();
@@ -356,7 +356,7 @@ describe("AdaptiveProjectionContainer nav session lookup lease safety", () => {
     const lookup = deferRecapArtifacts();
     render(
       <AgentInteractionProjectionTestHost config={campaignConfig("longmont-c2")}>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -377,7 +377,7 @@ describe("AdaptiveProjectionContainer nav session lookup lease safety", () => {
     const lookup = deferRecapArtifacts();
     const { rerender } = render(
       <AgentInteractionProjectionTestHost config={campaignConfig("longmont-c2")}>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -385,7 +385,7 @@ describe("AdaptiveProjectionContainer nav session lookup lease safety", () => {
 
     rerender(
       <AgentInteractionProjectionTestHost config={campaignConfig("other-campaign")}>
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 

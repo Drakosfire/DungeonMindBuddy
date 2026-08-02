@@ -19,7 +19,7 @@ import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfa
 import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
 } from "./agentInteraction/surfaceInteractionCompat";
-import { AdaptiveProjectionContainer } from "./planSurface/projection/AdaptiveProjectionContainer";
+import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProjectionHostAdapter";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
@@ -285,7 +285,7 @@ export function App() {
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
         {content}
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
         <AgentInteractionChrome />
       </AskPluginSlotProvider>
     </AgentInteractionProvider>

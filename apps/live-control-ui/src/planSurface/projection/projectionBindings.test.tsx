@@ -17,7 +17,7 @@ import {
   type GraphReviewDiagnosticsProjectionPayload,
   type PlanReferenceProjectionBinding as PlanBinding,
 } from "./projectionBindings";
-import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
+import { LegacyProjectionHostAdapter } from "./LegacyProjectionHostAdapter";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
 import { useProjection } from "./projectionContext";
 import { GraphReviewLiveStateProvider } from "../graphReviewWorkbench/GraphReviewLiveStateContext";
@@ -336,7 +336,7 @@ describe("projectionBindings sibling topology", () => {
           </PlanGraphReferenceResolverProvider>
         </PlanGraphLensProvider>
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -375,7 +375,7 @@ describe("projectionBindings sibling topology", () => {
           <GraphReviewDiagnosticsProjectionBinding />
         </GraphReviewLiveStateProvider>
         <OpenDiagnosticsButton />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -417,7 +417,7 @@ describe("projectionBindings sibling topology", () => {
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <ControllablePlanBinding />
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -455,7 +455,7 @@ describe("projectionBindings sibling topology", () => {
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <Registrar />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -512,7 +512,7 @@ describe("projectionBindings sibling topology", () => {
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <Registrar />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -561,7 +561,7 @@ describe("projectionBindings sibling topology", () => {
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <Registrar />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
@@ -654,7 +654,7 @@ describe("projectionBindings sibling topology", () => {
       <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
         <ReplaceableDiagnosticsBinding />
         <OpenDiagnosticsButton />
-        <AdaptiveProjectionContainer />
+        <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
