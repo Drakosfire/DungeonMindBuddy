@@ -56,19 +56,19 @@ Do **not** patch V12/Adv V10 gold in place. Defects retained as regression evide
 
 ### Fail-closed span independence
 
-Resolved-span fingerprints fail before hashing when evidence refs are missing, paths are absent, line ranges are invalid/empty, **start or end exceeds file length**, normalized text is empty, or an assertion yields zero source-span fingerprints. Future promotion holdouts must assert span-text `isdisjoint` against **all** prior canonical dirs including `temporal_shadow_cohort`.
+Resolved-span fingerprints fail before hashing when evidence refs are missing, paths are absent, line ranges are invalid/empty, **start or end exceeds file length**, normalized text is empty, or an assertion yields zero source-span fingerprints. Auto-discovered holdout successors (version suffix `> LAST_RETIRED_HOLDOUT_VERSION`) assert span-text **and** semantic-proposition fingerprint `isdisjoint` against all retired canonical dirs **and** earlier discovered successors (cumulative pool grows as each successor passes).
 
 ### Proposition / adversarial novelty
 
-- Holdout: proposition-template Jaccard (label+predicate, entity scrub) `< 0.40` vs all prior canonical holdouts.
-- Adversarial: source-prose Jaccard is **insufficient**. Fresh adversarial cohorts also require proposition-template Jaccard `< 0.40` vs all prior adversarial assertion labels/predicates.
+- Holdout: proposition-template Jaccard (label+predicate, entity scrub) `< 0.40` vs all prior canonical holdouts **and** earlier discovered holdout successors (cumulative comparison pool).
+- Adversarial: source-prose Jaccard is **insufficient**. Fresh adversarial cohorts also require proposition-template Jaccard `< 0.40` vs all prior adversarial assertion labels/predicates **and** earlier discovered adversarial successors (cumulative comparison pool).
 - **Fresh-cohort discovery** uses immutable cutoffs `LAST_RETIRED_HOLDOUT_VERSION=13` and `LAST_RETIRED_ADVERSARIAL_VERSION=11` (versioned dirs with suffix `> cutoff`). PRIOR tuple membership does **not** disable guards; non-numeric suffixes fail closed.
 
 ### GOLD-AUDIT ↔ fixture binding
 
 Audit rows must bind ID, status, proposition, lane, and supporting phrase to sealed fixtures. **This proves mechanical fixture consistency only — not human Gate-faithfulness.** Additional audit cases check Gate E3 (episode boundary vs resulting-state report) and proposition-first value grounding (value must temporally modify the selected proposition).
 
-**Future holdout overlays** (versions above the holdout cutoff) audit **both** `valid_time.start` and `valid_time.end` across **every** `evidence_ref_id` on resolved assertions — not a V13-only end/first-ref check. Postponement-value defects still audit occurrence `raw_expression` on resolved rows.
+**Future holdout overlays** (versions above the holdout cutoff) audit **both** `valid_time.start` and `valid_time.end` when non-null. For each boundary, at least one attached evidence span must narrate the transition; **state-restatement alone is insufficient**. Additional resulting-state restatement spans are OK when boundary evidence exists. Postponement-value defects still audit occurrence `raw_expression` on resolved rows.
 
 ### Reaggregate provenance (durable evidence)
 
@@ -76,7 +76,7 @@ Audit rows must bind ID, status, proposition, lane, and supporting phrase to sea
 
 1. Loads on-disk manifests and rejects ambiguous dirs (both success and failure manifests).
 2. Requires each published manifest `case_digest` to match the executed case file SHA256.
-3. Requires exactly one provider `repository_sha` across the matrix (`provider_execution_sha`).
+3. Requires exactly one provider `repository_sha` across the matrix (`provider_execution_sha`); **exact manifest strings only** — dirty or provenance-suffixed values (e.g. `abc+dirty`) are rejected without normalization.
 4. Verifies development/holdout/adversarial case/base/gold/evidence bytes at that provider commit (sealed holdout/adversarial via `verify_cohort_seal` with `execution_commit_sha=provider_execution_sha`).
 5. Passes `expected_repository_sha=provider_execution_sha` into cohort aggregation; records `provider_run_repository_shas=[provider_execution_sha]` while `aggregate_build_sha` / aggregate `repository_sha` remain the current clean HEAD rebuild tip.
 

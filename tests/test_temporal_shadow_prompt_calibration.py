@@ -1431,11 +1431,17 @@ def test_require_single_provider_execution_sha_rejects_mismatch() -> None:
         ),
     ]
     with pytest.raises(calibration.ReaggregateError, match="inconsistent provider execution"):
-        calibration._require_single_provider_execution_sha(outcomes)
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
 
 
-def test_require_single_provider_execution_sha_strips_dirty_suffix() -> None:
-    sha = "aaa111deadbeefdeadbeefdeadbeefdeadbeef"
+def test_require_single_provider_execution_sha_rejects_dirty_suffix() -> None:
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     outcomes = [
         calibration.RunOutcome(
             spec=_spec("candidate", "development", 1),
@@ -1450,7 +1456,39 @@ def test_require_single_provider_execution_sha_strips_dirty_suffix() -> None:
             failure_manifest={"repository_sha": sha},
         ),
     ]
-    assert calibration._require_single_provider_execution_sha(outcomes) == sha
+    with pytest.raises(
+        calibration.ReaggregateError,
+        match="dirty or provenance-suffixed repository_sha rejected",
+    ):
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+
+
+def test_require_single_provider_execution_sha_accepts_clean_head_sha() -> None:
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    outcomes = [
+        calibration.RunOutcome(
+            spec=_spec("candidate", "development", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": sha},
+        ),
+        calibration.RunOutcome(
+            spec=_spec("candidate", "holdout", 1),
+            run_dir=Path("."),
+            succeeded=False,
+            failure_manifest={"repository_sha": sha},
+        ),
+    ]
+    assert (
+        calibration._require_single_provider_execution_sha(outcomes, repo_root=REPO_ROOT)
+        == sha
+    )
 
 
 def test_temporal_shadow_extraction_error_prepends_message_to_custom_diagnostics() -> None:

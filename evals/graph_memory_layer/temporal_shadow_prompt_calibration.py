@@ -1336,9 +1336,13 @@ def _manifest_case_digest(manifest: dict[str, Any] | None) -> str | None:
     return digest if isinstance(digest, str) and digest else None
 
 
-def _require_single_provider_execution_sha(outcomes: list[RunOutcome]) -> str:
-    """Collect one non-empty repository_sha from published run/failure manifests."""
-    shas: set[str] = set()
+def _require_single_provider_execution_sha(
+    outcomes: list[RunOutcome],
+    *,
+    repo_root: Path,
+) -> str:
+    """Collect one exact non-empty repository_sha from published run/failure manifests."""
+    shas: list[str] = []
     for outcome in outcomes:
         manifest = outcome.run_manifest if outcome.succeeded else outcome.failure_manifest
         if manifest is None:
@@ -1355,14 +1359,30 @@ def _require_single_provider_execution_sha(outcomes: list[RunOutcome]) -> str:
                 f"{outcome.spec.prompt_lane}/{outcome.spec.cohort}/"
                 f"run-{outcome.spec.repetition:02d}"
             )
-        shas.add(_git_commit_sha(repository_sha.strip()))
-    if len(shas) != 1:
+        shas.append(repository_sha.strip())
+
+    for sha in shas:
+        if "+" in sha:
+            raise ReaggregateError(
+                "dirty or provenance-suffixed repository_sha rejected for "
+                f"reaggregation: {sha!r}"
+            )
+
+    unique = set(shas)
+    if len(unique) != 1:
         raise ReaggregateError(
-            f"inconsistent provider execution SHAs across matrix: {sorted(shas)}"
+            f"inconsistent provider execution SHAs across matrix: {sorted(unique)}"
         )
-    provider_sha = next(iter(shas))
+
+    provider_sha = next(iter(unique))
     if not provider_sha or provider_sha == "unknown":
         raise ReaggregateError("provider execution SHA is empty or unknown")
+
+    if not _git_ok(repo_root, "cat-file", "-e", f"{provider_sha}^{{commit}}"):
+        raise ReaggregateError(
+            f"provider execution SHA is not a git commit object: {provider_sha!r}"
+        )
+
     return provider_sha
 
 
@@ -1916,7 +1936,9 @@ def reaggregate_existing_calibration_runs(
         output_dir=output_dir,
         run_specs=run_specs,
     )
-    provider_execution_sha = _require_single_provider_execution_sha(outcomes)
+    provider_execution_sha = _require_single_provider_execution_sha(
+        outcomes, repo_root=root
+    )
 
     holdout_seal = verify_cohort_seal(
         case_path=candidate_holdout_case,

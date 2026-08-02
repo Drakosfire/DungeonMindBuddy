@@ -774,6 +774,78 @@ def _template_jaccard(a: str, b: str) -> float:
     return len(left & right) / len(union)
 
 
+def _cohort_version(path: Path, *, prefix: str) -> int:
+    suffix = path.name[len(prefix) :]
+    if not suffix.isdigit():
+        raise AssertionError(
+            f"unknown or non-numeric versioned cohort suffix: {path.name!r}"
+        )
+    return int(suffix)
+
+
+def _sorted_by_version(dirs: list[Path], *, prefix: str) -> list[Path]:
+    return sorted(dirs, key=lambda p: _cohort_version(p, prefix=prefix))
+
+
+def _load_assertions(folder: Path) -> list[dict]:
+    base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+    return list(base.get("candidate_assertions", []))
+
+
+def _assert_proposition_jaccard_below_threshold(
+    fresh_assertions: list[dict],
+    comparison: list[tuple[str, dict]],
+    *,
+    threshold: float = 0.40,
+    cohort_kind: str,
+) -> None:
+    for fresh_assertion in fresh_assertions:
+        for prior_name, prior_assertion in comparison:
+            score = _proposition_template_jaccard(fresh_assertion, prior_assertion)
+            if score >= threshold:
+                raise AssertionError(
+                    f"proposition-template Jaccard >= {threshold:.2f} vs {cohort_kind}: "
+                    f"{fresh_assertion.get('label')!r} vs {prior_name} "
+                    f"{prior_assertion.get('label')!r} ({score:.3f})"
+                )
+
+
+def _assert_successors_proposition_jaccard_cumulative(
+    *,
+    successors: list[Path],
+    retired_dirs: tuple[Path, ...],
+    prefix: str,
+    threshold: float = 0.40,
+    cohort_kind: str,
+) -> None:
+    comparison: list[tuple[str, dict]] = []
+    for folder in retired_dirs:
+        if not folder.is_dir():
+            continue
+        for assertion in _load_assertions(folder):
+            comparison.append((folder.name, assertion))
+    for successor in _sorted_by_version(successors, prefix=prefix):
+        fresh_assertions = _load_assertions(successor)
+        _assert_proposition_jaccard_below_threshold(
+            fresh_assertions,
+            comparison,
+            threshold=threshold,
+            cohort_kind=cohort_kind,
+        )
+        for assertion in fresh_assertions:
+            comparison.append((successor.name, assertion))
+
+
+def _all_evidence_is_resulting_state_without_boundary(sources: list[str]) -> bool:
+    """True only when every resolved source is a resulting-state report without boundary."""
+    if not sources:
+        return False
+    return all(
+        _source_reports_resulting_state_without_narrated_boundary(source)
+        for source in sources
+    )
+
+
 def _discover_cohorts_above_retired_cutoff(
     *,
     prefix: str,
@@ -1071,66 +1143,111 @@ def test_adversarial_v11_proposition_template_jaccard_replays_adv_v10() -> None:
 
 def test_adversarial_cohort_proposition_template_jaccard_must_be_below_threshold_vs_prior() -> None:
     """Fail-closed guard for fresh adversarial promotion cohorts (V12+)."""
-    fresh_dirs = _discover_cohorts_above_retired_cutoff(
+    successors = _discover_cohorts_above_retired_cutoff(
         prefix="temporal_shadow_adversarial_v",
         last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
     )
-    if not fresh_dirs:
+    if not successors:
         return
-    prior_assertions: list[tuple[str, dict]] = []
-    for folder in PRIOR_ADVERSARIAL_COHORT_DIRS:
-        if not folder.is_dir():
-            continue
-        base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
-        for assertion in base.get("candidate_assertions", []):
-            prior_assertions.append((folder.name, assertion))
-    for fresh_dir in fresh_dirs:
-        _require_fresh_cohort(fresh_dir)
-        fresh_base = json.loads(
-            (fresh_dir / "base-contribution.json").read_text(encoding="utf-8")
-        )
-        fresh_assertions = fresh_base.get("candidate_assertions", [])
-        for fresh_assertion in fresh_assertions:
-            for prior_name, prior_assertion in prior_assertions:
-                score = _proposition_template_jaccard(fresh_assertion, prior_assertion)
-                if score >= 0.40:
-                    raise AssertionError(
-                        "proposition-template Jaccard >= 0.40 vs prior adversarial: "
-                        f"{fresh_assertion.get('label')!r} vs {prior_name} "
-                        f"{prior_assertion.get('label')!r} ({score:.3f})"
-                    )
+    for successor in successors:
+        _require_fresh_cohort(successor)
+    _assert_successors_proposition_jaccard_cumulative(
+        successors=successors,
+        retired_dirs=PRIOR_ADVERSARIAL_COHORT_DIRS,
+        prefix="temporal_shadow_adversarial_v",
+        cohort_kind="prior adversarial",
+    )
 
 
 def test_holdout_cohort_proposition_template_jaccard_must_be_below_threshold_vs_prior() -> None:
     """Fail-closed guard for fresh holdout promotion cohorts (V14+)."""
-    fresh_dirs = _discover_cohorts_above_retired_cutoff(
+    successors = _discover_cohorts_above_retired_cutoff(
         prefix="temporal_shadow_holdout_v",
         last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
     )
-    if not fresh_dirs:
+    if not successors:
         return
-    prior_assertions: list[tuple[str, dict]] = []
+    for successor in successors:
+        _require_fresh_cohort(successor)
+    _assert_successors_proposition_jaccard_cumulative(
+        successors=successors,
+        retired_dirs=PRIOR_CANONICAL_COHORT_DIRS,
+        prefix="temporal_shadow_holdout_v",
+        cohort_kind="prior canonical holdout",
+    )
+
+
+def test_cumulative_successor_proposition_jaccard_rejects_high_overlap_vs_earlier_successor(
+    tmp_path: Path,
+) -> None:
+    """V13 must fail cumulative Jaccard when it replays V12 labels."""
+    shared_label = "The chancellor left the coast three winters earlier"
+    for version, folder_name in ((12, "temporal_shadow_holdout_v12"), (13, "temporal_shadow_holdout_v13")):
+        cohort = tmp_path / folder_name
+        cohort.mkdir()
+        payload = {
+            "candidate_assertions": [
+                {
+                    "assertion_id": f"assertion:v{version}",
+                    "label": shared_label,
+                    "predicate": "left_coast",
+                }
+            ]
+        }
+        (cohort / "base-contribution.json").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+    successors = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_holdout_v",
+        last_retired_version=11,
+        examples_root=tmp_path,
+    )
+    with pytest.raises(AssertionError, match="Jaccard >= 0.40"):
+        _assert_successors_proposition_jaccard_cumulative(
+            successors=successors,
+            retired_dirs=(),
+            prefix="temporal_shadow_holdout_v",
+            cohort_kind="prior canonical holdout",
+        )
+
+
+def test_fresh_holdout_span_and_semantic_fingerprints_disjoint_from_retired_and_earlier_successors() -> (
+    None
+):
+    """Fresh holdout successors must stay disjoint from retired dirs and earlier successors."""
+    successors = _discover_cohorts_above_retired_cutoff(
+        prefix="temporal_shadow_holdout_v",
+        last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
+    )
+    if not successors:
+        return
+    prior_semantic: set[tuple] = set()
+    prior_span_text: set[str] = set()
     for folder in PRIOR_CANONICAL_COHORT_DIRS:
         if not folder.is_dir():
             continue
-        base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
-        for assertion in base.get("candidate_assertions", []):
-            prior_assertions.append((folder.name, assertion))
-    for fresh_dir in fresh_dirs:
-        _require_fresh_cohort(fresh_dir)
-        fresh_base = json.loads(
-            (fresh_dir / "base-contribution.json").read_text(encoding="utf-8")
-        )
-        fresh_assertions = fresh_base.get("candidate_assertions", [])
-        for fresh_assertion in fresh_assertions:
-            for prior_name, prior_assertion in prior_assertions:
-                score = _proposition_template_jaccard(fresh_assertion, prior_assertion)
-                if score >= 0.40:
-                    raise AssertionError(
-                        "proposition-template Jaccard >= 0.40 vs prior canonical holdout: "
-                        f"{fresh_assertion.get('label')!r} vs {prior_name} "
-                        f"{prior_assertion.get('label')!r} ({score:.3f})"
-                    )
+        evidence = _case_evidence_by_id(folder)
+        for assertion in _load_assertions(folder):
+            prior_semantic.add(_semantic_proposition_fingerprint(assertion))
+            prior_span_text |= _source_span_text_fingerprints(assertion, evidence)
+
+    for successor in _sorted_by_version(successors, prefix="temporal_shadow_holdout_v"):
+        _require_fresh_cohort(successor)
+        evidence = _case_evidence_by_id(successor)
+        successor_semantic = {
+            _semantic_proposition_fingerprint(a) for a in _load_assertions(successor)
+        }
+        successor_span_text: set[str] = set()
+        for assertion in _load_assertions(successor):
+            successor_span_text |= _source_span_text_fingerprints(assertion, evidence)
+
+        semantic_overlap = successor_semantic & prior_semantic
+        assert not semantic_overlap, sorted(semantic_overlap)[:5]
+        span_overlap = successor_span_text & prior_span_text
+        assert not span_overlap, sorted(span_overlap)[:5]
+
+        prior_semantic |= successor_semantic
+        prior_span_text |= successor_span_text
 
 
 def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() -> None:
@@ -1156,26 +1273,25 @@ def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() 
             assertion_id = ann.get("base_assertion_id")
             assertion = by_id.get(assertion_id) if isinstance(assertion_id, str) else None
             if assertion is not None and (valid_start is not None or valid_end is not None):
+                resolved_sources: list[str] = []
                 for evidence_id in assertion.get("evidence_ref_ids") or []:
                     entry = evidence.get(evidence_id)
                     if entry is None:
                         continue
-                    source = _resolved_span_text(entry)
-                    if valid_start is not None and _source_reports_resulting_state_without_narrated_boundary(
-                        source
-                    ):
+                    resolved_sources.append(_resolved_span_text(entry))
+                if valid_start is not None and resolved_sources:
+                    if _all_evidence_is_resulting_state_without_boundary(resolved_sources):
                         raise AssertionError(
-                            f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} "
-                            f"evidence {evidence_id!r} — valid_time.start set from "
-                            "resulting-state report without narrated boundary"
+                            f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} — "
+                            "valid_time.start lacks any narrating/boundary evidence span "
+                            "(all attached evidence are resulting-state reports)"
                         )
-                    if valid_end is not None and _source_reports_resulting_state_without_narrated_boundary(
-                        source
-                    ):
+                if valid_end is not None and resolved_sources:
+                    if _all_evidence_is_resulting_state_without_boundary(resolved_sources):
                         raise AssertionError(
-                            f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} "
-                            f"evidence {evidence_id!r} — valid_time.end set from "
-                            "resulting-state report without narrated boundary"
+                            f"{fresh_dir.name}: Gate E3 defect on {assertion_id!r} — "
+                            "valid_time.end lacks any narrating/boundary evidence span "
+                            "(all attached evidence are resulting-state reports)"
                         )
             occ_time = ann.get("occurrence_time") or {}
             occ_point = occ_time.get("point") or {}
@@ -1404,6 +1520,17 @@ def test_retired_regression_gold_audit_matches_base_and_overlay() -> None:
                 phrase,
                 source_phrase,
             )
+
+
+def test_gate_e3_audit_allows_mixed_boundary_and_state_restatement_evidence() -> None:
+    boundary = "When they became mayor, the council stopped meeting at dawn."
+    state_only = (
+        "They are a group of humans that no longer feel represented in the city "
+        "and want to cause as much trouble as possible."
+    )
+    assert not _all_evidence_is_resulting_state_without_boundary([boundary, state_only])
+    assert _all_evidence_is_resulting_state_without_boundary([state_only])
+    assert not _all_evidence_is_resulting_state_without_boundary([])
 
 
 def test_gate_e3_audit_rejects_source_time_for_resulting_state_report() -> None:
