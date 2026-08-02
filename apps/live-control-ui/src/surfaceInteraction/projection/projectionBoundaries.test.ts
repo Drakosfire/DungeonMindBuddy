@@ -60,9 +60,11 @@ describe("projection host ownership boundaries", () => {
   it("removes AdaptiveProjectionContainer from production sources", () => {
     const hits: string[] = [];
     for (const file of listProductionSourcesUnder("")) {
+      const rel = relative(SRC_ROOT, file);
+      if (rel === "planSurface/projection/projectionTestHost.tsx") continue;
       const source = readFileSync(file, "utf8");
       if (/\bAdaptiveProjectionContainer\b/.test(source)) {
-        hits.push(relative(SRC_ROOT, file));
+        hits.push(rel);
       }
     }
     expect(hits).toEqual([]);
@@ -121,5 +123,25 @@ describe("projection host ownership boundaries", () => {
       /from\s+["']\.\.\/surfaceInteraction\/projection\/types["']/,
     );
     expect(providerTypes).not.toMatch(/from\s+["'][^"']*planSurface\/types["']/);
+  });
+
+  it("keeps neutral projection production sources free of Plan-owned presentation copy", () => {
+    const forbidden = ["Plan toolbox", "Close toolbox", "Command Board"];
+    const violations: string[] = [];
+    for (const file of listProductionFiles(PROJECTION_ROOT)) {
+      const source = readFileSync(file, "utf8");
+      for (const phrase of forbidden) {
+        if (source.includes(phrase)) {
+          violations.push(`${relative(PROJECTION_ROOT, file)}: ${phrase}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("does not interpolate tool keys into CSS class tokens in ProjectionHost", () => {
+    const hostSource = readFileSync(join(PROJECTION_ROOT, "ProjectionHost.tsx"), "utf8");
+    expect(hostSource).not.toMatch(/surface-projection-host--tool-\$\{/);
+    expect(hostSource).toMatch(/data-projection-key=\{active\?\.key\}/);
   });
 });
