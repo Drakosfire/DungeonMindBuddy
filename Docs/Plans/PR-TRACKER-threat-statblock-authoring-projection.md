@@ -6,7 +6,7 @@
 **Latest merged Threat implementations:** `#478` — exact durable no-write Threat publication proposal; `#476` — exact contribution-operation-to-immutable-revision lookup  
 **Latest merged Threat authority:** `#473` — SBW09c2a exact operation-to-revision lookup handoff  
 **Immediate implementation authority:**
-- [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — ACTIVE / NEXT PUBLICATION IMPLEMENTATION; re-anchored against merged c1/c2a; dispatch only after this authority PR merges and the immutable main SHA is recorded  
+- [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — ACTIVE / NEXT PUBLICATION IMPLEMENTATION; re-anchored against merged c1/c2a; after this authority merges, the implementation PR records that immutable `origin/main` SHA in its body before code changes  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Publication re-anchor:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
@@ -71,7 +71,7 @@ Required deletion owner:
 | `SBW09b` | `MERGED #467` | Exact Threat identity authority. | Complete. |
 | `SBW09c1` | `MERGED #478` | Durable exact no-write publication proposal. | Complete. |
 | `SBW09c2a` | `MERGED #476` | Public read-only exact operation→immutable revision lookup. | Complete. |
-| `SBW09c2b` | ACTIVE / NEXT PUBLICATION IMPLEMENTATION | Proposal claim, exact commit, durable intent/receipt, recovery, verification. | Merge PR `#474`, record immutable dispatch SHA, dispatch one implementation PR. |
+| `SBW09c2b` | ACTIVE / NEXT PUBLICATION IMPLEMENTATION | Proposal claim, exact commit, durable intent/receipt, recovery, verification. | Merge PR `#474`; open one implementation PR that records the resulting immutable `origin/main` SHA in its body before code. |
 
 ## 4. Critical publication queue
 
@@ -83,7 +83,7 @@ The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` remains s
 | `SBW09b` | MERGED `#467` | Exact Threat identity resolution. | Explicit create/connect/refuse; no automatic identity. |
 | `SBW09c1` | MERGED `#478` | Exact durable no-write Threat publication proposal. | Sealed deterministic create/connect effects; persist/replay/supersede without graph mutation. |
 | `SBW09c2a` | MERGED `#476` | Exact operation-to-revision lookup across all immutable revision manifests. | Zero/one/many plural result; head advance/rollback cannot hide a match; manifest identity hardening; no write. |
-| `SBW09c2b` | ACTIVE / NEXT PUBLICATION IMPLEMENTATION | Proposal-bound commit, durable intent/receipt/recovery, and exact verification. | Authority: [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md). Dispatch one implementation PR after this authority merges and the immutable main SHA is recorded. |
+| `SBW09c2b` | ACTIVE / NEXT PUBLICATION IMPLEMENTATION | Proposal-bound commit, durable intent/receipt/recovery, and exact verification. | Authority: [`HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](HANDOFF-sbw09c2b-threat-publication-commit-recovery.md). After this authority merges, one implementation PR records that immutable `origin/main` SHA in its body and branches from it. |
 | `SBW10a` | BLOCKED ON PUBLICATION | Hermes query and exact mechanics hydration. | Name/role/capability/relationship/context; explicit zero/one/many bindings. |
 | `SBW10b` | BLOCKED ON `SBW10a` | Compact/full exact-revision Threat projection. | Useful game information first. |
 
@@ -186,7 +186,8 @@ Current truth: the server-backed combat roster exists, but durable combat identi
 SBW09c1 proposal MERGED #478 ─┐
                               ├→ SBW09c2b handoff re-anchored (PR #474)
 SBW09c2a lookup MERGED #476  ─┘
-→ merge #474 + record immutable dispatch SHA
+→ merge #474
+→ open implementation PR recording that immutable origin/main SHA in its body
 → dispatch SBW09c2b exact commit/receipt/recovery/verify
 → SBW10a exact query/hydration
 → SBW10b exact projection
@@ -197,7 +198,7 @@ SBW09c2a lookup MERGED #476  ─┘
 → dogfood MAGIC-D5
 ```
 
-SBW09c1 and SBW09c2a merged without production-path overlap. SBW09c2b is now the sole next publication implementation; its re-anchored handoff must merge and record the immutable dispatch SHA before any c2b code exists.
+SBW09c1 and SBW09c2a merged without production-path overlap. SBW09c2b is now the sole next publication implementation; after its authority merges, the implementation PR records that immutable `origin/main` SHA in its body before any c2b code exists.
 
 ## 11. PR body requirements
 

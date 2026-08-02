@@ -6,7 +6,7 @@
 **Latest completed Threat implementations:** `SBW09c1` merged in PR `#478`; `SBW09c2a` merged in PR `#476`  
 **Latest Threat authority:** PR `#473` established SBW09c2a operation-to-revision lookup authority  
 **Immediate implementation authority:**
-- [`../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — ACTIVE / NEXT PUBLICATION IMPLEMENTATION; re-anchored against merged c1/c2a; dispatch only after this authority PR merges and the immutable main SHA is recorded  
+- [`../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`](../Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md) — ACTIVE / NEXT PUBLICATION IMPLEMENTATION; re-anchored against merged c1/c2a; after this authority merges, the implementation PR records that immutable `origin/main` SHA in its body before code changes  
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
 **Publication re-anchor:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
@@ -195,7 +195,7 @@ Frozen properties:
 - graph failure never recreates, revises, or repins accepted mechanics;
 - no direct graph-file write or second graph-governance framework is introduced.
 
-Dispatch remains gated: PR `#474` must merge, the immutable `origin/main` dispatch SHA must be recorded in the handoff header, and one implementation PR dispatches from that exact SHA. No c2b code exists before then.
+Dispatch remains gated: PR `#474` must merge, then one implementation PR records that immutable `origin/main` SHA in its own body before any code changes and branches from it. The handoff is never rewritten to embed its own post-merge hash. No c2b code exists before then.
 
 The old bundled SBW09 handoff remains superseded research.
 
@@ -286,7 +286,8 @@ R0-B closeout, AOW01/AOW02, authoring artifact/library, graph chips, SBW06d, rev
 SBW09c1 proposal MERGED #478 ─┐
                               ├→ SBW09c2b handoff re-anchored (PR #474)
 SBW09c2a lookup MERGED #476  ─┘
-→ merge #474 + record immutable dispatch SHA
+→ merge #474
+→ open implementation PR recording that immutable origin/main SHA in its body
 → dispatch SBW09c2b commit/receipt/recovery/verify
 → SBW10a query/hydration
 → SBW10b exact projection
@@ -297,13 +298,13 @@ SBW09c2a lookup MERGED #476  ─┘
 → dogfood MAGIC-D5
 ```
 
-SBW09c1 and c2a merged without production-path overlap. c2b is now the sole next publication implementation; its re-anchored handoff must merge and record the immutable dispatch SHA before any c2b code exists.
+SBW09c1 and c2a merged without production-path overlap. c2b is now the sole next publication implementation; after its authority merges, the implementation PR records that immutable `origin/main` SHA in its body before any c2b code exists.
 
 ## 13. Dispatch discipline
 
 Every implementation handoff contains one mission/invariant, exact base/dependencies, bounded allowlist, state/persistence/fallback/identity/concurrency matrices, exact gate enabled, demolition declaration, owning-boundary tests, and stop conditions.
 
-Pre-designed handoffs are strategic inputs until re-anchored. SBW09c2b is now re-anchored against the merged c1/c2a contracts in PR `#474`; it must not dispatch until that amendment merges and its post-merge authority sync records the immutable `origin/main` dispatch SHA.
+Pre-designed handoffs are strategic inputs until re-anchored. SBW09c2b is now re-anchored against the merged c1/c2a contracts in PR `#474`; it must not dispatch until that amendment merges, after which the implementation PR records the resulting immutable `origin/main` SHA in its body before code changes.
 
 ## 14. Completion
 

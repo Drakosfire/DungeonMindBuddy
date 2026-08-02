@@ -19,7 +19,7 @@ pr_body_template: |
   - Re-anchor base: `36def9e102c3e58f0ad00cd8ad7a4fbfe15de594`
   - SBW09c1 authority: PR `#478`, merge `c15420e6bc6bc9eca83933bf9982b233ff0fc3a7`
   - SBW09c2a authority: PR `#476`, merge `c6e867ed9ac04e4e92d87c4fcd1bbddef88f681a`
-  - Implementation base: {{TODO exact immutable main SHA containing this re-anchored handoff}}
+  - Implementation base: {{TODO exact immutable origin/main SHA containing this re-anchored handoff; record it in the implementation PR body before code changes — never rewrite it into this handoff}}
   - Actual base/head: {{TODO}}
   - Actual changed paths: {{TODO exact allowlist accounting}}
   - Deferred and still false: Workbench confirmation UI, Hermes query/hydration, Threat projection product card, placement, combat, mechanics revision adoption, undo/retraction, and generic object publication.
@@ -34,10 +34,10 @@ pr_body_template: |
 # HANDOFF — SBW09c2b proposal-bound Threat commit, immutable recovery, and exact verification
 
 **Created:** 2026-08-01  
-**Status:** ACTIVE AUTHORITY CANDIDATE — replace the provisional handoff in draft PR `#474`, merge the re-anchor into main, then dispatch exactly one implementation capability from the resulting immutable merge SHA.  
+**Status:** ACTIVE AUTHORITY CANDIDATE — replace the provisional handoff in draft PR `#474`, merge the re-anchor into main, then dispatch exactly one implementation capability from that merge's immutable `origin/main` SHA.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw09c2b-threat-publication-commit-recovery.md`  
 **Re-anchor base:** `36def9e102c3e58f0ad00cd8ad7a4fbfe15de594`  
-**Implementation base:** the exact immutable main SHA containing this handoff after the authority PR merges; record it before implementation begins.  
+**Implementation base:** the exact immutable `origin/main` SHA containing this handoff after the authority PR merges. Record that SHA in the **implementation PR body** before any code changes. Do not rewrite it into this handoff — a commit cannot contain its own final hash.  
 **Suggested implementation branch:** `feat/sbw09c2b-threat-publication-commit-recovery`
 
 > This text supersedes the provisional design in draft PR `#474`. SBW09c1 and SBW09c2a are now merged. The implementation agent must consume their actual contracts described below rather than the earlier assumptions.
@@ -171,7 +171,7 @@ Required caller assumptions:
 - every enumerated immutable manifest is inspected once from one revision-ID snapshot;
 - current head, ancestry, head advance, and rollback do not filter matches;
 - manifest `world_id` and `revision_id` are bound to their storage identities and mismatch fails closed;
-- missing, malformed, corrupt, or unreadable authority propagates failure;
+- lookup failures classify under the §10.4a three-way taxonomy (transient unavailability vs graph-authority corruption vs readable-but-contradictory unique match);
 - the call performs no durable writes;
 - c2b may never choose the first match.
 
@@ -265,7 +265,9 @@ Read in order before changing code:
 | Head advances after commit | No recovery | Exact immutable revision still recovered | Yes | c2a |
 | Head rolls back after commit | No recovery | Exact immutable revision still recovered | Yes | c2a |
 | Multiple matching revisions | No policy | Persist ambiguity; never first-win | Yes | recovery state machine |
-| Lookup unavailable/corrupt | No policy | Remain committing; no merge | Yes | recovery state machine |
+| Lookup transiently unavailable | No policy | Remain committing; `recovery_pending` / `503`; no merge | Yes | recovery state machine |
+| Lookup graph-authority corrupt | No policy | Remain committing; `integrity_failure` / `500`; no merge | Yes | recovery state machine |
+| Unique match fails core publication proof | No policy | Persist `ambiguous`; never select it | Yes | recovery state machine |
 | Verification unavailable/degraded | No receipt | Persist committed-unverified; no merge retry | Yes | verifier/store |
 | Verification mismatch | No receipt | Persist committed-unverified/failed; no merge retry | Yes | verifier/store |
 | Restart GET | No commit endpoint | Exact record round-trip | Yes | store/route |
@@ -537,12 +539,12 @@ GET  /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/co
 | first request reaches `committed_verified` | `201` |
 | first request reaches `committed_unverified` | `201` |
 | exact replay/recovery/GET of committed state | `200` |
-| recovery pending due unavailable/corrupt lookup dependency | `503` |
+| recovery pending due to transient lookup/graph/storage unavailability | `503` |
 | missing GET | `404` |
 | uncommitted, ambiguous, inactive, stale, busy, parent mismatch, changed input | `409` |
 | request validation | `422` |
 | graph/storage dependency unavailable before truth can be established | `503` |
-| corrupt durable authority or integrity contradiction | `500` |
+| corrupt durable application authority, corrupt graph-authority during lookup, or integrity contradiction | `500` |
 
 Committed-unverified is a success-shaped receipt with exact revision ID and `retry_allowed=false`. It is never a generic error that invites another commit.
 
@@ -654,7 +656,7 @@ When no commit record exists:
 3. Require request sealed digest and parent equal persisted proposal values.
 4. Read the exact SBW09b resolution named by `proposal.resolution_id`.
 5. Require the resolution remains active, publishable, and exact across draft, operation, source digest, resolution request digest, candidate-set digest, expected parent, decision, Threat ID, and selected-target snapshot.
-6. Refresh/read the exact SBW09a operation.
+6. Refresh/read the exact SBW09a operation through the owning SBW09a refresh path. That refresh intentionally persists a `ready → stale` transition when draft, mechanics, source digest, campaign/world, or graph parent has drifted. Admission must observe the post-refresh state: if the operation is no longer `publication_ready`, refuse with the typed predecessor result and write no commit record. The only permitted predecessor-byte mutation on this path is that exact SBW09a-owned stale transition.
 7. Require operation remains `publication_ready` and exact across draft, operation, world, campaign, source digest, accepted mechanics locator, and expected parent.
 8. Verify and reconstruct the complete sealed package using:
 
@@ -806,12 +808,32 @@ A unique match that fails core publication-proof checks is an integrity ambiguit
 | Lookup result | Prior event | Additional conditions | Durable transition | Merge action |
 |---|---|---|---|---|
 | one exact core-verified match | any unresolved path | none | `committed_unverified` | none |
+| one readable match that fails core publication proof | any unresolved path | wrong parent, digest, replay entry, effect, or integrity load failure after the match was readable | `ambiguous` | none |
 | multiple matches | any unresolved path | none may be selected | `ambiguous` | none |
 | zero matches | deterministic `published=False` | none | `uncommitted` | none |
 | zero matches | unresolved attempt 1 | original parent still head; exact proposal/resolution/operation remain valid; contribution re-reconstructs identically | persist `committing` attempt 2 | one exact retry |
 | zero matches | unresolved attempt 1 | parent changed or any authority mismatch | `uncommitted` | none |
 | zero matches | unresolved attempt 2 | none | `uncommitted` | none |
-| lookup unavailable/corrupt | any unresolved path | outcome remains unknown | remain `committing` | none |
+| transient lookup unavailability | any unresolved path | outcome remains unknown; §10.4a | remain `committing` | none |
+| graph-authority corruption during lookup | any unresolved path | outcome remains unknown; §10.4a | remain `committing` | none |
+
+### §10.4a Lookup failure taxonomy
+
+c2a and its revision-store dependencies produce three distinct failure classes. They must not be collapsed:
+
+| Class | Examples | Durable commit state | Result label | HTTP | Merge |
+|---|---|---|---|---|---|
+| Transient read failure | temporary `OSError`/IO, dependency temporarily unavailable, timeout without proof of corrupt authority | remain `committing` | `publication_commit_recovery_pending` | `503` | none |
+| Graph-authority corruption | `WorldGraphIntegrityError` (manifest world/revision identity mismatch), malformed/unreadable revision store that proves corrupt graph authority | remain `committing` | `publication_commit_integrity_failure` | `500` | none |
+| Readable-but-contradictory unique match | exactly one enumerated match exists and loads enough to inspect, but fails §10.3 core publication-proof checks | persist `ambiguous` | `publication_commit_outcome_ambiguous` | `409` | none |
+
+Rules:
+
+- Transient unavailability is not evidence of zero matches and is not evidence of corruption.
+- Graph-authority corruption is not a `503` recovery-pending condition and is not treated as zero matches.
+- A readable unique match that fails core proof is not recovery and is not left as unresolved `committing`; it is terminal `ambiguous`.
+- Application commit-ledger corruption (parse/schema/invariant failure of `out/threat_publication_commits/.../ledger.json`) remains a separate application-authority integrity failure (`publication_commit_integrity_failure` / `500`) and is not a c2a lookup class.
+- No class above may invent `uncommitted` or select a revision.
 
 ### §10.5 One permitted recovery retry
 
@@ -828,7 +850,9 @@ Before the one retry:
 
 After the second call, reconcile through c2a again before terminal classification. No third merge call exists.
 
-If c2a is unavailable after attempt 2, retain `committing` with attempt count 2. Future replays may reconcile, but may never merge again.
+If c2a is transiently unavailable after attempt 2, retain `committing` with attempt count 2 and return `publication_commit_recovery_pending` (`503`). Future replays may reconcile, but may never merge again.
+
+If c2a surfaces graph-authority corruption after attempt 2, retain `committing` with attempt count 2 and return `publication_commit_integrity_failure` (`500`). Future replays may reconcile only after authority repair; they may never merge again.
 
 ### §10.6 Required receipt-save failure sequence
 
@@ -983,9 +1007,11 @@ A later exact replay may rerun verification only. It may not merge.
 | intent storage unavailable | before graph call | none | `503` storage unavailable | safe exact request retry |
 | Kernel typed refusal + zero lookup | after | `uncommitted` | `409` uncommitted | no merge retry |
 | Kernel exception + zero lookup + unchanged parent | after attempt 1 | `committing` attempt 2 before retry | pending/continue | one retry |
-| Kernel exception + lookup unavailable | after | `committing` | `503` recovery pending | replay later; no immediate merge |
+| Kernel exception + transient lookup unavailability | after | `committing` | `503` `publication_commit_recovery_pending` | replay later; no immediate merge |
+| Kernel exception + graph-authority corruption during lookup | after | `committing` | `500` `publication_commit_integrity_failure` | repair authority; no merge |
 | one exact recovered revision | after | `committed_unverified` | `200`/`201` committed receipt | verify only |
 | multiple revisions | after | `ambiguous` | `409` ambiguous | no merge |
+| unique readable match fails core publication proof | after | `ambiguous` | `409` ambiguous | no merge |
 | verification dependency unavailable | after commit | `committed_unverified` | success-shaped receipt | verify later only |
 | verification mismatch | after commit | `committed_unverified` failed | success-shaped receipt with failure codes | no merge |
 
@@ -1066,18 +1092,21 @@ No repository-wide CI claim is permitted without attached checks. Baseline-red s
 22. Head advance after commit does not hide recovery.
 23. Head rollback after commit does not hide recovery.
 24. Multiple matches persist ambiguity and select none.
-25. Unique match with wrong parent, digest, replay entry, or effect becomes ambiguity/integrity failure; no retry.
-26. Lookup unavailable retains committing and makes no merge.
-27. Attempt 2 plus zero lookup becomes terminal uncommitted; no third merge.
-28. Attempt 2 plus lookup unavailable remains committing but never merges again.
-29. Verification failure after commit remains committed-unverified and cannot merge.
-30. Core verification pass + rebuild/projection unavailable becomes degraded, not failed/uncommitted.
-31. Every accepted assertion support record names the exact contribution.
-32. Create-new exact node/authored fields/resource/binding verified at immutable revision.
-33. Connect-existing has no target Threat rewrite.
-34. Recursive scan proves no mechanics body/rules/rendered Markdown/assets entered the contribution or exact committed resource/binding.
-35. Predecessor, c1 proposal, ThreatDraft, and accepted-mechanics bytes remain unchanged except the intentional c1 commit-claim behavior.
-36. Corrupt commit ledger fails closed and is not repaired.
+25. Unique readable match with wrong parent, digest, replay entry, or effect persists `ambiguous`; no retry and no selection.
+26. Transient lookup unavailability retains `committing`, returns `publication_commit_recovery_pending` (`503`), and makes no merge.
+27. Graph-authority corruption during lookup (`WorldGraphIntegrityError` or equivalent) retains `committing`, returns `publication_commit_integrity_failure` (`500`), and makes no merge.
+28. Attempt 2 plus zero lookup becomes terminal uncommitted; no third merge.
+29. Attempt 2 plus transient lookup unavailability remains `committing` with `recovery_pending` but never merges again.
+30. Attempt 2 plus graph-authority corruption remains `committing` with `integrity_failure` but never merges again.
+31. Verification failure after commit remains committed-unverified and cannot merge.
+32. Core verification pass + rebuild/projection unavailable becomes degraded, not failed/uncommitted.
+33. Every accepted assertion support record names the exact contribution.
+34. Create-new exact node/authored fields/resource/binding verified at immutable revision.
+35. Connect-existing has no target Threat rewrite.
+36. Recursive scan proves no mechanics body/rules/rendered Markdown/assets entered the contribution or exact committed resource/binding.
+37. On successful admission and exact replay paths, c1 proposal, ThreatDraft, accepted-mechanics, and SBW09a/SBW09b predecessor bytes remain unchanged except the intentional c1 commit-claim behavior.
+38. On admission/retry paths that call SBW09a refresh and observe drift, predecessor bytes may change only by the exact SBW09a-owned `ready → stale` transition; no other predecessor mutation is permitted, and the path writes no commit intent.
+39. Corrupt commit ledger fails closed and is not repaired.
 
 ### §13.3 Merge-call accounting
 
@@ -1092,7 +1121,8 @@ intent crash + permitted recovery retry: exactly 1 later retry, <=2 lifetime cal
 published response loss + recovery: 1 lifetime call
 published=false deterministic refusal: 1 lifetime call
 multiple matches: 0 new calls
-lookup unavailable: 0 new calls
+transient lookup unavailable: 0 new calls
+graph-authority corruption during lookup: 0 new calls
 attempt_count=2 replay: 0 new calls
 ```
 
@@ -1111,16 +1141,19 @@ The implementation handback must record:
 - every §13 command and result with provenance;
 - merge-call counts for every crash/replay sequence;
 - zero/one/many lookup evidence including head advance and rollback;
+- the §10.4a three-way lookup failure taxonomy with distinct transient-unavailability, graph-authority-corruption, and contradictory-unique-match evidence;
 - direct and recovered committed-unverified examples;
 - exact verification results and stable codes;
-- before/after bytes for proposal, predecessor, ThreatDraft, accepted mechanics, and graph head/revision where relevant;
+- before/after bytes for proposal, ThreatDraft, accepted mechanics, and graph head/revision where relevant;
+- predecessor-byte evidence split by path: byte identity on successful/replay paths; exact SBW09a-owned `ready → stale` transition only on refresh-observed drift paths;
 - baseline failures and exact waivers;
 - out-of-scope path accounting;
-- explicit statement that UI, Hermes, product projection, placement, combat, mechanics adoption, undo, and generic publication remain false.
+- explicit statement that UI, Hermes, product projection, placement, combat, mechanics adoption, undo, and generic publication remain false;
+- the exact implementation-base SHA recorded in the implementation PR body (not rewritten into this handoff).
 
 ## §15 Acceptance rubric
 
-- [ ] Implementation base is the immutable main SHA containing this re-anchored handoff.
+- [ ] Implementation base is the immutable `origin/main` SHA containing this re-anchored handoff, recorded in the implementation PR body before code changes (not rewritten into this handoff).
 - [ ] Actual c1 and c2a contracts are used without private storage scanning.
 - [ ] One operation has at most one durable commit record.
 - [ ] Any commit record permanently claims the exact proposal.
@@ -1135,6 +1168,7 @@ The implementation handback must record:
 - [ ] At most two lifetime merge attempts exist: initial plus one zero-match recovery retry.
 - [ ] Deterministic refusal is never retried.
 - [ ] Every uncertain outcome checks c2a before retry or terminal classification.
+- [ ] Transient lookup unavailability, graph-authority corruption, and readable-but-contradictory unique match are classified distinctly per §10.4a.
 - [ ] Unique recovery requires exact parent, integrity load, contribution digest, and replay entry.
 - [ ] Multiple matches remain ambiguous.
 - [ ] Current head is never substituted for committed revision.
@@ -1145,6 +1179,7 @@ The implementation handback must record:
 - [ ] No mechanics body enters graph state.
 - [ ] Storage is strict, path-safe, atomic, bounded, restart-safe, and corruption-closed.
 - [ ] Missing GET and terminal pre-intent paths create no storage artifacts.
+- [ ] Successful/replay paths preserve predecessor byte identity; refresh-observed drift permits only the exact SBW09a-owned `ready → stale` transition.
 - [ ] No production path outside §4 changes.
 - [ ] UI/query/product projection/placement/combat remain false.
 
@@ -1163,7 +1198,9 @@ The implementation handback must record:
 - Delete immediate receipt after synthetic publish and require restart recovery.
 - Advance and roll back head before recovery.
 - Seed duplicate operation IDs and ensure no revision is selected.
-- Seed one matching manifest with wrong parent or payload digest and ensure it is not accepted.
+- Seed one matching manifest with wrong parent or payload digest and ensure it becomes `ambiguous`, not recovery and not unresolved `committing`.
+- Inject transient lookup unavailability and prove `recovery_pending` / `503` with zero merges and retained `committing`.
+- Inject `WorldGraphIntegrityError` / corrupt graph authority and prove `integrity_failure` / `500` with zero merges and retained `committing`.
 - Fail every atomic commit-ledger replacement point.
 - Fail verification after publication and prove no merge retry.
 - Inspect connect-existing accepted assertions and committed target fields for rewrites.
@@ -1171,17 +1208,19 @@ The implementation handback must record:
 - Verify application code imports only public Kernel APIs, not world-supergraph storage or contribution-store internals.
 - Verify rebuild runs with `publish=False` and exact `compare_revision_id`.
 - Verify pinned projection uses the committed revision, not current head.
+- Call SBW09a refresh with drifted draft/mechanics/parent and prove only the exact `ready → stale` predecessor transition occurs, with no commit intent.
 
 ## §17 Stop conditions
 
 Stop and report before widening scope if:
 
-- the authority PR containing this handoff is not merged or the implementation base differs;
+- the authority PR containing this handoff is not merged, or the implementation PR's recorded base SHA is not the immutable `origin/main` SHA containing this handoff;
 - c1 cannot expose the existing operation-scoped lock as a safe shared lifecycle seam;
 - blocking c1 supersession requires changing the durable c1 proposal schema rather than reading the c2b claim under the shared lock;
 - exact contribution reconstruction cannot use `proposal.created_by` without changing extract-promote code;
 - c1 lacks enough exact effect identity to derive and persist contribution/resource/binding proof;
 - c2a cannot recover independently of current head or returns nonplural/first-win semantics;
+- transient lookup unavailability and graph-authority corruption cannot be distinguished without collapsing them into one label/HTTP class;
 - safe commit requires a Kernel write/CAS change;
 - exact recovery requires direct graph-storage or contribution-store imports from application code;
 - one unique revision cannot be proven against the persisted contribution source digest;
@@ -1201,6 +1240,6 @@ SBW09c2a MERGED #476
 SBW09c2b ACTIVE / NEXT PUBLICATION IMPLEMENTATION
 ```
 
-It must remove language claiming c1/c2a are active or unimplemented, retain MAGIC-D3 as blocked on c2b + SBW10a + SBW10b, record the exact authority merge SHA after merge, and keep later query/projection/placement/combat gates unchanged.
+It must remove language claiming c1/c2a are active or unimplemented, retain MAGIC-D3 as blocked on c2b + SBW10a + SBW10b, and keep later query/projection/placement/combat gates unchanged.
 
-The authority PR is documentation only. It does not claim runtime behavior or green CI. Implementation begins only after that authority is on main.
+The authority PR is documentation only. It does not claim runtime behavior or green CI. After this authority is on main, the implementation PR records that immutable `origin/main` SHA in its own PR body before any code changes and branches from it. The handoff file itself is never rewritten to embed its own post-merge hash.
