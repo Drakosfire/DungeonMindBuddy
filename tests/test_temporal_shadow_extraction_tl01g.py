@@ -794,23 +794,31 @@ def _content_tokens(text: str) -> set[str]:
     }
 
 
-def _resolve_annotation_evidence_spans(
+def _resolve_annotation_evidence(
     annotation: dict,
     evidence_by_id: dict[str, dict],
-) -> list[str]:
-    """Resolve annotation evidence_ref_ids; fail closed on missing/unknown refs."""
+) -> list[tuple[dict, str]]:
+    """Resolve annotation evidence_ref_ids to (entry, span_text); fail closed."""
     ref_ids = annotation.get("evidence_ref_ids")
     if not isinstance(ref_ids, list) or not ref_ids:
         raise AssertionError("annotation missing evidence_ref_ids")
-    spans: list[str] = []
+    resolved: list[tuple[dict, str]] = []
     for eid in ref_ids:
         if not isinstance(eid, str) or not eid.strip():
             raise AssertionError(f"invalid annotation evidence_ref_id: {eid!r}")
         entry = evidence_by_id.get(eid)
         if entry is None:
             raise AssertionError(f"unknown annotation evidence_ref_id: {eid!r}")
-        spans.append(_resolved_span_text(entry))
-    return spans
+        resolved.append((entry, _resolved_span_text(entry)))
+    return resolved
+
+
+def _resolve_annotation_evidence_spans(
+    annotation: dict,
+    evidence_by_id: dict[str, dict],
+) -> list[str]:
+    """Resolve annotation evidence_ref_ids; fail closed on missing/unknown refs."""
+    return [span for _, span in _resolve_annotation_evidence(annotation, evidence_by_id)]
 
 
 def _source_phrase_grounded_in_spans(
@@ -824,6 +832,71 @@ def _source_phrase_grounded_in_spans(
     return any(phrase in _normalize_grounding_ws(span) for span in spans)
 
 
+def _session_number_from_id(session_id: str | None) -> str | None:
+    if not isinstance(session_id, str) or not session_id.strip():
+        return None
+    match = re.fullmatch(r"session-(\d+)", session_id.strip().lower())
+    return match.group(1) if match else None
+
+
+def _evidence_supports_session_number(
+    entry: dict, span_text: str, session_num: str
+) -> bool:
+    """True when span text or evidence episode metadata names this session."""
+    pattern = re.compile(rf"\bsession[\s\-]*{re.escape(session_num)}\b", re.IGNORECASE)
+    haystacks = (
+        span_text,
+        str(entry.get("label") or ""),
+        str(entry.get("source_artifact_path") or ""),
+        str(entry.get("evidence_ref_id") or ""),
+    )
+    return any(pattern.search(hay) is not None for hay in haystacks)
+
+
+def _boundary_value_grounded_in_evidence(
+    boundary_value: object,
+    evidence_pairs: list[tuple[dict, str]],
+) -> bool:
+    """Require the selected boundary value to be supported by annotation evidence."""
+    if not isinstance(boundary_value, dict):
+        return False
+    kind = boundary_value.get("kind")
+    if kind == "session":
+        session_num = _session_number_from_id(
+            boundary_value.get("session_id")
+            if isinstance(boundary_value.get("session_id"), str)
+            else None
+        )
+        if session_num is None:
+            # Bare session_id strings used in unit tests: {"session_id": "session-12"}
+            session_num = _session_number_from_id(
+                str(boundary_value.get("session_id") or "")
+            )
+        if session_num is None:
+            return False
+        return any(
+            _evidence_supports_session_number(entry, span, session_num)
+            for entry, span in evidence_pairs
+        )
+    if kind == "textual":
+        raw = boundary_value.get("raw_expression")
+        if not isinstance(raw, str) or not raw.strip():
+            return False
+        return _source_phrase_grounded_in_spans(
+            raw, [span for _, span in evidence_pairs]
+        )
+    # Unit-test shorthand: {"session_id": "session-12"} without kind.
+    if boundary_value.get("session_id") and kind is None:
+        session_num = _session_number_from_id(str(boundary_value.get("session_id")))
+        if session_num is None:
+            return False
+        return any(
+            _evidence_supports_session_number(entry, span, session_num)
+            for entry, span in evidence_pairs
+        )
+    return False
+
+
 def _boundary_narration_concerns_proposition(
     source_text: str,
     *,
@@ -831,13 +904,13 @@ def _boundary_narration_concerns_proposition(
     source_phrase: str,
     boundary_kind: str,
 ) -> bool:
-    """True when a direction-compatible transition in this span supports the claim.
+    """True when the annotated phrase itself narrates the proposition's transition.
 
-    Requires a start- or end-compatible cue (word/phrase-aware), the annotation
-    ``source_phrase`` in the same span, and content-token overlap with the
-    proposition. Unrelated or wrong-direction transitions do not qualify.
+    The direction-compatible cue must occur in ``source_phrase`` (not merely
+    elsewhere in the evidence span). The phrase must also appear in this span
+    and share content tokens with the proposition.
     """
-    if not _source_narrates_boundary_kind(source_text, boundary_kind):
+    if not _source_narrates_boundary_kind(source_phrase, boundary_kind):
         return False
     phrase_norm = _normalize_grounding_ws(source_phrase)
     span_norm = _normalize_grounding_ws(source_text)
@@ -866,7 +939,8 @@ def _assert_annotation_gate_e3_boundary_proof(
         raise AssertionError(
             f"{context}: boundary_value is required for valid_time.{boundary_kind}"
         )
-    spans = _resolve_annotation_evidence_spans(annotation, evidence_by_id)
+    evidence_pairs = _resolve_annotation_evidence(annotation, evidence_by_id)
+    spans = [span for _, span in evidence_pairs]
     phrase = annotation.get("source_phrase")
     if not isinstance(phrase, str) or not phrase.strip():
         raise AssertionError(
@@ -875,6 +949,12 @@ def _assert_annotation_gate_e3_boundary_proof(
     if not _source_phrase_grounded_in_spans(phrase, spans):
         raise AssertionError(
             f"{context}: source_phrase not grounded in annotation evidence spans"
+        )
+    if not _boundary_value_grounded_in_evidence(boundary_value, evidence_pairs):
+        raise AssertionError(
+            f"{context}: Gate E3/D defect — boundary_value is not grounded in "
+            f"annotation evidence for valid_time.{boundary_kind} "
+            f"(boundary_value={boundary_value!r})"
         )
     proposition = str(assertion.get("label") or "")
     if not any(
@@ -887,7 +967,7 @@ def _assert_annotation_gate_e3_boundary_proof(
         for span in spans
     ):
         raise AssertionError(
-            f"{context}: Gate E3 defect — no annotation evidence span narrates a "
+            f"{context}: Gate E3 defect — source_phrase does not narrate a "
             f"valid_time.{boundary_kind}-compatible boundary transition that concerns "
             f"the selected proposition (source_phrase={phrase!r})"
         )
@@ -1813,6 +1893,63 @@ def test_gate_e3_became_responsible_fails_as_valid_end() -> None:
     )
 
 
+def test_gate_e3_rejects_unrelated_transition_elsewhere_in_same_span() -> None:
+    """A start cue about another subject in the same span must not approve the claim."""
+    proposition = "The treaty is in effect"
+    source_phrase = "the treaty is in effect"
+    span = "After the mayor became ill, the treaty is in effect."
+    assert _source_narrates_boundary_kind(span, "start")
+    assert _source_phrase_grounded_in_spans(source_phrase, [span])
+    # Cue is in the span, but not in the annotated source_phrase.
+    assert not _source_narrates_boundary_kind(source_phrase, "start")
+    assert not _boundary_narration_concerns_proposition(
+        span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="start",
+    )
+
+
+def test_gate_e3_rejects_correct_transition_with_wrong_session_value() -> None:
+    """Session boundary values must be grounded in the cue-bearing evidence episode."""
+    fixture_dir = REPO_ROOT / "tests/fixtures/tl01g_gate_e3"
+    bound = fixture_dir / "bound-boundary.md"
+    evidence_by_id = {
+        "evidence:bound": {
+            "evidence_ref_id": "evidence:bound",
+            "source_artifact_path": bound.relative_to(REPO_ROOT).as_posix(),
+            "label": "Session 12 harbor assignment",
+            "start_line": 1,
+            "end_line": 1,
+        },
+    }
+    assertion = {
+        "assertion_id": "assertion:harbor",
+        "label": "Lysandra is responsible for the harbor watch",
+    }
+    annotation = {
+        "evidence_ref_ids": ["evidence:bound"],
+        "source_phrase": "became responsible for the harbor watch",
+    }
+    _assert_annotation_gate_e3_boundary_proof(
+        annotation=annotation,
+        assertion=assertion,
+        evidence_by_id=evidence_by_id,
+        context="session-12-ok",
+        boundary_kind="start",
+        boundary_value={"kind": "session", "session_id": "session-12"},
+    )
+    with pytest.raises(AssertionError, match="boundary_value is not grounded"):
+        _assert_annotation_gate_e3_boundary_proof(
+            annotation=annotation,
+            assertion=assertion,
+            evidence_by_id=evidence_by_id,
+            context="session-99-bad",
+            boundary_kind="start",
+            boundary_value={"kind": "session", "session_id": "session-99"},
+        )
+
+
 def test_gate_e3_resolve_annotation_evidence_rejects_missing_and_unknown() -> None:
     source = REPO_ROOT / "tests/fixtures/tl01g_gate_e3/bound-boundary.md"
     rel = source.relative_to(REPO_ROOT).as_posix()
@@ -1879,7 +2016,7 @@ def test_assert_annotation_gate_e3_boundary_proof_end_to_end() -> None:
         boundary_kind="start",
         boundary_value={"session_id": "session-12"},
     )
-    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
+    with pytest.raises(AssertionError, match="source_phrase does not narrate"):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=good,
             assertion=assertion,
@@ -1897,14 +2034,16 @@ def test_assert_annotation_gate_e3_boundary_proof_end_to_end() -> None:
         "assertion_id": "assertion:rebels",
         "label": "The rebel humans feel represented in Mirathorn",
     }
-    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
+    # Give episode metadata so value grounding succeeds and cue-in-phrase is the failure.
+    evidence_by_id["evidence:state"]["label"] = "Session 7 rebel attitude"
+    with pytest.raises(AssertionError, match="source_phrase does not narrate"):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=bad,
             assertion=rebels,
             evidence_by_id=evidence_by_id,
             context="bad",
             boundary_kind="end",
-            boundary_value={"session_id": "session-7"},
+            boundary_value={"kind": "session", "session_id": "session-7"},
         )
 
     ungrounded = {
@@ -1943,7 +2082,7 @@ def test_gate_e3_dual_boundary_requires_independent_proof_for_each() -> None:
         "source_phrase": "became responsible for the harbor watch",
         "valid_time": {
             "start": {"session_id": "session-12"},
-            "end": {"session_id": "session-14"},
+            "end": {"session_id": "session-12"},
         },
     }
     _assert_annotation_gate_e3_boundary_proof(
@@ -1954,7 +2093,7 @@ def test_gate_e3_dual_boundary_requires_independent_proof_for_each() -> None:
         boundary_kind="start",
         boundary_value=annotation["valid_time"]["start"],
     )
-    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
+    with pytest.raises(AssertionError, match="source_phrase does not narrate"):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=annotation,
             assertion=assertion,
@@ -2002,7 +2141,7 @@ def test_holdout_v13_retains_observed_gate_e3_and_postponement_value_defects() -
     assert _source_reports_resulting_state_without_narrated_boundary(rebels_source)
     assert not _source_narrates_boundary(rebels_source)
     assert not _any_evidence_narrates_boundary([rebels_source])
-    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
+    with pytest.raises(AssertionError, match="source_phrase does not narrate"):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=rebels_ann,
             assertion=by_id[rebels_id],
