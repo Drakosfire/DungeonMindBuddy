@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getRecapArtifacts } from "../../api/liveApi";
 import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
@@ -6,7 +6,8 @@ import {
   sameProjectionSurfaceIdentity,
   type ProjectionSurfaceIdentity,
 } from "../../agentInteraction/projectionSurfacePublication";
-import { useProjection, projectionContainerClass } from "./projectionContext";
+import { ProjectionHost } from "../../surfaceInteraction/projection/ProjectionHost";
+import { useProjection } from "./projectionContext";
 import { renderContentProjection, renderToolProjection } from "./projectionRegistry";
 import {
   filterNumericRecapArtifactRecords,
@@ -35,6 +36,10 @@ const SESSION_AWARE_TOOLS = new Set([
   "party-registry",
 ]);
 
+/**
+ * Temporary Plan-owned host (delegates shell DOM to ProjectionHost).
+ * Nano-commit bridge before LegacyProjectionHostAdapter extraction (BLD-SIH-03a).
+ */
 export function AdaptiveProjectionContainer() {
   const { projectionSurface } = useAgentInteraction();
   const {
@@ -96,9 +101,6 @@ function AdaptiveProjectionContainerInner({
   graphReferenceBinding,
   graphReviewDiagnosticsPayload,
 }: AdaptiveProjectionContainerInnerProps) {
-  const isOpen = Boolean(active);
-  // Latest rendered surface identity for async re-validation. Cleared on
-  // unmount so completions from an unmounted surface can never act.
   const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(surfaceIdentity);
   surfaceIdentityRef.current = surfaceIdentity;
   useEffect(() => {
@@ -106,7 +108,6 @@ function AdaptiveProjectionContainerInner({
       surfaceIdentityRef.current = null;
     };
   }, []);
-  const activeToolId = active?.kind === "tool" ? active.key : null;
   const firstToolId = config.tools[0]?.id;
   const campaignKey = config.context!.campaignId;
   const [latestIngestedSessionByCampaign, setLatestIngestedSessionByCampaign] = useState<
@@ -138,8 +139,6 @@ function AdaptiveProjectionContainerInner({
 
   const openToolFromNav = useCallback(
     async (toolId: string) => {
-      // Capture the exact surface identity at invocation; an async session
-      // lookup may complete after the host has moved to another surface.
       const identityAtStart = surfaceIdentityRef.current;
       const inferredSessionId =
         SESSION_AWARE_TOOLS.has(toolId) && !requestedSessionFromLocation()
@@ -151,8 +150,6 @@ function AdaptiveProjectionContainerInner({
         !identityNow ||
         !sameProjectionSurfaceIdentity(identityAtStart, identityNow)
       ) {
-        // Stale lookup result: it must never touch another surface's URL or
-        // projection state.
         return;
       }
       if (typeof window !== "undefined") {
@@ -179,108 +176,41 @@ function AdaptiveProjectionContainerInner({
     }
   }, [config.tools, openTool]);
 
-  useEffect(() => {
-    document.body.classList.toggle("plan-toolbox-open", isOpen);
-    return () => document.body.classList.remove("plan-toolbox-open");
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") close();
-    }
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [close, isOpen]);
-
-  const containerClass = projectionContainerClass(active?.size);
-  const showModalBackdrop = isOpen && active?.kind === "tool";
-  const rootClass = [
-    "plan-toolbox",
-    isOpen ? "open" : "",
-    active?.kind === "tool" ? `tool-${active.key}` : "",
-    active?.kind === "content" ? "tool-reference" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const themeStyle = (config.theme.tokens ?? {}) as CSSProperties;
+  const body = !active ? null : active.kind === "tool" ? (
+    renderToolProjection(active.key, config.context!, {
+      graphReviewDiagnosticsPayload,
+    })
+  ) : activeGraphReference ? (
+    renderContentProjection(activeGraphReference, config, graphReferenceProjectionState, {
+      graphReferenceBinding,
+      glanceOnly: active.glanceOnly === true,
+    })
+  ) : (
+    <p className="surface-projection-empty">Loading reference…</p>
+  );
 
   return (
-    <div
-      className={rootClass}
-      style={themeStyle}
-      data-md-theme={config.theme.themeId}
-    >
-      <button
-        type="button"
-        className="plan-toolbox-toggle"
-        aria-expanded={isOpen}
-        aria-controls="plan-toolbox-drawer"
-        title="Plan toolbox"
-        onClick={() => (isOpen ? close() : firstToolId ? void openToolFromNav(firstToolId) : undefined)}
-      >
-        Tools
-      </button>
-      <div
-        className="plan-toolbox-backdrop"
-        hidden={!showModalBackdrop}
-        onClick={close}
-        aria-hidden="true"
-      />
-      <aside
-        id="plan-toolbox-drawer"
-        className={containerClass}
-        aria-label={active ? `${active.title} projection` : "Plan toolbox"}
-      >
-        <header className="plan-projection-header">
-          <div>
-            <p className="plan-surface-kicker">{active?.kind === "content" ? "Reference" : "Command Board"}</p>
-            <h2>{active?.kind === "content" ? "Reference" : "Toolbox"}</h2>
-          </div>
-          <div className="plan-projection-header-actions">
-            {active?.kind === "content" && active.glanceOnly ? (
-              <button type="button" onClick={expandContent}>
-                Expand
-              </button>
-            ) : null}
-            <button type="button" onClick={close} aria-label="Close toolbox">
-              ×
-            </button>
-          </div>
-        </header>
-        <nav
-          className="plan-toolbox-nav"
-          aria-label="Toolbox tools"
-          hidden={active?.kind === "content"}
-        >
-          {config.tools.map((tool) => (
-            <button
-              key={tool.id}
-              type="button"
-              className={activeToolId === tool.id ? "active" : undefined}
-              aria-pressed={activeToolId === tool.id}
-              onClick={() => void openToolFromNav(tool.id)}
-            >
-              {tool.label}
-            </button>
-          ))}
-        </nav>
-        <div className="plan-projection-body">
-          {!active ? null : active.kind === "tool" ? (
-            renderToolProjection(active.key, config.context!, {
-              graphReviewDiagnosticsPayload,
-            })
-          ) : activeGraphReference ? (
-            renderContentProjection(activeGraphReference, config, graphReferenceProjectionState, {
-              graphReferenceBinding,
-              glanceOnly: active.glanceOnly === true,
-            })
-          ) : (
-            <p className="plan-projection-empty">Loading reference…</p>
-          )}
-        </div>
-      </aside>
-    </div>
+    <ProjectionHost
+      active={active}
+      navigationItems={config.tools.map((tool) => ({ id: tool.id, label: tool.label }))}
+      labels={{
+        toggleTitle: "Plan toolbox",
+        closedDrawerLabel: "Plan toolbox",
+        navigationLabel: "Toolbox tools",
+        closeLabel: "Close toolbox",
+        toolKicker: "Command Board",
+        contentKicker: "Reference",
+        toolTitle: "Toolbox",
+        contentTitle: "Reference",
+      }}
+      theme={config.theme}
+      body={body}
+      onNavigate={(itemId) => void openToolFromNav(itemId)}
+      onToggle={() => {
+        if (firstToolId) void openToolFromNav(firstToolId);
+      }}
+      onClose={close}
+      onExpand={expandContent}
+    />
   );
 }

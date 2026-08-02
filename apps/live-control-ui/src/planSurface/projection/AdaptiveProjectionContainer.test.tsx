@@ -104,7 +104,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
-    expect(document.body).not.toHaveClass("plan-toolbox-open");
+    expect(document.body).not.toHaveClass("surface-projection-open");
   });
 
   it("renders no projection chrome for Build's empty-tools publication", () => {
@@ -161,8 +161,8 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
-    expect(document.querySelector("#plan-toolbox-drawer")).not.toBeInTheDocument();
-    expect(document.body).not.toHaveClass("plan-toolbox-open");
+    expect(document.querySelector("#surface-projection-drawer")).not.toBeInTheDocument();
+    expect(document.body).not.toHaveClass("surface-projection-open");
   });
 
   it("clears body-open state when a same-identity contradictory update retains the open tool id", async () => {
@@ -182,7 +182,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await waitFor(() => {
-      expect(document.body).toHaveClass("plan-toolbox-open");
+      expect(document.body).toHaveClass("surface-projection-open");
     });
     expect(hostApi!.active?.key).toBe("recap");
 
@@ -208,7 +208,7 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     expect(hostApi!.projectionSurface?.projectionsEnabled).toBe(false);
     expect(hostApi!.active).toBeNull();
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
-    expect(document.body).not.toHaveClass("plan-toolbox-open");
+    expect(document.body).not.toHaveClass("surface-projection-open");
   });
 
   it("applies the active surface theme to the app-level drawer", async () => {
@@ -228,9 +228,9 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
-    const toolbox = document.querySelector(".plan-toolbox");
-    expect(toolbox).toHaveAttribute("data-md-theme", "mireward");
-    expect(toolbox).toHaveStyle({ "--projection-accent": "red" });
+    const host = document.querySelector(".surface-projection-host");
+    expect(host).toHaveAttribute("data-md-theme", "mireward");
+    expect(host).toHaveStyle({ "--projection-accent": "red" });
   });
 
   it("hides toolbox tool nav and uses Reference header without duplicating the object title", async () => {
@@ -245,15 +245,15 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
 
     await waitFor(() => {
-      expect(document.querySelector(".plan-toolbox.tool-reference")).toBeTruthy();
+      expect(document.querySelector(".surface-projection-host--reference")).toBeTruthy();
     });
 
-    const nav = document.querySelector(".plan-toolbox-nav");
+    const nav = document.querySelector(".surface-projection-nav");
     expect(nav).toHaveAttribute("hidden");
 
-    const drawer = document.querySelector("#plan-toolbox-drawer");
+    const drawer = document.querySelector("#surface-projection-drawer");
     expect(drawer).toBeTruthy();
-    expect(drawer?.querySelector(".plan-projection-header h2")?.textContent).toBe("Reference");
+    expect(screen.getByRole("heading", { level: 2, name: "Reference" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
   });
 
@@ -290,13 +290,13 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await waitFor(() => {
-      expect(document.querySelector("#plan-toolbox-drawer")).toHaveAttribute(
+      expect(document.querySelector("#surface-projection-drawer")).toHaveAttribute(
         "aria-label",
         "Recap projection",
       );
     });
-    const drawer = document.querySelector("#plan-toolbox-drawer");
-    expect(drawer).toHaveClass("plan-projection-wide");
+    const drawer = document.querySelector("#surface-projection-drawer");
+    expect(drawer).toHaveClass("surface-projection-drawer--wide");
     expect(screen.getByRole("button", { name: "Recap", pressed: true })).toBeInTheDocument();
 
     rerender(
@@ -306,9 +306,11 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     );
 
     await waitFor(() => {
-      expect(document.querySelector("#plan-toolbox-drawer")).toHaveClass("plan-projection-fullscreen");
+      expect(document.querySelector("#surface-projection-drawer")).toHaveClass(
+        "surface-projection-drawer--fullscreen",
+      );
     });
-    expect(document.querySelector("#plan-toolbox-drawer")).toHaveAttribute(
+    expect(document.querySelector("#surface-projection-drawer")).toHaveAttribute(
       "aria-label",
       "Session Memory projection",
     );
@@ -367,7 +369,7 @@ describe("AdaptiveProjectionContainer nav session lookup lease safety", () => {
       expect(window.location.search).toContain("tool=recap");
     });
     expect(window.location.search).toContain("session=session-23");
-    expect(document.body).toHaveClass("plan-toolbox-open");
+    expect(document.body).toHaveClass("surface-projection-open");
   });
 
   it("ignores a campaign-A lookup that resolves after the host moved to campaign B", async () => {
@@ -394,6 +396,6 @@ describe("AdaptiveProjectionContainer nav session lookup lease safety", () => {
     // The stale campaign-A result must not touch campaign B's URL or open a projection.
     expect(window.location.search).not.toContain("session-23");
     expect(window.location.search).not.toContain("tool=recap");
-    expect(document.body).not.toHaveClass("plan-toolbox-open");
+    expect(document.body).not.toHaveClass("surface-projection-open");
   });
 });
