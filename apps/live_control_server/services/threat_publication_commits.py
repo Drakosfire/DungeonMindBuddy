@@ -191,6 +191,69 @@ def _unmodified_contribution_matches_expected_ids(
     return _assertion_ids_match(_extract_accepted_ids(contribution), expected_ids)
 
 
+def _contribution_order_disposition(
+    contribution: GraphContribution, expected_ids: list[str]
+) -> Literal["exact", "legacy_seal_order", "set_mismatch"]:
+    """Classify reconstructed order vs durable proposal/commit assertion IDs.
+
+    Current c1 records Kernel reconstruction order. Durable proposals prepared
+    under the prior seal-time list order keep their v1 bytes unchanged. When the
+    assertion *set* matches but order differs, admission must reject with an
+    actionable supersession path rather than rewrite or silently migrate.
+    """
+    actual = _extract_accepted_ids(contribution)
+    expected = list(expected_ids)
+    if actual == expected:
+        return "exact"
+    if len(actual) == len(expected) and set(actual) == set(expected):
+        return "legacy_seal_order"
+    return "set_mismatch"
+
+
+_LEGACY_SEAL_ORDER_MESSAGE = (
+    "proposal accepted_assertion_ids uses pre-reconstruction seal order; "
+    "supersede the active proposal and re-prepare under current c1 "
+    "(reconstruction order) before confirm"
+)
+
+_IDENTITY_UNAVAILABLE_LABELS = frozenset(
+    {
+        "publication_identity_not_found",
+        "publication_identity_storage_unavailable",
+        "publication_identity_graph_unavailable",
+        "publication_identity_busy",
+        "publication_identity_operation_not_ready",
+    }
+)
+_IDENTITY_INTEGRITY_LABELS = frozenset({"publication_identity_integrity_failure"})
+
+
+def _connect_selected_target_authority(
+    identity: Any,
+) -> tuple[Literal["ok", "unavailable", "integrity"], Any | None, str | None]:
+    """Classify SBW09b identity read for connect_existing selected_target authority.
+
+    ``read_identity_resolution`` represents missing/unavailable/integrity-failed
+    dependencies as ``resolution is None`` plus a result label — it does not raise.
+    """
+    label = str(identity.response.result_label)
+    resolution = identity.response.resolution
+    if label in _IDENTITY_INTEGRITY_LABELS:
+        return "integrity", None, f"identity dependency integrity failure: {label}"
+    if resolution is None:
+        if label in _IDENTITY_UNAVAILABLE_LABELS or label not in {
+            "publication_identity_connected_existing",
+            "publication_identity_created_new",
+            "publication_identity_refused",
+            "publication_identity_superseded",
+        }:
+            return "unavailable", None, f"identity dependency unavailable: {label}"
+        return "integrity", None, f"identity resolution missing for label: {label}"
+    if resolution.selected_target is None:
+        return "integrity", None, "identity resolution missing selected_target"
+    return "ok", resolution.selected_target, None
+
+
 _AUTHORED_FIELD_PREDICATES = frozenset({"description", "threat_kind", "intended_role", "tag"})
 _MECHANICS_SCAN_KEYS = FORBIDDEN_MECHANICS_KEYS | frozenset({"mechanics_body"})
 
@@ -373,7 +436,13 @@ def _resource_statblock_id_from_contribution(
     return _statblock_id_from_resource_node_id(resource_node_id)
 
 
-def _identity_fields_match(selected_target: Any, node: Any, *, store: Any | None = None) -> bool:
+def _identity_fields_match(
+    selected_target: Any,
+    node: Any,
+    *,
+    store: Any | None = None,
+    published_binding_id: str | None = None,
+) -> bool:
     target_dump = selected_target.model_dump(mode="json", by_alias=True)
     node_dump = {
         "node_id": node.node_id,
@@ -408,10 +477,14 @@ def _identity_fields_match(selected_target: Any, node: Any, *, store: Any | None
         elif expected != actual:
             return False
 
-    # Binding metadata on the candidate snapshot must match store edges when present.
+    # Candidate binding_ids are the pre-publication parent snapshot. Connect-existing
+    # publication adds record.binding_id, so the committed store must equal
+    # selected_target.binding_ids ∪ {published binding}, not the pre-publication list alone.
     if "binding_ids" in target_dump and store is not None:
-        expected_bindings = list(target_dump.get("binding_ids") or [])
-        actual_bindings: list[str] = []
+        expected_bindings = set(target_dump.get("binding_ids") or [])
+        if published_binding_id:
+            expected_bindings = expected_bindings | {published_binding_id}
+        actual_bindings: set[str] = set()
         for edge in (store.edges or {}).values():
             binding = getattr(edge, "threat_statblock_binding", None)
             if binding is None:
@@ -420,8 +493,8 @@ def _identity_fields_match(selected_target: Any, node: Any, *, store: Any | None
                 continue
             binding_id = getattr(binding, "binding_id", None)
             if isinstance(binding_id, str) and binding_id:
-                actual_bindings.append(binding_id)
-        if sorted(expected_bindings) != sorted(set(actual_bindings)):
+                actual_bindings.add(binding_id)
+        if actual_bindings != expected_bindings:
             return False
     return True
 
@@ -617,8 +690,61 @@ def _verify_connect_existing_constraints(
         target = store.nodes.get(record.threat_node_id)
         if target is None:
             codes.append("connect_target_missing")
-        elif not _identity_fields_match(record.selected_target, target, store=store):
+        elif not _identity_fields_match(
+            record.selected_target,
+            target,
+            store=store,
+            published_binding_id=record.binding_id,
+        ):
             codes.append("connect_target_mismatch")
+    return codes
+
+
+def _parsed_contribution_binding(
+    contribution: GraphContribution, record: ThreatPublicationCommitV1
+) -> ThreatStatblockBindingV1 | None:
+    binding_value = _binding_assertion_value(contribution, record)
+    if binding_value is None:
+        return None
+    try:
+        return parse_threat_statblock_binding_assertion(
+            subject_node_id=record.threat_node_id,
+            target_node_id=record.external_resource_node_id,
+            predicate="uses_statblock",
+            value=dict(binding_value),
+        )
+    except ValueError:
+        return None
+
+
+def _projection_threat_matches_selected_target(
+    threat: Any, selected_target: Any
+) -> list[str]:
+    """Compare projected Threat immutable fields to the persisted selected-target snapshot."""
+    codes: list[str] = []
+    target_dump = selected_target.model_dump(mode="json", by_alias=True)
+    comparisons: tuple[tuple[str, Any], ...] = (
+        ("node_id", threat.node_id),
+        ("label", threat.label),
+        ("kind", threat.kind),
+        ("role", threat.role),
+        ("aliases", list(threat.aliases or [])),
+        ("campaign_scope", getattr(threat, "campaign_scope", None)),
+        ("summary", getattr(threat, "summary", None)),
+        ("source_domains", list(getattr(threat, "source_domains", []) or [])),
+    )
+    for key, actual in comparisons:
+        if key not in target_dump:
+            continue
+        expected = target_dump[key]
+        if key == "kind":
+            if str(expected).casefold() != str(actual).casefold():
+                codes.append(f"projection_connect_threat_{key}_mismatch")
+        elif key in {"aliases", "source_domains"}:
+            if sorted(expected or []) != sorted(actual or []):
+                codes.append(f"projection_connect_threat_{key}_mismatch")
+        elif expected != actual:
+            codes.append(f"projection_connect_threat_{key}_mismatch")
     return codes
 
 
@@ -654,6 +780,12 @@ def _verify_projection_audit(
                 list(expected.get("source_domains") or [])
             ):
                 codes.append("projection_threat_source_domains_mismatch")
+        elif record.decision == "connect_existing" and record.selected_target is not None:
+            # No Threat node assertion in connect_existing contributions — bind the
+            # projected Threat to the immutable selected-target snapshot fields.
+            codes.extend(
+                _projection_threat_matches_selected_target(threat, record.selected_target)
+            )
         projected_attrs = {
             attr.assertion_id: attr
             for attr in (projection.attributes or [])
@@ -675,32 +807,9 @@ def _verify_projection_audit(
     if resource is None:
         codes.append("projection_missing_resource")
     else:
-        expected_label = f"External statblock {statblock_id}"
-        if resource.external_resource is None:
-            codes.append("projection_resource_missing_external_resource")
-        else:
-            try:
-                ExternalResourceV1.model_validate(
-                    resource.external_resource.model_dump(mode="json", by_alias=True)
-                )
-            except Exception:
-                codes.append("projection_resource_external_resource_invalid")
-            expected = ExternalResourceV1.model_validate(
-                {
-                    "schema": "dmb_external_resource_v1",
-                    "provider": PROVIDER,
-                    "resource_type": "statblock",
-                    "resource_id": statblock_id,
-                    "contract": CONTRACT,
-                    "contract_version": CONTRACT_VERSION,
-                }
-            )
-            if resource.external_resource.model_dump(mode="json", by_alias=True) != expected.model_dump(
-                mode="json", by_alias=True
-            ):
-                codes.append("projection_resource_external_resource_mismatch")
-        if resource.label != expected_label:
-            codes.append("projection_resource_label_mismatch")
+        resource_reason = _verify_external_resource_node(resource, statblock_id=statblock_id)
+        if resource_reason is not None:
+            codes.append(f"projection_{resource_reason}")
 
     binding_matches = [
         rel
@@ -723,15 +832,35 @@ def _verify_projection_audit(
         if rel.threat_statblock_binding is None:
             codes.append("projection_binding_payload_missing")
         else:
-            try:
-                ThreatStatblockBindingV1.model_validate(
-                    rel.threat_statblock_binding.model_dump(mode="json", by_alias=True)
-                )
-            except Exception:
-                codes.append("projection_binding_payload_invalid")
+            expected_binding = _parsed_contribution_binding(contribution, record)
+            if expected_binding is None:
+                codes.append("projection_binding_expected_parse_failed")
             else:
-                if rel.threat_statblock_binding.binding_id != record.binding_id:
-                    codes.append("projection_binding_id_mismatch")
+                try:
+                    actual_binding = ThreatStatblockBindingV1.model_validate(
+                        rel.threat_statblock_binding.model_dump(mode="json", by_alias=True)
+                    )
+                except Exception:
+                    codes.append("projection_binding_payload_invalid")
+                else:
+                    recomputed = compute_binding_id(
+                        threat_node_id=rel.source_node_id,
+                        provider=actual_binding.provider,
+                        statblock_id=actual_binding.statblock_id,
+                        revision_id=actual_binding.revision_id,
+                        contract=actual_binding.contract,
+                        contract_version=actual_binding.contract_version,
+                        definition_digest=actual_binding.definition_digest,
+                        role=actual_binding.role,
+                        phase_key=actual_binding.phase_key,
+                        variant_label=actual_binding.variant_label,
+                    )
+                    if actual_binding.binding_id != recomputed:
+                        codes.append("projection_binding_semantic_id_mismatch")
+                    if actual_binding.binding_id != record.binding_id:
+                        codes.append("projection_binding_id_mismatch")
+                    if actual_binding != expected_binding:
+                        codes.append("projection_binding_payload_mismatch")
     return codes
 
 
@@ -1361,6 +1490,20 @@ def _admit_and_build_record(
         ), None, proposal
 
     if not _contribution_matches_proposal(contribution, proposal):
+        disposition = _contribution_order_disposition(
+            contribution, list(proposal.accepted_assertion_ids)
+        )
+        if disposition == "legacy_seal_order":
+            return None, CommitOutcome(
+                _response(
+                    draft_id,
+                    operation_id,
+                    proposal_id,
+                    request.commit_id,
+                    "publication_commit_proposal_incompatible",
+                    message=_LEGACY_SEAL_ORDER_MESSAGE,
+                )
+            ), None, proposal
         return None, CommitOutcome(
             _response(
                 draft_id,
@@ -1803,10 +1946,46 @@ def confirm_threat_publication(
                 identity = read_identity_resolution(
                     root, safe_draft, safe_op, record.resolution_id
                 )
-                resolution = identity.response.resolution
-                selected_target_authority = (
-                    resolution.selected_target if resolution is not None else None
+                identity_status, selected_target_authority, identity_detail = (
+                    _connect_selected_target_authority(identity)
                 )
+                if identity_status == "unavailable":
+                    if record.state == "committed_unverified":
+                        return CommitOutcome(
+                            _response(
+                                safe_draft,
+                                safe_op,
+                                safe_proposal,
+                                safe_commit,
+                                "publication_commit_committed_unverified",
+                                commit=record,
+                                retry_allowed=False,
+                                message=identity_detail,
+                            )
+                        )
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_recovery_pending",
+                            commit=record,
+                            message=identity_detail,
+                        )
+                    )
+                if identity_status == "integrity":
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_integrity_failure",
+                            commit=record,
+                            message=identity_detail,
+                        )
+                    )
 
             matched_contribution, authority_err = _record_contribution_matches_authority(
                 record,
@@ -1815,6 +1994,55 @@ def confirm_threat_publication(
                 selected_target_authority=selected_target_authority,
             )
             if authority_err is not None or matched_contribution is None:
+                if (
+                    authority_err == "accepted_assertion_ids_mismatch"
+                    and _contribution_order_disposition(
+                        contribution, list(record.accepted_assertion_ids)
+                    )
+                    == "legacy_seal_order"
+                ):
+                    if record.state == "committed_unverified":
+                        return CommitOutcome(
+                            _response(
+                                safe_draft,
+                                safe_op,
+                                safe_proposal,
+                                safe_commit,
+                                "publication_commit_committed_unverified",
+                                commit=record,
+                                retry_allowed=False,
+                                message=_LEGACY_SEAL_ORDER_MESSAGE,
+                            )
+                        )
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_proposal_incompatible",
+                            commit=record,
+                            message=_LEGACY_SEAL_ORDER_MESSAGE,
+                        )
+                    )
+                if (
+                    authority_err == "selected_target_mismatch"
+                    and record.state == "committed_unverified"
+                    and selected_target_authority is None
+                ):
+                    # Defensive: unavailable identity should already have returned.
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_committed_unverified",
+                            commit=record,
+                            retry_allowed=False,
+                            message="identity dependency unavailable for selected_target",
+                        )
+                    )
                 return CommitOutcome(
                     _response(
                         safe_draft,

@@ -57,6 +57,7 @@ ThreatPublicationCommitResultLabel = Literal[
     "publication_commit_uncommitted",
     "publication_commit_outcome_ambiguous",
     "publication_commit_proposal_not_active",
+    "publication_commit_proposal_incompatible",
     "publication_commit_operation_not_ready",
     "publication_commit_resolution_not_active",
     "publication_commit_predecessor_mismatch",

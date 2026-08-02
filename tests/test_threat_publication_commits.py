@@ -1309,3 +1309,626 @@ def test_uncommitted_replay_skips_dependency_reads(tmp_path: Path, monkeypatch) 
     assert replay.merge_calls == 0
     assert replay.response.result_label == "publication_commit_uncommitted"
     assert replay.response.commit == terminal
+
+
+def _pipeline_connect_existing(tmp_path: Path, monkeypatch):
+    draft, parent = _mechanics_saved_draft(
+        tmp_path, monkeypatch, name="Unique Threat", graph_nodes={"threat:1": _threat_store_node()}
+    )
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, resolution = _connect_resolution(tmp_path, draft, op_id, parent)
+    proposal_id = str(uuid.uuid4())
+    proposal, _request = _prepare_proposal(tmp_path, draft, op_id, resolution_id, proposal_id)
+    return draft, op_id, resolution_id, proposal_id, proposal, parent, resolution
+
+
+def _connect_verification_store(
+    proposal,
+    world_root: Path,
+    *,
+    selected_target,
+    prior_binding_ids: list[str] | None = None,
+):
+    """Committed store for connect-existing: Threat unchanged + newly published binding."""
+    contribution = _contribution_from_proposal(proposal, world_root)
+    digest = kernel.compute_contribution_source_payload_sha256(contribution)
+    template_node = next(
+        iter(load_union_supergraph_store(DEFAULT_FIXTURE_PATH).nodes.values())
+    )
+    template_edge = next(
+        iter(load_union_supergraph_store(DEFAULT_FIXTURE_PATH).edges.values())
+    )
+    statblock_id = "sb_1"
+    resource_node_id = external_statblock_node_id(statblock_id)
+    ref = AcceptedMechanicsRefV1.from_locator(
+        _locator(), accepted_from_draft_version=1, accepted_at="2020-01-01T00:00:00Z"
+    )
+    binding_value, binding_edge_id, binding_id = _proposal_binding_payload(
+        threat_node_id=proposal.threat_node_id,
+        accepted_ref=ref,
+    )
+    resource = ExternalResourceV1.model_validate(
+        {
+            "schema": "dmb_external_resource_v1",
+            "provider": PROVIDER,
+            "resource_type": "statblock",
+            "resource_id": statblock_id,
+            "contract": CONTRACT,
+            "contract_version": CONTRACT_VERSION,
+        }
+    )
+    resource_label = f"External statblock {statblock_id}"
+    resource_node = template_node.model_copy(
+        update={
+            "node_id": resource_node_id,
+            "label": resource_label,
+            "kind": "external_resource",
+            "role": "statblock",
+            "aliases": [resource_label],
+            "source_domains": ["manual_seed"],
+            "evidence_ref_ids": [],
+            "external_resource": resource,
+        }
+    )
+    target_dump = selected_target.model_dump(mode="json", by_alias=True)
+    threat_node = template_node.model_copy(
+        update={
+            "node_id": proposal.threat_node_id,
+            "label": target_dump["label"],
+            "kind": target_dump["kind"],
+            "role": target_dump["role"],
+            "aliases": list(target_dump.get("aliases") or []),
+            "campaign_scope": target_dump.get("campaign_scope"),
+            "summary": target_dump.get("summary"),
+            "source_domains": list(target_dump.get("source_domains") or []),
+            "evidence_ref_ids": [],
+            "external_resource": None,
+        }
+    )
+    binding = ThreatStatblockBindingV1.model_validate(binding_value["threat_statblock_binding"])
+    edges = {
+        binding_edge_id: template_edge.model_copy(
+            update={
+                "edge_id": binding_edge_id,
+                "source_node_id": proposal.threat_node_id,
+                "target_node_id": resource_node_id,
+                "predicate": "uses_statblock",
+                "label": "uses statblock",
+                "direction": "outbound",
+                "source_domains": ["worldbuilding"],
+                "session_ids": [],
+                "evidence_ref_ids": [],
+                "threat_statblock_binding": binding,
+            }
+        )
+    }
+    for prior_id in prior_binding_ids or []:
+        prior_edge_id = f"edge:{prior_id}"
+        edges[prior_edge_id] = template_edge.model_copy(
+            update={
+                "edge_id": prior_edge_id,
+                "source_node_id": proposal.threat_node_id,
+                "target_node_id": resource_node_id,
+                "predicate": "uses_statblock",
+                "label": "uses statblock",
+                "direction": "outbound",
+                "source_domains": ["worldbuilding"],
+                "session_ids": [],
+                "evidence_ref_ids": [],
+                "threat_statblock_binding": binding.model_copy(
+                    update={"binding_id": prior_id}
+                ),
+            }
+        )
+    assertion_support = {}
+    for assertion in contribution.accepted_assertions:
+        evidence_ids = list(assertion.evidence_ref_ids or [])
+        artifact_ids = (
+            [assertion.source_artifact_id] if assertion.source_artifact_id else []
+        )
+        assertion_support[assertion.assertion_id] = {
+            "assertion_id": assertion.assertion_id,
+            "active_contribution_ids": [proposal.expected_contribution_id],
+            "superseded_contribution_ids": [],
+            "retracted_contribution_ids": [],
+            "evidence_ref_ids": evidence_ids,
+            "source_artifact_ids": artifact_ids,
+            "support_state": "supported",
+            "introduced_by_contribution_id": proposal.expected_contribution_id,
+            "provenance_lineage_version": 1,
+            "per_contribution_evidence_ref_ids": {
+                proposal.expected_contribution_id: evidence_ids,
+            },
+            "per_contribution_source_artifact_ids": {
+                proposal.expected_contribution_id: artifact_ids,
+            },
+        }
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH).model_copy(
+        update={
+            "nodes": {
+                proposal.threat_node_id: threat_node,
+                resource_node_id: resource_node,
+            },
+            "edges": edges,
+            "aliases": {},
+            "adjacency": {},
+            "evidence": {},
+            "source_artifacts": {},
+            "contribution_source_payload_sha256": {
+                proposal.expected_contribution_id: digest,
+            },
+            "contribution_replay_manifest": [
+                ContributionReplayManifestEntry(
+                    contribution_id=proposal.expected_contribution_id,
+                    status="active",
+                    source_payload_sha256=digest,
+                )
+            ],
+            "assertion_support": assertion_support,
+        }
+    )
+    return store, binding, binding_id
+
+
+def _projection_for_verified_commit(*, record, contribution, binding, selected_target=None):
+    threat_assertion = commit_svc._threat_node_assertion(contribution, record.threat_node_id)
+    if threat_assertion is not None:
+        threat_value = threat_assertion.value or {}
+        threat_kwargs = {
+            "node_id": record.threat_node_id,
+            "label": threat_assertion.label,
+            "kind": str(threat_value.get("kind", "Threat")),
+            "role": threat_value.get("role"),
+            "aliases": list(threat_value.get("aliases") or []),
+            "source_domains": list(threat_value.get("source_domains") or []),
+            "campaign_scope": threat_value.get("campaign_scope"),
+            "summary": threat_value.get("summary"),
+            "external_resource": None,
+        }
+    else:
+        assert selected_target is not None
+        dump = selected_target.model_dump(mode="json", by_alias=True)
+        threat_kwargs = {
+            "node_id": record.threat_node_id,
+            "label": dump["label"],
+            "kind": dump["kind"],
+            "role": dump["role"],
+            "aliases": list(dump.get("aliases") or []),
+            "source_domains": list(dump.get("source_domains") or []),
+            "campaign_scope": dump.get("campaign_scope"),
+            "summary": dump.get("summary"),
+            "external_resource": None,
+        }
+
+    class _Node:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    class _Rel:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    class _Snap:
+        revision_id = record.committed_revision_id
+
+    class _Projection:
+        snapshot = _Snap()
+        nodes = [
+            _Node(**threat_kwargs),
+            _Node(
+                node_id=record.external_resource_node_id,
+                label="External statblock sb_1",
+                kind="external_resource",
+                role="statblock",
+                aliases=["External statblock sb_1"],
+                source_domains=["manual_seed"],
+                external_resource=ExternalResourceV1.model_validate(
+                    {
+                        "schema": "dmb_external_resource_v1",
+                        "provider": PROVIDER,
+                        "resource_type": "statblock",
+                        "resource_id": "sb_1",
+                        "contract": CONTRACT,
+                        "contract_version": CONTRACT_VERSION,
+                    }
+                ),
+            ),
+        ]
+        relationships = [
+            _Rel(
+                edge_id=record.binding_edge_id,
+                source_node_id=record.threat_node_id,
+                target_node_id=record.external_resource_node_id,
+                predicate="uses_statblock",
+                direction="outgoing",
+                threat_statblock_binding=binding,
+            )
+        ]
+        attributes = [
+            type(
+                "Attr",
+                (),
+                {
+                    "assertion_id": assertion.assertion_id,
+                    "subject_node_id": record.threat_node_id,
+                    "predicate": assertion.predicate,
+                    "value": dict(assertion.value or {}),
+                },
+            )()
+            for assertion in commit_svc._authored_field_assertions(
+                contribution, record.threat_node_id
+            )
+        ]
+
+    return _Projection()
+
+
+def test_connect_existing_binding_ids_allow_published_binding(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent, resolution = _pipeline_connect_existing(
+        tmp_path, monkeypatch
+    )
+    assert resolution.selected_target is not None
+    world_root = tmp_path / "graph"
+    prior = ["threat-statblock-binding:prior000000000000000"]
+    selected = resolution.selected_target.model_copy(update={"binding_ids": prior})
+    store, _binding, published_binding_id = _connect_verification_store(
+        proposal, world_root, selected_target=selected, prior_binding_ids=prior
+    )
+    threat = store.nodes[proposal.threat_node_id]
+    assert (
+        commit_svc._identity_fields_match(
+            selected,
+            threat,
+            store=store,
+            published_binding_id=published_binding_id,
+        )
+        is True
+    )
+    # Pre-publication equality alone must fail once the new binding is present.
+    assert (
+        commit_svc._identity_fields_match(selected, threat, store=store) is False
+    )
+
+    record, early, contribution, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=_confirm_request(proposal),
+    )
+    assert early is None and record is not None
+    # Force selected_target with prior bindings for the constraint check.
+    record = commit_svc._with_updated(
+        record,
+        selected_target=selected.model_dump(mode="json", by_alias=True),
+        binding_id=published_binding_id,
+    )
+    codes = commit_svc._verify_connect_existing_constraints(
+        store=store, contribution=contribution, record=record
+    )
+    assert "connect_target_mismatch" not in codes
+
+
+def test_connect_existing_verify_committed_reaches_verified(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent, resolution = _pipeline_connect_existing(
+        tmp_path, monkeypatch
+    )
+    assert resolution.selected_target is not None
+    world_root = tmp_path / "graph"
+    revision_id = "rev:connect-verified"
+    store, binding, _binding_id = _connect_verification_store(
+        proposal, world_root, selected_target=resolution.selected_target
+    )
+    request = _confirm_request(proposal)
+    record, early, contribution, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    unverified = commit_svc._with_updated(
+        record,
+        state="committed_unverified",
+        committed_revision_id=revision_id,
+        verification_status="not_started",
+        merge_attempt_count=1,
+    )
+    commit_svc._save_commit(tmp_path, unverified)
+    manifest = _recovery_manifest(proposal, revision_id=revision_id)
+    projection = _projection_for_verified_commit(
+        record=unverified,
+        contribution=contribution,
+        binding=binding,
+        selected_target=resolution.selected_target,
+    )
+
+    class _Rebuild:
+        diagnostics = ["rebuild_equivalent_to_pinned_revision"]
+
+    with patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ), patch.object(
+        commit_svc.kernel, "rebuild_from_contributions", return_value=_Rebuild()
+    ), patch.object(
+        commit_svc.kernel, "project_world_graph", return_value=projection
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_verified"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_verified"
+    assert outcome.response.commit.verification_status == "passed"
+
+
+def test_committed_unverified_identity_unavailable_returns_receipt(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.models.threat_publication_identity import (
+        ThreatPublicationIdentityResponseV1,
+    )
+    from apps.live_control_server.services.threat_publication_identity import (
+        IdentityResolutionOutcome,
+    )
+
+    draft, op_id, _rid, proposal_id, proposal, _parent, _resolution = _pipeline_connect_existing(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    unverified = commit_svc._with_updated(
+        record,
+        state="committed_unverified",
+        committed_revision_id="rev:identity-unavailable",
+        verification_status="not_started",
+    )
+    commit_svc._save_commit(tmp_path, unverified)
+
+    unavailable = IdentityResolutionOutcome(
+        ThreatPublicationIdentityResponseV1(
+            draft_id=draft.draft_id,
+            operation_id=op_id,
+            result_label="publication_identity_not_found",
+            resolution=None,
+            predecessor_usable=None,
+            message="identity resolution not found",
+        ),
+        created=False,
+    )
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=unavailable
+    ):
+        replay = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert replay.merge_calls == 0
+    assert replay.response.result_label == "publication_commit_committed_unverified"
+    assert replay.response.commit == unverified
+    assert replay.response.retry_allowed is False
+    assert "identity dependency unavailable" in (replay.response.message or "")
+
+
+def test_committed_unverified_identity_contradiction_is_integrity(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent, resolution = _pipeline_connect_existing(
+        tmp_path, monkeypatch
+    )
+    assert resolution.selected_target is not None
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    unverified = commit_svc._with_updated(
+        record,
+        state="committed_unverified",
+        committed_revision_id="rev:identity-contradiction",
+        verification_status="not_started",
+    )
+    commit_svc._save_commit(tmp_path, unverified)
+
+    contradictory_target = resolution.selected_target.model_copy(
+        update={"label": "Completely Different Threat"}
+    )
+    # Bypass resolution model validators: simulate readable-but-contradictory
+    # identity authority returned by the service boundary.
+    identity = type(
+        "IdentityOutcome",
+        (),
+        {
+            "response": type(
+                "IdentityResponse",
+                (),
+                {
+                    "result_label": "publication_identity_connected_existing",
+                    "resolution": type(
+                        "Resolution",
+                        (),
+                        {"selected_target": contradictory_target},
+                    )(),
+                },
+            )()
+        },
+    )()
+    with patch.object(commit_svc, "read_identity_resolution", return_value=identity):
+        replay = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert replay.merge_calls == 0
+    assert replay.response.result_label == "publication_commit_integrity_failure"
+    assert "selected_target_mismatch" in (replay.response.message or "")
+
+
+def test_legacy_seal_order_proposal_requires_supersession(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    ids = list(proposal.accepted_assertion_ids)
+    assert len(ids) >= 2
+    legacy_ids = list(reversed(ids))
+    assert legacy_ids != ids
+
+    ledger = proposal_svc.load_threat_publication_proposal_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    mutated = ledger.model_copy(
+        update={
+            "proposals": [
+                (
+                    p.model_copy(update={"accepted_assertion_ids": legacy_ids})
+                    if p.proposal_id == proposal_id
+                    else p
+                )
+                for p in ledger.proposals
+            ]
+        }
+    )
+    proposal_svc._save_ledger_unlocked(tmp_path, mutated)
+
+    contribution = _contribution_from_proposal(
+        proposal.model_copy(update={"accepted_assertion_ids": ids}), world_root
+    )
+    # Reconstruct against the durable (legacy-ordered) proposal bytes.
+    legacy_proposal = next(p for p in mutated.proposals if p.proposal_id == proposal_id)
+    assert (
+        commit_svc._contribution_order_disposition(
+            contribution, list(legacy_proposal.accepted_assertion_ids)
+        )
+        == "legacy_seal_order"
+    )
+
+    outcome = commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        _confirm_request(legacy_proposal),
+        world_root=world_root,
+        merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+        lookup_fn=lambda *_a, **_k: tuple(),
+    )
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_proposal_incompatible"
+    assert "supersede" in (outcome.response.message or "").casefold()
+    _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
+
+
+def test_create_new_verify_committed_reaches_verified_full_projection(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    revision_id = "rev:create-verified"
+    store = _verification_store(proposal, world_root)
+    request = _confirm_request(proposal)
+    record, early, contribution, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    unverified = commit_svc._with_updated(
+        record,
+        state="committed_unverified",
+        committed_revision_id=revision_id,
+        verification_status="not_started",
+        merge_attempt_count=1,
+    )
+    commit_svc._save_commit(tmp_path, unverified)
+    binding = ThreatStatblockBindingV1.model_validate(
+        (_proposal_binding_payload(
+            threat_node_id=proposal.threat_node_id,
+            accepted_ref=AcceptedMechanicsRefV1.from_locator(
+                _locator(), accepted_from_draft_version=1, accepted_at="2020-01-01T00:00:00Z"
+            ),
+        )[0])["threat_statblock_binding"]
+    )
+    projection = _projection_for_verified_commit(
+        record=unverified, contribution=contribution, binding=binding
+    )
+    manifest = _recovery_manifest(proposal, revision_id=revision_id)
+
+    class _Rebuild:
+        diagnostics = ["rebuild_equivalent_to_pinned_revision"]
+
+    with patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ), patch.object(
+        commit_svc.kernel, "rebuild_from_contributions", return_value=_Rebuild()
+    ), patch.object(
+        commit_svc.kernel, "project_world_graph", return_value=projection
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_verified"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_verified"
+    assert outcome.response.commit.verification_status == "passed"
