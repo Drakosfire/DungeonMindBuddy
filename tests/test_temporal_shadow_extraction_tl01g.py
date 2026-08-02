@@ -726,21 +726,52 @@ def _proposition_template_jaccard(left: dict, right: dict) -> float:
 
 
 _RESULTING_STATE_MARKERS = ("no longer", "still ", "continues to", "remains")
-_BOUNDARY_NARRATION_CUES = (
+# Direction-specific transition cues. Matching is word/phrase-aware (not raw substring).
+# "when they" is intentionally omitted — meeting/framing is not a state boundary.
+_START_BOUNDARY_CUES = (
     "became",
+    "began to",
+    "started to",
+)
+_END_BOUNDARY_CUES = (
     "stopped",
     "ceased",
     "ended",
-    "began to",
-    "started to",
-    "when they",
 )
+_ALL_BOUNDARY_CUES = _START_BOUNDARY_CUES + _END_BOUNDARY_CUES
+
+
+def _cue_pattern(cue: str) -> re.Pattern[str]:
+    """Compile a word/phrase-aware cue pattern (no bare substring matches)."""
+    escaped = re.escape(cue.lower()).replace(r"\ ", r"\s+")
+    return re.compile(rf"\b{escaped}\b", re.IGNORECASE)
+
+
+_CUE_PATTERNS: dict[str, re.Pattern[str]] = {
+    cue: _cue_pattern(cue) for cue in _ALL_BOUNDARY_CUES
+}
+
+
+def _has_word_aware_cue(text: str, cues: tuple[str, ...]) -> bool:
+    return any(_CUE_PATTERNS[cue].search(text) is not None for cue in cues)
+
+
+def _boundary_cues_for(boundary_kind: str) -> tuple[str, ...]:
+    if boundary_kind == "start":
+        return _START_BOUNDARY_CUES
+    if boundary_kind == "end":
+        return _END_BOUNDARY_CUES
+    raise AssertionError(f"unknown boundary_kind: {boundary_kind!r}")
 
 
 def _source_narrates_boundary(source_text: str) -> bool:
-    """True when prose narrates a state/event transition (positive Gate E3 grounding)."""
-    text = source_text.lower()
-    return any(cue in text for cue in _BOUNDARY_NARRATION_CUES)
+    """True when prose narrates a start or end state/event transition."""
+    return _has_word_aware_cue(source_text, _ALL_BOUNDARY_CUES)
+
+
+def _source_narrates_boundary_kind(source_text: str, boundary_kind: str) -> bool:
+    """True when prose narrates a transition compatible with start or end."""
+    return _has_word_aware_cue(source_text, _boundary_cues_for(boundary_kind))
 
 
 def _any_evidence_narrates_boundary(sources: list[str]) -> bool:
@@ -798,14 +829,15 @@ def _boundary_narration_concerns_proposition(
     *,
     proposition: str,
     source_phrase: str,
+    boundary_kind: str,
 ) -> bool:
-    """True when a narrated transition in this span supports the annotated claim.
+    """True when a direction-compatible transition in this span supports the claim.
 
-    Requires the annotation ``source_phrase`` to appear in the same span as the
-    boundary cue, and content-token overlap between phrase and proposition.
-    Unrelated transition language in a different span does not qualify.
+    Requires a start- or end-compatible cue (word/phrase-aware), the annotation
+    ``source_phrase`` in the same span, and content-token overlap with the
+    proposition. Unrelated or wrong-direction transitions do not qualify.
     """
-    if not _source_narrates_boundary(source_text):
+    if not _source_narrates_boundary_kind(source_text, boundary_kind):
         return False
     phrase_norm = _normalize_grounding_ws(source_phrase)
     span_norm = _normalize_grounding_ws(source_text)
@@ -824,8 +856,16 @@ def _assert_annotation_gate_e3_boundary_proof(
     assertion: dict,
     evidence_by_id: dict[str, dict],
     context: str,
+    boundary_kind: str,
+    boundary_value: object,
 ) -> None:
-    """Fail-closed Gate E3 acceptance for resolved valid-time annotations."""
+    """Fail-closed Gate E3 acceptance for one resolved valid-time boundary."""
+    if boundary_kind not in {"start", "end"}:
+        raise AssertionError(f"{context}: unknown boundary_kind {boundary_kind!r}")
+    if boundary_value is None:
+        raise AssertionError(
+            f"{context}: boundary_value is required for valid_time.{boundary_kind}"
+        )
     spans = _resolve_annotation_evidence_spans(annotation, evidence_by_id)
     phrase = annotation.get("source_phrase")
     if not isinstance(phrase, str) or not phrase.strip():
@@ -839,14 +879,17 @@ def _assert_annotation_gate_e3_boundary_proof(
     proposition = str(assertion.get("label") or "")
     if not any(
         _boundary_narration_concerns_proposition(
-            span, proposition=proposition, source_phrase=phrase
+            span,
+            proposition=proposition,
+            source_phrase=phrase,
+            boundary_kind=boundary_kind,
         )
         for span in spans
     ):
         raise AssertionError(
             f"{context}: Gate E3 defect — no annotation evidence span narrates a "
-            "boundary transition that concerns the selected proposition "
-            f"(source_phrase={phrase!r})"
+            f"valid_time.{boundary_kind}-compatible boundary transition that concerns "
+            f"the selected proposition (source_phrase={phrase!r})"
         )
 
 
@@ -1391,17 +1434,24 @@ def test_fresh_holdout_overlays_reject_gate_e3_and_postponement_value_defects() 
                         f"{fresh_dir.name}: resolved valid-time annotation "
                         f"{assertion_id!r} missing base assertion"
                     )
-                lane = (
-                    "valid_time.start"
-                    if valid_start is not None
-                    else "valid_time.end"
-                )
-                _assert_annotation_gate_e3_boundary_proof(
-                    annotation=ann,
-                    assertion=assertion,
-                    evidence_by_id=evidence,
-                    context=f"{fresh_dir.name}:{assertion_id}:{lane}",
-                )
+                if valid_start is not None:
+                    _assert_annotation_gate_e3_boundary_proof(
+                        annotation=ann,
+                        assertion=assertion,
+                        evidence_by_id=evidence,
+                        context=f"{fresh_dir.name}:{assertion_id}:valid_time.start",
+                        boundary_kind="start",
+                        boundary_value=valid_start,
+                    )
+                if valid_end is not None:
+                    _assert_annotation_gate_e3_boundary_proof(
+                        annotation=ann,
+                        assertion=assertion,
+                        evidence_by_id=evidence,
+                        context=f"{fresh_dir.name}:{assertion_id}:valid_time.end",
+                        boundary_kind="end",
+                        boundary_value=valid_end,
+                    )
             occ_time = ann.get("occurrence_time") or {}
             occ_point = occ_time.get("point") or {}
             raw_expression = str(occ_point.get("raw_expression") or "")
@@ -1640,10 +1690,14 @@ def test_gate_e3_audit_requires_positive_boundary_narration() -> None:
     )
     # Neutral restatement: neither resulting-state marker nor boundary cue.
     neutral = "The treaty is in effect during Session 8."
+    # Framing with "when they" alone is not a boundary.
+    meeting_frame = "When they met at dawn, the treaty is in effect."
 
     assert _source_narrates_boundary(boundary)
     assert not _source_narrates_boundary(state_only)
     assert not _source_narrates_boundary(neutral)
+    assert not _source_narrates_boundary(meeting_frame)
+    assert not _has_word_aware_cue(meeting_frame, _ALL_BOUNDARY_CUES)
 
     assert _any_evidence_narrates_boundary([boundary, state_only])
     assert not _any_evidence_narrates_boundary([state_only])
@@ -1673,10 +1727,16 @@ def test_gate_e3_rejects_unrelated_transition_in_other_evidence_span() -> None:
     # Cue-only acceptance would wrongly pass because unrelated_transition narrates.
     assert _any_evidence_narrates_boundary([state_span, unrelated_transition])
     assert not _boundary_narration_concerns_proposition(
-        state_span, proposition=proposition, source_phrase=source_phrase
+        state_span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="end",
     )
     assert not _boundary_narration_concerns_proposition(
-        unrelated_transition, proposition=proposition, source_phrase=source_phrase
+        unrelated_transition,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="end",
     )
 
 
@@ -1689,7 +1749,67 @@ def test_gate_e3_accepts_proposition_bound_boundary_in_grounding_span() -> None:
     )
     assert _source_phrase_grounded_in_spans(source_phrase, [span])
     assert _boundary_narration_concerns_proposition(
-        span, proposition=proposition, source_phrase=source_phrase
+        span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="start",
+    )
+    assert not _boundary_narration_concerns_proposition(
+        span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="end",
+    )
+
+
+def test_gate_e3_word_aware_cues_reject_substring_and_when_they_framing() -> None:
+    assert _has_word_aware_cue("Lysandra became captain", ("became",))
+    assert not _has_word_aware_cue("the amended charter remains", ("ended",))
+    assert not _source_narrates_boundary(
+        "When they met at dawn, the treaty is in effect."
+    )
+
+
+def test_gate_e3_stopped_being_responsible_fails_as_valid_start() -> None:
+    proposition = "Lysandra is responsible for the harbor watch"
+    source_phrase = "stopped being responsible for the harbor watch"
+    span = "Lysandra stopped being responsible for the harbor watch."
+    assert _source_narrates_boundary_kind(span, "end")
+    assert not _source_narrates_boundary_kind(span, "start")
+    assert not _boundary_narration_concerns_proposition(
+        span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="start",
+    )
+    assert _boundary_narration_concerns_proposition(
+        span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="end",
+    )
+
+
+def test_gate_e3_became_responsible_fails_as_valid_end() -> None:
+    proposition = "Lysandra is responsible for the harbor watch"
+    source_phrase = "became responsible for the harbor watch"
+    span = (
+        "In session 12, Lysandra became responsible for the harbor watch "
+        "after the captain fled."
+    )
+    assert _source_narrates_boundary_kind(span, "start")
+    assert not _source_narrates_boundary_kind(span, "end")
+    assert _boundary_narration_concerns_proposition(
+        span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="start",
+    )
+    assert not _boundary_narration_concerns_proposition(
+        span,
+        proposition=proposition,
+        source_phrase=source_phrase,
+        boundary_kind="end",
     )
 
 
@@ -1756,7 +1876,18 @@ def test_assert_annotation_gate_e3_boundary_proof_end_to_end() -> None:
         assertion=assertion,
         evidence_by_id=evidence_by_id,
         context="good",
+        boundary_kind="start",
+        boundary_value={"session_id": "session-12"},
     )
+    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
+        _assert_annotation_gate_e3_boundary_proof(
+            annotation=good,
+            assertion=assertion,
+            evidence_by_id=evidence_by_id,
+            context="good-as-end",
+            boundary_kind="end",
+            boundary_value={"session_id": "session-12"},
+        )
 
     bad = {
         "evidence_ref_ids": ["evidence:state", "evidence:unrelated"],
@@ -1766,12 +1897,14 @@ def test_assert_annotation_gate_e3_boundary_proof_end_to_end() -> None:
         "assertion_id": "assertion:rebels",
         "label": "The rebel humans feel represented in Mirathorn",
     }
-    with pytest.raises(AssertionError, match="no annotation evidence span narrates"):
+    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=bad,
             assertion=rebels,
             evidence_by_id=evidence_by_id,
             context="bad",
+            boundary_kind="end",
+            boundary_value={"session_id": "session-7"},
         )
 
     ungrounded = {
@@ -1784,6 +1917,51 @@ def test_assert_annotation_gate_e3_boundary_proof_end_to_end() -> None:
             assertion=assertion,
             evidence_by_id=evidence_by_id,
             context="ungrounded",
+            boundary_kind="start",
+            boundary_value={"session_id": "session-12"},
+        )
+
+
+def test_gate_e3_dual_boundary_requires_independent_proof_for_each() -> None:
+    """Both start and end must be proven separately; one-sided evidence is insufficient."""
+    fixture_dir = REPO_ROOT / "tests/fixtures/tl01g_gate_e3"
+    bound = fixture_dir / "bound-boundary.md"
+    evidence_by_id = {
+        "evidence:bound": {
+            "evidence_ref_id": "evidence:bound",
+            "source_artifact_path": bound.relative_to(REPO_ROOT).as_posix(),
+            "start_line": 1,
+            "end_line": 1,
+        },
+    }
+    assertion = {
+        "assertion_id": "assertion:harbor",
+        "label": "Lysandra is responsible for the harbor watch",
+    }
+    annotation = {
+        "evidence_ref_ids": ["evidence:bound"],
+        "source_phrase": "became responsible for the harbor watch",
+        "valid_time": {
+            "start": {"session_id": "session-12"},
+            "end": {"session_id": "session-14"},
+        },
+    }
+    _assert_annotation_gate_e3_boundary_proof(
+        annotation=annotation,
+        assertion=assertion,
+        evidence_by_id=evidence_by_id,
+        context="dual-start",
+        boundary_kind="start",
+        boundary_value=annotation["valid_time"]["start"],
+    )
+    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
+        _assert_annotation_gate_e3_boundary_proof(
+            annotation=annotation,
+            assertion=assertion,
+            evidence_by_id=evidence_by_id,
+            context="dual-end",
+            boundary_kind="end",
+            boundary_value=annotation["valid_time"]["end"],
         )
 
 
@@ -1824,12 +2002,14 @@ def test_holdout_v13_retains_observed_gate_e3_and_postponement_value_defects() -
     assert _source_reports_resulting_state_without_narrated_boundary(rebels_source)
     assert not _source_narrates_boundary(rebels_source)
     assert not _any_evidence_narrates_boundary([rebels_source])
-    with pytest.raises(AssertionError, match="no annotation evidence span narrates"):
+    with pytest.raises(AssertionError, match="valid_time.end-compatible"):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=rebels_ann,
             assertion=by_id[rebels_id],
             evidence_by_id=evidence,
             context="holdout_v13_rebels",
+            boundary_kind="end",
+            boundary_value=valid_end,
         )
 
     postpone_id = "assertion:d25ec476e8268f16"
