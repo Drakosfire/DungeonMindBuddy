@@ -173,7 +173,7 @@ function LegacyProjectionHostAdapterInner({
   }, [campaignKey, config.context, latestIngestedSessionId]);
 
   const openToolFromNav = useCallback(
-    async (toolId: string) => {
+    async (toolId: string): Promise<boolean> => {
       const identityAtStart = surfaceIdentityRef.current;
       const inferredSessionId =
         SESSION_AWARE_TOOLS.has(toolId) && !requestedSessionFromLocation()
@@ -185,7 +185,7 @@ function LegacyProjectionHostAdapterInner({
         !identityNow ||
         !sameProjectionSurfaceIdentity(identityAtStart, identityNow)
       ) {
-        return;
+        return false;
       }
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
@@ -200,6 +200,7 @@ function LegacyProjectionHostAdapterInner({
         );
       }
       openTool(toolId);
+      return true;
     },
     [openTool, resolveLatestIngestedSessionId],
   );

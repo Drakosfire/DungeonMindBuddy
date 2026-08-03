@@ -6,15 +6,22 @@ export type ToolHostActivationResult =
   | { status: "opened"; mode: "projection"; projectionId: string }
   | { status: "ignored"; reason: "missing" | "disabled" | "stale" | "unsupported" };
 
+function isThenable<T>(value: T | Promise<T>): value is Promise<T> {
+  return typeof value === "object" && value !== null && "then" in value;
+}
+
 /**
  * Click-time Tool activation against the *current* effective publication.
  * Never trusts a captured contribution object — re-resolves by exact id.
+ *
+ * Projection opens pass the **Tool contribution id** to `openProjectionTool`.
+ * The host resolves `activation.projectionId` internally.
  */
 export function activateToolContribution(args: {
   publication: SurfaceInteractionPublication | null;
   toolId: string;
-  openProjectionTool: (projectionId: string) => boolean;
-}): ToolHostActivationResult {
+  openProjectionTool: (toolId: string) => boolean | Promise<boolean>;
+}): ToolHostActivationResult | Promise<ToolHostActivationResult> {
   const { publication, toolId, openProjectionTool } = args;
   if (!publication) {
     return { status: "ignored", reason: "stale" };
@@ -35,11 +42,19 @@ export function activateToolContribution(args: {
     return { status: "invoked", mode: "command" };
   }
   if (tool.activation.kind === "projection") {
-    const opened = openProjectionTool(tool.activation.projectionId);
+    const projectionId = tool.activation.projectionId;
+    const opened = openProjectionTool(toolId);
+    if (isThenable(opened)) {
+      return opened.then((ok) =>
+        ok
+          ? { status: "opened", mode: "projection", projectionId }
+          : { status: "ignored", reason: "unsupported" },
+      );
+    }
     if (!opened) {
       return { status: "ignored", reason: "unsupported" };
     }
-    return { status: "opened", mode: "projection", projectionId: tool.activation.projectionId };
+    return { status: "opened", mode: "projection", projectionId };
   }
   return { status: "ignored", reason: "unsupported" };
 }

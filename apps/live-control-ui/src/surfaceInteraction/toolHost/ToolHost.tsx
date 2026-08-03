@@ -25,8 +25,10 @@ export function ToolHost() {
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const wasOpenRef = useRef(false);
+  const isOpenRef = useRef(false);
   const closeReasonRef = useRef<ToolHostCloseReason | null>(null);
   const previousIdentityRef = useRef<SurfaceInteractionIdentity | null>(identity);
+  isOpenRef.current = isOpen;
 
   function closeDrawer(reason: ToolHostCloseReason) {
     closeReasonRef.current = reason;
@@ -86,13 +88,29 @@ export function ToolHost() {
   const navGroups = groups.filter((group) => group.groupId !== null);
 
   function handleActivate(toolId: string) {
-    const result = activateToolContribution({
+    const resultOrPromise = activateToolContribution({
       publication: surfaceInteractionPublication,
       toolId,
       openProjectionTool: activateProjectionTool,
     });
-    if (result.status === "opened" || result.status === "invoked") {
-      closeDrawer(result.status === "opened" ? "projection-launch" : "dismiss");
+
+    if (resultOrPromise instanceof Promise) {
+      void resultOrPromise.then((result) => {
+        if (result.status === "opened" || result.status === "invoked") {
+          closeDrawer(result.status === "opened" ? "projection-launch" : "dismiss");
+          return;
+        }
+        // Async activation aborted or declined — keep drawer open when still
+        // visible; otherwise park focus on the Tools toggle (visible control).
+        if (!isOpenRef.current) {
+          toggleRef.current?.focus();
+        }
+      });
+      return;
+    }
+
+    if (resultOrPromise.status === "opened" || resultOrPromise.status === "invoked") {
+      closeDrawer(resultOrPromise.status === "opened" ? "projection-launch" : "dismiss");
     }
   }
 
