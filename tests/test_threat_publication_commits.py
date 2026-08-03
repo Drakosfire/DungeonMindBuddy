@@ -626,6 +626,8 @@ def test_receipt_save_failure_recovers_on_replay(tmp_path: Path, monkeypatch) ->
     assert first.response.result_label == "publication_commit_storage_unavailable"
     assert first.response.commit is not None
     assert first.response.commit.state == "committing"
+    assert first.response.commit.merge_attempt_count == 2
+    assert first.response.retry_allowed is False
 
     with patch.object(
         commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
@@ -2759,7 +2761,9 @@ def _c2a_connect_verifiable_setup(tmp_path: Path, monkeypatch, *, revision_id: s
     )
 
 
-def test_c2a_superseded_identity_cannot_reach_verified(tmp_path: Path, monkeypatch) -> None:
+def test_c2a_superseded_historical_identity_can_reach_verified(
+    tmp_path: Path, monkeypatch
+) -> None:
     revision_id = "rev:connect-c2a-superseded"
     (
         draft,
@@ -2807,11 +2811,10 @@ def test_c2a_superseded_identity_cannot_reach_verified(tmp_path: Path, monkeypat
         )
 
     assert outcome.merge_calls == 0
-    assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert outcome.response.result_label == "publication_commit_verified"
     assert outcome.response.commit is not None
-    assert outcome.response.commit.state == "committed_unverified"
-    assert outcome.response.commit.state != "committed_verified"
-    assert "superseded" in (outcome.response.message or "")
+    assert outcome.response.commit.state == "committed_verified"
+    assert outcome.response.retry_allowed is False
 
 
 def test_c2a_changed_request_digest_cannot_reach_verified(
@@ -3110,12 +3113,15 @@ def test_c2a_committed_receipt_save_failure_returns_storage_unavailable(
     assert outcome.response.commit is not None
     assert outcome.response.commit.state == "committing"
     assert outcome.response.commit.committed_revision_id is None
+    assert outcome.response.commit.merge_attempt_count == 2
+    assert outcome.response.retry_allowed is False
     ledger = load_threat_publication_commit_ledger_unlocked(
         tmp_path, draft.draft_id, op_id
     )
     assert ledger is not None
     assert ledger.commit.state == "committing"
-    assert ledger.commit.merge_attempt_count == 1
+    assert ledger.commit.merge_attempt_count == 2
+    assert ledger.commit.committed_revision_id is None
 
 
 def test_retry_committed_receipt_save_failure_returns_storage_unavailable(
@@ -3176,3 +3182,421 @@ def test_retry_committed_receipt_save_failure_returns_storage_unavailable(
     assert ledger is not None
     assert ledger.commit.state == "committing"
     assert ledger.commit.merge_attempt_count == 2
+
+
+def _legacy_committing_fixture(tmp_path: Path, monkeypatch):
+    """Persist a recognized legacy-order committing claim for recovery classification tests."""
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    recon_ids = list(proposal.accepted_assertion_ids)
+    seal_ids = _historical_seal_ids(proposal)
+    assert seal_ids != recon_ids
+
+    from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
+
+    _v, contribution = resolve_merged_contribution_from_package(
+        review_package=proposal.sealed_proposal,
+        confirming_principal=proposal.created_by,
+        world_id_hint="world_1",
+        root=world_root,
+        expected_parent_revision_id=proposal.expected_parent_revision_id,
+        assertion_ids=None,
+        verify_source=False,
+    )
+    by_id = {item.assertion_id: item for item in contribution.accepted_assertions}
+    seal_ordered = contribution.model_copy(
+        update={"accepted_assertions": [by_id[i] for i in seal_ids]}
+    )
+    seal_digest = kernel.compute_contribution_source_payload_sha256(seal_ordered)
+
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    legacy_proposal = _mutate_proposal_accepted_ids(
+        tmp_path, draft.draft_id, op_id, proposal_id, seal_ids
+    )
+    legacy_record = commit_svc._with_updated(
+        record,
+        accepted_assertion_ids=list(legacy_proposal.accepted_assertion_ids),
+        expected_contribution_source_payload_sha256=seal_digest,
+        proposal_request_digest=legacy_proposal.request_digest,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, legacy_record)
+    return (
+        draft,
+        op_id,
+        proposal_id,
+        legacy_proposal,
+        request,
+        world_root,
+        legacy_record,
+        seal_digest,
+    )
+
+
+def test_legacy_c2a_oserror_keeps_committing(tmp_path: Path, monkeypatch) -> None:
+    (
+        draft,
+        op_id,
+        proposal_id,
+        _legacy_proposal,
+        request,
+        world_root,
+        _legacy_record,
+        _seal_digest,
+    ) = _legacy_committing_fixture(tmp_path, monkeypatch)
+
+    outcome = commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        request,
+        world_root=world_root,
+        merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+        lookup_fn=lambda *_a, **_k: (_ for _ in ()).throw(OSError("c2a unavailable")),
+    )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_recovery_pending"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.commit.merge_attempt_count == 1
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+    assert ledger.commit.merge_attempt_count == 1
+
+
+def test_legacy_c2a_integrity_keeps_committing(tmp_path: Path, monkeypatch) -> None:
+    (
+        draft,
+        op_id,
+        proposal_id,
+        _legacy_proposal,
+        request,
+        world_root,
+        _legacy_record,
+        _seal_digest,
+    ) = _legacy_committing_fixture(tmp_path, monkeypatch)
+
+    outcome = commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        request,
+        world_root=world_root,
+        merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+        lookup_fn=lambda *_a, **_k: (_ for _ in ()).throw(
+            WorldGraphIntegrityError("corrupt c2a authority")
+        ),
+    )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+
+
+def test_legacy_c2a_receipt_save_failure_keeps_committing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        ThreatPublicationCommitStorageError,
+    )
+
+    (
+        draft,
+        op_id,
+        proposal_id,
+        legacy_proposal,
+        request,
+        world_root,
+        _legacy_record,
+        seal_digest,
+    ) = _legacy_committing_fixture(tmp_path, monkeypatch)
+
+    revision_id = "rev:legacy-receipt-save-fail"
+    manifest = _recovery_manifest(legacy_proposal, revision_id=revision_id)
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH).model_copy(
+        update={
+            "nodes": {},
+            "edges": {},
+            "aliases": {},
+            "adjacency": {},
+            "evidence": {},
+            "source_artifacts": {},
+            "contribution_source_payload_sha256": {
+                legacy_proposal.expected_contribution_id: seal_digest,
+            },
+            "contribution_replay_manifest": [
+                ContributionReplayManifestEntry(
+                    contribution_id=legacy_proposal.expected_contribution_id,
+                    status="active",
+                    source_payload_sha256=seal_digest,
+                )
+            ],
+        }
+    )
+    real_save = commit_svc._save_commit
+
+    def flaky_save(root, commit: ThreatPublicationCommitV1):
+        if (
+            commit.state == "committed_unverified"
+            and commit.verification_status == "not_started"
+        ):
+            raise ThreatPublicationCommitStorageError(
+                "committed receipt save failed", kind="unavailable"
+            )
+        return real_save(root, commit)
+
+    with patch.object(
+        commit_svc, "_save_commit", side_effect=flaky_save
+    ), patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_storage_unavailable"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.commit.merge_attempt_count == 2
+    assert outcome.response.retry_allowed is False
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+    assert ledger.commit.merge_attempt_count == 2
+
+
+def test_retry_reconstruction_oserror_keeps_committing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    identity = _stub_identity_outcome(
+        type(
+            "Resolution",
+            (),
+            {
+                "resolution_id": proposal.resolution_id,
+                "draft_id": draft.draft_id,
+                "operation_id": op_id,
+                "source_digest": proposal.source_digest,
+                "request_digest": proposal.resolution_request_digest,
+                "candidate_set_digest": proposal.candidate_set_digest,
+                "expected_parent_revision_id": proposal.expected_parent_revision_id,
+                "decision": proposal.decision,
+                "selected_target": None,
+                "created_node_id": proposal.threat_node_id,
+                "state": "active",
+            },
+        )(),
+        result_label="publication_identity_created_new",
+    )
+    refresh = _stub_publication_refresh(
+        result_label="publication_ready",
+        operation=type(
+            "Operation",
+            (),
+            {
+                "source_digest": proposal.source_digest,
+                "expected_parent_revision_id": proposal.expected_parent_revision_id,
+            },
+        )(),
+    )
+
+    real_resolve = commit_svc.resolve_merged_contribution_from_package
+    resolve_calls = {"n": 0}
+
+    def resolve_once(*args, **kwargs):
+        resolve_calls["n"] += 1
+        if resolve_calls["n"] == 1:
+            return real_resolve(*args, **kwargs)
+        raise OSError("reconstruction unavailable")
+
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=identity
+    ), patch.object(
+        commit_svc, "refresh_publication_operation", return_value=refresh
+    ), patch.object(
+        commit_svc,
+        "resolve_merged_contribution_from_package",
+        side_effect=resolve_once,
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 0
+    assert resolve_calls["n"] >= 2
+    assert outcome.response.result_label == "publication_commit_recovery_pending"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.retry_allowed is True
+    assert "reconstruction unavailable" in (outcome.response.message or "")
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+    assert ledger.commit.merge_attempt_count == 1
+
+
+def test_retry_attempt2_intent_save_failure_returns_storage_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        ThreatPublicationCommitStorageError,
+    )
+
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, contribution, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None and contribution is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    identity = _stub_identity_outcome(
+        type(
+            "Resolution",
+            (),
+            {
+                "resolution_id": proposal.resolution_id,
+                "draft_id": draft.draft_id,
+                "operation_id": op_id,
+                "source_digest": proposal.source_digest,
+                "request_digest": proposal.resolution_request_digest,
+                "candidate_set_digest": proposal.candidate_set_digest,
+                "expected_parent_revision_id": proposal.expected_parent_revision_id,
+                "decision": proposal.decision,
+                "selected_target": None,
+                "created_node_id": proposal.threat_node_id,
+                "state": "active",
+            },
+        )(),
+        result_label="publication_identity_created_new",
+    )
+    refresh = _stub_publication_refresh(
+        result_label="publication_ready",
+        operation=type(
+            "Operation",
+            (),
+            {
+                "source_digest": proposal.source_digest,
+                "expected_parent_revision_id": proposal.expected_parent_revision_id,
+            },
+        )(),
+    )
+    real_save = commit_svc._save_commit
+
+    def flaky_save(root, commit: ThreatPublicationCommitV1):
+        if commit.state == "committing" and commit.merge_attempt_count == 2:
+            raise ThreatPublicationCommitStorageError(
+                "attempt-two intent save failed", kind="unavailable"
+            )
+        return real_save(root, commit)
+
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=identity
+    ), patch.object(
+        commit_svc, "refresh_publication_operation", return_value=refresh
+    ), patch.object(
+        commit_svc, "_save_commit", side_effect=flaky_save
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_storage_unavailable"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.commit.merge_attempt_count == 1
+    assert "attempt-two intent save failed" in (outcome.response.message or "")
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+    assert ledger.commit.merge_attempt_count == 1
