@@ -116,7 +116,7 @@ interface LegacyProjectionHostAdapterInnerProps {
   activeGraphReference: ReturnType<typeof useProjection>["activeGraphReference"];
   close: () => void;
   expandContent: () => void;
-  openTool: (toolId: string) => void;
+  openTool: (toolId: string) => boolean;
   graphReferenceProjectionState: ReturnType<typeof useProjection>["graphReferenceProjectionState"];
   graphReferenceBinding: ReturnType<typeof useProjection>["graphReferenceBinding"];
   graphReviewDiagnosticsPayload: ReturnType<typeof useProjection>["graphReviewDiagnosticsPayload"];
@@ -187,6 +187,12 @@ function LegacyProjectionHostAdapterInner({
       ) {
         return false;
       }
+      // Commit ?tool= / inferred ?session= only after a truthful open.
+      // A same-identity update may remove the tool while lookup is pending.
+      const opened = openTool(toolId);
+      if (!opened) {
+        return false;
+      }
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         params.set("tool", toolId);
@@ -199,7 +205,6 @@ function LegacyProjectionHostAdapterInner({
           `${window.location.pathname}?${params.toString()}`,
         );
       }
-      openTool(toolId);
       return true;
     },
     [openTool, resolveLatestIngestedSessionId],

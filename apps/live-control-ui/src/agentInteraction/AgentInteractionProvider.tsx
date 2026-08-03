@@ -591,9 +591,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   );
 
   const openTool = useCallback(
-    (toolId: string) => {
-      openToolFromEffectivePublication(toolId);
-    },
+    (toolId: string): boolean => openToolFromEffectivePublication(toolId),
     [openToolFromEffectivePublication],
   );
 
