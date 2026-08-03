@@ -139,8 +139,8 @@ describe("BuildIngestToolbar", () => {
     renderToolbar(DOC_ID);
     await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
     await user.click(screen.getByTestId("build-extract-button"));
-    expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_ID);
-    expect(screen.getByTestId("build-extraction-run-status")).toHaveTextContent("reviewable");
+    expect(await screen.findByTestId("build-extraction-status")).toHaveTextContent(RUN_ID);
+    expect(screen.getByTestId("build-extraction-status")).toHaveTextContent("reviewable");
     expect(screen.getByTestId("build-extraction-pinned-revision")).toHaveTextContent("2");
     expect(screen.getByTestId("build-extraction-pinned-digest")).toHaveTextContent("sha-2");
     expect(screen.getByTestId("build-inspect-run")).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe("BuildIngestToolbar", () => {
     renderToolbar(DOC_ID);
     await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
     await user.click(screen.getByTestId("build-extract-button"));
-    expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_ID);
+    expect(await screen.findByTestId("build-extraction-status")).toHaveTextContent(RUN_ID);
     expect(await screen.findByTestId("build-extraction-error")).toHaveTextContent(
       "OPENAI_API_KEY missing after loading server env",
     );
@@ -389,6 +389,6 @@ describe("BuildIngestToolbar", () => {
       expect.stringContaining(`extractionRunId=${RUN_B}`),
     );
     expect(screen.getByTestId("build-extraction-refresh")).not.toBeDisabled();
-    expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_B);
+    expect(await screen.findByTestId("build-extraction-status")).toHaveTextContent(RUN_B);
   });
 });

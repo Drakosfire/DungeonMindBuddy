@@ -30,6 +30,14 @@ export interface AppChromeAction {
   pressed?: boolean;
 }
 
+/** Read-only site-nav status (graph load, etc.) — not a lease-guarded command. */
+export interface AppChromeNavbarStatus {
+  id: string;
+  label: string;
+  eyebrow?: string;
+  tone?: "neutral" | "loading" | "ready" | "error" | "unavailable";
+}
+
 export interface AppChromeToolSection {
   id: string;
   title: string;
@@ -40,6 +48,10 @@ export interface AppChromeToolSection {
 }
 
 export interface AppChromeTools {
+  /** Persistent read-only status in the site nav (e.g. World Graph load). */
+  navbarStatuses?: AppChromeNavbarStatus[];
+  /** Persistent actions rendered in the site nav (write gate, Save, surface checkpoint). */
+  navbarActions?: AppChromeAction[];
   pinnedActions?: AppChromeAction[];
   sections?: AppChromeToolSection[];
 }
@@ -49,6 +61,9 @@ interface AppChromeProps {
   pageActions?: AppChromeAction[];
   editorTools?: AppChromeTools | null;
   editToolboxLayout?: "overlay" | "dock";
+  /** Optional controlled Edit-dock open state. */
+  editToolboxOpen?: boolean;
+  onEditToolboxOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }
 
@@ -241,6 +256,8 @@ export function AppChrome({
   pageActions = [],
   editorTools,
   editToolboxLayout = "overlay",
+  editToolboxOpen,
+  onEditToolboxOpenChange,
   children,
 }: AppChromeProps) {
   const agentInteraction = useAgentInteraction();
@@ -254,6 +271,24 @@ export function AppChrome({
       action.disabled === true,
       action.label,
       action.eyebrow ?? null,
+      callbackIdentityKey(action.onClick),
+    ]),
+  );
+  const navbarStatusSignature = JSON.stringify(
+    (editorTools?.navbarStatuses ?? []).map((status) => [
+      status.id,
+      status.label,
+      status.eyebrow ?? null,
+      status.tone ?? null,
+    ]),
+  );
+  const navbarSignature = JSON.stringify(
+    (editorTools?.navbarActions ?? []).map((action) => [
+      action.id,
+      action.disabled === true,
+      action.label,
+      action.eyebrow ?? null,
+      action.pressed === true,
       callbackIdentityKey(action.onClick),
     ]),
   );
@@ -279,13 +314,24 @@ export function AppChrome({
       ]),
     ]),
   );
-  const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
+  const [uncontrolledEditOpen, setUncontrolledEditOpen] = useState(editToolboxLayout === "dock");
+  const isEditOpen = editToolboxOpen ?? uncontrolledEditOpen;
+  const setIsEditOpen = (next: boolean | ((current: boolean) => boolean)) => {
+    const resolved = typeof next === "function" ? next(isEditOpen) : next;
+    if (editToolboxOpen === undefined) {
+      setUncontrolledEditOpen(resolved);
+    }
+    onEditToolboxOpenChange?.(resolved);
+  };
   const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const navbarStatuses = editorTools?.navbarStatuses ?? [];
+  const navbarActions = editorTools?.navbarActions ?? [];
   const pinnedActions = editorTools?.pinnedActions ?? [];
   const sections = editorTools?.sections ?? [];
   const hasEditTools = pinnedActions.length > 0 || sections.length > 0;
   const hasPageTools = pageActions.length > 0;
   const isDockedEdit = editToolboxLayout === "dock" && hasEditTools;
+  const hasNavbarChrome = navbarStatuses.length > 0 || navbarActions.length > 0;
 
   const agentInteractionRef = useRef(agentInteraction);
   agentInteractionRef.current = agentInteraction;
@@ -325,6 +371,8 @@ export function AppChrome({
     hasEffectivePublication,
     agentInteraction.publishAppChromeCompatibility,
     pageActionSignature,
+    navbarStatusSignature,
+    navbarSignature,
     pinnedSignature,
     sectionSignature,
   ]);
@@ -352,6 +400,38 @@ export function AppChrome({
             {item.label}
           </a>
         ))}
+        {hasNavbarChrome ? (
+          <div className="app-site-nav-actions" role="group" aria-label="Surface navbar chrome">
+            {navbarStatuses.length > 0 ? (
+              <div className="app-site-nav-statuses" role="status" aria-label="Surface status">
+                {navbarStatuses.map((status) => (
+                  <div
+                    key={status.id}
+                    className={[
+                      "app-site-nav-status",
+                      status.tone ? `app-site-nav-status--${status.tone}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    data-testid={status.id}
+                  >
+                    {status.eyebrow ? <span>{status.eyebrow}</span> : null}
+                    <strong>{status.label}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {navbarActions.map((action) => (
+              <GuardedActionButton
+                key={action.id}
+                action={action}
+                guardedInvoke={resolveEditInvoke}
+                leaseBridgeActive={leaseBridgeActive}
+                hasEffectivePublication={hasEffectivePublication}
+              />
+            ))}
+          </div>
+        ) : null}
       </nav>
 
       {children}

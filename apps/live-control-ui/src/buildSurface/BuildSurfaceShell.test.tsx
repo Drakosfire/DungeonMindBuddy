@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { useState } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
 import { existsSync } from "node:fs";
@@ -9,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import * as liveApi from "../api/liveApi";
+import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import {
   buildInitialWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
@@ -18,6 +20,18 @@ import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { BUILD_AUTHORITY_REJECTION_AMBIENT, BuildSurfaceShell } from "./BuildSurfaceShell";
 import { createBuildSurfaceConfig } from "./createBuildSurfaceConfig";
 import { ProjectionSurfacePublisher } from "../planSurface/projection/projectionTestHost";
+
+const DURABLE_SAVE_NAME = /^Save$/i;
+
+async function unlockEditing(): Promise<void> {
+  const unlock = await screen.findByRole("button", { name: /Unlock editing/i });
+  await act(async () => {
+    unlock.click();
+  });
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name: /Lock editing/i })).toBeInTheDocument();
+  });
+}
 
 let buildShellTestEditor: Editor | null = null;
 
@@ -100,32 +114,46 @@ function buildWorldbuildingSnapshot(documentId: string) {
   };
 }
 
-function BuildDocumentHarness({ documentId }: { documentId: string }) {
+function BuildChromeShell({
+  documentId,
+  extras,
+}: {
+  documentId: string;
+  extras?: ReactNode;
+}) {
+  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const [isEditDockOpen, setIsEditDockOpen] = useState(true);
   const snap = buildWorldbuildingSnapshot(documentId);
   return (
     <AgentInteractionProvider>
-      <ProjectionSurfacePublisher config={createBuildSurfaceConfig(snap.record)}>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={documentId}>
-          <BuildSurfaceShell />
-        </BuildCanvasTestProvider>
-      </ProjectionSurfacePublisher>
+      <AppChrome
+        activeRoute="build"
+        editorTools={editorTools}
+        editToolboxLayout="dock"
+        editToolboxOpen={isEditDockOpen}
+        onEditToolboxOpenChange={setIsEditDockOpen}
+      >
+        <ProjectionSurfacePublisher config={createBuildSurfaceConfig(snap.record)}>
+          {extras}
+          <BuildCanvasTestProvider documentId={documentId}>
+            <BuildSurfaceShell
+              onEditorToolsChange={setEditorTools}
+              isEditDockOpen={isEditDockOpen}
+              onEditDockOpenChange={setIsEditDockOpen}
+            />
+          </BuildCanvasTestProvider>
+        </ProjectionSurfacePublisher>
+      </AppChrome>
     </AgentInteractionProvider>
   );
 }
 
+function BuildDocumentHarness({ documentId }: { documentId: string }) {
+  return <BuildChromeShell documentId={documentId} extras={<ScopeProbe />} />;
+}
+
 function renderBuildShell(documentId: string, extras?: ReactNode) {
-  const snap = buildWorldbuildingSnapshot(documentId);
-  return render(
-    <AgentInteractionProvider>
-      <ProjectionSurfacePublisher config={createBuildSurfaceConfig(snap.record)}>
-        {extras}
-        <BuildCanvasTestProvider documentId={documentId}>
-          <BuildSurfaceShell />
-        </BuildCanvasTestProvider>
-      </ProjectionSurfacePublisher>
-    </AgentInteractionProvider>,
-  );
+  return render(<BuildChromeShell documentId={documentId} extras={extras} />);
 }
 
 describe("BuildSurfaceShell", () => {
@@ -233,7 +261,7 @@ describe("BuildSurfaceShell", () => {
     renderBuildShell(DOC_ID, <ScopeProbe />);
 
     expect(await screen.findByTestId("build-surface-error")).toBeInTheDocument();
-    expect(screen.queryByTestId("build-save-button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: DURABLE_SAVE_NAME })).not.toBeInTheDocument();
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
     expect(window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBeNull();
 
@@ -584,8 +612,9 @@ describe("BuildSurfaceShell", () => {
       );
     });
 
-    const saveButton = screen.getByTestId("build-save-button");
+    const saveButton = await screen.findByRole("button", { name: DURABLE_SAVE_NAME });
     expect(saveButton).toBeDisabled();
+    await unlockEditing();
 
     await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
     await act(async () => {
@@ -645,6 +674,7 @@ describe("BuildSurfaceShell", () => {
         "ready",
       );
     });
+    await unlockEditing();
     await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
     await act(async () => {
       await Promise.resolve();
@@ -653,11 +683,11 @@ describe("BuildSurfaceShell", () => {
       buildShellTestEditor?.commands.insertContent(" Before save");
     });
     await waitFor(() => {
-      expect(screen.getByTestId("build-save-button")).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: DURABLE_SAVE_NAME })).not.toBeDisabled();
     });
 
     await act(async () => {
-      screen.getByTestId("build-save-button").click();
+      screen.getByRole("button", { name: DURABLE_SAVE_NAME }).click();
     });
     await waitFor(() => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Saving|Preparing/);
@@ -754,6 +784,7 @@ describe("BuildSurfaceShell", () => {
     });
 
     await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
+    await unlockEditing();
     await act(async () => {
       await Promise.resolve();
     });
@@ -761,11 +792,11 @@ describe("BuildSurfaceShell", () => {
       buildShellTestEditor?.commands.insertContent(" Missing fingerprint edit");
     });
     await waitFor(() => {
-      expect(screen.getByTestId("build-save-button")).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: DURABLE_SAVE_NAME })).not.toBeDisabled();
     });
 
     await act(async () => {
-      screen.getByTestId("build-save-button").click();
+      screen.getByRole("button", { name: DURABLE_SAVE_NAME }).click();
     });
 
     expect(await screen.findByTestId("build-surface-conflict")).toBeInTheDocument();

@@ -93,6 +93,54 @@ describe("AppChrome surface interaction bridge", () => {
     expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
   });
 
+  it("renders navbar write actions beside surface links", () => {
+    const save = vi.fn();
+    const publication = makeSharedInstancePublication("build", "Build", {
+      canvasId: "markdown-canvas",
+      workObject: { kind: "document", id: "doc-1" },
+    });
+    render(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publication}
+          editorTools={{
+            navbarActions: [
+              { id: "nav-edit", label: "Unlock editing", onClick: () => {} },
+              { id: "nav-save", label: "Save", onClick: save },
+            ],
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+
+    expect(screen.getByRole("group", { name: "Surface navbar chrome" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders navbar graph status beside write actions", () => {
+    render(
+      <AgentInteractionProvider>
+        <IndexRouteChromeHarness
+          editorTools={{
+            navbarStatuses: [
+              {
+                id: "build-navbar-graph-status",
+                label: "Graph · Loading…",
+                tone: "loading",
+              },
+            ],
+            navbarActions: [{ id: "nav-edit", label: "Unlock editing", onClick: () => {} }],
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+
+    expect(screen.getByRole("status", { name: "Surface status" })).toBeTruthy();
+    expect(screen.getByTestId("build-navbar-graph-status")).toHaveTextContent("Graph · Loading…");
+    expect(screen.getByRole("button", { name: "Unlock editing" })).toBeTruthy();
+  });
+
   it("renders AppChrome actions under an active route lease publisher", () => {
     render(
       <AgentInteractionProvider>

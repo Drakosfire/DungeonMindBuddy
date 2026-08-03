@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 
-import type { AppChromeAction, AppChromeToolSection, AppChromeTools } from "../chrome/AppChrome";
+import type {
+  AppChromeAction,
+  AppChromeNavbarStatus,
+  AppChromeToolSection,
+  AppChromeTools,
+} from "../chrome/AppChrome";
 
 export type MarkdownEditorToolAction = {
   id: string;
@@ -9,6 +14,13 @@ export type MarkdownEditorToolAction = {
   onClick: () => void;
   disabled?: boolean;
   pressed?: boolean;
+};
+
+export type MarkdownEditorNavbarStatus = {
+  id: string;
+  label: string;
+  eyebrow?: string;
+  tone?: AppChromeNavbarStatus["tone"];
 };
 
 export type MarkdownEditorToolSection = {
@@ -20,6 +32,10 @@ export type MarkdownEditorToolSection = {
 };
 
 export type MarkdownEditorToolbarModel = {
+  /** Persistent top-level nav status (graph load, etc.). */
+  navbarStatuses?: MarkdownEditorNavbarStatus[];
+  /** Persistent top-level nav actions (Edit / Save / surface checkpoint). */
+  navbarActions?: MarkdownEditorToolAction[];
   pinnedActions?: MarkdownEditorToolAction[];
   sections?: MarkdownEditorToolSection[];
 };
@@ -35,6 +51,15 @@ function toAppChromeAction(action: MarkdownEditorToolAction): AppChromeAction {
   };
 }
 
+function toAppChromeNavbarStatus(status: MarkdownEditorNavbarStatus): AppChromeNavbarStatus {
+  return {
+    id: status.id,
+    label: status.label,
+    eyebrow: status.eyebrow,
+    tone: status.tone,
+  };
+}
+
 function toAppChromeSection(section: MarkdownEditorToolSection): AppChromeToolSection {
   return {
     id: section.id,
@@ -47,6 +72,8 @@ function toAppChromeSection(section: MarkdownEditorToolSection): AppChromeToolSe
 
 export function toAppChromeTools(model: MarkdownEditorToolbarModel): AppChromeTools {
   return {
+    navbarStatuses: model.navbarStatuses?.map(toAppChromeNavbarStatus),
+    navbarActions: model.navbarActions?.map(toAppChromeAction),
     pinnedActions: model.pinnedActions?.map(toAppChromeAction),
     sections: model.sections?.map(toAppChromeSection),
   };

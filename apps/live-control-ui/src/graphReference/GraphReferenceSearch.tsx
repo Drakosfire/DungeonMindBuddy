@@ -44,7 +44,7 @@ export function GraphReferenceSearch({
     >
       {projectionState === "loading" ? (
         <p className="graph-reference-search__status" role="status">
-          Loading World Graph projection…
+          Loading…
         </p>
       ) : null}
       {projectionState === "error" ? (
@@ -54,7 +54,7 @@ export function GraphReferenceSearch({
       ) : null}
       {projectionState === "unavailable" ? (
         <p className="graph-reference-search__status" role="status">
-          World Graph unavailable for this session.
+          World Graph unavailable.
         </p>
       ) : null}
 

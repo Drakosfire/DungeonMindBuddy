@@ -186,12 +186,17 @@ export function buildAppChromeCompatibilityFragment(input: {
   basePublication: SurfaceInteractionPublication | null;
 }): SurfaceInteractionChromeFragment {
   const workObject = canvasWorkObject(input.basePublication);
+  const navbarActions = input.editorTools?.navbarActions ?? [];
   const pinnedActions = input.editorTools?.pinnedActions ?? [];
   const sections = input.editorTools?.sections ?? [];
   return {
     tools: input.pageActions.map(mapPageAction),
     editCommands: [
-      ...pinnedActions.map((action, index) => mapPinnedEditAction(action, index, workObject)),
+      // Navbar write actions are pinned (groupId null) so SIH leases guard them.
+      ...navbarActions.map((action, index) => mapPinnedEditAction(action, index, workObject)),
+      ...pinnedActions.map((action, index) =>
+        mapPinnedEditAction(action, navbarActions.length + index, workObject),
+      ),
       ...sections.flatMap((section, sectionIndex) =>
         section.actions.map((action, actionIndex) =>
           mapSectionEditAction(action, section, sectionIndex, actionIndex, workObject),

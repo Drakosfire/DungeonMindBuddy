@@ -70,7 +70,7 @@ describe("BuildGraphObjectContext", () => {
     expect(postProjection).not.toHaveBeenCalled();
   });
 
-  it("BuildSurfacePage renders graph context beside new-source form", () => {
+  it("BuildSurfacePage opens canvas creation when graph-pointer params lack documentId", async () => {
     window.history.replaceState(
       {},
       "",
@@ -94,12 +94,28 @@ describe("BuildGraphObjectContext", () => {
       sourceArtifacts: [],
       diagnostics: [],
     });
+    vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue({
+      schema_version: "dmb_workspace_document_created_v1",
+      document_id: "11111111-1111-4111-8111-111111111111",
+      title: "Mireward Reach",
+      campaign_id: "eldyrwild",
+      kind: "worldbuilding_source",
+      target_relpath: "out/workspace/worldbuilding/11111111-1111-4111-8111-111111111111.md",
+      revision: 1,
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    } as never);
     render(
       <AgentInteractionProvider>
         <BuildSurfacePage />
       </AgentInteractionProvider>,
     );
-    expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
-    expect(screen.getByTestId("build-graph-object-context")).toBeInTheDocument();
+    expect(screen.getByTestId("build-new-source-opening")).toBeInTheDocument();
+    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalled();
+    });
   });
 });

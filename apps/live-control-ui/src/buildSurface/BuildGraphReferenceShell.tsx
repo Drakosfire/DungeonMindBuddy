@@ -35,6 +35,12 @@ import {
   BUILD_FIND_EXISTING_EVENT,
   type BuildFindExistingDetail,
 } from "./buildFindExisting";
+import {
+  buildBuildSurfaceStateSnapshot,
+  readBuildSurfaceState,
+  writeBuildSurfaceState,
+} from "./buildSurfaceStateStorage";
+import { buildGraphNavbarStatus } from "./buildGraphNavbarStatus";
 import { useProjection } from "../planSurface/projection/projectionContext";
 import { usePlanGraphReferenceResolver } from "../planSurface/reference/usePlanGraphReferenceResolver";
 import { readReferenceFromElement } from "../planSurface/reference/referenceResolver";
@@ -57,14 +63,18 @@ function nodeScopeLabel(node: GraphProjectionNodeView): string {
 export interface BuildGraphReferenceShellProps {
   slots: MarkdownCanvasSlots;
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  isEditDockOpen?: boolean;
+  onEditDockOpenChange?: (open: boolean) => void;
 }
 
 export function BuildGraphReferenceShell({
   slots,
   onEditorToolsChange,
+  isEditDockOpen = true,
+  onEditDockOpenChange,
 }: BuildGraphReferenceShellProps) {
   const session = useMarkdownCanvasSession();
-  const { openGraphReference } = useProjection();
+  const { openGraphReference, active, activeGraphReference } = useProjection();
   const {
     resolvePlanReference,
     projection,
@@ -76,9 +86,10 @@ export function BuildGraphReferenceShell({
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isLocked, setIsLocked] = useState(true);
   const [graphRefSearchQuery, setGraphRefSearchQuery] = useState("");
+  const [surfaceCheckpointStatus, setSurfaceCheckpointStatus] = useState<string | null>(null);
+  const restoredDocumentIdRef = useRef<string | null>(null);
   const saveMarkdownRef = useRef(session.saveMarkdown);
   saveMarkdownRef.current = session.saveMarkdown;
-  const saveDisabled = session.saveDisabled;
 
   const toggleLock = useCallback(() => {
     setIsLocked((current) => !current);
@@ -86,6 +97,36 @@ export function BuildGraphReferenceShell({
 
   const editorInteractive = buildEditorInteractive(session.phase);
   const canEdit = !isLocked && editorInteractive;
+  const durableSaveDisabled = session.saveDisabled || isLocked || !editorInteractive;
+
+  // Restore explicit surface checkpoint once per document after load.
+  useEffect(() => {
+    if (!editorInteractive || !session.documentId) return;
+    if (restoredDocumentIdRef.current === session.documentId) return;
+    restoredDocumentIdRef.current = session.documentId;
+    const snapshot = readBuildSurfaceState(window.localStorage, session.documentId);
+    if (!snapshot) return;
+    setIsLocked(snapshot.ui.isLocked);
+    setGraphRefSearchQuery(snapshot.ui.graphRefSearchQuery);
+    onEditDockOpenChange?.(snapshot.ui.isEditDockOpen);
+    if (snapshot.draft?.tiptap_json != null && editorRef.current) {
+      editorRef.current.commands.setContent(snapshot.draft.tiptap_json as Content, true);
+    }
+  }, [editorInteractive, onEditDockOpenChange, session.documentId]);
+
+  // Apply checkpointed draft once the editor exists if restore ran earlier.
+  useEffect(() => {
+    if (!editor || !session.documentId) return;
+    const snapshot = readBuildSurfaceState(window.localStorage, session.documentId);
+    if (!snapshot?.draft?.tiptap_json) return;
+    const current = JSON.stringify(editor.getJSON());
+    const checkpoint = JSON.stringify(snapshot.draft.tiptap_json);
+    if (current === checkpoint) return;
+    // Only apply when editor still matches the empty/server content path once;
+    // avoid fighting live edits after the user has typed.
+    if (session.dirty) return;
+    editor.commands.setContent(snapshot.draft.tiptap_json as Content, true);
+  }, [editor, session.documentId, session.dirty]);
 
   const handleEditorChange = useCallback(
     (nextEditor: Editor | null) => {
@@ -119,6 +160,37 @@ export function BuildGraphReferenceShell({
     const markdown = defaultMarkdownDocumentAdapter.exportMarkdown(editor.getJSON());
     await navigator.clipboard.writeText(markdown);
   }, [editor]);
+
+  const saveSurfaceState = useCallback(() => {
+    if (!session.documentId) return;
+    const activeToolId = active?.kind === "tool" ? active.key : null;
+    const activeGraphNodeId =
+      activeGraphReference?.kind === "resolved_graph"
+        ? activeGraphReference.graphNodeId
+        : null;
+    const snapshot = buildBuildSurfaceStateSnapshot({
+      documentId: session.documentId,
+      ui: {
+        isLocked,
+        isEditDockOpen,
+        graphRefSearchQuery,
+        activeToolId,
+        activeGraphNodeId,
+      },
+      draftJson: editor?.getJSON() ?? session.editorContent ?? null,
+    });
+    writeBuildSurfaceState(window.localStorage, snapshot);
+    setSurfaceCheckpointStatus(`Surface state saved · ${new Date(snapshot.updatedAt).toLocaleTimeString()}`);
+  }, [
+    active,
+    activeGraphReference,
+    editor,
+    graphRefSearchQuery,
+    isEditDockOpen,
+    isLocked,
+    session.documentId,
+    session.editorContent,
+  ]);
 
   const projectionNodes = useMemo(
     () => projection?.nodes.map((node) => adaptWorldGraphNodeForPlanCard(node)) ?? [],
@@ -253,13 +325,34 @@ export function BuildGraphReferenceShell({
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(
     () => ({
-      pinnedActions: [
+      navbarStatuses: [
+        buildGraphNavbarStatus({
+          projectionState,
+          projection,
+          projectionError,
+        }),
+      ],
+      navbarActions: [
         {
-          id: "build-canvas-edit-lock",
-          eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
+          id: "build-navbar-edit-lock",
           label: isLocked ? "Unlock editing" : "Lock editing",
           onClick: toggleLock,
-          pressed: isLocked,
+          pressed: !isLocked,
+          disabled: !editorInteractive,
+        },
+        {
+          id: "build-navbar-save-markdown",
+          label: "Save",
+          onClick: () => {
+            void saveMarkdownRef.current();
+          },
+          disabled: durableSaveDisabled,
+        },
+        {
+          id: "build-navbar-save-surface-state",
+          label: "Save surface state",
+          onClick: saveSurfaceState,
+          disabled: !session.documentId || !editorInteractive,
         },
       ],
       sections: [
@@ -276,7 +369,6 @@ export function BuildGraphReferenceShell({
           defaultOpen: true,
           actions: CALLOUT_KINDS.map((kind) => ({
             id: `build-insert-${kind}`,
-            eyebrow: "Insert",
             label: defaultCalloutLabel(kind),
             onClick: () => insertCallout(kind),
             disabled: !editor || isLocked || !editorInteractive,
@@ -289,7 +381,6 @@ export function BuildGraphReferenceShell({
           actions: [
             {
               id: "build-remove-block",
-              eyebrow: "Remove",
               label: "Remove block",
               onClick: removeActiveBlock,
               disabled: !editor || isLocked || !editorInteractive,
@@ -303,7 +394,6 @@ export function BuildGraphReferenceShell({
           actions: [
             {
               id: "build-copy-markdown",
-              eyebrow: "Export",
               label: "Copy Markdown",
               onClick: () => {
                 void copyMarkdown();
@@ -312,32 +402,22 @@ export function BuildGraphReferenceShell({
             },
           ],
         },
-        {
-          id: "build-markdown-save",
-          title: "Markdown save",
-          defaultOpen: true,
-          actions: [
-            {
-              id: "build-save-markdown",
-              label: "Save to Markdown",
-              onClick: () => {
-                void saveMarkdownRef.current();
-              },
-              disabled: saveDisabled,
-            },
-          ],
-        },
       ],
     }),
     [
       copyMarkdown,
+      durableSaveDisabled,
       editor,
       editorInteractive,
       graphRefSearchPanel,
       insertCallout,
       isLocked,
+      projection,
+      projectionError,
+      projectionState,
       removeActiveBlock,
-      saveDisabled,
+      saveSurfaceState,
+      session.documentId,
       toggleLock,
     ],
   );
@@ -415,6 +495,9 @@ export function BuildGraphReferenceShell({
           <p role="alert" data-testid={saveErrorTestId ?? `${dataTestId}-save-error`}>
             {session.error}
           </p>
+        ) : null}
+        {surfaceCheckpointStatus ? (
+          <p data-testid="build-surface-state-status">{surfaceCheckpointStatus}</p>
         ) : null}
         {statusExtra}
       </header>

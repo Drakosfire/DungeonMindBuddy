@@ -198,4 +198,40 @@ describe("Build graph reference", () => {
       expect(screen.getByLabelText("Find objects")).toHaveValue("Glowkindle");
     });
   });
+
+  it("puts Edit/Save in the navbar and omits bottom Save", async () => {
+    render(<BuildGraphReferenceHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("group", { name: "Surface navbar chrome" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /Unlock editing/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Save$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Save surface state/i })).toBeInTheDocument();
+    expect(screen.queryByTestId("build-save-button")).not.toBeInTheDocument();
+    expect(screen.queryByText("Markdown save")).not.toBeInTheDocument();
+  });
+
+  it("shows World Graph load status in the navbar", async () => {
+    render(<BuildGraphReferenceHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-navbar-graph-status")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("build-navbar-graph-status")).toHaveTextContent(/Graph · 1 node/i);
+    });
+  });
+
+  it("gates durable Save until editing is unlocked", async () => {
+    const user = userEvent.setup();
+    render(<BuildGraphReferenceHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Save$/i })).toBeDisabled();
+    });
+    await user.click(screen.getByRole("button", { name: /Unlock editing/i }));
+    // Save may still be disabled when content is clean; unlock removes the lock gate.
+    expect(screen.getByRole("button", { name: /Lock editing/i })).toBeInTheDocument();
+  });
 });

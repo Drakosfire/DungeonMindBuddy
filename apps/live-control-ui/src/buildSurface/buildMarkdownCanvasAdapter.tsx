@@ -6,12 +6,16 @@ import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSessio
 
 const BUILD_EDITOR_THEME_CLASS = "md-theme-mireward-runbook";
 
-/** Build-owned slot copy and Save action for the shared MarkdownCanvas. */
+/** Build-owned slot copy for the shared MarkdownCanvas (no footer Save — navbar owns write). */
 export function useBuildMarkdownCanvasSlots(args?: {
   statusExtra?: ReactNode;
 }): MarkdownCanvasSlots {
   const session = useMarkdownCanvasSession();
   const statusExtra = args?.statusExtra;
+  const documentClass = session.record?.document_class?.trim() || null;
+  const statusLine = documentClass
+    ? `${session.statusLabel} · ${documentClass}`
+    : session.statusLabel;
 
   return {
     title: session.record?.title ?? BUILD_SURFACE_LABEL,
@@ -31,24 +35,9 @@ export function useBuildMarkdownCanvasSlots(args?: {
     hideDefaultStatus: true,
     statusExtra: (
       <>
-        <p data-testid="build-document-status">{session.statusLabel}</p>
-        <p data-testid="build-authoring-status">{session.statusLabel}</p>
-        {session.record?.document_class ? (
-          <p data-testid="build-document-class">{session.record.document_class}</p>
-        ) : null}
+        <p data-testid="build-document-status">{statusLine}</p>
         {statusExtra}
       </>
-    ),
-    actions: (
-      <button
-        type="button"
-        className="primary"
-        data-testid="build-save-button"
-        disabled={session.saveDisabled}
-        onClick={() => void session.saveMarkdown()}
-      >
-        Save
-      </button>
     ),
   };
 }

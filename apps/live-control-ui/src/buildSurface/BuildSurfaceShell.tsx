@@ -18,16 +18,22 @@ export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build aut
 
 interface BuildSurfaceShellProps {
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  isEditDockOpen?: boolean;
+  onEditDockOpenChange?: (open: boolean) => void;
 }
 
 function BuildSurfaceBoundShell({
   config,
   onEditorToolsChange,
   slots,
+  isEditDockOpen,
+  onEditDockOpenChange,
 }: {
   config: SurfaceConfig;
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
   slots: ReturnType<typeof useBuildMarkdownCanvasSlots>;
+  isEditDockOpen?: boolean;
+  onEditDockOpenChange?: (open: boolean) => void;
 }) {
   return (
     /*
@@ -38,7 +44,12 @@ function BuildSurfaceBoundShell({
     <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
       <div className="build-surface-layout plan-surface-layout">
         <div className="plan-surface-main">
-          <BuildGraphReferenceShell slots={slots} onEditorToolsChange={onEditorToolsChange} />
+          <BuildGraphReferenceShell
+            slots={slots}
+            onEditorToolsChange={onEditorToolsChange}
+            isEditDockOpen={isEditDockOpen}
+            onEditDockOpenChange={onEditDockOpenChange}
+          />
         </div>
       </div>
     </PlanGraphReferenceResolverProvider>
@@ -49,7 +60,11 @@ function BuildSurfaceBoundShell({
  * Build document chrome: Agent Interaction publication + shared MarkdownCanvas.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  */
-export function BuildSurfaceShell({ onEditorToolsChange }: BuildSurfaceShellProps) {
+export function BuildSurfaceShell({
+  onEditorToolsChange,
+  isEditDockOpen,
+  onEditDockOpenChange,
+}: BuildSurfaceShellProps) {
   const session = useMarkdownCanvasSession();
   const slots = useBuildMarkdownCanvasSlots();
   const {
@@ -229,6 +244,8 @@ export function BuildSurfaceShell({ onEditorToolsChange }: BuildSurfaceShellProp
         config={surfaceConfig}
         onEditorToolsChange={onEditorToolsChange}
         slots={slots}
+        isEditDockOpen={isEditDockOpen}
+        onEditDockOpenChange={onEditDockOpenChange}
       />
     );
   }

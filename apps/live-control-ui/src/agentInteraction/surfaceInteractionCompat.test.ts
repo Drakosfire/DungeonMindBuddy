@@ -102,6 +102,7 @@ describe("surfaceInteractionCompat", () => {
     const fragment = buildAppChromeCompatibilityFragment({
       pageActions,
       editorTools: {
+        navbarActions: [{ id: "nav-save", label: "Save", onClick: editClick }],
         pinnedActions: [{ id: "bold", label: "Bold", onClick: editClick }],
         sections: [{
           id: "callouts",
@@ -117,7 +118,13 @@ describe("surfaceInteractionCompat", () => {
       groupOrder: 100,
       itemOrder: 0,
     });
-    expect(fragment.editCommands.map((entry) => entry.id)).toEqual(["bold", "note"]);
+    expect(fragment.editCommands.map((entry) => entry.id)).toEqual(["nav-save", "bold", "note"]);
+    expect(fragment.editCommands[0]?.placement).toMatchObject({
+      groupId: null,
+      groupLabel: null,
+      groupOrder: 0,
+      itemOrder: 0,
+    });
     expect(fragment.tools[0]?.activation).toEqual({ kind: "command", invoke: pageClick });
   });
 

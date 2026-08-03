@@ -37,6 +37,7 @@ export function BuildSurfacePage() {
   const { publishProjectionSurface } = useAgentInteraction();
   const [createError, setCreateError] = useState<string | null>(null);
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const [isEditDockOpen, setIsEditDockOpen] = useState(true);
   const createStartedRef = useRef(false);
   const emptyMarkdownFallback = useMemo(() => buildWorldbuildingStarterContent(), []);
 
@@ -97,7 +98,13 @@ export function BuildSurfacePage() {
   }
 
   return (
-    <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock">
+    <AppChrome
+      activeRoute="build"
+      editorTools={editorTools}
+      editToolboxLayout="dock"
+      editToolboxOpen={isEditDockOpen}
+      onEditToolboxOpenChange={setIsEditDockOpen}
+    >
       <MarkdownCanvasSessionProvider
         key={documentId}
         documentId={documentId}
@@ -107,7 +114,11 @@ export function BuildSurfacePage() {
         emptyMarkdownFallback={emptyMarkdownFallback}
       >
         <BuildIngestToolbar documentId={documentId} />
-        <BuildSurfaceShell onEditorToolsChange={setEditorTools} />
+        <BuildSurfaceShell
+          onEditorToolsChange={setEditorTools}
+          isEditDockOpen={isEditDockOpen}
+          onEditDockOpenChange={setIsEditDockOpen}
+        />
       </MarkdownCanvasSessionProvider>
     </AppChrome>
   );
