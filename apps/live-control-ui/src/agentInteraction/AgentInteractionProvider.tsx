@@ -240,8 +240,10 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   /**
    * Same-identity publication updates change descriptor preferredSize synchronously.
-   * Patch live catalog entries in place so resolve stays atomic with the publication
-   * and open renderers are not temporarily preferred_size_mismatch / unmounted.
+   * Patch live catalog preferredSize in place so resolve stays atomic with the
+   * publication and open renderers are not temporarily preferred_size_mismatch /
+   * unmounted. Kind stays registration-owned so a descriptor kind rewrite still
+   * fails closed as kind_mismatch.
    */
   const syncCatalogMetadataFromPublication = useCallback(() => {
     const bundle = leaseBundleRef.current;
@@ -255,10 +257,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         (candidate) => candidate.id === entry.registration.projectionId,
       );
       if (!descriptor) return entry;
-      if (
-        entry.registration.preferredSize === descriptor.preferredSize
-        && entry.registration.kind === descriptor.kind
-      ) {
+      if (entry.registration.preferredSize === descriptor.preferredSize) {
         return entry;
       }
       changed = true;
@@ -267,7 +266,6 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         registration: {
           ...entry.registration,
           preferredSize: descriptor.preferredSize,
-          kind: descriptor.kind,
         },
       };
     });

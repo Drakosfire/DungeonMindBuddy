@@ -17,7 +17,9 @@ import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { activeThreadStorageKey, createAgentInteractionThread, persistAgentThread, threadStorageKey } from "./agentInteractionStorage";
 import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
 import type { ProjectionSurfacePublication } from "./projectionSurfacePublication";
+import { validateProjectionSurfacePublication } from "./projectionSurfacePublication";
 import {
+  adaptProjectionSurfaceToNeutralBase,
   buildAppChromeCompatibilityFragment,
   ROUTE_COMPATIBILITY_PUBLICATIONS,
 } from "./surfaceInteractionCompat";
@@ -1883,5 +1885,58 @@ describe("AgentInteractionProvider projection catalog registration", () => {
     expect(screen.getByTestId("active-size")).toHaveTextContent("fullscreen");
     expect(screen.getByTestId("stateful-tool")).toBeInTheDocument();
     expect(mounts.count).toBe(1);
+  });
+
+  it("does not rewrite registration kind on same-identity publication updates", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    let cleanup: (() => void) | undefined;
+
+    const validated = validateProjectionSurfacePublication(makePlanPublication());
+    const neutralBase = adaptProjectionSurfaceToNeutralBase(validated);
+
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      cleanup = result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render: () => "tool-body",
+      });
+    });
+
+    const flipped: typeof neutralBase = {
+      ...neutralBase,
+      tools: neutralBase.tools.filter((tool) => tool.id !== "recap"),
+      projections: neutralBase.projections.map((descriptor) =>
+        descriptor.id === "recap"
+          ? { ...descriptor, kind: "content" as const }
+          : descriptor,
+      ),
+    };
+
+    act(() => {
+      result.current.updateSurfaceInteractionPublication(flipped);
+    });
+
+    // Registration kind must remain tool-owned. A content active must not become
+    // ready merely because the publication descriptor kind flipped.
+    const after = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: {
+        kind: "content",
+        key: "doc:should-not-render-recap-tool",
+        size: "wide",
+        title: "Content",
+      },
+      bindings: { "plan-context": planContext },
+    });
+    expect(after.status).toBe("kind_mismatch");
+    act(() => {
+      cleanup?.();
+    });
   });
 });
