@@ -2520,6 +2520,23 @@ def confirm_threat_publication(
                 order_disposition: Literal[
                     "exact", "legacy_seal_order", "corrupt_permutation", "set_mismatch"
                 ] | None = None
+                reconstruction_blocker: str | None = None
+                reconstruction_integrity = False
+
+                def _order_after_reconstruction_failure() -> Literal[
+                    "exact", "legacy_seal_order"
+                ]:
+                    seal_ids = _historical_seal_order_ids(proposal.sealed_proposal)
+                    record_ids = list(record.accepted_assertion_ids)
+                    proposal_ids = list(proposal.accepted_assertion_ids)
+                    if (
+                        seal_ids is not None
+                        and record_ids == seal_ids
+                        and record_ids != proposal_ids
+                    ):
+                        return "legacy_seal_order"
+                    return "exact"
+
                 try:
                     _v, contribution = resolve_merged_contribution_from_package(
                         review_package=proposal.sealed_proposal,
@@ -2535,44 +2552,32 @@ def confirm_threat_publication(
                         list(record.accepted_assertion_ids),
                         sealed_proposal=proposal.sealed_proposal,
                     )
-                except OSError:
-                    updated, merge_calls, label, allow_zero_match_retry, reconcile_message = (
-                        _reconcile(
-                            root=root,
-                            world_root=configured_world,
-                            record=record,
-                            proposal=proposal,
-                            contribution=None,
-                            lookup_fn=lookup,
-                            merge_fn=merge,
-                            published_false=False,
-                            merge_calls=merge_calls,
-                        )
+                except OSError as exc:
+                    reconstruction_blocker = (
+                        f"contribution reconstruction unavailable: {exc}"
                     )
-                    seal_ids = _historical_seal_order_ids(proposal.sealed_proposal)
-                    record_ids = list(record.accepted_assertion_ids)
-                    proposal_ids = list(proposal.accepted_assertion_ids)
-                    if (
-                        seal_ids is not None
-                        and record_ids == seal_ids
-                        and record_ids != proposal_ids
-                    ):
-                        order_disposition = "legacy_seal_order"
-                    else:
-                        order_disposition = "exact"
+                    contribution = None
+                    order_disposition = _order_after_reconstruction_failure()
                 except WorldGraphIntegrityError as exc:
-                    return CommitOutcome(
-                        _response(
-                            safe_draft,
-                            safe_op,
-                            safe_proposal,
-                            safe_commit,
-                            "publication_commit_integrity_failure",
-                            commit=record,
-                            message=f"contribution reconstruction integrity failure: {exc}",
-                        )
+                    reconstruction_blocker = (
+                        f"contribution reconstruction integrity failure: {exc}"
                     )
+                    reconstruction_integrity = True
+                    contribution = None
+                    order_disposition = _order_after_reconstruction_failure()
                 except Exception as exc:  # noqa: BLE001
+                    reconstruction_blocker = (
+                        f"contribution reconstruction failed: {exc}"
+                    )
+                    reconstruction_integrity = True
+                    contribution = None
+                    order_disposition = _order_after_reconstruction_failure()
+
+                assert order_disposition is not None
+                if (
+                    contribution is not None
+                    and order_disposition in {"corrupt_permutation", "set_mismatch"}
+                ):
                     return CommitOutcome(
                         _response(
                             safe_draft,
@@ -2581,30 +2586,17 @@ def confirm_threat_publication(
                             safe_commit,
                             "publication_commit_integrity_failure",
                             commit=record,
-                            message=f"contribution reconstruction failed: {exc}",
+                            message=(
+                                "commit record accepted_assertion_ids order is corrupt "
+                                "(not reconstruction order and not historical seal order)"
+                                if order_disposition == "corrupt_permutation"
+                                else "commit record authority mismatch: "
+                                "accepted_assertion_ids_mismatch"
+                            ),
                         )
                     )
-                else:
-                    assert contribution is not None and order_disposition is not None
-                    if order_disposition in {"corrupt_permutation", "set_mismatch"}:
-                        return CommitOutcome(
-                            _response(
-                                safe_draft,
-                                safe_op,
-                                safe_proposal,
-                                safe_commit,
-                                "publication_commit_integrity_failure",
-                                commit=record,
-                                message=(
-                                    "commit record accepted_assertion_ids order is corrupt "
-                                    "(not reconstruction order and not historical seal order)"
-                                    if order_disposition == "corrupt_permutation"
-                                    else "commit record authority mismatch: "
-                                    "accepted_assertion_ids_mismatch"
-                                ),
-                            )
-                        )
 
+                if contribution is not None:
                     trust_err = _record_matches_c2a_trust(
                         record,
                         proposal,
@@ -2624,24 +2616,38 @@ def confirm_threat_publication(
                             )
                         )
 
-                    reconcile_contribution = (
-                        contribution if order_disposition == "exact" else None
+                # c2a runs once the durable record/proposal establish the lookup
+                # key, regardless of reconstruction success. Reconstruction
+                # integrity blocks retry/verification but must not hide a
+                # core-proven committed revision.
+                reconcile_contribution = (
+                    contribution if order_disposition == "exact" else None
+                )
+                updated, merge_calls, label, allow_zero_match_retry, reconcile_message = (
+                    _reconcile(
+                        root=root,
+                        world_root=configured_world,
+                        record=record,
+                        proposal=proposal,
+                        contribution=reconcile_contribution,
+                        lookup_fn=lookup,
+                        merge_fn=merge,
+                        published_false=False,
+                        merge_calls=merge_calls,
                     )
-                    updated, merge_calls, label, allow_zero_match_retry, reconcile_message = (
-                        _reconcile(
-                            root=root,
-                            world_root=configured_world,
-                            record=record,
-                            proposal=proposal,
-                            contribution=reconcile_contribution,
-                            lookup_fn=lookup,
-                            merge_fn=merge,
-                            published_false=False,
-                            merge_calls=merge_calls,
-                        )
-                    )
+                )
 
                 if updated.state != "committing":
+                    message = reconcile_message
+                    if (
+                        reconstruction_blocker is not None
+                        and updated.state
+                        in {"committed_unverified", "committed_verified"}
+                    ):
+                        message = (
+                            f"{reconstruction_blocker}; committed revision recovered "
+                            "via c2a; reconstruction integrity blocks verification"
+                        )
                     return CommitOutcome(
                         _response(
                             safe_draft,
@@ -2650,8 +2656,44 @@ def confirm_threat_publication(
                             safe_commit,
                             label,
                             commit=updated,
-                            retry_allowed=_retry_allowed(updated),
+                            retry_allowed=False,
+                            message=message,
+                        ),
+                        merge_calls=merge_calls,
+                    )
+
+                # Unique c2a match proved a committed revision but receipt
+                # persistence failed: durable record remains committing-shaped,
+                # yet merge retry must never be advertised.
+                if label == "publication_commit_storage_unavailable":
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            label,
+                            commit=updated,
+                            retry_allowed=False,
                             message=reconcile_message,
+                        ),
+                        merge_calls=merge_calls,
+                    )
+
+                if reconstruction_integrity:
+                    # Zero/unavailable c2a after reconstruction integrity: keep
+                    # committing, block retry, surface integrity. Do not enter
+                    # governed merge retry without a successful reconstruction.
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_integrity_failure",
+                            commit=updated,
+                            retry_allowed=False,
+                            message=reconstruction_blocker,
                         ),
                         merge_calls=merge_calls,
                     )
@@ -3009,7 +3051,7 @@ def confirm_threat_publication(
                         safe_commit,
                         save_label,
                         commit=persisted,
-                        retry_allowed=_retry_allowed(persisted),
+                        retry_allowed=False,
                         message=save_message,
                     ),
                     created=True,

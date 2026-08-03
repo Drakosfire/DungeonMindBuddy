@@ -540,3 +540,276 @@ def test_no_durable_writes(tmp_path: Path) -> None:
     )
     after = {p.name: p.stat().st_mtime_ns for p in tmp_path.rglob("*") if p.is_file()}
     assert before == after
+
+
+def test_zero_direct_matches_returns_empty_not_all_threats() -> None:
+    t1 = _threat_node("threat:a", "Alpha")
+    t2 = _threat_node("threat:b", "Beta")
+    proj = _projection(
+        nodes=[t1, t2],
+        relationships=[],
+        matched_node_ids=[],
+    )
+    response = query_threats_with_hydration(
+        _request(query_text="nonsense unrelated query"),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert response.result_label == "threat_query_hydration_empty"
+    assert response.hits == []
+
+
+def test_relationship_discovery_from_matched_non_threat_location() -> None:
+    location = WorldGraphProjectionNodeView(
+        node_id="location:mireward",
+        label="Mireward",
+        kind="location",
+        role="settlement",
+    )
+    threat = _threat_node("threat:latchling", "Latchling")
+    rel = WorldGraphProjectionRelationshipView(
+        edge_id="edge:latchling-located-in-mireward",
+        source_node_id=threat.node_id,
+        target_node_id=location.node_id,
+        predicate="located_in",
+        label="located_in",
+        direction="outgoing",
+    )
+    proj = _projection(
+        nodes=[location, threat],
+        relationships=[rel],
+        matched_node_ids=[location.node_id],
+        match_reasons={location.node_id: ["exact_label"]},
+    )
+    response = query_threats_with_hydration(
+        _request(query_text="Mireward-connected threats"),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    assert response.hits[0].threat.node_id == threat.node_id
+    assert any(
+        r.startswith("related_to_match:location:mireward:located_in")
+        for r in response.hits[0].match_reasons
+    )
+
+
+def test_focus_node_discovers_related_threat() -> None:
+    capability = WorldGraphProjectionNodeView(
+        node_id="capability:siege",
+        label="Siege",
+        kind="capability",
+        role="capability",
+    )
+    threat = _threat_node("threat:siege-beetle", "Siege Beetle")
+    rel = WorldGraphProjectionRelationshipView(
+        edge_id="edge:beetle-has-siege",
+        source_node_id=threat.node_id,
+        target_node_id=capability.node_id,
+        predicate="has_capability",
+        label="has_capability",
+        direction="outgoing",
+    )
+    proj = _projection(
+        nodes=[capability, threat],
+        relationships=[rel],
+        matched_node_ids=[],
+    )
+    response = query_threats_with_hydration(
+        _request(
+            query_text="siege context",
+            focus_node_ids=[capability.node_id],
+            relationship_predicates=["has_capability"],
+        ),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    assert response.hits[0].threat.node_id == threat.node_id
+
+
+def test_malformed_uses_statblock_is_integrity_not_no_binding() -> None:
+    threat = _threat_node("threat:malformed", "Malformed")
+    rel = WorldGraphProjectionRelationshipView(
+        edge_id="edge:missing-binding-payload",
+        source_node_id=threat.node_id,
+        target_node_id=external_statblock_node_id("sb_missing01"),
+        predicate="uses_statblock",
+        label="uses_statblock",
+        direction="outgoing",
+        threat_statblock_binding=None,
+    )
+    proj = _projection(
+        nodes=[threat],
+        relationships=[rel],
+        matched_node_ids=[threat.node_id],
+    )
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    hit = response.hits[0]
+    assert hit.mechanics_disposition == "integrity_failure"
+    assert len(hit.bindings) == 1
+    assert hit.bindings[0].hydration_status == "integrity_failure"
+    assert hit.bindings[0].message == "uses_statblock_binding_missing"
+    assert response.result_label == "threat_query_hydration_integrity_failure"
+
+
+def test_wrong_direction_uses_statblock_is_integrity() -> None:
+    threat = _threat_node("threat:dir", "Direction")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_dir000001",
+        revision_id="rev_dir000001",
+        digest=DIGEST_A,
+    )
+    rel = WorldGraphProjectionRelationshipView(
+        edge_id=edge_id_from_binding_id(binding.binding_id),
+        source_node_id=threat.node_id,
+        target_node_id=external_statblock_node_id(binding.statblock_id),
+        predicate="uses_statblock",
+        label="uses_statblock",
+        direction="incoming",
+        threat_statblock_binding=binding,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_dir000001")],
+        relationships=[rel],
+        matched_node_ids=[threat.node_id],
+    )
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert response.hits[0].bindings[0].message == "uses_statblock_wrong_direction"
+    assert response.result_label == "threat_query_hydration_integrity_failure"
+
+
+def test_all_integrity_bindings_aggregate_to_integrity_failure() -> None:
+    threat = _threat_node("threat:allbad", "All Bad")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_allbad001",
+        revision_id="rev_allbad001",
+        digest=DIGEST_A,
+    )
+    bad_resource = WorldGraphProjectionNodeView(
+        node_id=external_statblock_node_id("sb_allbad001"),
+        label="bad",
+        kind="external_resource",
+        role="statblock",
+        external_resource={
+            "schema": EXTERNAL_RESOURCE_SCHEMA,
+            "provider": "dungeonmind",
+            "resource_type": "statblock",
+            "resource_id": "sb_other0001",
+            "contract": "dungeonmind.dungeonbuddy-statblocks",
+            "contract_version": "1.0.0",
+        },
+    )
+    proj = _projection(
+        nodes=[threat, bad_resource],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert response.hits[0].mechanics_disposition == "integrity_failure"
+    assert response.result_label == "threat_query_hydration_integrity_failure"
+
+
+def test_no_binding_does_not_neutralize_integrity_hit() -> None:
+    clean = _threat_node("threat:clean", "Clean")
+    bad = _threat_node("threat:bad", "Bad")
+    binding = _binding(
+        threat_id=bad.node_id,
+        statblock_id="sb_neutral01",
+        revision_id="rev_neutral01",
+        digest=DIGEST_A,
+    )
+    bad_resource = WorldGraphProjectionNodeView(
+        node_id=external_statblock_node_id("sb_neutral01"),
+        label="bad",
+        kind="external_resource",
+        role="statblock",
+        external_resource={
+            "schema": EXTERNAL_RESOURCE_SCHEMA,
+            "provider": "dungeonmind",
+            "resource_type": "statblock",
+            "resource_id": "sb_other0001",
+            "contract": "dungeonmind.dungeonbuddy-statblocks",
+            "contract_version": "1.0.0",
+        },
+    )
+    proj = _projection(
+        nodes=[clean, bad, bad_resource],
+        relationships=[_binding_rel(bad.node_id, binding)],
+        matched_node_ids=[clean.node_id, bad.node_id],
+    )
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert any(h.mechanics_disposition == "no_binding" for h in response.hits)
+    assert any(h.mechanics_disposition == "integrity_failure" for h in response.hits)
+    assert response.result_label == "threat_query_hydration_integrity_failure"
+
+
+def test_client_construction_failure_marks_bindings_unavailable() -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        integration_misconfigured,
+    )
+
+    threat = _threat_node("threat:cfg", "Config")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_cfg000001",
+        revision_id="rev_cfg000001",
+        digest=DIGEST_A,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_cfg000001")],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+
+    def boom() -> Any:
+        raise integration_misconfigured("client misconfigured")
+
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=None,
+        client_factory=boom,
+    )
+    assert response.hits[0].threat.node_id == threat.node_id
+    assert response.hits[0].bindings[0].hydration_status == "unavailable"
+    assert response.hits[0].bindings[0].statblock_id == "sb_cfg000001"
+    assert response.result_label == "threat_query_hydration_partial"
+
+
+def test_empty_query_does_not_construct_client() -> None:
+    t1 = _threat_node("threat:a", "Alpha")
+    proj = _projection(nodes=[t1], relationships=[], matched_node_ids=[])
+    constructed = {"n": 0}
+
+    def boom() -> Any:
+        constructed["n"] += 1
+        raise AssertionError("client must not be constructed")
+
+    response = query_threats_with_hydration(
+        _request(query_text="no matches"),
+        project_fn=lambda *_a, **_k: proj,
+        client=None,
+        client_factory=boom,
+    )
+    assert constructed["n"] == 0
+    assert response.result_label == "threat_query_hydration_empty"

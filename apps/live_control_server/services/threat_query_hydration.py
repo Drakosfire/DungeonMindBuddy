@@ -96,22 +96,134 @@ def _relationship_involves_node(
     return rel.source_node_id == node_id or rel.target_node_id == node_id
 
 
-def _outgoing_statblock_bindings(
+def _other_endpoint(rel: WorldGraphProjectionRelationshipView, node_id: str) -> str | None:
+    if rel.source_node_id == node_id:
+        return rel.target_node_id
+    if rel.target_node_id == node_id:
+        return rel.source_node_id
+    return None
+
+
+def _predicate_admitted(
+    rel: WorldGraphProjectionRelationshipView, predicate_filter: set[str]
+) -> bool:
+    if not predicate_filter:
+        return True
+    return (rel.predicate or "").casefold() in predicate_filter
+
+
+def _malformed_binding_result(
+    *,
+    threat_node_id: str,
+    rel: WorldGraphProjectionRelationshipView,
+    message: str,
+    binding: ThreatStatblockBindingV1 | None = None,
+) -> ThreatBindingHydrationV1:
+    """Integrity-failed binding locator without inventing durable identity."""
+    if binding is not None:
+        return ThreatBindingHydrationV1(
+            binding_id=binding.binding_id,
+            binding_role=binding.role,
+            threat_node_id=threat_node_id,
+            resource_node_id=rel.target_node_id,
+            provider="dungeonmind",
+            statblock_id=binding.statblock_id,
+            revision_id=binding.revision_id,
+            definition_digest=binding.definition_digest,
+            hydration_status="integrity_failure",
+            binding=binding,
+            revision=None,
+            message=message,
+        )
+    return ThreatBindingHydrationV1(
+        binding_id=rel.edge_id,
+        binding_role="",
+        threat_node_id=threat_node_id,
+        resource_node_id=rel.target_node_id if rel.source_node_id == threat_node_id else rel.source_node_id,
+        provider="dungeonmind",
+        statblock_id="",
+        revision_id="",
+        definition_digest="",
+        hydration_status="integrity_failure",
+        binding=None,
+        revision=None,
+        message=message,
+    )
+
+
+def _enumerate_statblock_bindings(
     projection: WorldGraphProjection,
     threat_node_id: str,
-) -> list[tuple[WorldGraphProjectionRelationshipView, ThreatStatblockBindingV1]]:
-    found: list[tuple[WorldGraphProjectionRelationshipView, ThreatStatblockBindingV1]] = []
+) -> list[tuple[WorldGraphProjectionRelationshipView, ThreatStatblockBindingV1 | None, str | None]]:
+    """Enumerate every uses_statblock edge involving the Threat.
+
+    Valid outgoing bindings return ``(rel, binding, None)``. Malformed edges
+    return ``(rel, binding_or_None, integrity_message)``. Never silently drop
+    a uses_statblock edge as ordinary no_binding absence.
+    """
+    found: list[
+        tuple[WorldGraphProjectionRelationshipView, ThreatStatblockBindingV1 | None, str | None]
+    ] = []
+    seen_edge_ids: set[str] = set()
+    seen_binding_ids: set[str] = set()
+
     for rel in projection.relationships:
         if rel.predicate != _USES_STATBLOCK:
             continue
-        if rel.source_node_id != threat_node_id:
+        involves_threat = _relationship_involves_node(rel, threat_node_id)
+        if not involves_threat:
             continue
+
+        if rel.edge_id in seen_edge_ids:
+            found.append(
+                (
+                    rel,
+                    rel.threat_statblock_binding,
+                    "duplicate_binding_edge_identity",
+                )
+            )
+            continue
+        seen_edge_ids.add(rel.edge_id)
+
+        if rel.source_node_id != threat_node_id:
+            found.append(
+                (
+                    rel,
+                    rel.threat_statblock_binding,
+                    "uses_statblock_wrong_endpoint",
+                )
+            )
+            continue
+
+        if (rel.direction or "").casefold() != "outgoing":
+            found.append(
+                (
+                    rel,
+                    rel.threat_statblock_binding,
+                    "uses_statblock_wrong_direction",
+                )
+            )
+            continue
+
         binding = rel.threat_statblock_binding
         if binding is None:
+            found.append((rel, None, "uses_statblock_binding_missing"))
             continue
-        found.append((rel, binding))
-    # Deterministic presentation order only — never selection authority.
-    found.sort(key=lambda item: (item[1].role, item[1].binding_id, item[0].edge_id))
+
+        if binding.binding_id in seen_binding_ids:
+            found.append((rel, binding, "duplicate_binding_identity"))
+            continue
+        seen_binding_ids.add(binding.binding_id)
+
+        found.append((rel, binding, None))
+
+    found.sort(
+        key=lambda item: (
+            (item[1].role if item[1] is not None else ""),
+            (item[1].binding_id if item[1] is not None else item[0].edge_id),
+            item[0].edge_id,
+        )
+    )
     return found
 
 
@@ -171,7 +283,8 @@ def _hydrate_binding(
     rel: WorldGraphProjectionRelationshipView,
     binding: ThreatStatblockBindingV1,
     projection: WorldGraphProjection,
-    client: ExactRevisionClient,
+    client: ExactRevisionClient | None,
+    client_error: str | None,
     include_mechanics: bool,
 ) -> ThreatBindingHydrationV1:
     resource_node = _resource_node_for(projection, rel.target_node_id)
@@ -200,6 +313,13 @@ def _hydrate_binding(
     if not include_mechanics:
         return base.model_copy(
             update={"hydration_status": "unavailable", "message": "mechanics omitted by request"}
+        )
+    if client is None:
+        return base.model_copy(
+            update={
+                "hydration_status": "unavailable",
+                "message": client_error or "statblock client unavailable",
+            }
         )
     try:
         revision = client.get_exact_revision(binding.statblock_id, binding.revision_id)
@@ -284,30 +404,107 @@ def _mechanics_disposition(
     return "unavailable"
 
 
+def _aggregate_result_label(
+    hits: list[ThreatQueryHydrationHitV1],
+) -> ThreatQueryHydrationResultLabel:
+    if not hits:
+        return "threat_query_hydration_empty"
+
+    mechanics_bindings = [
+        binding
+        for hit in hits
+        for binding in hit.bindings
+        if hit.mechanics_disposition != "no_binding"
+    ]
+    if not mechanics_bindings:
+        return "threat_query_hydration_ok"
+
+    statuses = {binding.hydration_status for binding in mechanics_bindings}
+    if statuses == {"available"}:
+        return "threat_query_hydration_ok"
+    if "integrity_failure" in statuses and not (
+        statuses & {"available", "unavailable", "exact_revision_missing"}
+    ):
+        return "threat_query_hydration_integrity_failure"
+    return "threat_query_hydration_partial"
+
+
+def _discovery_relationships(
+    projection: WorldGraphProjection,
+) -> list[WorldGraphProjectionRelationshipView]:
+    if projection.query_context is not None and projection.query_context.relationships:
+        return list(projection.query_context.relationships)
+    return list(projection.relationships)
+
+
 def _collect_threat_hits(
     projection: WorldGraphProjection,
     request: ThreatQueryHydrationRequestV1,
 ) -> list[tuple[WorldGraphProjectionNodeView, list[str], list[WorldGraphProjectionRelationshipView]]]:
-    matched_ids: list[str] = []
-    reasons: dict[str, list[str]] = {}
-    if projection.query_context is not None:
-        matched_ids = list(projection.query_context.matched_node_ids)
-        reasons = {
-            key: list(value)
-            for key, value in (projection.query_context.match_reasons or {}).items()
-        }
+    """Derive Threat candidates from direct matches and relationship endpoints.
+
+    Empty ``matched_node_ids`` with an existing query context means zero matches —
+    never fall back to every projected Threat. Focus nodes and admitted
+    relationships discover Threat endpoints connected to matched/focused anchors.
+    """
+    if projection.query_context is None:
+        return []
+
+    matched_ids = list(projection.query_context.matched_node_ids)
+    reasons: dict[str, list[str]] = {
+        key: list(value)
+        for key, value in (projection.query_context.match_reasons or {}).items()
+    }
+    focus_ids = list(request.focus_node_ids)
+    if not matched_ids and not focus_ids:
+        return []
+
     nodes_by_id = {node.node_id: node for node in projection.nodes}
+    predicate_filter = {p.casefold() for p in request.relationship_predicates}
+    discovery_rels = _discovery_relationships(projection)
+
+    candidate_reasons: dict[str, list[str]] = {}
+
+    def _add_reason(node_id: str, reason: str) -> None:
+        bucket = candidate_reasons.setdefault(node_id, [])
+        if reason not in bucket:
+            bucket.append(reason)
+
+    for node_id in matched_ids:
+        node = nodes_by_id.get(node_id)
+        if node is None or not _is_threat_node(node):
+            continue
+        for reason in reasons.get(node_id) or ["direct_match"]:
+            _add_reason(node_id, reason)
+
+    for node_id in focus_ids:
+        node = nodes_by_id.get(node_id)
+        if node is None or not _is_threat_node(node):
+            continue
+        _add_reason(node_id, f"focus_node:{node_id}")
+
+    anchors = set(matched_ids) | set(focus_ids)
+    for rel in discovery_rels:
+        if not _predicate_admitted(rel, predicate_filter):
+            continue
+        for anchor in (rel.source_node_id, rel.target_node_id):
+            if anchor not in anchors:
+                continue
+            other = _other_endpoint(rel, anchor)
+            if other is None:
+                continue
+            other_node = nodes_by_id.get(other)
+            if other_node is None or not _is_threat_node(other_node):
+                continue
+            _add_reason(
+                other,
+                f"related_to_match:{anchor}:{rel.predicate}",
+            )
+
     hits: list[
         tuple[WorldGraphProjectionNodeView, list[str], list[WorldGraphProjectionRelationshipView]]
     ] = []
-    seen: set[str] = set()
-
-    candidate_ids = matched_ids or [node.node_id for node in projection.nodes]
-    predicate_filter = {p.casefold() for p in request.relationship_predicates}
-
-    for node_id in candidate_ids:
-        if node_id in seen:
-            continue
+    for node_id in sorted(candidate_reasons.keys()):
         node = nodes_by_id.get(node_id)
         if node is None or not _is_threat_node(node):
             continue
@@ -315,21 +512,9 @@ def _collect_threat_hits(
             rel
             for rel in projection.relationships
             if _relationship_involves_node(rel, node.node_id)
-            and (
-                not predicate_filter
-                or (rel.predicate or "").casefold() in predicate_filter
-            )
+            and _predicate_admitted(rel, predicate_filter)
         ]
-        if request.focus_node_ids:
-            focus = set(request.focus_node_ids)
-            if node.node_id not in focus and not any(
-                rel.source_node_id in focus or rel.target_node_id in focus for rel in rels
-            ):
-                # Still allow direct query matches without focus adjacency.
-                if node.node_id not in matched_ids:
-                    continue
-        seen.add(node.node_id)
-        hits.append((node, list(reasons.get(node.node_id) or []), rels))
+        hits.append((node, list(candidate_reasons[node_id]), rels))
         if len(hits) >= request.max_hits:
             break
     return hits
@@ -341,6 +526,7 @@ def query_threats_with_hydration(
     root: Path | None = None,
     client: ExactRevisionClient | None = None,
     project_fn: Callable[..., WorldGraphProjection] | None = None,
+    client_factory: Callable[[], ExactRevisionClient] | None = None,
 ) -> ThreatQueryHydrationResponseV1:
     """Query published Threats in one exact revision and hydrate all bindings."""
     graph_root = _resolved_root(root)
@@ -390,26 +576,78 @@ def query_threats_with_hydration(
             diagnostics=["revision_pin_mismatch"],
         )
 
-    statblock_client: ExactRevisionClient = client or build_statblock_v1_client()
     raw_hits = _collect_threat_hits(projection, request)
     response_hits: list[ThreatQueryHydrationHitV1] = []
     diagnostics: list[str] = []
 
+    needs_mechanics_client = False
+    pending: list[
+        tuple[
+            WorldGraphProjectionNodeView,
+            list[str],
+            list[WorldGraphProjectionRelationshipView],
+            list[
+                tuple[
+                    WorldGraphProjectionRelationshipView,
+                    ThreatStatblockBindingV1 | None,
+                    str | None,
+                ]
+            ],
+        ]
+    ] = []
     for threat, match_reasons, relationships in raw_hits:
-        binding_pairs = _outgoing_statblock_bindings(projection, threat.node_id)
+        enumerated = _enumerate_statblock_bindings(projection, threat.node_id)
+        pending.append((threat, match_reasons, relationships, enumerated))
+        if request.include_mechanics and any(
+            binding is not None and integrity is None
+            for _rel, binding, integrity in enumerated
+        ):
+            needs_mechanics_client = True
+
+    resolved_client: ExactRevisionClient | None = client
+    client_error: str | None = None
+    if needs_mechanics_client and resolved_client is None:
+        factory = client_factory or build_statblock_v1_client
+        try:
+            resolved_client = factory()
+        except StatblockIntegrationError as exc:
+            client_error = str(exc)
+            resolved_client = None
+        except Exception as exc:  # noqa: BLE001
+            client_error = str(exc)
+            resolved_client = None
+
+    for threat, match_reasons, relationships, enumerated in pending:
         hydrated: list[ThreatBindingHydrationV1] = []
-        for rel, binding in binding_pairs:
-            item = _hydrate_binding(
-                threat_node_id=threat.node_id,
-                rel=rel,
-                binding=binding,
-                projection=projection,
-                client=statblock_client,
-                include_mechanics=request.include_mechanics,
-            )
+        for rel, binding, integrity in enumerated:
+            if integrity is not None:
+                item = _malformed_binding_result(
+                    threat_node_id=threat.node_id,
+                    rel=rel,
+                    message=integrity,
+                    binding=binding,
+                )
+            elif binding is None:
+                item = _malformed_binding_result(
+                    threat_node_id=threat.node_id,
+                    rel=rel,
+                    message="uses_statblock_binding_missing",
+                )
+            else:
+                item = _hydrate_binding(
+                    threat_node_id=threat.node_id,
+                    rel=rel,
+                    binding=binding,
+                    projection=projection,
+                    client=resolved_client,
+                    client_error=client_error,
+                    include_mechanics=request.include_mechanics,
+                )
             hydrated.append(item)
             if item.message:
-                diagnostics.append(f"{threat.node_id}:{item.binding_id}:{item.hydration_status}")
+                diagnostics.append(
+                    f"{threat.node_id}:{item.binding_id}:{item.hydration_status}"
+                )
         disposition = _mechanics_disposition(hydrated)
         response_hits.append(
             ThreatQueryHydrationHitV1(
@@ -422,28 +660,7 @@ def query_threats_with_hydration(
         )
 
     response_hits.sort(key=_deterministic_hit_sort_key)
-    if not response_hits:
-        label: ThreatQueryHydrationResultLabel = "threat_query_hydration_empty"
-    elif any(hit.mechanics_disposition in {"partial", "unavailable"} for hit in response_hits) or any(
-        b.hydration_status != "available"
-        for hit in response_hits
-        for b in hit.bindings
-        if hit.mechanics_disposition != "no_binding"
-    ):
-        # partial when at least one hit has mixed/unavailable hydration; ok when all hydrated or no_binding
-        if all(
-            hit.mechanics_disposition in {"hydrated", "no_binding"} for hit in response_hits
-        ):
-            label = "threat_query_hydration_ok"
-        elif any(hit.mechanics_disposition == "integrity_failure" for hit in response_hits) and all(
-            hit.mechanics_disposition in {"integrity_failure", "no_binding"}
-            for hit in response_hits
-        ):
-            label = "threat_query_hydration_ok"
-        else:
-            label = "threat_query_hydration_partial"
-    else:
-        label = "threat_query_hydration_ok"
+    label = _aggregate_result_label(response_hits)
 
     return ThreatQueryHydrationResponseV1(
         schema=QUERY_RESPONSE_SCHEMA,

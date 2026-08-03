@@ -4010,7 +4010,69 @@ def test_committing_reconstruction_oserror_still_runs_c2a(
     assert outcome.response.commit.committed_revision_id == revision_id
 
 
-def test_committing_reconstruction_integrity_keeps_committing(
+def test_committing_reconstruction_integrity_still_runs_c2a(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    lookup_calls = {"n": 0}
+    revision_id = "rev:recon-integrity-c2a-recover"
+
+    def lookup_fn(*_a, **_k):
+        lookup_calls["n"] += 1
+        return (_recovery_manifest(proposal, revision_id=revision_id),)
+
+    store = _recovery_store(proposal, world_root)
+
+    with patch.object(
+        commit_svc,
+        "resolve_merged_contribution_from_package",
+        side_effect=WorldGraphIntegrityError("corrupt contribution package"),
+    ), patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lookup_fn,
+        )
+
+    assert lookup_calls["n"] == 1
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_committed_unverified"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_unverified"
+    assert outcome.response.commit.committed_revision_id == revision_id
+    assert outcome.response.retry_allowed is False
+    assert "reconstruction integrity" in (outcome.response.message or "")
+
+
+def test_committing_reconstruction_integrity_zero_match_blocks_retry(
     tmp_path: Path, monkeypatch
 ) -> None:
     draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
@@ -4057,11 +4119,12 @@ def test_committing_reconstruction_integrity_keeps_committing(
             lookup_fn=lookup_fn,
         )
 
-    assert lookup_calls["n"] == 0
+    assert lookup_calls["n"] == 1
     assert outcome.merge_calls == 0
     assert outcome.response.result_label == "publication_commit_integrity_failure"
     assert outcome.response.commit is not None
     assert outcome.response.commit.state == "committing"
+    assert outcome.response.retry_allowed is False
     ledger = load_threat_publication_commit_ledger_unlocked(
         tmp_path, draft.draft_id, op_id
     )
@@ -4184,6 +4247,7 @@ def test_double_receipt_save_failure_returns_durable_prior(
     assert outcome.response.commit.state == "committing"
     assert outcome.response.commit.merge_attempt_count == 1
     assert outcome.response.commit.committed_revision_id is None
+    assert outcome.response.retry_allowed is False
     assert _commit_ledger_bytes(tmp_path, draft.draft_id, op_id) == durable_before
     reloaded = load_threat_publication_commit_ledger_unlocked(
         tmp_path, draft.draft_id, op_id
