@@ -11,12 +11,12 @@
   "supersedes_contribution_id": null,
   "candidate_assertions": [
     {
-      "assertion_id": "assertion:1d82e3638a885810",
+      "assertion_id": "assertion:0a21dac97f3021a6",
       "assertion_kind": "edge",
       "subject_node_id": "npc:lira-spelt",
       "target_node_id": "obj:ashpetal-folios",
       "predicate": "shelves_ashpetal_folios",
-      "label": "Lira Spelt shelves the Ashpetal folios overnight",
+      "label": "Lira Spelt shelves the Ashpetal folios",
       "value": {
         "evidence": [
           {

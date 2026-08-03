@@ -1,1 +1,1 @@
-Lira Spelt shelves the Ashpetal folios overnight in good order.
+Lira Spelt shelves the Ashpetal folios in good order.

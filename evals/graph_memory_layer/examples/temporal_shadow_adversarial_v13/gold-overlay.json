@@ -1,8 +1,8 @@
 {
   "schema": "dmb_temporal_annotation_overlay_v1",
-  "overlay_id": "temporal-overlay:8b586892a476fd23",
+  "overlay_id": "temporal-overlay:0f548330fcf90a4c",
   "base_contribution_id": "contribution:68352b2958466a15",
-  "base_contribution_source_payload_sha256": "8c2d20f0a7cc418af109163986c90067865a77e0d7340ed219ac958aeae539cf",
+  "base_contribution_source_payload_sha256": "193524c8e41cf865fbfb294329baded0281a2f4155c1991336c3d7f5f96916c3",
   "producer": {
     "kind": "human_gold",
     "name": "tl01g-adversarial-v13",
@@ -11,14 +11,14 @@
   "annotations": [
     {
       "annotation_id": "temporal-annotation:v13000000000001",
-      "base_assertion_id": "assertion:1d82e3638a885810",
+      "base_assertion_id": "assertion:0a21dac97f3021a6",
       "interpretation_status": "unresolved",
       "occurrence_time": null,
       "valid_time": null,
       "evidence_ref_ids": [
         "evidence:tl01g-adversarial-v13:register-keeps-session19"
       ],
-      "source_phrase": "shelves the Ashpetal folios overnight",
+      "source_phrase": "shelves the Ashpetal folios",
       "extraction_confidence": "high",
       "diagnostics": [
         "Persistent custody without narrated occurrence time"

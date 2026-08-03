@@ -3,7 +3,7 @@
   "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/base-contribution.json",
   "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/gold-overlay.json",
   "selected_assertion_ids": [
-    "assertion:1d82e3638a885810",
+    "assertion:0a21dac97f3021a6",
     "assertion:ea6b7307edde4448",
     "assertion:bd8eefd165efe613",
     "assertion:d72fbcdad287e1a5",
@@ -19,7 +19,7 @@
       "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-keeps-session19",
       "source_artifact_id": "source-artifact:adversarial_v13-register-keeps-session19",
       "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-keeps-session19.md",
-      "content_sha256": "dd026feb377ab486ce621301d20d04e2f8a41bed9a6c3c3d56580541fe6e035b",
+      "content_sha256": "fcdb75422c423764ad405faf2dcc098f66339202d564458cad5dfe4bfbf6662a",
       "source_ref_id": "source-ref:adversarial_v13-register-keeps-session19",
       "start_line": 1,
       "end_line": 1,
@@ -117,8 +117,8 @@
     }
   ],
   "snippet_max_chars": 2000,
-  "base_contribution_sha256": "1a751d5363751d15faaebce81746af2535d2d736137f59abd86cad5ae446336a",
-  "gold_overlay_sha256": "edb2c8422325b1b6859bfc9f0cd9c0c04a7f75267f5fdd1981b69f8f17605a71",
+  "base_contribution_sha256": "47babf81f9c1224482e3b895c5813ac12b4358e1840b6f8c832173a626b4bb06",
+  "gold_overlay_sha256": "f937a3d9216c8baf2213a63cc30c49dcc90e4c7aa8382b7d04d1dc07fef79da7",
   "case_id": "tl01g-temporal-shadow-adversarial-v13-tl01f-v1",
   "prompt_version": "tl01f-v1"
 }

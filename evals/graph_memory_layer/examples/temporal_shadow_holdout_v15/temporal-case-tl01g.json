@@ -101,7 +101,7 @@
       "evidence_ref_id": "evidence:tl01g-holdout-v15:shoal-intent",
       "source_artifact_id": "source-artifact:holdout_v15-shoal-intent",
       "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/shoal-intent.md",
-      "content_sha256": "9e05e80d2d8b2c671823df04c650c8d5f8f9096ae14e00e0bb9a852162e9f9ce",
+      "content_sha256": "5212dec5fc38184e26cd852810bf1f8ba6ffac2966872024310c263118c743cc",
       "source_ref_id": "source-ref:holdout_v15-shoal-intent",
       "start_line": 1,
       "end_line": 1,
