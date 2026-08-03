@@ -5,8 +5,8 @@
 **Branch:** `timeline/tl01g-v15-adv13-cohort-certification`  
 **Handoff:** `Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-cohort-certification.md`  
 **Implementation base:** `d3b4060fabd6c2b7fff0403af260637845c86dd9`  
-**Certification SHA:** `09da5f768ff69fc64f88d5df40188441d80b5f87`  
-**Invalidated prior certification SHA:** `e59dd742557f35702b09b8f34a6bc6bea078262f` (review cycle 1)  
+**Certification SHA:** `0ea6c2a9ae127c348ac93ce302c2cc698926bcea`  
+**Invalidated prior certification SHAs:** `e59dd742557f35702b09b8f34a6bc6bea078262f` (review cycle 1); `09da5f768ff69fc64f88d5df40188441d80b5f87` (review cycle 2)  
 **Provider calls in this PR:** **0**
 
 ## Review cycle 1 — invalidation and repair
@@ -22,6 +22,15 @@ Repairs (provider-unobserved; new certification required):
 - Stimulus now: `Neris Quill intends to chart every shoal.` (no deadline phrase); gold remains unresolved.
 - Stimulus/label now: `Lira Spelt shelves the Ashpetal folios` / `… in good order.` (no `overnight`); gold remains unresolved; assertion id is now `assertion:0a21dac97f3021a6`.
 - Added `test_v15_adv_v13_sibling_source_template_jaccard_below_threshold` (exact templates disjoint; Jaccard `< 0.40`).
+
+## Review cycle 2 — owning-fixture abstention proofs
+
+Prior certification `09da5f76…` is **invalid**. Review cycle 2 found that repaired false-abstention cases still lacked owning-fixture regressions: existing tests confirmed only unresolved + null lanes, not that V15’s stimulus lacks an execution-time phrase or that Adv V13’s session temptation exists only in registry metadata.
+
+Repairs (provider-unobserved; new certification required; fixture bytes unchanged):
+
+- Added `test_holdout_v15_future_commitment_stimulus_lacks_execution_time_phrase` binding `assertion:a61c1383591400f3` / `shoal-intent.md`.
+- Added `test_adversarial_v13_source_time_trap_session_temptation_is_metadata_only` binding `assertion:0a21dac97f3021a6` / `register-keeps-session19.md` (session-19 in metadata only; owned prose has neither session-19 nor `overnight`).
 
 ## Mission (copied)
 
@@ -53,11 +62,13 @@ bytes remain unchanged for the successor execution PR.
 
 1. `4b4377f0` — handoff
 2. `6c9dfba8` — certification gates
-3. `cfe9e7f2` / `e59dd742` — initial V15 / Adv V13 fixtures (**superseded certification**)
-4. `1037c090` — initial certification record (**invalidated**)
+3. `cfe9e7f2` / `e59dd742` — initial V15 / Adv V13 fixtures (**superseded**)
+4. `1037c090` — initial certification record (**invalidated**, cycle 1)
 5. `3b69e403` — sibling source-template Jaccard test
-6. `09da5f76` — abstention gold/stimulus repair (**current certification SHA**)
-7. (this commit) — re-certification report + README seal pointers
+6. `09da5f76` — abstention gold/stimulus repair (**invalidated**, cycle 2)
+7. `2be91e02` — cycle-1 re-certification record (**stale**)
+8. `0ea6c2a9` — owning-fixture false-abstention proofs (**current certification SHA**)
+9. (this commit) — re-certification report + README seal pointers
 
 ## Assertion inventory
 
@@ -100,11 +111,11 @@ _collect_resolved_value_grounding_defects(HOLDOUT_V15) == []
 _collect_resolved_value_grounding_defects(ADV_V13) == []
 ```
 
-## §7 command results (at certification SHA `09da5f76…`)
+## §7 command results (at certification SHA `0ea6c2a9…`)
 
 | Command | Result |
 |---|---|
-| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `96 passed` |
+| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `98 passed` |
 | `uv run pytest -q tests/test_temporal_shadow_prompt_calibration.py tests/test_temporal_shadow_grounding_path.py` | `113 passed, 1 skipped` |
 | `uv run ruff check tests/test_temporal_shadow_extraction_tl01g.py` | All checks passed |
 | `python -m json.tool` on eight cohort JSON files | OK |
@@ -115,10 +126,10 @@ Baseline failures / waivers: **none**
 Paths outside §4: **none**  
 Stop conditions: **none**
 
-## Certified file digests (SHA-256 at `09da5f76…`)
+## Certified file digests (SHA-256 at `0ea6c2a9…`)
 
 ```text
-3bb633a867cf2f8559ff1f130be905621d2c950c2300035cac206fe2d5f5a626  tests/test_temporal_shadow_extraction_tl01g.py
+5821d514f492c43e97f35545e516743e7b44ea1d88a1d9cb885322929684eed1  tests/test_temporal_shadow_extraction_tl01g.py
 7a4044375b70d421920f8ab302e88ea6fb2f74ca35187600332dfa6217815445  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/GOLD-AUDIT.md
 ab5ab1f2b4dd3bd77b5750bb6ec826f1ccd80da69e7608e3459cca1d036e304e  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/base-contribution.json
 cb8b3739d7ec79e3215d9c4e6fb61bb990846a72afabcb045f95027d788b48b8  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/gold-overlay.json
@@ -166,4 +177,4 @@ fcdb75422c423764ad405faf2dcc098f66339202d564458cad5dfe4bfbf6662a  evals/graph_me
 TIMELINE: execute certified TL01G promotion matrix
 ```
 
-Verify certification SHA `09da5f76…` and every digest above before any provider call; treat certified fixture bytes as read-only.
+Verify certification SHA `0ea6c2a9…` and every digest above before any provider call; treat certified fixture bytes as read-only.
