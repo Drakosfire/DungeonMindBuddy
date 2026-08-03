@@ -1808,27 +1808,24 @@ def test_committed_unverified_identity_contradiction_is_integrity(
     assert "selected_target_mismatch" in (replay.response.message or "")
 
 
-def test_legacy_seal_order_proposal_requires_supersession(
-    tmp_path: Path, monkeypatch
-) -> None:
-    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
-        tmp_path, monkeypatch
-    )
-    world_root = tmp_path / "graph"
-    ids = list(proposal.accepted_assertion_ids)
-    assert len(ids) >= 2
-    legacy_ids = list(reversed(ids))
-    assert legacy_ids != ids
+def _historical_seal_ids(proposal) -> list[str]:
+    ids = commit_svc._historical_seal_order_ids(proposal.sealed_proposal)
+    assert ids is not None
+    return ids
 
+
+def _mutate_proposal_accepted_ids(
+    tmp_path: Path, draft_id: str, operation_id: str, proposal_id: str, new_ids: list[str]
+):
     ledger = proposal_svc.load_threat_publication_proposal_ledger_unlocked(
-        tmp_path, draft.draft_id, op_id
+        tmp_path, draft_id, operation_id
     )
     assert ledger is not None
     mutated = ledger.model_copy(
         update={
             "proposals": [
                 (
-                    p.model_copy(update={"accepted_assertion_ids": legacy_ids})
+                    p.model_copy(update={"accepted_assertion_ids": list(new_ids)})
                     if p.proposal_id == proposal_id
                     else p
                 )
@@ -1837,15 +1834,42 @@ def test_legacy_seal_order_proposal_requires_supersession(
         }
     )
     proposal_svc._save_ledger_unlocked(tmp_path, mutated)
+    return next(p for p in mutated.proposals if p.proposal_id == proposal_id)
 
-    contribution = _contribution_from_proposal(
-        proposal.model_copy(update={"accepted_assertion_ids": ids}), world_root
+
+def _corrupt_same_set_permutation(recon_ids: list[str], seal_ids: list[str]) -> list[str]:
+    assert len(recon_ids) >= 2
+    candidate = list(reversed(recon_ids))
+    if candidate != recon_ids and candidate != seal_ids:
+        return candidate
+    candidate = recon_ids[1:] + recon_ids[:1]
+    assert candidate != recon_ids and candidate != seal_ids
+    return candidate
+
+
+def test_legacy_seal_order_proposal_requires_supersession(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
     )
-    # Reconstruct against the durable (legacy-ordered) proposal bytes.
-    legacy_proposal = next(p for p in mutated.proposals if p.proposal_id == proposal_id)
+    world_root = tmp_path / "graph"
+    recon_ids = list(proposal.accepted_assertion_ids)
+    seal_ids = _historical_seal_ids(proposal)
+    assert seal_ids != recon_ids
+    assert set(seal_ids) == set(recon_ids)
+
+    legacy_proposal = _mutate_proposal_accepted_ids(
+        tmp_path, draft.draft_id, op_id, proposal_id, seal_ids
+    )
+    contribution = _contribution_from_proposal(
+        proposal.model_copy(update={"accepted_assertion_ids": recon_ids}), world_root
+    )
     assert (
         commit_svc._contribution_order_disposition(
-            contribution, list(legacy_proposal.accepted_assertion_ids)
+            contribution,
+            list(legacy_proposal.accepted_assertion_ids),
+            sealed_proposal=legacy_proposal.sealed_proposal,
         )
         == "legacy_seal_order"
     )
@@ -1864,6 +1888,281 @@ def test_legacy_seal_order_proposal_requires_supersession(
     assert outcome.response.result_label == "publication_commit_proposal_incompatible"
     assert "supersede" in (outcome.response.message or "").casefold()
     _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
+
+
+def test_corrupt_same_set_permutation_is_integrity_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    recon_ids = list(proposal.accepted_assertion_ids)
+    seal_ids = _historical_seal_ids(proposal)
+    corrupt_ids = _corrupt_same_set_permutation(recon_ids, seal_ids)
+
+    corrupt_proposal = _mutate_proposal_accepted_ids(
+        tmp_path, draft.draft_id, op_id, proposal_id, corrupt_ids
+    )
+    contribution = _contribution_from_proposal(
+        proposal.model_copy(update={"accepted_assertion_ids": recon_ids}), world_root
+    )
+    assert (
+        commit_svc._contribution_order_disposition(
+            contribution,
+            list(corrupt_proposal.accepted_assertion_ids),
+            sealed_proposal=corrupt_proposal.sealed_proposal,
+        )
+        == "corrupt_permutation"
+    )
+
+    outcome = commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        _confirm_request(corrupt_proposal),
+        world_root=world_root,
+        merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+        lookup_fn=lambda *_a, **_k: tuple(),
+    )
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert "corrupt" in (outcome.response.message or "").casefold()
+    _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
+
+
+def test_legacy_committing_record_recovers_via_c2a_without_merge(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    recon_ids = list(proposal.accepted_assertion_ids)
+    seal_ids = _historical_seal_ids(proposal)
+    assert seal_ids != recon_ids
+
+    from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
+
+    _v, contribution = resolve_merged_contribution_from_package(
+        review_package=proposal.sealed_proposal,
+        confirming_principal=proposal.created_by,
+        world_id_hint="world_1",
+        root=world_root,
+        expected_parent_revision_id=proposal.expected_parent_revision_id,
+        assertion_ids=None,
+        verify_source=False,
+    )
+    by_id = {item.assertion_id: item for item in contribution.accepted_assertions}
+    seal_ordered = contribution.model_copy(
+        update={"accepted_assertions": [by_id[i] for i in seal_ids]}
+    )
+    seal_digest = kernel.compute_contribution_source_payload_sha256(seal_ordered)
+
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+
+    legacy_proposal = _mutate_proposal_accepted_ids(
+        tmp_path, draft.draft_id, op_id, proposal_id, seal_ids
+    )
+    legacy_record = commit_svc._with_updated(
+        record,
+        accepted_assertion_ids=list(legacy_proposal.accepted_assertion_ids),
+        expected_contribution_source_payload_sha256=seal_digest,
+        proposal_request_digest=legacy_proposal.request_digest,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, legacy_record)
+
+    revision_id = "rev:legacy-recovered"
+    manifest = _recovery_manifest(legacy_proposal, revision_id=revision_id)
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH).model_copy(
+        update={
+            "nodes": {},
+            "edges": {},
+            "aliases": {},
+            "adjacency": {},
+            "evidence": {},
+            "source_artifacts": {},
+            "contribution_source_payload_sha256": {
+                legacy_proposal.expected_contribution_id: seal_digest,
+            },
+            "contribution_replay_manifest": [
+                ContributionReplayManifestEntry(
+                    contribution_id=legacy_proposal.expected_contribution_id,
+                    status="active",
+                    source_payload_sha256=seal_digest,
+                )
+            ],
+        }
+    )
+
+    with patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_unverified"
+    assert outcome.response.commit.committed_revision_id == revision_id
+    assert outcome.response.result_label == "publication_commit_committed_unverified"
+    assert "supersede" not in (outcome.response.message or "").casefold()
+
+
+def test_committing_identity_unavailable_recovers_via_c2a(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.models.threat_publication_identity import (
+        ThreatPublicationIdentityResponseV1,
+    )
+    from apps.live_control_server.services.threat_publication_identity import (
+        IdentityResolutionOutcome,
+    )
+
+    draft, op_id, _rid, proposal_id, proposal, _parent, _resolution = _pipeline_connect_existing(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    revision_id = "rev:identity-gap-recovered"
+    manifest = _recovery_manifest(proposal, revision_id=revision_id)
+    store = _recovery_store(proposal, world_root)
+    unavailable = IdentityResolutionOutcome(
+        ThreatPublicationIdentityResponseV1(
+            draft_id=draft.draft_id,
+            operation_id=op_id,
+            result_label="publication_identity_storage_unavailable",
+            resolution=None,
+            predecessor_usable=None,
+            message="identity store unavailable",
+        ),
+        created=False,
+    )
+
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=unavailable
+    ), patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_committed_unverified"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_unverified"
+    assert outcome.response.commit.committed_revision_id == revision_id
+
+
+def test_committing_identity_unavailable_zero_match_keeps_retry_allowed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.models.threat_publication_identity import (
+        ThreatPublicationIdentityResponseV1,
+    )
+    from apps.live_control_server.services.threat_publication_identity import (
+        IdentityResolutionOutcome,
+    )
+
+    draft, op_id, _rid, proposal_id, proposal, _parent, _resolution = _pipeline_connect_existing(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    unavailable = IdentityResolutionOutcome(
+        ThreatPublicationIdentityResponseV1(
+            draft_id=draft.draft_id,
+            operation_id=op_id,
+            result_label="publication_identity_busy",
+            resolution=None,
+            predecessor_usable=None,
+            message="identity busy",
+        ),
+        created=False,
+    )
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=unavailable
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_recovery_pending"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.retry_allowed is True
+    assert "identity dependency unavailable" in (outcome.response.message or "")
 
 
 def test_create_new_verify_committed_reaches_verified_full_projection(

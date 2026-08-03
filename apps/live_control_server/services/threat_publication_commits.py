@@ -191,29 +191,77 @@ def _unmodified_contribution_matches_expected_ids(
     return _assertion_ids_match(_extract_accepted_ids(contribution), expected_ids)
 
 
-def _contribution_order_disposition(
-    contribution: GraphContribution, expected_ids: list[str]
-) -> Literal["exact", "legacy_seal_order", "set_mismatch"]:
-    """Classify reconstructed order vs durable proposal/commit assertion IDs.
+def _historical_seal_order_ids(
+    sealed_proposal: Mapping[str, Any] | None,
+) -> list[str] | None:
+    """Exact pre-reconstruction seal-time assertion order from the sealed package.
 
-    Current c1 records Kernel reconstruction order. Durable proposals prepared
-    under the prior seal-time list order keep their v1 bytes unchanged. When the
-    assertion *set* matches but order differs, admission must reject with an
-    actionable supersession path rather than rewrite or silently migrate.
+    Old c1 persisted ``accepted_assertion_ids`` in the order of
+    ``effect.accepted_proposals`` passed to ``seal_promote_proposal``. That list
+    remains immutable inside the sealed package and is the only legitimate
+    legacy-order discriminator — not arbitrary same-set permutations.
     """
-    actual = _extract_accepted_ids(contribution)
-    expected = list(expected_ids)
-    if actual == expected:
+    if not isinstance(sealed_proposal, Mapping):
+        return None
+    effect = sealed_proposal.get("effect")
+    if not isinstance(effect, Mapping):
+        return None
+    accepted = effect.get("accepted_proposals")
+    if not isinstance(accepted, list) or not accepted:
+        return None
+    ids: list[str] = []
+    for item in accepted:
+        if isinstance(item, Mapping):
+            assertion_id = item.get("assertion_id")
+        else:
+            assertion_id = getattr(item, "assertion_id", None)
+        if not isinstance(assertion_id, str) or not assertion_id.strip():
+            return None
+        ids.append(assertion_id)
+    if len(ids) != len(set(ids)):
+        return None
+    return ids
+
+
+def _contribution_order_disposition(
+    contribution: GraphContribution,
+    persisted_ids: list[str],
+    *,
+    sealed_proposal: Mapping[str, Any] | None = None,
+) -> Literal["exact", "legacy_seal_order", "corrupt_permutation", "set_mismatch"]:
+    """Classify persisted assertion order against reconstruction and historical seal.
+
+    - reconstruction order == persisted → current exact proposal
+    - known historical seal order == persisted → legacy; supersession only before
+      a commit claim
+    - any other same-set permutation → durable-authority corruption
+    """
+    reconstruction = _extract_accepted_ids(contribution)
+    persisted = list(persisted_ids)
+    if reconstruction == persisted:
         return "exact"
-    if len(actual) == len(expected) and set(actual) == set(expected):
+    if len(reconstruction) != len(persisted) or set(reconstruction) != set(persisted):
+        return "set_mismatch"
+    historical = _historical_seal_order_ids(sealed_proposal)
+    if (
+        historical is not None
+        and persisted == historical
+        and historical != reconstruction
+    ):
         return "legacy_seal_order"
-    return "set_mismatch"
+    return "corrupt_permutation"
 
 
 _LEGACY_SEAL_ORDER_MESSAGE = (
     "proposal accepted_assertion_ids uses pre-reconstruction seal order; "
     "supersede the active proposal and re-prepare under current c1 "
     "(reconstruction order) before confirm"
+)
+
+_LEGACY_COMMIT_CLAIM_NO_REVISION_MESSAGE = (
+    "commit claim uses pre-reconstruction seal-order assertion IDs and no "
+    "recoverable revision was found; proposal supersession is blocked after a "
+    "commit claim"
 )
 
 _IDENTITY_UNAVAILABLE_LABELS = frozenset(
@@ -410,6 +458,51 @@ def _record_contribution_matches_authority(
     if digest != record.expected_contribution_source_payload_sha256:
         return None, "contribution_source_digest_mismatch"
     return contribution, None
+
+
+def _record_matches_c2a_trust(
+    record: ThreatPublicationCommitV1,
+    proposal: ThreatPublicationProposalV1,
+    contribution: GraphContribution,
+    *,
+    order_disposition: Literal[
+        "exact", "legacy_seal_order", "corrupt_permutation", "set_mismatch"
+    ],
+) -> str | None:
+    """Validate fields required to trust the c2a lookup key before reconciliation.
+
+    Live identity selected_target authority is deferred until after a zero-match
+    c2a result (committing replay must consult revision authority first).
+    Legacy seal-order claims keep contribution_id trust but cannot require
+    reconstruction order or reconstruction source-digest equality.
+    """
+    if order_disposition in {"corrupt_permutation", "set_mismatch"}:
+        return "accepted_assertion_ids_mismatch"
+
+    # Snapshot self-consistency only — live identity is checked after zero match.
+    selected_target_authority = (
+        None if record.decision == "create_new" else record.selected_target
+    )
+    authority = _record_matches_proposal_authority(
+        record,
+        proposal,
+        contribution=contribution,
+        selected_target_authority=selected_target_authority,
+    )
+    if authority is not None:
+        return authority
+    if contribution.contribution_id != record.expected_contribution_id:
+        return "contribution_id_mismatch"
+    if order_disposition == "legacy_seal_order":
+        return None
+    if not _unmodified_contribution_matches_expected_ids(
+        contribution, list(record.accepted_assertion_ids)
+    ):
+        return "accepted_assertion_ids_mismatch"
+    digest = kernel.compute_contribution_source_payload_sha256(contribution)
+    if digest != record.expected_contribution_source_payload_sha256:
+        return "contribution_source_digest_mismatch"
+    return None
 
 
 def _statblock_id_from_resource_node_id(node_id: str) -> str | None:
@@ -1491,7 +1584,9 @@ def _admit_and_build_record(
 
     if not _contribution_matches_proposal(contribution, proposal):
         disposition = _contribution_order_disposition(
-            contribution, list(proposal.accepted_assertion_ids)
+            contribution,
+            list(proposal.accepted_assertion_ids),
+            sealed_proposal=proposal.sealed_proposal,
         )
         if disposition == "legacy_seal_order":
             return None, CommitOutcome(
@@ -1511,7 +1606,12 @@ def _admit_and_build_record(
                 proposal_id,
                 request.commit_id,
                 "publication_commit_integrity_failure",
-                message="reconstructed contribution does not match proposal",
+                message=(
+                    "reconstructed contribution does not match proposal"
+                    if disposition == "set_mismatch"
+                    else "proposal accepted_assertion_ids order is corrupt "
+                    "(not reconstruction order and not historical seal order)"
+                ),
             )
         ), None, proposal
 
@@ -1941,6 +2041,192 @@ def confirm_threat_publication(
                     )
                 )
 
+            order_disposition = _contribution_order_disposition(
+                contribution,
+                list(record.accepted_assertion_ids),
+                sealed_proposal=proposal.sealed_proposal,
+            )
+            if order_disposition in {"corrupt_permutation", "set_mismatch"}:
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_integrity_failure",
+                        commit=record,
+                        message=(
+                            "commit record accepted_assertion_ids order is corrupt "
+                            "(not reconstruction order and not historical seal order)"
+                            if order_disposition == "corrupt_permutation"
+                            else "commit record authority mismatch: "
+                            "accepted_assertion_ids_mismatch"
+                        ),
+                    )
+                )
+
+            if record.state == "committing":
+                trust_err = _record_matches_c2a_trust(
+                    record,
+                    proposal,
+                    contribution,
+                    order_disposition=order_disposition,
+                )
+                if trust_err is not None:
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_integrity_failure",
+                            commit=record,
+                            message=f"commit record authority mismatch: {trust_err}",
+                        )
+                    )
+
+                # Exact committing replay: c2a first. Legacy claims may recover a
+                # prior Kernel write; do not advise proposal supersession.
+                reconcile_contribution = (
+                    contribution if order_disposition == "exact" else None
+                )
+                updated, merge_calls, label, allow_zero_match_retry = _reconcile(
+                    root=root,
+                    world_root=configured_world,
+                    record=record,
+                    proposal=proposal,
+                    contribution=reconcile_contribution,
+                    lookup_fn=lookup,
+                    merge_fn=merge,
+                    published_false=False,
+                    merge_calls=merge_calls,
+                )
+                if updated.state != "committing":
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            label,
+                            commit=updated,
+                            retry_allowed=_retry_allowed(updated),
+                        ),
+                        merge_calls=merge_calls,
+                    )
+
+                if order_disposition == "legacy_seal_order":
+                    return CommitOutcome(
+                        _response(
+                            safe_draft,
+                            safe_op,
+                            safe_proposal,
+                            safe_commit,
+                            "publication_commit_integrity_failure",
+                            commit=updated,
+                            message=_LEGACY_COMMIT_CLAIM_NO_REVISION_MESSAGE,
+                        ),
+                        merge_calls=merge_calls,
+                    )
+
+                if (
+                    allow_zero_match_retry
+                    and updated.merge_attempt_count == 1
+                ):
+                    # Zero c2a match: require identity/operation authority before retry.
+                    if updated.decision == "connect_existing":
+                        identity = read_identity_resolution(
+                            root, safe_draft, safe_op, updated.resolution_id
+                        )
+                        identity_status, selected_target_authority, identity_detail = (
+                            _connect_selected_target_authority(identity)
+                        )
+                        if identity_status == "unavailable":
+                            return CommitOutcome(
+                                _response(
+                                    safe_draft,
+                                    safe_op,
+                                    safe_proposal,
+                                    safe_commit,
+                                    "publication_commit_recovery_pending",
+                                    commit=updated,
+                                    retry_allowed=_retry_allowed(updated),
+                                    message=identity_detail,
+                                ),
+                                merge_calls=merge_calls,
+                            )
+                        if identity_status == "integrity":
+                            return CommitOutcome(
+                                _response(
+                                    safe_draft,
+                                    safe_op,
+                                    safe_proposal,
+                                    safe_commit,
+                                    "publication_commit_integrity_failure",
+                                    commit=updated,
+                                    message=identity_detail,
+                                ),
+                                merge_calls=merge_calls,
+                            )
+                        if not _selected_targets_equal(
+                            updated.selected_target, selected_target_authority
+                        ):
+                            return CommitOutcome(
+                                _response(
+                                    safe_draft,
+                                    safe_op,
+                                    safe_proposal,
+                                    safe_commit,
+                                    "publication_commit_integrity_failure",
+                                    commit=updated,
+                                    message=(
+                                        "commit record authority mismatch: "
+                                        "selected_target_mismatch"
+                                    ),
+                                ),
+                                merge_calls=merge_calls,
+                            )
+                    updated, merge_calls, label = _maybe_retry(
+                        root=root,
+                        world_root=configured_world,
+                        record=updated,
+                        proposal=proposal,
+                        contribution=contribution,
+                        merge_fn=merge,
+                        lookup_fn=lookup,
+                        merge_calls=merge_calls,
+                    )
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        label,
+                        commit=updated,
+                        retry_allowed=_retry_allowed(updated),
+                    ),
+                    merge_calls=merge_calls,
+                )
+
+            # committed_unverified — preserve known receipt across dependency gaps.
+            if order_disposition == "legacy_seal_order":
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_committed_unverified",
+                        commit=record,
+                        retry_allowed=False,
+                        message=(
+                            "commit claim uses pre-reconstruction seal-order "
+                            "assertion IDs; verification deferred"
+                        ),
+                    )
+                )
+
             selected_target_authority = None
             if record.decision == "connect_existing":
                 identity = read_identity_resolution(
@@ -1950,27 +2236,15 @@ def confirm_threat_publication(
                     _connect_selected_target_authority(identity)
                 )
                 if identity_status == "unavailable":
-                    if record.state == "committed_unverified":
-                        return CommitOutcome(
-                            _response(
-                                safe_draft,
-                                safe_op,
-                                safe_proposal,
-                                safe_commit,
-                                "publication_commit_committed_unverified",
-                                commit=record,
-                                retry_allowed=False,
-                                message=identity_detail,
-                            )
-                        )
                     return CommitOutcome(
                         _response(
                             safe_draft,
                             safe_op,
                             safe_proposal,
                             safe_commit,
-                            "publication_commit_recovery_pending",
+                            "publication_commit_committed_unverified",
                             commit=record,
+                            retry_allowed=False,
                             message=identity_detail,
                         )
                     )
@@ -1995,42 +2269,9 @@ def confirm_threat_publication(
             )
             if authority_err is not None or matched_contribution is None:
                 if (
-                    authority_err == "accepted_assertion_ids_mismatch"
-                    and _contribution_order_disposition(
-                        contribution, list(record.accepted_assertion_ids)
-                    )
-                    == "legacy_seal_order"
-                ):
-                    if record.state == "committed_unverified":
-                        return CommitOutcome(
-                            _response(
-                                safe_draft,
-                                safe_op,
-                                safe_proposal,
-                                safe_commit,
-                                "publication_commit_committed_unverified",
-                                commit=record,
-                                retry_allowed=False,
-                                message=_LEGACY_SEAL_ORDER_MESSAGE,
-                            )
-                        )
-                    return CommitOutcome(
-                        _response(
-                            safe_draft,
-                            safe_op,
-                            safe_proposal,
-                            safe_commit,
-                            "publication_commit_proposal_incompatible",
-                            commit=record,
-                            message=_LEGACY_SEAL_ORDER_MESSAGE,
-                        )
-                    )
-                if (
                     authority_err == "selected_target_mismatch"
-                    and record.state == "committed_unverified"
                     and selected_target_authority is None
                 ):
-                    # Defensive: unavailable identity should already have returned.
                     return CommitOutcome(
                         _response(
                             safe_draft,
@@ -2056,67 +2297,28 @@ def confirm_threat_publication(
                 )
             contribution = matched_contribution
 
-            if record.state == "committed_unverified":
-                verified = _verify_committed(
-                    root=root,
-                    world_root=configured_world,
-                    record=record,
-                    proposal=proposal,
-                    contribution=contribution,
-                    lookup_fn=lookup,
-                )
-                try:
-                    _save_commit(root, verified)
-                except ThreatPublicationCommitStorageError:
-                    return CommitOutcome(
-                        _response(
-                            safe_draft,
-                            safe_op,
-                            safe_proposal,
-                            safe_commit,
-                            "publication_commit_committed_unverified",
-                            commit=record,
-                            retry_allowed=False,
-                            message="verification could not persist",
-                        )
-                    )
-                return CommitOutcome(
-                    _response(
-                        safe_draft,
-                        safe_op,
-                        safe_proposal,
-                        safe_commit,
-                        _label_for_state(verified),
-                        commit=verified,
-                    )
-                )
-
-            # committing — reconcile first
-            updated, merge_calls, label, allow_zero_match_retry = _reconcile(
+            verified = _verify_committed(
                 root=root,
                 world_root=configured_world,
                 record=record,
                 proposal=proposal,
                 contribution=contribution,
                 lookup_fn=lookup,
-                merge_fn=merge,
-                published_false=False,
-                merge_calls=merge_calls,
             )
-            if (
-                allow_zero_match_retry
-                and updated.state == "committing"
-                and updated.merge_attempt_count == 1
-            ):
-                updated, merge_calls, label = _maybe_retry(
-                    root=root,
-                    world_root=configured_world,
-                    record=updated,
-                    proposal=proposal,
-                    contribution=contribution,
-                    merge_fn=merge,
-                    lookup_fn=lookup,
-                    merge_calls=merge_calls,
+            try:
+                _save_commit(root, verified)
+            except ThreatPublicationCommitStorageError:
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_committed_unverified",
+                        commit=record,
+                        retry_allowed=False,
+                        message="verification could not persist",
+                    )
                 )
             return CommitOutcome(
                 _response(
@@ -2124,11 +2326,9 @@ def confirm_threat_publication(
                     safe_op,
                     safe_proposal,
                     safe_commit,
-                    label,
-                    commit=updated,
-                    retry_allowed=_retry_allowed(updated),
-                ),
-                merge_calls=merge_calls,
+                    _label_for_state(verified),
+                    commit=verified,
+                )
             )
 
         # New admission
