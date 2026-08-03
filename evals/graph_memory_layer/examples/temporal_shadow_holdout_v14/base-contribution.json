@@ -1,0 +1,356 @@
+{
+  "contribution_id": "contribution:2ffee1f67f360800",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v14",
+  "produced_at": "2026-08-02T18:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:df01de20216b96ff",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:torven-hale",
+      "target_node_id": "obj:copper-wake-bell",
+      "predicate": "rings_wake_bell",
+      "label": "Torven Hale rings the copper wake-bell thrice",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:wake-bell-session",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:wake-bell-session"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:2754ac5e47c19a98",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:hearthfen-market",
+      "target_node_id": null,
+      "predicate": "opens_at_first_light",
+      "label": "The Hearthfen Market opens at first light",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:market-first-light",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:market-first-light"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:3772850de815ec1e",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:mirelle-quast",
+      "target_node_id": null,
+      "predicate": "is_kiln_warden",
+      "label": "Mirelle Quast is kiln warden",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:kiln-warden-start",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:kiln-warden-start"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:382afabdb2ac2771",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:spindlebridge-ledger",
+      "target_node_id": null,
+      "predicate": "is_locked",
+      "label": "The Spindlebridge Ledger is locked against outsider scribes",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:ledger-locked-since",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:ledger-locked-since"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:541705846cf4b919",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:sister-bex",
+      "target_node_id": null,
+      "predicate": "serves_as_chaplain",
+      "label": "Sister Bex serves as bridge chaplain",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:chaplain-end",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:chaplain-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:7b4bae5ee68014be",
+      "assertion_kind": "edge",
+      "subject_node_id": "obj:copper-wake-bell",
+      "target_node_id": null,
+      "predicate": "cracked_historically",
+      "label": "The copper wake-bell cracked seven winters earlier",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:bell-cracked-historical",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:bell-cracked-historical"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:bee23d221a36d439",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:ulric-dorn",
+      "target_node_id": null,
+      "predicate": "is_ferry_master",
+      "label": "Captain Ulric Dorn is the ferry master",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:ferry-master-still",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:ferry-master-still"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:d0d82bf00db56593",
+      "assertion_kind": "attribute",
+      "subject_node_id": "obj:kiln-ash",
+      "target_node_id": null,
+      "predicate": "is_ordinary_soot",
+      "label": "The kiln ash is ordinary soot",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:kiln-ash-identity",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:kiln-ash-identity"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:74e82651147d9408",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:mirelle-quast",
+      "target_node_id": "loc:copperwake-casks",
+      "predicate": "intends_inventory",
+      "label": "Mirelle Quast intends to inventory every cask",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:inventory-intent",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:inventory-intent"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:62b678908ab1cfad",
+      "assertion_kind": "edge",
+      "subject_node_id": "org:hearthfen-council",
+      "target_node_id": "role:bell-ringer",
+      "predicate": "must_choose_bell_ringer",
+      "label": "The market council must choose a new bell-ringer",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:bell-ringer-decision",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:bell-ringer-decision"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:a0219817fb0a1c06",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:torven-hale",
+      "target_node_id": "role:festival-marshal",
+      "predicate": "became_marshal_or_nominated",
+      "label": "Torven Hale became festival marshal when the vote passed or was only nominated then",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:marshal-ambiguous",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:marshal-ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    },
+    {
+      "assertion_id": "assertion:7930a34fd81fc8d7",
+      "assertion_kind": "edge",
+      "subject_node_id": "event:cask-inspection",
+      "target_node_id": null,
+      "predicate": "inspection_postponed",
+      "label": "The cask inspection has been postponed without naming a calendar day",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v14:cask-inspection-postponed",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:cask-inspection-postponed"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:2ffee1f67f360800"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

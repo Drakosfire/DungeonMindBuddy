@@ -1,0 +1,274 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:d7bda68ef26fd332",
+  "base_contribution_id": "contribution:2ffee1f67f360800",
+  "base_contribution_source_payload_sha256": "f3fc5e414769a55a7f806d08a06ae95aa8b69f54e513e28b274528817632746d",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v14",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v1400000000000001",
+      "base_assertion_id": "assertion:df01de20216b96ff",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-14",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:wake-bell-session"
+      ],
+      "source_phrase": "Torven Hale rings the copper wake-bell thrice",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event transition in Session 14 episode; occurrence lane session-14"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000002",
+      "base_assertion_id": "assertion:2754ac5e47c19a98",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "at first light",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:market-first-light"
+      ],
+      "source_phrase": "opens at first light",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "recurring market schedule; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000003",
+      "base_assertion_id": "assertion:3772850de815ec1e",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-14",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:kiln-warden-start"
+      ],
+      "source_phrase": "became kiln warden",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start narrated in Session 14 episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000004",
+      "base_assertion_id": "assertion:382afabdb2ac2771",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "since the frost fair",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:ledger-locked-since"
+      ],
+      "source_phrase": "became locked since the frost fair",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000005",
+      "base_assertion_id": "assertion:541705846cf4b919",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-14",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:chaplain-end"
+      ],
+      "source_phrase": "stopped serving as bridge chaplain",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end narrated in Session 14 episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000006",
+      "base_assertion_id": "assertion:7b4bae5ee68014be",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "seven winters earlier",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:bell-cracked-historical"
+      ],
+      "source_phrase": "cracked seven winters earlier",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "historical damage event; occurrence lane textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000007",
+      "base_assertion_id": "assertion:bee23d221a36d439",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:ferry-master-still"
+      ],
+      "source_phrase": "still the ferry master",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000008",
+      "base_assertion_id": "assertion:d0d82bf00db56593",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:kiln-ash-identity"
+      ],
+      "source_phrase": "is ordinary soot",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "identity/classification restatement; no temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000009",
+      "base_assertion_id": "assertion:74e82651147d9408",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:inventory-intent"
+      ],
+      "source_phrase": "intends to inventory every cask",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "future intent without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000010",
+      "base_assertion_id": "assertion:62b678908ab1cfad",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:bell-ringer-decision"
+      ],
+      "source_phrase": "must choose a new bell-ringer",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "open decision without execution-time expression; both lanes null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000011",
+      "base_assertion_id": "assertion:a0219817fb0a1c06",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:marshal-ambiguous"
+      ],
+      "source_phrase": "became festival marshal when the vote passed or was only nominated then",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "competing election vs nomination readings licensed by proposition or-fork"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v1400000000000012",
+      "base_assertion_id": "assertion:7930a34fd81fc8d7",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v14:cask-inspection-postponed"
+      ],
+      "source_phrase": "has been postponed",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "postponement decision without proposition-first occurrence value; do not substitute reschedule time"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:df01de20216b96ff",
+    "assertion:2754ac5e47c19a98",
+    "assertion:3772850de815ec1e",
+    "assertion:382afabdb2ac2771",
+    "assertion:541705846cf4b919",
+    "assertion:7b4bae5ee68014be",
+    "assertion:bee23d221a36d439",
+    "assertion:d0d82bf00db56593",
+    "assertion:74e82651147d9408",
+    "assertion:62b678908ab1cfad",
+    "assertion:a0219817fb0a1c06",
+    "assertion:7930a34fd81fc8d7"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:wake-bell-session",
+      "source_artifact_id": "source-artifact:holdout-v14-wake-bell-session",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/wake-bell-session.md",
+      "content_sha256": "7442dcbb5282c830d439b4a8664d9fb5f278b1efee693faec7fb5bbe9e2507f1",
+      "source_ref_id": "source-ref:holdout-v14-wake-bell-session",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "wake-bell-session.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:market-first-light",
+      "source_artifact_id": "source-artifact:holdout-v14-market-first-light",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/market-first-light.md",
+      "content_sha256": "44f1cb05acfbfb788f454ba66308c28c385f71ff615bf173ecac4da31c885d99",
+      "source_ref_id": "source-ref:holdout-v14-market-first-light",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "market-first-light.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:kiln-warden-start",
+      "source_artifact_id": "source-artifact:holdout-v14-kiln-warden-start",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/kiln-warden-start.md",
+      "content_sha256": "9c0794598ee5ac7f242566ccae3b2edc06d5eda02cbccaad5b5ade937d74bb3f",
+      "source_ref_id": "source-ref:holdout-v14-kiln-warden-start",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "kiln-warden-start.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:ledger-locked-since",
+      "source_artifact_id": "source-artifact:holdout-v14-ledger-locked-since",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/ledger-locked-since.md",
+      "content_sha256": "459f2172d23b235f69590e1dc0669c3ba023f621f9b0d3d11137c8093e78b42f",
+      "source_ref_id": "source-ref:holdout-v14-ledger-locked-since",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ledger-locked-since.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:chaplain-end",
+      "source_artifact_id": "source-artifact:holdout-v14-chaplain-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/chaplain-end.md",
+      "content_sha256": "9b446b42137b2ee8de79ec706b317e060f3bfa5d51c95bcfd276e26e2ee6e361",
+      "source_ref_id": "source-ref:holdout-v14-chaplain-end",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "chaplain-end.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:bell-cracked-historical",
+      "source_artifact_id": "source-artifact:holdout-v14-bell-cracked-historical",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/bell-cracked-historical.md",
+      "content_sha256": "7e16229550ba449d071af1e3f5c2851b3e118c0a425c463acc90e12d41f8a151",
+      "source_ref_id": "source-ref:holdout-v14-bell-cracked-historical",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "bell-cracked-historical.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:ferry-master-still",
+      "source_artifact_id": "source-artifact:holdout-v14-ferry-master-still",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/ferry-master-still.md",
+      "content_sha256": "0ab9b1cb6bb334f59fedaef3b5e1355876c1892be9bb8506ceccdb6985f8e001",
+      "source_ref_id": "source-ref:holdout-v14-ferry-master-still",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ferry-master-still.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:kiln-ash-identity",
+      "source_artifact_id": "source-artifact:holdout-v14-kiln-ash-identity",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/kiln-ash-identity.md",
+      "content_sha256": "c7fef27320ab0c1d9e61358d25e9251d02261bc93f90faff817c26536a9956ea",
+      "source_ref_id": "source-ref:holdout-v14-kiln-ash-identity",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "kiln-ash-identity.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:inventory-intent",
+      "source_artifact_id": "source-artifact:holdout-v14-inventory-intent",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/inventory-intent.md",
+      "content_sha256": "2561eb25f8e50ceebe1c6fb3eefcfa49fc479cf98931da91bc053c4890a531b9",
+      "source_ref_id": "source-ref:holdout-v14-inventory-intent",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "inventory-intent.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:bell-ringer-decision",
+      "source_artifact_id": "source-artifact:holdout-v14-bell-ringer-decision",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/bell-ringer-decision.md",
+      "content_sha256": "e1f2e7842cbc85420a6d069acd7b63ad34500c6a228657e8ab232760fcdbbce5",
+      "source_ref_id": "source-ref:holdout-v14-bell-ringer-decision",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "bell-ringer-decision.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:marshal-ambiguous",
+      "source_artifact_id": "source-artifact:holdout-v14-marshal-ambiguous",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/marshal-ambiguous.md",
+      "content_sha256": "d8f815116a6ad598f071b30fa4002e78e484b4abac459418e569b64f4ecd40e0",
+      "source_ref_id": "source-ref:holdout-v14-marshal-ambiguous",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "marshal-ambiguous.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v14:cask-inspection-postponed",
+      "source_artifact_id": "source-artifact:holdout-v14-cask-inspection-postponed",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14/sources/cask-inspection-postponed.md",
+      "content_sha256": "1b0ecd1b8fe35cb83875d5b02b1d63bc15806b5cd6423e72823d7932ea2ee97d",
+      "source_ref_id": "source-ref:holdout-v14-cask-inspection-postponed",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "cask-inspection-postponed.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "f1eb180c9fa54adacd984a9b2659b0f9769599ed57bd2115b8f8cee46fadf84d",
+  "gold_overlay_sha256": "621706e87403946329584a2a131fa4b961517a33a803c0de2d51134a5d93a6de",
+  "case_id": "tl01g-temporal-shadow-holdout-v14-v1",
+  "prompt_version": "tl01g-v1"
+}
