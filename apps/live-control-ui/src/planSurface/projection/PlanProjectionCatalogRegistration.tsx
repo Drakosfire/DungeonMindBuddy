@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import type { ProjectionKind, ProjectionSize } from "../../surfaceInteraction/projection/types";
-import type { SurfaceInteractionProjectionContribution } from "../../surfaceInteraction/types";
+import type { SurfaceInteractionProjectionDescriptor } from "../../surfaceInteraction/types";
 import { PartyRegistryModule } from "../../modules/PartyRegistryModule";
 import { StatblockWorkbenchModule } from "../../surface/modules/StatblockWorkbenchModule";
 import { GraphPreviewModule } from "../graphPreview/GraphPreviewModule";
@@ -12,7 +12,6 @@ import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import { PlanReferenceObjectCard } from "../reference/PlanReferenceObjectCard";
 import {
   GRAPH_REFERENCE_BINDING_ID,
-  GRAPH_REFERENCE_PROJECTION_STATE_BINDING_ID,
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
   PLAN_CONTEXT_BINDING_ID,
   PLAN_SURFACE_CONFIG_BINDING_ID,
@@ -119,7 +118,7 @@ function renderPlanProjection(
 
 export interface PlanProjectionCatalogRegistrationProps {
   surfaceId: string;
-  toolDescriptors: readonly SurfaceInteractionProjectionContribution[];
+  toolDescriptors: readonly SurfaceInteractionProjectionDescriptor[];
 }
 
 export function PlanProjectionCatalogRegistration({

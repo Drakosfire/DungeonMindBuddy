@@ -6,7 +6,7 @@ import type {
   SurfaceInteractionCanvasContribution,
   SurfaceInteractionEditCommandContribution,
   SurfaceInteractionPlacement,
-  SurfaceInteractionProjectionContribution,
+  SurfaceInteractionProjectionDescriptor,
   SurfaceInteractionPublication,
   SurfaceInteractionToolContribution,
   SurfaceInteractionWorkObjectIdentity,
@@ -121,7 +121,7 @@ export function adaptProjectionSurfaceToNeutralBase(
             kind: "content" as const,
             preferredSize: "wide" as const,
             bindingIds: [] as readonly string[],
-          } satisfies SurfaceInteractionProjectionContribution]
+          } satisfies SurfaceInteractionProjectionDescriptor]
         : []),
     ],
     projectionBindings: [],

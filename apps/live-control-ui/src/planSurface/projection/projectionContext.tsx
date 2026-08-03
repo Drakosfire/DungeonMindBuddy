@@ -15,7 +15,6 @@ import type {
   ProjectionCatalogRegistration,
   ProjectionCatalogResolution,
 } from "../../surfaceInteraction/projection/projectionCatalog";
-import type { ActiveProjection } from "../../surfaceInteraction/projection/types";
 import {
   useAgentInteraction,
   useOptionalAgentInteraction,

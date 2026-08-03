@@ -962,6 +962,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     updateSurfaceInteractionPublication,
     updateThread,
     updateTurnFreshness,
+    catalogEntries,
   ]);
 
   return <AgentInteractionContext.Provider value={value}>{children}</AgentInteractionContext.Provider>;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 
 import { IngestionModule } from "../../modules/IngestionModule";
-import type { SurfaceInteractionProjectionContribution } from "../../surfaceInteraction/types";
+import type { SurfaceInteractionProjectionDescriptor } from "../../surfaceInteraction/types";
 import type { ProjectionKind, ProjectionSize } from "../../surfaceInteraction/projection/types";
 import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphReviewDiagnosticsToolPanel";
 import {
@@ -62,7 +62,7 @@ function renderIngestProjection(
 
 export interface IngestProjectionCatalogRegistrationProps {
   surfaceId: string;
-  toolDescriptors: readonly SurfaceInteractionProjectionContribution[];
+  toolDescriptors: readonly SurfaceInteractionProjectionDescriptor[];
 }
 
 export function IngestProjectionCatalogRegistration({
