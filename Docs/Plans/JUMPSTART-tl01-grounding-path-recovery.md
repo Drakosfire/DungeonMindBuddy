@@ -1,13 +1,15 @@
 > Status: ACTIVE EXECUTION STEWARDSHIP HANDOFF
-> Use for: Re-anchoring the merged TL01G line and executing the smallest shared-grounding diagnostic/recovery slice required before any new temporal prompt or promotion cohort.
-> Do not use for: Authoring `tl01h-v1`, creating V14/Adv V12, mutating `tl01g-v1`, reviving retired cohorts, changing Temporal Kernel semantics, or building a Timeline UI.
+> Use for: Re-anchoring the merged TL01G line after PR #496; next gate is a Gate-faithful successor cohort pair before another promotion claim.
+> Do not use for: Naming `tl01h-v1` from retired V14/Adv V12 evidence, mutating `tl01g-v1`, reviving retired cohorts, changing Temporal Kernel semantics, or building a Timeline UI.
 > Canonical repo path: `Docs/Plans/JUMPSTART-tl01-grounding-path-recovery.md`
 > Prepared: 2026-08-01
+> Updated: 2026-08-03 (post-merge doc-sync for PR #496)
 > Repository: `Drakosfire/DungeonMindBuddy`
-> Verified `main` anchor: `3d5e66b53b09112178dda99063fd9acade3fb087`
+> Verified `main` anchor: `eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8` (PR #496 merge)
 > Merged TL01G anchor: PR `#468`, merge `2c827f2bb3055eec3969a31a0262462650e1607f`
-> Implementation dispatch: `Docs/Plans/HANDOFF-pr488-tl01-grounding-path-recovery.md` (same PR). Do not implement from this JUMPSTART alone.
-> Completion condition: the shared packet → renderer → provider → transport → owned-evidence grounding path is isolated with durable assertion-level evidence, and the same diagnostic smoke produces observed comparison metrics through both frozen prompt lanes before fresh promotion work is authorized.
+> Fresh promotion attempt: PR `#496`, merge `eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8` — V14/Adv V12 observed then retired **`PROMOTION_EVIDENCE_INCOMPLETE`**
+> Grounding-path recovery: PR `#486`, merge `27e67981f78c4901deff8919ca525b5a4ab585ae` — `GROUNDING_PATH_READY` (smoke prerequisite only)
+> Completion condition: a Gate-faithful successor cohort pair (holdout >14, adversarial >12) is sealed and observed before another promotion claim; `tl01f-v1`/`tl01g-v1` remain frozen.
 
 # JUMPSTART — TL01 Grounding-Path Recovery
 
@@ -15,28 +17,21 @@
 
 ```text
 Continue the temporal/TL01 line in Drakosfire/DungeonMindBuddy from current
-main 3d5e66b53b09112178dda99063fd9acade3fb087.
+main eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8.
 
 TL01G merged in PR #468 at 2c827f2bb3055eec3969a31a0262462650e1607f.
-Its last live matrix is regression evidence only: candidate 0/9 and control 1/9,
-with 17/18 runs failing before comparison on the shared verbatim source_phrase
-grounding path. No promotion authority exists.
+Grounding-path recovery merged in PR #486 (`GROUNDING_PATH_READY` on shared smoke).
+Fresh promotion evidence merged in PR #496: V14/Adv V12 sealed, observed (18 attempts),
+then retired as PROMOTION_EVIDENCE_INCOMPLETE (Adv V12 ungrounded `since the equinox flood`).
+No promotion authority exists. No tl01h-v1 from that matrix.
 
-Execute one diagnostic/recovery capability:
-  prove exactly where source-phrase fidelity is lost across packet construction,
-  rendering, provider output, transport parsing, evidence ownership, and
-  _require_grounded_source_phrase; preserve a durable trace; and run the same
-  minimal live smoke through frozen tl01f-v1 and tl01g-v1.
+Next single action: author a genuinely fresh Gate-faithful successor cohort pair
+(holdout version > LAST_RETIRED_HOLDOUT=14, adversarial version >
+LAST_RETIRED_ADVERSARIAL=12) under a new handoff. Pre-live Gate E3 + owned-evidence
+value grounding must cover every resolved annotation before the first provider call.
 
-Do not edit either prompt. Do not author TL01H. Do not create V14/Adv V12. Do not
-patch or reuse V8–V13 / Adv V6–V11 as promotion authority. Do not change packet,
-renderer, validator, or normalization behavior without a failing reproducer that
-proves that owning boundary is the defect.
-
-The unlock gate is not “tests pass.” The unlock gate is: both frozen lanes produce
-parseable, grounded output with observed comparison metrics on the same live smoke.
-If the provider remains the blocker after local-path proof, merge only honest
-diagnostics and report PROVIDER_PHRASE_FIDELITY_BLOCKED; do not move on to cohorts.
+Do not edit tl01f-v1 or tl01g-v1. Do not patch or reuse V8–V14 / Adv V6–V12 as
+promotion authority. PR486 GROUNDING_PATH_READY remains a smoke prerequisite only.
 ```
 
 ## §1 Mission and invariant
@@ -62,8 +57,11 @@ This slice is not prompt calibration. It is shared-path recovery required before
 
 | Item | Current verified truth |
 |---|---|
-| Current `main` | `3d5e66b53b09112178dda99063fd9acade3fb087` |
+| Current `main` | `eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8` (PR #496 merge) |
 | TL01G merge | PR `#468`, `2c827f2bb3055eec3969a31a0262462650e1607f` |
+| Grounding-path recovery | PR `#486`, `27e67981f78c4901deff8919ca525b5a4ab585ae` — `GROUNDING_PATH_READY` (smoke prerequisite only; not invalidated by PR #496) |
+| Fresh promotion attempt | PR `#496`, `eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8` — V14/Adv V12 sealed, observed, retired **`PROMOTION_EVIDENCE_INCOMPLETE`** |
+| Last retired holdout / adversarial cutoffs | `LAST_RETIRED_HOLDOUT=14`, `LAST_RETIRED_ADVERSARIAL=12` |
 | Control | frozen `tl01f-v1` |
 | Control SHA256 | `7a9d27c3a9980893f18757d7a5fe0612cf67f9aad8dfd2ccb20f9e3c667b7143` |
 | Candidate | frozen `tl01g-v1` |
@@ -71,14 +69,26 @@ This slice is not prompt calibration. It is shared-path recovery required before
 | Prompt-only freeze | `67408bd871ba684e70ddf6e53dd7088d0036a475` |
 | Shared packet | `tl01c-packet-v1` |
 | Shared renderer | `render_temporal_shadow_user_content_v2` |
-| Last observed provider seal | `33bae3485babb0d15373b91b0cbcb13282b42491` — retired V13/Adv V11 |
-| Last durable aggregate | `temporal-prompt-calibration:a1dd130979808f2f` — regression evidence only |
-| Last live outcome | candidate `0/9`, control `1/9`; `17/18` failed before comparison |
-| Human recommendation | `DIAGNOSE_GROUNDING_PATH` |
+| Last observed provider seal (V14/Adv V12) | `cde3b48d5b95ba4fc1f7c779993c2497f66914f7` — retired incomplete promotion evidence |
+| Last provider execution SHA (V14/Adv V12) | `d1b5cc60604ba888985013c0093e0605f0ab158d` — 18/18 attempts observed |
+| Prior retired seal (V13/Adv V11) | `33bae3485babb0d15373b91b0cbcb13282b42491` — regression evidence only |
+| Last durable aggregate (V14) | `temporal-prompt-calibration:a4d817300eab3c82` at `promotion-v14/` — incomplete promotion evidence |
+| Prior durable aggregate (V13) | `temporal-prompt-calibration:a1dd130979808f2f` — regression evidence only |
+| Human recommendation | Author Gate-faithful successor cohort pair (>14/>12) before another promotion claim |
 | Promotion authority | none |
 | Open temporal PR collision | none found at re-anchor |
 
-Intervening commits after TL01G are the accidental SIH-02 merge/revert and SBW09c2b documentation authority. They do not alter TL01 production or evaluation paths. Re-run collision and path-drift checks before implementation.
+### Judgment record (PR #496)
+
+| Field | Value |
+|---|---|
+| Verdict | **Accepted** — docs + eval evidence landed; promotion authority incomplete by design of disposition |
+| Invariant judged | Trustworthy fresh promotion evidence **or** honest incomplete disposition without post-observation gold repair |
+| Evidence | Sealed V14/Adv V12 cohorts + `promotion-v14` aggregate + [`REPORT-tl01g-v14-fresh-promotion-evidence.md`](../Reports/REPORT-tl01g-v14-fresh-promotion-evidence.md) + Gate-faithfulness retirement tests + future-cohort grounding guard |
+| Review rounds | COMMENT on `6570d0d8` (P0 defective Adv V12 gold; P1 ITERATE_PROMPT isolation; P1 Gate-faithfulness tests), `d21b5429` (P1 future-cohort grounding guard; P1 out-of-allowlist report revert), `f49ae88b` (containment/recurrence prevention accepted); docs clarification `127cca31` |
+| Rubric learned | (1) Pre-live Gate E3 / owned-evidence value grounding must cover every resolved annotation before the first provider call; fixture consistency alone is insufficient. (2) Defective sealed gold after observation → `PROMOTION_EVIDENCE_INCOMPLETE`, preserve bytes, retire the pair; never patch gold or invent `tl01h-v1` from that matrix. (3) Auto-discovered successor cohorts (holdout > retired holdout cutoff AND adversarial > retired adversarial cutoff) must fail closed on `_collect_resolved_value_grounding_defects() == []`. (4) Cohort `sources/*.md` are eval source fixtures / stimulus / owned evidence — not corpus, Supergraph ingest, or ChatGPT Project Sources. |
+
+Intervening commits after TL01G include grounding-path recovery (PR #486) and fresh promotion evidence (PR #496). Re-run collision and path-drift checks before the next cohort handoff.
 
 ## §3 Authority and reading order
 
@@ -112,10 +122,11 @@ Read in full before editing:
 The report’s handback is controlling:
 
 ```text
-preserve/inspect grounding diagnostics
-→ prove a known-good smoke through both lanes
-→ only then author genuinely fresh V14/Adv V12
-→ do not author tl01h-v1 until grounding yields evaluable runs
+PR #496 completed the attempted V14/Adv V12 promotion matrix as
+PROMOTION_EVIDENCE_INCOMPLETE (Adv V12 ungrounded gold retained unchanged).
+→ author genuinely fresh Gate-faithful successor pair (holdout >14, adversarial >12)
+→ do not name tl01h-v1 from incomplete evidence
+→ PR486 GROUNDING_PATH_READY remains smoke prerequisite only
 ```
 
 ## §4 Capability decomposition
@@ -409,16 +420,20 @@ The implementation PR body must record:
 
 ## §14 Successor gate
 
-After this slice merges, re-anchor again from its immutable merge SHA.
+After PR #496 merged, re-anchor from `eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8`.
 
-Only when the merged report says `GROUNDING_PATH_READY` may the next steward author a separate handoff for:
+PR #496 authored, observed, and retired holdout V14 / adversarial V12 as
+**`PROMOTION_EVIDENCE_INCOMPLETE`**. That pair is not promotion authority. The next
+steward must author a separate handoff for:
 
 ```text
-fresh V14 holdout
-+ fresh Adv V12 adversarial cohort
+fresh holdout (> LAST_RETIRED_HOLDOUT=14)
++ fresh adversarial (> LAST_RETIRED_ADVERSARIAL=12)
 + cumulative span and proposition-template novelty
-+ Gate E3 direction/value audits
++ pre-live Gate E3 / owned-evidence value grounding over every resolved annotation
 + paired tl01f-v1 vs tl01g-v1 calibration
 ```
 
-That successor still does not authorize `tl01h-v1`. A new prompt is justified only by evaluable comparison evidence showing a candidate-specific defect after the shared grounding path is healthy.
+That successor still does not authorize `tl01h-v1`. A new prompt is justified only
+by evaluable comparison evidence on Gate-faithful gold after the shared grounding
+path is healthy (PR486 smoke prerequisite).

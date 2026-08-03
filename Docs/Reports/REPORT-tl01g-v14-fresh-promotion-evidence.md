@@ -1,9 +1,10 @@
 # REPORT — TL01G Fresh Promotion Evidence (V14 / Adv V12)
 
 **Status:** Observed matrix retained; roadmap disposition **`PROMOTION_EVIDENCE_INCOMPLETE`**  
-**Handoff:** `Docs/Plans/HANDOFF-TIMELINE-tl01g-fresh-promotion-evidence.md`  
+**Merged:** 2026-08-03T01:44:29Z via [PR #496](https://github.com/Drakosfire/DungeonMindBuddy/pull/496) (`main` merge commit `eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8`)  
+**Handoff:** `Docs/Plans/HANDOFF-TIMELINE-tl01g-fresh-promotion-evidence.md` (archived stub → [`archive/2026-08-03/handoffs/`](../Plans/archive/2026-08-03/handoffs/))  
 **PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/496  
-**Branch:** `timeline/tl01g-fresh-promotion-evidence`
+**Branch:** `timeline/tl01g-fresh-promotion-evidence` (merged)
 
 ## Verdict (authoritative)
 

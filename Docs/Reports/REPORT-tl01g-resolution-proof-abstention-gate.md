@@ -1,7 +1,7 @@
 # REPORT — TL01G: Resolution-Proof Abstention Gate
 
 **Created:** 2026-08-01
-**Updated:** 2026-08-02 (positive Gate E3 boundary proof; exact on-disk reaggregate matrix; full-hex provider SHA)
+**Updated:** 2026-08-03 (PR #496: V14/Adv V12 sealed, observed, retired **`PROMOTION_EVIDENCE_INCOMPLETE`**)
 **Control:** frozen `tl01f-v1`
 **Candidate:** frozen `tl01g-v1`
 **Packet / renderer:** `tl01c-packet-v1` / `render_temporal_shadow_user_content_v2`
@@ -20,8 +20,9 @@
 | observed V11 / Adv V9 | exploratory / regression only (span reuse + paraphrased Adv skeletons) | `ITERATE_PROMPT` | `candidate_unsafe_over_resolution=3` |
 | observed V12 / Adv V10 | exploratory / regression only (gold/Gate defects) | `ITERATE_PROMPT` | `candidate_unsafe_over_resolution=1` (defective gold) |
 | **observed V13 / Adv V11** | **retired** (Adv replay + V13 Gate E3/value defects; matrix not evaluable) | **`ITERATE_PROMPT`** | **`candidate_grounding_failures=9`** (comparison metrics unobserved) |
+| **observed V14 / Adv V12** | **retired** (PR #496; Adv V12 ungrounded `since the equinox flood`; 18/18 attempts observed) | **`ITERATE_PROMPT`** (machine; overridden) | **`PROMOTION_EVIDENCE_INCOMPLETE`** — invalid sealed gold; no authoritative promotion matrix |
 
-**Human roadmap recommendation:** Diagnose shared grounding path before any new abstention prompt or promotion cohort. **Not** yet `ITERATE_ABSTENTION_PROMPT` as an isolated prompt diagnosis.
+**Human roadmap recommendation:** PR #496 completed the attempted fresh promotion matrix as **`PROMOTION_EVIDENCE_INCOMPLETE`**. Author a Gate-faithful successor cohort pair (holdout >14, adversarial >12) before another promotion claim. **Not** yet `ITERATE_ABSTENTION_PROMPT` as an isolated prompt diagnosis. **No** `tl01h-v1` from the V14/Adv V12 matrix.
 
 TL01 may **not** advance to broader-shadow readiness. There is currently **no authoritative promotion matrix**. Candidate runs under seal `33bae348…` all failed before comparison (`0/9`; `candidate_grounding_failures=9`). Control collapsed too (`1/9` success). Aggregate `total_unsafe_over_resolution=0` is **not** an observed safety result: failed run records store `unsafe_over_resolution_count: null`, and those absences were totaled as zero. V13/Adv V11 gold is retained unchanged as regression evidence only.
 
@@ -36,7 +37,26 @@ TL01 may **not** advance to broader-shadow readiness. There is currently **no au
 | Retire V10/Adv V8; audit ID/status tests; span EOF bounds; seal V11 / Adv V9 | `a3f108f2fa64a3ac5c0146acbc25d7b904fcacc2` | **retired** — reused observed spans; Adv V9 paraphrased Adv V8 |
 | Retire V11/Adv V9; restore span `isdisjoint`; Jaccard templates; audit proposition/lane/phrase; seal V12 / Adv V10 | `a7a9d5c321e7f57ddc95303705a8a8bac94fcd82` | **retired** — gold/Gate defects |
 | Retire V12/Adv V10; proposition-template Jaccard (holdout); seal V13/Adv V11 | `33bae3485babb0d15373b91b0cbcb13282b42491` | **retired after observation** — Adv proposition replay; V13 Gate E3 / postponement-value defects; grounding collapse |
-| Preserve grounding diagnostics; fail-closed auto-discovery for fresh adversarial/holdout proposition-template Jaccard; positive Gate E3 boundary narration; exact on-disk matrix match for reaggregate; full-hex immutable provider SHA; rebuild committed aggregate from on-disk manifests | *(this recovery tip)* | process — **no new promotion cohort** |
+| Preserve grounding diagnostics; fail-closed auto-discovery for fresh adversarial/holdout proposition-template Jaccard; positive Gate E3 boundary narration; exact on-disk matrix match for reaggregate; full-hex immutable provider SHA; rebuild committed aggregate from on-disk manifests | *(PR468 recovery tip)* | process — **no new promotion cohort** |
+| Seal V14 / Adv V12; one 18-attempt promotion matrix (PR #496) | `cde3b48d5b95ba4fc1f7c779993c2497f66914f7` seal · `d1b5cc60604ba888985013c0093e0605f0ab158d` provider execution | **retired after observation** — Adv V12 ungrounded `since the equinox flood`; human disposition **`PROMOTION_EVIDENCE_INCOMPLETE`**; machine `ITERATE_PROMPT` overridden; no `tl01h-v1` |
+| Gate-faithfulness retirement tests + future-cohort grounding guard (PR #496 review) | `eefc8927c3e679c1688d1dd85f565f8d9eb3d9c8` merge | process — observed V14/Adv V12 bytes preserved; cutoffs now `LAST_RETIRED_HOLDOUT=14`, `LAST_RETIRED_ADVERSARIAL=12` |
+
+### Why V14/Adv V12 cannot remain promotion authority (PR #496)
+
+Do **not** patch V14/Adv V12 gold in place (all **18** provider attempts observed under
+`d1b5cc60604ba888985013c0093e0605f0ab158d`). Defects retained as incomplete promotion
+evidence; human disposition **`PROMOTION_EVIDENCE_INCOMPLETE`** overrides machine
+`ITERATE_PROMPT`:
+
+- **Adv V12** assigns `valid_time.start.raw_expression = "since the equinox flood"` while
+  owned source `valid-start-textual.md` only contains `"became shuttered at the equinox flood"`.
+  Gate E3 / owned-evidence value grounding fails before promotion authority can attach.
+- Large `wrong_temporal_value` totals mix representation mismatches with shared semantic
+  kind swaps — not clean candidate isolation on trustworthy gold.
+- No `tl01h-v1` may be named from this matrix. Successor work requires holdout >14 and
+  adversarial >12 with pre-live `_collect_resolved_value_grounding_defects() == []`.
+
+Durable report: [`REPORT-tl01g-v14-fresh-promotion-evidence.md`](REPORT-tl01g-v14-fresh-promotion-evidence.md).
 
 ### Why V13/Adv V11 cannot remain promotion authority
 
@@ -62,7 +82,7 @@ Resolved-span fingerprints fail before hashing when evidence refs are missing, p
 
 - Holdout: proposition-template Jaccard (label+predicate, entity scrub) `< 0.40` vs all prior canonical holdouts **and** earlier discovered holdout successors (cumulative comparison pool).
 - Adversarial: source-prose Jaccard is **insufficient**. Fresh adversarial cohorts also require proposition-template Jaccard `< 0.40` vs all prior adversarial assertion labels/predicates **and** earlier discovered adversarial successors (cumulative comparison pool).
-- **Fresh-cohort discovery** uses immutable cutoffs `LAST_RETIRED_HOLDOUT_VERSION=13` and `LAST_RETIRED_ADVERSARIAL_VERSION=11` (versioned dirs with suffix `> cutoff`). PRIOR tuple membership does **not** disable guards; non-numeric suffixes fail closed.
+- **Fresh-cohort discovery** uses immutable cutoffs `LAST_RETIRED_HOLDOUT_VERSION=14` and `LAST_RETIRED_ADVERSARIAL_VERSION=11` (versioned dirs with suffix `> cutoff`). After PR #496, successor holdout must be >14 and adversarial >12. PRIOR tuple membership does **not** disable guards; non-numeric suffixes fail closed.
 
 ### GOLD-AUDIT ↔ fixture binding
 
@@ -108,18 +128,23 @@ Per-run `failure-manifest.json` already carries `affected_assertion_id`, `diagno
 * **Last observed matrix (V13 / Adv V11) — not promotion authority:**
   * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:a1dd130979808f2f` (**rebuilt** from on-disk run manifests at `8e2fe045…`; durable evidence with `affected_assertion_id`, `failure_diagnostics`, `foreign_evidence_attempts`, and decision note `candidate_comparison_metrics_unobserved`)
   * Per-run manifests under `.../promotion/calibration/{baseline,candidate}/{development,holdout,adversarial}/run-0N/` remain gitignored; the committed aggregate is the durable evidence surface
+* **V14 / Adv V12 matrix (PR #496) — not promotion authority:**
+  * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v14/calibration/aggregate.json` — `temporal-prompt-calibration:a4d817300eab3c82` (18/18 attempts observed; human disposition **`PROMOTION_EVIDENCE_INCOMPLETE`**)
+  * See [`REPORT-tl01g-v14-fresh-promotion-evidence.md`](REPORT-tl01g-v14-fresh-promotion-evidence.md)
 
 ## Cohorts
 
 | Cohort | Rows | Role |
 | --- | ---: | --- |
+| holdout V14 | 12 | observed incomplete promotion evidence — Adv V12 ungrounded gold; seal `cde3b48d…`; retired PR #496 |
+| adversarial V12 | 10 | observed incomplete promotion evidence — ungrounded `since the equinox flood`; retired PR #496 |
 | holdout V13 | 12 | observed regression only — Gate E3 / postponement-value defects retained; seal `33bae348…` |
 | adversarial V11 | 10 | observed regression only — Adv V10 proposition-template replay retained |
 | holdout V12 / Adv V10 | 12 / 10 | observed regression only |
 | holdout V11 / Adv V9 … V8 / Adv V6 | … | observed regression only |
 | holdout V7 / Adv V5 | 9 / 8 | abstention regression only |
 
-**No authoritative promotion holdout/adversarial pair is currently sealed for a fresh run.**
+**No authoritative promotion holdout/adversarial pair is currently sealed for a fresh run.** V14/Adv V12 (PR #496) completed the attempted matrix as **`PROMOTION_EVIDENCE_INCOMPLETE`**.
 
 ## Matrix D — last observed run (holdout V13 / Adv V11) — not authority
 
@@ -151,10 +176,10 @@ Known-good smoke still exists via FakeClient gold replay and older regression-la
 
 ## Interpretation
 
-1. V13/Adv V11 are retired without in-place gold edits. Adv V11 is not independent promotion evidence; V13 retains Gate E3 and postponement-value gold defects.
-2. Aggregate unsafe totals of `0` under all-failure cohorts must not be read as “unsafe cleared.” Comparison metrics were unobserved.
-3. Control and candidate both collapse on shared grounding — diagnose renderer/packet/model phrase fidelity and preserve assertion-level diagnostics in aggregates before authoring `tl01h-v1` or V14/Adv V12.
-4. Do not mutate `tl01g-v1`. Do not revive V8–V13 / Adv V6–V11 as promotion authority.
+1. V14/Adv V12 (PR #496) are retired without in-place gold edits. Adv V12 gold is ungrounded (`since the equinox flood`); disposition **`PROMOTION_EVIDENCE_INCOMPLETE`**; no `tl01h-v1`.
+2. V13/Adv V11 are retired without in-place gold edits. Adv V11 is not independent promotion evidence; V13 retains Gate E3 and postponement-value gold defects.
+3. Aggregate unsafe totals of `0` under all-failure cohorts must not be read as “unsafe cleared.” Comparison metrics were unobserved on V13/V11; V14/Adv V12 had evaluable runs but invalid gold blocks promotion authority.
+4. Do not mutate `tl01g-v1`. Do not revive V8–V14 / Adv V6–V12 as promotion authority.
 
 ## Recommendation precedence applied
 
@@ -181,12 +206,13 @@ candidate comparison metrics unobserved
 ```text
 Candidate: tl01g-v1 (freeze 67408bd8…; prompt hash 3af1e470…)
 Control: tl01f-v1
-Last observed seal: 33bae3485babb0d15373b91b0cbcb13282b42491 (V13/Adv V11 RETIRED)
+Last observed seal (V14/Adv V12): cde3b48d5b95ba4fc1f7c779993c2497f66914f7 (RETIRED INCOMPLETE — PR #496)
+Prior retired seal (V13/Adv V11): 33bae3485babb0d15373b91b0cbcb13282b42491 (RETIRED)
 Promotion authority: none
-Last matrix: ITERATE_PROMPT (candidate_grounding_failures=9; comparison metrics unobserved)
-Human recommendation: DIAGNOSE_GROUNDING_PATH (shared verbatim source_phrase failures)
-Next: preserve/inspect grounding diagnostics; prove a known-good smoke through both lanes;
-      then author genuinely fresh V14/Adv V12 with Adv proposition-template Jaccard + Gate E3/value audits.
-      Do not mutate tl01g-v1; do not author tl01h-v1 until grounding path yields evaluable runs;
-      do not revive V8–V13 / Adv V6–V11 as promotion authority.
+Last matrix (V14/Adv V12): PROMOTION_EVIDENCE_INCOMPLETE (18/18 observed; Adv V12 ungrounded gold)
+Human recommendation: author Gate-faithful successor cohort pair (holdout >14, adversarial >12)
+Next: new handoff for fresh cohort pair with pre-live Gate E3/value grounding over every resolved annotation;
+      do not mutate tl01g-v1; do not name tl01h-v1 from V14/Adv V12 evidence;
+      do not revive V8–V14 / Adv V6–V12 as promotion authority.
+      PR486 GROUNDING_PATH_READY remains smoke prerequisite only.
 ```
