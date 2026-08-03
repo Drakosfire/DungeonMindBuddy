@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 
 import { IngestionModule } from "../../modules/IngestionModule";
@@ -13,6 +13,7 @@ import {
   readPlanContextBinding,
   PLAN_CONTEXT_BINDING_ID,
 } from "./projectionBindings";
+import { stabilizeStringSetMembership } from "./projectionCatalogMembership";
 import { useProjection } from "./projectionContext";
 
 export interface IngestProjectionDefinition {
@@ -64,12 +65,19 @@ export function IngestProjectionCatalogRegistration({
 }: IngestProjectionCatalogRegistrationProps) {
   const { registerProjectionCatalog } = useProjection();
 
-  const publishedToolIdsKey = toolDescriptors.map((descriptor) => descriptor.id).join("\0");
+  // Compare full IDs via Set equality; never delimiter-compose membership keys.
+  const publishedToolIdsRef = useRef<ReadonlySet<string>>(new Set());
+  publishedToolIdsRef.current = stabilizeStringSetMembership(
+    publishedToolIdsRef.current,
+    toolDescriptors.map((descriptor) => descriptor.id),
+  );
+  const publishedToolIds = publishedToolIdsRef.current;
 
   const liveDefinitions = useMemo(() => {
-    const toolIds = new Set(publishedToolIdsKey.split("\0").filter(Boolean));
-    return INGEST_PROJECTION_DEFINITIONS.filter((definition) => toolIds.has(definition.projectionId));
-  }, [publishedToolIdsKey]);
+    return INGEST_PROJECTION_DEFINITIONS.filter((definition) =>
+      publishedToolIds.has(definition.projectionId),
+    );
+  }, [publishedToolIds]);
 
   useEffect(() => {
     if (surfaceId !== "ingest") {
@@ -96,7 +104,7 @@ export function IngestProjectionCatalogRegistration({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- membership-stable registration
-  }, [liveDefinitions, registerProjectionCatalog, surfaceId, publishedToolIdsKey]);
+  }, [liveDefinitions, registerProjectionCatalog, surfaceId, publishedToolIds]);
 
   return null;
 }

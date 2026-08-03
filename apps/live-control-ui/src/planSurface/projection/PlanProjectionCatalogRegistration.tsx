@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 
 import {
@@ -25,6 +25,7 @@ import {
   readPlanContextBinding,
   readPlanSurfaceConfigBinding,
 } from "./projectionBindings";
+import { stabilizeStringSetMembership } from "./projectionCatalogMembership";
 import { useProjection } from "./projectionContext";
 
 export interface PlanProjectionDefinition {
@@ -118,15 +119,20 @@ export function PlanProjectionCatalogRegistration({
 
   // Membership only — preferredSize changes are synced atomically by the provider
   // on same-identity publication updates so open renderers do not remount.
-  const publishedToolIdsKey = toolDescriptors.map((descriptor) => descriptor.id).join("\0");
+  // Compare full IDs via Set equality; never delimiter-compose membership keys.
+  const publishedToolIdsRef = useRef<ReadonlySet<string>>(new Set());
+  publishedToolIdsRef.current = stabilizeStringSetMembership(
+    publishedToolIdsRef.current,
+    toolDescriptors.map((descriptor) => descriptor.id),
+  );
+  const publishedToolIds = publishedToolIdsRef.current;
 
   const liveDefinitions = useMemo(() => {
-    const toolIds = new Set(publishedToolIdsKey.split("\0").filter(Boolean));
     return PLAN_PROJECTION_DEFINITIONS.filter(
       (definition) =>
-        definition.kind === "content" || toolIds.has(definition.projectionId),
+        definition.kind === "content" || publishedToolIds.has(definition.projectionId),
     );
-  }, [publishedToolIdsKey]);
+  }, [publishedToolIds]);
 
   useEffect(() => {
     if (surfaceId !== "plan") {
@@ -156,7 +162,7 @@ export function PlanProjectionCatalogRegistration({
     };
     // toolDescriptors preferredSize is intentionally omitted: provider syncs size.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- membership-stable registration
-  }, [liveDefinitions, registerProjectionCatalog, surfaceId, publishedToolIdsKey]);
+  }, [liveDefinitions, registerProjectionCatalog, surfaceId, publishedToolIds]);
 
   return null;
 }
