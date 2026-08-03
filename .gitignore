@@ -124,3 +124,6 @@ evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v14/
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v14/calibration/
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v14/calibration/aggregate.json
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/calibration/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/calibration/aggregate.json
