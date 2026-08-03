@@ -5,7 +5,9 @@
 This holdout/adversarial pair is authored for pre-live certification only. No provider
 call, calibration artifact, or promotion matrix has been executed against these bytes.
 
-**Certification SHA:** `PENDING` (parent records after §7 proofs on clean tree)
+**Certification SHA:** `e59dd742557f35702b09b8f34a6bc6bea078262f`  
+**Certification report:** `Docs/Reports/REPORT-tl01g-v15-adv13-cohort-certification.md`  
+**Disposition:** `CERTIFIED_FOR_EXECUTION` (asset certification only — not prompt readiness)
 
 ### What `sources/` means here
 
