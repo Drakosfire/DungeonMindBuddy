@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 
 import type {
   ActiveProjection,
@@ -48,6 +48,7 @@ export function ProjectionHost({
   const activeToolId = active?.kind === "tool" ? active.key : null;
   const showModalBackdrop = isOpen && active?.kind === "tool";
   const drawerClass = projectionDrawerClass(active?.size);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const rootClass = [
     "surface-projection-host",
     isOpen ? "surface-projection-host--open" : "",
@@ -64,6 +65,11 @@ export function ProjectionHost({
       document.body.classList.remove("surface-projection-open");
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    closeButtonRef.current?.focus();
+  }, [isOpen, active?.key]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -109,7 +115,12 @@ export function ProjectionHost({
                 Expand
               </button>
             ) : null}
-            <button type="button" onClick={onClose} aria-label={labels.closeLabel}>
+            <button
+              type="button"
+              ref={closeButtonRef}
+              onClick={onClose}
+              aria-label={labels.closeLabel}
+            >
               ×
             </button>
           </div>

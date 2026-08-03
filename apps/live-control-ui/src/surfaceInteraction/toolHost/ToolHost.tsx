@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
+import { sameSurfaceInteractionIdentity } from "../surfaceIdentity";
+import type { SurfaceInteractionIdentity } from "../types";
 import { activateToolContribution } from "./activateToolContribution";
 import { groupToolContributions } from "./groupTools";
+
+type ToolHostCloseReason = "dismiss" | "projection-launch" | "identity" | "inventory";
 
 /**
  * Singular app-level Tool Host (BLD-SIH-04).
@@ -12,22 +16,40 @@ import { groupToolContributions } from "./groupTools";
 export function ToolHost() {
   const {
     surfaceInteractionPublication,
-    openTool,
+    activateProjectionTool,
   } = useAgentInteraction();
   const tools = surfaceInteractionPublication?.tools ?? [];
-  const identityKey = surfaceInteractionPublication
-    ? `${surfaceInteractionPublication.identity.surfaceId}\u001f${surfaceInteractionPublication.identity.instanceKey}`
-    : null;
+  const identity = surfaceInteractionPublication?.identity ?? null;
 
   const [isOpen, setIsOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const wasOpenRef = useRef(false);
+  const closeReasonRef = useRef<ToolHostCloseReason | null>(null);
+  const previousIdentityRef = useRef<SurfaceInteractionIdentity | null>(identity);
+
+  function closeDrawer(reason: ToolHostCloseReason) {
+    closeReasonRef.current = reason;
+    setIsOpen(false);
+  }
 
   // Close launcher on exact identity change (surface switch / lease replace).
   useEffect(() => {
-    setIsOpen(false);
-  }, [identityKey]);
+    const previous = previousIdentityRef.current;
+    if (!sameSurfaceInteractionIdentity(previous, identity)) {
+      if (isOpen) {
+        closeDrawer("identity");
+      }
+      previousIdentityRef.current = identity;
+    }
+  }, [identity, isOpen]);
+
+  // Empty inventory closes an open drawer under the same identity.
+  useEffect(() => {
+    if (tools.length === 0 && isOpen) {
+      closeDrawer("inventory");
+    }
+  }, [isOpen, tools.length]);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,8 +58,11 @@ export function ToolHost() {
       return;
     }
     if (wasOpenRef.current) {
-      toggleRef.current?.focus();
+      if (closeReasonRef.current === "dismiss") {
+        toggleRef.current?.focus();
+      }
       wasOpenRef.current = false;
+      closeReasonRef.current = null;
     }
   }, [isOpen]);
 
@@ -47,7 +72,7 @@ export function ToolHost() {
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      setIsOpen(false);
+      closeDrawer("dismiss");
     }
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
@@ -64,10 +89,10 @@ export function ToolHost() {
     const result = activateToolContribution({
       publication: surfaceInteractionPublication,
       toolId,
-      openProjectionTool: openTool,
+      openProjectionTool: activateProjectionTool,
     });
     if (result.status === "opened" || result.status === "invoked") {
-      setIsOpen(false);
+      closeDrawer(result.status === "opened" ? "projection-launch" : "dismiss");
     }
   }
 
@@ -87,7 +112,7 @@ export function ToolHost() {
       <div
         className="app-tools-toolbox-backdrop"
         hidden={!isOpen}
-        onClick={() => setIsOpen(false)}
+        onClick={() => closeDrawer("dismiss")}
         aria-hidden="true"
       />
       <aside
@@ -104,7 +129,7 @@ export function ToolHost() {
             ref={closeRef}
             type="button"
             className="app-tools-toolbox-close"
-            onClick={() => setIsOpen(false)}
+            onClick={() => closeDrawer("dismiss")}
             aria-label="Close Tools"
           >
             x

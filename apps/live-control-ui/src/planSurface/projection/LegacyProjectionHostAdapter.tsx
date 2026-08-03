@@ -136,6 +136,7 @@ function LegacyProjectionHostAdapterInner({
   graphReviewDiagnosticsPayload,
   resolveProjectionCatalog,
 }: LegacyProjectionHostAdapterInnerProps) {
+  const { registerProjectionToolActivator } = useAgentInteraction();
   const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(surfaceIdentity);
   surfaceIdentityRef.current = surfaceIdentity;
   useEffect(() => {
@@ -202,6 +203,10 @@ function LegacyProjectionHostAdapterInner({
     },
     [openTool, resolveLatestIngestedSessionId],
   );
+
+  useEffect(() => {
+    return registerProjectionToolActivator(openToolFromNav);
+  }, [openToolFromNav, registerProjectionToolActivator]);
 
   useEffect(() => {
     const requestedTool = requestedToolFromLocation();
