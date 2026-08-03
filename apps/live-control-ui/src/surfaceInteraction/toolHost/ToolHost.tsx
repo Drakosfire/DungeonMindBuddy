@@ -104,6 +104,14 @@ export function ToolHost() {
         // visible; otherwise park focus on the Tools toggle (visible control).
         if (!isOpenRef.current) {
           toggleRef.current?.focus();
+          return;
+        }
+        // Tool button may have unmounted (same-identity auth loss). Park on a
+        // still-visible launcher control rather than leaving focus on body.
+        const hostRoot = toggleRef.current?.closest('[data-testid="surface-tool-host"]');
+        const active = document.activeElement;
+        if (!hostRoot || !active || !hostRoot.contains(active)) {
+          closeRef.current?.focus();
         }
       });
       return;
