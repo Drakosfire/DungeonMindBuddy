@@ -166,7 +166,6 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
   });
 
   it("clears body-open state when a same-identity contradictory update retains the open tool id", async () => {
-    const user = userEvent.setup();
     let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
     function CaptureApi() {
       hostApi = useAgentInteraction();
@@ -180,7 +179,9 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
       </AgentInteractionProjectionTestHost>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Tools" }));
+    act(() => {
+      hostApi!.openTool("recap");
+    });
     await waitFor(() => {
       expect(document.body).toHaveClass("surface-projection-open");
     });
@@ -212,7 +213,11 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
   });
 
   it("applies the active surface theme to the app-level drawer", async () => {
-    const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
     const themedConfig: SurfaceConfig = {
       ...surfaceConfig,
       theme: {
@@ -223,11 +228,14 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
 
     render(
       <AgentInteractionProjectionTestHost config={themedConfig}>
+        <CaptureApi />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Tools" }));
+    act(() => {
+      hostApi!.openTool("recap");
+    });
     const host = document.querySelector(".surface-projection-host");
     expect(host).toHaveAttribute("data-md-theme", "mireward");
     expect(host).toHaveStyle({ "--projection-accent": "red" });
@@ -272,7 +280,11 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
   });
 
   it("updates drawer size class and accessibility label when the same tool revises its metadata", async () => {
-    const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
     const revisedConfig: SurfaceConfig = {
       ...surfaceConfig,
       tools: [
@@ -284,11 +296,14 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
 
     const { rerender } = render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <CaptureApi />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Tools" }));
+    act(() => {
+      hostApi!.openTool("recap");
+    });
     await waitFor(() => {
       expect(document.querySelector("#surface-projection-drawer")).toHaveAttribute(
         "aria-label",
@@ -301,6 +316,7 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
 
     rerender(
       <AgentInteractionProjectionTestHost config={revisedConfig}>
+        <CaptureApi />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
@@ -353,14 +369,26 @@ describe("LegacyProjectionHostAdapter nav session lookup lease safety", () => {
 
   it("writes the inferred session into the URL when the lookup resolves on the same surface", async () => {
     const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
     const lookup = deferRecapArtifacts();
     render(
       <AgentInteractionProjectionTestHost config={campaignConfig("longmont-c2")}>
+        <CaptureApi />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Tools" }));
+    act(() => {
+      hostApi!.openTool("recap");
+    });
+    await waitFor(() => {
+      expect(document.body).toHaveClass("surface-projection-open");
+    });
+    await user.click(screen.getByRole("button", { name: "Recap" }));
     await act(async () => {
       lookup.resolve("session-23");
     });
@@ -373,18 +401,26 @@ describe("LegacyProjectionHostAdapter nav session lookup lease safety", () => {
   });
 
   it("ignores a campaign-A lookup that resolves after the host moved to campaign B", async () => {
-    const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
     const lookup = deferRecapArtifacts();
     const { rerender } = render(
       <AgentInteractionProjectionTestHost config={campaignConfig("longmont-c2")}>
+        <CaptureApi />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Tools" }));
+    act(() => {
+      hostApi!.openTool("recap");
+    });
 
     rerender(
       <AgentInteractionProjectionTestHost config={campaignConfig("other-campaign")}>
+        <CaptureApi />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
     );

@@ -1,13 +1,63 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "./api/types";
+import type { AppChromeTools } from "./chrome/AppChrome";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
+
+const stableTiptapAction = () => undefined;
+const stableTiptapEditorTools: AppChromeTools = {
+  pinnedActions: [
+    {
+      id: "tiptap-lock-editor",
+      eyebrow: "Edit state",
+      label: "Lock editor",
+      onClick: stableTiptapAction,
+    },
+  ],
+  sections: [
+    {
+      id: "tiptap-insert-blocks",
+      title: "Insert blocks",
+      defaultOpen: true,
+      actions: [
+        {
+          id: "insert-gm",
+          eyebrow: "Insert",
+          label: "GM Note",
+          onClick: stableTiptapAction,
+        },
+      ],
+    },
+  ],
+};
+
+vi.mock("./tiptap/TiptapCalloutBridgeSpike", () => ({
+  TiptapCalloutBridgeSpike({
+    onEditorToolsChange,
+  }: {
+    onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  }) {
+    useEffect(() => {
+      onEditorToolsChange?.(stableTiptapEditorTools);
+      return () => onEditorToolsChange?.(null);
+    }, [onEditorToolsChange]);
+    return (
+      <main className="tiptap-spike-page">
+        <header className="tiptap-spike-header">
+          <h1>Tiptap Session Runbook Editor</h1>
+        </header>
+        <div data-testid="tiptap-editor" />
+      </main>
+    );
+  },
+}));
 
 vi.mock("./api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api/liveApi")>();
@@ -171,10 +221,16 @@ describe("App inspector integration", () => {
   });
 
   it("renders plan surface from /plan", async () => {
+    const user = userEvent.setup();
     window.history.pushState({}, "", "/plan");
     render(<App />);
 
     expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: "Recap" }));
     const toolbox = await screen.findByRole("navigation", { name: "Toolbox tools" });
     expect(toolbox).toBeInTheDocument();
     expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);

@@ -32,7 +32,6 @@ function renderHost(
   overrides: Partial<Parameters<typeof ProjectionHost>[0]> = {},
 ) {
   const onNavigate = vi.fn();
-  const onToggle = vi.fn();
   const onClose = vi.fn();
   const onExpand = vi.fn();
 
@@ -43,14 +42,13 @@ function renderHost(
       labels={NEUTRAL_LABELS}
       body={null}
       onNavigate={onNavigate}
-      onToggle={onToggle}
       onClose={onClose}
       onExpand={onExpand}
       {...overrides}
     />,
   );
 
-  return { ...result, onNavigate, onToggle, onClose, onExpand };
+  return { ...result, onNavigate, onClose, onExpand };
 }
 
 describe("ProjectionHost shell", () => {
@@ -60,6 +58,13 @@ describe("ProjectionHost shell", () => {
 
   afterEach(() => {
     document.body.classList.remove("surface-projection-open");
+  });
+
+  it("renders nothing when active is null", () => {
+    renderHost();
+
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    expect(document.querySelector(".surface-projection-host")).not.toBeInTheDocument();
   });
 
   it("calls onClose when the modal backdrop is clicked", async () => {
@@ -112,7 +117,6 @@ describe("ProjectionHost shell", () => {
         labels={NEUTRAL_LABELS}
         body={null}
         onNavigate={vi.fn()}
-        onToggle={vi.fn()}
         onClose={vi.fn()}
         onExpand={vi.fn()}
       />,
@@ -140,7 +144,6 @@ describe("ProjectionHost shell", () => {
         labels={NEUTRAL_LABELS}
         body={null}
         onNavigate={vi.fn()}
-        onToggle={vi.fn()}
         onClose={onClose}
         onExpand={vi.fn()}
       />,
@@ -156,7 +159,6 @@ describe("ProjectionHost shell", () => {
         labels={NEUTRAL_LABELS}
         body={<p>Body</p>}
         onNavigate={vi.fn()}
-        onToggle={vi.fn()}
         onClose={onClose}
         onExpand={vi.fn()}
       />,
@@ -192,7 +194,6 @@ describe("ProjectionHost shell", () => {
         body={<p>Body</p>}
         theme={themeB}
         onNavigate={vi.fn()}
-        onToggle={vi.fn()}
         onClose={vi.fn()}
         onExpand={vi.fn()}
       />,
@@ -224,30 +225,6 @@ describe("ProjectionHost shell", () => {
     expect(document.querySelector(".surface-projection-nav")).not.toHaveAttribute("hidden");
   });
 
-  it("toggles open via Tools and closes via the same control when open", async () => {
-    const user = userEvent.setup();
-    const { onToggle, onClose, rerender } = renderHost();
-
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    expect(onToggle).toHaveBeenCalledTimes(1);
-
-    rerender(
-      <ProjectionHost
-        active={toolActive}
-        navigationItems={navigationItems}
-        labels={NEUTRAL_LABELS}
-        body={<p>Body</p>}
-        onNavigate={vi.fn()}
-        onToggle={onToggle}
-        onClose={onClose}
-        onExpand={vi.fn()}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
   it("shows modal backdrop for tool projections but not content", () => {
     const { rerender } = renderHost({
       active: toolActive,
@@ -269,7 +246,6 @@ describe("ProjectionHost shell", () => {
         labels={NEUTRAL_LABELS}
         body={<p>Reference body</p>}
         onNavigate={vi.fn()}
-        onToggle={vi.fn()}
         onClose={vi.fn()}
         onExpand={vi.fn()}
       />,
@@ -310,7 +286,6 @@ describe("ProjectionHost shell", () => {
         labels={NEUTRAL_LABELS}
         body={<p>Reference body</p>}
         onNavigate={vi.fn()}
-        onToggle={vi.fn()}
         onClose={vi.fn()}
         onExpand={onExpand}
       />,
@@ -344,12 +319,5 @@ describe("ProjectionHost shell", () => {
     await user.click(screen.getByRole("button", { name: "Party Registry" }));
     expect(onNavigate).toHaveBeenCalledWith("party-registry");
     expect(onNavigate).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not throw when Tools is clicked with an empty navigation list", async () => {
-    const user = userEvent.setup();
-    renderHost({ navigationItems: [] });
-
-    await expect(user.click(screen.getByRole("button", { name: "Tools" }))).resolves.toBeUndefined();
   });
 });
