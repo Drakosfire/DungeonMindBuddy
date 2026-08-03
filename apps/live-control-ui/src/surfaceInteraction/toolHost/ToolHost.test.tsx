@@ -667,4 +667,93 @@ describe("ToolHost", () => {
       expect(window.location.search).toContain("tool=recap");
     });
   });
+
+  it("keeps the launcher open and skips URL commit when async open loses tool auth", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/plan");
+
+    let resolveLookup!: (value: RecapArtifactsListResponse) => void;
+    vi.mocked(getRecapArtifacts).mockImplementation(
+      () =>
+        new Promise<RecapArtifactsListResponse>((resolve) => {
+          resolveLookup = resolve;
+        }),
+    );
+
+    const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
+    const withRecap: SurfaceConfig = {
+      id: "plan",
+      label: "Plan",
+      context: {
+        campaignId: sessionDescriptor.campaignId,
+        headerLabel: sessionDescriptor.planningDocument.title,
+        ingestSession: 21,
+        liveSession: 22,
+      },
+      tools: [
+        { id: "recap", label: "Recap", size: "wide" },
+        { id: "statblock", label: "Statblock", size: "wide" },
+      ],
+      canvas: { documentId: sessionDescriptor.planningDocument.documentId },
+      theme: {},
+      sessionDescriptor,
+    };
+    const withoutRecap: SurfaceConfig = {
+      ...withRecap,
+      tools: [{ id: "statblock", label: "Statblock", size: "wide" }],
+    };
+
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    const { rerender } = render(
+      <AgentInteractionProjectionTestHost config={withRecap}>
+        <CaptureApi />
+        <LegacyProjectionHostAdapter />
+        <ToolHost />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    const toggle = await screen.findByRole("button", { name: "Tools" });
+    await user.click(toggle);
+    const toolboxDrawer = screen.getByLabelText("Tools toolbar");
+    await user.click(within(toolboxDrawer).getByRole("button", { name: "Recap" }));
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(window.location.search).not.toContain("tool=recap");
+
+    // Same-identity update removes Recap but retains Statblock so the launcher stays mountable.
+    rerender(
+      <AgentInteractionProjectionTestHost config={withoutRecap}>
+        <CaptureApi />
+        <LegacyProjectionHostAdapter />
+        <ToolHost />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Recap" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Statblock" })).toBeInTheDocument();
+
+    resolveLookup({ records: [{ session_id: "session-23" } as RecapArtifactsListResponse["records"][number]] });
+
+    await waitFor(() => {
+      expect(hostApi!.active).toBeNull();
+    });
+    expect(document.body).not.toHaveClass("surface-projection-open");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("surface-tool-host")).toBeInTheDocument();
+    expect(window.location.search).not.toContain("tool=recap");
+    expect(window.location.search).not.toContain("session-23");
+
+    await waitFor(() => {
+      const active = document.activeElement;
+      expect(active).not.toBeNull();
+      expect(screen.getByTestId("surface-tool-host").contains(active)).toBe(true);
+    });
+  });
 });

@@ -562,6 +562,30 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.active).toBeNull();
   });
 
+  it("openTool returns false when the tool is missing after a same-identity publish", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      expect(result.current.openTool("recap")).toBe(true);
+    });
+    expect(result.current.active?.key).toBe("recap");
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({ tools: [{ id: "statblock", label: "Statblock", size: "wide" as const }] }),
+      );
+    });
+
+    let opened = true;
+    act(() => {
+      opened = result.current.openTool("recap");
+    });
+    expect(opened).toBe(false);
+    expect(result.current.active).toBeNull();
+  });
+
   it("rebuilds active tool label and size when a same-identity update revises the matching tool", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {

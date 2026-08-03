@@ -434,4 +434,50 @@ describe("LegacyProjectionHostAdapter nav session lookup lease safety", () => {
     expect(window.location.search).not.toContain("tool=recap");
     expect(document.body).not.toHaveClass("surface-projection-open");
   });
+
+  it("does not commit ?tool= when openTool returns false after same-identity tool removal", async () => {
+    const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+    const lookup = deferRecapArtifacts();
+    const withRecap = campaignConfig("longmont-c2");
+    const withoutRecap: SurfaceConfig = {
+      ...withRecap,
+      tools: [{ id: "statblock", label: "Statblock", size: "wide" }],
+    };
+
+    const { rerender } = render(
+      <AgentInteractionProjectionTestHost config={withRecap}>
+        <CaptureApi />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    // Drive the async activator path (nav), not synchronous openTool.
+    act(() => {
+      hostApi!.openTool("statblock");
+    });
+    await waitFor(() => {
+      expect(document.body).toHaveClass("surface-projection-open");
+    });
+    await user.click(screen.getByRole("button", { name: "Recap" }));
+
+    rerender(
+      <AgentInteractionProjectionTestHost config={withoutRecap}>
+        <CaptureApi />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await act(async () => {
+      lookup.resolve("session-23");
+    });
+
+    expect(window.location.search).not.toContain("tool=recap");
+    expect(window.location.search).not.toContain("session-23");
+    expect(hostApi!.active?.key).not.toBe("recap");
+  });
 });
