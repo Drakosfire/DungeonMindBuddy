@@ -1,0 +1,230 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:0f548330fcf90a4c",
+  "base_contribution_id": "contribution:68352b2958466a15",
+  "base_contribution_source_payload_sha256": "193524c8e41cf865fbfb294329baded0281a2f4155c1991336c3d7f5f96916c3",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-adversarial-v13",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v13000000000001",
+      "base_assertion_id": "assertion:0a21dac97f3021a6",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-keeps-session19"
+      ],
+      "source_phrase": "shelves the Ashpetal folios",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Persistent custody without narrated occurrence time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000002",
+      "base_assertion_id": "assertion:ea6b7307edde4448",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:beacon-fog-prerequisite"
+      ],
+      "source_phrase": "will open Thornfen Beacon once the fog lifts",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Future prerequisite condition not execution time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000003",
+      "base_assertion_id": "assertion:bd8eefd165efe613",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "at moonrise",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:causeway-moonrise"
+      ],
+      "source_phrase": "lights the causeway lanterns at moonrise",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Textual occurrence amid distractor prose"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000004",
+      "base_assertion_id": "assertion:d72fbcdad287e1a5",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "since the lantern edict",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:causeway-open-edict"
+      ],
+      "source_phrase": "became open since the lantern edict",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Valid-start with wrong nearby since-value"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000005",
+      "base_assertion_id": "assertion:692dbca9df0475f8",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-19",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:fuel-tally-end"
+      ],
+      "source_phrase": "stopped recording beacon fuel tallies",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Valid-end with wrong-direction cue nearby"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000006",
+      "base_assertion_id": "assertion:041d3a9d5014a1e7",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:fuel-clerk-still"
+      ],
+      "source_phrase": "still remains the fuel clerk",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Persistent restatement without boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000007",
+      "base_assertion_id": "assertion:5420f58150e514c9",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-keeper-ambiguous"
+      ],
+      "source_phrase": "whether the Ashpetal folio roster seated Lira Spelt as night clerk or only queued her as standby",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Competing seated night-clerk vs standby-queue readings"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000008",
+      "base_assertion_id": "assertion:3ed3e502da2f502a",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "nine winters earlier",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:beacon-cracked-historical"
+      ],
+      "source_phrase": "cracked nine winters earlier",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Historical occurrence not valid-time start"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000009",
+      "base_assertion_id": "assertion:3057260d5a4c0cdd",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "at nightfall",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-locks-nightfall"
+      ],
+      "source_phrase": "bolts the Ashpetal folio chest at nightfall",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Exact phrase boundary for copy trap"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v13000000000010",
+      "base_assertion_id": "assertion:5fb7af52f7731558",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-ink-black"
+      ],
+      "source_phrase": "ink is black",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Temporal words in span but no eligible proposition"
+      ]
+    }
+  ]
+}

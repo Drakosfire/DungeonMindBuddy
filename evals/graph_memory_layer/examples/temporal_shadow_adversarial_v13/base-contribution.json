@@ -1,0 +1,300 @@
+{
+  "contribution_id": "contribution:68352b2958466a15",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-adversarial-v13",
+  "produced_at": "2026-08-02T20:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:0a21dac97f3021a6",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:lira-spelt",
+      "target_node_id": "obj:ashpetal-folios",
+      "predicate": "shelves_ashpetal_folios",
+      "label": "Lira Spelt shelves the Ashpetal folios",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-keeps-session19",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-keeps-session19"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:ea6b7307edde4448",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:corven-ash",
+      "target_node_id": "loc:thornfen-beacon",
+      "predicate": "will_open_beacon",
+      "label": "Corven Ash will open Thornfen Beacon once the fog lifts",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:beacon-fog-prerequisite",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:beacon-fog-prerequisite"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:bd8eefd165efe613",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:pell-marrow",
+      "target_node_id": "loc:gloomwick-causeway",
+      "predicate": "lights_lanterns",
+      "label": "Pell Marrow lights the causeway lanterns at moonrise",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:causeway-moonrise",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:causeway-moonrise"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:d72fbcdad287e1a5",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:gloomwick-causeway",
+      "target_node_id": null,
+      "predicate": "is_open",
+      "label": "The Gloomwick Causeway is open to night carts",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:causeway-open-edict",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:causeway-open-edict"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:692dbca9df0475f8",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:pell-marrow",
+      "target_node_id": "obj:beacon-fuel-tallies",
+      "predicate": "records_fuel_tallies",
+      "label": "Pell Marrow records beacon fuel tallies",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:fuel-tally-end",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:fuel-tally-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:041d3a9d5014a1e7",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:corven-ash",
+      "target_node_id": null,
+      "predicate": "is_fuel_clerk",
+      "label": "Corven Ash is fuel clerk",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:fuel-clerk-still",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:fuel-clerk-still"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:5420f58150e514c9",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:lira-spelt",
+      "target_node_id": "obj:ashpetal-folios",
+      "predicate": "folio_roster_role_conflict",
+      "label": "Clerks dispute whether the Ashpetal folio roster seated Lira Spelt as night clerk or only queued her as standby",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-keeper-ambiguous",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-keeper-ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:3ed3e502da2f502a",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:thornfen-beacon",
+      "target_node_id": null,
+      "predicate": "cracked_historically",
+      "label": "The Thornfen Beacon cracked nine winters earlier",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:beacon-cracked-historical",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:beacon-cracked-historical"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:3057260d5a4c0cdd",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:lira-spelt",
+      "target_node_id": "obj:ashpetal-folio-chest",
+      "predicate": "bolts_folio_chest",
+      "label": "Lira Spelt bolts the Ashpetal folio chest at nightfall",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-locks-nightfall",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-locks-nightfall"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    },
+    {
+      "assertion_id": "assertion:5fb7af52f7731558",
+      "assertion_kind": "attribute",
+      "subject_node_id": "obj:ashpetal-register-ink",
+      "target_node_id": null,
+      "predicate": "is_black",
+      "label": "Ashpetal Register ink is black",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-ink-black",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-adversarial-v13:register-ink-black"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:68352b2958466a15"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

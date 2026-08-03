@@ -1,0 +1,275 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:185df0823ba5c092",
+  "base_contribution_id": "contribution:a9f95729ab0c378f",
+  "base_contribution_source_payload_sha256": "ccb118f6d3f8a7f1b4d99e915b0737d02f94f49de70e1352ee3b15965a3e7edc",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01g-holdout-v15",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v00000000000001",
+      "base_assertion_id": "assertion:ee27c2a2af8e0bc8",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-21",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:tide-horn-session"
+      ],
+      "source_phrase": "Neris Quill sounds the tide-horn thrice",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Session 21 episode licenses occurrence session-21"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000002",
+      "base_assertion_id": "assertion:43f19c97a48f5add",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "at dusk tide",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:ferry-dusk-tide"
+      ],
+      "source_phrase": "leaves at dusk tide",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Recurring ferry schedule; textual occurrence"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000003",
+      "base_assertion_id": "assertion:1131fb59ebcaae89",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-21",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:reckoner-start"
+      ],
+      "source_phrase": "became quay reckoner",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Persistent-state start in Session 21 episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000004",
+      "base_assertion_id": "assertion:1191825403bf6375",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "since the spring thaw",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:vault-sealed-since"
+      ],
+      "source_phrase": "became sealed since the spring thaw",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Persistent-state start boundary textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000005",
+      "base_assertion_id": "assertion:b49813f9a03057f6",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-21",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:reef-ledger-end"
+      ],
+      "source_phrase": "stopped auditing the reef ledger",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Persistent-state end in Session 21 episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000006",
+      "base_assertion_id": "assertion:a576743588c19513",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "after the pier fire",
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:dusk-gong-ceased"
+      ],
+      "source_phrase": "ceased ringing the dusk gong after the pier fire",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Persistent-state end boundary textual"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000007",
+      "base_assertion_id": "assertion:5fdb60f975578b33",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:reckoner-still"
+      ],
+      "source_phrase": "still the quay reckoner",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Persistent restatement without narrated boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000008",
+      "base_assertion_id": "assertion:135b7836d400b922",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:emberglass-identity"
+      ],
+      "source_phrase": "is ordinary glass",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Identity classification without temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000009",
+      "base_assertion_id": "assertion:a61c1383591400f3",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:shoal-intent"
+      ],
+      "source_phrase": "intends to chart every shoal",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Future intent without execution-time expression"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000010",
+      "base_assertion_id": "assertion:cdd4df453fb0efef",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:pier-scribe-missing"
+      ],
+      "source_phrase": "must appoint a pier scribe",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Open obligation without supported temporal value"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000011",
+      "base_assertion_id": "assertion:72e257f48e124234",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:marshal-ambiguous"
+      ],
+      "source_phrase": "whether the tide-horn tally bound Bram Hollow as night watch or merely listed him as alternate",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Competing night-watch binding vs alternate-list readings"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v00000000000012",
+      "base_assertion_id": "assertion:6f267289e9f12821",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:tide-horn-tending"
+      ],
+      "source_phrase": "tends the tide-horn",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "Habitual tending without proposition-first occurrence time"
+      ]
+    }
+  ]
+}

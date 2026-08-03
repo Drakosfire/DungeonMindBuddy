@@ -1,0 +1,146 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:ee27c2a2af8e0bc8",
+    "assertion:43f19c97a48f5add",
+    "assertion:1131fb59ebcaae89",
+    "assertion:1191825403bf6375",
+    "assertion:b49813f9a03057f6",
+    "assertion:a576743588c19513",
+    "assertion:5fdb60f975578b33",
+    "assertion:135b7836d400b922",
+    "assertion:a61c1383591400f3",
+    "assertion:cdd4df453fb0efef",
+    "assertion:72e257f48e124234",
+    "assertion:6f267289e9f12821"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:tide-horn-session",
+      "source_artifact_id": "source-artifact:holdout_v15-tide-horn-session",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/tide-horn-session.md",
+      "content_sha256": "f2b11adc5efe520e28dfa407d7abac881c8c5e7ff2280de0f999178cb7d7a2b0",
+      "source_ref_id": "source-ref:holdout_v15-tide-horn-session",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "tide-horn-session.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:ferry-dusk-tide",
+      "source_artifact_id": "source-artifact:holdout_v15-ferry-dusk-tide",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/ferry-dusk-tide.md",
+      "content_sha256": "23fcc6234f5dfa0bd297fae067259d0a183f1ee4f216456760ba9f91ea924d27",
+      "source_ref_id": "source-ref:holdout_v15-ferry-dusk-tide",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "ferry-dusk-tide.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:reckoner-start",
+      "source_artifact_id": "source-artifact:holdout_v15-reckoner-start",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/reckoner-start.md",
+      "content_sha256": "07b2c803e0964aa084c2d607516851570decfcd187e54c7e3b58cef282776314",
+      "source_ref_id": "source-ref:holdout_v15-reckoner-start",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "reckoner-start.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:vault-sealed-since",
+      "source_artifact_id": "source-artifact:holdout_v15-vault-sealed-since",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/vault-sealed-since.md",
+      "content_sha256": "ac839cd60ad7bacb79a4da02040c150c742f2f892cf20fc1802ce7b292989b07",
+      "source_ref_id": "source-ref:holdout_v15-vault-sealed-since",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "vault-sealed-since.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:reef-ledger-end",
+      "source_artifact_id": "source-artifact:holdout_v15-reef-ledger-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/reef-ledger-end.md",
+      "content_sha256": "69d9997d96485c9aef4c5a48c14ad17fb680aa18f8ac41a37fda5019c99f5ce6",
+      "source_ref_id": "source-ref:holdout_v15-reef-ledger-end",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "reef-ledger-end.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:dusk-gong-ceased",
+      "source_artifact_id": "source-artifact:holdout_v15-dusk-gong-ceased",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/dusk-gong-ceased.md",
+      "content_sha256": "f4b0d87e8034393229e9b6dd06a6976a46ed2928066a8f27f2c6bc5c4d827710",
+      "source_ref_id": "source-ref:holdout_v15-dusk-gong-ceased",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "dusk-gong-ceased.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:reckoner-still",
+      "source_artifact_id": "source-artifact:holdout_v15-reckoner-still",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/reckoner-still.md",
+      "content_sha256": "4a49f2720345b7d89f37e797809101ce5477285de9b5a4b8077a71c88f603388",
+      "source_ref_id": "source-ref:holdout_v15-reckoner-still",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "reckoner-still.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:emberglass-identity",
+      "source_artifact_id": "source-artifact:holdout_v15-emberglass-identity",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/emberglass-identity.md",
+      "content_sha256": "881ba3901c1b915e4631a88c174a094dd8afe94dbf5f944ba3c3277be5a266c1",
+      "source_ref_id": "source-ref:holdout_v15-emberglass-identity",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "emberglass-identity.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:shoal-intent",
+      "source_artifact_id": "source-artifact:holdout_v15-shoal-intent",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/shoal-intent.md",
+      "content_sha256": "5212dec5fc38184e26cd852810bf1f8ba6ffac2966872024310c263118c743cc",
+      "source_ref_id": "source-ref:holdout_v15-shoal-intent",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "shoal-intent.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:pier-scribe-missing",
+      "source_artifact_id": "source-artifact:holdout_v15-pier-scribe-missing",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/pier-scribe-missing.md",
+      "content_sha256": "15ae7f52f9ec336b2c4ddaa9fa19b6e39f8ec6d7bb9f169dd3b8d04058fcafe0",
+      "source_ref_id": "source-ref:holdout_v15-pier-scribe-missing",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "pier-scribe-missing.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:marshal-ambiguous",
+      "source_artifact_id": "source-artifact:holdout_v15-marshal-ambiguous",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/marshal-ambiguous.md",
+      "content_sha256": "9963d300c35fb11210e9f83388bd9f0a3bb72a35cec12ef2fd8957b8a12effa6",
+      "source_ref_id": "source-ref:holdout_v15-marshal-ambiguous",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "marshal-ambiguous.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-holdout-v15:tide-horn-tending",
+      "source_artifact_id": "source-artifact:holdout_v15-session-21-tide-horn-tending",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/session-21-tide-horn-tending.md",
+      "content_sha256": "d1bbded5f2df89eb12e608c98dd15c5cf88a115635647ca84aa9dfad12e7d0de",
+      "source_ref_id": "source-ref:holdout_v15-session-21-tide-horn-tending",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "session-21-tide-horn-tending.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "ab5ab1f2b4dd3bd77b5750bb6ec826f1ccd80da69e7608e3459cca1d036e304e",
+  "gold_overlay_sha256": "cb8b3739d7ec79e3215d9c4e6fb61bb990846a72afabcb045f95027d788b48b8",
+  "case_id": "tl01g-temporal-shadow-holdout-v15-tl01g-v1",
+  "prompt_version": "tl01g-v1"
+}
