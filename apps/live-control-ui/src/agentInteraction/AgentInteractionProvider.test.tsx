@@ -1979,6 +1979,145 @@ describe("AgentInteractionProvider projection catalog registration", () => {
     });
   });
 
+  it("opens a native Projection when tool id differs from activation.projectionId", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = {
+      surfaceId: "native",
+      label: "Native",
+      identity: buildSurfaceInteractionIdentity({
+        surfaceId: "native",
+        instanceParts: ["divergent-ids"],
+      }),
+      canvas: null,
+      agentContext: null,
+      tools: [{
+        id: "find-existing",
+        label: "Find Existing",
+        placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+        availability: { status: "enabled" as const },
+        activation: {
+          kind: "projection" as const,
+          projectionId: "graph-reference-search",
+        },
+      }],
+      editCommands: [],
+      projections: [{
+        id: "graph-reference-search",
+        kind: "tool" as const,
+        preferredSize: "wide" as const,
+        bindingIds: [],
+      }],
+      projectionBindings: [],
+    };
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(publication);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("find-existing")).toBe(true);
+    });
+    expect(result.current.active).toEqual({
+      kind: "tool",
+      key: "graph-reference-search",
+      size: "wide",
+      title: "Find Existing",
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("graph-reference-search")).toBe(false);
+    });
+  });
+
+  it("clears a native Projection on same-identity tool removal and does not resurrect it", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const identity = buildSurfaceInteractionIdentity({
+      surfaceId: "native",
+      instanceParts: ["no-resurrect"],
+    });
+    const withTool = {
+      surfaceId: "native",
+      label: "Native",
+      identity,
+      canvas: null,
+      agentContext: null,
+      tools: [{
+        id: "find-existing",
+        label: "Find Existing",
+        placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+        availability: { status: "enabled" as const },
+        activation: {
+          kind: "projection" as const,
+          projectionId: "graph-reference-search",
+        },
+      }],
+      editCommands: [],
+      projections: [{
+        id: "graph-reference-search",
+        kind: "tool" as const,
+        preferredSize: "wide" as const,
+        bindingIds: [],
+      }],
+      projectionBindings: [],
+    };
+    const withoutTool = {
+      ...withTool,
+      tools: [],
+      projections: [],
+    };
+
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(withTool);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("find-existing")).toBe(true);
+    });
+    expect(result.current.active?.key).toBe("graph-reference-search");
+
+    act(() => {
+      result.current.updateSurfaceInteractionPublication(withoutTool);
+    });
+    expect(result.current.active).toBeNull();
+
+    act(() => {
+      result.current.updateSurfaceInteractionPublication(withTool);
+    });
+    expect(result.current.active).toBeNull();
+
+    act(() => {
+      expect(result.current.activateProjectionTool("find-existing")).toBe(true);
+    });
+    expect(result.current.active?.key).toBe("graph-reference-search");
+  });
+
+  it("awaits a registered async activator before reporting success", async () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    let resolveActivator!: (value: boolean) => void;
+    const activator = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveActivator = resolve;
+        }),
+    );
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionToolActivator(activator);
+    });
+
+    let pending!: Promise<boolean>;
+    act(() => {
+      const opened = result.current.activateProjectionTool("recap");
+      expect(opened).toBeInstanceOf(Promise);
+      pending = opened as Promise<boolean>;
+    });
+    expect(activator).toHaveBeenCalledWith("recap");
+    expect(result.current.active).toBeNull();
+
+    await act(async () => {
+      resolveActivator(true);
+      await expect(pending).resolves.toBe(true);
+    });
+  });
+
   it("routes activateProjectionTool through a registered activator on the current lease", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     const activator = vi.fn();

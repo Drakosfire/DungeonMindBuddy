@@ -12,6 +12,8 @@ import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
 } from "../../agentInteraction/surfaceInteractionCompat";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
+import { getRecapArtifacts } from "../../api/liveApi";
+import type { RecapArtifactsListResponse } from "../../api/types";
 import type { AppChromeAction } from "../../chrome/AppChrome";
 import type { SurfaceConfig } from "../../planSurface/types";
 import { fixturePlanSessionDescriptor } from "../../planSurface/config/planSessionDescriptor";
@@ -20,6 +22,14 @@ import { LegacyProjectionHostAdapter } from "../../planSurface/projection/Legacy
 import { buildSurfaceInteractionIdentity } from "../surfaceIdentity";
 import type { SurfaceInteractionPublication, SurfaceInteractionToolContribution } from "../types";
 import { ToolHost } from "./ToolHost";
+
+vi.mock("../../api/liveApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../api/liveApi")>();
+  return {
+    ...actual,
+    getRecapArtifacts: vi.fn(async () => ({ records: [] })),
+  };
+});
 
 function SurfaceRoutePublisher() {
   usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.surface);
@@ -77,6 +87,7 @@ function renderToolHost(children: ReactNode) {
 describe("ToolHost", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getRecapArtifacts).mockResolvedValue({ records: [] });
   });
 
   it("renders nothing when the effective publication has no tools", () => {
@@ -553,6 +564,107 @@ describe("ToolHost", () => {
 
     await waitFor(() => {
       expect(hostApi!.active?.key).toBe("native-recap");
+    });
+  });
+
+  it("passes Tool id when it differs from activation.projectionId", async () => {
+    const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    const publication = makeNativePublication([
+      makeTool({
+        id: "find-existing",
+        label: "Find Existing",
+        activation: { kind: "projection", projectionId: "graph-reference-search" },
+      }),
+    ]);
+    publication.projections = [
+      {
+        id: "graph-reference-search",
+        kind: "tool",
+        preferredSize: "wide",
+        bindingIds: [],
+      },
+    ];
+
+    renderToolHost(
+      <>
+        <CaptureApi />
+        <NativeToolsPublisher publication={publication} />
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: "Find Existing" }));
+
+    await waitFor(() => {
+      expect(hostApi!.active).toEqual({
+        kind: "tool",
+        key: "graph-reference-search",
+        size: "wide",
+        title: "Find Existing",
+      });
+    });
+    expect(screen.getByRole("button", { name: "Tools" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("keeps the launcher open until async compatibility activation settles", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/plan");
+
+    let resolveLookup!: (value: RecapArtifactsListResponse) => void;
+    vi.mocked(getRecapArtifacts).mockImplementation(
+      () =>
+        new Promise<RecapArtifactsListResponse>((resolve) => {
+          resolveLookup = resolve;
+        }),
+    );
+
+    const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
+    const planConfig: SurfaceConfig = {
+      id: "plan",
+      label: "Plan",
+      context: {
+        campaignId: sessionDescriptor.campaignId,
+        headerLabel: sessionDescriptor.planningDocument.title,
+        ingestSession: 21,
+        liveSession: 22,
+      },
+      tools: [{ id: "recap", label: "Recap", size: "wide" }],
+      canvas: { documentId: sessionDescriptor.planningDocument.documentId },
+      theme: {},
+      sessionDescriptor,
+    };
+
+    render(
+      <AgentInteractionProjectionTestHost config={planConfig}>
+        <LegacyProjectionHostAdapter />
+        <ToolHost />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    const toggle = await screen.findByRole("button", { name: "Tools" });
+    await user.click(toggle);
+    const toolboxDrawer = screen.getByLabelText("Tools toolbar");
+    await user.click(within(toolboxDrawer).getByRole("button", { name: "Recap" }));
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(window.location.search).not.toContain("tool=recap");
+
+    resolveLookup({ records: [] });
+
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+    });
+    await waitFor(() => {
+      expect(window.location.search).toContain("tool=recap");
     });
   });
 });

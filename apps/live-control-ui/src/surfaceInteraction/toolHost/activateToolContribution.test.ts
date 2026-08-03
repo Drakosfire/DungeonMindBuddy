@@ -118,6 +118,55 @@ describe("activateToolContribution", () => {
     expect(openProjectionTool).toHaveBeenCalledWith("recap");
   });
 
+  it("passes the Tool contribution id when it differs from activation.projectionId", () => {
+    const openProjectionTool = vi.fn(() => true);
+    const publication = makePublication([
+      projectionTool("find-existing", "graph-reference-search"),
+    ]);
+
+    expect(
+      activateToolContribution({
+        publication,
+        toolId: "find-existing",
+        openProjectionTool,
+      }),
+    ).toEqual({
+      status: "opened",
+      mode: "projection",
+      projectionId: "graph-reference-search",
+    });
+    expect(openProjectionTool).toHaveBeenCalledWith("find-existing");
+    expect(openProjectionTool).not.toHaveBeenCalledWith("graph-reference-search");
+  });
+
+  it("awaits async host callbacks before reporting projection opened", async () => {
+    let resolveOpen!: (value: boolean) => void;
+    const openProjectionTool = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveOpen = resolve;
+        }),
+    );
+    const publication = makePublication([
+      projectionTool("find-existing", "graph-reference-search"),
+    ]);
+
+    const pending = activateToolContribution({
+      publication,
+      toolId: "find-existing",
+      openProjectionTool,
+    });
+    expect(pending).toBeInstanceOf(Promise);
+    expect(openProjectionTool).toHaveBeenCalledWith("find-existing");
+
+    resolveOpen(true);
+    await expect(pending).resolves.toEqual({
+      status: "opened",
+      mode: "projection",
+      projectionId: "graph-reference-search",
+    });
+  });
+
   it("returns ignored when the host callback declines projection activation", () => {
     const openProjectionTool = vi.fn(() => false);
     const publication = makePublication([projectionTool("recap", "recap")]);
