@@ -1,0 +1,124 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/base-contribution.json",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/gold-overlay.json",
+  "selected_assertion_ids": [
+    "assertion:1d82e3638a885810",
+    "assertion:ea6b7307edde4448",
+    "assertion:bd8eefd165efe613",
+    "assertion:d72fbcdad287e1a5",
+    "assertion:692dbca9df0475f8",
+    "assertion:041d3a9d5014a1e7",
+    "assertion:5420f58150e514c9",
+    "assertion:3ed3e502da2f502a",
+    "assertion:3057260d5a4c0cdd",
+    "assertion:5fb7af52f7731558"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-keeps-session19",
+      "source_artifact_id": "source-artifact:adversarial_v13-register-keeps-session19",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-keeps-session19.md",
+      "content_sha256": "dd026feb377ab486ce621301d20d04e2f8a41bed9a6c3c3d56580541fe6e035b",
+      "source_ref_id": "source-ref:adversarial_v13-register-keeps-session19",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "register-keeps-session19.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:beacon-fog-prerequisite",
+      "source_artifact_id": "source-artifact:adversarial_v13-beacon-fog-prerequisite",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/beacon-fog-prerequisite.md",
+      "content_sha256": "65d5ef51369a9dc4811bc6938376a57ae40623121d13fbca5beff39b3efc4d04",
+      "source_ref_id": "source-ref:adversarial_v13-beacon-fog-prerequisite",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "beacon-fog-prerequisite.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:causeway-moonrise",
+      "source_artifact_id": "source-artifact:adversarial_v13-causeway-moonrise",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/causeway-moonrise.md",
+      "content_sha256": "d51634c740b42451499faf2d690b339f6ef99c25ccae28403930027775eb39cf",
+      "source_ref_id": "source-ref:adversarial_v13-causeway-moonrise",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "causeway-moonrise.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:causeway-open-edict",
+      "source_artifact_id": "source-artifact:adversarial_v13-causeway-open-edict",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/causeway-open-edict.md",
+      "content_sha256": "eeae1d2ca2b5111f45905e2aa9b17a30479d664f9cebbbd4f4152687b71a2cb4",
+      "source_ref_id": "source-ref:adversarial_v13-causeway-open-edict",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "causeway-open-edict.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:fuel-tally-end",
+      "source_artifact_id": "source-artifact:adversarial_v13-fuel-tally-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/fuel-tally-end.md",
+      "content_sha256": "4f42a7da9369f25acaff1c6af82577c52fe6fa6fe7d2b1bcde60274cabcdf8ad",
+      "source_ref_id": "source-ref:adversarial_v13-fuel-tally-end",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "fuel-tally-end.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:fuel-clerk-still",
+      "source_artifact_id": "source-artifact:adversarial_v13-fuel-clerk-still",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/fuel-clerk-still.md",
+      "content_sha256": "2bf3730ed454003faa3acbd6c072addc0dfa84d33043e7594f85ea889725183c",
+      "source_ref_id": "source-ref:adversarial_v13-fuel-clerk-still",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "fuel-clerk-still.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-keeper-ambiguous",
+      "source_artifact_id": "source-artifact:adversarial_v13-register-keeper-ambiguous",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-keeper-ambiguous.md",
+      "content_sha256": "da41ff52dd037cb420990235f23b5690a2dbc7239cfbd191f31a28caea4c9d69",
+      "source_ref_id": "source-ref:adversarial_v13-register-keeper-ambiguous",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "register-keeper-ambiguous.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:beacon-cracked-historical",
+      "source_artifact_id": "source-artifact:adversarial_v13-beacon-cracked-historical",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/beacon-cracked-historical.md",
+      "content_sha256": "a6dfdcc2b344b2f19c6c66069aefbdec555c1e238d2612172db35ca381da62e0",
+      "source_ref_id": "source-ref:adversarial_v13-beacon-cracked-historical",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "beacon-cracked-historical.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-locks-nightfall",
+      "source_artifact_id": "source-artifact:adversarial_v13-register-locks-nightfall",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-locks-nightfall.md",
+      "content_sha256": "33e3fc98f7943c60ecad607da7d8fbe16ff7d78b741815573ea12f1f0da620c9",
+      "source_ref_id": "source-ref:adversarial_v13-register-locks-nightfall",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "register-locks-nightfall.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01g-adversarial-v13:register-ink-black",
+      "source_artifact_id": "source-artifact:adversarial_v13-register-ink-black",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-ink-black.md",
+      "content_sha256": "da250b8f21b335e4de0aea37cf7e945d3701112b76130b61b724f53f563a71cb",
+      "source_ref_id": "source-ref:adversarial_v13-register-ink-black",
+      "start_line": 1,
+      "end_line": 1,
+      "label": "register-ink-black.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "base_contribution_sha256": "1a751d5363751d15faaebce81746af2535d2d736137f59abd86cad5ae446336a",
+  "gold_overlay_sha256": "edb2c8422325b1b6859bfc9f0cd9c0c04a7f75267f5fdd1981b69f8f17605a71",
+  "case_id": "tl01g-temporal-shadow-adversarial-v13-tl01f-v1",
+  "prompt_version": "tl01f-v1"
+}
