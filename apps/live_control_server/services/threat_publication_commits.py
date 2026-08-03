@@ -260,8 +260,8 @@ _LEGACY_SEAL_ORDER_MESSAGE = (
 
 _LEGACY_COMMIT_CLAIM_NO_REVISION_MESSAGE = (
     "commit claim uses pre-reconstruction seal-order assertion IDs and no "
-    "recoverable revision was found; proposal supersession is blocked after a "
-    "commit claim"
+    "recoverable revision was found; a new publication operation is required "
+    "(proposal supersession remains blocked after a commit claim)"
 )
 
 _IDENTITY_UNAVAILABLE_LABELS = frozenset(
@@ -460,6 +460,32 @@ def _record_contribution_matches_authority(
     return contribution, None
 
 
+def _historical_contribution_source_digest(
+    contribution: GraphContribution,
+    sealed_proposal: Mapping[str, Any] | None,
+) -> str | None:
+    """Digest of the reconstructed contribution reordered to historical seal order.
+
+    Old c1 persisted seal-time assertion order; the contribution source digest
+    therefore differs from current reconstruction order even when the assertion
+    set is identical. Derive the historical payload from immutable sealed
+    ``effect.accepted_proposals`` order plus the reconstructed assertion objects.
+    """
+    historical_ids = _historical_seal_order_ids(sealed_proposal)
+    if historical_ids is None:
+        return None
+    by_id = {item.assertion_id: item for item in contribution.accepted_assertions}
+    if len(by_id) != len(historical_ids) or set(by_id) != set(historical_ids):
+        return None
+    try:
+        ordered = contribution.model_copy(
+            update={"accepted_assertions": [by_id[assertion_id] for assertion_id in historical_ids]}
+        )
+    except KeyError:
+        return None
+    return kernel.compute_contribution_source_payload_sha256(ordered)
+
+
 def _record_matches_c2a_trust(
     record: ThreatPublicationCommitV1,
     proposal: ThreatPublicationProposalV1,
@@ -473,8 +499,9 @@ def _record_matches_c2a_trust(
 
     Live identity selected_target authority is deferred until after a zero-match
     c2a result (committing replay must consult revision authority first).
-    Legacy seal-order claims keep contribution_id trust but cannot require
-    reconstruction order or reconstruction source-digest equality.
+    Legacy seal-order claims keep contribution_id trust and require the persisted
+    source digest to equal the derived historical seal-order payload digest —
+    not the current reconstruction digest.
     """
     if order_disposition in {"corrupt_permutation", "set_mismatch"}:
         return "accepted_assertion_ids_mismatch"
@@ -494,6 +521,14 @@ def _record_matches_c2a_trust(
     if contribution.contribution_id != record.expected_contribution_id:
         return "contribution_id_mismatch"
     if order_disposition == "legacy_seal_order":
+        historical_digest = _historical_contribution_source_digest(
+            contribution, proposal.sealed_proposal
+        )
+        if (
+            historical_digest is None
+            or historical_digest != record.expected_contribution_source_payload_sha256
+        ):
+            return "contribution_source_digest_mismatch"
         return None
     if not _unmodified_contribution_matches_expected_ids(
         contribution, list(record.accepted_assertion_ids)
@@ -503,6 +538,69 @@ def _record_matches_c2a_trust(
     if digest != record.expected_contribution_source_payload_sha256:
         return "contribution_source_digest_mismatch"
     return None
+
+
+def _advance_committed_verification(
+    *,
+    root: Path,
+    world_root: Path,
+    record: ThreatPublicationCommitV1,
+    proposal: ThreatPublicationProposalV1,
+    contribution: GraphContribution,
+    lookup_fn: LookupFn,
+) -> tuple[ThreatPublicationCommitV1, ThreatPublicationCommitResultLabel, str | None]:
+    """Verify a persisted committed_unverified receipt; never hide it on verify-save failure.
+
+    For connect_existing, exact SBW09b selected_target authority is required before
+    any verification that could advance to committed_verified:
+
+    - unavailable → keep committed_unverified
+    - integrity / contradictory snapshot → integrity failure (receipt unchanged)
+    - exact match → run full verification
+    """
+    if record.decision == "connect_existing":
+        identity = read_identity_resolution(
+            root, record.draft_id, record.operation_id, record.resolution_id
+        )
+        identity_status, selected_target_authority, identity_detail = (
+            _connect_selected_target_authority(identity)
+        )
+        if identity_status == "unavailable":
+            return (
+                record,
+                "publication_commit_committed_unverified",
+                identity_detail,
+            )
+        if identity_status == "integrity":
+            return (
+                record,
+                "publication_commit_integrity_failure",
+                identity_detail,
+            )
+        if not _selected_targets_equal(record.selected_target, selected_target_authority):
+            return (
+                record,
+                "publication_commit_integrity_failure",
+                "commit record authority mismatch: selected_target_mismatch",
+            )
+
+    verified = _verify_committed(
+        root=root,
+        world_root=world_root,
+        record=record,
+        proposal=proposal,
+        contribution=contribution,
+        lookup_fn=lookup_fn,
+    )
+    try:
+        _save_commit(root, verified)
+    except ThreatPublicationCommitStorageError:
+        return (
+            record,
+            "publication_commit_committed_unverified",
+            "verification could not persist",
+        )
+    return verified, _label_for_state(verified), None
 
 
 def _statblock_id_from_resource_node_id(node_id: str) -> str | None:
@@ -1339,13 +1437,21 @@ def _reconcile(
     merge_fn: MergeFn,
     published_false: bool,
     merge_calls: int,
-) -> tuple[ThreatPublicationCommitV1, int, ThreatPublicationCommitResultLabel, bool]:
+) -> tuple[
+    ThreatPublicationCommitV1,
+    int,
+    ThreatPublicationCommitResultLabel,
+    bool,
+    str | None,
+]:
     """Reconcile an uncertain outcome through c2a.
 
     The fourth return value is True only when the lookup completed and returned
     zero matches with attempt_count==1, so the caller may run the one governed
     recovery retry. Transient lookup unavailability and integrity-unloadable
     authority keep state=committing but must never merge again in this request.
+    The fifth return value is an optional response message (e.g. identity gap
+    after a recovered committed receipt).
     """
     try:
         matches = lookup_fn(
@@ -1357,6 +1463,7 @@ def _reconcile(
             merge_calls,
             "publication_commit_integrity_failure",
             False,
+            None,
         )
     except OSError:
         return (
@@ -1364,6 +1471,7 @@ def _reconcile(
             merge_calls,
             "publication_commit_recovery_pending",
             False,
+            None,
         )
     except Exception:
         return (
@@ -1371,12 +1479,13 @@ def _reconcile(
             merge_calls,
             "publication_commit_integrity_failure",
             False,
+            None,
         )
 
     if len(matches) > 1:
         updated = _with_updated(record, state="ambiguous")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_outcome_ambiguous", False
+        return updated, merge_calls, "publication_commit_outcome_ambiguous", False, None
 
     if len(matches) == 1:
         try:
@@ -1384,11 +1493,11 @@ def _reconcile(
                 manifest=matches[0], record=record, world_root=world_root
             )
         except WorldGraphIntegrityError:
-            return record, merge_calls, "publication_commit_integrity_failure", False
+            return record, merge_calls, "publication_commit_integrity_failure", False, None
         if not ok:
             updated = _with_updated(record, state="ambiguous")
             _save_commit(root, updated)
-            return updated, merge_calls, "publication_commit_outcome_ambiguous", False
+            return updated, merge_calls, "publication_commit_outcome_ambiguous", False, None
         updated = _with_updated(
             record,
             state="committed_unverified",
@@ -1398,7 +1507,7 @@ def _reconcile(
         )
         _save_commit(root, updated)
         if proposal is not None and contribution is not None:
-            verified = _verify_committed(
+            verified, label, message = _advance_committed_verification(
                 root=root,
                 world_root=world_root,
                 record=updated,
@@ -1406,23 +1515,22 @@ def _reconcile(
                 contribution=contribution,
                 lookup_fn=lookup_fn,
             )
-            _save_commit(root, verified)
-            return verified, merge_calls, _label_for_state(verified), False
-        return updated, merge_calls, "publication_commit_committed_unverified", False
+            return verified, merge_calls, label, False, message
+        return updated, merge_calls, "publication_commit_committed_unverified", False, None
 
     # zero matches
     if published_false:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", False
+        return updated, merge_calls, "publication_commit_uncommitted", False, None
 
     if record.merge_attempt_count >= 2:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", False
+        return updated, merge_calls, "publication_commit_uncommitted", False, None
 
     # Conditional single retry requires full revalidation by caller.
-    return record, merge_calls, "publication_commit_recovery_pending", True
+    return record, merge_calls, "publication_commit_recovery_pending", True, None
 
 
 def _admit_and_build_record(
@@ -1735,15 +1843,15 @@ def _maybe_retry(
     merge_fn: MergeFn,
     lookup_fn: LookupFn,
     merge_calls: int,
-) -> tuple[ThreatPublicationCommitV1, int, ThreatPublicationCommitResultLabel]:
+) -> tuple[ThreatPublicationCommitV1, int, ThreatPublicationCommitResultLabel, str | None]:
     try:
         head, _rev, _store = kernel.open_current_world_graph(world_root, record.world_id)
     except Exception:
-        return record, merge_calls, "publication_commit_graph_unavailable"
+        return record, merge_calls, "publication_commit_graph_unavailable", None
     if head.head_revision_id != record.expected_parent_revision_id:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted"
+        return updated, merge_calls, "publication_commit_uncommitted", None
 
     identity = read_identity_resolution(
         root, record.draft_id, record.operation_id, record.resolution_id
@@ -1758,7 +1866,7 @@ def _maybe_retry(
     ):
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted"
+        return updated, merge_calls, "publication_commit_uncommitted", None
 
     refresh = refresh_publication_operation(root, record.draft_id, record.operation_id)
     operation = refresh.response.operation
@@ -1770,7 +1878,7 @@ def _maybe_retry(
     ):
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted"
+        return updated, merge_calls, "publication_commit_uncommitted", None
 
     try:
         _verified, rebuilt = resolve_merged_contribution_from_package(
@@ -1785,7 +1893,7 @@ def _maybe_retry(
     except Exception:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted"
+        return updated, merge_calls, "publication_commit_uncommitted", None
 
     if (
         not _unmodified_contribution_matches_expected_ids(
@@ -1797,7 +1905,7 @@ def _maybe_retry(
     ):
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted"
+        return updated, merge_calls, "publication_commit_uncommitted", None
 
     attempt2 = _with_updated(record, merge_attempt_count=2)
     _save_commit(root, attempt2)
@@ -1811,7 +1919,7 @@ def _maybe_retry(
         merge_calls += 1
     except Exception:
         merge_calls += 1
-        updated, merge_calls, label, _allow_retry = _reconcile(
+        updated, merge_calls, label, _allow_retry, message = _reconcile(
             root=root,
             world_root=world_root,
             record=attempt2,
@@ -1822,7 +1930,7 @@ def _maybe_retry(
             published_false=False,
             merge_calls=merge_calls,
         )
-        return updated, merge_calls, label
+        return updated, merge_calls, label, message
 
     if _direct_publish_usable(result, attempt2):
         updated = _with_updated(
@@ -1833,7 +1941,7 @@ def _maybe_retry(
             verification_status="not_started",
         )
         _save_commit(root, updated)
-        verified = _verify_committed(
+        verified, label, message = _advance_committed_verification(
             root=root,
             world_root=world_root,
             record=updated,
@@ -1841,10 +1949,9 @@ def _maybe_retry(
             contribution=rebuilt,
             lookup_fn=lookup_fn,
         )
-        _save_commit(root, verified)
-        return verified, merge_calls, _label_for_state(verified)
+        return verified, merge_calls, label, message
 
-    updated, merge_calls, label, _allow_retry = _reconcile(
+    updated, merge_calls, label, _allow_retry, message = _reconcile(
         root=root,
         world_root=world_root,
         record=attempt2,
@@ -1855,7 +1962,7 @@ def _maybe_retry(
         published_false=(result.published is False),
         merge_calls=merge_calls,
     )
-    return updated, merge_calls, label
+    return updated, merge_calls, label, message
 
 
 def confirm_threat_publication(
@@ -2090,16 +2197,18 @@ def confirm_threat_publication(
                 reconcile_contribution = (
                     contribution if order_disposition == "exact" else None
                 )
-                updated, merge_calls, label, allow_zero_match_retry = _reconcile(
-                    root=root,
-                    world_root=configured_world,
-                    record=record,
-                    proposal=proposal,
-                    contribution=reconcile_contribution,
-                    lookup_fn=lookup,
-                    merge_fn=merge,
-                    published_false=False,
-                    merge_calls=merge_calls,
+                updated, merge_calls, label, allow_zero_match_retry, reconcile_message = (
+                    _reconcile(
+                        root=root,
+                        world_root=configured_world,
+                        record=record,
+                        proposal=proposal,
+                        contribution=reconcile_contribution,
+                        lookup_fn=lookup,
+                        merge_fn=merge,
+                        published_false=False,
+                        merge_calls=merge_calls,
+                    )
                 )
                 if updated.state != "committing":
                     return CommitOutcome(
@@ -2111,19 +2220,24 @@ def confirm_threat_publication(
                             label,
                             commit=updated,
                             retry_allowed=_retry_allowed(updated),
+                            message=reconcile_message,
                         ),
                         merge_calls=merge_calls,
                     )
 
                 if order_disposition == "legacy_seal_order":
+                    # Authoritative zero c2a matches for a recognized legacy claim:
+                    # persist terminal uncommitted. Supersession remains blocked.
+                    terminal = _with_updated(updated, state="uncommitted")
+                    _save_commit(root, terminal)
                     return CommitOutcome(
                         _response(
                             safe_draft,
                             safe_op,
                             safe_proposal,
                             safe_commit,
-                            "publication_commit_integrity_failure",
-                            commit=updated,
+                            "publication_commit_uncommitted",
+                            commit=terminal,
                             message=_LEGACY_COMMIT_CLAIM_NO_REVISION_MESSAGE,
                         ),
                         merge_calls=merge_calls,
@@ -2156,6 +2270,8 @@ def confirm_threat_publication(
                                 merge_calls=merge_calls,
                             )
                         if identity_status == "integrity":
+                            # Corrupt identity storage: integrity without pretending
+                            # the outcome is uncommitted.
                             return CommitOutcome(
                                 _response(
                                     safe_draft,
@@ -2171,22 +2287,25 @@ def confirm_threat_publication(
                         if not _selected_targets_equal(
                             updated.selected_target, selected_target_authority
                         ):
+                            terminal = _with_updated(updated, state="uncommitted")
+                            _save_commit(root, terminal)
                             return CommitOutcome(
                                 _response(
                                     safe_draft,
                                     safe_op,
                                     safe_proposal,
                                     safe_commit,
-                                    "publication_commit_integrity_failure",
-                                    commit=updated,
+                                    "publication_commit_uncommitted",
+                                    commit=terminal,
                                     message=(
                                         "commit record authority mismatch: "
-                                        "selected_target_mismatch"
+                                        "selected_target_mismatch; a new "
+                                        "publication operation is required"
                                     ),
                                 ),
                                 merge_calls=merge_calls,
                             )
-                    updated, merge_calls, label = _maybe_retry(
+                    updated, merge_calls, label, retry_message = _maybe_retry(
                         root=root,
                         world_root=configured_world,
                         record=updated,
@@ -2196,6 +2315,8 @@ def confirm_threat_publication(
                         lookup_fn=lookup,
                         merge_calls=merge_calls,
                     )
+                else:
+                    retry_message = None
                 return CommitOutcome(
                     _response(
                         safe_draft,
@@ -2205,6 +2326,7 @@ def confirm_threat_publication(
                         label,
                         commit=updated,
                         retry_allowed=_retry_allowed(updated),
+                        message=retry_message,
                     ),
                     merge_calls=merge_calls,
                 )
@@ -2396,7 +2518,7 @@ def confirm_threat_publication(
                     created=True,
                     merge_calls=merge_calls,
                 )
-            verified = _verify_committed(
+            verified, label, verify_message = _advance_committed_verification(
                 root=root,
                 world_root=configured_world,
                 record=updated,
@@ -2404,53 +2526,41 @@ def confirm_threat_publication(
                 contribution=contribution,
                 lookup_fn=lookup,
             )
-            try:
-                _save_commit(root, verified)
-            except ThreatPublicationCommitStorageError:
-                return CommitOutcome(
-                    _response(
-                        safe_draft,
-                        safe_op,
-                        safe_proposal,
-                        safe_commit,
-                        "publication_commit_committed_unverified",
-                        commit=updated,
-                        retry_allowed=False,
-                        message="verification could not persist",
-                    ),
-                    created=True,
-                    merge_calls=merge_calls,
-                )
             return CommitOutcome(
                 _response(
                     safe_draft,
                     safe_op,
                     safe_proposal,
                     safe_commit,
-                    _label_for_state(verified),
+                    label,
                     commit=verified,
+                    retry_allowed=_retry_allowed(verified),
+                    message=verify_message,
                 ),
                 created=True,
                 merge_calls=merge_calls,
             )
 
-        updated, merge_calls, label, allow_zero_match_retry = _reconcile(
-            root=root,
-            world_root=configured_world,
-            record=record,
-            proposal=proposal,
-            contribution=contribution,
-            lookup_fn=lookup,
-            merge_fn=merge,
-            published_false=published_false,
-            merge_calls=merge_calls,
+        updated, merge_calls, label, allow_zero_match_retry, reconcile_message = (
+            _reconcile(
+                root=root,
+                world_root=configured_world,
+                record=record,
+                proposal=proposal,
+                contribution=contribution,
+                lookup_fn=lookup,
+                merge_fn=merge,
+                published_false=published_false,
+                merge_calls=merge_calls,
+            )
         )
+        outcome_message = reconcile_message
         if (
             allow_zero_match_retry
             and updated.state == "committing"
             and updated.merge_attempt_count == 1
         ):
-            updated, merge_calls, label = _maybe_retry(
+            updated, merge_calls, label, outcome_message = _maybe_retry(
                 root=root,
                 world_root=configured_world,
                 record=updated,
@@ -2469,6 +2579,7 @@ def confirm_threat_publication(
                 label,
                 commit=updated,
                 retry_allowed=_retry_allowed(updated),
+                message=outcome_message,
             ),
             created=True,
             merge_calls=merge_calls,
