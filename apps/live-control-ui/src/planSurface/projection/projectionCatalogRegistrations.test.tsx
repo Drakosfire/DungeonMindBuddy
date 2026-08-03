@@ -21,6 +21,8 @@ import {
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
 import { useProjection } from "./projectionContext";
 import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "./projectionBindings";
+import { GraphReviewDiagnosticsProjectionBinding } from "../graphReviewWorkbench/GraphReviewDiagnosticsProjectionBinding";
+import { GraphReviewLiveStateProvider } from "../graphReviewWorkbench/GraphReviewLiveStateContext";
 
 vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
@@ -198,5 +200,33 @@ describe("IngestProjectionCatalogRegistration integration", () => {
     await waitFor(() => {
       expect(screen.getByText("Projection unavailable.")).toBeInTheDocument();
     });
+  });
+
+  it("renders diagnostics panel when the current payload binding is present", async () => {
+    const user = userEvent.setup();
+    render(
+      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-21"
+          liveRun={null}
+          hasGold={false}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <GraphReviewDiagnosticsProjectionBinding />
+        </GraphReviewLiveStateProvider>
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: "Diagnostics" }));
+    expect(
+      await screen.findByText(/Select a live run with a projection to inspect diagnostics/i),
+    ).toBeInTheDocument();
   });
 });
