@@ -24,8 +24,8 @@ import {
   readGraphReferenceResolutionBinding,
   readPlanContextBinding,
   readPlanSurfaceConfigBinding,
+  stabilizeStringSetMembership,
 } from "./projectionBindings";
-import { stabilizeStringSetMembership } from "./projectionCatalogMembership";
 import { useProjection } from "./projectionContext";
 
 export interface PlanProjectionDefinition {
