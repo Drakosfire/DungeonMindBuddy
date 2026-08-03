@@ -3181,6 +3181,62 @@ def test_holdout_v15_source_time_trap_is_unresolved() -> None:
     assert trap.get("valid_time") is None
 
 
+def test_holdout_v15_future_commitment_stimulus_lacks_execution_time_phrase() -> None:
+    """Owning regression: unresolved future commitment must lack execution-time prose.
+
+    Cycle-1 defect: shoal-intent stimulus carried ``before winter storms`` while gold
+    claimed no execution-time expression. Gold unresolved+null alone is insufficient.
+    """
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    assertion_id = "assertion:a61c1383591400f3"
+    evidence_id = "evidence:tl01g-holdout-v15:shoal-intent"
+    base = json.loads((HOLDOUT_V15 / "base-contribution.json").read_text(encoding="utf-8"))
+    gold = json.loads((HOLDOUT_V15 / "gold-overlay.json").read_text(encoding="utf-8"))
+    by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+    assertion = by_id[assertion_id]
+    assert "intends to chart every shoal" in str(assertion.get("label") or "").lower()
+    ann = next(a for a in gold.get("annotations", []) if a.get("base_assertion_id") == assertion_id)
+    assert ann["interpretation_status"] == "unresolved"
+    assert ann.get("occurrence_time") is None
+    assert ann.get("valid_time") is None
+    assert evidence_id in (ann.get("evidence_ref_ids") or [])
+    evidence_by_id = _case_evidence_by_id(HOLDOUT_V15)
+    entry = evidence_by_id[evidence_id]
+    span = _resolved_span_text(entry)
+    span_l = span.lower()
+    # Exact cycle-1 false-abstention phrases must stay absent.
+    for banned in (
+        "before winter storms",
+        "winter storms",
+        "before winter",
+        "overnight",
+        "at dusk",
+        "at nightfall",
+        "at moonrise",
+        "session 21",
+        "session-21",
+        "session 19",
+        "session-19",
+    ):
+        assert banned not in span_l, (banned, span)
+    # Broader execution-time cue class must also be absent from owned stimulus.
+    execution_time_re = re.compile(
+        r"\b("
+        r"before\s+\w+"
+        r"|after\s+\w+"
+        r"|until\s+\w+"
+        r"|overnight"
+        r"|at\s+(?:dawn|dusk|nightfall|moonrise|sunrise|sunset)"
+        r"|session[\s\-]*\d+"
+        r")\b",
+        re.IGNORECASE,
+    )
+    assert execution_time_re.search(span) is None, span
+    phrase = str(ann.get("source_phrase") or "")
+    assert execution_time_re.search(phrase) is None, phrase
+    assert "before winter storms" not in phrase.lower()
+
+
 def test_adversarial_v13_fixture_files_and_prompt_versions() -> None:
     _require_fresh_cohort_mandatory(ADV_V13)
     for name in (
@@ -3260,6 +3316,57 @@ def test_adversarial_v13_source_time_trap_is_unresolved() -> None:
     assert trap.get("valid_time") is None
     assert trap.get("occurrence_time") is None
     assert trap.get("valid_time") is None
+
+
+def test_adversarial_v13_source_time_trap_session_temptation_is_metadata_only() -> None:
+    """Owning regression: session-19 temptation must live only in registry metadata.
+
+    Cycle-1 defect: register-keeps stimulus also carried ``overnight``, a
+    proposition-owned temporal value independent of the misleading session tag.
+    Unresolved+null alone does not prove the trap shape.
+    """
+    _require_fresh_cohort_mandatory(ADV_V13)
+    assertion_id = "assertion:0a21dac97f3021a6"
+    evidence_id = "evidence:tl01g-adversarial-v13:register-keeps-session19"
+    base = json.loads((ADV_V13 / "base-contribution.json").read_text(encoding="utf-8"))
+    gold = json.loads((ADV_V13 / "gold-overlay.json").read_text(encoding="utf-8"))
+    by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+    assertion = by_id[assertion_id]
+    assert "shelves the ashpetal folios" in str(assertion.get("label") or "").lower()
+    assert "overnight" not in str(assertion.get("label") or "").lower()
+    value = assertion.get("value") or {}
+    evidence_rows = value.get("evidence") if isinstance(value, dict) else None
+    assert isinstance(evidence_rows, list) and evidence_rows
+    meta_sessions = {
+        str(row.get("session_id"))
+        for row in evidence_rows
+        if isinstance(row, dict) and row.get("evidence_ref_id") == evidence_id
+    }
+    assert "session-19" in meta_sessions
+    ann = next(a for a in gold.get("annotations", []) if a.get("base_assertion_id") == assertion_id)
+    assert ann["interpretation_status"] == "unresolved"
+    assert ann.get("occurrence_time") is None
+    assert ann.get("valid_time") is None
+    assert evidence_id in (ann.get("evidence_ref_ids") or [])
+    evidence_by_id = _case_evidence_by_id(ADV_V13)
+    entry = evidence_by_id[evidence_id]
+    span = _resolved_span_text(entry)
+    span_l = span.lower()
+    assert "overnight" not in span_l, span
+    assert "session 19" not in span_l
+    assert "session-19" not in span_l
+    assert re.search(r"\bsession[\s\-]*19\b", span, re.IGNORECASE) is None
+    assert not _session_licensed_in_owned_prose(
+        span_text=span,
+        source_phrase=ann.get("source_phrase") if isinstance(ann.get("source_phrase"), str) else None,
+        session_num="19",
+    )
+    assert not _boundary_value_grounded_in_evidence(
+        {"kind": "session", "session_id": "session-19"},
+        [(entry, span)],
+    )
+    # Registry identity names the session temptation; owned prose must not.
+    assert "session19" in str(evidence_id).replace("-", "").lower()
 
 
 def test_v15_and_adv_v13_ids_mutually_disjoint() -> None:
