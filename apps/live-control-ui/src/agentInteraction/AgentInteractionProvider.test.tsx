@@ -1,6 +1,6 @@
-import { act, render, renderHook } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { LiveQueryResponse } from "../api/types";
 import type { GraphProjectionNodeView } from "../api/types";
@@ -17,7 +17,9 @@ import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { activeThreadStorageKey, createAgentInteractionThread, persistAgentThread, threadStorageKey } from "./agentInteractionStorage";
 import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
 import type { ProjectionSurfacePublication } from "./projectionSurfacePublication";
+import { validateProjectionSurfacePublication } from "./projectionSurfacePublication";
 import {
+  adaptProjectionSurfaceToNeutralBase,
   buildAppChromeCompatibilityFragment,
   ROUTE_COMPATIBILITY_PUBLICATIONS,
 } from "./surfaceInteractionCompat";
@@ -1480,5 +1482,461 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
       void firstInvoke.invoke();
     });
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AgentInteractionProvider projection catalog registration", () => {
+  const planIdentity = { surfaceId: "plan", instanceKey: "plan\u001fcatalog-test" };
+  const planContext = {
+    campaignId: "longmont-c2",
+    liveSession: 22,
+    ingestSession: 21,
+    headerLabel: "Plan",
+  };
+
+  function makePlanPublication(
+    configOverrides: Partial<SurfaceConfig> = {},
+  ): ProjectionSurfacePublication {
+    return {
+      identity: planIdentity,
+      config: {
+        id: "plan",
+        label: "Plan",
+        context: planContext,
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+        ...configOverrides,
+      },
+    };
+  }
+
+  const toolActive = {
+    kind: "tool" as const,
+    key: "recap",
+    size: "wide" as const,
+    title: "Recap",
+  };
+
+  it("returns permanent inert cleanup when registering without an active lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const render = vi.fn(() => "body");
+    let cleanup: (() => void) | undefined;
+    act(() => {
+      cleanup = result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render,
+      });
+    });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      cleanup?.();
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: toolActive,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution.status).toBe("unregistered");
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("resolves ready when registration, descriptor, and bindings align", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const render = vi.fn(() => "catalog-body");
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render,
+      });
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: result.current.active!,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution).toEqual({ status: "ready", body: "catalog-body" });
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed with duplicate_registration for two live entries on the same ID", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const renderA = vi.fn(() => "a");
+    const renderB = vi.fn(() => "b");
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render: renderA,
+      });
+      result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render: renderB,
+      });
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: result.current.active!,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution.status).toBe("duplicate_registration");
+    expect(renderA).not.toHaveBeenCalled();
+    expect(renderB).not.toHaveBeenCalled();
+  });
+
+  it("cannot bypass publication descriptor with registration alone", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const render = vi.fn(() => "body");
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({ tools: [{ id: "statblock", label: "Statblock", size: "wide" as const }] }),
+      );
+    });
+    act(() => {
+      result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render,
+      });
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: toolActive,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution.status).toBe("descriptor_missing");
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("preserves registrations across a same-identity config update", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const render = vi.fn(() => "still-live");
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render,
+      });
+    });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication({ label: "Plan (revised)" }));
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: result.current.active!,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution.status).toBe("ready");
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears catalog entries when the lease identity changes", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const render = vi.fn(() => "body");
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render,
+      });
+    });
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: { surfaceId: "ingest", instanceKey: "ingest\u001fcatalog-test" },
+        config: {
+          id: "ingest",
+          label: "Ingest",
+          context: planContext,
+          tools: [{ id: "ingest-recap", label: "Recap", size: "wide" as const }],
+          canvas: { documentId: null },
+          theme: {},
+        },
+      });
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: toolActive,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution.status).not.toBe("ready");
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("lets stale cleanup from lease A run as no-op after lease B registers the same ID", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const renderA = vi.fn(() => "a");
+    const renderB = vi.fn(() => "b");
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    let cleanupA: (() => void) | undefined;
+    act(() => {
+      cleanupA = result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render: renderA,
+      });
+    });
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: { surfaceId: "plan", instanceKey: "plan\u001fcatalog-instance-b" },
+        config: makePlanPublication().config,
+      });
+    });
+    act(() => {
+      result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render: renderB,
+      });
+    });
+    act(() => {
+      cleanupA?.();
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: result.current.active!,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution.status).toBe("ready");
+    expect(renderB).toHaveBeenCalledTimes(1);
+    expect(renderA).not.toHaveBeenCalled();
+  });
+
+  it("makes a stale registrar from lease A permanently inert after lease B binds", () => {
+    let renders = 0;
+    const { result } = renderHook(
+      () => {
+        renders += 1;
+        return useAgentInteraction();
+      },
+      { wrapper },
+    );
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    const staleRegister = result.current.registerProjectionCatalog;
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: { surfaceId: "plan", instanceKey: "plan\u001fcatalog-instance-b" },
+        config: makePlanPublication().config,
+      });
+    });
+    const rendersBeforeStaleInvoke = renders;
+    const render = vi.fn(() => "stale-body");
+    let cleanup: (() => void) | undefined;
+    act(() => {
+      cleanup = staleRegister({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render,
+      });
+    });
+    expect(renders).toBe(rendersBeforeStaleInvoke);
+    act(() => {
+      cleanup?.();
+    });
+    expect(renders).toBe(rendersBeforeStaleInvoke);
+    act(() => {
+      result.current.openTool("recap");
+    });
+    const resolution = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: result.current.active!,
+      bindings: { "plan-context": planContext },
+    });
+    expect(resolution.status).toBe("unregistered");
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("keeps an open tool mounted across a same-identity preferredSize update", () => {
+    const mounts = { count: 0 };
+    function StatefulTool() {
+      useState(() => {
+        mounts.count += 1;
+        return true;
+      });
+      return <div data-testid="stateful-tool">mounted</div>;
+    }
+
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+    function CatalogBody() {
+      const host = useAgentInteraction();
+      if (!host.active) return <div data-testid="idle">idle</div>;
+      const resolution = host.resolveProjectionCatalog({
+        projectionId: "recap",
+        active: host.active,
+        bindings: { "plan-context": planContext },
+      });
+      return (
+        <>
+          {resolution.status !== "ready" ? (
+            <div data-testid="catalog-status">{resolution.status}</div>
+          ) : (
+            resolution.body
+          )}
+          <div data-testid="active-size">{host.active.size}</div>
+        </>
+      );
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <CaptureApi />
+        <CatalogBody />
+      </AgentInteractionProvider>,
+    );
+
+    act(() => {
+      hostApi!.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      hostApi!.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render: () => <StatefulTool />,
+      });
+    });
+    act(() => {
+      hostApi!.openTool("recap");
+    });
+
+    expect(screen.getByTestId("stateful-tool")).toBeInTheDocument();
+    expect(mounts.count).toBe(1);
+
+    act(() => {
+      hostApi!.updateProjectionSurfaceConfig(
+        makePlanPublication({
+          tools: [{ id: "recap", label: "Recap", size: "fullscreen" as const }],
+        }),
+      );
+    });
+
+    expect(screen.queryByTestId("catalog-status")).not.toBeInTheDocument();
+    expect(screen.getByTestId("active-size")).toHaveTextContent("fullscreen");
+    expect(screen.getByTestId("stateful-tool")).toBeInTheDocument();
+    expect(mounts.count).toBe(1);
+  });
+
+  it("does not rewrite registration kind on same-identity publication updates", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    let cleanup: (() => void) | undefined;
+
+    const validated = validateProjectionSurfacePublication(makePlanPublication());
+    const neutralBase = adaptProjectionSurfaceToNeutralBase(validated);
+
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      cleanup = result.current.registerProjectionCatalog({
+        projectionId: "recap",
+        surfaceId: "plan",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: ["plan-context"],
+        render: () => "tool-body",
+      });
+    });
+
+    const flipped: typeof neutralBase = {
+      ...neutralBase,
+      tools: neutralBase.tools.filter((tool) => tool.id !== "recap"),
+      projections: neutralBase.projections.map((descriptor) =>
+        descriptor.id === "recap"
+          ? { ...descriptor, kind: "content" as const }
+          : descriptor,
+      ),
+    };
+
+    act(() => {
+      result.current.updateSurfaceInteractionPublication(flipped);
+    });
+
+    // Registration kind must remain tool-owned. A content active must not become
+    // ready merely because the publication descriptor kind flipped.
+    const after = result.current.resolveProjectionCatalog({
+      projectionId: "recap",
+      active: {
+        kind: "content",
+        key: "doc:should-not-render-recap-tool",
+        size: "wide",
+        title: "Content",
+      },
+      bindings: { "plan-context": planContext },
+    });
+    expect(after.status).toBe("kind_mismatch");
+    act(() => {
+      cleanup?.();
+    });
   });
 });

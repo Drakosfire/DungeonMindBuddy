@@ -11,6 +11,10 @@ import type {
   ToolProjectionPayloadMap,
 } from "./projectionBindings";
 import type { ValidatedProjectionSurface } from "../../agentInteraction/projectionSurfacePublication";
+import type {
+  ProjectionCatalogRegistration,
+  ProjectionCatalogResolution,
+} from "../../surfaceInteraction/projection/projectionCatalog";
 import {
   useAgentInteraction,
   useOptionalAgentInteraction,
@@ -32,6 +36,12 @@ export interface ProjectionContextValue {
     toolId: K,
     payload: ToolProjectionPayloadMap[K],
   ) => () => void;
+  registerProjectionCatalog: (registration: ProjectionCatalogRegistration) => () => void;
+  resolveProjectionCatalog: (args: {
+    projectionId: string;
+    active: ActiveProjection;
+    bindings: Readonly<Record<string, unknown>>;
+  }) => ProjectionCatalogResolution;
 }
 
 function mapAgentInteractionToProjection(host: ReturnType<typeof useAgentInteraction>): ProjectionContextValue {
@@ -48,6 +58,8 @@ function mapAgentInteractionToProjection(host: ReturnType<typeof useAgentInterac
     close: host.close,
     registerGraphReferenceBinding: host.registerGraphReferenceBinding,
     registerToolProjectionPayload: host.registerToolProjectionPayload,
+    registerProjectionCatalog: host.registerProjectionCatalog,
+    resolveProjectionCatalog: host.resolveProjectionCatalog,
   };
 }
 

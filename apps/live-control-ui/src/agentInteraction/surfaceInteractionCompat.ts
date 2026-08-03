@@ -6,10 +6,12 @@ import type {
   SurfaceInteractionCanvasContribution,
   SurfaceInteractionEditCommandContribution,
   SurfaceInteractionPlacement,
+  SurfaceInteractionProjectionDescriptor,
   SurfaceInteractionPublication,
   SurfaceInteractionToolContribution,
   SurfaceInteractionWorkObjectIdentity,
 } from "../surfaceInteraction/types";
+import { GRAPH_REFERENCE_PROJECTION_ID } from "../surfaceInteraction/projection/projectionCatalog";
 import type {
   ProjectionSurfacePublication,
   ValidatedProjectionSurface,
@@ -106,12 +108,22 @@ export function adaptProjectionSurfaceToNeutralBase(
     agentContext: buildAgentContextFromLegacy(validated.publication),
     tools,
     editCommands: [],
-    projections: config.tools.map((tool) => ({
-      id: tool.id,
-      kind: "tool" as const,
-      preferredSize: tool.size,
-      bindingIds: [],
-    })),
+    projections: [
+      ...config.tools.map((tool) => ({
+        id: tool.id,
+        kind: "tool" as const,
+        preferredSize: tool.size,
+        bindingIds: [],
+      })),
+      ...(identity.surfaceId === "plan" && config.id === "plan"
+        ? [{
+            id: GRAPH_REFERENCE_PROJECTION_ID,
+            kind: "content" as const,
+            preferredSize: "wide" as const,
+            bindingIds: [] as readonly string[],
+          } satisfies SurfaceInteractionProjectionDescriptor]
+        : []),
+    ],
     projectionBindings: [],
   };
 }

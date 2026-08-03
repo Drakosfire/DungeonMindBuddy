@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppChromeAction } from "../chrome/AppChrome";
 import { validateSurfaceInteractionPublication } from "../surfaceInteraction/publication";
+import { GRAPH_REFERENCE_PROJECTION_ID } from "../surfaceInteraction/projection/projectionCatalog";
 import {
   buildPlanSurfaceIdentity,
   validateProjectionSurfacePublication,
@@ -67,8 +68,96 @@ describe("surfaceInteractionCompat", () => {
       preferredSize: "wide",
       bindingIds: [],
     });
+    expect(neutral.projections).toContainEqual({
+      id: GRAPH_REFERENCE_PROJECTION_ID,
+      kind: "content",
+      preferredSize: "wide",
+      bindingIds: [],
+    });
     expect(neutral.projectionBindings).toEqual([]);
     expect(validateSurfaceInteractionPublication(neutral).valid).toBe(true);
+  });
+
+  it("adds graph-reference content descriptor only for authorized Plan publications", () => {
+    const planValidated = validateProjectionSurfacePublication({
+      identity: buildPlanSurfaceIdentity({
+        documentId: FIXTURE_DOC_ID,
+        campaignId: "longmont-c2",
+        liveSession: 22,
+        memorySession: 21,
+      }),
+      config: {
+        id: "plan",
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    });
+    const planNeutral = adaptProjectionSurfaceToNeutralBase(planValidated);
+    expect(planNeutral.projections.some(
+      (entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID && entry.kind === "content",
+    )).toBe(true);
+
+    const ingestValidated = validateProjectionSurfacePublication({
+      identity: { surfaceId: "ingest", instanceKey: "ingest\u001ftest" },
+      config: {
+        id: "ingest",
+        label: "Ingest",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Ingest",
+        },
+        tools: [{ id: "ingest-recap", label: "Recap", size: "wide" }],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    });
+    const ingestNeutral = adaptProjectionSurfaceToNeutralBase(ingestValidated);
+    expect(ingestNeutral.projections.some((entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID)).toBe(false);
+
+    const buildValidated = validateProjectionSurfacePublication({
+      identity: { surfaceId: "build", instanceKey: "build\u001ftest" },
+      config: {
+        id: "build",
+        label: "Build",
+        context: null,
+        tools: [],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    });
+    const buildNeutral = adaptProjectionSurfaceToNeutralBase(buildValidated);
+    expect(buildNeutral.projections.some((entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID)).toBe(false);
+  });
+
+  it("does not add graph-reference content when Plan identity and config disagree", () => {
+    const contradictory = validateProjectionSurfacePublication({
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fcontradiction" },
+      config: {
+        id: "ingest",
+        label: "Mismatched",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Ingest",
+        },
+        tools: [{ id: "ingest-recap", label: "Recap", size: "wide" }],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    });
+    const neutral = adaptProjectionSurfaceToNeutralBase(contradictory);
+    expect(neutral.projections.some((entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID)).toBe(false);
   });
 
   it("disables legacy tools without render context using the stable reason", () => {

@@ -225,4 +225,50 @@ describe("projection host ownership boundaries", () => {
     expect(hostSource).not.toMatch(/surface-projection-host--tool-\$\{/);
     expect(hostSource).toMatch(/data-projection-key=\{active\?\.key\}/);
   });
+
+  it("removes the legacy renderer switch symbols from production sources", () => {
+    const forbidden = /\b(renderToolProjection|renderContentProjection|projectionRegistry)\b/;
+    const hits: string[] = [];
+    for (const file of listProductionSourcesUnder("")) {
+      const source = stripCommentsForScan(readFileSync(file, "utf8"));
+      if (forbidden.test(source)) {
+        hits.push(relative(SRC_ROOT, file));
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("limits concrete projection renderer imports to explicit registration adapters", () => {
+    const allowed = new Set([
+      "planSurface/projection/PlanProjectionCatalogRegistration.tsx",
+      "planSurface/projection/IngestProjectionCatalogRegistration.tsx",
+    ]);
+    const rendererImport = /\bfrom\s+["'][^"']*(?:modules\/(?:Ingestion|PartyRegistry)|surface\/modules\/Statblock|graphPreview\/(?:RecapGraph|GraphPreview)|graphGoldReview\/GraphGoldReview|manualReview\/ManualReview|graphReviewWorkbench\/GraphReviewDiagnosticsToolPanel|reference\/PlanReferenceObjectCard)/;
+    const hits: string[] = [];
+    for (const file of listProductionSourcesUnder("planSurface/projection")) {
+      const rel = relative(SRC_ROOT, file);
+      if (allowed.has(rel)) continue;
+      const source = readFileSync(file, "utf8");
+      if (rendererImport.test(source)) {
+        hits.push(rel);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("keeps the neutral projection catalog free of domain imports", () => {
+    const catalogSource = readRelative("surfaceInteraction/projection/projectionCatalog.ts");
+    const forbidden = /\b(from|import)\b\s*\(?\s*["'][^"']*(planSurface|ingestSurface|buildSurface|graphReference|\/api\/)/;
+    expect(forbidden.test(catalogSource)).toBe(false);
+  });
+
+  it("does not use dynamic discovery or persistence in catalog provider paths", () => {
+    const forbidden = /import\.meta\.glob|dynamic import|localStorage|sessionStorage|indexedDB/;
+    const paths = [
+      "surfaceInteraction/projection/projectionCatalog.ts",
+      "agentInteraction/AgentInteractionProvider.tsx",
+    ];
+    const hits = paths.filter((relPath) => forbidden.test(readRelative(relPath)));
+    expect(hits).toEqual([]);
+  });
 });

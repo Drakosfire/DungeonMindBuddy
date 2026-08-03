@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getRecapArtifacts } from "../../api/liveApi";
 import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
@@ -6,13 +6,23 @@ import {
   sameProjectionSurfaceIdentity,
   type ProjectionSurfaceIdentity,
 } from "../../agentInteraction/projectionSurfacePublication";
+import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { ProjectionHost } from "../../surfaceInteraction/projection/ProjectionHost";
 import { useProjection } from "./projectionContext";
-import { renderContentProjection, renderToolProjection } from "./projectionRegistry";
 import {
   filterNumericRecapArtifactRecords,
   sortRecapArtifactRecords,
 } from "../graphPreview/recapSessionLabels";
+import {
+  GRAPH_REFERENCE_BINDING_ID,
+  GRAPH_REFERENCE_PROJECTION_STATE_BINDING_ID,
+  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
+  GRAPH_REVIEW_DIAGNOSTICS_BINDING_ID,
+  PLAN_CONTEXT_BINDING_ID,
+  PLAN_SURFACE_CONFIG_BINDING_ID,
+} from "./projectionBindings";
+import { IngestProjectionCatalogRegistration } from "./IngestProjectionCatalogRegistration";
+import { PlanProjectionCatalogRegistration } from "./PlanProjectionCatalogRegistration";
 
 function requestedToolFromLocation(): string | null {
   if (typeof window === "undefined") return null;
@@ -37,12 +47,13 @@ const SESSION_AWARE_TOOLS = new Set([
 ]);
 
 /**
- * Temporary Plan-owned projection host policy adapter (BLD-SIH-03a).
- * Owns URL/session inference, stale identity checks, and renderer dispatch.
- * Delete when BLD-SIH-03b / Plan recomposition lands a native publication path.
+ * Temporary Plan-owned projection host policy adapter (BLD-SIH-03a/03b).
+ * Owns URL/session inference and stale identity checks; renderer selection
+ * is explicit via lease-scoped catalog registrations. Delete when Plan
+ * recomposition lands a native publication path after BLD-SIH-06.
  */
 export function LegacyProjectionHostAdapter() {
-  const { projectionSurface } = useAgentInteraction();
+  const { projectionSurface, surfaceInteractionPublication } = useAgentInteraction();
   const {
     active,
     activeGraphReference,
@@ -52,28 +63,49 @@ export function LegacyProjectionHostAdapter() {
     graphReferenceProjectionState,
     graphReferenceBinding,
     graphReviewDiagnosticsPayload,
+    resolveProjectionCatalog,
   } = useProjection();
 
   const config = projectionSurface?.publication.config ?? null;
   const projectionsEnabled = projectionSurface?.projectionsEnabled ?? false;
+
+  const toolDescriptors = useMemo(
+    () => (surfaceInteractionPublication?.projections ?? []).filter((entry) => entry.kind === "tool"),
+    [surfaceInteractionPublication?.projections],
+  );
 
   if (!config || !projectionsEnabled || config.tools.length === 0 || !config.context) {
     return null;
   }
 
   return (
-    <LegacyProjectionHostAdapterInner
-      surfaceIdentity={projectionSurface!.publication.identity}
-      config={config}
-      active={active}
-      activeGraphReference={activeGraphReference}
-      close={close}
-      expandContent={expandContent}
-      openTool={openTool}
-      graphReferenceProjectionState={graphReferenceProjectionState}
-      graphReferenceBinding={graphReferenceBinding}
-      graphReviewDiagnosticsPayload={graphReviewDiagnosticsPayload}
-    />
+    <>
+      {config.id === "plan" ? (
+        <PlanProjectionCatalogRegistration
+          surfaceId={config.id}
+          toolDescriptors={toolDescriptors}
+        />
+      ) : null}
+      {config.id === "ingest" ? (
+        <IngestProjectionCatalogRegistration
+          surfaceId={config.id}
+          toolDescriptors={toolDescriptors}
+        />
+      ) : null}
+      <LegacyProjectionHostAdapterInner
+        surfaceIdentity={projectionSurface!.publication.identity}
+        config={config}
+        active={active}
+        activeGraphReference={activeGraphReference}
+        close={close}
+        expandContent={expandContent}
+        openTool={openTool}
+        graphReferenceProjectionState={graphReferenceProjectionState}
+        graphReferenceBinding={graphReferenceBinding}
+        graphReviewDiagnosticsPayload={graphReviewDiagnosticsPayload}
+        resolveProjectionCatalog={resolveProjectionCatalog}
+      />
+    </>
   );
 }
 
@@ -88,6 +120,7 @@ interface LegacyProjectionHostAdapterInnerProps {
   graphReferenceProjectionState: ReturnType<typeof useProjection>["graphReferenceProjectionState"];
   graphReferenceBinding: ReturnType<typeof useProjection>["graphReferenceBinding"];
   graphReviewDiagnosticsPayload: ReturnType<typeof useProjection>["graphReviewDiagnosticsPayload"];
+  resolveProjectionCatalog: ReturnType<typeof useProjection>["resolveProjectionCatalog"];
 }
 
 function LegacyProjectionHostAdapterInner({
@@ -101,6 +134,7 @@ function LegacyProjectionHostAdapterInner({
   graphReferenceProjectionState,
   graphReferenceBinding,
   graphReviewDiagnosticsPayload,
+  resolveProjectionCatalog,
 }: LegacyProjectionHostAdapterInnerProps) {
   const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(surfaceIdentity);
   surfaceIdentityRef.current = surfaceIdentity;
@@ -177,18 +211,49 @@ function LegacyProjectionHostAdapterInner({
     }
   }, [config.tools, openTool]);
 
-  const body = !active ? null : active.kind === "tool" ? (
-    renderToolProjection(active.key, config.context!, {
-      graphReviewDiagnosticsPayload,
-    })
-  ) : activeGraphReference ? (
-    renderContentProjection(activeGraphReference, config, graphReferenceProjectionState, {
-      graphReferenceBinding,
-      glanceOnly: active.glanceOnly === true,
-    })
-  ) : (
+  const runtimeBindings = useMemo(() => {
+    const bindings: Record<string, unknown> = {
+      [PLAN_CONTEXT_BINDING_ID]: config.context,
+      [PLAN_SURFACE_CONFIG_BINDING_ID]: config,
+    };
+    if (activeGraphReference) {
+      bindings[GRAPH_REFERENCE_RESOLUTION_BINDING_ID] = activeGraphReference;
+    }
+    if (graphReferenceProjectionState !== null && graphReferenceProjectionState !== undefined) {
+      bindings[GRAPH_REFERENCE_PROJECTION_STATE_BINDING_ID] = graphReferenceProjectionState;
+    }
+    if (graphReferenceBinding) {
+      bindings[GRAPH_REFERENCE_BINDING_ID] = graphReferenceBinding;
+    }
+    if (graphReviewDiagnosticsPayload) {
+      bindings[GRAPH_REVIEW_DIAGNOSTICS_BINDING_ID] = graphReviewDiagnosticsPayload;
+    }
+    return bindings;
+  }, [
+    activeGraphReference,
+    config,
+    graphReferenceBinding,
+    graphReferenceProjectionState,
+    graphReviewDiagnosticsPayload,
+  ]);
+
+  const body = !active ? null : active.kind === "content" && !activeGraphReference ? (
     <p className="surface-projection-empty">Loading reference…</p>
-  );
+  ) : (() => {
+    const catalogId = active.kind === "tool" ? active.key : GRAPH_REFERENCE_PROJECTION_ID;
+    const resolution = resolveProjectionCatalog({
+      projectionId: catalogId,
+      active,
+      bindings: runtimeBindings,
+    });
+    if (resolution.status === "ready") {
+      return resolution.body;
+    }
+    if (active.kind === "tool" && resolution.status === "unregistered") {
+      return <p className="plan-projection-empty">Unknown tool: {active.key}</p>;
+    }
+    return <p className="surface-projection-empty">Projection unavailable.</p>;
+  })();
 
   return (
     <ProjectionHost
