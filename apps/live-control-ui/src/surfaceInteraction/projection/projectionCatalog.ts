@@ -28,6 +28,7 @@ export type ProjectionCatalogResolutionStatus =
   | "descriptor_missing"
   | "surface_mismatch"
   | "kind_mismatch"
+  | "active_key_mismatch"
   | "preferred_size_mismatch"
   | "binding_missing"
   | "stale_lease"
@@ -91,22 +92,19 @@ export function normalizeProjectionCatalogRegistration(
   };
 }
 
-function bindingPresent(bindings: Readonly<Record<string, unknown>>, id: string): boolean {
-  if (!Object.prototype.hasOwnProperty.call(bindings, id)) return false;
-  const value = bindings[id];
-  return value !== null && value !== undefined;
-}
-
 /**
  * Build a read-only binding snapshot without evaluating unrelated accessors.
- * Own data properties are copied by descriptor; required IDs may be read if
- * still missing (so required accessors participate in authorization). Extra
- * enumerable getters are never invoked.
+ * Own data properties are copied by descriptor. Each required ID is read at most
+ * once; that same value is used for both authorization and the render snapshot.
+ * Extra enumerable getters are never invoked.
  */
-function snapshotOpaqueBindings(
+function snapshotOpaqueBindingsForAuthorization(
   bindings: Readonly<Record<string, unknown>>,
   requiredBindingIds: readonly string[],
-): Readonly<Record<string, unknown>> {
+): {
+  missingBindingIds: readonly string[];
+  bindingSnapshot: Readonly<Record<string, unknown>>;
+} {
   const out: Record<string, unknown> = Object.create(null);
   for (const key of Object.keys(bindings)) {
     const descriptor = Object.getOwnPropertyDescriptor(bindings, key);
@@ -115,12 +113,29 @@ function snapshotOpaqueBindings(
     }
     out[key] = descriptor.value;
   }
+
+  const missingBindingIds: string[] = [];
   for (const id of requiredBindingIds) {
-    if (!Object.prototype.hasOwnProperty.call(out, id)) {
-      out[id] = bindings[id];
+    let value: unknown;
+    if (Object.prototype.hasOwnProperty.call(out, id)) {
+      value = out[id];
+    } else if (Object.prototype.hasOwnProperty.call(bindings, id)) {
+      // Single accessor evaluation — reused for auth and render.
+      value = bindings[id];
+      out[id] = value;
+    } else {
+      missingBindingIds.push(id);
+      continue;
+    }
+    if (value === null || value === undefined) {
+      missingBindingIds.push(id);
     }
   }
-  return Object.freeze(out);
+
+  return {
+    missingBindingIds,
+    bindingSnapshot: Object.freeze(out),
+  };
 }
 
 /**
@@ -176,6 +191,11 @@ export function resolveProjectionCatalog(args: {
   if (descriptor.kind !== registration.kind || active.kind !== registration.kind) {
     return { status: "kind_mismatch", body: null };
   }
+  // Tools require exact active-key identity. Content keeps a fixed catalog ID
+  // while active.key remains the dynamic content key.
+  if (registration.kind === "tool" && active.key !== projectionId) {
+    return { status: "active_key_mismatch", body: null };
+  }
   if (descriptor.preferredSize !== registration.preferredSize) {
     return { status: "preferred_size_mismatch", body: null };
   }
@@ -186,14 +206,14 @@ export function resolveProjectionCatalog(args: {
     return { status: "surface_mismatch", body: null };
   }
 
-  const missingBindingIds = registration.requiredBindingIds.filter(
-    (id) => !bindingPresent(bindings, id),
+  const { missingBindingIds, bindingSnapshot } = snapshotOpaqueBindingsForAuthorization(
+    bindings,
+    registration.requiredBindingIds,
   );
   if (missingBindingIds.length > 0) {
     return { status: "binding_missing", body: null, missingBindingIds };
   }
 
-  const bindingSnapshot = snapshotOpaqueBindings(bindings, registration.requiredBindingIds);
   const body = registration.render({
     projectionId,
     active,

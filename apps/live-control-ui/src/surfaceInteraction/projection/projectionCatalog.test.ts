@@ -280,4 +280,78 @@ describe("projectionCatalog", () => {
     expect(result.status).toBe("binding_missing");
     expect(render).not.toHaveBeenCalled();
   });
+
+  it("evaluates each required binding accessor once for both authorization and render", () => {
+    let reads = 0;
+    const payload = { campaignId: "c2" };
+    const bindings: Record<string, unknown> = {};
+    Object.defineProperty(bindings, "plan-context", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads += 1;
+        if (reads > 1) {
+          throw new Error("required binding must not be read a second time");
+        }
+        return payload;
+      },
+    });
+    const render = vi.fn((request) => {
+      expect(request.bindings["plan-context"]).toBe(payload);
+      return "ok";
+    });
+    const result = resolveProjectionCatalog({
+      leaseToken: leaseA,
+      entries: [entry(makeRegistration({ render }))],
+      publication: makePublication(),
+      projectionId: "recap",
+      active: toolActive,
+      bindings,
+    });
+    expect(result).toEqual({ status: "ready", body: "ok" });
+    expect(reads).toBe(1);
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed when a tool active.key does not match projectionId", () => {
+    const render = vi.fn(() => "ok");
+    const result = resolveProjectionCatalog({
+      leaseToken: leaseA,
+      entries: [entry(makeRegistration({ render }))],
+      publication: makePublication(),
+      projectionId: "recap",
+      active: { ...toolActive, key: "statblock" },
+      bindings: { "plan-context": {} },
+    });
+    expect(result.status).toBe("active_key_mismatch");
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("allows content active.key to differ from the fixed catalog projectionId", () => {
+    const render = vi.fn(() => "content-ok");
+    const result = resolveProjectionCatalog({
+      leaseToken: leaseA,
+      entries: [
+        entry(
+          makeRegistration({
+            projectionId: GRAPH_REFERENCE_PROJECTION_ID,
+            kind: "content",
+            requiredBindingIds: [],
+            render,
+          }),
+        ),
+      ],
+      publication: makePublication(),
+      projectionId: GRAPH_REFERENCE_PROJECTION_ID,
+      active: {
+        kind: "content",
+        key: "doc:session-12",
+        size: "wide",
+        title: "Session 12",
+      },
+      bindings: {},
+    });
+    expect(result).toEqual({ status: "ready", body: "content-ok" });
+    expect(render).toHaveBeenCalledTimes(1);
+  });
 });
