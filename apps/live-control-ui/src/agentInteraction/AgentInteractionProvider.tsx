@@ -238,6 +238,44 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     setCatalogEntries([]);
   }, []);
 
+  /**
+   * Same-identity publication updates change descriptor preferredSize synchronously.
+   * Patch live catalog entries in place so resolve stays atomic with the publication
+   * and open renderers are not temporarily preferred_size_mismatch / unmounted.
+   */
+  const syncCatalogMetadataFromPublication = useCallback(() => {
+    const bundle = leaseBundleRef.current;
+    const publication = bundle?.snapshot.effectivePublication;
+    const token = bundle?.snapshot.token;
+    if (!publication || !token) return;
+    let changed = false;
+    const next = catalogEntriesRef.current.map((entry) => {
+      if (entry.surfaceToken !== token) return entry;
+      const descriptor = publication.projections.find(
+        (candidate) => candidate.id === entry.registration.projectionId,
+      );
+      if (!descriptor) return entry;
+      if (
+        entry.registration.preferredSize === descriptor.preferredSize
+        && entry.registration.kind === descriptor.kind
+      ) {
+        return entry;
+      }
+      changed = true;
+      return {
+        ...entry,
+        registration: {
+          ...entry.registration,
+          preferredSize: descriptor.preferredSize,
+          kind: descriptor.kind,
+        },
+      };
+    });
+    if (!changed) return;
+    catalogEntriesRef.current = next;
+    setCatalogEntries([...next]);
+  }, []);
+
   const clearSelectedProjection = useCallback(() => {
     leasedActiveRef.current = null;
     setLeasedActive(null);
@@ -302,10 +340,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         authorizationEpoch: current.authorizationEpoch,
         appChromePublisherEpoch: current.appChromePublisherEpoch,
       });
+      syncCatalogMetadataFromPublication();
       revalidateLeasedAttachmentsAfterSnapshot();
       return true;
     },
-    [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot],
+    [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot, syncCatalogMetadataFromPublication],
   );
 
   const publishSurfaceInteractionPublication = useCallback(
@@ -348,8 +387,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       ...current,
       snapshot: updated,
     });
+    syncCatalogMetadataFromPublication();
     revalidateLeasedAttachmentsAfterSnapshot();
-  }, [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot]);
+  }, [applyLeaseBundle, revalidateLeasedAttachmentsAfterSnapshot, syncCatalogMetadataFromPublication]);
 
   const publishAppChromeCompatibility = useCallback((fragment: SurfaceInteractionChromeFragment) => {
     const current = leaseBundleRef.current;
@@ -611,7 +651,14 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const registerProjectionCatalog = useCallback(
     (registration: ProjectionCatalogRegistration) => {
       const capturedToken = currentSurfaceToken;
-      if (!capturedToken) {
+      const bundle = leaseBundleRef.current;
+      // Exact current-lease gate (same pattern as graph-reference / diagnostics):
+      // a callback captured under lease A must not mutate state after lease B binds.
+      if (
+        !capturedToken
+        || bundle?.snapshot.token !== capturedToken
+        || !bundle.snapshot.effectivePublication
+      ) {
         return () => undefined;
       }
       const normalized = normalizeProjectionCatalogRegistration(registration);
