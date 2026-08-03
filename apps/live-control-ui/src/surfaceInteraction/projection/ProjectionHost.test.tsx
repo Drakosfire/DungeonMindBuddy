@@ -320,4 +320,11 @@ describe("ProjectionHost shell", () => {
     expect(onNavigate).toHaveBeenCalledWith("party-registry");
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
+
+  it("focuses the close button when the projection overlay opens", () => {
+    renderHost({ active: toolActive, body: <p>Body</p> });
+
+    const closeButton = screen.getByRole("button", { name: NEUTRAL_LABELS.closeLabel });
+    expect(document.activeElement).toBe(closeButton);
+  });
 });

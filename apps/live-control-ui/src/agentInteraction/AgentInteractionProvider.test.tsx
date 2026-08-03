@@ -23,6 +23,7 @@ import {
   buildAppChromeCompatibilityFragment,
   ROUTE_COMPATIBILITY_PUBLICATIONS,
 } from "./surfaceInteractionCompat";
+import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import { useAgentInteraction } from "./useAgentInteraction";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -1938,5 +1939,58 @@ describe("AgentInteractionProvider projection catalog registration", () => {
     act(() => {
       cleanup?.();
     });
+  });
+
+  it("opens tool projections from effective publication without legacy projection surface", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = {
+      surfaceId: "native",
+      label: "Native",
+      identity: buildSurfaceInteractionIdentity({ surfaceId: "native", instanceParts: ["open-tool"] }),
+      canvas: null,
+      agentContext: null,
+      tools: [{
+        id: "native-tool",
+        label: "Native Tool",
+        placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+        availability: { status: "enabled" as const },
+        activation: { kind: "projection" as const, projectionId: "native-tool" },
+      }],
+      editCommands: [],
+      projections: [{
+        id: "native-tool",
+        kind: "tool" as const,
+        preferredSize: "wide" as const,
+        bindingIds: [],
+      }],
+      projectionBindings: [],
+    };
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(publication);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("native-tool")).toBe(true);
+    });
+    expect(result.current.active).toEqual({
+      kind: "tool",
+      key: "native-tool",
+      size: "wide",
+      title: "Native Tool",
+    });
+  });
+
+  it("routes activateProjectionTool through a registered activator on the current lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const activator = vi.fn();
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionToolActivator(activator);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("recap")).toBe(true);
+    });
+    expect(activator).toHaveBeenCalledWith("recap");
   });
 });

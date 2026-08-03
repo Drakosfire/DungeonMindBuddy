@@ -105,7 +105,7 @@ describe("activateToolContribution", () => {
   });
 
   it("opens projection tools via the host callback", () => {
-    const openProjectionTool = vi.fn();
+    const openProjectionTool = vi.fn(() => true);
     const publication = makePublication([projectionTool("recap", "recap")]);
 
     expect(
@@ -115,6 +115,20 @@ describe("activateToolContribution", () => {
         openProjectionTool,
       }),
     ).toEqual({ status: "opened", mode: "projection", projectionId: "recap" });
+    expect(openProjectionTool).toHaveBeenCalledWith("recap");
+  });
+
+  it("returns ignored when the host callback declines projection activation", () => {
+    const openProjectionTool = vi.fn(() => false);
+    const publication = makePublication([projectionTool("recap", "recap")]);
+
+    expect(
+      activateToolContribution({
+        publication,
+        toolId: "recap",
+        openProjectionTool,
+      }),
+    ).toEqual({ status: "ignored", reason: "unsupported" });
     expect(openProjectionTool).toHaveBeenCalledWith("recap");
   });
 

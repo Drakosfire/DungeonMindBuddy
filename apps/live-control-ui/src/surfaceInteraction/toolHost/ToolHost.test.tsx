@@ -16,6 +16,7 @@ import type { AppChromeAction } from "../../chrome/AppChrome";
 import type { SurfaceConfig } from "../../planSurface/types";
 import { fixturePlanSessionDescriptor } from "../../planSurface/config/planSessionDescriptor";
 import { AgentInteractionProjectionTestHost } from "../../planSurface/projection/projectionTestHost";
+import { LegacyProjectionHostAdapter } from "../../planSurface/projection/LegacyProjectionHostAdapter";
 import { buildSurfaceInteractionIdentity } from "../surfaceIdentity";
 import type { SurfaceInteractionPublication, SurfaceInteractionToolContribution } from "../types";
 import { ToolHost } from "./ToolHost";
@@ -333,11 +334,225 @@ describe("ToolHost", () => {
 
     const toggle = await screen.findByRole("button", { name: "Tools" });
     await user.click(toggle);
-    await user.click(screen.getByRole("button", { name: "Recap" }));
+    const toolboxDrawer = screen.getByLabelText("Tools toolbar");
+    await user.click(within(toolboxDrawer).getByRole("button", { name: "Recap" }));
 
     await waitFor(() => {
       expect(hostApi!.active?.key).toBe("recap");
     });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("treats delimiter-collision identities as distinct and closes the drawer on switch", async () => {
+    const user = userEvent.setup();
+    const identityA = buildSurfaceInteractionIdentity({
+      surfaceId: "a",
+      instanceParts: ["b\u001fc"],
+    });
+    const identityB = buildSurfaceInteractionIdentity({
+      surfaceId: "a\u001fb",
+      instanceParts: ["c"],
+    });
+    const publicationA = makeNativePublication(
+      [makeTool({ id: "alpha", label: "Alpha" })],
+      ["b\u001fc"],
+    );
+    publicationA.identity = identityA;
+    publicationA.surfaceId = identityA.surfaceId;
+    const publicationB = makeNativePublication(
+      [makeTool({ id: "beta", label: "Beta" })],
+      ["c"],
+    );
+    publicationB.identity = identityB;
+    publicationB.surfaceId = identityB.surfaceId;
+
+    function SwitchingPublisher({
+      publication,
+    }: {
+      publication: SurfaceInteractionPublication;
+    }) {
+      usePublishSurfaceInteraction(publication);
+      return null;
+    }
+
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <SwitchingPublisher publication={publicationA} />
+        <ToolHost />
+      </AgentInteractionProvider>,
+    );
+
+    const toggle = screen.getByRole("button", { name: "Tools" });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Alpha" })).toBeInTheDocument();
+
+    rerender(
+      <AgentInteractionProvider>
+        <SwitchingPublisher publication={publicationB} />
+        <ToolHost />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    });
+    const nextToggle = screen.getByRole("button", { name: "Tools" });
+    expect(nextToggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(nextToggle);
+    expect(screen.getByRole("button", { name: "Beta" })).toBeInTheDocument();
+  });
+
+  it("closes when tools become empty under the same identity and stays closed when tools return", async () => {
+    const user = userEvent.setup();
+    const identity = buildSurfaceInteractionIdentity({
+      surfaceId: "test",
+      instanceParts: ["empty-restore"],
+    });
+    const withTools = makeNativePublication([makeTool({ id: "alpha", label: "Alpha" })], ["empty-restore"]);
+    withTools.identity = identity;
+    const emptyTools: SurfaceInteractionPublication = {
+      ...withTools,
+      tools: [],
+    };
+
+    function Publisher({ publication }: { publication: SurfaceInteractionPublication }) {
+      usePublishSurfaceInteraction(publication);
+      return null;
+    }
+
+    const { rerender } = renderToolHost(<Publisher publication={withTools} />);
+
+    const toggle = screen.getByRole("button", { name: "Tools" });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    rerender(
+      <AgentInteractionProvider>
+        <Publisher publication={emptyTools} />
+        <ToolHost />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.queryByTestId("surface-tool-host")).not.toBeInTheDocument();
+
+    rerender(
+      <AgentInteractionProvider>
+        <Publisher publication={withTools} />
+        <ToolHost />
+      </AgentInteractionProvider>,
+    );
+
+    const restoredToggle = screen.getByRole("button", { name: "Tools" });
+    expect(restoredToggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("routes the first Plan Recap click through adapter URL policy", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/plan");
+
+    const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
+    const planConfig: SurfaceConfig = {
+      id: "plan",
+      label: "Plan",
+      context: {
+        campaignId: sessionDescriptor.campaignId,
+        headerLabel: sessionDescriptor.planningDocument.title,
+        ingestSession: 21,
+        liveSession: 22,
+      },
+      tools: [{ id: "recap", label: "Recap", size: "wide" }],
+      canvas: { documentId: sessionDescriptor.planningDocument.documentId },
+      theme: {},
+      sessionDescriptor,
+    };
+
+    render(
+      <AgentInteractionProjectionTestHost config={planConfig}>
+        <LegacyProjectionHostAdapter />
+        <ToolHost />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: "Recap" }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("tool=recap");
+    });
+  });
+
+  it("does not restore toggle focus after a projection launch", async () => {
+    const user = userEvent.setup();
+    const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
+    const planConfig: SurfaceConfig = {
+      id: "plan",
+      label: "Plan",
+      context: {
+        campaignId: sessionDescriptor.campaignId,
+        headerLabel: sessionDescriptor.planningDocument.title,
+        ingestSession: 21,
+        liveSession: 22,
+      },
+      tools: [{ id: "recap", label: "Recap", size: "wide" }],
+      canvas: { documentId: sessionDescriptor.planningDocument.documentId },
+      theme: {},
+      sessionDescriptor,
+    };
+
+    render(
+      <AgentInteractionProjectionTestHost config={planConfig}>
+        <LegacyProjectionHostAdapter />
+        <ToolHost />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    const toggle = await screen.findByRole("button", { name: "Tools" });
+    await user.click(toggle);
+    const toolboxDrawer = screen.getByLabelText("Tools toolbar");
+    await user.click(within(toolboxDrawer).getByRole("button", { name: "Recap" }));
+
+    await waitFor(() => {
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+    });
+    expect(document.activeElement).not.toBe(toggle);
+  });
+
+  it("opens native publication projection tools without legacy projection surface", async () => {
+    const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    const publication = makeNativePublication([
+      makeTool({
+        id: "native-recap",
+        label: "Native Recap",
+        activation: { kind: "projection", projectionId: "native-recap" },
+      }),
+    ]);
+    publication.projections = [
+      {
+        id: "native-recap",
+        kind: "tool",
+        preferredSize: "wide",
+        bindingIds: [],
+      },
+    ];
+
+    renderToolHost(
+      <>
+        <CaptureApi />
+        <NativeToolsPublisher publication={publication} />
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: "Native Recap" }));
+
+    await waitFor(() => {
+      expect(hostApi!.active?.key).toBe("native-recap");
+    });
   });
 });
