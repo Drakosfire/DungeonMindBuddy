@@ -22,6 +22,7 @@ from apps.live_control_server.services.hermes_graph_interaction_tools import (
     HERMES_GRAPH_INTERACTION_TOOL_NAMES,
     ORDERED_INTERACTION_TOOL_NAMES,
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
+    QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
     execute_hermes_graph_interaction_tool_json,
     hermes_model_visible_tool_definitions,
 )
@@ -153,7 +154,11 @@ def default_graph_only_capability_policy(
     scope: HermesGraphScope,
 ) -> HermesCapabilityPolicy:
     """Default policy: declare scope + expand + source-read over one shared session."""
-    graph_names = tuple(ORDERED_GRAPH_TOOL_NAMES)
+    graph_names = tuple(
+        name
+        for name in ORDERED_GRAPH_TOOL_NAMES
+        if name != QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME
+    )
     names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
@@ -170,6 +175,13 @@ def default_graph_only_capability_policy(
                 tool_name=DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
                 toolset=TOOLSET_NAME,
                 require_graph_scope=False,
+                allowed_effects=frozenset({"read"}),
+            ),
+            HermesToolCapabilityRule(
+                tool_name=QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+                toolset=TOOLSET_NAME,
+                # Exact Threat hydration requires authoritative turn scope inject.
+                require_graph_scope=True,
                 allowed_effects=frozenset({"read"}),
             ),
             *(
