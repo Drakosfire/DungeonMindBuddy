@@ -1,0 +1,356 @@
+{
+  "contribution_id": "contribution:a9f95729ab0c378f",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01g-holdout-v15",
+  "produced_at": "2026-08-02T20:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:ee27c2a2af8e0bc8",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:neris-quill",
+      "target_node_id": "obj:tide-horn",
+      "predicate": "sounds_tide_horn",
+      "label": "Neris Quill sounds the tide-horn thrice",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:tide-horn-session",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:tide-horn-session"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:43f19c97a48f5add",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:mosscoil-ferry",
+      "target_node_id": null,
+      "predicate": "leaves_at_dusk",
+      "label": "The Mosscoil Ferry leaves at dusk tide",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:ferry-dusk-tide",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:ferry-dusk-tide"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:1131fb59ebcaae89",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:bram-hollow",
+      "target_node_id": null,
+      "predicate": "is_quay_reckoner",
+      "label": "Bram Hollow is quay reckoner",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:reckoner-start",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:reckoner-start"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:1191825403bf6375",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:whisperloom-vault",
+      "target_node_id": null,
+      "predicate": "is_sealed",
+      "label": "The Whisperloom Vault is sealed against night clerks",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:vault-sealed-since",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:vault-sealed-since"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:b49813f9a03057f6",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:osha-venn",
+      "target_node_id": "obj:reef-ledger",
+      "predicate": "audits_reef_ledger",
+      "label": "Osha Venn audits the reef ledger",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:reef-ledger-end",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:reef-ledger-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:a576743588c19513",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:tilda-crowe",
+      "target_node_id": "obj:dusk-gong",
+      "predicate": "rings_dusk_gong",
+      "label": "Tilda Crowe rings the dusk gong",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:dusk-gong-ceased",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:dusk-gong-ceased"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:5fdb60f975578b33",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:bram-hollow",
+      "target_node_id": null,
+      "predicate": "is_the_quay_reckoner",
+      "label": "Bram Hollow is the quay reckoner",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:reckoner-still",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:reckoner-still"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:135b7836d400b922",
+      "assertion_kind": "attribute",
+      "subject_node_id": "obj:emberglass-seal",
+      "target_node_id": null,
+      "predicate": "is_ordinary_glass",
+      "label": "The emberglass seal is ordinary glass",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:emberglass-identity",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:emberglass-identity"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:a61c1383591400f3",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:neris-quill",
+      "target_node_id": "loc:mosscoil-shoals",
+      "predicate": "intends_chart_shoals",
+      "label": "Neris Quill intends to chart every shoal",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:shoal-intent",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:shoal-intent"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:cdd4df453fb0efef",
+      "assertion_kind": "edge",
+      "subject_node_id": "org:quay-council",
+      "target_node_id": "role:pier-scribe",
+      "predicate": "must_appoint_scribe",
+      "label": "The quay council must appoint a pier scribe",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:pier-scribe-missing",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:pier-scribe-missing"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:72e257f48e124234",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:bram-hollow",
+      "target_node_id": "obj:tide-horn",
+      "predicate": "tide_horn_tally_role_conflict",
+      "label": "Witnesses conflict whether the tide-horn tally bound Bram Hollow as night watch or merely listed him as alternate",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:marshal-ambiguous",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:marshal-ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    },
+    {
+      "assertion_id": "assertion:6f267289e9f12821",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:neris-quill",
+      "target_node_id": "obj:tide-horn",
+      "predicate": "tends_tide_horn",
+      "label": "Neris Quill tends the tide-horn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01g-holdout-v15:tide-horn-tending",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01g-holdout-v15:tide-horn-tending"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:a9f95729ab0c378f"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
