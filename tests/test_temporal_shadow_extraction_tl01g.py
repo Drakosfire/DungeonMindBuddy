@@ -3294,6 +3294,35 @@ def test_v15_adv_v13_sibling_proposition_template_jaccard_below_threshold() -> N
                 )
 
 
+def test_v15_adv_v13_sibling_source_template_jaccard_below_threshold() -> None:
+    """V15↔Adv V13 stimulus prose must be mutually novel (exact + Jaccard < 0.40)."""
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _require_fresh_cohort_mandatory(ADV_V13)
+    v15_sources = [
+        p.read_text(encoding="utf-8")
+        for p in sorted((HOLDOUT_V15 / "sources").glob("*.md"))
+    ]
+    v13_sources = [
+        p.read_text(encoding="utf-8")
+        for p in sorted((ADV_V13 / "sources").glob("*.md"))
+    ]
+    assert v15_sources and v13_sources
+    v15_templates = {_normalize_template(s) for s in v15_sources if s.strip()}
+    v13_templates = {_normalize_template(s) for s in v13_sources if s.strip()}
+    exact_overlap = v15_templates & v13_templates
+    assert not exact_overlap, sorted(exact_overlap)[:3]
+    for left_path in sorted((HOLDOUT_V15 / "sources").glob("*.md")):
+        left = left_path.read_text(encoding="utf-8")
+        for right_path in sorted((ADV_V13 / "sources").glob("*.md")):
+            right = right_path.read_text(encoding="utf-8")
+            score = _template_jaccard(left, right)
+            if score >= 0.40:
+                raise AssertionError(
+                    "sibling source-template Jaccard >= 0.40: "
+                    f"{left_path.name} vs {right_path.name} ({score:.3f})"
+                )
+
+
 def test_resolved_span_text_rejects_line_beyond_eof() -> None:
     fixture_dir = REPO_ROOT / "tests" / "_span_eof_fixtures"
     fixture_dir.mkdir(parents=True, exist_ok=True)
