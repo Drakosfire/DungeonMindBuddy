@@ -1,7 +1,9 @@
 import { useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
 
 import { IngestionModule } from "../../modules/IngestionModule";
 import type { SurfaceInteractionProjectionDescriptor } from "../../surfaceInteraction/types";
+import type { ProjectionCatalogRenderRequest } from "../../surfaceInteraction/projection/projectionCatalog";
 import type { ProjectionKind, ProjectionSize } from "../../surfaceInteraction/projection/types";
 import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphReviewDiagnosticsToolPanel";
 import {
@@ -18,6 +20,8 @@ export interface IngestProjectionDefinition {
   kind: ProjectionKind;
   preferredSize: ProjectionSize;
   requiredBindingIds: readonly string[];
+  /** Explicit renderer for this catalog ID — not selected via a shared switch. */
+  render: (request: ProjectionCatalogRenderRequest) => ReactNode;
 }
 
 export const INGEST_PROJECTION_DEFINITIONS: readonly IngestProjectionDefinition[] = [
@@ -26,21 +30,7 @@ export const INGEST_PROJECTION_DEFINITIONS: readonly IngestProjectionDefinition[
     kind: "tool",
     preferredSize: "wide",
     requiredBindingIds: [PLAN_CONTEXT_BINDING_ID],
-  },
-  {
-    projectionId: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
-    kind: "tool",
-    preferredSize: "wide",
-    requiredBindingIds: [GRAPH_REVIEW_DIAGNOSTICS_BINDING_ID],
-  },
-] as const;
-
-function renderIngestProjection(
-  projectionId: string,
-  bindings: Readonly<Record<string, unknown>>,
-) {
-  switch (projectionId) {
-    case "ingest-recap": {
+    render: ({ bindings }) => {
       const context = readPlanContextBinding(bindings);
       return (
         <IngestionModule
@@ -48,17 +38,20 @@ function renderIngestProjection(
           session={context.ingestSession}
         />
       );
-    }
-    case GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID:
-      return (
-        <GraphReviewDiagnosticsToolPanel
-          payload={readGraphReviewDiagnosticsBinding(bindings)}
-        />
-      );
-    default:
-      return null;
-  }
-}
+    },
+  },
+  {
+    projectionId: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
+    kind: "tool",
+    preferredSize: "wide",
+    requiredBindingIds: [GRAPH_REVIEW_DIAGNOSTICS_BINDING_ID],
+    render: ({ bindings }) => (
+      <GraphReviewDiagnosticsToolPanel
+        payload={readGraphReviewDiagnosticsBinding(bindings)}
+      />
+    ),
+  },
+];
 
 export interface IngestProjectionCatalogRegistrationProps {
   surfaceId: string;
@@ -71,23 +64,19 @@ export function IngestProjectionCatalogRegistration({
 }: IngestProjectionCatalogRegistrationProps) {
   const { registerProjectionCatalog } = useProjection();
 
-  const liveDefinitionIds = useMemo(() => {
-    const toolIds = new Set(toolDescriptors.map((descriptor) => descriptor.id));
-    return new Set(
-      INGEST_PROJECTION_DEFINITIONS.filter((definition) => toolIds.has(definition.projectionId))
-        .map((definition) => definition.projectionId),
-    );
-  }, [toolDescriptors]);
+  const publishedToolIdsKey = toolDescriptors.map((descriptor) => descriptor.id).join("\0");
+
+  const liveDefinitions = useMemo(() => {
+    const toolIds = new Set(publishedToolIdsKey.split("\0").filter(Boolean));
+    return INGEST_PROJECTION_DEFINITIONS.filter((definition) => toolIds.has(definition.projectionId));
+  }, [publishedToolIdsKey]);
 
   useEffect(() => {
     if (surfaceId !== "ingest") {
       return undefined;
     }
     const cleanups: Array<() => void> = [];
-    for (const definition of INGEST_PROJECTION_DEFINITIONS) {
-      if (!liveDefinitionIds.has(definition.projectionId)) {
-        continue;
-      }
+    for (const definition of liveDefinitions) {
       const descriptor = toolDescriptors.find((entry) => entry.id === definition.projectionId);
       const preferredSize = descriptor?.preferredSize ?? definition.preferredSize;
       cleanups.push(
@@ -97,7 +86,7 @@ export function IngestProjectionCatalogRegistration({
           kind: definition.kind,
           preferredSize,
           requiredBindingIds: definition.requiredBindingIds,
-          render: ({ bindings }) => renderIngestProjection(definition.projectionId, bindings),
+          render: definition.render,
         }),
       );
     }
@@ -106,7 +95,8 @@ export function IngestProjectionCatalogRegistration({
         cleanup();
       }
     };
-  }, [liveDefinitionIds, registerProjectionCatalog, surfaceId, toolDescriptors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- membership-stable registration
+  }, [liveDefinitions, registerProjectionCatalog, surfaceId, publishedToolIdsKey]);
 
   return null;
 }

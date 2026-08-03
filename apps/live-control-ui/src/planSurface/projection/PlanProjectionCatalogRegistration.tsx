@@ -1,6 +1,10 @@
 import { useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
 
-import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import {
+  GRAPH_REFERENCE_PROJECTION_ID,
+  type ProjectionCatalogRenderRequest,
+} from "../../surfaceInteraction/projection/projectionCatalog";
 import type { ProjectionKind, ProjectionSize } from "../../surfaceInteraction/projection/types";
 import type { SurfaceInteractionProjectionDescriptor } from "../../surfaceInteraction/types";
 import { PartyRegistryModule } from "../../modules/PartyRegistryModule";
@@ -28,6 +32,8 @@ export interface PlanProjectionDefinition {
   kind: ProjectionKind;
   preferredSize: ProjectionSize;
   requiredBindingIds: readonly string[];
+  /** Explicit renderer for this catalog ID — not selected via a shared switch. */
+  render: (request: ProjectionCatalogRenderRequest) => ReactNode;
 }
 
 export const PLAN_PROJECTION_DEFINITIONS: readonly PlanProjectionDefinition[] = [
@@ -36,36 +42,42 @@ export const PLAN_PROJECTION_DEFINITIONS: readonly PlanProjectionDefinition[] = 
     kind: "tool",
     preferredSize: "wide",
     requiredBindingIds: [PLAN_CONTEXT_BINDING_ID],
+    render: ({ bindings }) => <RecapGraphModule context={readPlanContextBinding(bindings)} />,
   },
   {
     projectionId: "party-registry",
     kind: "tool",
     preferredSize: "wide",
     requiredBindingIds: [PLAN_CONTEXT_BINDING_ID],
+    render: ({ bindings }) => <PartyRegistryModule context={readPlanContextBinding(bindings)} />,
   },
   {
     projectionId: "statblock",
     kind: "tool",
     preferredSize: "wide",
     requiredBindingIds: [],
+    render: () => <StatblockWorkbenchModule />,
   },
   {
     projectionId: "graph-preview",
     kind: "tool",
     preferredSize: "wide",
     requiredBindingIds: [PLAN_CONTEXT_BINDING_ID],
+    render: ({ bindings }) => <GraphPreviewModule context={readPlanContextBinding(bindings)} />,
   },
   {
     projectionId: "graph-gold-review",
     kind: "tool",
     preferredSize: "wide",
     requiredBindingIds: [PLAN_CONTEXT_BINDING_ID],
+    render: ({ bindings }) => <GraphGoldReviewModule context={readPlanContextBinding(bindings)} />,
   },
   {
     projectionId: "manual-review",
     kind: "tool",
     preferredSize: "wide",
     requiredBindingIds: [],
+    render: () => <ManualReviewModule />,
   },
   {
     projectionId: GRAPH_REFERENCE_PROJECTION_ID,
@@ -75,28 +87,7 @@ export const PLAN_PROJECTION_DEFINITIONS: readonly PlanProjectionDefinition[] = 
       PLAN_SURFACE_CONFIG_BINDING_ID,
       GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
     ],
-  },
-] as const;
-
-function renderPlanProjection(
-  projectionId: string,
-  bindings: Readonly<Record<string, unknown>>,
-  glanceOnly: boolean,
-) {
-  switch (projectionId) {
-    case "recap":
-      return <RecapGraphModule context={readPlanContextBinding(bindings)} />;
-    case "party-registry":
-      return <PartyRegistryModule context={readPlanContextBinding(bindings)} />;
-    case "statblock":
-      return <StatblockWorkbenchModule />;
-    case "graph-preview":
-      return <GraphPreviewModule context={readPlanContextBinding(bindings)} />;
-    case "graph-gold-review":
-      return <GraphGoldReviewModule context={readPlanContextBinding(bindings)} />;
-    case "manual-review":
-      return <ManualReviewModule />;
-    case GRAPH_REFERENCE_PROJECTION_ID: {
+    render: ({ active, bindings }) => {
       const config = readPlanSurfaceConfigBinding(bindings);
       const resolution = readGraphReferenceResolutionBinding(bindings);
       const projectionState = readGraphReferenceProjectionStateBinding(bindings);
@@ -107,14 +98,12 @@ function renderPlanProjection(
           sessionDescriptor={config.sessionDescriptor}
           projectionState={projectionState ?? null}
           graphReferenceBinding={graphReferenceBinding ?? null}
-          glanceOnly={glanceOnly}
+          glanceOnly={active.glanceOnly === true}
         />
       );
-    }
-    default:
-      return null;
-  }
-}
+    },
+  },
+];
 
 export interface PlanProjectionCatalogRegistrationProps {
   surfaceId: string;
@@ -127,25 +116,24 @@ export function PlanProjectionCatalogRegistration({
 }: PlanProjectionCatalogRegistrationProps) {
   const { registerProjectionCatalog } = useProjection();
 
-  const liveDefinitionIds = useMemo(() => {
-    const toolIds = new Set(toolDescriptors.map((descriptor) => descriptor.id));
-    return new Set([
-      ...PLAN_PROJECTION_DEFINITIONS.filter(
-        (definition) => definition.kind === "tool" && toolIds.has(definition.projectionId),
-      ).map((definition) => definition.projectionId),
-      GRAPH_REFERENCE_PROJECTION_ID,
-    ]);
-  }, [toolDescriptors]);
+  // Membership only — preferredSize changes are synced atomically by the provider
+  // on same-identity publication updates so open renderers do not remount.
+  const publishedToolIdsKey = toolDescriptors.map((descriptor) => descriptor.id).join("\0");
+
+  const liveDefinitions = useMemo(() => {
+    const toolIds = new Set(publishedToolIdsKey.split("\0").filter(Boolean));
+    return PLAN_PROJECTION_DEFINITIONS.filter(
+      (definition) =>
+        definition.kind === "content" || toolIds.has(definition.projectionId),
+    );
+  }, [publishedToolIdsKey]);
 
   useEffect(() => {
     if (surfaceId !== "plan") {
       return undefined;
     }
     const cleanups: Array<() => void> = [];
-    for (const definition of PLAN_PROJECTION_DEFINITIONS) {
-      if (!liveDefinitionIds.has(definition.projectionId)) {
-        continue;
-      }
+    for (const definition of liveDefinitions) {
       const descriptor = toolDescriptors.find((entry) => entry.id === definition.projectionId);
       const preferredSize = definition.kind === "content"
         ? definition.preferredSize
@@ -157,12 +145,7 @@ export function PlanProjectionCatalogRegistration({
           kind: definition.kind,
           preferredSize,
           requiredBindingIds: definition.requiredBindingIds,
-          render: ({ active, bindings }) =>
-            renderPlanProjection(
-              definition.projectionId,
-              bindings,
-              active.glanceOnly === true,
-            ),
+          render: definition.render,
         }),
       );
     }
@@ -171,7 +154,9 @@ export function PlanProjectionCatalogRegistration({
         cleanup();
       }
     };
-  }, [liveDefinitionIds, registerProjectionCatalog, surfaceId, toolDescriptors]);
+    // toolDescriptors preferredSize is intentionally omitted: provider syncs size.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- membership-stable registration
+  }, [liveDefinitions, registerProjectionCatalog, surfaceId, publishedToolIdsKey]);
 
   return null;
 }
