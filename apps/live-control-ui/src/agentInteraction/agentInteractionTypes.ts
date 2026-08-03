@@ -18,6 +18,10 @@ import type {
   RegisterableToolProjectionId,
   ToolProjectionPayloadMap,
 } from "../planSurface/projection/projectionBindings";
+import type {
+  ProjectionCatalogRegistration,
+  ProjectionCatalogResolution,
+} from "../surfaceInteraction/projection/projectionCatalog";
 import type { ActiveProjection, ProjectionSize } from "../surfaceInteraction/projection/types";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
 import type {
@@ -159,6 +163,12 @@ export interface AgentInteractionProjectionActions {
     toolId: K,
     payload: ToolProjectionPayloadMap[K],
   ) => () => void;
+  registerProjectionCatalog: (registration: ProjectionCatalogRegistration) => () => void;
+  resolveProjectionCatalog: (args: {
+    projectionId: string;
+    active: ActiveProjection;
+    bindings: Readonly<Record<string, unknown>>;
+  }) => ProjectionCatalogResolution;
 }
 
 export interface AgentInteractionContextValue

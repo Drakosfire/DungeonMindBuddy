@@ -22,6 +22,12 @@ import type {
 import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "../planSurface/projection/projectionBindings";
 import type { ActiveProjection, ProjectionSize } from "../surfaceInteraction/projection/types";
 import {
+  normalizeProjectionCatalogRegistration,
+  resolveProjectionCatalog as resolveProjectionCatalogPure,
+  type ProjectionCatalogLiveEntry,
+  type ProjectionCatalogRegistration,
+} from "../surfaceInteraction/projection/projectionCatalog";
+import {
   AGENT_TURN_HISTORY_CAP,
   clearAgentThread,
   createAgentInteractionThread,
@@ -104,6 +110,12 @@ interface LeasedGraphReference {
 interface LeasedGraphProjectionState {
   surfaceToken: symbol;
   state: GraphReferenceProjectionState | null;
+}
+
+interface CatalogRegistrationAttachment {
+  surfaceToken: symbol;
+  registrationToken: symbol;
+  registration: ProjectionCatalogRegistration;
 }
 
 function contentSize(resolution: GraphReferenceResolution): ProjectionSize {
@@ -218,6 +230,14 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     BindingRegistration<GraphReviewDiagnosticsProjectionPayload> | null
   >(null);
 
+  const catalogEntriesRef = useRef<CatalogRegistrationAttachment[]>([]);
+  const [catalogEntries, setCatalogEntries] = useState<CatalogRegistrationAttachment[]>([]);
+
+  const clearCatalogEntries = useCallback(() => {
+    catalogEntriesRef.current = [];
+    setCatalogEntries([]);
+  }, []);
+
   const clearSelectedProjection = useCallback(() => {
     leasedActiveRef.current = null;
     setLeasedActive(null);
@@ -233,6 +253,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setGraphReferenceRegistration(null);
       diagnosticsRegistrationRef.current = null;
       setDiagnosticsRegistration(null);
+      clearCatalogEntries();
       return;
     }
     const legacyValidated = bundle.legacyProjection?.validated;
@@ -253,7 +274,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       diagnosticsRegistrationRef.current = null;
       setDiagnosticsRegistration(null);
     }
-  }, [clearSelectedProjection]);
+  }, [clearCatalogEntries, clearSelectedProjection]);
 
   const applySameIdentityConfigUpdate = useCallback(
     (validated: ValidatedProjectionSurface): boolean => {
@@ -295,6 +316,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         leaseCallbackGateRef.current,
       );
       clearSelectedProjection();
+      clearCatalogEntries();
       applyLeaseBundle({
         snapshot,
         legacyProjection: null,
@@ -305,10 +327,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       return () => {
         if (leaseBundleRef.current?.snapshot.token !== token) return;
         clearSelectedProjection();
+        clearCatalogEntries();
         clearLeaseBundle();
       };
     },
-    [applyLeaseBundle, clearLeaseBundle, clearSelectedProjection],
+    [applyLeaseBundle, clearCatalogEntries, clearLeaseBundle, clearSelectedProjection],
   );
 
   const updateSurfaceInteractionPublication = useCallback((publication: unknown) => {
@@ -374,6 +397,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
           leaseCallbackGateRef.current,
         );
         clearSelectedProjection();
+        clearCatalogEntries();
         applyLeaseBundle({
           snapshot,
           legacyProjection: { validated },
@@ -384,6 +408,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         return () => {
           if (leaseBundleRef.current?.snapshot.token !== token) return;
           clearSelectedProjection();
+          clearCatalogEntries();
           clearLeaseBundle();
         };
       }
@@ -394,6 +419,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         leaseCallbackGateRef.current,
       );
       clearSelectedProjection();
+      clearCatalogEntries();
       applyLeaseBundle({
         snapshot,
         legacyProjection: { validated: null },
@@ -404,10 +430,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       return () => {
         if (leaseBundleRef.current?.snapshot.token !== token) return;
         clearSelectedProjection();
+        clearCatalogEntries();
         clearLeaseBundle();
       };
     },
-    [applyLeaseBundle, applySameIdentityConfigUpdate, clearLeaseBundle, clearSelectedProjection],
+    [applyLeaseBundle, applySameIdentityConfigUpdate, clearCatalogEntries, clearLeaseBundle, clearSelectedProjection],
   );
 
   const updateProjectionSurfaceConfig = useCallback(
@@ -579,6 +606,64 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       };
     },
     [currentSurfaceToken, leaseBundle?.authorizationEpoch],
+  );
+
+  const registerProjectionCatalog = useCallback(
+    (registration: ProjectionCatalogRegistration) => {
+      const capturedToken = currentSurfaceToken;
+      if (!capturedToken) {
+        return () => undefined;
+      }
+      const normalized = normalizeProjectionCatalogRegistration(registration);
+      if (!normalized) {
+        return () => undefined;
+      }
+      const registrationToken = Symbol("projection-catalog-registration");
+      const attachment: CatalogRegistrationAttachment = {
+        surfaceToken: capturedToken,
+        registrationToken,
+        registration: normalized,
+      };
+      catalogEntriesRef.current = [...catalogEntriesRef.current, attachment];
+      setCatalogEntries([...catalogEntriesRef.current]);
+      return () => {
+        const live = leaseBundleRef.current;
+        if (!live || live.snapshot.token !== capturedToken) return;
+        catalogEntriesRef.current = catalogEntriesRef.current.filter(
+          (entry) => entry.registrationToken !== registrationToken,
+        );
+        setCatalogEntries([...catalogEntriesRef.current]);
+      };
+    },
+    [currentSurfaceToken],
+  );
+
+  const resolveProjectionCatalog = useCallback(
+    (args: {
+      projectionId: string;
+      active: ActiveProjection;
+      bindings: Readonly<Record<string, unknown>>;
+    }) => {
+      const bundle = leaseBundleRef.current;
+      const leaseToken = bundle?.snapshot.token ?? null;
+      const publication = bundle?.snapshot.effectivePublication ?? null;
+      const liveEntries: ProjectionCatalogLiveEntry[] = catalogEntriesRef.current
+        .filter((entry) => entry.surfaceToken === leaseToken)
+        .map((entry) => ({
+          registrationToken: entry.registrationToken,
+          leaseToken: entry.surfaceToken,
+          registration: entry.registration,
+        }));
+      return resolveProjectionCatalogPure({
+        leaseToken,
+        entries: liveEntries,
+        publication,
+        projectionId: args.projectionId,
+        active: args.active,
+        bindings: args.bindings,
+      });
+    },
+    [],
   );
 
   const graphReferenceBinding = useMemo((): GraphReferenceProjectionBinding | null => {
@@ -821,6 +906,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     close,
     registerGraphReferenceBinding,
     registerToolProjectionPayload,
+    registerProjectionCatalog,
+    resolveProjectionCatalog,
     publishSurfaceContext: setActiveSurfaceContext,
     setPaneOpen: (isOpen) => setPaneState((current) => ({ ...current, isOpen, mode: isOpen ? "pane" : "bar" })),
     setPaneMode: (mode) => setPaneState((current) => ({ ...current, mode })),
@@ -863,6 +950,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     rehydrateScope,
     registerGraphReferenceBinding,
     registerToolProjectionPayload,
+    registerProjectionCatalog,
+    resolveProjectionCatalog,
     renameThread,
     scope,
     selectedSource,
