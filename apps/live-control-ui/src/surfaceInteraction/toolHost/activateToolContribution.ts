@@ -13,7 +13,7 @@ export type ToolHostActivationResult =
 export function activateToolContribution(args: {
   publication: SurfaceInteractionPublication | null;
   toolId: string;
-  openProjectionTool: (projectionId: string) => void;
+  openProjectionTool: (projectionId: string) => boolean;
 }): ToolHostActivationResult {
   const { publication, toolId, openProjectionTool } = args;
   if (!publication) {
@@ -35,7 +35,10 @@ export function activateToolContribution(args: {
     return { status: "invoked", mode: "command" };
   }
   if (tool.activation.kind === "projection") {
-    openProjectionTool(tool.activation.projectionId);
+    const opened = openProjectionTool(tool.activation.projectionId);
+    if (!opened) {
+      return { status: "ignored", reason: "unsupported" };
+    }
     return { status: "opened", mode: "projection", projectionId: tool.activation.projectionId };
   }
   return { status: "ignored", reason: "unsupported" };

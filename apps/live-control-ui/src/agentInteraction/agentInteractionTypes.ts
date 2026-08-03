@@ -155,6 +155,11 @@ export interface AgentInteractionProjectionActions {
    */
   updateProjectionSurfaceConfig: (publication: ProjectionSurfacePublication) => void;
   openTool: (toolId: string) => void;
+  /** Plan/Ingest adapter path when registered; otherwise publication-backed openTool. */
+  activateProjectionTool: (toolId: string) => boolean;
+  registerProjectionToolActivator: (
+    activator: (toolId: string) => void | Promise<void>,
+  ) => () => void;
   openGraphReference: (args: OpenGraphReferenceArgs) => void;
   expandContent: () => void;
   close: () => void;

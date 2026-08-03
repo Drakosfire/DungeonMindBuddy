@@ -118,6 +118,11 @@ interface CatalogRegistrationAttachment {
   registration: ProjectionCatalogRegistration;
 }
 
+interface ProjectionToolActivatorAttachment {
+  leaseToken: symbol;
+  fn: (toolId: string) => void | Promise<void>;
+}
+
 function contentSize(resolution: GraphReferenceResolution): ProjectionSize {
   if (resolution.kind === "resolved_graph" || resolution.kind === "resolved_corpus_fallback") return "wide";
   return "compact";
@@ -232,6 +237,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const catalogEntriesRef = useRef<CatalogRegistrationAttachment[]>([]);
   const [catalogEntries, setCatalogEntries] = useState<CatalogRegistrationAttachment[]>([]);
+  const projectionActivatorRef = useRef<ProjectionToolActivatorAttachment | null>(null);
 
   const clearCatalogEntries = useCallback(() => {
     catalogEntriesRef.current = [];
@@ -498,25 +504,31 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     clearSelectedProjection();
   }, [clearSelectedProjection, currentSurfaceToken]);
 
-  const openTool = useCallback(
-    (toolId: string) => {
+  const openToolFromEffectivePublication = useCallback(
+    (toolId: string): boolean => {
       const capturedToken = currentSurfaceToken;
       const bundle = leaseBundleRef.current;
-      if (!surfaceTokenGuard(capturedToken, bundle) || !bundle!.legacyProjection?.validated?.projectionsEnabled) {
-        return;
-      }
-      if (!bundle!.snapshot.effectivePublication) return;
-      const { identity, config } = bundle!.legacyProjection!.validated!.publication;
-      if (identity.surfaceId !== config.id) return;
+      if (!surfaceTokenGuard(capturedToken, bundle)) return false;
+      const publication = bundle!.snapshot.effectivePublication;
+      if (!publication) return false;
+
+      const tool = publication.tools.find((entry) => entry.id === toolId);
+      if (!tool || tool.availability.status !== "enabled") return false;
+      if (tool.activation.kind !== "projection") return false;
+
+      const projectionId = tool.activation.projectionId;
+      const descriptor = publication.projections.find(
+        (entry) => entry.id === projectionId && entry.kind === "tool",
+      );
+      if (!descriptor) return false;
+
       const activeToken = bundle!.snapshot.token;
-      const tool = config.tools.find((entry) => entry.id === toolId);
-      if (!tool) return;
       const next: LeasedActiveProjection = {
         surfaceToken: activeToken,
         projection: {
           kind: "tool",
-          key: toolId,
-          size: tool.size,
+          key: projectionId,
+          size: descriptor.preferredSize,
           title: tool.label,
         },
       };
@@ -524,6 +536,52 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setLeasedActive(next);
       setLeasedGraphReference(null);
       setLeasedGraphProjectionState(null);
+      return true;
+    },
+    [currentSurfaceToken],
+  );
+
+  const openTool = useCallback(
+    (toolId: string) => {
+      openToolFromEffectivePublication(toolId);
+    },
+    [openToolFromEffectivePublication],
+  );
+
+  const activateProjectionTool = useCallback(
+    (toolId: string): boolean => {
+      const activator = projectionActivatorRef.current;
+      const liveToken = leaseBundleRef.current?.snapshot.token ?? null;
+      if (activator && liveToken && activator.leaseToken === liveToken) {
+        void activator.fn(toolId);
+        return true;
+      }
+      return openToolFromEffectivePublication(toolId);
+    },
+    [openToolFromEffectivePublication],
+  );
+
+  const registerProjectionToolActivator = useCallback(
+    (activator: (toolId: string) => void | Promise<void>) => {
+      const capturedToken = currentSurfaceToken;
+      const bundle = leaseBundleRef.current;
+      if (
+        !capturedToken
+        || bundle?.snapshot.token !== capturedToken
+        || !bundle.snapshot.effectivePublication
+      ) {
+        return () => undefined;
+      }
+      const attachment: ProjectionToolActivatorAttachment = {
+        leaseToken: capturedToken,
+        fn: activator,
+      };
+      projectionActivatorRef.current = attachment;
+      return () => {
+        if (projectionActivatorRef.current?.leaseToken === capturedToken) {
+          projectionActivatorRef.current = null;
+        }
+      };
     },
     [currentSurfaceToken],
   );
@@ -747,10 +805,16 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     if (leasedActive.projection.kind === "content" && !isAuthorizedPlanPublication(leaseBundle)) {
       return null;
     }
-    if (leasedActive.projection.kind === "tool" && !leaseBundle?.legacyProjection?.validated?.projectionsEnabled) {
-      return null;
+    const publication = leaseBundle?.snapshot.effectivePublication;
+    if (!publication) return null;
+    if (leasedActive.projection.kind === "tool") {
+      const tool = publication.tools.find((entry) => entry.id === leasedActive.projection.key);
+      if (!tool || tool.availability.status !== "enabled") return null;
+      const descriptor = publication.projections.find(
+        (entry) => entry.id === leasedActive.projection.key && entry.kind === "tool",
+      );
+      if (!descriptor) return null;
     }
-    if (!leaseBundle?.snapshot.effectivePublication) return null;
     return leasedActive.projection;
   }, [currentSurfaceToken, leasedActive, leaseBundle]);
 
@@ -946,6 +1010,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     updateSurfaceInteractionPublication,
     publishAppChromeCompatibility,
     openTool,
+    activateProjectionTool,
+    registerProjectionToolActivator,
     openGraphReference,
     expandContent,
     close,
@@ -985,6 +1051,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     graphReviewDiagnosticsPayload,
     openGraphReference,
     openTool,
+    activateProjectionTool,
+    registerProjectionToolActivator,
     paneState,
     projectionSurface,
     surfaceInteractionPublication,
