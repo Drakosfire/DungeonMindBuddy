@@ -16,7 +16,6 @@ export interface ProjectionHostProps {
   theme?: ProjectionHostTheme | null;
   body: ReactNode;
   onNavigate: (itemId: string) => void;
-  onToggle: () => void;
   onClose: () => void;
   onExpand: () => void;
 }
@@ -33,7 +32,7 @@ function projectionDrawerClass(size: ProjectionSize | undefined): string {
 
 /**
  * Controlled Projection host shell (BLD-SIH-03a).
- * Owns DOM/lifecycle only — no Plan policy, registry, or selected-state ownership.
+ * Owns projection drawer DOM/lifecycle only — Tool launchers belong to ToolHost (BLD-SIH-04).
  */
 export function ProjectionHost({
   active,
@@ -42,7 +41,6 @@ export function ProjectionHost({
   theme,
   body,
   onNavigate,
-  onToggle,
   onClose,
   onExpand,
 }: ProjectionHostProps) {
@@ -59,7 +57,6 @@ export function ProjectionHost({
     .join(" ");
 
   const themeStyle = (theme?.tokens ?? {}) as CSSProperties;
-  const firstNavId = navigationItems[0]?.id;
 
   useEffect(() => {
     document.body.classList.toggle("surface-projection-open", isOpen);
@@ -77,6 +74,10 @@ export function ProjectionHost({
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [isOpen, onClose]);
 
+  if (!isOpen) {
+    return null;
+  }
+
   return (
     <div
       className={rootClass}
@@ -84,22 +85,6 @@ export function ProjectionHost({
       data-md-theme={theme?.themeId}
       data-projection-key={active?.key}
     >
-      <button
-        type="button"
-        className="surface-projection-toggle"
-        aria-expanded={isOpen}
-        aria-controls="surface-projection-drawer"
-        title={labels.toggleTitle}
-        onClick={() => {
-          if (isOpen) {
-            onClose();
-            return;
-          }
-          if (firstNavId) onToggle();
-        }}
-      >
-        Tools
-      </button>
       <div
         className="surface-projection-backdrop"
         hidden={!showModalBackdrop}

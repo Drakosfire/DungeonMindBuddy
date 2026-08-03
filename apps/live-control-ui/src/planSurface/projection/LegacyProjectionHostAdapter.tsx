@@ -143,7 +143,6 @@ function LegacyProjectionHostAdapterInner({
       surfaceIdentityRef.current = null;
     };
   }, []);
-  const firstToolId = config.tools[0]?.id;
   const campaignKey = config.context!.campaignId;
   const [latestIngestedSessionByCampaign, setLatestIngestedSessionByCampaign] = useState<
     Record<string, string | null>
@@ -272,9 +271,6 @@ function LegacyProjectionHostAdapterInner({
       theme={config.theme}
       body={body}
       onNavigate={(itemId) => void openToolFromNav(itemId)}
-      onToggle={() => {
-        if (firstToolId) void openToolFromNav(firstToolId);
-      }}
       onClose={close}
       onExpand={expandContent}
     />
