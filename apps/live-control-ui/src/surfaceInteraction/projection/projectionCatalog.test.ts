@@ -236,4 +236,48 @@ describe("projectionCatalog", () => {
     });
     expect(result.status).toBe("ready");
   });
+
+  it("does not evaluate unused enumerable binding getters while resolving ready", () => {
+    const render = vi.fn(() => "ok");
+    const bindings: Record<string, unknown> = { "plan-context": { campaignId: "c2" } };
+    Object.defineProperty(bindings, "extra", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        throw new Error("unused binding getter must not run");
+      },
+    });
+    const result = resolveProjectionCatalog({
+      leaseToken: leaseA,
+      entries: [entry(makeRegistration({ render }))],
+      publication: makePublication(),
+      projectionId: "recap",
+      active: toolActive,
+      bindings,
+    });
+    expect(result).toEqual({ status: "ready", body: "ok" });
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed for a required binding accessor that yields null without invoking render", () => {
+    const render = vi.fn(() => "ok");
+    const bindings: Record<string, unknown> = {};
+    Object.defineProperty(bindings, "plan-context", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return null;
+      },
+    });
+    const result = resolveProjectionCatalog({
+      leaseToken: leaseA,
+      entries: [entry(makeRegistration({ render }))],
+      publication: makePublication(),
+      projectionId: "recap",
+      active: toolActive,
+      bindings,
+    });
+    expect(result.status).toBe("binding_missing");
+    expect(render).not.toHaveBeenCalled();
+  });
 });

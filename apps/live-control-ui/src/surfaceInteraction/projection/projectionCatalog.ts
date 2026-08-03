@@ -98,6 +98,32 @@ function bindingPresent(bindings: Readonly<Record<string, unknown>>, id: string)
 }
 
 /**
+ * Build a read-only binding snapshot without evaluating unrelated accessors.
+ * Own data properties are copied by descriptor; required IDs may be read if
+ * still missing (so required accessors participate in authorization). Extra
+ * enumerable getters are never invoked.
+ */
+function snapshotOpaqueBindings(
+  bindings: Readonly<Record<string, unknown>>,
+  requiredBindingIds: readonly string[],
+): Readonly<Record<string, unknown>> {
+  const out: Record<string, unknown> = Object.create(null);
+  for (const key of Object.keys(bindings)) {
+    const descriptor = Object.getOwnPropertyDescriptor(bindings, key);
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      continue;
+    }
+    out[key] = descriptor.value;
+  }
+  for (const id of requiredBindingIds) {
+    if (!Object.prototype.hasOwnProperty.call(out, id)) {
+      out[id] = bindings[id];
+    }
+  }
+  return Object.freeze(out);
+}
+
+/**
  * Pure fail-closed catalog resolution. Invokes a renderer only when every exact
  * lease, publication, identity, kind/size, and binding check passes.
  */
@@ -167,7 +193,7 @@ export function resolveProjectionCatalog(args: {
     return { status: "binding_missing", body: null, missingBindingIds };
   }
 
-  const bindingSnapshot: Readonly<Record<string, unknown>> = Object.freeze({ ...bindings });
+  const bindingSnapshot = snapshotOpaqueBindings(bindings, registration.requiredBindingIds);
   const body = registration.render({
     projectionId,
     active,
