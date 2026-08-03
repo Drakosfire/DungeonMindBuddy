@@ -274,12 +274,37 @@ _IDENTITY_UNAVAILABLE_LABELS = frozenset(
     }
 )
 _IDENTITY_INTEGRITY_LABELS = frozenset({"publication_identity_integrity_failure"})
+_IDENTITY_SUCCESS_LABELS = frozenset(
+    {
+        "publication_identity_connected_existing",
+        "publication_identity_created_new",
+    }
+)
+_PUBLICATION_UNAVAILABLE_LABELS = frozenset(
+    {
+        "publication_draft_unavailable",
+        "publication_graph_unavailable",
+        "publication_storage_unavailable",
+        "publication_busy",
+    }
+)
+_PUBLICATION_INTEGRITY_LABELS = frozenset({"publication_integrity_failure"})
+
+IdentityAuthorityStatus = Literal["ok", "unavailable", "mismatch", "integrity"]
+PublicationAuthorityStatus = Literal["ok", "unavailable", "mismatch", "integrity"]
 
 
-def _connect_selected_target_authority(
+def _classify_identity_authority(
     identity: Any,
-) -> tuple[Literal["ok", "unavailable", "integrity"], Any | None, str | None]:
-    """Classify SBW09b identity read for connect_existing selected_target authority.
+    *,
+    record: ThreatPublicationCommitV1,
+    proposal: ThreatPublicationProposalV1 | None = None,
+) -> tuple[IdentityAuthorityStatus, Any | None, str | None]:
+    """Classify a complete SBW09b resolution against the commit (and proposal).
+
+    Binds more than ``selected_target``: active state, publishable decision, exact
+    request/candidate/source/parent identity, and decision-specific node identity.
+    Superseded resolutions are readable mismatches — never verification authority.
 
     ``read_identity_resolution`` represents missing/unavailable/integrity-failed
     dependencies as ``resolution is None`` plus a result label — it does not raise.
@@ -290,16 +315,140 @@ def _connect_selected_target_authority(
         return "integrity", None, f"identity dependency integrity failure: {label}"
     if resolution is None:
         if label in _IDENTITY_UNAVAILABLE_LABELS or label not in {
-            "publication_identity_connected_existing",
-            "publication_identity_created_new",
+            *_IDENTITY_SUCCESS_LABELS,
             "publication_identity_refused",
             "publication_identity_superseded",
         }:
             return "unavailable", None, f"identity dependency unavailable: {label}"
         return "integrity", None, f"identity resolution missing for label: {label}"
-    if resolution.selected_target is None:
-        return "integrity", None, "identity resolution missing selected_target"
-    return "ok", resolution.selected_target, None
+
+    if label == "publication_identity_superseded" or getattr(resolution, "state", None) == "superseded":
+        return "mismatch", None, "identity resolution is superseded"
+    if getattr(resolution, "state", None) != "active":
+        return (
+            "mismatch",
+            None,
+            f"identity resolution state is {getattr(resolution, 'state', None)}",
+        )
+    if label == "publication_identity_refused" or getattr(resolution, "decision", None) == "refuse":
+        return "mismatch", None, "identity resolution is not publishable"
+    if label not in _IDENTITY_SUCCESS_LABELS:
+        return "mismatch", None, f"identity result label unexpected: {label}"
+
+    if proposal is not None and (
+        record.source_digest != proposal.source_digest
+        or record.resolution_request_digest != proposal.resolution_request_digest
+        or record.candidate_set_digest != proposal.candidate_set_digest
+        or record.expected_parent_revision_id != proposal.expected_parent_revision_id
+        or record.decision != proposal.decision
+        or record.threat_node_id != proposal.threat_node_id
+        or record.resolution_id != proposal.resolution_id
+    ):
+        return "integrity", None, "commit record identity fields disagree with proposal"
+
+    expected_source = proposal.source_digest if proposal is not None else record.source_digest
+    expected_request = (
+        proposal.resolution_request_digest
+        if proposal is not None
+        else record.resolution_request_digest
+    )
+    expected_candidate = (
+        proposal.candidate_set_digest if proposal is not None else record.candidate_set_digest
+    )
+    expected_parent = (
+        proposal.expected_parent_revision_id
+        if proposal is not None
+        else record.expected_parent_revision_id
+    )
+    expected_decision = proposal.decision if proposal is not None else record.decision
+    expected_threat = proposal.threat_node_id if proposal is not None else record.threat_node_id
+
+    if getattr(resolution, "resolution_id", None) != record.resolution_id:
+        return "mismatch", None, "identity resolution_id mismatch"
+    if (
+        getattr(resolution, "draft_id", None) != record.draft_id
+        or getattr(resolution, "operation_id", None) != record.operation_id
+    ):
+        return "mismatch", None, "identity parent identity mismatch"
+    if getattr(resolution, "source_digest", None) != expected_source:
+        return "mismatch", None, "identity source_digest mismatch"
+    if getattr(resolution, "request_digest", None) != expected_request:
+        return "mismatch", None, "identity resolution request_digest mismatch"
+    if getattr(resolution, "candidate_set_digest", None) != expected_candidate:
+        return "mismatch", None, "identity candidate_set_digest mismatch"
+    if getattr(resolution, "expected_parent_revision_id", None) != expected_parent:
+        return "mismatch", None, "identity expected_parent_revision_id mismatch"
+    if getattr(resolution, "decision", None) != expected_decision:
+        return "mismatch", None, "identity decision mismatch"
+
+    if expected_decision == "create_new":
+        if getattr(resolution, "created_node_id", None) != expected_threat:
+            return "mismatch", None, "identity created_node_id mismatch"
+        if getattr(resolution, "selected_target", None) is not None:
+            return "mismatch", None, "identity create_new has selected_target"
+        if record.selected_target is not None:
+            return "integrity", None, "commit record create_new has selected_target"
+        if label != "publication_identity_created_new":
+            return "mismatch", None, f"identity result label unexpected: {label}"
+    elif expected_decision == "connect_existing":
+        selected_target = getattr(resolution, "selected_target", None)
+        if selected_target is None:
+            return "mismatch", None, "identity resolution missing selected_target"
+        if getattr(selected_target, "node_id", None) != expected_threat:
+            return "mismatch", None, "identity selected_target node_id mismatch"
+        if not _selected_targets_equal(record.selected_target, selected_target):
+            return "mismatch", None, "identity selected_target mismatch"
+        if label != "publication_identity_connected_existing":
+            return "mismatch", None, f"identity result label unexpected: {label}"
+    else:
+        return "mismatch", None, "identity decision is not publishable"
+
+    return "ok", resolution, None
+
+
+def _classify_publication_operation_authority(
+    refresh: Any,
+    *,
+    record: ThreatPublicationCommitV1,
+) -> tuple[PublicationAuthorityStatus, Any | None, str | None]:
+    """Classify SBW09a refresh authority for retry revalidation."""
+    label = str(refresh.response.result_label)
+    operation = refresh.response.operation
+    if label in _PUBLICATION_INTEGRITY_LABELS:
+        return "integrity", None, f"publication dependency integrity failure: {label}"
+    if operation is None:
+        if label in _PUBLICATION_UNAVAILABLE_LABELS:
+            return "unavailable", None, f"publication dependency unavailable: {label}"
+        if label == "publication_ready":
+            return "integrity", None, "publication_ready missing operation"
+        return "mismatch", None, f"publication operation not usable: {label}"
+    if label != "publication_ready":
+        if label in _PUBLICATION_UNAVAILABLE_LABELS:
+            return "unavailable", None, f"publication dependency unavailable: {label}"
+        return "mismatch", None, f"publication operation not ready: {label}"
+    if operation.source_digest != record.source_digest:
+        return "mismatch", None, "publication source_digest mismatch"
+    if operation.expected_parent_revision_id != record.expected_parent_revision_id:
+        return "mismatch", None, "publication expected_parent_revision_id mismatch"
+    return "ok", operation, None
+
+
+def _persist_committed_unverified_receipt(
+    root: Path,
+    prior: ThreatPublicationCommitV1,
+    updated: ThreatPublicationCommitV1,
+) -> tuple[ThreatPublicationCommitV1, ThreatPublicationCommitResultLabel | None, str | None]:
+    """Persist a known committed_unverified receipt; keep prior on save failure."""
+    try:
+        _save_commit(root, updated)
+    except ThreatPublicationCommitStorageError as exc:
+        label: ThreatPublicationCommitResultLabel = (
+            "publication_commit_integrity_failure"
+            if getattr(exc, "kind", "unavailable") == "integrity"
+            else "publication_commit_storage_unavailable"
+        )
+        return prior, label, str(exc)
+    return updated, None, None
 
 
 _AUTHORED_FIELD_PREDICATES = frozenset({"description", "threat_kind", "intended_role", "tag"})
@@ -551,38 +700,31 @@ def _advance_committed_verification(
 ) -> tuple[ThreatPublicationCommitV1, ThreatPublicationCommitResultLabel, str | None]:
     """Verify a persisted committed_unverified receipt; never hide it on verify-save failure.
 
-    For connect_existing, exact SBW09b selected_target authority is required before
-    any verification that could advance to committed_verified:
+    Exact SBW09b authority is required before any verification that could advance
+    to committed_verified:
 
     - unavailable → keep committed_unverified
-    - integrity / contradictory snapshot → integrity failure (receipt unchanged)
+    - integrity / superseded / contradictory → integrity failure (receipt unchanged)
     - exact match → run full verification
     """
-    if record.decision == "connect_existing":
-        identity = read_identity_resolution(
-            root, record.draft_id, record.operation_id, record.resolution_id
+    identity = read_identity_resolution(
+        root, record.draft_id, record.operation_id, record.resolution_id
+    )
+    identity_status, _resolution, identity_detail = _classify_identity_authority(
+        identity, record=record, proposal=proposal
+    )
+    if identity_status == "unavailable":
+        return (
+            record,
+            "publication_commit_committed_unverified",
+            identity_detail,
         )
-        identity_status, selected_target_authority, identity_detail = (
-            _connect_selected_target_authority(identity)
+    if identity_status in {"integrity", "mismatch"}:
+        return (
+            record,
+            "publication_commit_integrity_failure",
+            identity_detail,
         )
-        if identity_status == "unavailable":
-            return (
-                record,
-                "publication_commit_committed_unverified",
-                identity_detail,
-            )
-        if identity_status == "integrity":
-            return (
-                record,
-                "publication_commit_integrity_failure",
-                identity_detail,
-            )
-        if not _selected_targets_equal(record.selected_target, selected_target_authority):
-            return (
-                record,
-                "publication_commit_integrity_failure",
-                "commit record authority mismatch: selected_target_mismatch",
-            )
 
     verified = _verify_committed(
         root=root,
@@ -1505,7 +1647,12 @@ def _reconcile(
             recovered_via_operation_lookup=True,
             verification_status="not_started",
         )
-        _save_commit(root, updated)
+        persisted, save_label, save_message = _persist_committed_unverified_receipt(
+            root, record, updated
+        )
+        if save_label is not None:
+            return persisted, merge_calls, save_label, False, save_message
+        updated = persisted
         if proposal is not None and contribution is not None:
             verified, label, message = _advance_committed_verification(
                 root=root,
@@ -1856,29 +2003,30 @@ def _maybe_retry(
     identity = read_identity_resolution(
         root, record.draft_id, record.operation_id, record.resolution_id
     )
-    resolution = identity.response.resolution
-    if (
-        resolution is None
-        or resolution.state != "active"
-        or resolution.source_digest != record.source_digest
-        or resolution.request_digest != record.resolution_request_digest
-        or resolution.candidate_set_digest != record.candidate_set_digest
-    ):
+    identity_status, _resolution, identity_detail = _classify_identity_authority(
+        identity, record=record, proposal=proposal
+    )
+    if identity_status == "unavailable":
+        return record, merge_calls, "publication_commit_recovery_pending", identity_detail
+    if identity_status == "integrity":
+        return record, merge_calls, "publication_commit_integrity_failure", identity_detail
+    if identity_status == "mismatch":
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", None
+        return updated, merge_calls, "publication_commit_uncommitted", identity_detail
 
     refresh = refresh_publication_operation(root, record.draft_id, record.operation_id)
-    operation = refresh.response.operation
-    if (
-        refresh.response.result_label != "publication_ready"
-        or operation is None
-        or operation.source_digest != record.source_digest
-        or operation.expected_parent_revision_id != record.expected_parent_revision_id
-    ):
+    pub_status, _operation, pub_detail = _classify_publication_operation_authority(
+        refresh, record=record
+    )
+    if pub_status == "unavailable":
+        return record, merge_calls, "publication_commit_recovery_pending", pub_detail
+    if pub_status == "integrity":
+        return record, merge_calls, "publication_commit_integrity_failure", pub_detail
+    if pub_status == "mismatch":
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", None
+        return updated, merge_calls, "publication_commit_uncommitted", pub_detail
 
     try:
         _verified, rebuilt = resolve_merged_contribution_from_package(
@@ -1940,7 +2088,12 @@ def _maybe_retry(
             recovered_via_operation_lookup=False,
             verification_status="not_started",
         )
-        _save_commit(root, updated)
+        persisted, save_label, save_message = _persist_committed_unverified_receipt(
+            root, attempt2, updated
+        )
+        if save_label is not None:
+            return persisted, merge_calls, save_label, save_message
+        updated = persisted
         verified, label, message = _advance_committed_verification(
             root=root,
             world_root=world_root,
@@ -2248,63 +2401,61 @@ def confirm_threat_publication(
                     and updated.merge_attempt_count == 1
                 ):
                     # Zero c2a match: require identity/operation authority before retry.
-                    if updated.decision == "connect_existing":
-                        identity = read_identity_resolution(
-                            root, safe_draft, safe_op, updated.resolution_id
+                    identity = read_identity_resolution(
+                        root, safe_draft, safe_op, updated.resolution_id
+                    )
+                    identity_status, _resolution, identity_detail = (
+                        _classify_identity_authority(
+                            identity, record=updated, proposal=proposal
                         )
-                        identity_status, selected_target_authority, identity_detail = (
-                            _connect_selected_target_authority(identity)
+                    )
+                    if identity_status == "unavailable":
+                        return CommitOutcome(
+                            _response(
+                                safe_draft,
+                                safe_op,
+                                safe_proposal,
+                                safe_commit,
+                                "publication_commit_recovery_pending",
+                                commit=updated,
+                                retry_allowed=_retry_allowed(updated),
+                                message=identity_detail,
+                            ),
+                            merge_calls=merge_calls,
                         )
-                        if identity_status == "unavailable":
-                            return CommitOutcome(
-                                _response(
-                                    safe_draft,
-                                    safe_op,
-                                    safe_proposal,
-                                    safe_commit,
-                                    "publication_commit_recovery_pending",
-                                    commit=updated,
-                                    retry_allowed=_retry_allowed(updated),
-                                    message=identity_detail,
+                    if identity_status == "integrity":
+                        # Corrupt identity storage: integrity without pretending
+                        # the outcome is uncommitted.
+                        return CommitOutcome(
+                            _response(
+                                safe_draft,
+                                safe_op,
+                                safe_proposal,
+                                safe_commit,
+                                "publication_commit_integrity_failure",
+                                commit=updated,
+                                message=identity_detail,
+                            ),
+                            merge_calls=merge_calls,
+                        )
+                    if identity_status == "mismatch":
+                        terminal = _with_updated(updated, state="uncommitted")
+                        _save_commit(root, terminal)
+                        return CommitOutcome(
+                            _response(
+                                safe_draft,
+                                safe_op,
+                                safe_proposal,
+                                safe_commit,
+                                "publication_commit_uncommitted",
+                                commit=terminal,
+                                message=(
+                                    f"{identity_detail}; a new publication "
+                                    "operation is required"
                                 ),
-                                merge_calls=merge_calls,
-                            )
-                        if identity_status == "integrity":
-                            # Corrupt identity storage: integrity without pretending
-                            # the outcome is uncommitted.
-                            return CommitOutcome(
-                                _response(
-                                    safe_draft,
-                                    safe_op,
-                                    safe_proposal,
-                                    safe_commit,
-                                    "publication_commit_integrity_failure",
-                                    commit=updated,
-                                    message=identity_detail,
-                                ),
-                                merge_calls=merge_calls,
-                            )
-                        if not _selected_targets_equal(
-                            updated.selected_target, selected_target_authority
-                        ):
-                            terminal = _with_updated(updated, state="uncommitted")
-                            _save_commit(root, terminal)
-                            return CommitOutcome(
-                                _response(
-                                    safe_draft,
-                                    safe_op,
-                                    safe_proposal,
-                                    safe_commit,
-                                    "publication_commit_uncommitted",
-                                    commit=terminal,
-                                    message=(
-                                        "commit record authority mismatch: "
-                                        "selected_target_mismatch; a new "
-                                        "publication operation is required"
-                                    ),
-                                ),
-                                merge_calls=merge_calls,
-                            )
+                            ),
+                            merge_calls=merge_calls,
+                        )
                     updated, merge_calls, label, retry_message = _maybe_retry(
                         root=root,
                         world_root=configured_world,
@@ -2350,38 +2501,41 @@ def confirm_threat_publication(
                 )
 
             selected_target_authority = None
-            if record.decision == "connect_existing":
-                identity = read_identity_resolution(
-                    root, safe_draft, safe_op, record.resolution_id
+            identity = read_identity_resolution(
+                root, safe_draft, safe_op, record.resolution_id
+            )
+            identity_status, resolution_authority, identity_detail = (
+                _classify_identity_authority(
+                    identity, record=record, proposal=proposal
                 )
-                identity_status, selected_target_authority, identity_detail = (
-                    _connect_selected_target_authority(identity)
+            )
+            if identity_status == "unavailable":
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_committed_unverified",
+                        commit=record,
+                        retry_allowed=False,
+                        message=identity_detail,
+                    )
                 )
-                if identity_status == "unavailable":
-                    return CommitOutcome(
-                        _response(
-                            safe_draft,
-                            safe_op,
-                            safe_proposal,
-                            safe_commit,
-                            "publication_commit_committed_unverified",
-                            commit=record,
-                            retry_allowed=False,
-                            message=identity_detail,
-                        )
+            if identity_status in {"integrity", "mismatch"}:
+                return CommitOutcome(
+                    _response(
+                        safe_draft,
+                        safe_op,
+                        safe_proposal,
+                        safe_commit,
+                        "publication_commit_integrity_failure",
+                        commit=record,
+                        message=identity_detail,
                     )
-                if identity_status == "integrity":
-                    return CommitOutcome(
-                        _response(
-                            safe_draft,
-                            safe_op,
-                            safe_proposal,
-                            safe_commit,
-                            "publication_commit_integrity_failure",
-                            commit=record,
-                            message=identity_detail,
-                        )
-                    )
+                )
+            if record.decision == "connect_existing" and resolution_authority is not None:
+                selected_target_authority = resolution_authority.selected_target
 
             matched_contribution, authority_err = _record_contribution_matches_authority(
                 record,
@@ -2390,22 +2544,6 @@ def confirm_threat_publication(
                 selected_target_authority=selected_target_authority,
             )
             if authority_err is not None or matched_contribution is None:
-                if (
-                    authority_err == "selected_target_mismatch"
-                    and selected_target_authority is None
-                ):
-                    return CommitOutcome(
-                        _response(
-                            safe_draft,
-                            safe_op,
-                            safe_proposal,
-                            safe_commit,
-                            "publication_commit_committed_unverified",
-                            commit=record,
-                            retry_allowed=False,
-                            message="identity dependency unavailable for selected_target",
-                        )
-                    )
                 return CommitOutcome(
                     _response(
                         safe_draft,
@@ -2500,24 +2638,25 @@ def confirm_threat_publication(
                 recovered_via_operation_lookup=False,
                 verification_status="not_started",
             )
-            try:
-                _save_commit(root, updated)
-            except ThreatPublicationCommitStorageError:
-                # Receipt save failed; remain committing for c2a recovery on replay.
+            persisted, save_label, save_message = _persist_committed_unverified_receipt(
+                root, record, updated
+            )
+            if save_label is not None:
                 return CommitOutcome(
                     _response(
                         safe_draft,
                         safe_op,
                         safe_proposal,
                         safe_commit,
-                        "publication_commit_recovery_pending",
-                        commit=record,
-                        retry_allowed=True,
-                        message="committed revision may exist; receipt persistence failed",
+                        save_label,
+                        commit=persisted,
+                        retry_allowed=_retry_allowed(persisted),
+                        message=save_message,
                     ),
                     created=True,
                     merge_calls=merge_calls,
                 )
+            updated = persisted
             verified, label, verify_message = _advance_committed_verification(
                 root=root,
                 world_root=configured_world,

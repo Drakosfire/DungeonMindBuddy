@@ -274,13 +274,17 @@ def test_exact_committed_replay_merge_calls_zero(tmp_path: Path, monkeypatch) ->
             merge_fn=merge_fn,
             lookup_fn=lambda *_a, **_k: tuple(),
         )
-    read_resolution.assert_not_called()
     assert replay.merge_calls == 0
     assert merge_calls["count"] == 1
     assert replay.response.commit is not None
     assert first.response.commit is not None
     assert replay.response.commit.commit_id == first.response.commit.commit_id
     assert replay.response.commit.request_digest == first.response.commit.request_digest
+    # Terminal verified replay must skip dependency reads; unverified may re-check SBW09b.
+    if replay.response.commit.state == "committed_verified":
+        read_resolution.assert_not_called()
+    else:
+        assert replay.response.commit.state == "committed_unverified"
 
 
 def test_same_commit_id_changed_request_input_conflict_ledger_unchanged(
@@ -619,7 +623,7 @@ def test_receipt_save_failure_recovers_on_replay(tmp_path: Path, monkeypatch) ->
         )
 
     assert first.merge_calls == 1
-    assert first.response.result_label == "publication_commit_recovery_pending"
+    assert first.response.result_label == "publication_commit_storage_unavailable"
     assert first.response.commit is not None
     assert first.response.commit.state == "committing"
 
@@ -1771,26 +1775,11 @@ def test_committed_unverified_identity_contradiction_is_integrity(
     contradictory_target = resolution.selected_target.model_copy(
         update={"label": "Completely Different Threat"}
     )
-    # Bypass resolution model validators: simulate readable-but-contradictory
-    # identity authority returned by the service boundary.
-    identity = type(
-        "IdentityOutcome",
-        (),
-        {
-            "response": type(
-                "IdentityResponse",
-                (),
-                {
-                    "result_label": "publication_identity_connected_existing",
-                    "resolution": type(
-                        "Resolution",
-                        (),
-                        {"selected_target": contradictory_target},
-                    )(),
-                },
-            )()
-        },
-    )()
+    identity = _stub_identity_outcome(
+        resolution,
+        result_label="publication_identity_connected_existing",
+        selected_target=contradictory_target,
+    )
     with patch.object(commit_svc, "read_identity_resolution", return_value=identity):
         replay = commit_svc.confirm_threat_publication(
             tmp_path,
@@ -1805,7 +1794,51 @@ def test_committed_unverified_identity_contradiction_is_integrity(
 
     assert replay.merge_calls == 0
     assert replay.response.result_label == "publication_commit_integrity_failure"
-    assert "selected_target_mismatch" in (replay.response.message or "")
+    assert "selected_target mismatch" in (replay.response.message or "")
+
+
+def _stub_identity_outcome(resolution, *, result_label: str, **field_overrides):
+    """Boundary identity outcome; overrides bypass resolution model validators."""
+    base = {
+        "resolution_id": resolution.resolution_id,
+        "draft_id": resolution.draft_id,
+        "operation_id": resolution.operation_id,
+        "source_digest": resolution.source_digest,
+        "request_digest": resolution.request_digest,
+        "candidate_set_digest": resolution.candidate_set_digest,
+        "expected_parent_revision_id": resolution.expected_parent_revision_id,
+        "decision": resolution.decision,
+        "selected_target": resolution.selected_target,
+        "created_node_id": resolution.created_node_id,
+        "state": resolution.state,
+    }
+    base.update(field_overrides)
+    fake_resolution = type("Resolution", (), base)()
+    return type(
+        "IdentityOutcome",
+        (),
+        {
+            "response": type(
+                "IdentityResponse",
+                (),
+                {"result_label": result_label, "resolution": fake_resolution},
+            )()
+        },
+    )()
+
+
+def _stub_publication_refresh(*, result_label: str, operation=None):
+    return type(
+        "RefreshOutcome",
+        (),
+        {
+            "response": type(
+                "RefreshResponse",
+                (),
+                {"result_label": result_label, "operation": operation},
+            )()
+        },
+    )()
 
 
 def _historical_seal_ids(proposal) -> list[str]:
@@ -2572,24 +2605,11 @@ def test_zero_match_selected_target_drift_persists_uncommitted(
     drifted = resolution.selected_target.model_copy(
         update={"label": "Completely Different Threat"}
     )
-    identity = type(
-        "IdentityOutcome",
-        (),
-        {
-            "response": type(
-                "IdentityResponse",
-                (),
-                {
-                    "result_label": "publication_identity_connected_existing",
-                    "resolution": type(
-                        "Resolution",
-                        (),
-                        {"selected_target": drifted},
-                    )(),
-                },
-            )()
-        },
-    )()
+    identity = _stub_identity_outcome(
+        resolution,
+        result_label="publication_identity_connected_existing",
+        selected_target=drifted,
+    )
 
     with patch.object(commit_svc, "read_identity_resolution", return_value=identity):
         outcome = commit_svc.confirm_threat_publication(
@@ -2607,7 +2627,7 @@ def test_zero_match_selected_target_drift_persists_uncommitted(
     assert outcome.response.result_label == "publication_commit_uncommitted"
     assert outcome.response.commit is not None
     assert outcome.response.commit.state == "uncommitted"
-    assert "selected_target_mismatch" in (outcome.response.message or "")
+    assert "selected_target mismatch" in (outcome.response.message or "")
     ledger = load_threat_publication_commit_ledger_unlocked(
         tmp_path, draft.draft_id, op_id
     )
@@ -2682,3 +2702,477 @@ def test_legacy_c2a_trust_requires_historical_source_digest(
     )
     assert ledger is not None
     assert ledger.commit.state == "committing"
+
+
+def _c2a_connect_verifiable_setup(tmp_path: Path, monkeypatch, *, revision_id: str):
+    """Committing connect_existing record plus complete otherwise-verifiable graph."""
+    draft, op_id, _rid, proposal_id, proposal, _parent, resolution = _pipeline_connect_existing(
+        tmp_path, monkeypatch
+    )
+    assert resolution.selected_target is not None
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, contribution, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+    store, binding, _binding_id = _connect_verification_store(
+        proposal, world_root, selected_target=resolution.selected_target
+    )
+    unverified_for_projection = commit_svc._with_updated(
+        committing,
+        state="committed_unverified",
+        committed_revision_id=revision_id,
+    )
+    projection = _projection_for_verified_commit(
+        record=unverified_for_projection,
+        contribution=contribution,
+        binding=binding,
+        selected_target=resolution.selected_target,
+    )
+    manifest = _recovery_manifest(proposal, revision_id=revision_id)
+    return (
+        draft,
+        op_id,
+        proposal_id,
+        proposal,
+        request,
+        world_root,
+        committing,
+        contribution,
+        resolution,
+        store,
+        projection,
+        manifest,
+    )
+
+
+def test_c2a_superseded_identity_cannot_reach_verified(tmp_path: Path, monkeypatch) -> None:
+    revision_id = "rev:connect-c2a-superseded"
+    (
+        draft,
+        op_id,
+        proposal_id,
+        _proposal,
+        request,
+        world_root,
+        _committing,
+        _contribution,
+        resolution,
+        store,
+        projection,
+        manifest,
+    ) = _c2a_connect_verifiable_setup(tmp_path, monkeypatch, revision_id=revision_id)
+
+    identity = _stub_identity_outcome(
+        resolution,
+        result_label="publication_identity_superseded",
+        state="superseded",
+        superseded_by_resolution_id="tres_superseder_aaaaaaaaaaaaaaaa",
+    )
+
+    class _Rebuild:
+        diagnostics = ["rebuild_equivalent_to_pinned_revision"]
+
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=identity
+    ), patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ), patch.object(
+        commit_svc.kernel, "rebuild_from_contributions", return_value=_Rebuild()
+    ), patch.object(
+        commit_svc.kernel, "project_world_graph", return_value=projection
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_unverified"
+    assert outcome.response.commit.state != "committed_verified"
+    assert "superseded" in (outcome.response.message or "")
+
+
+def test_c2a_changed_request_digest_cannot_reach_verified(
+    tmp_path: Path, monkeypatch
+) -> None:
+    revision_id = "rev:connect-c2a-request-digest"
+    (
+        draft,
+        op_id,
+        proposal_id,
+        _proposal,
+        request,
+        world_root,
+        _committing,
+        _contribution,
+        resolution,
+        store,
+        projection,
+        manifest,
+    ) = _c2a_connect_verifiable_setup(tmp_path, monkeypatch, revision_id=revision_id)
+
+    identity = _stub_identity_outcome(
+        resolution,
+        result_label="publication_identity_connected_existing",
+        request_digest="sha256:" + ("a" * 64),
+    )
+
+    class _Rebuild:
+        diagnostics = ["rebuild_equivalent_to_pinned_revision"]
+
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=identity
+    ), patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ), patch.object(
+        commit_svc.kernel, "rebuild_from_contributions", return_value=_Rebuild()
+    ), patch.object(
+        commit_svc.kernel, "project_world_graph", return_value=projection
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_unverified"
+    assert "request_digest" in (outcome.response.message or "")
+
+
+def test_c2a_changed_candidate_set_digest_cannot_reach_verified(
+    tmp_path: Path, monkeypatch
+) -> None:
+    revision_id = "rev:connect-c2a-candidate-set"
+    (
+        draft,
+        op_id,
+        proposal_id,
+        _proposal,
+        request,
+        world_root,
+        _committing,
+        _contribution,
+        resolution,
+        store,
+        projection,
+        manifest,
+    ) = _c2a_connect_verifiable_setup(tmp_path, monkeypatch, revision_id=revision_id)
+
+    identity = _stub_identity_outcome(
+        resolution,
+        result_label="publication_identity_connected_existing",
+        candidate_set_digest="sha256:" + ("b" * 64),
+    )
+
+    class _Rebuild:
+        diagnostics = ["rebuild_equivalent_to_pinned_revision"]
+
+    with patch.object(
+        commit_svc, "read_identity_resolution", return_value=identity
+    ), patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ), patch.object(
+        commit_svc.kernel, "rebuild_from_contributions", return_value=_Rebuild()
+    ), patch.object(
+        commit_svc.kernel, "project_world_graph", return_value=projection
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committed_unverified"
+    assert "candidate_set_digest" in (outcome.response.message or "")
+
+
+def test_retry_identity_storage_unavailable_keeps_committing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.models.threat_publication_identity import (
+        ThreatPublicationIdentityResponseV1,
+    )
+    from apps.live_control_server.services.threat_publication_identity import (
+        IdentityResolutionOutcome,
+    )
+
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    unavailable = IdentityResolutionOutcome(
+        ThreatPublicationIdentityResponseV1(
+            draft_id=draft.draft_id,
+            operation_id=op_id,
+            result_label="publication_identity_storage_unavailable",
+            resolution=None,
+            predecessor_usable=None,
+            message="identity store unavailable",
+        ),
+        created=False,
+    )
+    with patch.object(commit_svc, "read_identity_resolution", return_value=unavailable):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_recovery_pending"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.retry_allowed is True
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+
+
+def test_retry_publication_storage_unavailable_keeps_committing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    refresh = _stub_publication_refresh(
+        result_label="publication_storage_unavailable",
+        operation=None,
+    )
+    with patch.object(commit_svc, "refresh_publication_operation", return_value=refresh):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_recovery_pending"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.retry_allowed is True
+    assert "publication dependency unavailable" in (outcome.response.message or "")
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+
+
+def test_c2a_committed_receipt_save_failure_returns_storage_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        ThreatPublicationCommitStorageError,
+    )
+
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    request = _confirm_request(proposal)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    committing = commit_svc._with_updated(
+        record,
+        state="committing",
+        merge_attempt_count=1,
+        committed_revision_id=None,
+    )
+    commit_svc._save_commit(tmp_path, committing)
+
+    revision_id = "rev:c2a-receipt-save-fail"
+    manifest = _recovery_manifest(proposal, revision_id=revision_id)
+    store = _recovery_store(proposal, world_root)
+    real_save = commit_svc._save_commit
+
+    def flaky_save(root, commit: ThreatPublicationCommitV1):
+        if (
+            commit.state == "committed_unverified"
+            and commit.verification_status == "not_started"
+        ):
+            raise ThreatPublicationCommitStorageError(
+                "committed receipt save failed", kind="unavailable"
+            )
+        return real_save(root, commit)
+
+    with patch.object(
+        commit_svc, "_save_commit", side_effect=flaky_save
+    ), patch.object(
+        commit_svc.kernel, "load_world_graph_revision_with_integrity", return_value=store
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=world_root,
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no merge")),
+            lookup_fn=lambda *_a, **_k: (manifest,),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_storage_unavailable"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.commit.committed_revision_id is None
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+    assert ledger.commit.merge_attempt_count == 1
+
+
+def test_retry_committed_receipt_save_failure_returns_storage_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        ThreatPublicationCommitStorageError,
+    )
+
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    revision_id = "rev:retry-receipt-save-fail"
+    merge_calls = {"n": 0}
+    real_save = commit_svc._save_commit
+
+    def merge_fn(*_args, **_kwargs):
+        merge_calls["n"] += 1
+        if merge_calls["n"] == 1:
+            raise RuntimeError("first attempt uncertain")
+        return _merge_success_result(proposal, revision_id=revision_id)
+
+    def flaky_save(root, commit: ThreatPublicationCommitV1):
+        if (
+            commit.state == "committed_unverified"
+            and commit.verification_status == "not_started"
+            and commit.merge_attempt_count == 2
+        ):
+            raise ThreatPublicationCommitStorageError(
+                "committed receipt save failed", kind="unavailable"
+            )
+        return real_save(root, commit)
+
+    with patch.object(commit_svc, "_save_commit", side_effect=flaky_save):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            _confirm_request(proposal),
+            world_root=world_root,
+            merge_fn=merge_fn,
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert merge_calls["n"] == 2
+    assert outcome.merge_calls == 2
+    assert outcome.response.result_label == "publication_commit_storage_unavailable"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit.state == "committing"
+    assert outcome.response.commit.merge_attempt_count == 2
+    assert outcome.response.commit.committed_revision_id is None
+    assert outcome.response.retry_allowed is False
+    ledger = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert ledger is not None
+    assert ledger.commit.state == "committing"
+    assert ledger.commit.merge_attempt_count == 2
