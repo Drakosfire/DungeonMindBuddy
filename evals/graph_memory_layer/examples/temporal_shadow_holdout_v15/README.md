@@ -5,8 +5,8 @@
 This holdout/adversarial pair is authored for pre-live certification only. No provider
 call, calibration artifact, or promotion matrix has been executed against these bytes.
 
-**Certification SHA:** `0ea6c2a9ae127c348ac93ce302c2cc698926bcea`  
-**Prior certifications invalidated:** `e59dd742…` (review cycle 1); `09da5f76…` (review cycle 2)  
+**Certification SHA:** `24679b19ac093cdbefa430cb0e930dff8c8a6dae`  
+**Prior certifications invalidated:** `e59dd742…` (cycle 1); `09da5f76…` (cycle 2); `0ea6c2a9…` (cycle 3)  
 **Certification report:** `Docs/Reports/REPORT-tl01g-v15-adv13-cohort-certification.md`  
 **Disposition:** `CERTIFIED_FOR_EXECUTION` (asset certification only — not prompt readiness)
 
