@@ -140,6 +140,7 @@ HOLDOUT_V11 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_hol
 HOLDOUT_V12 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v12"
 HOLDOUT_V13 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v13"
 HOLDOUT_V14 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v14"
+HOLDOUT_V15 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15"
 ADV_V6 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v6"
 ADV_V7 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v7"
 ADV_V8 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v8"
@@ -147,6 +148,7 @@ ADV_V9 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversar
 ADV_V10 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v10"
 ADV_V11 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11"
 ADV_V12 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v12"
+ADV_V13 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13"
 
 PRIOR_CANONICAL_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_cohort",
@@ -246,6 +248,27 @@ ADV_V12_VOCABULARY = (
     "Hadric Moone",
     "Pel Raith",
 )
+
+HOLDOUT_V15_VOCABULARY = (
+    "Mosscoil",
+    "Whisperloom",
+    "Cinderreef",
+    "Neris Quill",
+    "Bram Hollow",
+    "Osha Venn",
+    "Tilda Crowe",
+)
+
+ADV_V13_VOCABULARY = (
+    "Ashpetal",
+    "Gloomwick",
+    "Thornfen",
+    "Lira Spelt",
+    "Corven Ash",
+    "Pell Marrow",
+)
+
+CERTIFICATION_SIBLING_RESERVED_VOCABULARY = HOLDOUT_V15_VOCABULARY + ADV_V13_VOCABULARY
 
 _PROPOSITION_TEMPLATE_STOPWORDS = frozenset(
     {
@@ -707,6 +730,8 @@ def _normalize_template(text: str) -> str:
         *ADV_V10_VOCABULARY,
         *ADV_V11_VOCABULARY,
         *ADV_V12_VOCABULARY,
+        *HOLDOUT_V15_VOCABULARY,
+        *ADV_V13_VOCABULARY,
     ):
         t = t.replace(vocab.lower(), "NAME")
     for token in (
@@ -864,18 +889,29 @@ def _session_number_from_id(session_id: str | None) -> str | None:
     return match.group(1) if match else None
 
 
+def _session_licensed_in_owned_prose(
+    *,
+    span_text: str,
+    source_phrase: str | None,
+    session_num: str,
+) -> bool:
+    pattern = re.compile(rf"\bsession[\s\-]*{re.escape(session_num)}\b", re.IGNORECASE)
+    haystacks = [span_text or ""]
+    if isinstance(source_phrase, str) and source_phrase.strip():
+        haystacks.append(source_phrase)
+    return any(pattern.search(hay) is not None for hay in haystacks)
+
+
 def _evidence_supports_session_number(
     entry: dict, span_text: str, session_num: str
 ) -> bool:
-    """True when span text or evidence episode metadata names this session."""
-    pattern = re.compile(rf"\bsession[\s\-]*{re.escape(session_num)}\b", re.IGNORECASE)
-    haystacks = (
-        span_text,
-        str(entry.get("label") or ""),
-        str(entry.get("source_artifact_path") or ""),
-        str(entry.get("evidence_ref_id") or ""),
+    """True when owned prose names this session (never registry metadata alone)."""
+    del entry  # metadata must not license fictional session time
+    return _session_licensed_in_owned_prose(
+        span_text=span_text,
+        source_phrase=None,
+        session_num=session_num,
     )
-    return any(pattern.search(hay) is not None for hay in haystacks)
 
 
 def _boundary_value_grounded_in_evidence(
@@ -893,15 +929,18 @@ def _boundary_value_grounded_in_evidence(
             else None
         )
         if session_num is None:
-            # Bare session_id strings used in unit tests: {"session_id": "session-12"}
             session_num = _session_number_from_id(
                 str(boundary_value.get("session_id") or "")
             )
         if session_num is None:
             return False
         return any(
-            _evidence_supports_session_number(entry, span, session_num)
-            for entry, span in evidence_pairs
+            _session_licensed_in_owned_prose(
+                span_text=span,
+                source_phrase=None,
+                session_num=session_num,
+            )
+            for _, span in evidence_pairs
         )
     if kind == "textual":
         raw = boundary_value.get("raw_expression")
@@ -916,8 +955,12 @@ def _boundary_value_grounded_in_evidence(
         if session_num is None:
             return False
         return any(
-            _evidence_supports_session_number(entry, span, session_num)
-            for entry, span in evidence_pairs
+            _session_licensed_in_owned_prose(
+                span_text=span,
+                source_phrase=None,
+                session_num=session_num,
+            )
+            for _, span in evidence_pairs
         )
     return False
 
@@ -1055,6 +1098,25 @@ def _collect_resolved_value_grounding_defects(folder: Path) -> list[str]:
                         f"{context_base}:occurrence session value not grounded "
                         f"in owned evidence ({point!r})"
                     )
+                else:
+                    session_num = _session_number_from_id(
+                        str(point.get("session_id") or "")
+                    )
+                    if session_num is not None:
+                        phrase = ann.get("source_phrase")
+                        for _, span in pairs:
+                            if not _session_licensed_in_owned_prose(
+                                span_text=span,
+                                source_phrase=(
+                                    phrase if isinstance(phrase, str) else None
+                                ),
+                                session_num=session_num,
+                            ):
+                                defects.append(
+                                    f"{context_base}:occurrence session value not "
+                                    f"licensed in owned prose ({point!r})"
+                                )
+                                break
         phrase = ann.get("source_phrase")
         if isinstance(phrase, str) and phrase.strip():
             pairs = _resolve_annotation_evidence(ann, evidence)
@@ -1281,6 +1343,201 @@ def _assert_gold_audit_matches_base_and_overlay(folder: Path) -> None:
         )
 
 
+def _audit_backtick_refs(cell: str) -> list[str]:
+    return re.findall(r"`([^`]+)`", cell)
+
+
+def _expected_certification_temporal_value_cell(overlay: dict) -> str:
+    status = overlay.get("interpretation_status")
+    if status != "resolved":
+        return "null"
+    occ = overlay.get("occurrence_time")
+    if isinstance(occ, dict):
+        point = occ.get("point")
+        if isinstance(point, dict):
+            session_id = point.get("session_id")
+            if isinstance(session_id, str) and session_id.strip():
+                return session_id.strip().lower()
+            raw = point.get("raw_expression")
+            if isinstance(raw, str) and raw.strip():
+                return raw.strip().lower()
+    vt = overlay.get("valid_time") or {}
+    if isinstance(vt, dict):
+        for key in ("start", "end"):
+            boundary = vt.get(key)
+            if not isinstance(boundary, dict):
+                continue
+            session_id = boundary.get("session_id")
+            if isinstance(session_id, str) and session_id.strip():
+                return session_id.strip().lower()
+            raw = boundary.get("raw_expression")
+            if isinstance(raw, str) and raw.strip():
+                return raw.strip().lower()
+    raise AssertionError(
+        f"resolved overlay missing temporal value for audit binding: "
+        f"{overlay.get('base_assertion_id')!r}"
+    )
+
+
+def _assert_target_set_equality(folder: Path) -> None:
+    base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+    gold = json.loads((folder / "gold-overlay.json").read_text(encoding="utf-8"))
+    case = json.loads((folder / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
+    base_ids = [a["assertion_id"] for a in base.get("candidate_assertions", [])]
+    gold_ids = [a["base_assertion_id"] for a in gold.get("annotations", [])]
+    selected = case["selected_assertion_ids"]
+    assert selected == base_ids == gold_ids, (folder.name, selected, base_ids, gold_ids)
+
+
+def _assert_evidence_paths_under_cohort_sources(folder: Path) -> None:
+    case = json.loads((folder / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
+    sources_root = (folder / "sources").resolve()
+    for entry in case.get("evidence_registry", []):
+        rel = entry.get("source_artifact_path") or ""
+        path = (REPO_ROOT / rel).resolve()
+        assert sources_root in path.parents or path.parent == sources_root, (
+            folder.name,
+            rel,
+        )
+        assert path.is_file(), (folder.name, rel)
+
+
+def _assert_certification_gold_audit_matches_base_and_overlay(folder: Path) -> None:
+    """13-column certification GOLD-AUDIT binding for V15 / Adv V13."""
+    audit_text = (folder / "GOLD-AUDIT.md").read_text(encoding="utf-8")
+    lowered_header = audit_text.lower()
+    for required in (
+        "temporal value(s)",
+        "owned source file(s)",
+        "rejected alternative",
+        "gate rationale",
+        "audit result",
+    ):
+        assert required in lowered_header, (folder.name, required)
+
+    audit_ids = _parse_gold_audit_assertion_ids(audit_text)
+    base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+    gold = json.loads((folder / "gold-overlay.json").read_text(encoding="utf-8"))
+    case = json.loads((folder / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
+    evidence_by_id = {e["evidence_ref_id"]: e for e in case.get("evidence_registry", [])}
+    base_by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+    base_ids = set(base_by_id)
+    overlay_by_id = {a["base_assertion_id"]: a for a in gold.get("annotations", [])}
+
+    assert audit_ids, folder.name
+    assert audit_ids.issubset(base_ids), sorted(audit_ids - base_ids)
+    assert base_ids.issubset(audit_ids), sorted(base_ids - audit_ids)
+
+    abstention_temporal_values = {"null", "none", "—", "-", "n/a", ""}
+    for row in audit_text.splitlines():
+        if not row.startswith("| `assertion:"):
+            continue
+        cells = _gold_audit_row_cells(row)
+        assert len(cells) >= 13, (folder.name, row, len(cells))
+        aid_match = re.search(r"`(assertion:[0-9a-f]+)`", row)
+        assert aid_match is not None, row
+        aid = aid_match.group(1)
+        status = cells[4]
+        overlay = overlay_by_id[aid]
+        base_assertion = base_by_id[aid]
+        assert overlay["interpretation_status"] == status, (folder.name, aid, status)
+        assert cells[1] == base_assertion.get("label"), (folder.name, aid, cells[1])
+
+        lane_cell = cells[5].lower()
+        has_occurrence = overlay.get("occurrence_time") is not None
+        vt = overlay.get("valid_time") or {}
+        has_valid_start = isinstance(vt, dict) and vt.get("start") is not None
+        has_valid_end = isinstance(vt, dict) and vt.get("end") is not None
+        if "occurrence" in lane_cell:
+            assert has_occurrence, (folder.name, aid, lane_cell)
+        if "valid-start" in lane_cell:
+            assert has_valid_start, (folder.name, aid, lane_cell)
+        if "valid-end" in lane_cell:
+            assert has_valid_end, (folder.name, aid, lane_cell)
+        if lane_cell.strip() == "none":
+            assert not has_occurrence and not has_valid_start and not has_valid_end, (
+                folder.name,
+                aid,
+                lane_cell,
+            )
+
+        phrase = _audit_backtick_phrase(cells[7])
+        source_phrase = str(overlay.get("source_phrase") or "")
+        assert phrase == source_phrase or phrase in source_phrase, (
+            folder.name,
+            aid,
+            phrase,
+            source_phrase,
+        )
+
+        temporal_cell = cells[6].strip().lower()
+        expected_temporal = _expected_certification_temporal_value_cell(overlay)
+        if status == "resolved":
+            assert temporal_cell, (folder.name, aid, temporal_cell)
+            assert temporal_cell not in abstention_temporal_values, (
+                folder.name,
+                aid,
+                temporal_cell,
+            )
+            assert temporal_cell == expected_temporal, (
+                folder.name,
+                aid,
+                temporal_cell,
+                expected_temporal,
+            )
+        else:
+            assert temporal_cell in abstention_temporal_values, (
+                folder.name,
+                aid,
+                temporal_cell,
+            )
+
+        audit_eids = set(_audit_backtick_refs(cells[8]))
+        overlay_eids = set(overlay.get("evidence_ref_ids") or [])
+        assert audit_eids == overlay_eids, (folder.name, aid, audit_eids, overlay_eids)
+
+        owned_sources = _audit_backtick_refs(cells[9])
+        assert owned_sources, (folder.name, aid)
+        for eid in overlay_eids:
+            entry = evidence_by_id.get(eid)
+            assert entry is not None, (folder.name, aid, eid)
+            rel_path = str(entry.get("source_artifact_path") or "")
+            basename = Path(rel_path).name
+            cohort_rel = f"sources/{basename}"
+            assert any(
+                cohort_rel == owned or owned.endswith(f"/{basename}")
+                for owned in owned_sources
+            ), (folder.name, aid, owned_sources, cohort_rel)
+            resolved = (REPO_ROOT / rel_path).resolve()
+            assert (folder / "sources" / basename).resolve() == resolved, (
+                folder.name,
+                aid,
+                rel_path,
+            )
+
+        assert str(cells[10]).strip(), (folder.name, aid, "rejected alternative")
+        assert str(cells[11]).strip(), (folder.name, aid, "gate rationale")
+        assert str(cells[12]).strip(), (folder.name, aid, "audit result")
+
+
+def _assert_certification_readme_protocol(folder: Path) -> None:
+    readme = (folder / "README.md").read_text(encoding="utf-8")
+    lowered = readme.lower()
+    assert "sources/" in readme or "sources/*.md" in readme
+    assert "synthetic" in lowered
+    assert "evaluation stimulus" in lowered
+    assert "corpus/" in lowered or "under `corpus/`" in lowered
+    assert "not" in lowered
+    assert "project sources" in lowered or "chatgpt project sources" in lowered
+    assert (
+        "provider-unobserved" in lowered
+        or "zero provider" in lowered
+        or "no provider" in lowered
+    )
+    assert "certification" in lowered
+    assert ("active" in lowered and "fresh" in lowered) or "fresh tl01g certification" in lowered
+
+
 def _assert_fresh_cohort_readme_protocol(folder: Path) -> None:
     readme = (folder / "README.md").read_text(encoding="utf-8")
     lowered = readme.lower()
@@ -1299,6 +1556,38 @@ def _assert_cohort_excludes_reserved_and_forbidden_terms(folder: Path) -> None:
         ), f"{term!r} found in {folder.name}"
     for term in FORBIDDEN_PRIOR_PROMPT_AND_OBSERVED_TERMS:
         assert term not in folder_text, f"{term!r} found in {folder.name}"
+
+
+def _assert_certification_cohort_excludes_contamination(folder: Path) -> None:
+    """Reserved/forbidden guard for certification cohorts with own vocabulary."""
+    folder_text = _folder_text(folder)
+    if "holdout_v15" in folder.name:
+        own_vocab = HOLDOUT_V15_VOCABULARY
+    elif "adversarial_v13" in folder.name:
+        own_vocab = ADV_V13_VOCABULARY
+    else:
+        own_vocab = CERTIFICATION_SIBLING_RESERVED_VOCABULARY
+    for term in TL01G_RESERVED_VOCABULARY:
+        assert not re.search(
+            rf"(?<![A-Za-z0-9_-]){re.escape(term)}(?![A-Za-z0-9_-])",
+            folder_text,
+        ), f"{term!r} found in {folder.name}"
+    for term in FORBIDDEN_PRIOR_PROMPT_AND_OBSERVED_TERMS:
+        if any(term in own for own in own_vocab):
+            continue
+        assert not re.search(
+            rf"(?<![A-Za-z0-9_-]){re.escape(term)}(?![A-Za-z0-9_-])",
+            folder_text,
+        ), f"{term!r} found in {folder.name}"
+
+
+def _readme_normalized(readme: str) -> str:
+    return " ".join(readme.lower().split())
+
+
+def _assert_retired_cohort_readme_sealed_without_edits(readme: str) -> None:
+    normalized = _readme_normalized(readme)
+    assert "do not patch" in normalized or "do not edit" in normalized
 
 
 def test_holdout_v8_retired_as_observed_regression_not_promotion() -> None:
@@ -1740,8 +2029,8 @@ def test_discover_cohorts_above_retired_cutoff_ignores_prior_membership(
         )
 
 
-def test_discover_cohorts_above_retired_cutoff_empty_when_only_retired_versions() -> None:
-    """Discovery returns only fresh promotion successors above the retired cutoff."""
+def test_discover_cohorts_above_retired_cutoff_finds_v15_and_adv_v13() -> None:
+    """Discovery returns fresh promotion successors above the retired cutoff."""
     discovered_holdout = _discover_cohorts_above_retired_cutoff(
         prefix="temporal_shadow_holdout_v",
         last_retired_version=LAST_RETIRED_HOLDOUT_VERSION,
@@ -1750,8 +2039,8 @@ def test_discover_cohorts_above_retired_cutoff_empty_when_only_retired_versions(
         prefix="temporal_shadow_adversarial_v",
         last_retired_version=LAST_RETIRED_ADVERSARIAL_VERSION,
     )
-    assert discovered_holdout == []
-    assert discovered_adv == []
+    assert discovered_holdout == [HOLDOUT_V15]
+    assert discovered_adv == [ADV_V13]
     assert LAST_RETIRED_HOLDOUT_VERSION == 14
     assert LAST_RETIRED_ADVERSARIAL_VERSION == 12
 
@@ -2161,9 +2450,10 @@ def test_assert_annotation_gate_e3_boundary_proof_end_to_end() -> None:
         "assertion_id": "assertion:rebels",
         "label": "The rebel humans feel represented in Mirathorn",
     }
-    # Give episode metadata so value grounding succeeds and cue-in-phrase is the failure.
+    # Metadata-only session licensing must fail value grounding (not cue path).
     evidence_by_id["evidence:state"]["label"] = "Session 7 rebel attitude"
-    with pytest.raises(AssertionError, match="source_phrase does not narrate"):
+    evidence_by_id["evidence:state"]["evidence_ref_id"] = "evidence:session-7-rebel-attitude"
+    with pytest.raises(AssertionError, match="boundary_value is not grounded"):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=bad,
             assertion=rebels,
@@ -2185,6 +2475,103 @@ def test_assert_annotation_gate_e3_boundary_proof_end_to_end() -> None:
             context="ungrounded",
             boundary_kind="start",
             boundary_value={"session_id": "session-12"},
+        )
+
+
+def test_session_value_rejects_registry_metadata_alone() -> None:
+    entry = {
+        "evidence_ref_id": "evidence:session-21-registry-trap",
+        "source_artifact_path": (
+            "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/"
+            "sources/session-21-tide-horn-tending.md"
+        ),
+        "start_line": 1,
+        "end_line": 1,
+        "label": "session-21-tide-horn-tending.md",
+    }
+    span = _resolved_span_text(entry)
+    assert "session 21" not in span.lower()
+    boundary_value = {"kind": "session", "session_id": "session-21"}
+    assert not _boundary_value_grounded_in_evidence(
+        boundary_value, [(entry, span)]
+    )
+
+
+def test_session_value_accepts_explicit_span_licensing() -> None:
+    entry = {
+        "evidence_ref_id": "evidence:tl01g-holdout-v15:reckoner-start",
+        "source_artifact_path": (
+            "evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/"
+            "sources/reckoner-start.md"
+        ),
+        "start_line": 1,
+        "end_line": 1,
+    }
+    span = _resolved_span_text(entry)
+    boundary_value = {"kind": "session", "session_id": "session-21"}
+    assert _boundary_value_grounded_in_evidence(boundary_value, [(entry, span)])
+
+
+def test_session_value_in_span_passes_grounding_but_fails_boundary_cue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Session 7 in span licenses value; resulting-state phrase still fails Gate E3."""
+    state_with_session = (
+        "Session 7 notes: They are a group of humans that no longer feel represented "
+        "in the city and want to cause as much trouble as possible."
+    )
+    unrelated = (
+        "When they became mayor, the council stopped meeting at dawn."
+    )
+    evidence_by_id = {
+        "evidence:state": {
+            "evidence_ref_id": "evidence:state",
+            "source_artifact_path": "tests/fixtures/tl01g_gate_e3/state-only.md",
+            "start_line": 1,
+            "end_line": 1,
+        },
+        "evidence:unrelated": {
+            "evidence_ref_id": "evidence:unrelated",
+            "source_artifact_path": "tests/fixtures/tl01g_gate_e3/unrelated-transition.md",
+            "start_line": 1,
+            "end_line": 1,
+        },
+    }
+
+    def _fake_resolved_span_text(entry: dict) -> str:
+        eid = entry.get("evidence_ref_id")
+        if eid == "evidence:state":
+            return _normalize_span_text(state_with_session)
+        if eid == "evidence:unrelated":
+            return _normalize_span_text(unrelated)
+        return _resolved_span_text(entry)
+
+    monkeypatch.setattr(
+        "tests.test_temporal_shadow_extraction_tl01g._resolved_span_text",
+        _fake_resolved_span_text,
+    )
+    pairs = [
+        (evidence_by_id["evidence:state"], _normalize_span_text(state_with_session)),
+        (evidence_by_id["evidence:unrelated"], _normalize_span_text(unrelated)),
+    ]
+    boundary_value = {"kind": "session", "session_id": "session-7"}
+    assert _boundary_value_grounded_in_evidence(boundary_value, pairs)
+    rebels = {
+        "assertion_id": "assertion:rebels",
+        "label": "The rebel humans feel represented in Mirathorn",
+    }
+    annotation = {
+        "evidence_ref_ids": ["evidence:state", "evidence:unrelated"],
+        "source_phrase": "no longer feel represented",
+    }
+    with pytest.raises(AssertionError, match="source_phrase does not narrate"):
+        _assert_annotation_gate_e3_boundary_proof(
+            annotation=annotation,
+            assertion=rebels,
+            evidence_by_id=evidence_by_id,
+            context="session-licensed-span-cue-fail",
+            boundary_kind="end",
+            boundary_value=boundary_value,
         )
 
 
@@ -2268,7 +2655,10 @@ def test_holdout_v13_retains_observed_gate_e3_and_postponement_value_defects() -
     assert _source_reports_resulting_state_without_narrated_boundary(rebels_source)
     assert not _source_narrates_boundary(rebels_source)
     assert not _any_evidence_narrates_boundary([rebels_source])
-    with pytest.raises(AssertionError, match="source_phrase does not narrate"):
+    with pytest.raises(
+        AssertionError,
+        match="boundary_value is not grounded|source_phrase does not narrate",
+    ):
         _assert_annotation_gate_e3_boundary_proof(
             annotation=rebels_ann,
             assertion=by_id[rebels_id],
@@ -2418,7 +2808,7 @@ def test_holdout_v14_retired_as_incomplete_promotion_evidence() -> None:
     readme = (HOLDOUT_V14 / "README.md").read_text(encoding="utf-8")
     assert "RETIRED as independent TL01G promotion evidence" in readme
     assert "PROMOTION_EVIDENCE_INCOMPLETE" in readme
-    assert "do not patch" in readme.lower()
+    _assert_retired_cohort_readme_sealed_without_edits(readme)
     assert (HOLDOUT_V14 / "base-contribution.json").is_file()
     assert (HOLDOUT_V14 / "gold-overlay.json").is_file()
 
@@ -2530,7 +2920,7 @@ def test_adversarial_v12_retired_as_incomplete_promotion_evidence() -> None:
     assert "RETIRED as independent TL01G promotion evidence" in readme
     assert "since the equinox flood" in readme
     assert "PROMOTION_EVIDENCE_INCOMPLETE" in readme
-    assert "do not patch" in readme.lower()
+    _assert_retired_cohort_readme_sealed_without_edits(readme)
     gold = json.loads((ADV_V12 / "gold-overlay.json").read_text(encoding="utf-8"))
     equinox = [
         a
@@ -2595,6 +2985,313 @@ def test_sealed_v14_adv_v12_value_grounding_documents_retirement() -> None:
         readme = readme_path.read_text(encoding="utf-8")
         assert "RETIRED as independent TL01G promotion evidence" in readme
         assert "PROMOTION_EVIDENCE_INCOMPLETE" in readme
+
+
+def _assert_holdout_v15_gold_covers_required_lane_classes() -> None:
+    gold = json.loads((HOLDOUT_V15 / "gold-overlay.json").read_text(encoding="utf-8"))
+    annotations = gold.get("annotations", [])
+    assert len(annotations) >= 12
+    base = json.loads((HOLDOUT_V15 / "base-contribution.json").read_text(encoding="utf-8"))
+    by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+
+    def status_of(ann: dict) -> str:
+        return str(ann.get("interpretation_status") or "")
+
+    def has_occurrence(ann: dict) -> bool:
+        return ann.get("occurrence_time") is not None
+
+    def has_valid_start(ann: dict) -> bool:
+        vt = ann.get("valid_time") or {}
+        return isinstance(vt, dict) and vt.get("start") is not None
+
+    def has_valid_end(ann: dict) -> bool:
+        vt = ann.get("valid_time") or {}
+        return isinstance(vt, dict) and vt.get("end") is not None
+
+    assert any(status_of(a) == "resolved" and has_occurrence(a) for a in annotations)
+    assert any(status_of(a) == "resolved" and has_valid_start(a) for a in annotations)
+    assert any(status_of(a) == "resolved" and has_valid_end(a) for a in annotations)
+    assert any(status_of(a) == "not_applicable" for a in annotations)
+    assert any(status_of(a) == "unresolved" for a in annotations)
+    assert any(status_of(a) == "ambiguous" for a in annotations)
+    assert any(
+        status_of(a) == "unresolved"
+        and a.get("occurrence_time") is None
+        and a.get("valid_time") is None
+        and "tends the tide-horn" in str(by_id[a["base_assertion_id"]].get("label") or "")
+        for a in annotations
+    )
+    for ann in annotations:
+        if status_of(ann) != "ambiguous":
+            continue
+        assertion = by_id[ann["base_assertion_id"]]
+        blob = " ".join(
+            str(assertion.get(k) or "") for k in ("label", "predicate", "assertion_kind")
+        ).lower()
+        assert (" or " in blob) or ("whether" in blob) or ("either" in blob) or ("/" in blob), assertion.get("label")
+        assert any(
+            marker in blob
+            for marker in (
+                "whether",
+                "merely",
+                "alternate",
+                "standby",
+                "queued",
+                "conflict",
+                "dispute",
+                " or ",
+            )
+        ), assertion.get("label")
+        assert not any(marker in blob for marker in _IDENTITY_ONLY_MARKERS), assertion.get("label")
+    for ann in annotations:
+        assert any(str(d).strip() for d in (ann.get("diagnostics") or []))
+        if status_of(ann) in {"not_applicable", "unresolved", "ambiguous"}:
+            assert ann.get("occurrence_time") is None
+            assert ann.get("valid_time") is None
+
+
+def _assert_adv_v13_gold_covers_required_lane_classes() -> None:
+    gold = json.loads((ADV_V13 / "gold-overlay.json").read_text(encoding="utf-8"))
+    annotations = gold.get("annotations", [])
+    assert len(annotations) >= 10
+    base = json.loads((ADV_V13 / "base-contribution.json").read_text(encoding="utf-8"))
+    by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+
+    def status_of(ann: dict) -> str:
+        return str(ann.get("interpretation_status") or "")
+
+    def has_occurrence(ann: dict) -> bool:
+        return ann.get("occurrence_time") is not None
+
+    def has_valid_start(ann: dict) -> bool:
+        vt = ann.get("valid_time") or {}
+        return isinstance(vt, dict) and vt.get("start") is not None
+
+    def has_valid_end(ann: dict) -> bool:
+        vt = ann.get("valid_time") or {}
+        return isinstance(vt, dict) and vt.get("end") is not None
+
+    assert any(status_of(a) == "resolved" and has_occurrence(a) for a in annotations)
+    assert any(status_of(a) == "resolved" and has_valid_start(a) for a in annotations)
+    assert any(status_of(a) == "resolved" and has_valid_end(a) for a in annotations)
+    assert any(status_of(a) == "not_applicable" for a in annotations)
+    assert any(status_of(a) == "unresolved" for a in annotations)
+    assert any(status_of(a) == "ambiguous" for a in annotations)
+    assert any(
+        status_of(a) == "unresolved"
+        and a.get("occurrence_time") is None
+        and a.get("valid_time") is None
+        and "shelves the ashpetal folios" in str(by_id[a["base_assertion_id"]].get("label") or "").lower()
+        for a in annotations
+    )
+    for ann in annotations:
+        if status_of(ann) != "ambiguous":
+            continue
+        assertion = by_id[ann["base_assertion_id"]]
+        blob = " ".join(
+            str(assertion.get(k) or "") for k in ("label", "predicate", "assertion_kind")
+        ).lower()
+        assert (" or " in blob) or ("whether" in blob) or ("either" in blob) or ("/" in blob), assertion.get("label")
+        assert any(
+            marker in blob
+            for marker in (
+                "whether",
+                "merely",
+                "alternate",
+                "standby",
+                "queued",
+                "conflict",
+                "dispute",
+                " or ",
+            )
+        ), assertion.get("label")
+        assert not any(marker in blob for marker in _IDENTITY_ONLY_MARKERS), assertion.get("label")
+    for ann in annotations:
+        assert any(str(d).strip() for d in (ann.get("diagnostics") or []))
+        if status_of(ann) in {"not_applicable", "unresolved", "ambiguous"}:
+            assert ann.get("occurrence_time") is None
+            assert ann.get("valid_time") is None
+
+
+def test_holdout_v15_fixture_files_and_prompt_versions() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    for name in (
+        "README.md",
+        "GOLD-AUDIT.md",
+        "base-contribution.json",
+        "gold-overlay.json",
+        "temporal-case-tl01f.json",
+        "temporal-case-tl01g.json",
+    ):
+        assert (HOLDOUT_V15 / name).is_file(), name
+    tl01f = json.loads((HOLDOUT_V15 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
+    tl01g = json.loads((HOLDOUT_V15 / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
+    assert tl01f["prompt_version"] == "tl01f-v1"
+    assert tl01g["prompt_version"] == "tl01g-v1"
+    assert len(tl01g["selected_assertion_ids"]) >= 12
+
+
+def test_holdout_v15_paired_cases_differ_only_by_prompt_identity() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _assert_paired_cases_differ_only_by_prompt_identity(HOLDOUT_V15)
+
+
+def test_holdout_v15_target_set_equals_base_and_gold() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _assert_target_set_equality(HOLDOUT_V15)
+
+
+def test_holdout_v15_owned_evidence_paths_under_sources() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _assert_evidence_paths_under_cohort_sources(HOLDOUT_V15)
+
+
+def test_holdout_v15_gold_covers_required_lane_classes() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _assert_holdout_v15_gold_covers_required_lane_classes()
+
+
+def test_holdout_v15_gold_audit_matches_base_and_overlay() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _assert_certification_gold_audit_matches_base_and_overlay(HOLDOUT_V15)
+
+
+def test_holdout_v15_value_grounding_empty() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    defects = _collect_resolved_value_grounding_defects(HOLDOUT_V15)
+    assert defects == [], defects
+
+
+def test_holdout_v15_readme_certification_protocol() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _assert_certification_readme_protocol(HOLDOUT_V15)
+    _assert_certification_cohort_excludes_contamination(HOLDOUT_V15)
+
+
+def test_holdout_v15_source_time_trap_is_unresolved() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    gold = json.loads((HOLDOUT_V15 / "gold-overlay.json").read_text(encoding="utf-8"))
+    trap = next(
+        a
+        for a in gold.get("annotations", [])
+        if a.get("base_assertion_id") == "assertion:6f267289e9f12821"
+    )
+    assert trap["interpretation_status"] == "unresolved"
+    assert trap.get("occurrence_time") is None
+    assert trap.get("valid_time") is None
+
+
+def test_adversarial_v13_fixture_files_and_prompt_versions() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    for name in (
+        "README.md",
+        "GOLD-AUDIT.md",
+        "base-contribution.json",
+        "gold-overlay.json",
+        "temporal-case-tl01f.json",
+        "temporal-case-tl01g.json",
+    ):
+        assert (ADV_V13 / name).is_file(), name
+    tl01f = json.loads((ADV_V13 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
+    tl01g = json.loads((ADV_V13 / "temporal-case-tl01g.json").read_text(encoding="utf-8"))
+    assert tl01f["prompt_version"] == "tl01f-v1"
+    assert tl01g["prompt_version"] == "tl01g-v1"
+    assert len(tl01g["selected_assertion_ids"]) >= 10
+
+
+def test_adversarial_v13_paired_cases_differ_only_by_prompt_identity() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    _assert_paired_cases_differ_only_by_prompt_identity(ADV_V13)
+
+
+def test_adversarial_v13_target_set_equals_base_and_gold() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    _assert_target_set_equality(ADV_V13)
+
+
+def test_adversarial_v13_owned_evidence_paths_under_sources() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    _assert_evidence_paths_under_cohort_sources(ADV_V13)
+
+
+def test_adversarial_v13_gold_covers_required_lane_classes() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    _assert_adv_v13_gold_covers_required_lane_classes()
+
+
+def test_adversarial_v13_gold_audit_matches_base_and_overlay() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    _assert_certification_gold_audit_matches_base_and_overlay(ADV_V13)
+
+
+def test_adversarial_v13_value_grounding_empty() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    defects = _collect_resolved_value_grounding_defects(ADV_V13)
+    assert defects == [], defects
+
+
+def test_adversarial_v13_readme_certification_protocol() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    _assert_certification_readme_protocol(ADV_V13)
+    _assert_certification_cohort_excludes_contamination(ADV_V13)
+    folder_text = _folder_text(ADV_V13)
+    for term in ADV_V13_VOCABULARY:
+        assert term in folder_text
+    prompt = TL01G_RESOLUTION_PROOF_ABSTENTION_INSTRUCTIONS
+    for term in CERTIFICATION_SIBLING_RESERVED_VOCABULARY:
+        assert term not in prompt
+    holdout_text = _folder_text(HOLDOUT_V15)
+    for term in ADV_V13_VOCABULARY:
+        assert term not in holdout_text
+
+
+def test_adversarial_v13_source_time_trap_is_unresolved() -> None:
+    _require_fresh_cohort_mandatory(ADV_V13)
+    base = json.loads((ADV_V13 / "base-contribution.json").read_text(encoding="utf-8"))
+    gold = json.loads((ADV_V13 / "gold-overlay.json").read_text(encoding="utf-8"))
+    by_id = {a["assertion_id"]: a for a in base.get("candidate_assertions", [])}
+    trap = next(
+        a
+        for a in gold.get("annotations", [])
+        if "shelves the Ashpetal folios" in str(by_id[a["base_assertion_id"]].get("label") or "")
+    )
+    assert trap["interpretation_status"] == "unresolved"
+    assert trap.get("occurrence_time") is None
+    assert trap.get("valid_time") is None
+    assert trap.get("occurrence_time") is None
+    assert trap.get("valid_time") is None
+
+
+def test_v15_and_adv_v13_ids_mutually_disjoint() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _require_fresh_cohort_mandatory(ADV_V13)
+    v15_a, v15_e = _collect_ids(HOLDOUT_V15)
+    v13_a, v13_e = _collect_ids(ADV_V13)
+    assert v15_a.isdisjoint(v13_a)
+    assert v15_e.isdisjoint(v13_e)
+
+
+def test_v15_adv_v13_sibling_proposition_template_jaccard_below_threshold() -> None:
+    _require_fresh_cohort_mandatory(HOLDOUT_V15)
+    _require_fresh_cohort_mandatory(ADV_V13)
+    v15_assertions = _load_assertions(HOLDOUT_V15)
+    v13_assertions = _load_assertions(ADV_V13)
+    holdout_text = _folder_text(HOLDOUT_V15)
+    adv_text = _folder_text(ADV_V13)
+    for term in HOLDOUT_V15_VOCABULARY:
+        assert term in holdout_text
+        assert term not in adv_text
+    for term in ADV_V13_VOCABULARY:
+        assert term in adv_text
+        assert term not in holdout_text
+    for left in v15_assertions:
+        for right in v13_assertions:
+            score = _proposition_template_jaccard(left, right)
+            if score >= 0.40:
+                raise AssertionError(
+                    "sibling proposition-template Jaccard >= 0.40: "
+                    f"{left.get('label')!r} vs {right.get('label')!r} ({score:.3f})"
+                )
 
 
 def test_resolved_span_text_rejects_line_beyond_eof() -> None:
