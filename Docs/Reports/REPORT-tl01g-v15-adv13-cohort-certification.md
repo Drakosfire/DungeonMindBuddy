@@ -4,9 +4,24 @@
 **PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/498  
 **Branch:** `timeline/tl01g-v15-adv13-cohort-certification`  
 **Handoff:** `Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-cohort-certification.md`  
-**Implementation base:** `d3b4060fabd6c2b7fff0403af260637845c86dd9` (`origin/main` at certification)  
-**Certification SHA:** `e59dd742557f35702b09b8f34a6bc6bea078262f`  
+**Implementation base:** `d3b4060fabd6c2b7fff0403af260637845c86dd9`  
+**Certification SHA:** `09da5f768ff69fc64f88d5df40188441d80b5f87`  
+**Invalidated prior certification SHA:** `e59dd742557f35702b09b8f34a6bc6bea078262f` (review cycle 1)  
 **Provider calls in this PR:** **0**
+
+## Review cycle 1 — invalidation and repair
+
+Prior certification `e59dd742…` is **invalid**. Review 4840512822 found:
+
+1. V15 `assertion:a61c1383591400f3` stimulus contained `before winter storms` while gold claimed no execution-time expression.
+2. Adv V13 source-time trap stimulus/label contained `overnight` while gold claimed no narrated occurrence time.
+3. Sibling source-template Jaccard between V15 and Adv V13 was claimed but untested.
+
+Repairs (provider-unobserved; new certification required):
+
+- Stimulus now: `Neris Quill intends to chart every shoal.` (no deadline phrase); gold remains unresolved.
+- Stimulus/label now: `Lira Spelt shelves the Ashpetal folios` / `… in good order.` (no `overnight`); gold remains unresolved; assertion id is now `assertion:0a21dac97f3021a6`.
+- Added `test_v15_adv_v13_sibling_source_template_jaccard_below_threshold` (exact templates disjoint; Jaccard `< 0.40`).
 
 ## Mission (copied)
 
@@ -34,13 +49,15 @@ bytes remain unchanged for the successor execution PR.
 | Retired cutoffs | holdout `14`, adversarial `12` |
 | Later execution model (not called) | `gpt-5.4-mini` |
 
-## Nano-commits
+## Nano-commits (current head lineage)
 
-1. `4b4377f0` — `docs(timeline): add v15 adv13 cohort certification handoff`
-2. `6c9dfba8` — `test(timeline): define v15 adv13 certification gates`
-3. `cfe9e7f2` — `test(timeline): author v15 holdout certification fixtures`
-4. `e59dd742` — `test(timeline): author adv13 certification fixtures` (**certification SHA**)
-5. (this commit) — `docs(timeline): record v15 adv13 certification`
+1. `4b4377f0` — handoff
+2. `6c9dfba8` — certification gates
+3. `cfe9e7f2` / `e59dd742` — initial V15 / Adv V13 fixtures (**superseded certification**)
+4. `1037c090` — initial certification record (**invalidated**)
+5. `3b69e403` — sibling source-template Jaccard test
+6. `09da5f76` — abstention gold/stimulus repair (**current certification SHA**)
+7. (this commit) — re-certification report + README seal pointers
 
 ## Assertion inventory
 
@@ -65,7 +82,7 @@ bytes remain unchanged for the successor execution PR.
 
 | Assertion ID | Proposition | Status |
 |---|---|---|
-| `assertion:1d82e3638a885810` | Lira Spelt shelves the Ashpetal folios overnight | unresolved |
+| `assertion:0a21dac97f3021a6` | Lira Spelt shelves the Ashpetal folios | unresolved |
 | `assertion:ea6b7307edde4448` | Corven Ash will open Thornfen Beacon once the fog lifts | unresolved |
 | `assertion:bd8eefd165efe613` | Pell Marrow lights the causeway lanterns at moonrise | resolved |
 | `assertion:d72fbcdad287e1a5` | The Gloomwick Causeway is open to night carts | resolved |
@@ -78,76 +95,68 @@ bytes remain unchanged for the successor execution PR.
 
 ## Grounding defect lists
 
-At certification SHA `e59dd742…`:
-
 ```text
 _collect_resolved_value_grounding_defects(HOLDOUT_V15) == []
 _collect_resolved_value_grounding_defects(ADV_V13) == []
 ```
 
-Source-time traps remain unresolved with null lanes (V15 tide-horn tending; Adv V13 Ashpetal folio shelving).
-
-## §7 command results (provenance: local worktree at certification SHA)
+## §7 command results (at certification SHA `09da5f76…`)
 
 | Command | Result |
 |---|---|
-| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `95 passed` |
+| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `96 passed` |
 | `uv run pytest -q tests/test_temporal_shadow_prompt_calibration.py tests/test_temporal_shadow_grounding_path.py` | `113 passed, 1 skipped` |
 | `uv run ruff check tests/test_temporal_shadow_extraction_tl01g.py` | All checks passed |
-| `python -m json.tool` on all eight V15/Adv13 JSON files | OK |
-| `git status --short` | empty before report commit |
-| `git merge-base --is-ancestor origin/main HEAD` | true |
-| `test ! -e …/tl01g/promotion-v15` | true (no artifact) |
-| Changed-path denylist scan | no hits (`scope_ok`) |
+| `python -m json.tool` on eight cohort JSON files | OK |
+| `test ! -e …/tl01g/promotion-v15` | true |
+| Provider / artifact absence | 0 calls; no aggregate path |
 
 Baseline failures / waivers: **none**  
-Paths outside §4 / bounded sources: **none**  
+Paths outside §4: **none**  
 Stop conditions: **none**
 
-## Certified file digests (SHA-256 at certification SHA)
-
-Owning tests + fixture/gold/case/audit/stimulus bytes (README seal pointers updated in the documentation commit after this SHA and are not execution inputs):
+## Certified file digests (SHA-256 at `09da5f76…`)
 
 ```text
-d5c3f52f780515ab106b959105630e4820923bacc883344fb6f818b3f48aedc2  tests/test_temporal_shadow_extraction_tl01g.py
-abebf53815670493b25d874d56b1877ce0f6f4464e12e746bdb8e3631d7d6b13  .../holdout_v15/GOLD-AUDIT.md
-ab5ab1f2b4dd3bd77b5750bb6ec826f1ccd80da69e7608e3459cca1d036e304e  .../holdout_v15/base-contribution.json
-cb8b3739d7ec79e3215d9c4e6fb61bb990846a72afabcb045f95027d788b48b8  .../holdout_v15/gold-overlay.json
-1fd5570c553cf7be7610015dde097e289d55e65d9836cabcb777f2f0d665f2e9  .../holdout_v15/temporal-case-tl01f.json
-1d38babe2cdf0b56b3afe7edbbd943917b3aff08611e4df736a36c4ba8bf947a  .../holdout_v15/temporal-case-tl01g.json
-f4b0d87e8034393229e9b6dd06a6976a46ed2928066a8f27f2c6bc5c4d827710  .../holdout_v15/sources/dusk-gong-ceased.md
-881ba3901c1b915e4631a88c174a094dd8afe94dbf5f944ba3c3277be5a266c1  .../holdout_v15/sources/emberglass-identity.md
-23fcc6234f5dfa0bd297fae067259d0a183f1ee4f216456760ba9f91ea924d27  .../holdout_v15/sources/ferry-dusk-tide.md
-9963d300c35fb11210e9f83388bd9f0a3bb72a35cec12ef2fd8957b8a12effa6  .../holdout_v15/sources/marshal-ambiguous.md
-15ae7f52f9ec336b2c4ddaa9fa19b6e39f8ec6d7bb9f169dd3b8d04058fcafe0  .../holdout_v15/sources/pier-scribe-missing.md
-07b2c803e0964aa084c2d607516851570decfcd187e54c7e3b58cef282776314  .../holdout_v15/sources/reckoner-start.md
-4a49f2720345b7d89f37e797809101ce5477285de9b5a4b8077a71c88f603388  .../holdout_v15/sources/reckoner-still.md
-69d9997d96485c9aef4c5a48c14ad17fb680aa18f8ac41a37fda5019c99f5ce6  .../holdout_v15/sources/reef-ledger-end.md
-d1bbded5f2df89eb12e608c98dd15c5cf88a115635647ca84aa9dfad12e7d0de  .../holdout_v15/sources/session-21-tide-horn-tending.md
-9e05e80d2d8b2c671823df04c650c8d5f8f9096ae14e00e0bb9a852162e9f9ce  .../holdout_v15/sources/shoal-intent.md
-f2b11adc5efe520e28dfa407d7abac881c8c5e7ff2280de0f999178cb7d7a2b0  .../holdout_v15/sources/tide-horn-session.md
-ac839cd60ad7bacb79a4da02040c150c742f2f892cf20fc1802ce7b292989b07  .../holdout_v15/sources/vault-sealed-since.md
-70364af6154abf4f8995f970d244e37bb145290f395cd44d133b82bcd7271b4d  .../adversarial_v13/GOLD-AUDIT.md
-1a751d5363751d15faaebce81746af2535d2d736137f59abd86cad5ae446336a  .../adversarial_v13/base-contribution.json
-edb2c8422325b1b6859bfc9f0cd9c0c04a7f75267f5fdd1981b69f8f17605a71  .../adversarial_v13/gold-overlay.json
-af89f9d45089781120ad8b5c889ae296f1d230b3ea3d1a383b9bdca6e2a051c2  .../adversarial_v13/temporal-case-tl01f.json
-307ab247de69db36caabc90c851fc531ae57066963712dfda68dc0e1b25e32e9  .../adversarial_v13/temporal-case-tl01g.json
-a6dfdcc2b344b2f19c6c66069aefbdec555c1e238d2612172db35ca381da62e0  .../adversarial_v13/sources/beacon-cracked-historical.md
-65d5ef51369a9dc4811bc6938376a57ae40623121d13fbca5beff39b3efc4d04  .../adversarial_v13/sources/beacon-fog-prerequisite.md
-d51634c740b42451499faf2d690b339f6ef99c25ccae28403930027775eb39cf  .../adversarial_v13/sources/causeway-moonrise.md
-eeae1d2ca2b5111f45905e2aa9b17a30479d664f9cebbbd4f4152687b71a2cb4  .../adversarial_v13/sources/causeway-open-edict.md
-2bf3730ed454003faa3acbd6c072addc0dfa84d33043e7594f85ea889725183c  .../adversarial_v13/sources/fuel-clerk-still.md
-4f42a7da9369f25acaff1c6af82577c52fe6fa6fe7d2b1bcde60274cabcdf8ad  .../adversarial_v13/sources/fuel-tally-end.md
-da250b8f21b335e4de0aea37cf7e945d3701112b76130b61b724f53f563a71cb  .../adversarial_v13/sources/register-ink-black.md
-da41ff52dd037cb420990235f23b5690a2dbc7239cfbd191f31a28caea4c9d69  .../adversarial_v13/sources/register-keeper-ambiguous.md
-dd026feb377ab486ce621301d20d04e2f8a41bed9a6c3c3d56580541fe6e035b  .../adversarial_v13/sources/register-keeps-session19.md
-33e3fc98f7943c60ecad607da7d8fbe16ff7d78b741815573ea12f1f0da620c9  .../adversarial_v13/sources/register-locks-nightfall.md
+3bb633a867cf2f8559ff1f130be905621d2c950c2300035cac206fe2d5f5a626  tests/test_temporal_shadow_extraction_tl01g.py
+7a4044375b70d421920f8ab302e88ea6fb2f74ca35187600332dfa6217815445  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/GOLD-AUDIT.md
+ab5ab1f2b4dd3bd77b5750bb6ec826f1ccd80da69e7608e3459cca1d036e304e  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/base-contribution.json
+cb8b3739d7ec79e3215d9c4e6fb61bb990846a72afabcb045f95027d788b48b8  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/gold-overlay.json
+7ef55ca2297f13b0ebce890c1fa420c9311e3ab9f4d7bcfeca8b85b68738a71a  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/temporal-case-tl01f.json
+af0e61cf31a1d368a4148c166d8c8913f28d1319d3c9a7bea2669d0d79156e79  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/temporal-case-tl01g.json
+f4b0d87e8034393229e9b6dd06a6976a46ed2928066a8f27f2c6bc5c4d827710  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/dusk-gong-ceased.md
+881ba3901c1b915e4631a88c174a094dd8afe94dbf5f944ba3c3277be5a266c1  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/emberglass-identity.md
+23fcc6234f5dfa0bd297fae067259d0a183f1ee4f216456760ba9f91ea924d27  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/ferry-dusk-tide.md
+9963d300c35fb11210e9f83388bd9f0a3bb72a35cec12ef2fd8957b8a12effa6  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/marshal-ambiguous.md
+15ae7f52f9ec336b2c4ddaa9fa19b6e39f8ec6d7bb9f169dd3b8d04058fcafe0  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/pier-scribe-missing.md
+07b2c803e0964aa084c2d607516851570decfcd187e54c7e3b58cef282776314  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/reckoner-start.md
+4a49f2720345b7d89f37e797809101ce5477285de9b5a4b8077a71c88f603388  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/reckoner-still.md
+69d9997d96485c9aef4c5a48c14ad17fb680aa18f8ac41a37fda5019c99f5ce6  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/reef-ledger-end.md
+d1bbded5f2df89eb12e608c98dd15c5cf88a115635647ca84aa9dfad12e7d0de  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/session-21-tide-horn-tending.md
+5212dec5fc38184e26cd852810bf1f8ba6ffac2966872024310c263118c743cc  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/shoal-intent.md
+f2b11adc5efe520e28dfa407d7abac881c8c5e7ff2280de0f999178cb7d7a2b0  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/tide-horn-session.md
+ac839cd60ad7bacb79a4da02040c150c742f2f892cf20fc1802ce7b292989b07  evals/graph_memory_layer/examples/temporal_shadow_holdout_v15/sources/vault-sealed-since.md
+c566a0b2ad05e1d0184d1f900bc1b3e1876dda23ce23987bea80de798b1f60e7  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/GOLD-AUDIT.md
+47babf81f9c1224482e3b895c5813ac12b4358e1840b6f8c832173a626b4bb06  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/base-contribution.json
+f937a3d9216c8baf2213a63cc30c49dcc90e4c7aa8382b7d04d1dc07fef79da7  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/gold-overlay.json
+83e214ccc99cdc2f52277b0cb30938a9297dd8781bacd18cbbc2c496d2cecd62  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/temporal-case-tl01f.json
+924f79ab30e1fbe64e23d3b593fb5a1843f2e7cd5d06a58b1decf6903a060791  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/temporal-case-tl01g.json
+a6dfdcc2b344b2f19c6c66069aefbdec555c1e238d2612172db35ca381da62e0  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/beacon-cracked-historical.md
+65d5ef51369a9dc4811bc6938376a57ae40623121d13fbca5beff39b3efc4d04  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/beacon-fog-prerequisite.md
+d51634c740b42451499faf2d690b339f6ef99c25ccae28403930027775eb39cf  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/causeway-moonrise.md
+eeae1d2ca2b5111f45905e2aa9b17a30479d664f9cebbbd4f4152687b71a2cb4  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/causeway-open-edict.md
+2bf3730ed454003faa3acbd6c072addc0dfa84d33043e7594f85ea889725183c  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/fuel-clerk-still.md
+4f42a7da9369f25acaff1c6af82577c52fe6fa6fe7d2b1bcde60274cabcdf8ad  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/fuel-tally-end.md
+da250b8f21b335e4de0aea37cf7e945d3701112b76130b61b724f53f563a71cb  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-ink-black.md
+da41ff52dd037cb420990235f23b5690a2dbc7239cfbd191f31a28caea4c9d69  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-keeper-ambiguous.md
+fcdb75422c423764ad405faf2dcc098f66339202d564458cad5dfe4bfbf6662a  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-keeps-session19.md
+33e3fc98f7943c60ecad607da7d8fbe16ff7d78b741815573ea12f1f0da620c9  evals/graph_memory_layer/examples/temporal_shadow_adversarial_v13/sources/register-locks-nightfall.md
 ```
 
 ## What remains false
 
 - No provider matrix, aggregate, or promotion disposition
-- No `tl01h-v1` / prompt, packet, renderer, runner, or graph changes
+- No `tl01h-v1` / prompt / packet / renderer / runner / graph changes
 - No corpus / Project Source / Supergraph ingest edits
 - No broader-shadow readiness claim
 
@@ -157,7 +166,4 @@ dd026feb377ab486ce621301d20d04e2f8a41bed9a6c3c3d56580541fe6e035b  .../adversaria
 TIMELINE: execute certified TL01G promotion matrix
 ```
 
-That PR must verify this certification SHA and every certified digest above, treat
-V15/Adv13 fixture/gold/source/case/audit/owning-test bytes as read-only, and run at
-most one six-lane × three-repetition matrix (≤18 attempts, no retry) on frozen
-`tl01f-v1` / `tl01g-v1`.
+Verify certification SHA `09da5f76…` and every digest above before any provider call; treat certified fixture bytes as read-only.
