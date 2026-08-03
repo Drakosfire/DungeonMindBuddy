@@ -7,7 +7,7 @@
 **Rebased base / `origin/main`:** `dd1a7f2a2783e2a2fb189150bd837065122bee8f`  
 **Certification SHA:** `24679b19ac093cdbefa430cb0e930dff8c8a6dae`  
 **Provider execution SHA (singleton):** `71c8af5480114de4a7f50cc6099df37f46eb237d`  
-**Final head (this report commit):** recorded at commit time  
+**Final head (this report commit):** `3ea7b1d82f5addffbb6021102adaecd8906820fb`  
 **Model:** `gpt-5.4-mini`  
 **Calibration ID:** `temporal-prompt-calibration:9d9b5d09a79af1b2`  
 **Live invocations:** **1** (zero retry)  
