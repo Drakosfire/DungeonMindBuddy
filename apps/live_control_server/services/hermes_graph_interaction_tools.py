@@ -1,4 +1,4 @@
-"""Model-visible expand_graph_retrieval + read_graph_source tool catalog."""
+"""Model-visible expand_graph_retrieval + read_graph_source + Threat hydration tools."""
 
 from __future__ import annotations
 
@@ -7,6 +7,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from apps.live_control_server.models.threat_query_hydration import (
+    ThreatQueryHydrationRequestV1,
+)
+from apps.live_control_server.services.threat_query_hydration import (
+    ThreatQueryHydrationError,
+    query_threats_with_hydration,
+)
 from graph_memory.interaction.expansion_executor import (
     ExpandGraphRetrievalRequest,
     ReadGraphSourceRequest,
@@ -15,10 +22,12 @@ from graph_memory.interaction.expansion_executor import (
 )
 
 DECLARE_CONVERSATION_CONTEXT_TOOL_NAME = "declare_conversation_context"
+QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME = "query_threat_mechanics_hydration"
 
 ORDERED_INTERACTION_TOOL_NAMES: tuple[str, ...] = (
     "expand_graph_retrieval",
     "read_graph_source",
+    QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
 )
 
 ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
@@ -47,6 +56,66 @@ def declare_conversation_context_tool_definition() -> dict[str, Any]:
                 "type": "object",
                 "properties": {},
                 "required": [],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def query_threat_mechanics_hydration_tool_definition() -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+            "description": (
+                "Query published Threats in the exact campaign graph revision for "
+                "this turn and hydrate every typed uses_statblock binding from its "
+                "exact immutable DungeonMind revision. Server injects world, "
+                "campaign, and revisionPin — do not invent them. "
+                "Return value carries exact Threat node IDs, binding/resource/"
+                "statblock/revision/digest locators when present, relationship "
+                "edge IDs for malformed edges, and per-binding hydration status "
+                "(available|unavailable|exact_revision_missing|integrity_failure|"
+                "not_requested). "
+                "Do not claim mechanics are hydrated when status is unavailable, "
+                "exact_revision_missing, integrity_failure, or not_requested. "
+                "Null binding/statblock/revision/digest means the locator is "
+                "absent — never invent those IDs from an edge ID. "
+                "Do not choose among multiple bindings unless the user supplies an "
+                "exact binding ID. Do not treat evidence scores as identity. "
+                "Zero/one/many Threat hits and bindings remain explicit."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "queryText": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Caller/Hermes query text for Threat search.",
+                    },
+                    "focusNodeIds": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 8,
+                        "description": "Optional exact context anchor node IDs.",
+                    },
+                    "relationshipPredicates": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 16,
+                    },
+                    "maxHits": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 64,
+                        "default": 16,
+                    },
+                    "includeMechanics": {
+                        "type": "boolean",
+                        "default": True,
+                    },
+                },
+                "required": ["queryText"],
                 "additionalProperties": False,
             },
         },
@@ -95,6 +164,7 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                 "parameters": read_schema,
             },
         },
+        query_threat_mechanics_hydration_tool_definition(),
     ]
 
 
@@ -115,6 +185,69 @@ def execute_declare_conversation_context(
     }
 
 
+def execute_query_threat_mechanics_hydration(
+    arguments: Mapping[str, Any],
+    *,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    world_id = str(arguments.get("worldId") or arguments.get("world_id") or "").strip()
+    campaign_id = str(
+        arguments.get("campaignId") or arguments.get("campaign_id") or ""
+    ).strip()
+    revision_pin = str(
+        arguments.get("revisionPin") or arguments.get("revision_pin") or ""
+    ).strip()
+    query_text = str(
+        arguments.get("queryText") or arguments.get("query_text") or ""
+    ).strip()
+    if not world_id or not campaign_id or not revision_pin:
+        return {
+            "schema": "dmb_threat_query_hydration_error_v1",
+            "resultLabel": "threat_query_hydration_unavailable",
+            "message": (
+                "exact worldId, campaignId, and revisionPin are required "
+                "(server-injected from turn scope)"
+            ),
+            "diagnostics": ["missing_exact_scope"],
+        }
+    if not query_text:
+        return {
+            "schema": "dmb_threat_query_hydration_error_v1",
+            "resultLabel": "threat_query_hydration_unavailable",
+            "message": "queryText is required",
+            "diagnostics": ["missing_query_text"],
+        }
+    focus_raw = arguments.get("focusNodeIds", arguments.get("focus_node_ids", []))
+    predicates_raw = arguments.get(
+        "relationshipPredicates", arguments.get("relationship_predicates", [])
+    )
+    max_hits = arguments.get("maxHits", arguments.get("max_hits", 16))
+    include_mechanics = arguments.get(
+        "includeMechanics", arguments.get("include_mechanics", True)
+    )
+    request = ThreatQueryHydrationRequestV1(
+        schema="dmb_threat_query_hydration_request_v1",
+        world_id=world_id,
+        campaign_id=campaign_id,
+        revision_pin=revision_pin,
+        query_text=query_text,
+        focus_node_ids=list(focus_raw or []),
+        relationship_predicates=list(predicates_raw or []),
+        max_hits=int(max_hits),
+        include_mechanics=bool(include_mechanics),
+    )
+    try:
+        response = query_threats_with_hydration(request, root=root)
+    except ThreatQueryHydrationError as exc:
+        return {
+            "schema": "dmb_threat_query_hydration_error_v1",
+            "resultLabel": exc.result_label,
+            "message": str(exc),
+            "diagnostics": exc.diagnostics,
+        }
+    return response.model_dump(mode="json", by_alias=True)
+
+
 def execute_hermes_graph_interaction_tool_json(
     tool_name: str,
     arguments: Mapping[str, Any],
@@ -126,6 +259,8 @@ def execute_hermes_graph_interaction_tool_json(
             result = execute_expand_graph_retrieval(arguments, root=root)
         elif tool_name == "read_graph_source":
             result = execute_read_graph_source(arguments, root=root)
+        elif tool_name == QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME:
+            result = execute_query_threat_mechanics_hydration(arguments, root=root)
         elif tool_name == DECLARE_CONVERSATION_CONTEXT_TOOL_NAME:
             result = execute_declare_conversation_context(arguments)
         else:
@@ -158,9 +293,12 @@ __all__ = [
     "HERMES_GRAPH_INTERACTION_TOOL_NAMES",
     "ORDERED_INTERACTION_TOOL_NAMES",
     "ORDERED_MODEL_VISIBLE_TOOL_NAMES",
+    "QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME",
     "declare_conversation_context_tool_definition",
     "execute_declare_conversation_context",
     "execute_hermes_graph_interaction_tool_json",
+    "execute_query_threat_mechanics_hydration",
     "hermes_graph_interaction_tool_definitions",
     "hermes_model_visible_tool_definitions",
+    "query_threat_mechanics_hydration_tool_definition",
 ]

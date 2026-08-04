@@ -1640,3 +1640,45 @@ def test_turn_result_wire_round_trips_answer_scope() -> None:
     assert wire["answerScope"] == "conversation_context"
     restored = deserialize_hermes_graph_agent_turn_result(wire)
     assert restored.answer_scope == "conversation_context"
+
+
+def test_query_threat_mechanics_hydration_tool_is_registered_and_scoped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services.hermes_graph_interaction_tools import (
+        QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+    )
+    from graph_memory.hermes_graph_plugin import (
+        apply_capability_policy_to_arguments,
+        default_graph_only_capability_policy,
+        set_active_capability_policy,
+        reset_active_capability_policy,
+    )
+
+    names = [item["function"]["name"] for item in hermes_model_visible_tool_definitions()]
+    assert QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME in names
+    assert names == list(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
+
+    scope = HermesGraphScope(
+        world_id="world_eldyrwild",
+        campaign_id="campaign_eldyrwild",
+        focus={"kind": "none"},
+        admissibility="gm",
+        revision_pin="rev_graph_pin_001",
+    )
+    policy = default_graph_only_capability_policy(scope)
+    token = set_active_capability_policy(policy)
+    try:
+        payload, denied = apply_capability_policy_to_arguments(
+            QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+            {"queryText": "Float Goat"},
+        )
+        assert denied is None
+        assert payload is not None
+        assert payload["worldId"] == "world_eldyrwild"
+        assert payload["campaignId"] == "campaign_eldyrwild"
+        assert payload["revisionPin"] == "rev_graph_pin_001"
+        assert payload["queryText"] == "Float Goat"
+    finally:
+        reset_active_capability_policy(token)

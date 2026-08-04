@@ -43,6 +43,9 @@ from apps.live_control_server.routes.threat_publication_proposals import (
 from apps.live_control_server.routes.threat_publication_commits import (
     router as threat_publication_commits_router,
 )
+from apps.live_control_server.routes.threat_query_hydration import (
+    router as threat_query_hydration_router,
+)
 from apps.live_control_server.routes.statblock_candidates import (
     router as statblock_candidates_router,
 )
@@ -89,6 +92,7 @@ def create_app() -> FastAPI:
     application.include_router(threat_publication_identity_router)
     application.include_router(threat_publication_proposals_router)
     application.include_router(threat_publication_commits_router)
+    application.include_router(threat_query_hydration_router)
     application.include_router(statblock_candidates_router)
 
     @application.get("/health")
