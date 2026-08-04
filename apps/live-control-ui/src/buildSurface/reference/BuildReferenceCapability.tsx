@@ -1,13 +1,32 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
+import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import {
+  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
+} from "../../graphReference/projectionBindings";
+import { resolveGraphReference } from "../../graphReference/resolveGraphReference";
+import type {
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+  GraphReferenceSearchItem,
+} from "../../graphReference/types";
+import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
-import type { GraphReferenceSearchItem } from "../../graphReference/types";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
 import type { WorkspaceDocumentAuthoringPhase } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
 import {
   buildBuildSurfaceInteractionPublication,
   type BuildReferenceContextBinding,
 } from "./buildBuildSurfaceInteractionPublication";
+import {
+  BUILD_REFERENCE_CONTEXT_BINDING_ID,
+  BUILD_REFERENCE_SEARCH_PROJECTION_ID,
+} from "./buildReferenceIds";
+import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
+import { BuildReferenceSearchProjection } from "./BuildReferenceSearchProjection";
 import { resolveBuildGraphLens } from "./resolveBuildGraphLens";
 import { useBuildWorldGraphProjection } from "./useBuildWorldGraphProjection";
 
@@ -18,17 +37,124 @@ const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = n
   "conflict",
 ]);
 
-function readBuildGraphLensParams(): {
+function subscribeToLocationSearch(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+  window.addEventListener("popstate", onStoreChange);
+  return () => window.removeEventListener("popstate", onStoreChange);
+}
+
+function getLocationSearchSnapshot(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.search;
+}
+
+function readBuildGraphLensParams(search: string): {
   requestedCampaignId: string | null;
   requestedRevisionId: string | null;
 } {
-  if (typeof window === "undefined") {
-    return { requestedCampaignId: null, requestedRevisionId: null };
-  }
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(search);
   return {
     requestedCampaignId: params.get("campaign")?.trim() || null,
     requestedRevisionId: params.get("graphRevision")?.trim() || null,
+  };
+}
+
+async function resolveBuildRelationshipTarget(input: {
+  relationship: GraphObjectRelationshipViewModel;
+  projection: ReturnType<typeof useBuildWorldGraphProjection>["projection"];
+  projectionState: GraphReferenceProjectionState;
+}): Promise<GraphReferenceResolution> {
+  const label = String(input.relationship.label || "").trim() || "Related object";
+  const targetId = String(input.relationship.targetId || "").trim() || null;
+  const targetKind = String(input.relationship.targetKind || "").trim() || null;
+  const locator = targetId ? `dmb-node:${targetId}` : label;
+  const reference = targetKind && targetId
+    ? { kind: "ref" as const, refType: targetKind, refId: targetId, label }
+    : null;
+
+  if (input.projectionState === "loading") {
+    return {
+      kind: "unresolved",
+      locator,
+      reference,
+      projectionState: input.projectionState,
+      message: "World Graph projection is loading; relationship resolution deferred.",
+    };
+  }
+
+  if (input.projectionState === "error") {
+    return {
+      kind: "error",
+      locator,
+      reference,
+      projectionState: input.projectionState,
+      message: "World Graph projection failed; relationship resolution unavailable.",
+    };
+  }
+
+  if (input.projectionState === "ready" && !input.projection) {
+    return {
+      kind: "error",
+      locator,
+      reference,
+      projectionState: input.projectionState,
+      message:
+        "World Graph projection marked ready but no projection was supplied; relationship resolution unavailable.",
+    };
+  }
+
+  if (input.projectionState === "unavailable") {
+    return {
+      kind: "unresolved",
+      locator,
+      reference,
+      projectionState: input.projectionState,
+      message: "World Graph is unavailable; relationship resolution unavailable.",
+    };
+  }
+
+  if (targetId && input.projection) {
+    const exactNode = input.projection.nodes.find((node) => node.nodeId === targetId) ?? null;
+    if (exactNode) {
+      const nodeView = adaptWorldGraphNodeView(exactNode);
+      return {
+        kind: "resolved_graph",
+        locator,
+        reference,
+        graphNodeId: exactNode.nodeId,
+        graphObject: buildGraphObjectCardFromNodeView(nodeView),
+        projectionState: input.projectionState,
+        message: `Resolved graph node ${exactNode.label}.`,
+      };
+    }
+
+    return {
+      kind: "unresolved",
+      locator,
+      reference,
+      projectionState: input.projectionState,
+      message: `Could not resolve related object "${label}" from the loaded World Graph projection.`,
+    };
+  }
+
+  if (input.projection) {
+    return resolveGraphReference({
+      locator: label,
+      label,
+      refType: targetKind,
+      projection: input.projection,
+      projectionState: input.projectionState,
+    });
+  }
+
+  return {
+    kind: "unresolved",
+    locator,
+    reference,
+    projectionState: input.projectionState,
+    message: `Could not resolve related object "${label}" from graph memory.`,
   };
 }
 
@@ -38,7 +164,21 @@ export interface BuildReferenceCapabilityProps {
 
 export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilityProps) {
   const session = useOptionalMarkdownCanvasSession();
-  const lensParams = useMemo(() => readBuildGraphLensParams(), [documentId]);
+  const {
+    openGraphReference,
+    openTool,
+    registerGraphReferenceBinding,
+    registerProjectionCatalog,
+  } = useAgentInteraction();
+  const locationSearch = useSyncExternalStore(
+    subscribeToLocationSearch,
+    getLocationSearchSnapshot,
+    () => "",
+  );
+  const lensParams = useMemo(
+    () => readBuildGraphLensParams(locationSearch),
+    [locationSearch],
+  );
 
   const acceptedDocument = useMemo(() => {
     if (!documentId || !session || session.documentId !== documentId) return null;
@@ -73,13 +213,35 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     },
   });
 
-  const selectCampaign = useCallback((_campaignId: string) => {
-    // URL lens write lands with search projection (nano7).
+  const projectionGenerationRef = useRef(projection.generation);
+  projectionGenerationRef.current = projection.generation;
+  const relationshipResolveGenerationRef = useRef<number | null>(null);
+
+  const selectCampaign = useCallback((campaignId: string) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("campaign", campaignId.trim());
+    window.history.pushState({}, "", url.toString());
+    window.dispatchEvent(new PopStateEvent("popstate"));
   }, []);
 
-  const viewExact = useCallback((_item: GraphReferenceSearchItem) => {
-    // Exact View lands with object projection (nano7).
-  }, []);
+  const viewExact = useCallback(
+    (item: GraphReferenceSearchItem) => {
+      openGraphReference({
+        resolution: {
+          kind: "resolved_graph",
+          locator: `dmb-node:${item.nodeId}`,
+          reference: item.reference,
+          graphNodeId: item.nodeId,
+          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
+          projectionState: projection.state,
+          message: `Resolved graph node ${item.label}.`,
+        },
+        projectionState: projection.state,
+      });
+    },
+    [openGraphReference, projection.state],
+  );
 
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
     if (!acceptedDocument) return null;
@@ -119,6 +281,77 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
   );
 
   usePublishSurfaceInteraction(publication);
+
+  const catalogActive = Boolean(referenceContext && publication.tools.length > 0);
+
+  useEffect(() => {
+    if (!catalogActive) return undefined;
+
+    const cleanups = [
+      registerProjectionCatalog({
+        projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
+        surfaceId: "build",
+        kind: "tool",
+        preferredSize: "wide",
+        requiredBindingIds: [BUILD_REFERENCE_CONTEXT_BINDING_ID],
+        render: ({ bindings }) => <BuildReferenceSearchProjection bindings={bindings} />,
+      }),
+      registerProjectionCatalog({
+        projectionId: GRAPH_REFERENCE_PROJECTION_ID,
+        surfaceId: "build",
+        kind: "content",
+        preferredSize: "wide",
+        requiredBindingIds: [GRAPH_REFERENCE_RESOLUTION_BINDING_ID],
+        render: ({ bindings, active }) => (
+          <BuildReferenceObjectProjection
+            bindings={bindings}
+            glanceOnly={active.glanceOnly === true}
+          />
+        ),
+      }),
+    ];
+
+    return () => {
+      for (const cleanup of cleanups) {
+        cleanup();
+      }
+    };
+  }, [catalogActive, registerProjectionCatalog]);
+
+  useEffect(() => {
+    if (!catalogActive) return undefined;
+
+    return registerGraphReferenceBinding({
+      resolverState: projection.state,
+      resolveRelationship: async (relationship) => {
+        relationshipResolveGenerationRef.current = projectionGenerationRef.current;
+        return resolveBuildRelationshipTarget({
+          relationship,
+          projection: projection.projection,
+          projectionState: projection.state,
+        });
+      },
+      openResolvedReference: (resolution, state) => {
+        if (relationshipResolveGenerationRef.current !== projectionGenerationRef.current) {
+          relationshipResolveGenerationRef.current = null;
+          return;
+        }
+        relationshipResolveGenerationRef.current = null;
+        openGraphReference({
+          resolution,
+          projectionState: state ?? projection.state,
+        });
+      },
+      openTool,
+    });
+  }, [
+    catalogActive,
+    openGraphReference,
+    openTool,
+    projection.projection,
+    projection.state,
+    registerGraphReferenceBinding,
+  ]);
 
   return null;
 }

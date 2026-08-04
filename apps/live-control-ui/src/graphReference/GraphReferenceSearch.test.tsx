@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { GraphProjectionNodeView } from "../api/types";
+import type { GraphProjectionNodeView } from "../../api/types";
 import { GraphReferenceSearch } from "./GraphReferenceSearch";
 import { referenceFromGraphNode } from "./referenceFromGraphNode";
 import type { GraphReferenceSearchItem } from "./types";
@@ -127,5 +127,25 @@ describe("GraphReferenceSearch", () => {
     expect(onView).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "location-inn" }));
     expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
     expect(onInsert).not.toHaveBeenCalled();
+  });
+
+  it("omits Insert controls in view-only mode when onInsert is absent", async () => {
+    const user = userEvent.setup();
+    const onView = vi.fn();
+
+    render(
+      <GraphReferenceSearch
+        items={items}
+        projectionState="ready"
+        insertDisabled
+        onView={onView}
+      />,
+    );
+
+    expect(screen.queryByText(/Unlock editing to insert chips/i)).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Find objects"), "inn");
+    expect(screen.queryByRole("button", { name: "Insert chip" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(onView).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "location-inn" }));
   });
 });
