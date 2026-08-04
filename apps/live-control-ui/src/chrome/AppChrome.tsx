@@ -1,8 +1,15 @@
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
-import { buildAppChromeCompatibilityFragment } from "../agentInteraction/surfaceInteractionCompat";
-import { resolveGuardedEditInvoke } from "../agentInteraction/surfaceInteractionLease";
+import {
+  BLANK_COMMAND_TARGET,
+  buildAppChromeCompatibilityFragment,
+} from "../agentInteraction/surfaceInteractionCompat";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
+import {
+  EditHost,
+  type LegacyEditPanelAttachment,
+} from "../surfaceInteraction/editHost/EditHost";
+import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction/types";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
@@ -49,188 +56,36 @@ interface AppChromeProps {
   children: ReactNode;
 }
 
-interface GuardedActionButtonProps {
-  action: AppChromeAction;
-  guardedInvoke: ((id: string) => (() => void | Promise<void>) | null) | null;
-  leaseBridgeActive: boolean;
-  hasEffectivePublication: boolean;
+function buildLegacyEditPanels(
+  editorTools: AppChromeTools | null | undefined,
+  workObject: SurfaceInteractionWorkObjectIdentity | null,
+): LegacyEditPanelAttachment[] {
+  const target = workObject ?? BLANK_COMMAND_TARGET;
+  const sections = editorTools?.sections ?? [];
+  const panels: LegacyEditPanelAttachment[] = [];
+  for (let index = 0; index < sections.length; index += 1) {
+    const section = sections[index];
+    if (!section?.panel) continue;
+    panels.push({
+      groupId: section.id,
+      groupLabel: section.title,
+      groupOrder: index,
+      ...(section.defaultOpen !== undefined
+        ? { groupDefaultOpen: section.defaultOpen }
+        : {}),
+      target,
+      panel: section.panel,
+    });
+  }
+  return panels;
 }
 
-function GuardedActionButton({
-  action,
-  guardedInvoke,
-  leaseBridgeActive,
-  hasEffectivePublication,
-}: GuardedActionButtonProps) {
-  const guarded = leaseBridgeActive && hasEffectivePublication && guardedInvoke
-    ? guardedInvoke(action.id)
-    : null;
-  const bypassAllowed = !leaseBridgeActive;
-  const disabled = action.disabled || (leaseBridgeActive && (!hasEffectivePublication || !guarded));
-
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        if (guarded) {
-          void guarded();
-          return;
-        }
-        if (bypassAllowed) {
-          action.onClick();
-        }
-      }}
-      disabled={disabled}
-      aria-pressed={action.pressed}
-    >
-      {action.eyebrow ? <span>{action.eyebrow}</span> : null}
-      <strong>{action.label}</strong>
-    </button>
-  );
-}
-
-interface EditToolboxDrawerProps {
-  pinnedActions: AppChromeAction[];
-  sections: AppChromeToolSection[];
-  onClose: () => void;
-  resolveEditInvoke: ((id: string) => (() => void | Promise<void>) | null) | null;
-  leaseBridgeActive: boolean;
-  hasEffectivePublication: boolean;
-}
-
-function EditToolboxDrawer({
-  pinnedActions,
-  sections,
-  onClose,
-  resolveEditInvoke,
-  leaseBridgeActive,
-  hasEffectivePublication,
-}: EditToolboxDrawerProps) {
-  return (
-    <aside id="app-edit-toolbox-drawer" className="app-edit-toolbox-drawer" aria-label="Edit toolbar">
-      <header className="app-edit-toolbox-hd">
-        <div>
-          <div className="app-edit-toolbox-eyebrow">Command Board</div>
-          <h2 className="app-edit-toolbox-title">Edit</h2>
-        </div>
-        <button type="button" className="app-edit-toolbox-close" onClick={onClose} aria-label="Close Edit">
-          x
-        </button>
-      </header>
-      <nav className="app-edit-toolbox-nav" aria-label="Edit tool groups">
-        <button type="button" className="app-edit-toolbox-nav-btn active">
-          Tiptap
-        </button>
-      </nav>
-      <div className="app-edit-toolbox-body">
-        {pinnedActions.length > 0 ? (
-          <details className="app-edit-fold" open>
-            <summary>Edit state</summary>
-            <div className="app-edit-fold-bd app-edit-actions">
-              {pinnedActions.map((action) => (
-                <GuardedActionButton
-                  key={action.id}
-                  action={action}
-                  guardedInvoke={resolveEditInvoke}
-                  leaseBridgeActive={leaseBridgeActive}
-                  hasEffectivePublication={hasEffectivePublication}
-                />
-              ))}
-            </div>
-          </details>
-        ) : null}
-
-        {sections.map((section) => (
-          <details key={section.id} className="app-edit-fold" open={section.defaultOpen}>
-            <summary>{section.title}</summary>
-            <div className="app-edit-fold-bd">
-              {section.actions.length > 0 ? (
-                <div className="app-edit-actions">
-                  {section.actions.map((action) => (
-                    <GuardedActionButton
-                      key={action.id}
-                      action={action}
-                      guardedInvoke={resolveEditInvoke}
-                      leaseBridgeActive={leaseBridgeActive}
-                      hasEffectivePublication={hasEffectivePublication}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {section.panel ? <div className="app-edit-fold-panel">{section.panel}</div> : null}
-            </div>
-          </details>
-        ))}
-      </div>
-    </aside>
-  );
-}
-
-interface EditToolboxProps {
-  layout: "overlay" | "dock";
-  isOpen: boolean;
-  onToggle: () => void;
-  onClose: () => void;
-  pinnedActions: AppChromeAction[];
-  sections: AppChromeToolSection[];
-  resolveEditInvoke: ((id: string) => (() => void | Promise<void>) | null) | null;
-  leaseBridgeActive: boolean;
-  hasEffectivePublication: boolean;
-}
-
-function EditToolbox({
-  layout,
-  isOpen,
-  onToggle,
-  onClose,
-  pinnedActions,
-  sections,
-  resolveEditInvoke,
-  leaseBridgeActive,
-  hasEffectivePublication,
-}: EditToolboxProps) {
-  const isDocked = layout === "dock";
-
-  return (
-    <div
-      className={[
-        "app-edit-toolbox",
-        isDocked ? "app-edit-toolbox--docked" : "",
-        isOpen ? "open" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      data-layout={layout}
-    >
-      <button
-        type="button"
-        className="app-edit-toolbox-toggle"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        aria-controls="app-edit-toolbox-drawer"
-        title="Edit"
-        hidden={isOpen}
-      >
-        Edit
-      </button>
-      <div
-        className="app-edit-toolbox-backdrop"
-        hidden={!isOpen}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      {isOpen ? (
-        <EditToolboxDrawer
-          pinnedActions={pinnedActions}
-          sections={sections}
-          onClose={onClose}
-          resolveEditInvoke={resolveEditInvoke}
-          leaseBridgeActive={leaseBridgeActive}
-          hasEffectivePublication={hasEffectivePublication}
-        />
-      ) : null}
-    </div>
-  );
+function targetsMatch(
+  left: { kind: string; id: string },
+  right: SurfaceInteractionWorkObjectIdentity | null,
+): boolean {
+  if (!right) return false;
+  return left.kind === right.kind && left.id === right.id;
 }
 
 export function AppChrome({
@@ -260,6 +115,7 @@ export function AppChrome({
       action.disabled === true,
       action.label,
       action.eyebrow ?? null,
+      action.pressed === true,
       callbackIdentityKey(action.onClick),
     ]),
   );
@@ -267,20 +123,17 @@ export function AppChrome({
     (editorTools?.sections ?? []).map((section) => [
       section.id,
       section.title,
+      section.defaultOpen === true,
       section.actions.map((action) => [
         action.id,
         action.disabled === true,
         action.label,
         action.eyebrow ?? null,
+        action.pressed === true,
         callbackIdentityKey(action.onClick),
       ]),
     ]),
   );
-  const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
-  const pinnedActions = editorTools?.pinnedActions ?? [];
-  const sections = editorTools?.sections ?? [];
-  const hasEditTools = pinnedActions.length > 0 || sections.length > 0;
-  const isDockedEdit = editToolboxLayout === "dock" && hasEditTools;
 
   const agentInteractionRef = useRef(agentInteraction);
   agentInteractionRef.current = agentInteraction;
@@ -300,8 +153,21 @@ export function AppChrome({
   publishAppChromeCompatibilityRef.current = agentInteraction.publishAppChromeCompatibility;
 
   const effectivePublication = agentInteraction?.surfaceInteractionPublication ?? null;
-  const leaseBridgeActive = agentInteraction != null;
   const hasEffectivePublication = effectivePublication != null;
+  const workObject = basePublication?.canvas?.workObject ?? null;
+  const legacyPanels = buildLegacyEditPanels(editorTools, workObject);
+
+  const matchingEditCommands = (effectivePublication?.editCommands ?? []).filter((command) =>
+    targetsMatch(command.target, effectivePublication?.canvas?.workObject ?? null),
+  );
+  const matchingLegacyPanels = legacyPanels.filter((panel) =>
+    targetsMatch(panel.target, effectivePublication?.canvas?.workObject ?? null),
+  );
+  const hasEditContent =
+    matchingEditCommands.length > 0 || matchingLegacyPanels.length > 0;
+
+  const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
+  const isDockedEdit = editToolboxLayout === "dock" && hasEditContent;
 
   useLayoutEffect(() => {
     const publish = publishAppChromeCompatibilityRef.current;
@@ -324,10 +190,6 @@ export function AppChrome({
     sectionSignature,
   ]);
 
-  const resolveEditInvoke = leaseBridgeActive
-    ? (id: string) => resolveGuardedEditInvoke(effectivePublication, id)
-    : null;
-
   const shellClassName = [
     "app-shell",
     isDockedEdit ? "app-shell--edit-dock" : "",
@@ -335,6 +197,14 @@ export function AppChrome({
   ]
     .filter(Boolean)
     .join(" ");
+
+  const editHost = (
+    <EditHost
+      layout={editToolboxLayout}
+      legacyPanels={legacyPanels}
+      onOpenChange={setIsEditOpen}
+    />
+  );
 
   const mainContent = (
     <div className="app-wrap">
@@ -353,37 +223,14 @@ export function AppChrome({
   return (
     <div className={shellClassName}>
       <div className="app-shell-layout">
-        {isDockedEdit ? (
-          <EditToolbox
-            layout="dock"
-            isOpen={isEditOpen}
-            onToggle={() => setIsEditOpen((current) => !current)}
-            onClose={() => setIsEditOpen(false)}
-            pinnedActions={pinnedActions}
-            sections={sections}
-            resolveEditInvoke={resolveEditInvoke}
-            leaseBridgeActive={leaseBridgeActive}
-            hasEffectivePublication={hasEffectivePublication}
-          />
-        ) : null}
+        {editToolboxLayout === "dock" ? editHost : null}
         {mainContent}
       </div>
 
-      {hasEditTools && !isDockedEdit ? (
-        <EditToolbox
-          layout="overlay"
-          isOpen={isEditOpen}
-          onToggle={() => setIsEditOpen((current) => !current)}
-          onClose={() => setIsEditOpen(false)}
-          pinnedActions={pinnedActions}
-          sections={sections}
-          resolveEditInvoke={resolveEditInvoke}
-          leaseBridgeActive={leaseBridgeActive}
-          hasEffectivePublication={hasEffectivePublication}
-        />
-      ) : null}
+      {editToolboxLayout !== "dock" ? editHost : null}
       {/* Tool launcher DOM lives in surfaceInteraction/toolHost/ToolHost (BLD-SIH-04).
-          pageActions still publish through the chrome compatibility fragment above. */}
+          Edit command DOM lives in surfaceInteraction/editHost/EditHost (BLD-SIH-05).
+          pageActions / editorTools still publish through the chrome compatibility fragment above. */}
     </div>
   );
 }

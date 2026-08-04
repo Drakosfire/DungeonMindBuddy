@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -96,14 +99,20 @@ describe("AppChrome surface interaction bridge", () => {
     expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
   });
 
-  it("preserves Edit toolbox section labels from AppChrome editorTools", () => {
+  it("preserves Edit host section labels from AppChrome editorTools via publication", () => {
+    const publication = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: { kind: "document", id: "doc-a" },
+    });
     render(
       <AgentInteractionProvider>
-        <IndexRouteChromeHarness
+        <PublicationChromeHarness
+          publication={publication}
           editorTools={{
             sections: [{
               id: "callouts",
               title: "Callouts",
+              defaultOpen: true,
               actions: [{ id: "note", label: "Note", onClick: () => {} }],
             }],
           }}
@@ -113,6 +122,7 @@ describe("AppChrome surface interaction bridge", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByText("Callouts")).toBeTruthy();
+    expect(screen.getByTestId("surface-edit-host")).toBeInTheDocument();
   });
 
   it("renders AppChrome actions under an active route lease publisher", () => {
@@ -215,6 +225,8 @@ describe("AppChrome surface interaction bridge", () => {
       </AgentInteractionProvider>,
     );
     expect(screen.getByTestId("edit-target").textContent).toBe("document:doc-b");
+    // Work-object change resets Edit host open state to the overlay default (closed).
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "Bold" }));
     expect(onClick).toHaveBeenCalledTimes(2);
   });
@@ -245,5 +257,15 @@ describe("AppChrome surface interaction bridge", () => {
     expect(nextButton).not.toBeDisabled();
     fireEvent.click(nextButton);
     expect(shared).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a singular EditHost: AppChrome source has no EditToolbox ownership", () => {
+    const source = readFileSync(join(__dirname, "AppChrome.tsx"), "utf8");
+    expect(source).not.toMatch(/\bEditToolbox\b/);
+    expect(source).not.toMatch(/\bEditToolboxDrawer\b/);
+    expect(source).not.toMatch(/\bGuardedActionButton\b/);
+    expect(source).not.toMatch(/app-edit-toolbox-toggle/);
+    expect(source).toMatch(/EditHost/);
+    expect(source).toMatch(/legacyPanels/);
   });
 });
