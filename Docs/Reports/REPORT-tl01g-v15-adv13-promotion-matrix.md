@@ -9,7 +9,7 @@
 **Provider execution SHA (singleton):** `71c8af5480114de4a7f50cc6099df37f46eb237d`
 **Evidence commit (aggregate + initial report body):** `3ea7b1d82f5addffbb6021102adaecd8906820fb`
 **Review-cycle-1 report correction:** `4a09cad35dd63eb19c5533ccdf6a0bc9e181d2ca`
-**Review-cycle-2 report correction:** this commit (docs-only; no provider retry; no aggregate rewrite)
+**Review-cycle-2 report correction:** `ed43f2a7fed7bb33057b3142fb259770a337eb79` (docs-only; no provider retry; no aggregate rewrite)
 **Model:** `gpt-5.4-mini`
 **Calibration ID:** `temporal-prompt-calibration:9d9b5d09a79af1b2`
 **Live invocations:** **1** (zero retry)
@@ -228,15 +228,16 @@ provider execution SHA became `71c8af5480114de4a7f50cc6099df37f46eb237d` after t
 
 ## Post-live evidence (after matrix; review cycle 2 re-verification)
 
-Provenance: zero-provider deterministic re-run for review cycle 2 with this report’s
-cycle-2 edits applied on parent `4a09cad35dd63eb19c5533ccdf6a0bc9e181d2ca`.
+Provenance: zero-provider deterministic re-run for review cycle 2 on exact head
+`ed43f2a7fed7bb33057b3142fb259770a337eb79` (parent `4a09cad35dd63eb19c5533ccdf6a0bc9e181d2ca`).
 No provider calls. Aggregate, runner, certified inputs, and provider manifests
-unchanged.
+unchanged. A follow-up docs pin may name this head without changing aggregate or
+provider evidence.
 
 | Command / check | Exact result |
 |---|---|
-| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `98 passed in 1.62s` |
-| `uv run pytest -q tests/test_temporal_shadow_prompt_calibration.py tests/test_temporal_shadow_grounding_path.py` | `113 passed, 1 skipped in 5.40s` |
+| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `98 passed in 1.72s` |
+| `uv run pytest -q tests/test_temporal_shadow_prompt_calibration.py tests/test_temporal_shadow_grounding_path.py` | `113 passed, 1 skipped in 7.94s` |
 | `uv run ruff check tests/test_temporal_shadow_extraction_tl01g.py` | `All checks passed!` |
 | `sha256sum -c /tmp/tl01g-v15-adv13-certified.sha256` | `33/33 OK (all files)` |
 | `git merge-base --is-ancestor 24679b19ac093cdbefa430cb0e930dff8c8a6dae HEAD` | yes (`CERT_ANCESTOR_OK`) |
@@ -246,13 +247,13 @@ unchanged.
 | Provider attempts | **18 / 18**; singleton SHA set `{71c8af5480114de4a7f50cc6099df37f46eb237d}` |
 | Retry / second matrix | **none** |
 
-### Exact changed-path proof (`dd1a7f2a…` → cycle-2 report tree)
+### Exact changed-path proof (`dd1a7f2a…`…`ed43f2a7…`)
 
-Literal command output against execution base (working tree / this commit’s tree for
-the four §4 paths):
+Literal command output against execution base at verified cycle-2 head
+`ed43f2a7fed7bb33057b3142fb259770a337eb79` for the four §4 paths:
 
 ```text
-git diff --name-only dd1a7f2a2783e2a2fb189150bd837065122bee8f -- \
+git diff --name-only dd1a7f2a2783e2a2fb189150bd837065122bee8f...ed43f2a7fed7bb33057b3142fb259770a337eb79 -- \
   .gitignore \
   Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md \
   Docs/Reports/REPORT-tl01g-v15-adv13-promotion-matrix.md \
@@ -264,7 +265,7 @@ evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/prom
 ```
 
 ```text
-git diff --stat dd1a7f2a2783e2a2fb189150bd837065122bee8f -- \
+git diff --stat dd1a7f2a2783e2a2fb189150bd837065122bee8f...ed43f2a7fed7bb33057b3142fb259770a337eb79 -- \
   .gitignore \
   Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md \
   Docs/Reports/REPORT-tl01g-v15-adv13-promotion-matrix.md \
