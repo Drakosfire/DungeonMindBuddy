@@ -94,6 +94,13 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(resolution.locator).toBe("dmb-node:location-inn");
     expect(resolution.graphNodeId).toBe("location-inn");
     expect(resolution.graphObject?.label).toBe("Inn");
+    if (resolution.kind === "resolved_graph") {
+      expect(resolution.graphScope).toEqual({
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+      });
+    }
   });
 
   it("resolves unique label-only relationships without first-win", async () => {
@@ -316,5 +323,29 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(resolution.kind).toBe("unresolved");
     expect(resolution.message).toMatch(/loading/i);
     expect(fetchCount).toBe(0);
+  });
+
+  it("fails closed when exact target resolves but projection scope is blank", async () => {
+    const blankScopeProjection: WorldGraphProjection = {
+      ...projection,
+      snapshot: {
+        ...projection.snapshot,
+        campaignId: "",
+      },
+    };
+
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "edge-1",
+        label: "Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+      },
+      projection: blankScopeProjection,
+      projectionState: "ready",
+    });
+
+    expect(resolution.kind).toBe("error");
+    expect(resolution.message).toMatch(/exact world, campaign, or revision scope/i);
   });
 });

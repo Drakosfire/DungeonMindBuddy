@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { GraphProjectionNodeView } from "../../api/types";
+import type { GraphProjectionNodeView, WorldGraphProjection } from "../../api/types";
 import {
   buildGraphObjectCardFromNodeView,
   type GraphObjectCardViewModel,
 } from "../../graphObjectCard";
 import { referenceFromGraphNode } from "../../graphReference";
+import { extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import type { GraphReferenceResolution } from "../../graphReference/types";
 import { useOptionalProjection } from "../projection/projectionContext";
 import { buildPlanGraphObjectActions } from "../reference/buildPlanGraphObjectActions";
@@ -38,14 +39,20 @@ export interface GraphObjectDogfoodPanelProps {
 function buildViewModelForNode(
   node: GraphProjectionNodeView,
   sessionDescriptor: PlanSessionDescriptor,
+  projection: WorldGraphProjection | null,
 ): GraphObjectCardViewModel {
   const base = buildGraphObjectCardFromNodeView(node);
+  const graphScope = extractExactGraphReferenceScope(projection);
+  if (!graphScope) {
+    return { ...base, actions: [] };
+  }
   const resolution: GraphReferenceResolution = {
     kind: "resolved_graph",
     locator: `dmb-node:${node.node_id}`,
     reference: referenceFromGraphNode(node),
     graphObject: base,
     graphNodeId: node.node_id,
+    graphScope,
     projectionState: null,
     message: `Resolved graph node ${node.label}.`,
   };
@@ -59,14 +66,27 @@ function resolutionFromNode(
   node: GraphProjectionNodeView,
   sessionDescriptor: PlanSessionDescriptor,
   projectionState: GraphReferenceResolution["projectionState"],
+  projection: WorldGraphProjection | null,
 ): GraphReferenceResolution {
-  const graphObject = buildViewModelForNode(node, sessionDescriptor);
+  const graphScope = extractExactGraphReferenceScope(projection);
+  if (!graphScope) {
+    return {
+      kind: "error",
+      locator: `dmb-node:${node.node_id}`,
+      reference: referenceFromGraphNode(node),
+      projectionState: projectionState ?? null,
+      message:
+        "World Graph projection snapshot lacks exact world, campaign, or revision scope; dogfood open blocked.",
+    };
+  }
+  const graphObject = buildViewModelForNode(node, sessionDescriptor, projection);
   return {
     kind: "resolved_graph",
     locator: `dmb-node:${node.node_id}`,
     reference: referenceFromGraphNode(node),
     graphObject,
     graphNodeId: node.node_id,
+    graphScope,
     projectionState: projectionState ?? null,
     message: `Resolved graph node ${node.label}.`,
   };
@@ -154,7 +174,7 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
     const next = markNodeViewed(state, node.node_id);
     persist(next);
     projectionApi.openGraphReference({
-      resolution: resolutionFromNode(node, sessionDescriptor, projectionState),
+      resolution: resolutionFromNode(node, sessionDescriptor, projectionState, projection),
       projectionState,
     });
   };
@@ -231,7 +251,7 @@ export function GraphObjectDogfoodPanel({ sessionDescriptor }: GraphObjectDogfoo
               data-testid="graph-object-dogfood-collection"
             >
               {addedNodes.map((node) => {
-                const model = buildViewModelForNode(node, sessionDescriptor);
+                const model = buildViewModelForNode(node, sessionDescriptor, projection);
                 const usefulness = state.usefulnessByNodeId[node.node_id] ?? "unknown";
                 const notes = state.notesByNodeId[node.node_id] ?? "";
                 return (

@@ -8,6 +8,8 @@ import type {
   GraphReferenceResolution,
 } from "../../graphReference/types";
 import { GraphObjectProjectionCard } from "../../graphObjectCard/GraphObjectProjectionCard";
+import { ThreatSheetProjection } from "../../statblocks/projection/ThreatSheetProjection";
+import { isResolvedThreat } from "../../statblocks/projection/threatSheetViewModel";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
@@ -174,6 +176,18 @@ export function PlanReferenceObjectCard({
     || resolverProjectionState === "error";
 
   if (resolution.kind === "resolved_graph") {
+    if (isResolvedThreat(resolution)) {
+      return (
+        <ThreatSheetProjection
+          resolution={resolution}
+          sessionDescriptor={sessionDescriptor}
+          projectionState={effectiveProjectionState}
+          graphReferenceBinding={graphReferenceBinding}
+          glanceOnly={glanceOnly}
+        />
+      );
+    }
+
     const model = {
       ...resolution.graphObject,
       actions: buildPlanGraphObjectActions({

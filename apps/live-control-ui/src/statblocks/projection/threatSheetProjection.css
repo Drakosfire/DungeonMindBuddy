@@ -1,0 +1,70 @@
+.threat-sheet-projection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.threat-sheet-projection__header h3 {
+  margin: 0;
+}
+
+.threat-sheet-projection__meta,
+.threat-sheet-projection__status,
+.threat-sheet-projection__binding-summary {
+  margin: 0;
+}
+
+.threat-sheet-projection__status--loading,
+.threat-sheet-projection__status--error {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--plan-surface-muted, #eef2f7) 80%, transparent);
+}
+
+.threat-sheet-projection__core-stats {
+  display: grid;
+  gap: 0.35rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  margin: 0;
+}
+
+.threat-sheet-projection__core-stats div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.threat-sheet-projection__core-stats dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.threat-sheet-projection__core-stats dd {
+  margin: 0;
+}
+
+.threat-sheet-projection__bindings {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.threat-sheet-projection__binding-panel {
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.threat-sheet-projection__binding-panel h4 {
+  margin: 0 0 0.5rem;
+}
+
+.threat-sheet-projection__binding-locator {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.threat-sheet-projection__technical-details summary {
+  cursor: pointer;
+}

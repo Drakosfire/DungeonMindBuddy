@@ -1,5 +1,6 @@
 import type { GraphObjectActionViewModel, GraphObjectCardViewModel } from "../../graphObjectCard";
 import type { GraphReferenceResolution } from "../../graphReference/types";
+import { isResolvedThreat } from "../../statblocks/projection/threatSheetViewModel";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import type { PlanSessionDescriptor } from "../types";
 
@@ -127,7 +128,7 @@ export function buildPlanGraphObjectActions({
       });
     }
 
-    if (resolutionIndicatesStatblock(resolution) && onOpenStatblock) {
+    if (resolutionIndicatesStatblock(resolution) && onOpenStatblock && !isResolvedThreat(resolution)) {
       actions.push({
         id: "open-statblock",
         label: "Open statblock tool",

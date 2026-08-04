@@ -6,6 +6,7 @@ import {
 } from "../tiptap/references/runbookReferences";
 import { adaptWorldGraphNodeView } from "../worldGraph/worldGraphNodeViewAdapter";
 import type {
+  ExactGraphReferenceScope,
   GraphReferenceCorpusFallback,
   GraphReferenceProjectionState,
   GraphReferenceResolution,
@@ -69,6 +70,31 @@ export function normalizeReferenceKey(value: string): string {
     .replace(/[^a-z0-9-]+/g, "")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+/** Extract exact graph snapshot scope from a World Graph projection. Never synthesize. */
+export function extractExactGraphReferenceScope(
+  projection: WorldGraphProjection | null | undefined,
+): ExactGraphReferenceScope | null {
+  const snapshot = projection?.snapshot;
+  if (!snapshot) return null;
+
+  const worldId = String(snapshot.worldId ?? "").trim();
+  const campaignId = String(snapshot.campaignId ?? "").trim();
+  const revisionId = String(snapshot.revisionId ?? "").trim();
+  if (!worldId || !campaignId || !revisionId) return null;
+
+  return { worldId, campaignId, revisionId };
+}
+
+export function validateExactGraphReferenceScope(
+  scope: ExactGraphReferenceScope | null | undefined,
+): scope is ExactGraphReferenceScope {
+  return Boolean(
+    scope?.worldId?.trim()
+    && scope?.campaignId?.trim()
+    && scope?.revisionId?.trim(),
+  );
 }
 
 export function parseGraphNodeLocator(locator: string): string | null {
@@ -279,6 +305,7 @@ function graphNodeResolution(
   locator: string,
   reference: RunbookReferenceAttrs | null,
   projectionState: GraphReferenceProjectionState | null,
+  graphScope: ExactGraphReferenceScope,
 ): GraphReferenceResolution {
   return {
     kind: "resolved_graph",
@@ -286,8 +313,24 @@ function graphNodeResolution(
     reference,
     graphNodeId: node.nodeId,
     graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeView(node)),
+    graphScope,
     projectionState,
     message: `Resolved graph node ${node.label}.`,
+  };
+}
+
+function missingGraphScopeResolution(
+  locator: string,
+  reference: RunbookReferenceAttrs | null,
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
+  return {
+    kind: "error",
+    locator,
+    reference,
+    projectionState,
+    message:
+      "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph resolution blocked.",
   };
 }
 
@@ -507,7 +550,17 @@ export function resolveGraphReference(
     });
 
     if (lookup.status === "found") {
-      return graphNodeResolution(lookup.node, locator, reference, projectionState);
+      const graphScope = extractExactGraphReferenceScope(input.projection);
+      if (!graphScope) {
+        return missingGraphScopeResolution(locator, reference, projectionState);
+      }
+      return graphNodeResolution(
+        lookup.node,
+        locator,
+        reference,
+        projectionState,
+        graphScope,
+      );
     }
 
     if (lookup.status === "ambiguous") {

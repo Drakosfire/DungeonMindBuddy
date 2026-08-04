@@ -1,4 +1,7 @@
-import type { GeneratedStatblockCandidateV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import type {
+  GeneratedStatblockCandidateV1,
+  StatblockRevisionResourceV1,
+} from "../../contracts/dungeonbuddy-statblocks-v1/client";
 
 import "./StatblockRenderer.css";
 import {
@@ -11,7 +14,8 @@ import {
 } from "./statblockViewModel";
 
 export type StatblockRendererProps = {
-  candidate: GeneratedStatblockCandidateV1;
+  candidate?: GeneratedStatblockCandidateV1;
+  revision?: StatblockRevisionResourceV1;
   mode?: StatblockRenderMode;
 };
 
@@ -162,8 +166,16 @@ function LairSection({ view }: { view: StatblockViewModel }) {
   );
 }
 
-export function StatblockRenderer({ candidate, mode = "review" }: StatblockRendererProps) {
-  const view = buildStatblockViewModel(candidate, mode);
+export function StatblockRenderer({ candidate, revision, mode = "review" }: StatblockRendererProps) {
+  const source = candidate ?? revision;
+  if (!source) {
+    throw new Error("StatblockRenderer requires candidate or revision");
+  }
+  if (candidate && revision) {
+    throw new Error("StatblockRenderer accepts candidate or revision, not both");
+  }
+
+  const view = buildStatblockViewModel(source, mode);
   const sections = groupRuleElementsBySection(view.ruleElements);
 
   return (
@@ -172,13 +184,15 @@ export function StatblockRenderer({ candidate, mode = "review" }: StatblockRende
       data-statblock-renderer
       data-render-mode={mode}
       data-candidate-id={view.candidateId}
-      aria-label={`Statblock candidate ${view.name}`}
+      data-resource-kind={view.recordKind}
+      aria-label={`Statblock ${view.recordKind} ${view.name}`}
     >
       <header className="statblock-renderer-header">
         <h3>{view.name}</h3>
         <p className="statblock-renderer-identity">{view.identityLine}</p>
         <p className="statblock-renderer-meta">
-          Candidate <code>{view.candidateId}</code> · {view.challengeSummary}
+          {view.recordKind === "revision" ? "Revision" : "Candidate"}{" "}
+          <code>{view.candidateId}</code> · {view.challengeSummary}
         </p>
         {view.flavorSummary ? <p className="statblock-renderer-flavor">{view.flavorSummary}</p> : null}
       </header>

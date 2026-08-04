@@ -9,6 +9,7 @@ import type {
   ResourcePool,
   RuleElement_Output,
   StatblockDefinitionV1_Output,
+  StatblockRevisionResourceV1,
   Usage,
   ValidationIssueV1,
   ValidationReceiptV1,
@@ -94,6 +95,7 @@ export type FormattedRuleElement = {
 };
 
 export type StatblockViewModel = {
+  recordKind: "candidate" | "revision";
   candidateId: string;
   contract: string;
   contractVersion: string;
@@ -401,11 +403,19 @@ function formatLair(lair: LairProfile | null | undefined): FormattedLair | null 
   };
 }
 
-export function buildStatblockViewModel(
-  candidate: GeneratedStatblockCandidateV1,
-  _mode: StatblockRenderMode = "review",
+function buildViewModelFromDefinition(
+  definition: StatblockDefinitionV1_Output,
+  metadata: {
+    recordId: string;
+    recordKind: "candidate" | "revision";
+    contract: string;
+    contractVersion: string;
+    createdAt: string;
+    expiresAt: string;
+    validationReceipt: ValidationReceiptV1 | null | undefined;
+    generation: StatblockViewModel["generation"];
+  },
 ): StatblockViewModel {
-  const definition: StatblockDefinitionV1_Output = candidate.definition;
   const identity = definition.identity;
   const subtypes = identity.subtypes?.length ? ` (${identity.subtypes.join(", ")})` : "";
   const identityLine = [
@@ -446,14 +456,15 @@ export function buildStatblockViewModel(
       : null,
   ].filter(Boolean) as string[];
 
-  const { errors, warnings } = partitionIssues(candidate.validation_receipt);
+  const { errors, warnings } = partitionIssues(metadata.validationReceipt);
 
   return {
-    candidateId: candidate.candidate_id,
-    contract: candidate.contract,
-    contractVersion: candidate.contract_version,
-    createdAt: candidate.created_at,
-    expiresAt: candidate.expires_at,
+    recordKind: metadata.recordKind,
+    candidateId: metadata.recordId,
+    contract: metadata.contract,
+    contractVersion: metadata.contractVersion,
+    createdAt: metadata.createdAt,
+    expiresAt: metadata.expiresAt,
     identityLine,
     name: identity.name,
     armorClassSummary: acParts.length ? acParts.join("; ") : "—",
@@ -483,23 +494,52 @@ export function buildStatblockViewModel(
     lair: formatLair(definition.lair),
     flavorSummary: definition.flavor_text?.summary ?? definition.flavor_text?.description ?? null,
     ruleElements: definition.rule_elements.map(formatRuleElement),
-    validation: candidate.validation_receipt
+    validation: metadata.validationReceipt
       ? {
-          status: candidate.validation_receipt.status,
-          digest: candidate.validation_receipt.definition_digest,
+          status: metadata.validationReceipt.status,
+          digest: metadata.validationReceipt.definition_digest,
           errors,
           warnings,
         }
       : null,
-    generation: candidate.generation_receipt
-      ? {
-          requestId: candidate.generation_receipt.request_id,
-          provider: candidate.generation_receipt.provider,
-          model: candidate.generation_receipt.model,
-          generatedAt: candidate.generation_receipt.generated_at,
-        }
-      : null,
+    generation: metadata.generation,
   };
+}
+
+export function buildStatblockViewModel(
+  source: GeneratedStatblockCandidateV1 | StatblockRevisionResourceV1,
+  _mode: StatblockRenderMode = "review",
+): StatblockViewModel {
+  if ("candidate_id" in source) {
+    return buildViewModelFromDefinition(source.definition, {
+      recordId: source.candidate_id,
+      recordKind: "candidate",
+      contract: source.contract,
+      contractVersion: source.contract_version,
+      createdAt: source.created_at,
+      expiresAt: source.expires_at,
+      validationReceipt: source.validation_receipt,
+      generation: source.generation_receipt
+        ? {
+            requestId: source.generation_receipt.request_id,
+            provider: source.generation_receipt.provider,
+            model: source.generation_receipt.model,
+            generatedAt: source.generation_receipt.generated_at,
+          }
+        : null,
+    });
+  }
+
+  return buildViewModelFromDefinition(source.definition, {
+    recordId: source.revision_id,
+    recordKind: "revision",
+    contract: source.contract,
+    contractVersion: source.contract_version,
+    createdAt: source.created_at,
+    expiresAt: "—",
+    validationReceipt: source.validation_receipt,
+    generation: null,
+  });
 }
 
 export function groupRuleElementsBySection(

@@ -6,10 +6,13 @@ import type {
   RuleElement_Output,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
+import revisionFixture from "../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json";
 import { StatblockRenderer } from "./StatblockRenderer";
 import { abilityModifier, buildStatblockViewModel, formatModifier } from "./statblockViewModel";
+import type { StatblockRevisionResourceV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 
 const candidate = fixture as GeneratedStatblockCandidateV1;
+const revision = revisionFixture as StatblockRevisionResourceV1;
 const baseElement = candidate.definition.rule_elements[0] as RuleElement_Output;
 
 function withDefinition(
@@ -302,5 +305,13 @@ describe("StatblockRenderer", () => {
     expect(screen.getByText("Weird Pulse")).toBeTruthy();
     expect(screen.getByText("Unsupported mechanic")).toBeTruthy();
     expect(screen.getByText(/An unfamiliar pulse ripples outward/)).toBeTruthy();
+  });
+
+  it("renders exact StatblockRevisionResourceV1 through the shared renderer", () => {
+    render(<StatblockRenderer revision={revision} mode="summary" />);
+    expect(screen.getByRole("heading", { name: "Ironhide Brute" })).toBeTruthy();
+    expect(screen.getByText(/Revision/)).toBeTruthy();
+    expect(screen.getByText("Armor Class")).toBeTruthy();
+    expect(screen.getByText("15 (natural armor)")).toBeTruthy();
   });
 });

@@ -18,6 +18,7 @@ import {
   LiveApiError,
   listWorkspaceDocuments,
   postLiveQuery,
+  postThreatQueryHydration,
   postWorldGraphProjection,
   postWorldGraphSourceAnchorRead,
   getCurrentCombat,
@@ -274,6 +275,48 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/workbench/sample");
+  });
+
+  it("postThreatQueryHydration posts exact SBW10a request body", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_threat_query_hydration_response_v1",
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        queryText: "threat:tripod-null-calf",
+        resultLabel: "threat_query_hydration_empty",
+        hits: [],
+        diagnostics: [],
+        message: null,
+      }),
+    );
+
+    await postThreatQueryHydration({
+      schema: "dmb_threat_query_hydration_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionPin: "rev-1",
+      queryText: "threat:tripod-null-calf",
+      focusNodeIds: ["threat:tripod-null-calf"],
+      maxHits: 64,
+      includeMechanics: true,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/threats/query-hydration");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      schema: "dmb_threat_query_hydration_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionPin: "rev-1",
+      queryText: "threat:tripod-null-calf",
+      focusNodeIds: ["threat:tripod-null-calf"],
+      maxHits: 64,
+      includeMechanics: true,
+    });
   });
 
   it("createThreatDraft posts exact ThreatDraft create body to collection route", async () => {

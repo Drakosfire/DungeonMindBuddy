@@ -50,6 +50,11 @@ function resolvedGraphFromNode(
     reference: referenceFromGraphNode(node),
     graphObject: buildGraphObjectCardFromNodeView(node),
     graphNodeId: node.node_id,
+    graphScope: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionId: "rev-1",
+    },
     projectionState: null,
     ...overrides,
   };
@@ -268,5 +273,26 @@ describe("buildPlanGraphObjectActions", () => {
         ),
       ),
     ).toBe(false);
+  });
+
+  it("suppresses generic Open statblock tool for exact resolved Threats", () => {
+    const onOpenStatblock = vi.fn();
+    const resolution = resolvedGraphFromNode(
+      makeNode({
+        node_id: "threat:tripod-null-calf",
+        label: "Tripod Null-Calf",
+        kind: "threat",
+        role: "creature",
+      }),
+    );
+
+    const actions = buildPlanGraphObjectActions({
+      resolution,
+      sessionDescriptor,
+      onOpenStatblock,
+    });
+
+    expect(actions.some((action) => action.id === "open-statblock")).toBe(false);
+    expect(actions.some((action) => action.id === "open-ingest")).toBe(true);
   });
 });

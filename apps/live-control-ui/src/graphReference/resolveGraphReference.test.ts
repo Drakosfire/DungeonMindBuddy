@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../api/types";
 import {
   buildWorldGraphNodeIndex,
+  extractExactGraphReferenceScope,
   findGraphNodeInProjection,
   parseGraphNodeLocator,
   resolveGraphReference,
@@ -565,5 +566,57 @@ describe("resolveGraphReference", () => {
     expect(result.message).toMatch(/location-b/);
     expect(result.kind).not.toBe("resolved_graph");
     expect(result.graphNodeId).toBeUndefined();
+  });
+
+  it("carries exact graph scope from the projection snapshot", () => {
+    const result = resolveGraphReference({
+      locator: "dmb-node:npc-glowkindle",
+      projection,
+      projectionState: "ready",
+    });
+
+    expect(result.kind).toBe("resolved_graph");
+    if (result.kind === "resolved_graph") {
+      expect(result.graphScope).toEqual({
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+      });
+    }
+  });
+
+  it("fails closed when projection snapshot scope is blank", () => {
+    const blankScopeProjection: WorldGraphProjection = {
+      ...projection,
+      snapshot: {
+        ...projection.snapshot,
+        worldId: "",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+      },
+    };
+
+    const result = resolveGraphReference({
+      locator: "dmb-node:npc-glowkindle",
+      projection: blankScopeProjection,
+      projectionState: "ready",
+    });
+
+    expect(result.kind).toBe("error");
+    expect(result.message).toMatch(/exact world, campaign, or revision scope/i);
+  });
+
+  it("extractExactGraphReferenceScope rejects blank IDs", () => {
+    expect(extractExactGraphReferenceScope(projection)).toEqual({
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionId: "rev-1",
+    });
+    expect(
+      extractExactGraphReferenceScope({
+        ...projection,
+        snapshot: { ...projection.snapshot, revisionId: "  " },
+      }),
+    ).toBeNull();
   });
 });
