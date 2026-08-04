@@ -13,12 +13,19 @@ import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import type { SurfaceConfig } from "../types";
 import {
+  GRAPH_REFERENCE_BINDING_ID,
+  GRAPH_REFERENCE_PROJECTION_STATE_BINDING_ID,
+  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
   GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
+  readGraphReferenceBinding,
+  readGraphReferenceProjectionStateBinding,
+  readGraphReferenceResolutionBinding,
   sameStringSetMembership,
   stabilizeStringSetMembership,
   type GraphReviewDiagnosticsProjectionPayload,
   type PlanReferenceProjectionBinding as PlanBinding,
 } from "./projectionBindings";
+import * as graphReferenceProjectionBindings from "../../graphReference/projectionBindings";
 import { LegacyProjectionHostAdapter } from "./LegacyProjectionHostAdapter";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
 import { useProjection } from "./projectionContext";
@@ -672,6 +679,32 @@ describe("projectionBindings sibling topology", () => {
     expect(screen.queryByText("first-metric-error")).not.toBeInTheDocument();
     expect(screen.getByText("Replacement Node")).toBeInTheDocument();
     expect(screen.queryByText("Glowkindle")).not.toBeInTheDocument();
+  });
+});
+
+describe("Plan re-exports graphReference projectionBindings", () => {
+  it("re-exports neutral binding IDs from graphReference", () => {
+    expect(GRAPH_REFERENCE_RESOLUTION_BINDING_ID).toBe(
+      graphReferenceProjectionBindings.GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
+    );
+    expect(GRAPH_REFERENCE_PROJECTION_STATE_BINDING_ID).toBe(
+      graphReferenceProjectionBindings.GRAPH_REFERENCE_PROJECTION_STATE_BINDING_ID,
+    );
+    expect(GRAPH_REFERENCE_BINDING_ID).toBe(
+      graphReferenceProjectionBindings.GRAPH_REFERENCE_BINDING_ID,
+    );
+  });
+
+  it("re-exports graph reference readers from graphReference", () => {
+    expect(readGraphReferenceResolutionBinding).toBe(
+      graphReferenceProjectionBindings.readGraphReferenceResolutionBinding,
+    );
+    expect(readGraphReferenceProjectionStateBinding).toBe(
+      graphReferenceProjectionBindings.readGraphReferenceProjectionStateBinding,
+    );
+    expect(readGraphReferenceBinding).toBe(
+      graphReferenceProjectionBindings.readGraphReferenceBinding,
+    );
   });
 });
 
