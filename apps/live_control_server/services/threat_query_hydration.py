@@ -12,6 +12,7 @@ from typing import Callable, Protocol
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     build_statblock_v1_client,
+    verify_exact_revision_mechanics_integrity,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
@@ -343,9 +344,9 @@ def _hydrate_binding(
             }
         )
     try:
-        revision = ExactRevisionResourceV1.model_validate(
-            client.get_exact_revision(binding.statblock_id, binding.revision_id)
-        )
+        fetched = client.get_exact_revision(binding.statblock_id, binding.revision_id)
+        revision = ExactRevisionResourceV1.model_validate(fetched)
+        verify_exact_revision_mechanics_integrity(revision)
     except StatblockIntegrationError as exc:
         category = getattr(exc, "category", "") or ""
         if category in {"downstream_not_found", "downstream_expired"}:

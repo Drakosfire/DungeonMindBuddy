@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -9,6 +11,11 @@ import pytest
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     MAX_RESPONSE_BODY_BYTES,
     DungeonMindStatblockV1Client,
+    verify_exact_revision_mechanics_integrity,
+)
+from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+    canonicalize_definition_dict,
+    source_definition_digest_from_body,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.config import (
     INTERNAL_KEY_HEADER,
@@ -35,6 +42,23 @@ SECRET = "test-internal-key-not-for-production"
 
 def _fixture(name: str) -> dict:
     return json.loads((FIXTURE_DIR / name).read_text(encoding="utf-8"))
+
+
+def _reseal_revision_payload(revision_payload: dict[str, Any]) -> dict[str, Any]:
+    """Copy a revision payload and re-bind canonical text and digests to mechanics."""
+    sealed = copy.deepcopy(revision_payload)
+    definition_body = sealed["definition"]
+    digest = source_definition_digest_from_body(definition_body)
+    sealed["canonical_definition"] = canonicalize_definition_dict(definition_body)
+    sealed["definition_digest"] = digest
+    receipt = dict(sealed.get("validation_receipt") or {})
+    receipt["definition_digest"] = digest
+    sealed["validation_receipt"] = receipt
+    return sealed
+
+
+def _reseal_exact_revision_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return _reseal_revision_payload(payload)
 
 
 def _config(**overrides: object) -> StatblockIntegrationConfig:
@@ -535,7 +559,7 @@ def test_exact_revision_rejects_non_published_path_ids() -> None:
 
 
 def test_exact_revision_fixture_retains_identity() -> None:
-    payload = _fixture("exact-revision-response.json")
+    payload = _reseal_exact_revision_payload(_fixture("exact-revision-response.json"))
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers.get(INTERNAL_KEY_HEADER) == SECRET
@@ -549,6 +573,68 @@ def test_exact_revision_fixture_retains_identity() -> None:
     assert revision.definition_digest.startswith("sha256:")
     assert revision.contract == "dungeonmind.dungeonbuddy-statblocks"
     assert revision.contract_version == "1.0.0"
+
+
+def test_exact_revision_rejects_stale_digest_with_tampered_mechanics() -> None:
+    payload = _reseal_exact_revision_payload(_fixture("exact-revision-response.json"))
+    payload = json.loads(json.dumps(payload))
+    payload["definition"]["abilities"]["strength"] = 19
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_exact_revision("sb_000001", "rev_000002")
+    assert exc_info.value.category == "downstream_unexpected"
+    assert exc_info.value.message in {
+        "exact revision canonical_definition does not match definition",
+        "exact revision definition_digest does not match definition",
+    }
+
+
+def test_exact_revision_rejects_canonical_definition_mismatch() -> None:
+    payload = _reseal_exact_revision_payload(_fixture("exact-revision-response.json"))
+    payload = json.loads(json.dumps(payload))
+    payload["canonical_definition"] = '{"stale":true}'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_exact_revision("sb_000001", "rev_000002")
+    assert exc_info.value.category == "downstream_unexpected"
+    assert "canonical_definition" in exc_info.value.message
+
+
+def test_exact_revision_rejects_validation_receipt_digest_mismatch() -> None:
+    payload = _reseal_exact_revision_payload(_fixture("exact-revision-response.json"))
+    payload = json.loads(json.dumps(payload))
+    variant_digest = source_definition_digest_from_body(_variant_b_definition())
+    payload["validation_receipt"]["definition_digest"] = variant_digest
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_exact_revision("sb_000001", "rev_000002")
+    assert exc_info.value.category == "downstream_unexpected"
+    assert "validation_receipt.definition_digest" in exc_info.value.message
+
+
+def _variant_b_definition() -> dict[str, Any]:
+    definition = copy.deepcopy(_fixture("exact-revision-response.json")["definition"])
+    definition["abilities"]["strength"] = 19
+    return definition
+
+
+def test_verify_exact_revision_mechanics_integrity_accepts_fixture() -> None:
+    revision = ExactRevisionResourceV1.model_validate(
+        _reseal_exact_revision_payload(_fixture("exact-revision-response.json"))
+    )
+    verify_exact_revision_mechanics_integrity(revision)
 
 
 def test_oversized_response_body_rejected_before_parse() -> None:
@@ -817,8 +903,10 @@ def test_create_to_exact_read_identity_match() -> None:
     )
 
     transcript = _fixture("server_transcripts/create_to_exact_read.json")
-    create_body = transcript["create_response"]["json"]
-    read_body = transcript["exact_read_response"]["json"]
+    create_body = json.loads(json.dumps(transcript["create_response"]["json"]))
+    read_body = json.loads(json.dumps(transcript["exact_read_response"]["json"]))
+    create_body["revision"] = _reseal_revision_payload(create_body["revision"])
+    read_body = _reseal_revision_payload(read_body)
     observed_paths: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:

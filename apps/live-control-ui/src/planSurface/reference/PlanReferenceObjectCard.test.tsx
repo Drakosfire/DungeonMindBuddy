@@ -432,6 +432,36 @@ describe("PlanReferenceObjectCard", () => {
     expect(openResolvedReference).not.toHaveBeenCalled();
   });
 
+  it("does not call openResolvedReference after unmount when deferred relationship resolves", async () => {
+    let resolveRelationship: ((value: GraphReferenceResolution) => void) | undefined;
+    const deferredRelationship = new Promise<GraphReferenceResolution>((resolve) => {
+      resolveRelationship = resolve;
+    });
+    const openResolvedReference = vi.fn();
+    const binding = mockBinding({
+      resolveRelationship: vi.fn(() => deferredRelationship),
+      openResolvedReference,
+    });
+    const resolution = resolvedGraphFromNode(glowkindleNode);
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <PlanReferenceObjectCard
+        resolution={resolution}
+        sessionDescriptor={sessionDescriptor}
+        graphReferenceBinding={binding}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
+    unmount();
+
+    await act(async () => {
+      resolveRelationship?.(resolvedGraphFromNode(innNode));
+      await deferredRelationship;
+    });
+    expect(openResolvedReference).not.toHaveBeenCalled();
+  });
+
   it("disables related-object buttons while the card-local graph projection is loading", async () => {
     vi.mocked(liveApi.postWorldGraphProjection).mockImplementation(
       () => new Promise(() => undefined),

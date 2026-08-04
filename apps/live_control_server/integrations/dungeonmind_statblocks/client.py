@@ -66,6 +66,33 @@ def _source_definition_digest(source_definition: dict[str, Any]) -> str:
     return source_definition_digest_from_body(source_definition)
 
 
+def verify_exact_revision_mechanics_integrity(
+    revision: ExactRevisionResourceV1,
+) -> None:
+    """Cryptographically bind mechanics to canonical text and declared digests."""
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+        canonicalize_definition_dict,
+        source_definition_digest_from_body,
+    )
+
+    definition_body = revision.definition.model_dump(mode="json", exclude_none=False)
+    canonical = canonicalize_definition_dict(definition_body)
+    if canonical != revision.canonical_definition:
+        raise downstream_unexpected(
+            "exact revision canonical_definition does not match definition"
+        )
+    computed_digest = source_definition_digest_from_body(definition_body)
+    if computed_digest != revision.definition_digest:
+        raise downstream_unexpected(
+            "exact revision definition_digest does not match definition"
+        )
+    receipt_digest = revision.validation_receipt.definition_digest
+    if receipt_digest != revision.definition_digest:
+        raise downstream_unexpected(
+            "validation_receipt.definition_digest does not match revision.definition_digest"
+        )
+
+
 class StatblockV1Client(Protocol):
     def get_health(self) -> HealthResponseV1: ...
 
@@ -184,6 +211,7 @@ class DungeonMindStatblockV1Client:
             raise downstream_unexpected(
                 "exact revision response identity does not match request"
             )
+        verify_exact_revision_mechanics_integrity(revision)
         return revision
 
     def generate_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1:
