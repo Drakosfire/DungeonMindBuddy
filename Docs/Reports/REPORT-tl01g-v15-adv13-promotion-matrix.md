@@ -1,19 +1,20 @@
 # REPORT — TL01G V15 / Adv V13 Promotion Matrix
 
-**Authoritative human disposition:** `PROMOTION_EVIDENCE_INCOMPLETE`  
-**PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/500  
-**Branch:** `timeline/tl01g-v15-adv13-promotion-matrix`  
-**Handoff:** `Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md`  
-**Rebased base / execution ancestry:** `dd1a7f2a2783e2a2fb189150bd837065122bee8f`  
-**Certification SHA:** `24679b19ac093cdbefa430cb0e930dff8c8a6dae`  
-**Provider execution SHA (singleton):** `71c8af5480114de4a7f50cc6099df37f46eb237d`  
-**Evidence commit (aggregate + initial report body):** `3ea7b1d82f5addffbb6021102adaecd8906820fb`  
-**Review-cycle-1 report correction:** this commit (docs-only; no provider retry)  
-**Model:** `gpt-5.4-mini`  
-**Calibration ID:** `temporal-prompt-calibration:9d9b5d09a79af1b2`  
-**Live invocations:** **1** (zero retry)  
-**Provider attempts:** **18 / 18** (every attempt has a response ID)  
-**Machine decision (non-authoritative):** `ITERATE_PROMPT` (`candidate_unsafe_over_resolution=4`)  
+**Authoritative human disposition:** `PROMOTION_EVIDENCE_INCOMPLETE`
+**PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/500
+**Branch:** `timeline/tl01g-v15-adv13-promotion-matrix`
+**Handoff:** `Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md`
+**Rebased base / execution ancestry:** `dd1a7f2a2783e2a2fb189150bd837065122bee8f`
+**Certification SHA:** `24679b19ac093cdbefa430cb0e930dff8c8a6dae`
+**Provider execution SHA (singleton):** `71c8af5480114de4a7f50cc6099df37f46eb237d`
+**Evidence commit (aggregate + initial report body):** `3ea7b1d82f5addffbb6021102adaecd8906820fb`
+**Review-cycle-1 report correction:** `4a09cad35dd63eb19c5533ccdf6a0bc9e181d2ca`
+**Review-cycle-2 report correction:** this commit (docs-only; no provider retry; no aggregate rewrite)
+**Model:** `gpt-5.4-mini`
+**Calibration ID:** `temporal-prompt-calibration:9d9b5d09a79af1b2`
+**Live invocations:** **1** (zero retry)
+**Provider attempts:** **18 / 18** (every attempt has a response ID)
+**Machine decision (non-authoritative):** `ITERATE_PROMPT` (`candidate_unsafe_over_resolution=4`)
 **Seals verified:** `true`
 
 ## Verdict
@@ -136,15 +137,16 @@ patterns were observed.
 | `actual_temporal_semantic_failure` | `assertion:b49813f9a03057f6` (*stopped auditing the reef ledger*) | candidate holdout run-03 | Gold session-21 end; prediction textual *after the pier vote*. Baseline exact 3/3. |
 | `actual_temporal_semantic_failure` | `assertion:d72fbcdad287e1a5` (*became open since the lantern edict*) | baseline Adv runs substituting session-19 | Source-time kind swap on a resolved textual start. |
 | `exact_text_normalization_difference` | `assertion:d72fbcdad287e1a5` | candidate Adv 3/3; baseline Adv run-02 | Textual kind; phrase/`raw_expression` / `campaign_id` extent vs gold. |
-| `exact_text_normalization_difference` | `assertion:3057260d5a4c0cdd` (*bolts … at nightfall*) | both lanes Adv 3/3 | Same textual kind; phrase extent (`at nightfall` vs longer bolt phrase) and `campaign_id: longmont-c2` vs gold `null`. |
-| `evaluator_gold_representation_mismatch` | `assertion:3057260d5a4c0cdd` (and similar textual points) | both lanes Adv | Component of wrong-value mass where remaining delta is gold `campaign_id: null` vs model `campaign_id: "longmont-c2"` with aligned kind/lane. |
-| `exact_text_normalization_difference` | `assertion:3ed3e502da2f502a` (*cracked nine winters earlier*) | both lanes Adv 3/3 | Textual kind; extent adds *during the frost gale* / `campaign_id`. |
-| `exact_text_normalization_difference` | `assertion:bd8eefd165efe613` (*lights … at moonrise*) | both lanes Adv 3/3 | Textual kind; extent adds *when fog rolls in* / longer phrase / `campaign_id`. |
+| `exact_text_normalization_difference` | `assertion:3057260d5a4c0cdd` (*bolts … at nightfall*) | both lanes Adv 3/3 | One class for this pattern: same textual kind/lane; primary delta is phrase/`raw_expression` extent (`at nightfall` vs longer bolt phrase). Secondary note only (not a second class): gold `campaign_id: null` vs model `campaign_id: "longmont-c2"`. |
+| `exact_text_normalization_difference` | `assertion:3ed3e502da2f502a` (*cracked nine winters earlier*) | both lanes Adv 3/3 | Textual kind; primary delta is phrase extent (*during the frost gale*). Secondary note: `campaign_id` null→`longmont-c2`. |
+| `exact_text_normalization_difference` | `assertion:bd8eefd165efe613` (*lights … at moonrise*) | both lanes Adv 3/3 | Textual kind; primary delta is phrase extent (*when fog rolls in* / longer phrase). Secondary note: `campaign_id` null→`longmont-c2`. |
 | `actual_temporal_semantic_failure` | `assertion:692dbca9df0475f8` (*stopped recording beacon fuel tallies*) | intermittent both lanes | Gold session-19 end; some runs emit textual end (or mixed fields) instead of exact session match. |
 
-Large headline `wrong_temporal_value` totals therefore mix semantic kind swaps,
-phrase-extent normalization, and gold `campaign_id` representation — they are not
-alone a prompt-iteration proof.
+Large headline `wrong_temporal_value` totals therefore mix semantic kind swaps and
+phrase-extent normalization (often with a secondary gold `campaign_id`
+representation delta noted on the same row). They are not alone a prompt-iteration
+proof. No separate primary `evaluator_gold_representation_mismatch` row is claimed
+for these Adv textual-point cells; that would double-classify overlapping patterns.
 
 ## Shared-control / candidate analysis
 
@@ -199,7 +201,7 @@ authority to iterate the prompt from this incomplete matrix.
 - No prompt/packet/renderer/runner/schema/threshold edits in this PR
 - No textual-normalization implementation
 - No broader-shadow readiness
-- No provider retry / second matrix / aggregate rewrite in review cycle 1
+- No provider retry / second matrix / aggregate rewrite in review cycles 1–2
 
 ## Pre-live evidence (before first provider attempt)
 
@@ -224,28 +226,37 @@ provider execution SHA became `71c8af5480114de4a7f50cc6099df37f46eb237d` after t
 | `promotion-v15/` artifact directory | **absent** before live call |
 | Live CLI invocations before this matrix | **0** |
 
-## Post-live evidence (after matrix; review cycle 1 re-verification)
+## Post-live evidence (after matrix; review cycle 2 re-verification)
 
-Provenance: re-run on reviewed head `9bdba447c1954dc64a50affd44a7c26caf71ab05`
-before this report-only correction commit. No provider calls.
+Provenance: zero-provider deterministic re-run for review cycle 2 with this report’s
+cycle-2 edits applied on parent `4a09cad35dd63eb19c5533ccdf6a0bc9e181d2ca`.
+No provider calls. Aggregate, runner, certified inputs, and provider manifests
+unchanged.
 
 | Command / check | Exact result |
 |---|---|
-| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `98 passed in 1.56s` |
-| `uv run pytest -q tests/test_temporal_shadow_prompt_calibration.py tests/test_temporal_shadow_grounding_path.py` | `113 passed, 1 skipped in 5.86s` |
+| `uv run pytest -q tests/test_temporal_shadow_extraction_tl01g.py` | `98 passed in 1.62s` |
+| `uv run pytest -q tests/test_temporal_shadow_prompt_calibration.py tests/test_temporal_shadow_grounding_path.py` | `113 passed, 1 skipped in 5.40s` |
 | `uv run ruff check tests/test_temporal_shadow_extraction_tl01g.py` | `All checks passed!` |
-| `sha256sum -c /tmp/tl01g-v15-adv13-certified.sha256` | **33/33 OK** |
-| `git merge-base --is-ancestor 24679b19… HEAD` | yes (`CERT_ANCESTOR_OK`) |
-| `git diff --check` | clean |
-| Pinned blob re-check vs §2 | exact match (`45b01c78…`, `3e4fcaa2…`, `f233fdab…`, `bcf279c3…`, `05fc8c1a…`) |
+| `sha256sum -c /tmp/tl01g-v15-adv13-certified.sha256` | `33/33 OK (all files)` |
+| `git merge-base --is-ancestor 24679b19ac093cdbefa430cb0e930dff8c8a6dae HEAD` | yes (`CERT_ANCESTOR_OK`) |
+| `git diff --check` | clean (after cycle-2 trailing-whitespace fix) |
+| Pinned blob re-check vs §2 | exact match (`45b01c78f24ada02dcaa4b89bfba6da90c745445`, `3e4fcaa20ee2ef7aa92f4d485c46c2b671c860d9`, `f233fdaba86673eef760ccf42e015ddc175dc2b6`, `bcf279c387869f9fe675221894e8dc55d6640b95`, `05fc8c1a860e187edc4e84cd4b54ea0b3e475e5e`) |
 | Live invocations (artifact inventory) | **1** matrix directory; **0** `run-04`; no second promotion root |
 | Provider attempts | **18 / 18**; singleton SHA set `{71c8af5480114de4a7f50cc6099df37f46eb237d}` |
 | Retry / second matrix | **none** |
 
-### Exact changed-path proof (`dd1a7f2a…`…`HEAD`)
+### Exact changed-path proof (`dd1a7f2a…` → cycle-2 report tree)
+
+Literal command output against execution base (working tree / this commit’s tree for
+the four §4 paths):
 
 ```text
-git diff --name-only dd1a7f2a2783e2a2fb189150bd837065122bee8f...HEAD
+git diff --name-only dd1a7f2a2783e2a2fb189150bd837065122bee8f -- \
+  .gitignore \
+  Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md \
+  Docs/Reports/REPORT-tl01g-v15-adv13-promotion-matrix.md \
+  evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/calibration/aggregate.json
 .gitignore
 Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md
 Docs/Reports/REPORT-tl01g-v15-adv13-promotion-matrix.md
@@ -253,20 +264,20 @@ evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/prom
 ```
 
 ```text
-git diff --stat dd1a7f2a2783e2a2fb189150bd837065122bee8f...HEAD -- \
-  Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md \
+git diff --stat dd1a7f2a2783e2a2fb189150bd837065122bee8f -- \
   .gitignore \
-  evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/calibration/aggregate.json \
-  Docs/Reports/REPORT-tl01g-v15-adv13-promotion-matrix.md
+  Docs/Plans/HANDOFF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md \
+  Docs/Reports/REPORT-tl01g-v15-adv13-promotion-matrix.md \
+  evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/calibration/aggregate.json
  .gitignore                                         |    3 +
  ...FF-TIMELINE-tl01g-v15-adv13-promotion-matrix.md |  893 +++++++++++
- .../REPORT-tl01g-v15-adv13-promotion-matrix.md     |  (report only; grows with this correction)
+ .../REPORT-tl01g-v15-adv13-promotion-matrix.md     |  291 ++++
  .../tl01g/promotion-v15/calibration/aggregate.json | 1695 ++++++++++++++++++++
- 4 files changed
+ 4 files changed, 2882 insertions(+)
 ```
 
-Allowlist equality: sorted `git diff --name-only` against the four §4 tracked paths
-is identical (`diff` empty). **Paths outside §4: none.**
+Allowlist equality: sorted changed paths equal the four §4 tracked paths.
+**Paths outside §4: none.**
 
 ## Aggregate path
 
