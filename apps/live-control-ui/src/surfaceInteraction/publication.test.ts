@@ -1680,6 +1680,136 @@ describe("validateSurfaceInteractionPublication — canonical validated snapshot
     expect(codesOf(editResult)).toEqual(["contribution_shape_invalid"]);
   });
 
+  it("rejects malformed pressed and retains proven boolean pressed on Edit commands", () => {
+    for (const pressed of [42, "true", null, undefined]) {
+      const result = validateSurfaceInteractionPublication(
+        makePublication({
+          editCommands: [
+            makeEditCommand("e", { pressed: pressed as unknown as boolean }),
+          ],
+        }),
+      );
+      expect(codesOf(result)).toEqual(["contribution_shape_invalid"]);
+    }
+
+    const accepted = validateSurfaceInteractionPublication(
+      makePublication({
+        editCommands: [makeEditCommand("e", { pressed: true })],
+      }),
+    );
+    expect(accepted.valid).toBe(true);
+    if (accepted.valid) {
+      expect(accepted.publication.editCommands[0]?.pressed).toBe(true);
+    }
+
+    const absent = validateSurfaceInteractionPublication(
+      makePublication({ editCommands: [makeEditCommand("e")] }),
+    );
+    expect(absent.valid).toBe(true);
+    if (absent.valid) {
+      expect(Object.hasOwn(absent.publication.editCommands[0] ?? {}, "pressed")).toBe(false);
+    }
+  });
+
+  it("rejects malformed groupDefaultOpen and pinned presence; retains proven values", () => {
+    const nonBoolean = validateSurfaceInteractionPublication(
+      makePublication({
+        editCommands: [
+          makeEditCommand("e", {
+            placement: makePlacement({
+              groupId: "g",
+              groupLabel: "G",
+              groupDefaultOpen: "yes" as unknown as boolean,
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(nonBoolean)).toEqual(["placement_invalid"]);
+
+    const pinnedWithDefault = validateSurfaceInteractionPublication(
+      makePublication({
+        editCommands: [
+          makeEditCommand("e", {
+            placement: makePlacement({ groupDefaultOpen: true }),
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(pinnedWithDefault)).toEqual(["placement_invalid"]);
+
+    const retained = validateSurfaceInteractionPublication(
+      makePublication({
+        editCommands: [
+          makeEditCommand("e", {
+            placement: makePlacement({
+              groupId: "g",
+              groupLabel: "G",
+              groupDefaultOpen: true,
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(retained.valid).toBe(true);
+    if (retained.valid) {
+      expect(retained.publication.editCommands[0]?.placement.groupDefaultOpen).toBe(true);
+    }
+  });
+
+  it("rejects groupDefaultOpen presence/value conflicts under the same groupId", () => {
+    const presenceConflict = validateSurfaceInteractionPublication(
+      makePublication({
+        editCommands: [
+          makeEditCommand("a", {
+            placement: makePlacement({
+              groupId: "g",
+              groupLabel: "G",
+              groupOrder: 0,
+              itemOrder: 0,
+              groupDefaultOpen: true,
+            }),
+          }),
+          makeEditCommand("b", {
+            placement: makePlacement({
+              groupId: "g",
+              groupLabel: "G",
+              groupOrder: 0,
+              itemOrder: 1,
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(presenceConflict)).toEqual(["placement_group_conflict"]);
+
+    const valueConflict = validateSurfaceInteractionPublication(
+      makePublication({
+        editCommands: [
+          makeEditCommand("a", {
+            placement: makePlacement({
+              groupId: "g",
+              groupLabel: "G",
+              groupOrder: 0,
+              itemOrder: 0,
+              groupDefaultOpen: true,
+            }),
+          }),
+          makeEditCommand("b", {
+            placement: makePlacement({
+              groupId: "g",
+              groupLabel: "G",
+              groupOrder: 0,
+              itemOrder: 1,
+              groupDefaultOpen: false,
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(codesOf(valueConflict)).toEqual(["placement_group_conflict"]);
+  });
+
   it("drops non-contract extra fields from the returned snapshot", () => {
     const tool = makeTool("t") as SurfaceInteractionToolContribution & { extra?: string };
     tool.extra = "not-in-the-contract";

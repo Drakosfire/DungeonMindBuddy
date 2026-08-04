@@ -165,13 +165,14 @@ function mapPinnedEditAction(
     },
     availability: action.disabled ? disabledAvailability(LEGACY_APPCHROME_DISABLED) : enabledAvailability(),
     target: editTarget(workObject),
+    ...(action.pressed !== undefined ? { pressed: action.pressed } : {}),
     invoke: action.onClick,
   };
 }
 
 function mapSectionEditAction(
   action: AppChromeAction,
-  section: { id: string; title: string },
+  section: { id: string; title: string; defaultOpen?: boolean },
   sectionIndex: number,
   actionIndex: number,
   workObject: SurfaceInteractionWorkObjectIdentity | null,
@@ -185,9 +186,13 @@ function mapSectionEditAction(
       groupLabel: section.title,
       groupOrder: sectionIndex,
       itemOrder: actionIndex,
+      ...(section.defaultOpen !== undefined
+        ? { groupDefaultOpen: section.defaultOpen }
+        : {}),
     },
     availability: action.disabled ? disabledAvailability(LEGACY_APPCHROME_DISABLED) : enabledAvailability(),
     target: editTarget(workObject),
+    ...(action.pressed !== undefined ? { pressed: action.pressed } : {}),
     invoke: action.onClick,
   };
 }

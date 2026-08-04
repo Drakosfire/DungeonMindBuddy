@@ -191,14 +191,22 @@ describe("surfaceInteractionCompat", () => {
     const fragment = buildAppChromeCompatibilityFragment({
       pageActions,
       editorTools: {
-        pinnedActions: [{ id: "bold", label: "Bold", onClick: editClick }],
+        pinnedActions: [{ id: "bold", label: "Bold", onClick: editClick, pressed: true }],
         sections: [{
           id: "callouts",
           title: "Callouts",
+          defaultOpen: true,
           actions: [{ id: "note", label: "Note", onClick: editClick }],
+          panel: "panel-never-published",
         }],
       },
-      basePublication: buildIndexRouteCompatibilityPublication(),
+      basePublication: {
+        ...buildIndexRouteCompatibilityPublication(),
+        canvas: {
+          canvasId: "markdown-canvas",
+          workObject: { kind: "document", id: "doc-1" },
+        },
+      },
     });
     expect(fragment.tools[0]?.placement).toMatchObject({
       groupId: "legacy-page-tools",
@@ -207,7 +215,11 @@ describe("surfaceInteractionCompat", () => {
       itemOrder: 0,
     });
     expect(fragment.editCommands.map((entry) => entry.id)).toEqual(["bold", "note"]);
+    expect(fragment.editCommands[0]?.pressed).toBe(true);
+    expect(fragment.editCommands[1]?.placement.groupDefaultOpen).toBe(true);
+    expect(fragment.editCommands[0]?.target).toEqual({ kind: "document", id: "doc-1" });
     expect(fragment.tools[0]?.activation).toEqual({ kind: "command", invoke: pageClick });
+    expect(JSON.stringify(fragment)).not.toContain("panel-never-published");
   });
 
   it("uses blank edit targets when base canvas work object is missing", () => {

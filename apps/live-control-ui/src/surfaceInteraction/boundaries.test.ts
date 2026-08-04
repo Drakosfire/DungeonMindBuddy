@@ -49,14 +49,14 @@ function listProductionFiles(dir: string, skipSubdirs: readonly string[] = []): 
 
 describe("surfaceInteraction boundaries", () => {
   it("contains exactly the allowlisted production files and no JSX host files", () => {
-    const files = listProductionFiles(ROOT, ["projection", "toolHost"]).map((path) => relative(ROOT, path));
+    const files = listProductionFiles(ROOT, ["projection", "toolHost", "editHost"]).map((path) => relative(ROOT, path));
     expect(files.sort()).toEqual(EXPECTED_PRODUCTION_FILES);
     expect(files.some((file) => file.endsWith(".tsx"))).toBe(false);
   });
 
   it("keeps production sources free of surface, domain, and React host references", () => {
     const violations: string[] = [];
-    for (const file of listProductionFiles(ROOT, ["projection", "toolHost"])) {
+    for (const file of listProductionFiles(ROOT, ["projection", "toolHost", "editHost"])) {
       const source = readFileSync(file, "utf8");
       for (const { name, pattern } of FORBIDDEN_PATTERNS) {
         if (pattern.test(source)) {
