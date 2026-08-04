@@ -5,7 +5,7 @@ import { searchGraphReferences, sortGraphReferenceItems } from "./searchGraphRef
 import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
 
 export interface GraphReferenceSearchProps {
-  items: GraphReferenceSearchItem[];
+  items: readonly GraphReferenceSearchItem[];
   projectionState: GraphReferenceProjectionState;
   projectionError?: string | null;
   /** Disables chip insert only. Search and view stay available while editing is locked. */

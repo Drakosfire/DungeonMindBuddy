@@ -86,13 +86,15 @@ export function buildBuildSurfaceInteractionPublication(
     return buildEmptyInventoryPublication(documentId);
   }
 
+  const admittedDocumentId = acceptedDocument.documentId;
+
   return {
     surfaceId: BUILD_SURFACE_ID,
     label: BUILD_SURFACE_LABEL,
-    identity: buildBuildIdentity(documentId),
+    identity: buildBuildIdentity(admittedDocumentId),
     canvas: {
       canvasId: "markdown-canvas",
-      workObject: { kind: "document", id: documentId },
+      workObject: { kind: "document", id: admittedDocumentId },
     },
     agentContext: null,
     tools: [
