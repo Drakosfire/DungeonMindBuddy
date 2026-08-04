@@ -128,7 +128,11 @@ export function buildPlanGraphObjectActions({
       });
     }
 
-    if (resolutionIndicatesStatblock(resolution) && onOpenStatblock && !isResolvedThreat(resolution)) {
+    if (
+      resolutionIndicatesStatblock(resolution)
+      && onOpenStatblock
+      && !isResolvedThreat(resolution)
+    ) {
       actions.push({
         id: "open-statblock",
         label: "Open statblock tool",

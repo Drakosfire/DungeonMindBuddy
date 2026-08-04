@@ -317,6 +317,7 @@ export function ThreatSheetProjection({
       {
         worldId: selectionTuple.worldId,
         campaignId: selectionTuple.campaignId,
+        scopeMode: selectionTuple.scopeMode,
         revisionId: selectionTuple.revisionId,
       },
       selectionTuple.threatNodeId,
@@ -404,7 +405,10 @@ export function ThreatSheetProjection({
 
       setNavigatingRelationshipId(relationship.id);
       try {
-        const nextResolution = await bindingAtStart.resolveRelationship(relationship);
+        const nextResolution = await bindingAtStart.resolveRelationship(
+          relationship,
+          resolution.graphScope,
+        );
         const current = graphReferenceBindingRef.current;
         if (!current || current !== bindingAtStart) return;
         current.openResolvedReference(
@@ -420,6 +424,7 @@ export function ThreatSheetProjection({
       graphReferenceBinding,
       navigatingRelationshipId,
       resolverProjectionState,
+      resolution,
     ],
   );
 

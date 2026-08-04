@@ -33,7 +33,7 @@ const glowkindleNode: WorldGraphProjectionNodeView = {
 const projection: WorldGraphProjection = {
   schema: "dmb_world_graph_projection_v1",
   snapshot: {
-    worldId: "eldyrwild", campaignId: "longmont-c2", revisionId: "rev-1", headRevisionId: "rev-1",
+    worldId: "eldyrwild", campaignId: "longmont-c2", scopeMode: "campaign", revisionId: "rev-1", headRevisionId: "rev-1",
     isHead: true, focus: { kind: "session", sessionId: "session-21" }, admissibility: "gm",
   },
   summary: { nodeCount: 1, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
@@ -164,6 +164,65 @@ describe("usePlanGraphReferenceResolver", () => {
     expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.locator).toBe("dmb-node:location-inn");
     expect(resolution.graphNodeId).toBe("location-inn");
+  });
+
+  it("reloads a relationship target against the originating exact revision", async () => {
+    const innNode: WorldGraphProjectionNodeView = {
+      ...glowkindleNode,
+      nodeId: "location-inn",
+      label: "Pinned Inn",
+      kind: "location",
+      role: "location",
+      aliases: [],
+    };
+    const currentProjection = { ...projection, nodes: [glowkindleNode] };
+    const pinnedProjection: WorldGraphProjection = {
+      ...projection,
+      snapshot: {
+        ...projection.snapshot,
+        revisionId: "rev-pinned",
+        headRevisionId: "rev-current",
+        isHead: false,
+      },
+      nodes: [glowkindleNode, innNode],
+    };
+    const projectionSpy = vi
+      .spyOn(liveApi, "postWorldGraphProjection")
+      .mockResolvedValueOnce(currentProjection)
+      .mockResolvedValueOnce(pinnedProjection);
+
+    const { result } = renderHook(() => usePlanGraphReferenceResolver(), { wrapper: resolverWrapper });
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+
+    const resolution = await result.current.resolvePlanRelationship(
+      {
+        id: "edge-pinned",
+        label: "Pinned Inn",
+        targetId: "location-inn",
+        targetKind: "location",
+        predicate: "met at",
+      },
+      {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        scopeMode: "campaign",
+        revisionId: "rev-pinned",
+      },
+    );
+
+    expect(resolution.kind).toBe("resolved_graph");
+    if (resolution.kind === "resolved_graph") {
+      expect(resolution.graphScope.revisionId).toBe("rev-pinned");
+    }
+    expect(projectionSpy).toHaveBeenLastCalledWith({
+      schema: "dmb_world_graph_projection_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      focus: { kind: "none", sessionId: null },
+      admissibility: "gm",
+      revisionPin: "rev-pinned",
+    });
   });
 
   it("marks projection unavailable without crashing resolution", async () => {

@@ -46,6 +46,7 @@ export type GraphReferenceProjectionState =
 export interface ExactGraphReferenceScope {
   worldId: string;
   campaignId: string;
+  scopeMode: "campaign" | "world";
   revisionId: string;
 }
 
@@ -106,6 +107,7 @@ export interface GraphReferenceProjectionBinding {
   resolverState: GraphReferenceProjectionState | null;
   resolveRelationship(
     relationship: import("../graphObjectCard").GraphObjectRelationshipViewModel,
+    originatingScope?: ExactGraphReferenceScope,
   ): Promise<GraphReferenceResolution>;
   openResolvedReference(
     resolution: GraphReferenceResolution,

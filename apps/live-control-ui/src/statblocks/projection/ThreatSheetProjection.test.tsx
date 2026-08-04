@@ -22,6 +22,7 @@ const revision = revisionFixture as StatblockRevisionResourceV1;
 const scope = {
   worldId: "eldyrwild",
   campaignId: "longmont-c2",
+  scopeMode: "world" as const,
   revisionId: "rev-1",
 };
 
@@ -59,6 +60,7 @@ describe("ThreatSheetProjection", () => {
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
       campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",
       resultLabel: "threat_query_hydration_ok",
@@ -115,6 +117,7 @@ describe("ThreatSheetProjection", () => {
       schema: "dmb_threat_query_hydration_request_v1",
       worldId: scope.worldId,
       campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
       revisionPin: scope.revisionId,
       queryText: "threat:tripod-null-calf",
       focusNodeIds: ["threat:tripod-null-calf"],
@@ -136,6 +139,7 @@ describe("ThreatSheetProjection", () => {
         schema: "dmb_threat_query_hydration_response_v1",
         worldId: scope.worldId,
         campaignId: scope.campaignId,
+        scopeMode: scope.scopeMode,
         revisionId: scope.revisionId,
         queryText: "threat:other",
         resultLabel: "threat_query_hydration_ok",
@@ -187,6 +191,7 @@ describe("ThreatSheetProjection", () => {
       schema: "dmb_threat_query_hydration_response_v1",
       worldId: scope.worldId,
       campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
       revisionId: scope.revisionId,
       queryText: "threat:tripod-null-calf",
       resultLabel: "threat_query_hydration_ok",

@@ -14,6 +14,8 @@ import type { StatblockRevisionResourceV1 } from "../../contracts/dungeonbuddy-s
 import {
   buildThreatQueryHydrationRequest,
   buildThreatSheetViewModel,
+  isCompleteStatblockRevisionResource,
+  isResolvedThreat,
   selectExactThreatHit,
   sortThreatSheetBindings,
   type ThreatSheetBindingViewModel,
@@ -24,6 +26,7 @@ const revision = revisionFixture as StatblockRevisionResourceV1;
 const scope = {
   worldId: "eldyrwild",
   campaignId: "longmont-c2",
+  scopeMode: "world" as const,
   revisionId: "rev-1",
 };
 
@@ -65,6 +68,7 @@ function makeResponse(
     schema: "dmb_threat_query_hydration_response_v1",
     worldId: scope.worldId,
     campaignId: scope.campaignId,
+    scopeMode: scope.scopeMode,
     revisionId,
     queryText: "threat:tripod-null-calf",
     resultLabel: "threat_query_hydration_ok",
@@ -121,11 +125,28 @@ function binding(overrides: Partial<ThreatBindingHydrationV1>): ThreatBindingHyd
 }
 
 describe("threatSheetViewModel", () => {
+  it.each([
+    ["kind=npc", "npc", "ordinary"],
+    ["role=npc", "ordinary", "npc"],
+    ["role=creature", "ordinary", "creature"],
+    ["role=monster", "ordinary", "monster"],
+  ])("matches backend Threat classification for %s", (_label, kind, role) => {
+    const resolution = resolvedThreat({
+      graphObject: {
+        ...resolvedThreat().graphObject,
+        kind,
+        role,
+      },
+    });
+    expect(isResolvedThreat(resolution)).toBe(true);
+  });
+
   it("builds exact SBW10a request from scope and selected Threat node ID", () => {
     expect(buildThreatQueryHydrationRequest(scope, "threat:tripod-null-calf")).toEqual({
       schema: "dmb_threat_query_hydration_request_v1",
       worldId: "eldyrwild",
       campaignId: "longmont-c2",
+      scopeMode: "world",
       revisionPin: "rev-1",
       queryText: "threat:tripod-null-calf",
       focusNodeIds: ["threat:tripod-null-calf"],
@@ -182,6 +203,14 @@ describe("threatSheetViewModel", () => {
   it("rejects a response from a different graph campaign even when revision matches", () => {
     const response = makeResponse([makeHit("threat:tripod-null-calf", "Tripod Null-Calf")]);
     response.campaignId = "other-campaign";
+    expect(selectExactThreatHit(response, scope, "threat:tripod-null-calf")).toMatchObject({
+      status: "revision_mismatch",
+    });
+  });
+
+  it("rejects a response from a different graph scope mode even when IDs match", () => {
+    const response = makeResponse([makeHit("threat:tripod-null-calf", "Tripod Null-Calf")]);
+    response.scopeMode = "campaign";
     expect(selectExactThreatHit(response, scope, "threat:tripod-null-calf")).toMatchObject({
       status: "revision_mismatch",
     });
@@ -261,6 +290,28 @@ describe("threatSheetViewModel", () => {
       role: "phase",
       phaseKey: "enraged",
       variantLabel: "elite",
+    });
+  });
+
+  it("fails closed when an available revision omits required generated fields", () => {
+    const incompleteRevision = {
+      ...revision,
+      definition: undefined,
+      validation_receipt: undefined,
+    } as unknown as StatblockRevisionResourceV1;
+    expect(isCompleteStatblockRevisionResource(incompleteRevision)).toBe(false);
+    const model = buildThreatSheetViewModel({
+      resolution: resolvedThreat(),
+      hit: makeHit("threat:tripod-null-calf", "Tripod Null-Calf", [
+        binding({ revision: incompleteRevision }),
+      ]),
+      loadStatus: "ready",
+    });
+
+    expect(model.bindings[0]).toMatchObject({
+      hydrationStatus: "integrity_failure",
+      revision: null,
+      message: "Exact revision response is incomplete; mechanics were withheld.",
     });
   });
 });

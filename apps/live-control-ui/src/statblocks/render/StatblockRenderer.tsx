@@ -13,11 +13,17 @@ import {
   type StatblockViewModel,
 } from "./statblockViewModel";
 
-export type StatblockRendererProps = {
-  candidate?: GeneratedStatblockCandidateV1;
-  revision?: StatblockRevisionResourceV1;
-  mode?: StatblockRenderMode;
-};
+export type StatblockRendererProps =
+  | {
+      candidate: GeneratedStatblockCandidateV1;
+      revision?: never;
+      mode?: StatblockRenderMode;
+    }
+  | {
+      candidate?: never;
+      revision: StatblockRevisionResourceV1;
+      mode?: StatblockRenderMode;
+    };
 
 function RuleElementBlock({ element }: { element: FormattedRuleElement }) {
   return (

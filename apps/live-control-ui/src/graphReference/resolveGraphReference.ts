@@ -81,10 +81,18 @@ export function extractExactGraphReferenceScope(
 
   const worldId = String(snapshot.worldId ?? "").trim();
   const campaignId = String(snapshot.campaignId ?? "").trim();
+  const scopeMode = snapshot.scopeMode;
   const revisionId = String(snapshot.revisionId ?? "").trim();
-  if (!worldId || !campaignId || !revisionId) return null;
+  if (
+    !worldId
+    || !campaignId
+    || !revisionId
+    || (scopeMode !== "campaign" && scopeMode !== "world")
+  ) {
+    return null;
+  }
 
-  return { worldId, campaignId, revisionId };
+  return { worldId, campaignId, scopeMode, revisionId };
 }
 
 export function validateExactGraphReferenceScope(
@@ -93,6 +101,7 @@ export function validateExactGraphReferenceScope(
   return Boolean(
     scope?.worldId?.trim()
     && scope?.campaignId?.trim()
+    && (scope?.scopeMode === "campaign" || scope?.scopeMode === "world")
     && scope?.revisionId?.trim(),
   );
 }

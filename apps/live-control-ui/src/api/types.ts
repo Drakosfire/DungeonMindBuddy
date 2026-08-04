@@ -3650,6 +3650,7 @@ export interface ThreatQueryHydrationRequestV1 {
   schema: "dmb_threat_query_hydration_request_v1";
   worldId: string;
   campaignId: string;
+  scopeMode: "campaign" | "world";
   revisionPin: string;
   queryText: string;
   focusNodeIds?: string[];
@@ -3718,6 +3719,7 @@ export interface ThreatQueryHydrationResponseV1 {
   schema: "dmb_threat_query_hydration_response_v1";
   worldId: string;
   campaignId: string;
+  scopeMode: "campaign" | "world";
   revisionId: string;
   queryText: string;
   resultLabel: ThreatQueryHydrationResultLabel;

@@ -16,7 +16,7 @@ function makeNode(overrides: Partial<GraphProjectionNodeView> = {}): GraphProjec
   return {
     node_id: "npc-glowkindle",
     label: "Glowkindle",
-    kind: "npc",
+    kind: "person",
     role: "merchant",
     aliases: [],
     source_domains: ["recap"],
@@ -53,6 +53,7 @@ function resolvedGraphFromNode(
     graphScope: {
       worldId: "eldyrwild",
       campaignId: "longmont-c2",
+      scopeMode: "campaign",
       revisionId: "rev-1",
     },
     projectionState: null,
@@ -68,7 +69,7 @@ describe("buildPlanGraphObjectActions", () => {
         node_id: "statblock-tripod",
         label: "Tripod Null-Calf",
         kind: "statblock",
-        role: "creature",
+        role: "statblock",
       }),
     );
 
@@ -120,6 +121,7 @@ describe("buildPlanGraphObjectActions", () => {
       makeNode({
         node_id: "npc-lysandra",
         label: "Lysandra",
+        kind: "person",
         adjacency: [
           {
             edge_id: "edge-sb",

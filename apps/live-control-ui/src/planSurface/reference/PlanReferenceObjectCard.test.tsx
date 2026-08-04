@@ -252,7 +252,7 @@ describe("PlanReferenceObjectCard", () => {
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
-        worldId: "eldyrwild", campaignId: "longmont-c2", revisionId: "rev-1", headRevisionId: "rev-1",
+        worldId: "eldyrwild", campaignId: "longmont-c2", scopeMode: "campaign", revisionId: "rev-1", headRevisionId: "rev-1",
         isHead: true, focus: { kind: "session", sessionId: "session-21" }, admissibility: "gm",
       },
       summary: { nodeCount: 2, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
@@ -334,7 +334,7 @@ describe("PlanReferenceObjectCard", () => {
       node_id: "statblock-tripod",
       label: "Tripod Null-Calf",
       kind: "statblock",
-      role: "creature",
+      role: "statblock",
     });
 
     const user = userEvent.setup();
@@ -365,7 +365,7 @@ describe("PlanReferenceObjectCard", () => {
       node_id: "statblock-tripod",
       label: "Tripod Null-Calf",
       kind: "statblock",
-      role: "creature",
+      role: "statblock",
     });
 
     renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);

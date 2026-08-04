@@ -141,6 +141,7 @@ const projection: WorldGraphProjection = {
   snapshot: {
     worldId: "eldyrwild",
     campaignId: "longmont-c2",
+    scopeMode: "campaign",
     revisionId: "rev-1",
     headRevisionId: "rev-1",
     isHead: true,

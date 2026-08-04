@@ -574,7 +574,7 @@ def query_threats_with_hydration(
         focus=WorldGraphProjectionFocus(kind="none"),
         admissibility="gm",
         revision_pin=request.revision_pin,
-        scope_mode="campaign",
+        scope_mode=request.scope_mode,
         query_text=request.query_text,
     )
     try:
@@ -604,12 +604,17 @@ def query_threats_with_hydration(
             diagnostics=[exc.code],
         ) from exc
 
-    if projection.snapshot.revision_id != request.revision_pin:
+    if (
+        projection.snapshot.world_id != request.world_id
+        or projection.snapshot.campaign_id != request.campaign_id
+        or projection.snapshot.scope_mode != request.scope_mode
+        or projection.snapshot.revision_id != request.revision_pin
+    ):
         raise ThreatQueryHydrationError(
-            "projection revision_id does not match requested revision_pin",
+            "projection scope does not match requested exact graph scope",
             result_label="threat_query_hydration_integrity_failure",
             status_code=500,
-            diagnostics=["revision_pin_mismatch"],
+            diagnostics=["projection_scope_mismatch"],
         )
 
     raw_hits = _collect_threat_hits(projection, request)
@@ -703,6 +708,7 @@ def query_threats_with_hydration(
         schema=QUERY_RESPONSE_SCHEMA,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
+        scope_mode=request.scope_mode,
         revision_id=projection.snapshot.revision_id,
         query_text=request.query_text,
         result_label=label,

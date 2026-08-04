@@ -9,7 +9,7 @@ import type {
 } from "../../graphReference/types";
 import { GraphObjectProjectionCard } from "../../graphObjectCard/GraphObjectProjectionCard";
 import { ThreatSheetProjection } from "../../statblocks/projection/ThreatSheetProjection";
-import { isResolvedThreat } from "../../statblocks/projection/threatSheetViewModel";
+import { isExactResolvedThreat } from "../../statblocks/projection/threatSheetViewModel";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
@@ -150,7 +150,10 @@ export function PlanReferenceObjectCard({
 
       setNavigatingRelationshipId(relationship.id);
       try {
-        const nextResolution = await bindingAtStart.resolveRelationship(relationship);
+        const nextResolution = await bindingAtStart.resolveRelationship(
+          relationship,
+          resolution.kind === "resolved_graph" ? resolution.graphScope : undefined,
+        );
         // Stale-operation rule: commit only through the still-current binding.
         const current = graphReferenceBindingRef.current;
         if (!current || current !== bindingAtStart) return;
@@ -167,6 +170,7 @@ export function PlanReferenceObjectCard({
       navigatingRelationshipId,
       graphReferenceBinding,
       resolverProjectionState,
+      resolution,
     ],
   );
 
@@ -176,7 +180,7 @@ export function PlanReferenceObjectCard({
     || resolverProjectionState === "error";
 
   if (resolution.kind === "resolved_graph") {
-    if (isResolvedThreat(resolution)) {
+    if (isExactResolvedThreat(resolution)) {
       return (
         <ThreatSheetProjection
           resolution={resolution}

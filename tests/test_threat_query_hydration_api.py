@@ -21,6 +21,7 @@ def test_query_hydration_route_ok() -> None:
         schema="dmb_threat_query_hydration_response_v1",
         world_id="world_eldyrwild",
         campaign_id="campaign_eldyrwild",
+        scope_mode="campaign",
         revision_id="rev_graph_pin_001",
         query_text="Float Goat",
         result_label="threat_query_hydration_empty",

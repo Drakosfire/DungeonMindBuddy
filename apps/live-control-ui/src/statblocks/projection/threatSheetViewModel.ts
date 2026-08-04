@@ -49,6 +49,7 @@ export interface ThreatSheetViewModel {
 export type ThreatSelectionTuple = {
   worldId: string;
   campaignId: string;
+  scopeMode: "campaign" | "world";
   revisionId: string;
   threatNodeId: string;
 };
@@ -60,14 +61,60 @@ export type ExactThreatSelectionResult =
   | { status: "revision_mismatch"; message: string };
 
 const SORT_AFTER = "\uffff";
-const THREAT_NODE_KINDS = new Set(["threat", "creature", "monster"]);
-const THREAT_NODE_ROLES = new Set(["threat", "antagonist"]);
+const THREAT_NODE_KINDS = new Set(["threat", "creature", "npc", "monster"]);
+const THREAT_NODE_ROLES = new Set(["threat", "creature", "npc", "monster"]);
+const ENTITY_THREAT_ROLES = new Set(["threat", "antagonist", "creature"]);
 
 export function normalizeGraphObjectKind(value: string | null | undefined): string {
   return String(value ?? "")
     .trim()
     .toLowerCase()
     .replace(/_/g, "-");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** Runtime gate for the complete generated revision contract used by the renderer. */
+export function isCompleteStatblockRevisionResource(
+  value: unknown,
+): value is StatblockRevisionResourceV1 {
+  if (!isRecord(value)) return false;
+  const definition = value.definition;
+  const validationReceipt = value.validation_receipt;
+  if (!isRecord(definition) || !isRecord(validationReceipt)) return false;
+  const requiredDefinitionKeys = [
+    "ruleset",
+    "identity",
+    "defenses",
+    "vitality",
+    "movement",
+    "abilities",
+    "proficiencies",
+    "senses",
+    "communication",
+    "challenge",
+    "rule_elements",
+  ];
+  return (
+    typeof value.statblock_id === "string"
+    && typeof value.revision_id === "string"
+    && value.contract === "dungeonmind.dungeonbuddy-statblocks"
+    && value.contract_version === "1.0.0"
+    && typeof value.canonical_definition === "string"
+    && value.canonical_definition.length >= 2
+    && typeof value.definition_digest === "string"
+    && typeof value.created_at === "string"
+    && typeof validationReceipt.status === "string"
+    && typeof validationReceipt.mode === "string"
+    && typeof validationReceipt.validator_version === "string"
+    && typeof validationReceipt.canonicalizer_version === "string"
+    && typeof validationReceipt.definition_digest === "string"
+    && validationReceipt.definition_digest === value.definition_digest
+    && requiredDefinitionKeys.every((key) => isRecord(definition[key]))
+    && Array.isArray(definition.rule_elements)
+  );
 }
 
 export function isExactResolvedThreat(resolution: GraphReferenceResolution): boolean {
@@ -85,7 +132,7 @@ export function isResolvedThreat(resolution: GraphReferenceResolution): boolean 
   return (
     THREAT_NODE_KINDS.has(kind)
     || THREAT_NODE_ROLES.has(role)
-    || (kind === "entity" && role === "creature")
+    || (kind === "entity" && ENTITY_THREAT_ROLES.has(role))
   );
 }
 
@@ -96,13 +143,14 @@ export function threatSelectionTupleFromResolution(
   return {
     worldId: resolution.graphScope.worldId,
     campaignId: resolution.graphScope.campaignId,
+    scopeMode: resolution.graphScope.scopeMode,
     revisionId: resolution.graphScope.revisionId,
     threatNodeId: resolution.graphNodeId,
   };
 }
 
 export function threatSelectionTupleKey(tuple: ThreatSelectionTuple): string {
-  return `${tuple.worldId}\0${tuple.campaignId}\0${tuple.revisionId}\0${tuple.threatNodeId}`;
+  return `${tuple.worldId}\0${tuple.campaignId}\0${tuple.scopeMode}\0${tuple.revisionId}\0${tuple.threatNodeId}`;
 }
 
 export function buildThreatQueryHydrationRequest(
@@ -113,6 +161,7 @@ export function buildThreatQueryHydrationRequest(
     schema: "dmb_threat_query_hydration_request_v1",
     worldId: scope.worldId,
     campaignId: scope.campaignId,
+    scopeMode: scope.scopeMode,
     revisionPin: scope.revisionId,
     queryText: threatNodeId,
     focusNodeIds: [threatNodeId],
@@ -129,13 +178,14 @@ export function selectExactThreatHit(
   if (
     response.worldId !== requestedScope.worldId
     || response.campaignId !== requestedScope.campaignId
+    || response.scopeMode !== requestedScope.scopeMode
     || response.revisionId !== requestedScope.revisionId
   ) {
     return {
       status: "revision_mismatch",
       message:
-        `Response graph scope "${response.worldId}/${response.campaignId}/${response.revisionId}" `
-        + `does not match requested scope "${requestedScope.worldId}/${requestedScope.campaignId}/${requestedScope.revisionId}".`,
+        `Response graph scope "${response.worldId}/${response.campaignId}/${response.scopeMode}/${response.revisionId}" `
+        + `does not match requested scope "${requestedScope.worldId}/${requestedScope.campaignId}/${requestedScope.scopeMode}/${requestedScope.revisionId}".`,
     };
   }
 
@@ -181,6 +231,12 @@ export function sortThreatSheetBindings(
 
 function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSheetBindingViewModel {
   const typedBinding = binding.binding;
+  const completeRevision =
+    binding.hydrationStatus === "available"
+    && isCompleteStatblockRevisionResource(binding.revision);
+  const hydrationStatus = completeRevision ? "available" : (
+    binding.hydrationStatus === "available" ? "integrity_failure" : binding.hydrationStatus
+  );
   return {
     relationshipEdgeId: binding.relationshipEdgeId,
     bindingId: binding.bindingId,
@@ -190,9 +246,13 @@ function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSheetBind
     statblockId: binding.statblockId,
     revisionId: binding.revisionId,
     definitionDigest: binding.definitionDigest,
-    hydrationStatus: binding.hydrationStatus,
-    revision: binding.revision,
-    message: binding.message,
+    hydrationStatus,
+    revision: completeRevision ? binding.revision : null,
+    message: completeRevision
+      ? binding.message
+      : binding.hydrationStatus === "available"
+        ? "Exact revision response is incomplete; mechanics were withheld."
+        : binding.message,
   };
 }
 

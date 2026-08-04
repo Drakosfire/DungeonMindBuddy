@@ -138,16 +138,18 @@ def _projection(
     revision_id: str = REVISION,
     head_revision_id: str | None = None,
     query_context_relationships: list[WorldGraphProjectionRelationshipView] | None = None,
+    campaign_id: str = CAMPAIGN,
+    scope_mode: str = "campaign",
 ) -> WorldGraphProjection:
     snapshot = WorldGraphProjectionSnapshot(
         world_id=WORLD,
-        campaign_id=CAMPAIGN,
+        campaign_id=campaign_id,
         revision_id=revision_id,
         head_revision_id=head_revision_id or revision_id,
         is_head=head_revision_id is None or head_revision_id == revision_id,
         focus=WorldGraphProjectionFocus(kind="none"),
         admissibility="gm",
-        scope_mode="campaign",
+        scope_mode=scope_mode,  # type: ignore[arg-type]
     )
     query_context = WorldGraphQueryContext(
         snapshot=snapshot,
@@ -185,6 +187,7 @@ def _request(**overrides: Any) -> ThreatQueryHydrationRequestV1:
         "schema": "dmb_threat_query_hydration_request_v1",
         "world_id": WORLD,
         "campaign_id": CAMPAIGN,
+        "scope_mode": "campaign",
         "revision_pin": REVISION,
         "query_text": "Float Goat",
         "include_mechanics": True,
@@ -248,6 +251,37 @@ def test_alias_hit_preserves_canonical_node_id() -> None:
     assert len(response.hits) == 1
     assert response.hits[0].threat.node_id == "threat:mireward-siege"
     assert "exact_alias" in response.hits[0].match_reasons
+
+
+def test_world_scope_preserves_cross_campaign_threat_lens() -> None:
+    threat = _threat_node("threat:other-campaign", "Other Campaign Threat")
+    threat.campaign_scope = "campaign_other"
+    proj = _projection(
+        nodes=[threat],
+        relationships=[],
+        matched_node_ids=[threat.node_id],
+        campaign_id="campaign_lens",
+        scope_mode="world",
+    )
+    seen_requests: list[Any] = []
+
+    def project(request: Any, **_kwargs: Any) -> WorldGraphProjection:
+        seen_requests.append(request)
+        return proj
+
+    response = query_threats_with_hydration(
+        _request(
+            campaign_id="campaign_lens",
+            scope_mode="world",
+            query_text="Other Campaign Threat",
+        ),
+        project_fn=project,
+        client=MagicMock(),
+    )
+
+    assert seen_requests[0].scope_mode == "world"
+    assert response.scope_mode == "world"
+    assert [hit.threat.node_id for hit in response.hits] == [threat.node_id]
 
 
 def test_zero_one_many_bindings_no_first_win() -> None:
