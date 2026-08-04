@@ -984,3 +984,98 @@ def test_empty_query_does_not_construct_client() -> None:
     )
     assert constructed["n"] == 0
     assert response.result_label == "threat_query_hydration_empty"
+
+
+def test_max_hits_preserves_direct_match_relevance_order() -> None:
+    """Stronger-ranked direct Threat wins even when its ID sorts later."""
+    t_strong = _threat_node("threat:z-strong-match", "Strong Match")
+    t_weak = _threat_node("threat:a-weak-match", "Weak Match")
+    proj = _projection(
+        nodes=[t_strong, t_weak],
+        relationships=[],
+        matched_node_ids=[t_strong.node_id, t_weak.node_id],
+        match_reasons={
+            t_strong.node_id: ["exact_label"],
+            t_weak.node_id: ["fuzzy_match"],
+        },
+    )
+    response = query_threats_with_hydration(
+        _request(max_hits=1),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    assert response.hits[0].threat.node_id == t_strong.node_id
+
+
+def test_max_hits_direct_match_not_displaced_by_relationship_candidate() -> None:
+    """Relationship-derived Threat must not displace a direct match under max_hits."""
+    location = WorldGraphProjectionNodeView(
+        node_id="location:mireward",
+        label="Mireward",
+        kind="location",
+        role="settlement",
+    )
+    direct_threat = _threat_node("threat:z-direct", "Direct Threat")
+    related_threat = _threat_node("threat:a-related", "Related Threat")
+    rel = WorldGraphProjectionRelationshipView(
+        edge_id="edge:related-located-in-mireward",
+        source_node_id=related_threat.node_id,
+        target_node_id=location.node_id,
+        predicate="located_in",
+        label="located_in",
+        direction="outgoing",
+    )
+    proj = _projection(
+        nodes=[location, direct_threat, related_threat],
+        relationships=[rel],
+        matched_node_ids=[direct_threat.node_id, location.node_id],
+        match_reasons={
+            direct_threat.node_id: ["exact_label"],
+            location.node_id: ["exact_label"],
+        },
+    )
+    response = query_threats_with_hydration(
+        _request(max_hits=1),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    assert response.hits[0].threat.node_id == direct_threat.node_id
+
+
+def test_reversed_malformed_uses_statblock_never_exposes_threat_as_resource() -> None:
+    """Reversed uses_statblock must not emit the Threat ID as resource_node_id."""
+    threat = _threat_node("threat:reversed", "Reversed")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_reversed1",
+        revision_id="rev_reversed1",
+        digest=DIGEST_A,
+    )
+    resource_id = external_statblock_node_id("sb_reversed1")
+    rel = WorldGraphProjectionRelationshipView(
+        edge_id=edge_id_from_binding_id(binding.binding_id),
+        source_node_id=resource_id,
+        target_node_id=threat.node_id,
+        predicate="uses_statblock",
+        label="uses_statblock",
+        direction="outgoing",
+        threat_statblock_binding=binding,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_reversed1")],
+        relationships=[rel],
+        matched_node_ids=[threat.node_id],
+    )
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    binding_result = response.hits[0].bindings[0]
+    assert binding_result.message == "uses_statblock_wrong_endpoint"
+    assert binding_result.resource_node_id == resource_id
+    assert binding_result.resource_node_id != threat.node_id
+    assert response.result_label == "threat_query_hydration_integrity_failure"

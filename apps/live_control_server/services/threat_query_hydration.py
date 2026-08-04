@@ -141,7 +141,7 @@ def _malformed_binding_result(
             binding_id=binding.binding_id,
             binding_role=binding.role,
             threat_node_id=threat_node_id,
-            resource_node_id=rel.target_node_id,
+            resource_node_id=_resource_endpoint_for_threat(rel, threat_node_id),
             provider="dungeonmind",
             statblock_id=binding.statblock_id,
             revision_id=binding.revision_id,
@@ -490,11 +490,22 @@ def _collect_threat_hits(
     discovery_rels = list(projection.relationships)
 
     candidate_reasons: dict[str, list[str]] = {}
+    ordered_candidate_ids: list[str] = []
+    seen_candidate_ids: set[str] = set()
 
     def _add_reason(node_id: str, reason: str) -> None:
         bucket = candidate_reasons.setdefault(node_id, [])
         if reason not in bucket:
             bucket.append(reason)
+
+    def _register_candidate(node_id: str) -> None:
+        if node_id in seen_candidate_ids:
+            return
+        node = nodes_by_id.get(node_id)
+        if node is None or not _is_threat_node(node):
+            return
+        seen_candidate_ids.add(node_id)
+        ordered_candidate_ids.append(node_id)
 
     for node_id in matched_ids:
         node = nodes_by_id.get(node_id)
@@ -502,12 +513,14 @@ def _collect_threat_hits(
             continue
         for reason in reasons.get(node_id) or ["direct_match"]:
             _add_reason(node_id, reason)
+        _register_candidate(node_id)
 
     for node_id in focus_ids:
         node = nodes_by_id.get(node_id)
         if node is None or not _is_threat_node(node):
             continue
         _add_reason(node_id, f"focus_node:{node_id}")
+        _register_candidate(node_id)
 
     anchors = set(matched_ids) | set(focus_ids)
     for rel in discovery_rels:
@@ -526,14 +539,13 @@ def _collect_threat_hits(
                 other,
                 f"related_to_match:{anchor}:{rel.predicate}",
             )
+            _register_candidate(other)
 
     hits: list[
         tuple[WorldGraphProjectionNodeView, list[str], list[WorldGraphProjectionRelationshipView]]
     ] = []
-    for node_id in sorted(candidate_reasons.keys()):
-        node = nodes_by_id.get(node_id)
-        if node is None or not _is_threat_node(node):
-            continue
+    for node_id in ordered_candidate_ids[: request.max_hits]:
+        node = nodes_by_id[node_id]
         rels = [
             rel
             for rel in projection.relationships
@@ -541,8 +553,6 @@ def _collect_threat_hits(
             and _predicate_admitted(rel, predicate_filter)
         ]
         hits.append((node, list(candidate_reasons[node_id]), rels))
-        if len(hits) >= request.max_hits:
-            break
     return hits
 
 
