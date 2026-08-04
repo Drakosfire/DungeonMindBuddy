@@ -7,33 +7,12 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [READY] TL01G: diagnose shared grounding path before V14 / tl01h — captured 2026-08-01
-**Context:** PR #468 review of tip `29709d2e…`: V13/Adv V11 matrix had candidate 0/9 and control 1/9; both lanes fail on verbatim `source_phrase` grounding (`Party at Copper and Quartz`, etc.). Aggregate totaled null unsafe metrics as 0.
-**Insight:** When control and candidate both collapse before comparison, the experiment does not isolate an abstention-prompt problem. `unsafe=0` with `success_count=0` is unobserved, not safe. Next work is shared grounding/renderer/phrase fidelity plus preserved assertion-level failure diagnostics — not a new prompt version or promotion cohort.
-**Action:** Keep V13/Adv V11 gold untouched as regression; prove a known-good smoke through both lanes; only then author V14/Adv V12 with Adv proposition-template Jaccard and Gate E3/value audits. Do not author `tl01h-v1` until evaluable runs exist.
-**Surfaces when:** TL01G, TL01H, grounding_failure, unsafe_over_resolution, comparison metrics unobserved, V14, Adv V12, source_phrase verbatim, promotion cohort
-**Refs:** `Docs/Reports/REPORT-tl01g-resolution-proof-abstention-gate.md`; `evals/.../tl01g/promotion/calibration/aggregate.json`; PR #468
-
-## [READY] TL01G promotion cohorts: adversarial proposition-template Jaccard + Gate E3/value audits — captured 2026-08-01
-**Context:** Adv V11 padded source prose under source Jaccard while copying Adv V10 assertion labels/predicates (5/10 pairs ≥0.40; two at 1.000). V13 gold copied session-7 for a resulting-state “no longer feel represented” report and used “postponed until dawn” as postponement occurrence.
-**Insight:** Adversarial novelty must compare proposition templates (label+predicate), not only source prose. Gate E3 requires an in-episode boundary, not a resulting-state report. Grounded values must temporally modify the selected proposition, not a related future event.
-**Action:** On the next fresh adversarial/holdout pair, enforce Adv proposition-template Jaccard `<0.40` vs all prior adversarial assertions; run Gate E3 resulting-state and postponement-value audit helpers; never patch observed gold in place.
-**Surfaces when:** TL01G, promotion cohort, adversarial Jaccard, proposition-template, Gate E3, postponement, resulting state, V13 retirement, Adv V11 retirement
-**Refs:** `tests/test_temporal_shadow_extraction_tl01g.py`; `Docs/Reports/REPORT-tl01g-resolution-proof-abstention-gate.md`; PR #468
-
-## [READY] TL01G promotion cohorts: Gate-correct gold + proposition-template Jaccard — captured 2026-08-01
-**Context:** V12/Adv V10 retired after observed promotion (`a7a9d5c3…`) exposed gold/Gate defects: spell-end as valid-end, historical relationship lane error, V11-scale custody replay, festival span reuse, Adv V10 `now` grounding-trap gold contradiction.
-**Insight:** Promotion authority must pair Gate-faithful human gold with mechanical guards that catch noun-substituted proposition replays — span-text `isdisjoint` alone misses paraphrased holdout skeletons. Proposition-template Jaccard (label+predicate, entity scrub, stopwords) `< 0.40` vs all prior canonical holdouts complements span and adversarial source Jaccard guards.
-**Action:** Keep holdout proposition-template Jaccard in the seal checklist; also require adversarial proposition-template Jaccard; never patch observed cohort gold in place.
-**Surfaces when:** TL01G, TL01H, promotion cohort, holdout V13, adversarial V11, proposition Jaccard, Gate-faithful gold, V12 retirement, Adv V10 retirement
-**Refs:** `tests/test_temporal_shadow_extraction_tl01g.py`; `evals/graph_memory_layer/examples/temporal_shadow_holdout_v13/`; `evals/graph_memory_layer/examples/temporal_shadow_adversarial_v11/`; `Docs/Reports/REPORT-tl01g-resolution-proof-abstention-gate.md`
-
-## [READY] TL01G promotion cohorts: assert span-text disjointness and reject paraphrased adversarial skeletons — captured 2026-08-01
-**Context:** PR #468 request-changes on V11/Adv V9: span fingerprints were computed but `isdisjoint` was omitted (and later skipped for `temporal_shadow_cohort`); Adv V9 paraphrased Adv V8 past exact template equality; title-correction gold copied session as valid-start; audit binding was ID/status-only.
-**Insight:** Independent promotion authority requires (1) resolved span-text SHA disjointness against *all* prior canonical dirs including the evaluation cohort, with no folder skips; (2) adversarial novelty beyond noun-swap — Jaccard/token-bag overlap after proper-noun scrubbing; (3) Gate E3: “now”/title restatement ≠ session valid-start; (4) audit tables should bind proposition/lane/phrase to fixtures, or be labeled ID/status-only.
-**Action:** When authoring the next TL01G (or TL01H) promotion pair, keep these gates in the seal checklist and never patch observed cohorts in place after provider results. Do not start that pair until grounding smoke is evaluable.
-**Surfaces when:** TL01G, TL01H, promotion cohort, holdout, adversarial, span independence, GOLD-AUDIT, Gate E2, Gate E3, template overlap, request changes PR 468
-**Refs:** `tests/test_temporal_shadow_extraction_tl01g.py`; `Docs/Reports/REPORT-tl01g-resolution-proof-abstention-gate.md`; PR #468
+## [READY] Verbatim `source_phrase` grounding fails against renderer-produced snippets — captured 2026-08-01, rescoped 2026-08-03
+**Context:** Survives the TL01 calibration close (`Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md`) as the one active item. First seen in PR #468 (V13/Adv V11: candidate 0/9, control 1/9). PR #486's grounding-path recovery made the failure *observable* but not *passing*: PR #500's certified matrix still fails development phrase-grounding 3/3 in **both** lanes on `assertion:a73b9dc9bdfaa72c` (`'Road observation'` / `'connected_by_road'` not verbatim in the cited snippet).
+**Insight:** This is not a temporal problem and not a prompt problem — it is an unsolved contract between what the renderer puts in the snippet and what the model is required to return byte-for-byte. It is bounded, deterministic, and non-LLM-shaped. It gates the cost of *any* future extraction work needing phrase-level evidence binding, not just temporal. When both lanes collapse here, no comparison downstream of it is observable, and `unsafe=0` alongside `success_count=0` is unobserved rather than safe.
+**Action:** Not scheduled, and explicitly **not** the TL01 reopen condition (that gate is product pull, per §4 of the decision). If any extraction path needs verbatim phrase grounding, fix this contract first: prove a known-good smoke case grounds through both lanes before authoring cohorts or prompts on top of it. Keep all sealed cohorts and observed gold untouched.
+**Surfaces when:** grounding_failure, source_phrase verbatim, phrase-level evidence binding, renderer snippet fidelity, extraction contract, TL01 reopen, comparison metrics unobserved, promotion cohort
+**Refs:** `Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md` §6–§7; `Docs/Reports/REPORT-tl01g-v15-adv13-promotion-matrix.md`; `Docs/Reports/REPORT-tl01g-grounding-path-recovery.md`; PRs #468, #486, #500
 
 ## [READY] Hermes authoring needs a dynamic copyable markdown artifact — captured 2026-07-30
 **Context:** R0-B float-goat probe produced a useful copy-pasteable Threat description, but it was embedded in a long conversational answer. The operator wants a skill to tell Hermes when to emit a dedicated dynamic UI markdown section; that tool/card does not exist yet.
