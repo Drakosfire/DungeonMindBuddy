@@ -33,6 +33,7 @@ function headProjection(revisionId = "rev-head"): WorldGraphProjection {
       isHead: true,
       focus: { kind: "none", sessionId: null },
       admissibility: "gm",
+      scopeMode: "campaign",
     },
     summary: {
       nodeCount: 1,
@@ -355,6 +356,49 @@ describe("useBuildWorldGraphProjection", () => {
     await waitFor(() => expect(result.current.state).toBe("error"));
     expect(result.current.error).toMatch(/does not match requested world/);
     expect(result.current.items).toEqual([]);
+  });
+
+  it("fails closed when response scopeMode does not match the request", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      ...headProjection(),
+      snapshot: {
+        ...headProjection().snapshot,
+        scopeMode: "world",
+      },
+    });
+    const lens = readyLens();
+
+    const { result } = renderHook(() =>
+      useBuildWorldGraphProjection({
+        lens,
+        documentIdentity: { documentId: "doc-1", campaignId: "longmont-c1" },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.state).toBe("error"));
+    expect(result.current.error).toMatch(/scopeMode/);
+    expect(result.current.projection).toBeNull();
+  });
+
+  it("fails closed when response focus includes a campaign the request omitted", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      ...headProjection(),
+      snapshot: {
+        ...headProjection().snapshot,
+        focus: { kind: "none", sessionId: null, campaignId: "longmont-c1" },
+      },
+    });
+    const lens = readyLens();
+
+    const { result } = renderHook(() =>
+      useBuildWorldGraphProjection({
+        lens,
+        documentIdentity: { documentId: "doc-1", campaignId: "longmont-c1" },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.state).toBe("error"));
+    expect(result.current.error).toMatch(/focus does not match/);
   });
 
   it("ignores completion after unmount", async () => {

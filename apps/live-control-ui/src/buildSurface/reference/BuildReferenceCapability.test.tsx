@@ -121,6 +121,7 @@ function graphProjectionFixture() {
       isHead: true,
       focus: { kind: "none" as const, sessionId: null },
       admissibility: "gm" as const,
+      scopeMode: "campaign" as const,
     },
     summary: {
       nodeCount: 2,

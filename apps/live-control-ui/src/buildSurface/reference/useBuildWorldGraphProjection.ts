@@ -29,6 +29,8 @@ export interface UseBuildWorldGraphProjectionResult {
   /** True only when a head request was verified against snapshot.isHead. */
   loadedIsHead: boolean;
   generation: number;
+  /** Current lens/document load key — use for synchronous auth (not generation alone). */
+  loadKey: string;
   items: readonly GraphReferenceSearchItem[];
 }
 
@@ -91,13 +93,10 @@ function focusMatchesRequest(
   const responseSessionId = responseFocus?.sessionId ?? null;
   const requestSessionId = requestFocus.sessionId ?? null;
   if (responseSessionId !== requestSessionId) return false;
+  // Exact: a response campaignId is not tolerated when the request omitted one.
   const responseCampaignId = responseFocus?.campaignId ?? null;
   const requestCampaignId = requestFocus.campaignId ?? null;
-  // Build requests omit campaignId on none-focus; tolerate absent response campaignId.
-  if (requestCampaignId != null && responseCampaignId !== requestCampaignId) {
-    return false;
-  }
-  return true;
+  return responseCampaignId === requestCampaignId;
 }
 
 /**
@@ -119,6 +118,14 @@ export function verifyWorldGraphProjectionResponse(input: {
   }
   if (snapshot.campaignId !== request.campaignId) {
     return `Projection campaign ${snapshot.campaignId} does not match requested campaign ${request.campaignId}.`;
+  }
+  if (snapshot.admissibility !== request.admissibility) {
+    return `Projection admissibility ${snapshot.admissibility} does not match requested ${request.admissibility}.`;
+  }
+  const requestScope = request.scopeMode ?? null;
+  const responseScope = snapshot.scopeMode ?? null;
+  if (responseScope !== requestScope) {
+    return `Projection scopeMode ${responseScope ?? "∅"} does not match requested ${requestScope ?? "∅"}.`;
   }
   if (!focusMatchesRequest(snapshot.focus, request.focus)) {
     return "Projection focus does not match the requested lens focus.";
@@ -333,6 +340,7 @@ export function useBuildWorldGraphProjection(
     revisionMode: revisionFields.revisionMode,
     loadedIsHead: coherent.loadedIsHead,
     generation,
+    loadKey,
     items,
   };
 }

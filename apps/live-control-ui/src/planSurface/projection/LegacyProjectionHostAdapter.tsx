@@ -263,11 +263,16 @@ export function LegacyProjectionHostAdapter() {
       return policy.config.tools.map((tool) => ({ id: tool.id, label: tool.label }));
     }
     if (policy.kind === "native-build") {
+      // Nav id = projection descriptor id so ProjectionHost can match active.key
+      // without host/type changes (tool id ≠ projection id for Build Find existing).
       return policy.publication.tools
         .filter(
           (tool) => tool.availability.status === "enabled" && tool.activation.kind === "projection",
         )
-        .map((tool) => ({ id: tool.id, label: tool.label }));
+        .map((tool) => ({
+          id: tool.activation.kind === "projection" ? tool.activation.projectionId : tool.id,
+          label: tool.label,
+        }));
     }
     return [];
   }, [policy]);
@@ -309,9 +314,18 @@ export function LegacyProjectionHostAdapter() {
         void openToolFromNav(itemId);
         return;
       }
+      if (policy.kind === "native-build") {
+        const tool = policy.publication.tools.find(
+          (entry) =>
+            entry.id === itemId
+            || (entry.activation.kind === "projection" && entry.activation.projectionId === itemId),
+        );
+        if (tool) openTool(tool.id);
+        return;
+      }
       openTool(itemId);
     },
-    [openTool, openToolFromNav, policy.kind],
+    [openTool, openToolFromNav, policy],
   );
 
   if (policy.kind === "none") {

@@ -215,6 +215,24 @@ function publicationDeclaresGraphReferenceCapability(
   return matches === 1;
 }
 
+/**
+ * Lease-aware declaration: legacy Plan loses graph-reference authority when
+ * projectionsEnabled is false (context loss), even if the neutral adapter still
+ * emits the content descriptor.
+ */
+function leaseDeclaresGraphReferenceCapability(bundle: ProviderLeaseBundle | null): boolean {
+  if (!bundle?.snapshot.effectivePublication) return false;
+  const legacy = bundle.legacyProjection?.validated;
+  if (
+    legacy
+    && legacy.publication.identity.surfaceId === "plan"
+    && !legacy.projectionsEnabled
+  ) {
+    return false;
+  }
+  return publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication);
+}
+
 function graphReferenceBindingRegisteredOnLease(
   registration: BindingRegistration<GraphReferenceProjectionBinding> | null,
   surfaceToken: symbol | null,
@@ -227,11 +245,10 @@ function canOperateGraphReferenceCapability(
   bundle: ProviderLeaseBundle | null,
   registration: BindingRegistration<GraphReferenceProjectionBinding> | null,
 ): boolean {
-  if (!bundle?.snapshot.effectivePublication) return false;
-  if (!publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication)) {
+  if (!leaseDeclaresGraphReferenceCapability(bundle)) {
     return false;
   }
-  return graphReferenceBindingRegisteredOnLease(registration, bundle.snapshot.token);
+  return graphReferenceBindingRegisteredOnLease(registration, bundle!.snapshot.token);
 }
 
 function isAuthorizedDiagnosticsPublication(bundle: ProviderLeaseBundle | null): boolean {
@@ -244,7 +261,7 @@ function isAuthorizedDiagnosticsPublication(bundle: ProviderLeaseBundle | null):
 }
 
 function computeAuthorizationEpoch(bundle: ProviderLeaseBundle): number {
-  const graphReference = publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication)
+  const graphReference = leaseDeclaresGraphReferenceCapability(bundle)
     ? 1
     : 0;
   const diagnostics = isAuthorizedDiagnosticsPublication(bundle) ? 1 : 0;
@@ -385,8 +402,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       // target descriptor disappears under the same identity (no resurrection).
       nextLeased = revalidateLeasedToolProjection(publication, nextLeased);
     } else if (nextLeased?.projection.kind === "content") {
-      // Native content survives only while the publication still declares capability.
-      if (!publicationDeclaresGraphReferenceCapability(publication)) {
+      // Native content survives only while the lease still declares capability.
+      if (!leaseDeclaresGraphReferenceCapability(bundle)) {
         nextLeased = null;
       }
     }
@@ -397,7 +414,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setLeasedGraphReference(null);
       setLeasedGraphProjectionState(null);
     }
-    if (!publicationDeclaresGraphReferenceCapability(publication)) {
+    if (!leaseDeclaresGraphReferenceCapability(bundle)) {
       graphReferenceRegistrationRef.current = null;
       setGraphReferenceRegistration(null);
     }
@@ -751,7 +768,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       if (
         !capturedToken
         || bundle?.snapshot.token !== capturedToken
-        || !publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication)
+        || !leaseDeclaresGraphReferenceCapability(bundle)
       ) {
         return () => undefined;
       }
@@ -940,12 +957,6 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         (entry) => entry.id === projectionId && entry.kind === "tool",
       );
       if (!descriptor) return null;
-    }
-    if (leasedActive.projection.kind === "tool" && leasedActive.launchingToolId) {
-      return {
-        ...leasedActive.projection,
-        launchingToolId: leasedActive.launchingToolId,
-      };
     }
     return leasedActive.projection;
   }, [currentSurfaceToken, graphReferenceRegistration, leasedActive, leaseBundle]);

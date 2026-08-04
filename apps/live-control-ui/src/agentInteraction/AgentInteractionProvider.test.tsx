@@ -602,7 +602,6 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       key: "recap",
       size: "wide",
       title: "Recap",
-      launchingToolId: "recap",
     });
 
     act(() => {
@@ -621,7 +620,6 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       key: "recap",
       size: "fullscreen",
       title: "Session Memory",
-      launchingToolId: "recap",
     });
   });
 
@@ -2205,7 +2203,6 @@ describe("AgentInteractionProvider projection catalog registration", () => {
       key: "native-tool",
       size: "wide",
       title: "Native Tool",
-      launchingToolId: "native-tool",
     });
   });
 
@@ -2250,7 +2247,6 @@ describe("AgentInteractionProvider projection catalog registration", () => {
       key: "graph-reference-search",
       size: "wide",
       title: "Find Existing",
-      launchingToolId: "find-existing",
     });
     act(() => {
       expect(result.current.activateProjectionTool("graph-reference-search")).toBe(false);

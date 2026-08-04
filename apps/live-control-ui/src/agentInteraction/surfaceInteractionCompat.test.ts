@@ -106,6 +106,7 @@ describe("surfaceInteractionCompat", () => {
       (entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID && entry.kind === "content",
     )).toBe(true);
 
+    // Compat still emits the descriptor without context; Provider lease gate revokes authority.
     const planWithoutContext = validateProjectionSurfacePublication({
       identity: { surfaceId: "plan", instanceKey: "plan\u001fno-context" },
       config: {
@@ -122,7 +123,7 @@ describe("surfaceInteractionCompat", () => {
       planWithoutContextNeutral.projections.some(
         (entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
 
     const ingestValidated = validateProjectionSurfacePublication({
       identity: { surfaceId: "ingest", instanceKey: "ingest\u001ftest" },

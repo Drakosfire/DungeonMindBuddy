@@ -213,9 +213,17 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     },
   });
 
+  /** Live load key — updated every render so retained callbacks fail closed across lens transitions. */
+  const liveLoadKeyRef = useRef(projection.loadKey);
+  liveLoadKeyRef.current = projection.loadKey;
+  /** Authorized only while coherent state is ready for the current load key. */
+  const authorizedLoadKeyRef = useRef<string | null>(null);
+  authorizedLoadKeyRef.current =
+    projection.state === "ready" ? projection.loadKey : null;
   const projectionGenerationRef = useRef(projection.generation);
   projectionGenerationRef.current = projection.generation;
   const relationshipResolveGenerationRef = useRef<number | null>(null);
+  const relationshipResolveLoadKeyRef = useRef<string | null>(null);
 
   const selectCampaign = useCallback((campaignId: string) => {
     if (typeof window === "undefined") return;
@@ -227,25 +235,28 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
 
   const viewExact = useCallback(
     (item: GraphReferenceSearchItem) => {
-      const generationAtClick = projectionGenerationRef.current;
+      const authorizedKey = authorizedLoadKeyRef.current;
+      const liveKey = liveLoadKeyRef.current;
+      if (!authorizedKey || authorizedKey !== liveKey) return;
       if (projection.state !== "ready") return;
-      if (generationAtClick !== projection.generation) return;
-      if (!projection.items.some((entry) => entry.nodeId === item.nodeId)) return;
+      if (projection.loadKey !== liveKey) return;
+      const canonical = projection.items.find((entry) => entry.nodeId === item.nodeId);
+      if (!canonical) return;
 
       openGraphReference({
         resolution: {
           kind: "resolved_graph",
-          locator: `dmb-node:${item.nodeId}`,
-          reference: item.reference,
-          graphNodeId: item.nodeId,
-          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
+          locator: `dmb-node:${canonical.nodeId}`,
+          reference: canonical.reference,
+          graphNodeId: canonical.nodeId,
+          graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
           projectionState: projection.state,
-          message: `Resolved graph node ${item.label}.`,
+          message: `Resolved graph node ${canonical.label}.`,
         },
         projectionState: projection.state,
       });
     },
-    [openGraphReference, projection.generation, projection.items, projection.state],
+    [openGraphReference, projection.items, projection.loadKey, projection.state],
   );
 
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
@@ -332,6 +343,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       resolverState: projection.state,
       resolveRelationship: async (relationship) => {
         relationshipResolveGenerationRef.current = projectionGenerationRef.current;
+        relationshipResolveLoadKeyRef.current = liveLoadKeyRef.current;
         return resolveBuildRelationshipTarget({
           relationship,
           projection: projection.projection,
@@ -339,7 +351,14 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
         });
       },
       openResolvedReference: (resolution, state) => {
-        if (relationshipResolveGenerationRef.current !== projectionGenerationRef.current) {
+        const resolveKey = relationshipResolveLoadKeyRef.current;
+        relationshipResolveLoadKeyRef.current = null;
+        if (
+          relationshipResolveGenerationRef.current !== projectionGenerationRef.current
+          || !resolveKey
+          || resolveKey !== liveLoadKeyRef.current
+          || authorizedLoadKeyRef.current !== liveLoadKeyRef.current
+        ) {
           relationshipResolveGenerationRef.current = null;
           return;
         }

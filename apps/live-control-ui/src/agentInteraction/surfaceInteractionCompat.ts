@@ -109,7 +109,7 @@ export function adaptProjectionSurfaceToNeutralBase(
         preferredSize: tool.size,
         bindingIds: [],
       })),
-      ...(identity.surfaceId === "plan" && config.id === "plan" && hasContext
+      ...(identity.surfaceId === "plan" && config.id === "plan"
         ? [{
             id: GRAPH_REFERENCE_PROJECTION_ID,
             kind: "content" as const,

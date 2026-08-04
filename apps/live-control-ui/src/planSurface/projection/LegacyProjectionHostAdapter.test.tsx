@@ -231,6 +231,9 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
       expect(document.body).toHaveClass("surface-projection-open");
     });
     expect(document.querySelector(".surface-projection-host")).toBeTruthy();
+    const navButton = screen.getByRole("button", { name: "Find existing object" });
+    expect(navButton).toHaveAttribute("aria-pressed", "true");
+    expect(navButton).toHaveClass("active");
   });
 
   it("renders no Tools toggle for a contradictory identity/config publication", () => {

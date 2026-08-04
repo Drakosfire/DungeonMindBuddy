@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView } from "../../api/types";
@@ -19,9 +20,35 @@ const glowkindleNode: GraphProjectionNodeView = {
   aliases: ["Glow"],
   source_domains: ["recap"],
   evidence_badges: [],
-  adjacency: [],
+  adjacency: [
+    {
+      edge_id: "edge-inn",
+      node_id: "loc-inn",
+      label: "The Inn",
+      kind: "location",
+      predicate: "located_in",
+      direction: "outgoing",
+      anchored_to_focus_session: true,
+      source_domains: ["recap"],
+      evidence_ref_ids: [],
+      campaign_scope: "longmont-c1",
+    },
+  ],
   anchored_to_focus_session: true,
   summary: "A friendly merchant.",
+};
+
+const innNode: GraphProjectionNodeView = {
+  node_id: "loc-inn",
+  label: "The Inn",
+  kind: "location",
+  role: null,
+  aliases: [],
+  source_domains: ["recap"],
+  evidence_badges: [],
+  adjacency: [],
+  anchored_to_focus_session: true,
+  summary: "Meeting place.",
 };
 
 function resolvedGraphResolution(
@@ -102,8 +129,9 @@ describe("BuildReferenceObjectProjection", () => {
   });
 
   it("wires relationship navigation through graph reference binding", async () => {
+    const user = userEvent.setup();
     const openResolvedReference = vi.fn();
-    const resolveRelationship = vi.fn(async () => resolvedGraphResolution(glowkindleNode));
+    const resolveRelationship = vi.fn(async () => resolvedGraphResolution(innNode));
 
     render(
       <BuildReferenceObjectProjection
@@ -120,5 +148,18 @@ describe("BuildReferenceObjectProjection", () => {
     );
 
     expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+
+    await waitFor(() => {
+      expect(resolveRelationship).toHaveBeenCalledWith(
+        expect.objectContaining({ targetId: "loc-inn", label: "The Inn" }),
+      );
+    });
+    await waitFor(() => {
+      expect(openResolvedReference).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "resolved_graph", graphNodeId: "loc-inn" }),
+        "ready",
+      );
+    });
   });
 });
