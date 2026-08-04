@@ -207,6 +207,7 @@ describe("surfaceInteractionCompat", () => {
           workObject: { kind: "document", id: "doc-1" },
         },
       },
+      editCommandTarget: { kind: "document", id: "doc-1" },
     });
     expect(fragment.tools[0]?.placement).toMatchObject({
       groupId: "legacy-page-tools",
@@ -222,13 +223,14 @@ describe("surfaceInteractionCompat", () => {
     expect(JSON.stringify(fragment)).not.toContain("panel-never-published");
   });
 
-  it("uses blank edit targets when base canvas work object is missing", () => {
+  it("uses blank edit targets when editCommandTarget is missing", () => {
     const fragment = buildAppChromeCompatibilityFragment({
       pageActions: [],
       editorTools: {
         pinnedActions: [{ id: "bold", label: "Bold", onClick: () => {} }],
       },
       basePublication: buildIndexRouteCompatibilityPublication(),
+      editCommandTarget: null,
     });
     expect(fragment.editCommands[0]?.target).toEqual(BLANK_COMMAND_TARGET);
     const composed = {
@@ -248,11 +250,30 @@ describe("surfaceInteractionCompat", () => {
       pageActions: [{ id: "x", label: "X", disabled: true, onClick: () => {} }],
       editorTools: null,
       basePublication: buildSurfaceRouteCompatibilityPublication(),
+      editCommandTarget: null,
     });
     expect(fragment.tools[0]?.availability).toEqual({
       status: "disabled",
       disabledReason: LEGACY_APPCHROME_DISABLED,
     });
+  });
+
+  it("stamps explicit editCommandTarget even when basePublication canvas differs", () => {
+    const fragment = buildAppChromeCompatibilityFragment({
+      pageActions: [],
+      editorTools: {
+        pinnedActions: [{ id: "bold", label: "Bold", onClick: () => {} }],
+      },
+      basePublication: {
+        ...buildIndexRouteCompatibilityPublication(),
+        canvas: {
+          canvasId: "markdown-canvas",
+          workObject: { kind: "document", id: "doc-b" },
+        },
+      },
+      editCommandTarget: { kind: "document", id: "doc-a" },
+    });
+    expect(fragment.editCommands[0]?.target).toEqual({ kind: "document", id: "doc-a" });
   });
 
   it("builds exact route compatibility publications", () => {

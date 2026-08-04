@@ -1,4 +1,4 @@
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useLayoutEffect, useRef } from "react";
 
 import {
   BLANK_COMMAND_TARGET,
@@ -23,6 +23,13 @@ function callbackIdentityKey(callback: () => void): number {
     callbackIdentityKeys.set(callback, key);
   }
   return key;
+}
+
+/** Distinguishes absent / false / true for signature-driven republication. */
+function encodeOptionalBoolean(value: boolean | undefined): 0 | 1 | 2 {
+  if (value === undefined) return 0;
+  if (value === false) return 1;
+  return 2;
 }
 
 export interface AppChromeAction {
@@ -88,6 +95,14 @@ function targetsMatch(
   return left.kind === right.kind && left.id === right.id;
 }
 
+function hasEditorToolsContent(tools: AppChromeTools | null | undefined): boolean {
+  if (!tools) return false;
+  if ((tools.pinnedActions?.length ?? 0) > 0) return true;
+  return (tools.sections ?? []).some(
+    (section) => section.actions.length > 0 || section.panel != null,
+  );
+}
+
 export function AppChrome({
   activeRoute,
   pageActions = [],
@@ -115,7 +130,7 @@ export function AppChrome({
       action.disabled === true,
       action.label,
       action.eyebrow ?? null,
-      action.pressed === true,
+      encodeOptionalBoolean(action.pressed),
       callbackIdentityKey(action.onClick),
     ]),
   );
@@ -123,17 +138,19 @@ export function AppChrome({
     (editorTools?.sections ?? []).map((section) => [
       section.id,
       section.title,
-      section.defaultOpen === true,
+      encodeOptionalBoolean(section.defaultOpen),
+      section.panel != null,
       section.actions.map((action) => [
         action.id,
         action.disabled === true,
         action.label,
         action.eyebrow ?? null,
-        action.pressed === true,
+        encodeOptionalBoolean(action.pressed),
         callbackIdentityKey(action.onClick),
       ]),
     ]),
   );
+  const editorToolsGenerationSignature = `${pinnedSignature}|${sectionSignature}`;
 
   const agentInteractionRef = useRef(agentInteraction);
   agentInteractionRef.current = agentInteraction;
@@ -155,7 +172,26 @@ export function AppChrome({
   const effectivePublication = agentInteraction?.surfaceInteractionPublication ?? null;
   const hasEffectivePublication = effectivePublication != null;
   const workObject = basePublication?.canvas?.workObject ?? null;
-  const legacyPanels = buildLegacyEditPanels(editorTools, workObject);
+
+  const editCommandTargetRef = useRef<SurfaceInteractionWorkObjectIdentity | null>(null);
+  const previousEditorToolsGenerationRef = useRef("");
+  const editorToolsTargetCapturePendingRef = useRef(false);
+  if (previousEditorToolsGenerationRef.current !== editorToolsGenerationSignature) {
+    previousEditorToolsGenerationRef.current = editorToolsGenerationSignature;
+    if (hasEditorToolsContent(editorTools)) {
+      editorToolsTargetCapturePendingRef.current = true;
+    } else {
+      editorToolsTargetCapturePendingRef.current = false;
+      editCommandTargetRef.current = null;
+    }
+  }
+  if (editorToolsTargetCapturePendingRef.current && workObject) {
+    editCommandTargetRef.current = workObject;
+    editorToolsTargetCapturePendingRef.current = false;
+  }
+  const editCommandTarget = editCommandTargetRef.current;
+
+  const legacyPanels = buildLegacyEditPanels(editorTools, editCommandTarget);
 
   const matchingEditCommands = (effectivePublication?.editCommands ?? []).filter((command) =>
     targetsMatch(command.target, effectivePublication?.canvas?.workObject ?? null),
@@ -166,18 +202,21 @@ export function AppChrome({
   const hasEditContent =
     matchingEditCommands.length > 0 || matchingLegacyPanels.length > 0;
 
-  const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
   const isDockedEdit = editToolboxLayout === "dock" && hasEditContent;
 
   useLayoutEffect(() => {
     const publish = publishAppChromeCompatibilityRef.current;
     const currentBase = agentInteractionRef.current?.surfaceInteractionBasePublication ?? null;
     if (!publish || !currentBase) return;
+    // While a tools generation awaits a Canvas target, still publish pageActions;
+    // withhold edit commands until the generation target is captured.
+    const editToolsPending = editorToolsTargetCapturePendingRef.current;
     return publish(
       buildAppChromeCompatibilityFragment({
         pageActions: pageActionsRef.current,
-        editorTools: editorToolsRef.current,
+        editorTools: editToolsPending ? null : editorToolsRef.current,
         basePublication: currentBase,
+        editCommandTarget: editToolsPending ? null : editCommandTargetRef.current,
       }),
     );
   }, [
@@ -186,14 +225,12 @@ export function AppChrome({
     hasEffectivePublication,
     agentInteraction.publishAppChromeCompatibility,
     pageActionSignature,
-    pinnedSignature,
-    sectionSignature,
+    editorToolsGenerationSignature,
   ]);
 
   const shellClassName = [
     "app-shell",
     isDockedEdit ? "app-shell--edit-dock" : "",
-    isDockedEdit && isEditOpen ? "app-shell--edit-dock-open" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -202,7 +239,6 @@ export function AppChrome({
     <EditHost
       layout={editToolboxLayout}
       legacyPanels={legacyPanels}
-      onOpenChange={setIsEditOpen}
     />
   );
 

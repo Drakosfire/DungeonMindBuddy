@@ -189,7 +189,7 @@ describe("AppChrome surface interaction bridge", () => {
     expect(screen.getByRole("button", { name: "Launch" })).not.toBeDisabled();
   });
 
-  it("republishes Edit targets when the base Canvas work object changes under the same identity", () => {
+  it("does not retarget Edit commands when Canvas changes without a new editorTools generation", () => {
     const onClick = vi.fn();
     const publicationA = makeSharedInstancePublication("doc", "Doc surface", {
       canvasId: "canvas-1",
@@ -224,11 +224,60 @@ describe("AppChrome surface interaction bridge", () => {
         />
       </AgentInteractionProvider>,
     );
+    expect(screen.getByTestId("edit-target").textContent).toBe("document:doc-a");
+    expect(screen.queryByRole("button", { name: "Bold" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    const onClickForB = vi.fn();
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publicationB}
+          editorTools={{
+            pinnedActions: [{ id: "bold", label: "Bold", onClick: onClickForB }],
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
     expect(screen.getByTestId("edit-target").textContent).toBe("document:doc-b");
-    // Work-object change resets Edit host open state to the overlay default (closed).
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "Bold" }));
-    expect(onClick).toHaveBeenCalledTimes(2);
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onClickForB).toHaveBeenCalledTimes(1);
+  });
+
+  it("republishes pinned action when pressed transitions from absent to false", () => {
+    const onClick = vi.fn();
+    const publication = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: { kind: "document", id: "doc-a" },
+    });
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publication}
+          editorTools={{
+            pinnedActions: [{ id: "bold", label: "Bold", onClick }],
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const boldButton = screen.getByRole("button", { name: "Bold" });
+    expect(boldButton.getAttribute("aria-pressed")).toBeNull();
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publication}
+          editorTools={{
+            pinnedActions: [{ id: "bold", label: "Bold", onClick, pressed: false }],
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Bold" }).getAttribute("aria-pressed")).toBe("false");
   });
 
   it("republishes when action id/label would collide under delimiter joining", () => {
@@ -265,6 +314,9 @@ describe("AppChrome surface interaction bridge", () => {
     expect(source).not.toMatch(/\bEditToolboxDrawer\b/);
     expect(source).not.toMatch(/\bGuardedActionButton\b/);
     expect(source).not.toMatch(/app-edit-toolbox-toggle/);
+    expect(source).not.toMatch(/\bisEditOpen\b/);
+    expect(source).not.toMatch(/\bonOpenChange\b/);
+    expect(source).not.toMatch(/app-shell--edit-dock-open/);
     expect(source).toMatch(/EditHost/);
     expect(source).toMatch(/legacyPanels/);
   });

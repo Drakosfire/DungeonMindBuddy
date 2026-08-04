@@ -30,8 +30,6 @@ export interface EditHostProps {
   layout: "overlay" | "dock";
   /** Named Legacy/Compatibility — rich section panels from AppChrome editorTools. */
   legacyPanels?: readonly LegacyEditPanelAttachment[];
-  /** Notifies AppChrome so shell dock-open classes track host open state. */
-  onOpenChange?: (open: boolean) => void;
 }
 
 type EditHostCloseReason = "dismiss" | "identity" | "inventory" | "work-object";
@@ -109,7 +107,6 @@ function mergeGroupsWithPanels(
 export function EditHost({
   layout,
   legacyPanels = [],
-  onOpenChange,
 }: EditHostProps) {
   const { surfaceInteractionPublication } = useAgentInteraction();
   const publication = surfaceInteractionPublication;
@@ -134,8 +131,6 @@ export function EditHost({
   const previousIdentityRef = useRef<SurfaceInteractionIdentity | null>(identity);
   const previousWorkObjectRef = useRef<SurfaceInteractionWorkObjectIdentity | null>(workObject);
   const hadInventoryRef = useRef(hasInventory);
-  const onOpenChangeRef = useRef(onOpenChange);
-  onOpenChangeRef.current = onOpenChange;
 
   function setHostOpen(next: boolean, reason: EditHostCloseReason | null = null) {
     if (!next && reason) {
@@ -173,10 +168,6 @@ export function EditHost({
       hadInventoryRef.current = true;
     }
   }, [hasInventory, defaultOpen, isOpen]);
-
-  useEffect(() => {
-    onOpenChangeRef.current?.(hasInventory ? isOpen : false);
-  }, [hasInventory, isOpen]);
 
   useEffect(() => {
     if (!hasInventory) return;

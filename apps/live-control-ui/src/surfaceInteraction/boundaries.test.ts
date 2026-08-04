@@ -67,3 +67,43 @@ describe("surfaceInteraction boundaries", () => {
     expect(violations).toEqual([]);
   });
 });
+
+const EDIT_HOST_ROOT = join(ROOT, "editHost");
+
+const FORBIDDEN_EDIT_HOST_IMPORTS: Array<{ name: string; pattern: RegExp }> = [
+  {
+    name: "planSurface import",
+    pattern: /\b(from|import)\b\s*\(?\s*['"][^'"]*planSurface/,
+  },
+  {
+    name: "buildSurface import",
+    pattern: /\b(from|import)\b\s*\(?\s*['"][^'"]*buildSurface/,
+  },
+  {
+    name: "ingestSurface import",
+    pattern: /\b(from|import)\b\s*\(?\s*['"][^'"]*ingestSurface/,
+  },
+  {
+    name: "tiptap import",
+    pattern: /\b(from|import)\b\s*\(?\s*['"][^'"]*tiptap/,
+  },
+  {
+    name: "markdownCanvas import",
+    pattern: /\b(from|import)\b\s*\(?\s*['"][^'"]*markdownCanvas/,
+  },
+];
+
+describe("editHost boundaries", () => {
+  it("keeps editHost production sources free of domain editor imports", () => {
+    const violations: string[] = [];
+    for (const file of listProductionFiles(EDIT_HOST_ROOT)) {
+      const source = readFileSync(file, "utf8");
+      for (const { name, pattern } of FORBIDDEN_EDIT_HOST_IMPORTS) {
+        if (pattern.test(source)) {
+          violations.push(`${relative(ROOT, file)}: ${name}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});

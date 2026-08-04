@@ -201,8 +201,12 @@ export function buildAppChromeCompatibilityFragment(input: {
   pageActions: readonly AppChromeAction[];
   editorTools: AppChromeTools | null | undefined;
   basePublication: SurfaceInteractionPublication | null;
+  /** When provided, stamps edit commands to this target instead of basePublication canvas. */
+  editCommandTarget?: SurfaceInteractionWorkObjectIdentity | null;
 }): SurfaceInteractionChromeFragment {
-  const workObject = canvasWorkObject(input.basePublication);
+  const workObject = input.editCommandTarget !== undefined
+    ? input.editCommandTarget
+    : canvasWorkObject(input.basePublication);
   const pinnedActions = input.editorTools?.pinnedActions ?? [];
   const sections = input.editorTools?.sections ?? [];
   return {
