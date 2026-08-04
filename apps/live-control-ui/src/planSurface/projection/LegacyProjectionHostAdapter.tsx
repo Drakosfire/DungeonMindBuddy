@@ -8,6 +8,7 @@ import {
 } from "../../agentInteraction/projectionSurfacePublication";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { ProjectionHost } from "../../surfaceInteraction/projection/ProjectionHost";
+import type { SurfaceInteractionPublication } from "../../surfaceInteraction/types";
 import { useProjection } from "./projectionContext";
 import {
   filterNumericRecapArtifactRecords,
@@ -21,6 +22,7 @@ import {
   PLAN_CONTEXT_BINDING_ID,
   PLAN_SURFACE_CONFIG_BINDING_ID,
 } from "./projectionBindings";
+import type { SurfaceConfig } from "../types";
 import { IngestProjectionCatalogRegistration } from "./IngestProjectionCatalogRegistration";
 import { PlanProjectionCatalogRegistration } from "./PlanProjectionCatalogRegistration";
 
@@ -46,14 +48,68 @@ const SESSION_AWARE_TOOLS = new Set([
   "party-registry",
 ]);
 
+type ProjectionHostPolicy =
+  | {
+      kind: "legacy-plan-or-ingest";
+      surfaceIdentity: ProjectionSurfaceIdentity;
+      config: SurfaceConfig;
+      toolDescriptors: NonNullable<SurfaceInteractionPublication["projections"]>;
+    }
+  | {
+      kind: "native-build";
+      publication: SurfaceInteractionPublication;
+    }
+  | { kind: "none" };
+
+function resolveProjectionHostPolicy(
+  projectionSurface: ReturnType<typeof useAgentInteraction>["projectionSurface"],
+  surfaceInteractionPublication: SurfaceInteractionPublication | null,
+): ProjectionHostPolicy {
+  const config = projectionSurface?.publication.config ?? null;
+  const projectionsEnabled = projectionSurface?.projectionsEnabled ?? false;
+
+  if (config && projectionsEnabled && config.tools.length > 0 && config.context) {
+    return {
+      kind: "legacy-plan-or-ingest",
+      surfaceIdentity: projectionSurface!.publication.identity,
+      config,
+      toolDescriptors: (surfaceInteractionPublication?.projections ?? []).filter(
+        (entry) => entry.kind === "tool",
+      ),
+    };
+  }
+
+  const publication = surfaceInteractionPublication;
+  if (
+    publication
+    && publication.surfaceId === "build"
+    && publication.tools.some((tool) => tool.activation.kind === "projection")
+  ) {
+    return { kind: "native-build", publication };
+  }
+
+  return { kind: "none" };
+}
+
+function mapPublicationBindings(
+  publication: SurfaceInteractionPublication,
+): Record<string, unknown> {
+  const bindings: Record<string, unknown> = {};
+  for (const entry of publication.projectionBindings) {
+    bindings[entry.id] = entry.value;
+  }
+  return bindings;
+}
+
 /**
  * Temporary Plan-owned projection host policy adapter (BLD-SIH-03a/03b).
- * Owns URL/session inference and stale identity checks; renderer selection
- * is explicit via lease-scoped catalog registrations. Delete when Plan
- * recomposition lands a native publication path after BLD-SIH-06.
+ * Owns URL/session inference and stale identity checks for legacy Plan/Ingest;
+ * native Build uses publication-scoped bindings without legacy URL writes.
+ * Delete when Plan recomposition lands a native publication path after BLD-SIH-06.
  */
 export function LegacyProjectionHostAdapter() {
-  const { projectionSurface, surfaceInteractionPublication } = useAgentInteraction();
+  const { projectionSurface, surfaceInteractionPublication, registerProjectionToolActivator } =
+    useAgentInteraction();
   const {
     active,
     activeGraphReference,
@@ -66,102 +122,46 @@ export function LegacyProjectionHostAdapter() {
     resolveProjectionCatalog,
   } = useProjection();
 
-  const config = projectionSurface?.publication.config ?? null;
-  const projectionsEnabled = projectionSurface?.projectionsEnabled ?? false;
-
-  const toolDescriptors = useMemo(
-    () => (surfaceInteractionPublication?.projections ?? []).filter((entry) => entry.kind === "tool"),
-    [surfaceInteractionPublication?.projections],
+  const policy = useMemo(
+    () => resolveProjectionHostPolicy(projectionSurface, surfaceInteractionPublication),
+    [projectionSurface, surfaceInteractionPublication],
   );
 
-  if (!config || !projectionsEnabled || config.tools.length === 0 || !config.context) {
-    return null;
-  }
-
-  return (
-    <>
-      {config.id === "plan" ? (
-        <PlanProjectionCatalogRegistration
-          surfaceId={config.id}
-          toolDescriptors={toolDescriptors}
-        />
-      ) : null}
-      {config.id === "ingest" ? (
-        <IngestProjectionCatalogRegistration
-          surfaceId={config.id}
-          toolDescriptors={toolDescriptors}
-        />
-      ) : null}
-      <LegacyProjectionHostAdapterInner
-        surfaceIdentity={projectionSurface!.publication.identity}
-        config={config}
-        active={active}
-        activeGraphReference={activeGraphReference}
-        close={close}
-        expandContent={expandContent}
-        openTool={openTool}
-        graphReferenceProjectionState={graphReferenceProjectionState}
-        graphReferenceBinding={graphReferenceBinding}
-        graphReviewDiagnosticsPayload={graphReviewDiagnosticsPayload}
-        resolveProjectionCatalog={resolveProjectionCatalog}
-      />
-    </>
+  const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(
+    policy.kind === "legacy-plan-or-ingest" ? policy.surfaceIdentity : null,
   );
-}
+  surfaceIdentityRef.current = policy.kind === "legacy-plan-or-ingest" ? policy.surfaceIdentity : null;
 
-interface LegacyProjectionHostAdapterInnerProps {
-  surfaceIdentity: ProjectionSurfaceIdentity;
-  config: NonNullable<ReturnType<typeof useAgentInteraction>["projectionSurface"]>["publication"]["config"];
-  active: ReturnType<typeof useProjection>["active"];
-  activeGraphReference: ReturnType<typeof useProjection>["activeGraphReference"];
-  close: () => void;
-  expandContent: () => void;
-  openTool: (toolId: string) => boolean;
-  graphReferenceProjectionState: ReturnType<typeof useProjection>["graphReferenceProjectionState"];
-  graphReferenceBinding: ReturnType<typeof useProjection>["graphReferenceBinding"];
-  graphReviewDiagnosticsPayload: ReturnType<typeof useProjection>["graphReviewDiagnosticsPayload"];
-  resolveProjectionCatalog: ReturnType<typeof useProjection>["resolveProjectionCatalog"];
-}
-
-function LegacyProjectionHostAdapterInner({
-  surfaceIdentity,
-  config,
-  active,
-  activeGraphReference,
-  close,
-  expandContent,
-  openTool,
-  graphReferenceProjectionState,
-  graphReferenceBinding,
-  graphReviewDiagnosticsPayload,
-  resolveProjectionCatalog,
-}: LegacyProjectionHostAdapterInnerProps) {
-  const { registerProjectionToolActivator } = useAgentInteraction();
-  const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(surfaceIdentity);
-  surfaceIdentityRef.current = surfaceIdentity;
   useEffect(() => {
     return () => {
       surfaceIdentityRef.current = null;
     };
   }, []);
-  const campaignKey = config.context!.campaignId;
+
+  const legacyConfig = policy.kind === "legacy-plan-or-ingest" ? policy.config : null;
+  const campaignKey = legacyConfig?.context?.campaignId ?? null;
+
   const [latestIngestedSessionByCampaign, setLatestIngestedSessionByCampaign] = useState<
     Record<string, string | null>
   >({});
 
   useEffect(() => {
+    if (!campaignKey) return;
     setLatestIngestedSessionByCampaign((current) => {
       if (campaignKey in current) return current;
       return { ...current, [campaignKey]: null };
     });
   }, [campaignKey]);
 
-  const latestIngestedSessionId = latestIngestedSessionByCampaign[campaignKey] ?? null;
+  const latestIngestedSessionId = campaignKey
+    ? (latestIngestedSessionByCampaign[campaignKey] ?? null)
+    : null;
 
   const resolveLatestIngestedSessionId = useCallback(async () => {
+    if (!legacyConfig?.context || !campaignKey) return null;
     if (latestIngestedSessionId) return latestIngestedSessionId;
     try {
-      const response = await getRecapArtifacts(config.context!.campaignId);
+      const response = await getRecapArtifacts(legacyConfig.context.campaignId);
       const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
       const sessionId = records.at(-1)?.session_id ?? null;
       setLatestIngestedSessionByCampaign((current) => ({ ...current, [campaignKey]: sessionId }));
@@ -170,7 +170,7 @@ function LegacyProjectionHostAdapterInner({
       setLatestIngestedSessionByCampaign((current) => ({ ...current, [campaignKey]: null }));
       return null;
     }
-  }, [campaignKey, config.context, latestIngestedSessionId]);
+  }, [campaignKey, legacyConfig, latestIngestedSessionId]);
 
   const openToolFromNav = useCallback(
     async (toolId: string): Promise<boolean> => {
@@ -181,14 +181,12 @@ function LegacyProjectionHostAdapterInner({
           : null;
       const identityNow = surfaceIdentityRef.current;
       if (
-        !identityAtStart ||
-        !identityNow ||
-        !sameProjectionSurfaceIdentity(identityAtStart, identityNow)
+        !identityAtStart
+        || !identityNow
+        || !sameProjectionSurfaceIdentity(identityAtStart, identityNow)
       ) {
         return false;
       }
-      // Commit ?tool= / inferred ?session= only after a truthful open.
-      // A same-identity update may remove the tool while lookup is pending.
       const opened = openTool(toolId);
       if (!opened) {
         return false;
@@ -211,21 +209,34 @@ function LegacyProjectionHostAdapterInner({
   );
 
   useEffect(() => {
+    if (policy.kind !== "legacy-plan-or-ingest") return;
     return registerProjectionToolActivator(openToolFromNav);
-  }, [openToolFromNav, registerProjectionToolActivator]);
+  }, [openToolFromNav, policy.kind, registerProjectionToolActivator]);
 
   useEffect(() => {
+    if (policy.kind === "native-build") {
+      return registerProjectionToolActivator((toolId) => openTool(toolId));
+    }
+    return undefined;
+  }, [openTool, policy.kind, registerProjectionToolActivator]);
+
+  useEffect(() => {
+    if (policy.kind !== "legacy-plan-or-ingest") return;
     const requestedTool = requestedToolFromLocation();
-    if (requestedTool && config.tools.some((tool) => tool.id === requestedTool)) {
+    if (requestedTool && policy.config.tools.some((tool) => tool.id === requestedTool)) {
       openTool(requestedTool);
     }
-  }, [config.tools, openTool]);
+  }, [openTool, policy]);
 
   const runtimeBindings = useMemo(() => {
-    const bindings: Record<string, unknown> = {
-      [PLAN_CONTEXT_BINDING_ID]: config.context,
-      [PLAN_SURFACE_CONFIG_BINDING_ID]: config,
-    };
+    const bindings: Record<string, unknown> = policy.kind === "native-build"
+      ? mapPublicationBindings(policy.publication)
+      : policy.kind === "legacy-plan-or-ingest"
+        ? {
+            [PLAN_CONTEXT_BINDING_ID]: policy.config.context,
+            [PLAN_SURFACE_CONFIG_BINDING_ID]: policy.config,
+          }
+        : {};
     if (activeGraphReference) {
       bindings[GRAPH_REFERENCE_RESOLUTION_BINDING_ID] = activeGraphReference;
     }
@@ -241,11 +252,71 @@ function LegacyProjectionHostAdapterInner({
     return bindings;
   }, [
     activeGraphReference,
-    config,
     graphReferenceBinding,
     graphReferenceProjectionState,
     graphReviewDiagnosticsPayload,
+    policy,
   ]);
+
+  const navigationItems = useMemo(() => {
+    if (policy.kind === "legacy-plan-or-ingest") {
+      return policy.config.tools.map((tool) => ({ id: tool.id, label: tool.label }));
+    }
+    if (policy.kind === "native-build") {
+      return policy.publication.tools
+        .filter(
+          (tool) => tool.availability.status === "enabled" && tool.activation.kind === "projection",
+        )
+        .map((tool) => ({ id: tool.id, label: tool.label }));
+    }
+    return [];
+  }, [policy]);
+
+  const hostLabels = useMemo(() => {
+    if (policy.kind === "native-build") {
+      const surfaceLabel = policy.publication.label;
+      return {
+        toggleTitle: `${surfaceLabel} toolbox`,
+        closedDrawerLabel: `${surfaceLabel} toolbox`,
+        navigationLabel: "Toolbox tools",
+        closeLabel: "Close toolbox",
+        toolKicker: surfaceLabel,
+        contentKicker: "Reference",
+        toolTitle: "Toolbox",
+        contentTitle: "Reference",
+      };
+    }
+    return {
+      toggleTitle: "Plan toolbox",
+      closedDrawerLabel: "Plan toolbox",
+      navigationLabel: "Toolbox tools",
+      closeLabel: "Close toolbox",
+      toolKicker: "Command Board",
+      contentKicker: "Reference",
+      toolTitle: "Toolbox",
+      contentTitle: "Reference",
+    };
+  }, [policy]);
+
+  const hostTheme = useMemo(() => {
+    if (policy.kind === "legacy-plan-or-ingest") return policy.config.theme;
+    return {};
+  }, [policy]);
+
+  const onNavigate = useCallback(
+    (itemId: string) => {
+      if (policy.kind === "legacy-plan-or-ingest") {
+        void openToolFromNav(itemId);
+        return;
+      }
+      openTool(itemId);
+    },
+    [openTool, openToolFromNav, policy.kind],
+  );
+
+  if (policy.kind === "none") {
+    return null;
+  }
 
   const body = !active ? null : active.kind === "content" && !activeGraphReference ? (
     <p className="surface-projection-empty">Loading reference…</p>
@@ -266,24 +337,29 @@ function LegacyProjectionHostAdapterInner({
   })();
 
   return (
-    <ProjectionHost
-      active={active}
-      navigationItems={config.tools.map((tool) => ({ id: tool.id, label: tool.label }))}
-      labels={{
-        toggleTitle: "Plan toolbox",
-        closedDrawerLabel: "Plan toolbox",
-        navigationLabel: "Toolbox tools",
-        closeLabel: "Close toolbox",
-        toolKicker: "Command Board",
-        contentKicker: "Reference",
-        toolTitle: "Toolbox",
-        contentTitle: "Reference",
-      }}
-      theme={config.theme}
-      body={body}
-      onNavigate={(itemId) => void openToolFromNav(itemId)}
-      onClose={close}
-      onExpand={expandContent}
-    />
+    <>
+      {policy.kind === "legacy-plan-or-ingest" && policy.config.id === "plan" ? (
+        <PlanProjectionCatalogRegistration
+          surfaceId={policy.config.id}
+          toolDescriptors={policy.toolDescriptors}
+        />
+      ) : null}
+      {policy.kind === "legacy-plan-or-ingest" && policy.config.id === "ingest" ? (
+        <IngestProjectionCatalogRegistration
+          surfaceId={policy.config.id}
+          toolDescriptors={policy.toolDescriptors}
+        />
+      ) : null}
+      <ProjectionHost
+        active={active}
+        navigationItems={navigationItems}
+        labels={hostLabels}
+        theme={hostTheme}
+        body={body}
+        onNavigate={onNavigate}
+        onClose={close}
+        onExpand={expandContent}
+      />
+    </>
   );
 }

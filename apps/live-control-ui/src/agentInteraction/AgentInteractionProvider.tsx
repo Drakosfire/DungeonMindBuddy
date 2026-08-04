@@ -22,6 +22,7 @@ import type {
 import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "../planSurface/projection/projectionBindings";
 import type { ActiveProjection, ProjectionSize } from "../surfaceInteraction/projection/types";
 import {
+  GRAPH_REFERENCE_PROJECTION_ID,
   normalizeProjectionCatalogRegistration,
   resolveProjectionCatalog as resolveProjectionCatalogPure,
   type ProjectionCatalogLiveEntry,
@@ -197,17 +198,40 @@ function revalidateLeasedProjection(
 }
 
 /**
- * Plan-only authorization for graph-reference content: projections enabled,
- * identity/config modes agree as plan, and required render context is present.
- * Build remains disabled by design; this is not a fully surface-neutral auth policy.
+ * Declaration gate: effective publication exposes exactly one graph-reference
+ * content descriptor. Any surface (Plan, Build, …) may qualify via publication
+ * shape — never via surfaceId alone.
  */
-function isAuthorizedPlanPublication(bundle: ProviderLeaseBundle | null): boolean {
+function publicationDeclaresGraphReferenceCapability(
+  publication: SurfaceInteractionPublication | null | undefined,
+): boolean {
+  if (!publication) return false;
+  let matches = 0;
+  for (const entry of publication.projections) {
+    if (entry.id === GRAPH_REFERENCE_PROJECTION_ID && entry.kind === "content") {
+      matches += 1;
+    }
+  }
+  return matches === 1;
+}
+
+function graphReferenceBindingRegisteredOnLease(
+  registration: BindingRegistration<GraphReferenceProjectionBinding> | null,
+  surfaceToken: symbol | null,
+): boolean {
+  return Boolean(registration && surfaceToken && registration.surfaceToken === surfaceToken);
+}
+
+/** Operational gate: declaration plus a live binding on the current lease. */
+function canOperateGraphReferenceCapability(
+  bundle: ProviderLeaseBundle | null,
+  registration: BindingRegistration<GraphReferenceProjectionBinding> | null,
+): boolean {
   if (!bundle?.snapshot.effectivePublication) return false;
-  const validated = bundle?.legacyProjection?.validated;
-  if (!validated?.projectionsEnabled) return false;
-  const { identity, config } = validated.publication;
-  if (identity.surfaceId !== "plan" || config.id !== "plan") return false;
-  return config.context != null;
+  if (!publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication)) {
+    return false;
+  }
+  return graphReferenceBindingRegisteredOnLease(registration, bundle.snapshot.token);
 }
 
 function isAuthorizedDiagnosticsPublication(bundle: ProviderLeaseBundle | null): boolean {
@@ -220,10 +244,12 @@ function isAuthorizedDiagnosticsPublication(bundle: ProviderLeaseBundle | null):
 }
 
 function computeAuthorizationEpoch(bundle: ProviderLeaseBundle): number {
-  const plan = isAuthorizedPlanPublication(bundle) ? 1 : 0;
+  const graphReference = publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication)
+    ? 1
+    : 0;
   const diagnostics = isAuthorizedDiagnosticsPublication(bundle) ? 1 : 0;
   const effective = bundle.snapshot.effectivePublication ? 1 : 0;
-  return (plan << 2) | (diagnostics << 1) | effective;
+  return (graphReference << 2) | (diagnostics << 1) | effective;
 }
 
 export function AgentInteractionProvider({ children }: { children: ReactNode }) {
@@ -356,7 +382,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setLeasedGraphReference(null);
       setLeasedGraphProjectionState(null);
     }
-    if (!isAuthorizedPlanPublication(bundle)) {
+    if (!publicationDeclaresGraphReferenceCapability(publication)) {
       graphReferenceRegistrationRef.current = null;
       setGraphReferenceRegistration(null);
     }
@@ -646,7 +672,12 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       } = args;
       const capturedToken = currentSurfaceToken;
       const bundle = leaseBundleRef.current;
-      if (!surfaceTokenGuard(capturedToken, bundle) || !isAuthorizedPlanPublication(bundle)) return;
+      if (
+        !surfaceTokenGuard(capturedToken, bundle)
+        || !canOperateGraphReferenceCapability(bundle, graphReferenceRegistrationRef.current)
+      ) {
+        return;
+      }
       const activeToken = bundle!.snapshot.token;
       const title =
         (resolution.kind === "resolved_graph" ? resolution.graphObject?.label : null)
@@ -675,7 +706,12 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const expandContent = useCallback(() => {
     const capturedToken = currentSurfaceToken;
     const bundle = leaseBundleRef.current;
-    if (!surfaceTokenGuard(capturedToken, bundle) || !isAuthorizedPlanPublication(bundle)) return;
+    if (
+      !surfaceTokenGuard(capturedToken, bundle)
+      || !canOperateGraphReferenceCapability(bundle, graphReferenceRegistrationRef.current)
+    ) {
+      return;
+    }
     const activeToken = bundle!.snapshot.token;
     setLeasedActive((current) => {
       if (!current || current.surfaceToken !== activeToken || current.projection.kind !== "content") {
@@ -697,7 +733,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       const capturedToken = currentSurfaceToken;
       const capturedEpoch = leaseBundleRef.current?.authorizationEpoch ?? -1;
       const bundle = leaseBundleRef.current;
-      if (!capturedToken || bundle?.snapshot.token !== capturedToken || !isAuthorizedPlanPublication(bundle)) {
+      if (
+        !capturedToken
+        || bundle?.snapshot.token !== capturedToken
+        || !publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication)
+      ) {
         return () => undefined;
       }
       const token = Symbol("graph-reference-binding");
@@ -824,7 +864,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     const bundle = leaseBundle;
     const surfaceToken = bundle?.snapshot.token;
     if (!registration || !surfaceToken || registration.surfaceToken !== surfaceToken) return null;
-    if (!isAuthorizedPlanPublication(bundle)) return null;
+    if (!canOperateGraphReferenceCapability(bundle, registration)) return null;
     const { token, value: binding } = registration;
     return {
       resolverState: binding.resolverState,
@@ -833,14 +873,18 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         const current = graphReferenceRegistrationRef.current;
         const live = leaseBundleRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
-        if (!isAuthorizedPlanPublication(live) || live?.snapshot.token !== surfaceToken) return;
+        if (!canOperateGraphReferenceCapability(live, current) || live?.snapshot.token !== surfaceToken) {
+          return;
+        }
         current.value.openResolvedReference(resolution, projectionState);
       },
       openTool: (toolId) => {
         const current = graphReferenceRegistrationRef.current;
         const live = leaseBundleRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
-        if (!isAuthorizedPlanPublication(live) || live?.snapshot.token !== surfaceToken) return;
+        if (!canOperateGraphReferenceCapability(live, current) || live?.snapshot.token !== surfaceToken) {
+          return;
+        }
         current.value.openTool(toolId);
       },
     };
@@ -852,7 +896,10 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const active = useMemo(() => {
     if (!leasedActive || !currentSurfaceToken || leasedActive.surfaceToken !== currentSurfaceToken) return null;
-    if (leasedActive.projection.kind === "content" && !isAuthorizedPlanPublication(leaseBundle)) {
+    if (
+      leasedActive.projection.kind === "content"
+      && !canOperateGraphReferenceCapability(leaseBundle, graphReferenceRegistration)
+    ) {
       return null;
     }
     const publication = leaseBundle?.snapshot.effectivePublication;
@@ -877,15 +924,15 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       if (!descriptor) return null;
     }
     return leasedActive.projection;
-  }, [currentSurfaceToken, leasedActive, leaseBundle]);
+  }, [currentSurfaceToken, graphReferenceRegistration, leasedActive, leaseBundle]);
 
   const activeGraphReference = useMemo(() => {
     if (!leasedGraphReference || !currentSurfaceToken || leasedGraphReference.surfaceToken !== currentSurfaceToken) {
       return null;
     }
-    if (!isAuthorizedPlanPublication(leaseBundle)) return null;
+    if (!canOperateGraphReferenceCapability(leaseBundle, graphReferenceRegistration)) return null;
     return leasedGraphReference.resolution;
-  }, [currentSurfaceToken, leasedGraphReference, leaseBundle]);
+  }, [currentSurfaceToken, graphReferenceRegistration, leasedGraphReference, leaseBundle]);
 
   const graphReferenceProjectionState = useMemo(() => {
     if (
@@ -895,9 +942,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     ) {
       return null;
     }
-    if (!isAuthorizedPlanPublication(leaseBundle)) return null;
+    if (!canOperateGraphReferenceCapability(leaseBundle, graphReferenceRegistration)) return null;
     return leasedGraphProjectionState.state;
-  }, [currentSurfaceToken, leasedGraphProjectionState, leaseBundle]);
+  }, [currentSurfaceToken, graphReferenceRegistration, leasedGraphProjectionState, leaseBundle]);
 
   const graphReviewDiagnosticsPayload = useMemo(() => {
     const registration = diagnosticsRegistration;
