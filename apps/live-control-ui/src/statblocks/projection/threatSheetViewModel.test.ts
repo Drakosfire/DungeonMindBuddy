@@ -314,4 +314,36 @@ describe("threatSheetViewModel", () => {
       message: "Exact revision response is incomplete; mechanics were withheld.",
     });
   });
+
+  it("fails closed when top-level sections hide malformed nested renderer fields", () => {
+    const malformedRevision = {
+      ...revision,
+      definition: {
+        ...revision.definition,
+        defenses: {
+          ...revision.definition.defenses,
+          armor_classes: {},
+        },
+      },
+    } as unknown as StatblockRevisionResourceV1;
+
+    expect(isCompleteStatblockRevisionResource(malformedRevision)).toBe(false);
+    const model = buildThreatSheetViewModel({
+      resolution: resolvedThreat(),
+      hit: makeHit("threat:tripod-null-calf", "Tripod Null-Calf", [
+        binding({ revision: malformedRevision }),
+      ]),
+      loadStatus: "ready",
+    });
+
+    expect(model).toMatchObject({
+      mechanicsDisposition: "integrity_failure",
+      loadStatus: "integrity_failure",
+      message: "One or more exact revision payloads failed complete contract validation.",
+    });
+    expect(model.bindings[0]).toMatchObject({
+      hydrationStatus: "integrity_failure",
+      revision: null,
+    });
+  });
 });

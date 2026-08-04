@@ -1,6 +1,7 @@
 """SBW10a exact Threat query/hydration owning-boundary tests."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -197,14 +198,21 @@ def _request(**overrides: Any) -> ThreatQueryHydrationRequestV1:
 
 
 def _exact(statblock_id: str, revision_id: str, digest: str) -> ExactRevisionResourceV1:
-    return ExactRevisionResourceV1(
-        statblock_id=statblock_id,
-        revision_id=revision_id,
-        definition_digest=digest,
-        contract="dungeonmind.dungeonbuddy-statblocks",
-        contract_version="1.0.0",
-        definition={"name": "fixture"},
+    payload = json.loads(
+        (
+            Path(__file__).parent
+            / "fixtures/statblocks/v1/exact-revision-response.json"
+        ).read_text(encoding="utf-8")
     )
+    payload.update(
+        {
+            "statblock_id": statblock_id,
+            "revision_id": revision_id,
+            "definition_digest": digest,
+        }
+    )
+    payload["validation_receipt"]["definition_digest"] = digest
+    return ExactRevisionResourceV1.model_validate(payload)
 
 
 def test_duplicate_labels_return_distinct_threat_ids() -> None:
@@ -374,6 +382,38 @@ def test_exact_revision_missing() -> None:
         client=client,
     )
     assert response.hits[0].bindings[0].hydration_status == "exact_revision_missing"
+
+
+def test_malformed_nested_revision_is_integrity_failure() -> None:
+    threat = _threat_node("threat:malformed", "Malformed")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_malformed01",
+        revision_id="rev_malformed01",
+        digest=DIGEST_A,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_malformed01")],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+    malformed = _exact("sb_malformed01", "rev_malformed01", DIGEST_A).model_dump(
+        mode="json"
+    )
+    malformed["definition"]["defenses"]["armor_classes"] = {}
+
+    client = MagicMock()
+    client.get_exact_revision.return_value = malformed
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=client,
+    )
+
+    hydrated = response.hits[0].bindings[0]
+    assert hydrated.hydration_status == "integrity_failure"
+    assert hydrated.revision is None
+    assert response.result_label == "threat_query_hydration_integrity_failure"
 
 
 def test_definition_digest_mismatch_is_integrity() -> None:

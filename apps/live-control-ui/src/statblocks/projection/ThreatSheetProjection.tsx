@@ -295,10 +295,29 @@ export function ThreatSheetProjection({
 
   const selectionTuple = useMemo(() => threatSelectionTupleFromResolution(resolution), [resolution]);
   const selectionKey = selectionTuple ? threatSelectionTupleKey(selectionTuple) : null;
+  const selectedObjectKey = selectionKey ?? `${resolution.kind}\0${resolution.locator}`;
 
   const [selectedHit, setSelectedHit] = useState<ThreatQueryHydrationHitV1 | null>(null);
   const [loadStatus, setLoadStatus] = useState<ThreatSheetViewModel["loadStatus"]>("loading");
   const [loadMessage, setLoadMessage] = useState<string | null>(null);
+  const selectedObjectKeyRef = useRef<string | null>(null);
+  const navigationGenerationRef = useRef(0);
+  const mountedRef = useRef(false);
+  if (selectedObjectKeyRef.current !== selectedObjectKey) {
+    selectedObjectKeyRef.current = selectedObjectKey;
+    navigationGenerationRef.current += 1;
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      navigationGenerationRef.current += 1;
+    };
+  }, []);
+  useEffect(() => {
+    setNavigatingRelationshipId(null);
+  }, [selectedObjectKey]);
 
   useEffect(() => {
     if (!selectionTuple || !selectionKey) {
@@ -403,6 +422,8 @@ export function ThreatSheetProjection({
       if (!bindingAtStart || navigatingRelationshipId) return;
       if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
 
+      const generationAtStart = navigationGenerationRef.current;
+      const selectedObjectKeyAtStart = selectedObjectKey;
       setNavigatingRelationshipId(relationship.id);
       try {
         const nextResolution = await bindingAtStart.resolveRelationship(
@@ -410,13 +431,24 @@ export function ThreatSheetProjection({
           resolution.graphScope,
         );
         const current = graphReferenceBindingRef.current;
-        if (!current || current !== bindingAtStart) return;
+        if (
+          !mountedRef.current
+          || !current
+          || current !== bindingAtStart
+          || navigationGenerationRef.current !== generationAtStart
+          || selectedObjectKeyRef.current !== selectedObjectKeyAtStart
+        ) return;
         current.openResolvedReference(
           nextResolution,
           nextResolution.projectionState ?? effectiveProjectionState,
         );
       } finally {
-        setNavigatingRelationshipId(null);
+        if (
+          mountedRef.current
+          && navigationGenerationRef.current === generationAtStart
+        ) {
+          setNavigatingRelationshipId(null);
+        }
       }
     },
     [
@@ -425,6 +457,7 @@ export function ThreatSheetProjection({
       navigatingRelationshipId,
       resolverProjectionState,
       resolution,
+      selectedObjectKey,
     ],
   );
 

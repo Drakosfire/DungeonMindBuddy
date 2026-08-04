@@ -73,10 +73,70 @@ export function normalizeGraphObjectKind(value: string | null | undefined): stri
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Runtime gate for the complete generated revision contract used by the renderer. */
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isString);
+}
+
+function isDistance(value: unknown): boolean {
+  return (
+    isRecord(value)
+    && isFiniteNumber(value.value)
+    && (value.unit === undefined || value.unit === "feet")
+  );
+}
+
+function isHitPointProfile(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const formula = value.formula;
+  return (
+    (value.method === "fixed" || value.method === "formula")
+    && (value.displayed_average === null || isFiniteNumber(value.displayed_average))
+    && (value.fixed_value === null || isFiniteNumber(value.fixed_value))
+    && (
+      formula === null
+      || (
+        isRecord(formula)
+        && isFiniteNumber(formula.count)
+        && isFiniteNumber(formula.die)
+        && (formula.modifier === undefined || isFiniteNumber(formula.modifier))
+      )
+    )
+  );
+}
+
+function isRuleElement(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const activation = value.activation;
+  const usage = value.usage;
+  const mechanic = value.mechanic;
+  return (
+    isString(value.key)
+    && isString(value.name)
+    && isString(value.rules_text)
+    && isString(value.section)
+    && isString(value.automation_support)
+    && isRecord(activation)
+    && isString(activation.kind)
+    && isRecord(usage)
+    && isString(usage.kind)
+    && isRecord(mechanic)
+    && isString(mechanic.kind)
+    && (value.costs === undefined || value.costs === null || Array.isArray(value.costs))
+  );
+}
+
+/** Defense-in-depth renderer gate; the backend validates the full generated model. */
 export function isCompleteStatblockRevisionResource(
   value: unknown,
 ): value is StatblockRevisionResourceV1 {
@@ -84,36 +144,107 @@ export function isCompleteStatblockRevisionResource(
   const definition = value.definition;
   const validationReceipt = value.validation_receipt;
   if (!isRecord(definition) || !isRecord(validationReceipt)) return false;
-  const requiredDefinitionKeys = [
-    "ruleset",
-    "identity",
-    "defenses",
-    "vitality",
-    "movement",
-    "abilities",
-    "proficiencies",
-    "senses",
-    "communication",
-    "challenge",
-    "rule_elements",
-  ];
+  const ruleset = definition.ruleset;
+  const identity = definition.identity;
+  const defenses = definition.defenses;
+  const vitality = definition.vitality;
+  const movement = definition.movement;
+  const abilities = definition.abilities;
+  const proficiencies = definition.proficiencies;
+  const senses = definition.senses;
+  const communication = definition.communication;
+  const challenge = definition.challenge;
+  const armorClasses = isRecord(defenses) ? defenses.armor_classes : null;
+  const movementModes = isRecord(movement) ? movement.modes : null;
+  const hitPoints = isRecord(vitality) ? vitality.hit_points : null;
+  const issueList = validationReceipt.issues;
   return (
-    typeof value.statblock_id === "string"
-    && typeof value.revision_id === "string"
+    isString(value.statblock_id)
+    && isString(value.revision_id)
     && value.contract === "dungeonmind.dungeonbuddy-statblocks"
     && value.contract_version === "1.0.0"
-    && typeof value.canonical_definition === "string"
+    && isString(value.canonical_definition)
     && value.canonical_definition.length >= 2
-    && typeof value.definition_digest === "string"
-    && typeof value.created_at === "string"
-    && typeof validationReceipt.status === "string"
-    && typeof validationReceipt.mode === "string"
-    && typeof validationReceipt.validator_version === "string"
-    && typeof validationReceipt.canonicalizer_version === "string"
-    && typeof validationReceipt.definition_digest === "string"
+    && isString(value.definition_digest)
+    && isString(value.created_at)
+    && isString(validationReceipt.status)
+    && isString(validationReceipt.mode)
+    && isString(validationReceipt.validator_version)
+    && isString(validationReceipt.canonicalizer_version)
+    && isString(validationReceipt.definition_digest)
     && validationReceipt.definition_digest === value.definition_digest
-    && requiredDefinitionKeys.every((key) => isRecord(definition[key]))
+    && (
+      issueList === undefined
+      || issueList === null
+      || (
+        Array.isArray(issueList)
+        && issueList.every((issue) => (
+          isRecord(issue)
+          && isString(issue.code)
+          && isString(issue.field_path)
+          && isString(issue.message)
+          && isString(issue.severity)
+        ))
+      )
+    )
+    && isRecord(ruleset)
+    && isString(ruleset.system)
+    && isString(ruleset.edition)
+    && isRecord(identity)
+    && isString(identity.name)
+    && isString(identity.size)
+    && isString(identity.creature_type)
+    && (identity.subtypes === undefined || identity.subtypes === null || isStringArray(identity.subtypes))
+    && isRecord(defenses)
+    && Array.isArray(armorClasses)
+    && armorClasses.length > 0
+    && armorClasses.every((armorClass) => (
+      isRecord(armorClass)
+      && isString(armorClass.key)
+      && isFiniteNumber(armorClass.value)
+      && typeof armorClass.default === "boolean"
+    ))
+    && isRecord(vitality)
+    && isHitPointProfile(hitPoints)
+    && isRecord(movement)
+    && Array.isArray(movementModes)
+    && movementModes.length > 0
+    && movementModes.every((mode) => (
+      isRecord(mode)
+      && isString(mode.key)
+      && isString(mode.mode)
+      && isDistance(mode.distance)
+      && (mode.qualifiers === undefined || mode.qualifiers === null || isStringArray(mode.qualifiers))
+    ))
+    && isRecord(abilities)
+    && ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]
+      .every((ability) => isFiniteNumber(abilities[ability]))
+    && isRecord(proficiencies)
+    && (proficiencies.saving_throws === undefined
+      || proficiencies.saving_throws === null
+      || Array.isArray(proficiencies.saving_throws))
+    && (proficiencies.skills === undefined
+      || proficiencies.skills === null
+      || Array.isArray(proficiencies.skills))
+    && isRecord(senses)
+    && isFiniteNumber(senses.passive_perception)
+    && (senses.senses === undefined || senses.senses === null || Array.isArray(senses.senses))
+    && isRecord(communication)
+    && (communication.languages === undefined
+      || communication.languages === null
+      || isStringArray(communication.languages))
+    && (communication.special_modes === undefined
+      || communication.special_modes === null
+      || isStringArray(communication.special_modes))
+    && (communication.telepathy_range === undefined
+      || communication.telepathy_range === null
+      || isDistance(communication.telepathy_range))
+    && isRecord(challenge)
+    && isString(challenge.rating)
+    && isFiniteNumber(challenge.proficiency_bonus)
     && Array.isArray(definition.rule_elements)
+    && definition.rule_elements.length > 0
+    && definition.rule_elements.every(isRuleElement)
   );
 }
 
@@ -311,6 +442,33 @@ export function availableBindingCount(bindings: readonly ThreatSheetBindingViewM
   return bindings.filter((binding) => binding.hydrationStatus === "available").length;
 }
 
+function recomputeMechanicsDisposition(
+  bindings: readonly ThreatSheetBindingViewModel[],
+): string {
+  if (!bindings.length) return "no_binding";
+  const effective = new Set(
+    bindings
+      .map((binding) => binding.hydrationStatus)
+      .filter((status) => status !== "not_requested"),
+  );
+  if (!effective.size) return "not_requested";
+  if (effective.size === 1 && effective.has("available")) return "hydrated";
+
+  const hasAvailable = effective.has("available");
+  const hasUnavailable = effective.has("unavailable");
+  const hasMissing = effective.has("exact_revision_missing");
+  const hasIntegrityFailure = effective.has("integrity_failure");
+  if (hasIntegrityFailure && !hasAvailable && !hasUnavailable && !hasMissing) {
+    return "integrity_failure";
+  }
+  if (hasAvailable) return "partial";
+  if ([...effective].every((status) => status === "unavailable" || status === "exact_revision_missing")) {
+    return "unavailable";
+  }
+  if (hasIntegrityFailure) return "integrity_failure";
+  return "unavailable";
+}
+
 export function buildThreatSheetViewModel(input: {
   resolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }>;
   hit: ThreatQueryHydrationHitV1 | null;
@@ -346,6 +504,12 @@ export function buildThreatSheetViewModel(input: {
   const bindings = hit
     ? sortThreatSheetBindings(hit.bindings.map(mapBindingHydration))
     : [];
+  const frontendIntegrityFailure = bindings.some(
+    (binding) => binding.hydrationStatus === "integrity_failure",
+  );
+  const mechanicsDisposition = hit
+    ? recomputeMechanicsDisposition(bindings)
+    : "not_requested";
 
   return {
     scope,
@@ -357,9 +521,14 @@ export function buildThreatSheetViewModel(input: {
     aliases: graphObject.aliases ?? hit?.threat.aliases ?? [],
     relationships,
     bindings,
-    mechanicsDisposition: hit?.mechanicsDisposition ?? "not_requested",
-    loadStatus: input.loadStatus,
-    message: input.message ?? null,
+    mechanicsDisposition,
+    loadStatus: frontendIntegrityFailure ? "integrity_failure" : input.loadStatus,
+    message: input.message
+      ?? (
+        frontendIntegrityFailure
+          ? "One or more exact revision payloads failed complete contract validation."
+          : null
+      ),
   };
 }
 

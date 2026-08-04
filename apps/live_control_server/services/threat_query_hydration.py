@@ -343,7 +343,9 @@ def _hydrate_binding(
             }
         )
     try:
-        revision = client.get_exact_revision(binding.statblock_id, binding.revision_id)
+        revision = ExactRevisionResourceV1.model_validate(
+            client.get_exact_revision(binding.statblock_id, binding.revision_id)
+        )
     except StatblockIntegrationError as exc:
         category = getattr(exc, "category", "") or ""
         if category in {"downstream_not_found", "downstream_expired"}:

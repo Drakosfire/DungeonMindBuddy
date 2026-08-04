@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { GraphObjectCard } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
@@ -129,6 +129,34 @@ export function PlanReferenceObjectCard({
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
   const graphReferenceBindingRef = useRef(graphReferenceBinding);
   graphReferenceBindingRef.current = graphReferenceBinding;
+  const selectedObjectKey = resolution.kind === "resolved_graph"
+    ? [
+        resolution.kind,
+        resolution.graphNodeId,
+        resolution.graphScope?.worldId ?? "",
+        resolution.graphScope?.campaignId ?? "",
+        resolution.graphScope?.scopeMode ?? "",
+        resolution.graphScope?.revisionId ?? "",
+      ].join("\0")
+    : [resolution.kind, resolution.locator].join("\0");
+  const selectedObjectKeyRef = useRef<string | null>(null);
+  const navigationGenerationRef = useRef(0);
+  const mountedRef = useRef(false);
+  if (selectedObjectKeyRef.current !== selectedObjectKey) {
+    selectedObjectKeyRef.current = selectedObjectKey;
+    navigationGenerationRef.current += 1;
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      navigationGenerationRef.current += 1;
+    };
+  }, []);
+  useEffect(() => {
+    setNavigatingRelationshipId(null);
+  }, [selectedObjectKey]);
 
   const resolverProjectionState = graphReferenceBinding?.resolverState ?? null;
   const effectiveProjectionState =
@@ -148,21 +176,34 @@ export function PlanReferenceObjectCard({
       if (!bindingAtStart || navigatingRelationshipId) return;
       if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
 
+      const generationAtStart = navigationGenerationRef.current;
+      const selectedObjectKeyAtStart = selectedObjectKey;
       setNavigatingRelationshipId(relationship.id);
       try {
         const nextResolution = await bindingAtStart.resolveRelationship(
           relationship,
           resolution.kind === "resolved_graph" ? resolution.graphScope : undefined,
         );
-        // Stale-operation rule: commit only through the still-current binding.
+        // Stale-operation rule: binding and selected-object identity must both survive.
         const current = graphReferenceBindingRef.current;
-        if (!current || current !== bindingAtStart) return;
+        if (
+          !mountedRef.current
+          || !current
+          || current !== bindingAtStart
+          || navigationGenerationRef.current !== generationAtStart
+          || selectedObjectKeyRef.current !== selectedObjectKeyAtStart
+        ) return;
         current.openResolvedReference(
           nextResolution,
           nextResolution.projectionState ?? effectiveProjectionState,
         );
       } finally {
-        setNavigatingRelationshipId(null);
+        if (
+          mountedRef.current
+          && navigationGenerationRef.current === generationAtStart
+        ) {
+          setNavigatingRelationshipId(null);
+        }
       }
     },
     [
@@ -171,6 +212,7 @@ export function PlanReferenceObjectCard({
       graphReferenceBinding,
       resolverProjectionState,
       resolution,
+      selectedObjectKey,
     ],
   );
 

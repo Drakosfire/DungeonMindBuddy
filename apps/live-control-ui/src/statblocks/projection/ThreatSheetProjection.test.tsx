@@ -1,7 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import type { GraphReferenceProjectionBinding } from "../../graphReference/types";
 import type { GraphReferenceResolution } from "../../graphReference/types";
 import revisionFixture from "../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json";
 import type { StatblockRevisionResourceV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
@@ -225,6 +227,111 @@ describe("ThreatSheetProjection", () => {
       expect(screen.getByRole("heading", { level: 3, name: "Other Threat" })).toBeInTheDocument();
     });
     expect(screen.queryByRole("heading", { level: 3, name: "Tripod Null-Calf" })).not.toBeInTheDocument();
+  });
+
+  it("does not commit a stale relationship after the selected Threat changes", async () => {
+    const relationship = {
+      edgeId: "edge-inn",
+      sourceNodeId: "threat:tripod-null-calf",
+      targetNodeId: "location-inn",
+      predicate: "guards",
+      label: "Inn",
+      direction: "outgoing" as const,
+      sessionIds: [],
+      sourceDomains: [],
+      evidenceRefIds: [],
+      sourceArtifactIds: [],
+      activeContributionIds: [],
+    };
+    const responseFor = (
+      nodeId: string,
+      label: string,
+      relationships: typeof relationship[] = [],
+    ) => ({
+      schema: "dmb_threat_query_hydration_response_v1" as const,
+      worldId: scope.worldId,
+      campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
+      revisionId: scope.revisionId,
+      queryText: nodeId,
+      resultLabel: "threat_query_hydration_ok" as const,
+      hits: [
+        {
+          threat: {
+            nodeId,
+            label,
+            kind: "threat",
+            role: "creature",
+            aliases: [],
+            sourceDomains: [],
+            evidenceBadges: [],
+            adjacency: [],
+            suggestedExpansions: [],
+            evidenceRefIds: [],
+            sourceArtifactIds: [],
+            anchoredToFocusSession: true,
+          },
+          matchReasons: ["exact_node_id"],
+          relationships,
+          bindings: [],
+          mechanicsDisposition: "no_binding" as const,
+        },
+      ],
+      diagnostics: [],
+      message: null,
+    });
+    let resolveRelationship: ((value: ReturnType<typeof threatResolution>) => void) | undefined;
+    const deferredRelationship = new Promise<ReturnType<typeof threatResolution>>((resolve) => {
+      resolveRelationship = resolve;
+    });
+    const openResolvedReference = vi.fn();
+    const binding: GraphReferenceProjectionBinding = {
+      resolverState: "ready",
+      resolveRelationship: vi.fn(() => deferredRelationship),
+      openResolvedReference,
+      openTool: vi.fn(),
+    };
+    vi.mocked(postThreatQueryHydration)
+      .mockResolvedValueOnce(responseFor("threat:tripod-null-calf", "Tripod Null-Calf", [relationship]))
+      .mockResolvedValueOnce(responseFor("threat:other", "Other Threat"));
+
+    const firstResolution = threatResolution();
+    const secondResolution = {
+      ...firstResolution,
+      graphNodeId: "threat:other",
+      graphObject: {
+        ...firstResolution.graphObject,
+        id: "threat:other",
+        label: "Other Threat",
+      },
+    };
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <ThreatSheetProjection
+        resolution={firstResolution}
+        graphReferenceBinding={binding}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Inn.*guards/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
+    rerender(
+      <ThreatSheetProjection
+        resolution={secondResolution}
+        graphReferenceBinding={binding}
+      />,
+    );
+    await waitFor(() => {
+      expect(postThreatQueryHydration).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      resolveRelationship?.(threatResolution());
+      await deferredRelationship;
+    });
+    expect(openResolvedReference).not.toHaveBeenCalled();
   });
 
   it("fails closed when exact graph scope is missing", () => {
