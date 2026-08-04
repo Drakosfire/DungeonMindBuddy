@@ -6,6 +6,8 @@ import {
   buildBuildWorldGraphProjectionRequest,
   buildGraphReviewCommittedProjectionRequest,
   buildWorldGraphRecapProjectionRequest,
+  classifyBuildDocumentScope,
+  getCampaignIdsForWorld,
   getWorldIdForCampaign,
 } from "./worldGraphSurfaceContext";
 
@@ -14,6 +16,24 @@ describe("worldGraphSurfaceContext", () => {
     expect(getWorldIdForCampaign("longmont-c1")).toBe("eldyrwild");
     expect(getWorldIdForCampaign("longmont-c2")).toBe("eldyrwild");
     expect(getWorldIdForCampaign("unknown")).toBeNull();
+  });
+
+  it("getCampaignIdsForWorld returns mapped campaigns in sorted order", () => {
+    expect(getCampaignIdsForWorld("eldyrwild")).toEqual(["longmont-c1", "longmont-c2"]);
+    expect(getCampaignIdsForWorld("unknown-world")).toEqual([]);
+  });
+
+  it("classifyBuildDocumentScope distinguishes campaign, world, and unknown scopes", () => {
+    expect(classifyBuildDocumentScope("longmont-c1")).toEqual({
+      kind: "campaign",
+      campaignId: "longmont-c1",
+      worldId: "eldyrwild",
+    });
+    expect(classifyBuildDocumentScope("eldyrwild")).toEqual({
+      kind: "world",
+      worldId: "eldyrwild",
+    });
+    expect(classifyBuildDocumentScope("unknown-scope")).toEqual({ kind: "unknown" });
   });
 
   it("buildWorldGraphRecapProjectionRequest uses session focus without revision pin", () => {
