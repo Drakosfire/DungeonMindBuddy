@@ -16,11 +16,12 @@ function renderBuildPage() {
   );
 }
 
-function BuildProjectionProbe() {
-  const { projectionSurface } = useAgentInteraction();
+function BuildPublicationProbe() {
+  const { surfaceInteractionPublication } = useAgentInteraction();
+  const hasTools = (surfaceInteractionPublication?.tools.length ?? 0) > 0;
   return (
     <p data-testid="build-projection-enabled">
-      {projectionSurface?.projectionsEnabled ? "enabled" : "inactive"}
+      {hasTools ? "enabled" : "inactive"}
     </p>
   );
 }
@@ -49,7 +50,7 @@ describe("BuildSurfacePage", () => {
     render(
       <AgentInteractionProvider>
         <BuildSurfacePage />
-        <BuildProjectionProbe />
+        <BuildPublicationProbe />
       </AgentInteractionProvider>,
     );
     expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
