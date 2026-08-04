@@ -16,6 +16,12 @@ export interface ActiveProjection {
   size: ProjectionSize;
   title: string;
   glanceOnly?: boolean;
+  /**
+   * Tool contribution id that launched this projection (tool kind only).
+   * Distinct from `key`, which is the Projection descriptor id. Host navigation
+   * compares against this when present so Tool ID ≠ Projection ID stays truthful.
+   */
+  launchingToolId?: string;
 }
 
 /** Neutral host navigation item (presentation only). */

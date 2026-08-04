@@ -87,6 +87,26 @@ describe("ProjectionHost shell", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("marks navigation active by launchingToolId when it differs from projection key", () => {
+    renderHost({
+      active: {
+        kind: "tool",
+        key: "build-world-reference-search",
+        size: "wide",
+        title: "Find existing object",
+        launchingToolId: "build-find-existing-object",
+      },
+      navigationItems: [
+        { id: "build-find-existing-object", label: "Find existing object" },
+      ],
+      body: <p>Search body</p>,
+    });
+
+    const navButton = screen.getByRole("button", { name: "Find existing object" });
+    expect(navButton).toHaveAttribute("aria-pressed", "true");
+    expect(navButton).toHaveClass("active");
+  });
+
   it("calls onExpand when the Expand button is clicked for glance-only content", async () => {
     const user = userEvent.setup();
     const onExpand = vi.fn();

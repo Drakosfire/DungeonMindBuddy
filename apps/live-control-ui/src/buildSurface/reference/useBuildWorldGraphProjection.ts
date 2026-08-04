@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LiveApiError, postWorldGraphProjection } from "../../api/liveApi";
-import type { WorldGraphProjection } from "../../api/types";
+import type {
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
+} from "../../api/types";
 import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
 import type {
   GraphReferenceProjectionState,
@@ -23,9 +26,20 @@ export interface UseBuildWorldGraphProjectionResult {
   requestedRevisionId: string | null;
   loadedRevisionId: string | null;
   revisionMode: "head" | "pinned";
+  /** True only when a head request was verified against snapshot.isHead. */
+  loadedIsHead: boolean;
   generation: number;
   items: readonly GraphReferenceSearchItem[];
 }
+
+type StoredProjectionLoad = {
+  loadKey: string;
+  projection: WorldGraphProjection | null;
+  state: GraphReferenceProjectionState;
+  error: string | null;
+  loadedRevisionId: string | null;
+  loadedIsHead: boolean;
+};
 
 function resolveRevisionFields(lens: BuildGraphLensResolution): {
   revisionMode: "head" | "pinned";
@@ -67,16 +81,89 @@ function formatProjectionLoadError(error: unknown): string {
   return error instanceof Error ? error.message : "Failed to load World Graph projection.";
 }
 
+function focusMatchesRequest(
+  responseFocus: WorldGraphProjection["snapshot"]["focus"],
+  requestFocus: WorldGraphProjectionRequest["focus"],
+): boolean {
+  const responseKind = responseFocus?.kind ?? "none";
+  const requestKind = requestFocus.kind;
+  if (responseKind !== requestKind) return false;
+  const responseSessionId = responseFocus?.sessionId ?? null;
+  const requestSessionId = requestFocus.sessionId ?? null;
+  if (responseSessionId !== requestSessionId) return false;
+  const responseCampaignId = responseFocus?.campaignId ?? null;
+  const requestCampaignId = requestFocus.campaignId ?? null;
+  // Build requests omit campaignId on none-focus; tolerate absent response campaignId.
+  if (requestCampaignId != null && responseCampaignId !== requestCampaignId) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Verify the projection response matches the exact request lens.
+ * Pinned: revisionId must equal the pin.
+ * Head: snapshot must report isHead and revisionId === headRevisionId.
+ */
+export function verifyWorldGraphProjectionResponse(input: {
+  request: WorldGraphProjectionRequest;
+  response: WorldGraphProjection;
+  revisionKind: "head" | "pinned";
+  pinnedRevisionId?: string | null;
+}): string | null {
+  const { request, response, revisionKind, pinnedRevisionId } = input;
+  const snapshot = response.snapshot;
+
+  if (snapshot.worldId !== request.worldId) {
+    return `Projection world ${snapshot.worldId} does not match requested world ${request.worldId}.`;
+  }
+  if (snapshot.campaignId !== request.campaignId) {
+    return `Projection campaign ${snapshot.campaignId} does not match requested campaign ${request.campaignId}.`;
+  }
+  if (!focusMatchesRequest(snapshot.focus, request.focus)) {
+    return "Projection focus does not match the requested lens focus.";
+  }
+
+  if (revisionKind === "pinned") {
+    const pin = pinnedRevisionId?.trim() || null;
+    if (!pin) {
+      return "Pinned revision request is missing a revision id.";
+    }
+    if (snapshot.revisionId !== pin) {
+      return `Pinned revision ${pin} does not match loaded revision ${snapshot.revisionId}.`;
+    }
+    return null;
+  }
+
+  if (!snapshot.isHead) {
+    return `Requested current head but projection reports non-head revision ${snapshot.revisionId}.`;
+  }
+  if (snapshot.revisionId !== snapshot.headRevisionId) {
+    return `Projection head claim is inconsistent (revision ${snapshot.revisionId} ≠ head ${snapshot.headRevisionId}).`;
+  }
+  return null;
+}
+
+function pendingLoadForKey(loadKey: string): StoredProjectionLoad {
+  return {
+    loadKey,
+    projection: null,
+    state: "loading",
+    error: null,
+    loadedRevisionId: null,
+    loadedIsHead: false,
+  };
+}
+
 export function useBuildWorldGraphProjection(
   input: UseBuildWorldGraphProjectionInput,
 ): UseBuildWorldGraphProjectionResult {
   const { lens, documentIdentity } = input;
   const revisionFields = useMemo(() => resolveRevisionFields(lens), [lens]);
 
-  const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
-  const [state, setState] = useState<GraphReferenceProjectionState>("loading");
-  const [error, setError] = useState<string | null>(null);
-  const [loadedRevisionId, setLoadedRevisionId] = useState<string | null>(null);
+  const [stored, setStored] = useState<StoredProjectionLoad>(() =>
+    pendingLoadForKey("__init__"),
+  );
   const [generation, setGeneration] = useState(0);
   const requestGenerationRef = useRef(0);
 
@@ -95,26 +182,36 @@ export function useBuildWorldGraphProjection(
     return `${docKey}:ready:${lens.campaignId}:${revisionKey}`;
   }, [documentIdentity.campaignId, documentIdentity.documentId, lens]);
 
+  // Depend on loadKey only (not lens identity). Equivalent lens objects recreated
+  // each render must not retrigger loads / setGeneration loops.
   useEffect(() => {
     const currentGeneration = ++requestGenerationRef.current;
     setGeneration(currentGeneration);
     const isCurrent = () => currentGeneration === requestGenerationRef.current;
 
     if (lens.status === "selection_required") {
-      setProjection(null);
-      setState("unavailable");
-      setError(lens.reason);
-      setLoadedRevisionId(null);
+      setStored({
+        loadKey,
+        projection: null,
+        state: "unavailable",
+        error: lens.reason,
+        loadedRevisionId: null,
+        loadedIsHead: false,
+      });
       return () => {
         requestGenerationRef.current += 1;
       };
     }
 
     if (lens.status === "invalid") {
-      setProjection(null);
-      setState("error");
-      setError(lens.reason);
-      setLoadedRevisionId(null);
+      setStored({
+        loadKey,
+        projection: null,
+        state: "error",
+        error: lens.reason,
+        loadedRevisionId: null,
+        loadedIsHead: false,
+      });
       return () => {
         requestGenerationRef.current += 1;
       };
@@ -122,76 +219,119 @@ export function useBuildWorldGraphProjection(
 
     const revisionPin =
       lens.revision.kind === "pinned" ? lens.revision.revisionId : null;
+    const revisionKind = lens.revision.kind === "pinned" ? "pinned" : "head";
+    const campaignId = lens.campaignId;
     const request = buildBuildWorldGraphProjectionRequest({
-      campaignId: lens.campaignId,
+      campaignId,
       revisionPin,
     });
 
     if (!request) {
-      setProjection(null);
-      setState("error");
-      setError(`Unknown campaign mapping for ${lens.campaignId}.`);
-      setLoadedRevisionId(null);
+      setStored({
+        loadKey,
+        projection: null,
+        state: "error",
+        error: `Unknown campaign mapping for ${campaignId}.`,
+        loadedRevisionId: null,
+        loadedIsHead: false,
+      });
       return () => {
         requestGenerationRef.current += 1;
       };
     }
 
-    setProjection(null);
-    setState("loading");
-    setError(null);
-    setLoadedRevisionId(null);
+    setStored(pendingLoadForKey(loadKey));
 
     void (async () => {
       try {
         const response = await postWorldGraphProjection(request);
         if (!isCurrent()) return;
 
-        const responseRevisionId = response.snapshot.revisionId;
-        if (lens.revision.kind === "pinned") {
-          if (responseRevisionId !== lens.revision.revisionId) {
-            setProjection(null);
-            setState("error");
-            setError(
-              `Pinned revision ${lens.revision.revisionId} does not match loaded revision ${responseRevisionId}.`,
-            );
-            setLoadedRevisionId(null);
-            return;
-          }
+        const mismatch = verifyWorldGraphProjectionResponse({
+          request,
+          response,
+          revisionKind,
+          pinnedRevisionId: revisionPin,
+        });
+        if (mismatch) {
+          setStored({
+            loadKey,
+            projection: null,
+            state: "error",
+            error: mismatch,
+            loadedRevisionId: null,
+            loadedIsHead: false,
+          });
+          return;
         }
 
-        setProjection(response);
-        setState("ready");
-        setError(null);
-        setLoadedRevisionId(responseRevisionId);
+        setStored({
+          loadKey,
+          projection: response,
+          state: "ready",
+          error: null,
+          loadedRevisionId: response.snapshot.revisionId,
+          loadedIsHead: revisionKind === "head" ? response.snapshot.isHead === true : false,
+        });
       } catch (loadError) {
         if (!isCurrent()) return;
-        setProjection(null);
-        setState("error");
-        setError(formatProjectionLoadError(loadError));
-        setLoadedRevisionId(null);
+        setStored({
+          loadKey,
+          projection: null,
+          state: "error",
+          error: formatProjectionLoadError(loadError),
+          loadedRevisionId: null,
+          loadedIsHead: false,
+        });
       }
     })();
 
     return () => {
       requestGenerationRef.current += 1;
     };
-  }, [lens, loadKey]);
+    // loadKey encodes document + lens status/campaign/revision/reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid lens-identity loops
+  }, [loadKey]);
+
+  // Fail closed across the transition render: never expose lens B with projection A.
+  const coherent =
+    stored.loadKey === loadKey
+      ? stored
+      : lens.status === "selection_required"
+        ? {
+            loadKey,
+            projection: null,
+            state: "unavailable" as const,
+            error: lens.reason,
+            loadedRevisionId: null,
+            loadedIsHead: false,
+          }
+        : lens.status === "invalid"
+          ? {
+              loadKey,
+              projection: null,
+              state: "error" as const,
+              error: lens.reason,
+              loadedRevisionId: null,
+              loadedIsHead: false,
+            }
+          : pendingLoadForKey(loadKey);
 
   const items = useMemo(() => {
-    if (state !== "ready" || !projection || lens.status !== "ready") {
+    if (coherent.state !== "ready" || !coherent.projection || lens.status !== "ready") {
       return [];
     }
-    return adaptProjectionSearchItems(projection, lens.campaignId);
-  }, [lens, projection, state]);
+    return adaptProjectionSearchItems(coherent.projection, lens.campaignId);
+  }, [coherent.projection, coherent.state, lens]);
 
   return {
-    projection,
-    state,
-    error,
+    projection: coherent.projection,
+    state: coherent.state,
+    error: coherent.error,
     requestedRevisionId: revisionFields.requestedRevisionId,
-    loadedRevisionId,
+    loadedRevisionId: coherent.loadedRevisionId,
     revisionMode: revisionFields.revisionMode,
+    loadedIsHead: coherent.loadedIsHead,
     generation,
     items,
   };

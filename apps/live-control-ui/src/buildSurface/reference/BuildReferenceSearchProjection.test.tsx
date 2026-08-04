@@ -66,6 +66,7 @@ function baseContext(
     projectionError: null,
     requestedRevisionId: null,
     loadedRevisionId: "rev-head",
+    loadedIsHead: true,
     items: [searchItem(glowkindleNode)],
     selectCampaign: vi.fn(),
     viewExact: vi.fn(),
@@ -126,6 +127,20 @@ describe("BuildReferenceSearchProjection", () => {
     expect(screen.queryByRole("button", { name: "Insert chip" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(viewExact).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-glowkindle" }));
+  });
+
+  it("does not label a non-head snapshot as Current head", () => {
+    renderWithContext(
+      baseContext({
+        loadedIsHead: false,
+        loadedRevisionId: "rev-stale",
+      }),
+    );
+
+    expect(screen.getByTestId("build-reference-lens-summary")).toHaveTextContent(
+      "longmont-c1 · Loaded rev-stale",
+    );
+    expect(screen.getByTestId("build-reference-lens-summary")).not.toHaveTextContent("Current head");
   });
 
   it("error state shows exact error without stale search results", () => {

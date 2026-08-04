@@ -33,6 +33,7 @@ const sampleContext: BuildReferenceContextBinding = {
   projectionError: null,
   requestedRevisionId: null,
   loadedRevisionId: "rev-head",
+  loadedIsHead: true,
   selectCampaign: () => undefined,
   viewExact: () => undefined,
 };
@@ -113,6 +114,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
         groupOrder: 10,
         itemOrder: 0,
       },
+      availability: { status: "enabled" },
       activation: {
         kind: "projection",
         projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
@@ -137,5 +139,59 @@ describe("buildBuildSurfaceInteractionPublication", () => {
       GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
     ]);
     expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
+  });
+
+  it("disables Find existing for invalid lenses with the resolver reason", () => {
+    const invalidContext: BuildReferenceContextBinding = {
+      ...sampleContext,
+      lens: {
+        status: "invalid",
+        reason: "Campaign-scoped document (longmont-c1) does not admit campaign lens longmont-c2.",
+      },
+      projectionState: "error",
+      projectionError:
+        "Campaign-scoped document (longmont-c1) does not admit campaign lens longmont-c2.",
+      loadedRevisionId: null,
+      loadedIsHead: false,
+    };
+    const publication = buildBuildSurfaceInteractionPublication({
+      documentId: DOC_ID,
+      acceptedDocument: { documentId: DOC_ID, campaignId: "longmont-c1" },
+      referenceContext: invalidContext,
+    });
+
+    expect(publication.tools[0]?.availability).toEqual({
+      status: "disabled",
+      disabledReason:
+        "Campaign-scoped document (longmont-c1) does not admit campaign lens longmont-c2.",
+    });
+    expect(validateSurfaceInteractionPublication(publication).valid).toBe(true);
+  });
+
+  it("keeps Find existing enabled for selection_required lenses", () => {
+    const selectionContext: BuildReferenceContextBinding = {
+      ...sampleContext,
+      documentCampaignId: "eldyrwild",
+      lens: {
+        status: "selection_required",
+        documentId: DOC_ID,
+        documentCampaignId: "eldyrwild",
+        worldId: "eldyrwild",
+        availableCampaignIds: ["longmont-c1", "longmont-c2"],
+        revision: { kind: "head" },
+        reason: "World-scoped document requires an explicit campaign selection.",
+      },
+      projectionState: "unavailable",
+      projectionError: "World-scoped document requires an explicit campaign selection.",
+      loadedRevisionId: null,
+      loadedIsHead: false,
+    };
+    const publication = buildBuildSurfaceInteractionPublication({
+      documentId: DOC_ID,
+      acceptedDocument: { documentId: DOC_ID, campaignId: "eldyrwild" },
+      referenceContext: selectionContext,
+    });
+
+    expect(publication.tools[0]?.availability).toEqual({ status: "enabled" });
   });
 });

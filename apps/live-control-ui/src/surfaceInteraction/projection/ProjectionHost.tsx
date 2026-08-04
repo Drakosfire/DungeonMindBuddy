@@ -45,7 +45,8 @@ export function ProjectionHost({
   onExpand,
 }: ProjectionHostProps) {
   const isOpen = active !== null;
-  const activeToolId = active?.kind === "tool" ? active.key : null;
+  const activeNavigationId =
+    active?.kind === "tool" ? (active.launchingToolId ?? active.key) : null;
   const showModalBackdrop = isOpen && active?.kind === "tool";
   const drawerClass = projectionDrawerClass(active?.size);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -134,8 +135,8 @@ export function ProjectionHost({
             <button
               key={item.id}
               type="button"
-              className={activeToolId === item.id ? "active" : undefined}
-              aria-pressed={activeToolId === item.id}
+              className={activeNavigationId === item.id ? "active" : undefined}
+              aria-pressed={activeNavigationId === item.id}
               onClick={() => onNavigate(item.id)}
             >
               {item.label}

@@ -1,4 +1,5 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider, useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
@@ -6,6 +7,8 @@ import * as liveApi from "../../api/liveApi";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider } from "../../markdownCanvas/MarkdownCanvasSession";
+import { LegacyProjectionHostAdapter } from "../../planSurface/projection/LegacyProjectionHostAdapter";
+import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
 import { BUILD_MARKDOWN_CANVAS } from "../buildMarkdownCanvasAdapter";
 import { BUILD_SAVE_CONFLICTS_WITH } from "../buildDocumentCommands";
 import type { BuildReferenceContextBinding } from "./buildBuildSurfaceInteractionPublication";
@@ -46,14 +49,14 @@ vi.mock("../../api/liveApi", async (importOriginal) => {
   };
 });
 
-function snapshotFixture(documentId: string = DOC_ID) {
+function snapshotFixture(documentId: string = DOC_ID, campaignId = "eldyrwild") {
   return {
     schema_version: "dmb_workspace_document_snapshot_v1" as const,
     record: {
       schema_version: "dmb_workspace_document_record_v1" as const,
       document_id: documentId,
       title: "Faction Notes",
-      campaign_id: "eldyrwild",
+      campaign_id: campaignId,
       target_session: null,
       kind: "worldbuilding_source" as const,
       target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
@@ -298,5 +301,182 @@ describe("BuildReferenceCapability", () => {
     await waitFor(() => {
       expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("location-inn");
     });
+  });
+
+  it("rejects viewExact for a node absent from the current ready results", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
+
+    let latestContext: BuildReferenceContextBinding | null = null;
+
+    function ActiveGraphReferenceProbe() {
+      const { activeGraphReference } = useAgentInteraction();
+      return (
+        <p data-testid="active-graph-node-id">
+          {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+        </p>
+      );
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ActiveGraphReferenceProbe />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
+
+    const stale = searchItemFromApiNode({
+      ...glowkindleNode,
+      nodeId: "npc-stale-from-prior-lens",
+      label: "Stale",
+    });
+    latestContext!.viewExact({
+      nodeId: stale.nodeId,
+      label: stale.label,
+      kind: "npc",
+      role: "merchant",
+      summary: null,
+      aliases: [],
+      scopeLabel: "longmont-c1",
+      reference: referenceFromGraphNode(stale.nodeView),
+      nodeView: stale.nodeView,
+    });
+
+    expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("none");
+  });
+
+  it("clears open object content when the graph-reference binding is replaced after a lens change", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "eldyrwild"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection)
+      .mockResolvedValueOnce(graphProjectionFixture())
+      .mockResolvedValueOnce({
+        ...graphProjectionFixture(),
+        snapshot: {
+          ...graphProjectionFixture().snapshot,
+          campaignId: "longmont-c2",
+          revisionId: "rev-c2",
+          headRevisionId: "rev-c2",
+        },
+        nodes: [innNode],
+      });
+
+    let latestContext: BuildReferenceContextBinding | null = null;
+
+    function ActiveProbe() {
+      const { active, activeGraphReference } = useAgentInteraction();
+      return (
+        <p data-testid="active-probe">
+          {active?.kind ?? "none"}|{activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+        </p>
+      );
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ActiveProbe />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => expect(latestContext?.items.length).toBe(2));
+    const first = searchItemFromApiNode(glowkindleNode);
+    latestContext!.viewExact({
+      nodeId: first.nodeId,
+      label: first.label,
+      kind: "npc",
+      role: "merchant",
+      summary: "A friendly merchant.",
+      aliases: ["Glow"],
+      scopeLabel: "longmont-c1",
+      reference: referenceFromGraphNode(first.nodeView),
+      nodeView: first.nodeView,
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("active-probe")).toHaveTextContent("content|npc-glowkindle");
+    });
+
+    latestContext!.selectCampaign("longmont-c2");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("active-probe")).toHaveTextContent("none|none");
+    });
+    await waitFor(() => {
+      expect(latestContext?.lens.status).toBe("ready");
+      expect(latestContext?.lens.status === "ready" && latestContext.lens.campaignId).toBe("longmont-c2");
+    });
+    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
+    // Replacement binding must not resurrect the prior object under the new lens.
+    expect(screen.getByTestId("active-probe")).toHaveTextContent("none|none");
+  });
+
+  it("E2E: ToolHost Find existing → search → View → object content renderer", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+        </MarkdownCanvasSessionProvider>
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("surface-tool-host")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
+    });
+    const host = document.querySelector(".surface-projection-host");
+    expect(host).toBeTruthy();
+    const navButton = within(host as HTMLElement).getByRole("button", { name: "Find existing object" });
+    expect(navButton).toHaveAttribute("aria-pressed", "true");
+
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    await user.click(screen.getByRole("button", { name: "View" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+    expect(within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle")).toBeInTheDocument();
   });
 });

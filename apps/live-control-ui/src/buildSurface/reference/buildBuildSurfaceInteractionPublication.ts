@@ -37,6 +37,8 @@ export interface BuildReferenceContextBinding {
   projectionError: string | null;
   requestedRevisionId: string | null;
   loadedRevisionId: string | null;
+  /** True only when a head request verified snapshot.isHead. */
+  loadedIsHead: boolean;
   items: readonly GraphReferenceSearchItem[];
   selectCampaign: (campaignId: string) => void;
   viewExact: (item: GraphReferenceSearchItem) => void;
@@ -87,6 +89,13 @@ export function buildBuildSurfaceInteractionPublication(
   }
 
   const admittedDocumentId = acceptedDocument.documentId;
+  const lens = referenceContext.lens;
+  // selection_required stays enabled (campaign picker is the action).
+  // invalid lenses disable the Tool with the resolver's exact reason.
+  const toolAvailability =
+    lens.status === "invalid"
+      ? { status: "disabled" as const, disabledReason: lens.reason }
+      : { status: "enabled" as const };
 
   return {
     surfaceId: BUILD_SURFACE_ID,
@@ -108,7 +117,7 @@ export function buildBuildSurfaceInteractionPublication(
           groupOrder: BUILD_WORLD_REFERENCE_GROUP_ORDER,
           itemOrder: 0,
         },
-        availability: { status: "enabled" },
+        availability: toolAvailability,
         activation: {
           kind: "projection",
           projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID,

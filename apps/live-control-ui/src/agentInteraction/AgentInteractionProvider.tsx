@@ -353,6 +353,16 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     setLeasedGraphProjectionState(null);
   }, []);
 
+  /** Clear leased object/content attachments without touching an open Tool projection. */
+  const clearLeasedGraphReferenceContent = useCallback(() => {
+    setLeasedGraphReference(null);
+    setLeasedGraphProjectionState(null);
+    if (leasedActiveRef.current?.projection.kind === "content") {
+      leasedActiveRef.current = null;
+      setLeasedActive(null);
+    }
+  }, []);
+
   const revalidateLeasedAttachmentsAfterSnapshot = useCallback(() => {
     const bundle = leaseBundleRef.current;
     if (!bundle?.snapshot.effectivePublication) {
@@ -374,6 +384,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       // Native publications must clear leasedActive when the launching tool or
       // target descriptor disappears under the same identity (no resurrection).
       nextLeased = revalidateLeasedToolProjection(publication, nextLeased);
+    } else if (nextLeased?.projection.kind === "content") {
+      // Native content survives only while the publication still declares capability.
+      if (!publicationDeclaresGraphReferenceCapability(publication)) {
+        nextLeased = null;
+      }
     }
 
     leasedActiveRef.current = nextLeased;
@@ -751,12 +766,15 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       return () => {
         if (graphReferenceRegistrationRef.current?.token === token) {
           graphReferenceRegistrationRef.current = null;
+          // Unregister must revoke leased object content so a replacement binding
+          // cannot resurrect the prior resolution under a new lens/context.
+          clearLeasedGraphReferenceContent();
         }
         if (leaseBundleRef.current?.authorizationEpoch !== capturedEpoch) return;
         setGraphReferenceRegistration((current) => (current?.token === token ? null : current));
       };
     },
-    [currentSurfaceToken, leaseBundle?.authorizationEpoch],
+    [clearLeasedGraphReferenceContent, currentSurfaceToken, leaseBundle?.authorizationEpoch],
   );
 
   const registerToolProjectionPayload = useCallback(
@@ -922,6 +940,12 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         (entry) => entry.id === projectionId && entry.kind === "tool",
       );
       if (!descriptor) return null;
+    }
+    if (leasedActive.projection.kind === "tool" && leasedActive.launchingToolId) {
+      return {
+        ...leasedActive.projection,
+        launchingToolId: leasedActive.launchingToolId,
+      };
     }
     return leasedActive.projection;
   }, [currentSurfaceToken, graphReferenceRegistration, leasedActive, leaseBundle]);

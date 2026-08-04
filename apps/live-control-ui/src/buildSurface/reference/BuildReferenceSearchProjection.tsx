@@ -15,6 +15,7 @@ function isBuildReferenceContextBinding(value: unknown): value is BuildReference
     && typeof candidate.documentId === "string"
     && typeof candidate.documentCampaignId === "string"
     && candidate.lens != null
+    && typeof candidate.loadedIsHead === "boolean"
     && typeof candidate.selectCampaign === "function"
     && typeof candidate.viewExact === "function"
   );
@@ -42,13 +43,17 @@ function formatRevisionSummary(input: {
   requestedRevisionId: string | null;
   loadedRevisionId: string | null;
   revisionMode: "head" | "pinned";
+  loadedIsHead: boolean;
 }): string {
   if (input.revisionMode === "pinned" && input.requestedRevisionId) {
     const loaded = input.loadedRevisionId ?? "unknown";
     return `Pinned ${input.requestedRevisionId} · verified ${loaded}`;
   }
   const loaded = input.loadedRevisionId ?? "…";
-  return `Current head · loaded ${loaded}`;
+  if (input.loadedIsHead) {
+    return `Current head · loaded ${loaded}`;
+  }
+  return `Loaded ${loaded}`;
 }
 
 function lensCampaignLabel(lens: BuildGraphLensResolution): string | null {
@@ -122,6 +127,7 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
     requestedRevisionId: context.requestedRevisionId,
     loadedRevisionId: context.loadedRevisionId,
     revisionMode,
+    loadedIsHead: context.loadedIsHead,
   });
 
   if (context.projectionState === "loading") {

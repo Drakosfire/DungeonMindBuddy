@@ -602,6 +602,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       key: "recap",
       size: "wide",
       title: "Recap",
+      launchingToolId: "recap",
     });
 
     act(() => {
@@ -620,6 +621,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       key: "recap",
       size: "fullscreen",
       title: "Session Memory",
+      launchingToolId: "recap",
     });
   });
 
@@ -877,6 +879,51 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     });
 
     expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.active).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
+  });
+
+  it("clears Plan binding when context is lost and rejects fresh registration", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+    });
+    act(() => {
+      openResolution(result.current.openGraphReference);
+    });
+    expect(result.current.graphReferenceBinding).not.toBeNull();
+    expect(result.current.active?.kind).toBe("content");
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({
+          context: null,
+          tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        }),
+      );
+    });
+
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.graphReferenceBinding).toBeNull();
+    expect(result.current.active).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
+
+    act(() => {
+      result.current.registerGraphReferenceBinding(makePlanBinding());
+      openResolution(result.current.openGraphReference);
+    });
+    expect(result.current.graphReferenceBinding).toBeNull();
+    expect(result.current.active).toBeNull();
+    expect(result.current.activeGraphReference).toBeNull();
+
+    // Context returning must not resurrect prior content without a fresh operator action.
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    expect(result.current.graphReferenceBinding).toBeNull();
     expect(result.current.active).toBeNull();
     expect(result.current.activeGraphReference).toBeNull();
   });
@@ -2158,6 +2205,7 @@ describe("AgentInteractionProvider projection catalog registration", () => {
       key: "native-tool",
       size: "wide",
       title: "Native Tool",
+      launchingToolId: "native-tool",
     });
   });
 
@@ -2202,6 +2250,7 @@ describe("AgentInteractionProvider projection catalog registration", () => {
       key: "graph-reference-search",
       size: "wide",
       title: "Find Existing",
+      launchingToolId: "find-existing",
     });
     act(() => {
       expect(result.current.activateProjectionTool("graph-reference-search")).toBe(false);

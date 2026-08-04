@@ -227,6 +227,11 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
 
   const viewExact = useCallback(
     (item: GraphReferenceSearchItem) => {
+      const generationAtClick = projectionGenerationRef.current;
+      if (projection.state !== "ready") return;
+      if (generationAtClick !== projection.generation) return;
+      if (!projection.items.some((entry) => entry.nodeId === item.nodeId)) return;
+
       openGraphReference({
         resolution: {
           kind: "resolved_graph",
@@ -240,7 +245,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
         projectionState: projection.state,
       });
     },
-    [openGraphReference, projection.state],
+    [openGraphReference, projection.generation, projection.items, projection.state],
   );
 
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
@@ -254,6 +259,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       projectionError: projection.error,
       requestedRevisionId: projection.requestedRevisionId,
       loadedRevisionId: projection.loadedRevisionId,
+      loadedIsHead: projection.loadedIsHead,
       items: projection.items,
       selectCampaign,
       viewExact,
@@ -263,6 +269,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     lens,
     projection.error,
     projection.items,
+    projection.loadedIsHead,
     projection.loadedRevisionId,
     projection.requestedRevisionId,
     projection.state,
