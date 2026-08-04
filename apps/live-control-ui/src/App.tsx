@@ -20,6 +20,7 @@ import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
 } from "./agentInteraction/surfaceInteractionCompat";
 import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProjectionHostAdapter";
+import { ToolHost } from "./surfaceInteraction/toolHost/ToolHost";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
@@ -285,6 +286,7 @@ export function App() {
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
         {content}
+        <ToolHost />
         <LegacyProjectionHostAdapter />
         <AgentInteractionChrome />
       </AskPluginSlotProvider>

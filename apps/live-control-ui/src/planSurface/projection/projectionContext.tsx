@@ -27,7 +27,7 @@ export interface ProjectionContextValue {
   graphReferenceProjectionState: GraphReferenceProjectionState | null;
   graphReferenceBinding: GraphReferenceProjectionBinding | null;
   graphReviewDiagnosticsPayload: GraphReviewDiagnosticsProjectionPayload | null;
-  openTool: (toolId: string) => void;
+  openTool: (toolId: string) => boolean;
   openGraphReference: (args: OpenGraphReferenceArgs) => void;
   expandContent: () => void;
   close: () => void;

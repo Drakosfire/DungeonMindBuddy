@@ -23,6 +23,7 @@ import {
   buildAppChromeCompatibilityFragment,
   ROUTE_COMPATIBILITY_PUBLICATIONS,
 } from "./surfaceInteractionCompat";
+import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import { useAgentInteraction } from "./useAgentInteraction";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -558,6 +559,30 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       );
     });
 
+    expect(result.current.active).toBeNull();
+  });
+
+  it("openTool returns false when the tool is missing after a same-identity publish", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      expect(result.current.openTool("recap")).toBe(true);
+    });
+    expect(result.current.active?.key).toBe("recap");
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({ tools: [{ id: "statblock", label: "Statblock", size: "wide" as const }] }),
+      );
+    });
+
+    let opened = true;
+    act(() => {
+      opened = result.current.openTool("recap");
+    });
+    expect(opened).toBe(false);
     expect(result.current.active).toBeNull();
   });
 
@@ -1938,5 +1963,197 @@ describe("AgentInteractionProvider projection catalog registration", () => {
     act(() => {
       cleanup?.();
     });
+  });
+
+  it("opens tool projections from effective publication without legacy projection surface", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = {
+      surfaceId: "native",
+      label: "Native",
+      identity: buildSurfaceInteractionIdentity({ surfaceId: "native", instanceParts: ["open-tool"] }),
+      canvas: null,
+      agentContext: null,
+      tools: [{
+        id: "native-tool",
+        label: "Native Tool",
+        placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+        availability: { status: "enabled" as const },
+        activation: { kind: "projection" as const, projectionId: "native-tool" },
+      }],
+      editCommands: [],
+      projections: [{
+        id: "native-tool",
+        kind: "tool" as const,
+        preferredSize: "wide" as const,
+        bindingIds: [],
+      }],
+      projectionBindings: [],
+    };
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(publication);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("native-tool")).toBe(true);
+    });
+    expect(result.current.active).toEqual({
+      kind: "tool",
+      key: "native-tool",
+      size: "wide",
+      title: "Native Tool",
+    });
+  });
+
+  it("opens a native Projection when tool id differs from activation.projectionId", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = {
+      surfaceId: "native",
+      label: "Native",
+      identity: buildSurfaceInteractionIdentity({
+        surfaceId: "native",
+        instanceParts: ["divergent-ids"],
+      }),
+      canvas: null,
+      agentContext: null,
+      tools: [{
+        id: "find-existing",
+        label: "Find Existing",
+        placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+        availability: { status: "enabled" as const },
+        activation: {
+          kind: "projection" as const,
+          projectionId: "graph-reference-search",
+        },
+      }],
+      editCommands: [],
+      projections: [{
+        id: "graph-reference-search",
+        kind: "tool" as const,
+        preferredSize: "wide" as const,
+        bindingIds: [],
+      }],
+      projectionBindings: [],
+    };
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(publication);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("find-existing")).toBe(true);
+    });
+    expect(result.current.active).toEqual({
+      kind: "tool",
+      key: "graph-reference-search",
+      size: "wide",
+      title: "Find Existing",
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("graph-reference-search")).toBe(false);
+    });
+  });
+
+  it("clears a native Projection on same-identity tool removal and does not resurrect it", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const identity = buildSurfaceInteractionIdentity({
+      surfaceId: "native",
+      instanceParts: ["no-resurrect"],
+    });
+    const withTool = {
+      surfaceId: "native",
+      label: "Native",
+      identity,
+      canvas: null,
+      agentContext: null,
+      tools: [{
+        id: "find-existing",
+        label: "Find Existing",
+        placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+        availability: { status: "enabled" as const },
+        activation: {
+          kind: "projection" as const,
+          projectionId: "graph-reference-search",
+        },
+      }],
+      editCommands: [],
+      projections: [{
+        id: "graph-reference-search",
+        kind: "tool" as const,
+        preferredSize: "wide" as const,
+        bindingIds: [],
+      }],
+      projectionBindings: [],
+    };
+    const withoutTool = {
+      ...withTool,
+      tools: [],
+      projections: [],
+    };
+
+    act(() => {
+      result.current.publishSurfaceInteractionPublication(withTool);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("find-existing")).toBe(true);
+    });
+    expect(result.current.active?.key).toBe("graph-reference-search");
+
+    act(() => {
+      result.current.updateSurfaceInteractionPublication(withoutTool);
+    });
+    expect(result.current.active).toBeNull();
+
+    act(() => {
+      result.current.updateSurfaceInteractionPublication(withTool);
+    });
+    expect(result.current.active).toBeNull();
+
+    act(() => {
+      expect(result.current.activateProjectionTool("find-existing")).toBe(true);
+    });
+    expect(result.current.active?.key).toBe("graph-reference-search");
+  });
+
+  it("awaits a registered async activator before reporting success", async () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    let resolveActivator!: (value: boolean) => void;
+    const activator = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveActivator = resolve;
+        }),
+    );
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionToolActivator(activator);
+    });
+
+    let pending!: Promise<boolean>;
+    act(() => {
+      const opened = result.current.activateProjectionTool("recap");
+      expect(opened).toBeInstanceOf(Promise);
+      pending = opened as Promise<boolean>;
+    });
+    expect(activator).toHaveBeenCalledWith("recap");
+    expect(result.current.active).toBeNull();
+
+    await act(async () => {
+      resolveActivator(true);
+      await expect(pending).resolves.toBe(true);
+    });
+  });
+
+  it("routes activateProjectionTool through a registered activator on the current lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const activator = vi.fn();
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerProjectionToolActivator(activator);
+    });
+    act(() => {
+      expect(result.current.activateProjectionTool("recap")).toBe(true);
+    });
+    expect(activator).toHaveBeenCalledWith("recap");
   });
 });

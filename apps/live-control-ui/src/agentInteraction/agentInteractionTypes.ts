@@ -154,7 +154,12 @@ export interface AgentInteractionProjectionActions {
    * publication identity matches the current registration; never unbinds.
    */
   updateProjectionSurfaceConfig: (publication: ProjectionSurfacePublication) => void;
-  openTool: (toolId: string) => void;
+  openTool: (toolId: string) => boolean;
+  /** Plan/Ingest adapter path when registered; otherwise publication-backed openTool. */
+  activateProjectionTool: (toolId: string) => boolean | Promise<boolean>;
+  registerProjectionToolActivator: (
+    activator: (toolId: string) => boolean | void | Promise<boolean | void>,
+  ) => () => void;
   openGraphReference: (args: OpenGraphReferenceArgs) => void;
   expandContent: () => void;
   close: () => void;

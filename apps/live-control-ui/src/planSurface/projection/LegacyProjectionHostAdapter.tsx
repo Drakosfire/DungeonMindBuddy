@@ -116,7 +116,7 @@ interface LegacyProjectionHostAdapterInnerProps {
   activeGraphReference: ReturnType<typeof useProjection>["activeGraphReference"];
   close: () => void;
   expandContent: () => void;
-  openTool: (toolId: string) => void;
+  openTool: (toolId: string) => boolean;
   graphReferenceProjectionState: ReturnType<typeof useProjection>["graphReferenceProjectionState"];
   graphReferenceBinding: ReturnType<typeof useProjection>["graphReferenceBinding"];
   graphReviewDiagnosticsPayload: ReturnType<typeof useProjection>["graphReviewDiagnosticsPayload"];
@@ -136,6 +136,7 @@ function LegacyProjectionHostAdapterInner({
   graphReviewDiagnosticsPayload,
   resolveProjectionCatalog,
 }: LegacyProjectionHostAdapterInnerProps) {
+  const { registerProjectionToolActivator } = useAgentInteraction();
   const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(surfaceIdentity);
   surfaceIdentityRef.current = surfaceIdentity;
   useEffect(() => {
@@ -143,7 +144,6 @@ function LegacyProjectionHostAdapterInner({
       surfaceIdentityRef.current = null;
     };
   }, []);
-  const firstToolId = config.tools[0]?.id;
   const campaignKey = config.context!.campaignId;
   const [latestIngestedSessionByCampaign, setLatestIngestedSessionByCampaign] = useState<
     Record<string, string | null>
@@ -173,7 +173,7 @@ function LegacyProjectionHostAdapterInner({
   }, [campaignKey, config.context, latestIngestedSessionId]);
 
   const openToolFromNav = useCallback(
-    async (toolId: string) => {
+    async (toolId: string): Promise<boolean> => {
       const identityAtStart = surfaceIdentityRef.current;
       const inferredSessionId =
         SESSION_AWARE_TOOLS.has(toolId) && !requestedSessionFromLocation()
@@ -185,7 +185,13 @@ function LegacyProjectionHostAdapterInner({
         !identityNow ||
         !sameProjectionSurfaceIdentity(identityAtStart, identityNow)
       ) {
-        return;
+        return false;
+      }
+      // Commit ?tool= / inferred ?session= only after a truthful open.
+      // A same-identity update may remove the tool while lookup is pending.
+      const opened = openTool(toolId);
+      if (!opened) {
+        return false;
       }
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
@@ -199,10 +205,14 @@ function LegacyProjectionHostAdapterInner({
           `${window.location.pathname}?${params.toString()}`,
         );
       }
-      openTool(toolId);
+      return true;
     },
     [openTool, resolveLatestIngestedSessionId],
   );
+
+  useEffect(() => {
+    return registerProjectionToolActivator(openToolFromNav);
+  }, [openToolFromNav, registerProjectionToolActivator]);
 
   useEffect(() => {
     const requestedTool = requestedToolFromLocation();
@@ -272,9 +282,6 @@ function LegacyProjectionHostAdapterInner({
       theme={config.theme}
       body={body}
       onNavigate={(itemId) => void openToolFromNav(itemId)}
-      onToggle={() => {
-        if (firstToolId) void openToolFromNav(firstToolId);
-      }}
       onClose={close}
       onExpand={expandContent}
     />

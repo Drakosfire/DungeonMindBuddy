@@ -6,7 +6,12 @@ import { ROUTE_COMPATIBILITY_PUBLICATIONS } from "../agentInteraction/surfaceInt
 import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
+import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { AppChrome } from "./AppChrome";
+
+function openToolsDrawer() {
+  fireEvent.click(screen.getByRole("button", { name: "Tools" }));
+}
 
 function IndexRouteChromeHarness({
   pageActions,
@@ -17,9 +22,12 @@ function IndexRouteChromeHarness({
 }) {
   usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
   return (
-    <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
-      <main>content</main>
-    </AppChrome>
+    <>
+      <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
+        <main>content</main>
+      </AppChrome>
+      <ToolHost />
+    </>
   );
 }
 
@@ -36,19 +44,22 @@ function PublicationChromeHarness({
   const { surfaceInteractionPublication } = useAgentInteraction();
   const editTarget = surfaceInteractionPublication?.editCommands[0]?.target;
   return (
-    <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
-      <main>
-        <div data-testid="effective-surface">
-          {surfaceInteractionPublication?.identity.surfaceId ?? "none"}
-        </div>
-        <div data-testid="edit-target">
-          {editTarget ? `${editTarget.kind}:${editTarget.id}` : "none"}
-        </div>
-        <div data-testid="tool-ids">
-          {(surfaceInteractionPublication?.tools.map((tool) => tool.id) ?? []).join(",")}
-        </div>
-      </main>
-    </AppChrome>
+    <>
+      <AppChrome activeRoute="index" pageActions={pageActions} editorTools={editorTools}>
+        <main>
+          <div data-testid="effective-surface">
+            {surfaceInteractionPublication?.identity.surfaceId ?? "none"}
+          </div>
+          <div data-testid="edit-target">
+            {editTarget ? `${editTarget.kind}:${editTarget.id}` : "none"}
+          </div>
+          <div data-testid="tool-ids">
+            {(surfaceInteractionPublication?.tools.map((tool) => tool.id) ?? []).join(",")}
+          </div>
+        </main>
+      </AppChrome>
+      <ToolHost />
+    </>
   );
 }
 
@@ -71,11 +82,24 @@ function makeSharedInstancePublication(
 }
 
 describe("AppChrome surface interaction bridge", () => {
-  it("preserves existing DOM labels and grouping", () => {
+  it("preserves Tool host page-tool grouping from AppChrome pageActions", () => {
     render(
       <AgentInteractionProvider>
         <IndexRouteChromeHarness
           pageActions={[{ id: "launch", label: "Launch", onClick: () => {} }]}
+        />
+      </AgentInteractionProvider>,
+    );
+
+    openToolsDrawer();
+    expect(screen.getAllByText("Page tools").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
+  });
+
+  it("preserves Edit toolbox section labels from AppChrome editorTools", () => {
+    render(
+      <AgentInteractionProvider>
+        <IndexRouteChromeHarness
           editorTools={{
             sections: [{
               id: "callouts",
@@ -88,9 +112,7 @@ describe("AppChrome surface interaction bridge", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByText("Page tools")).toBeTruthy();
     expect(screen.getByText("Callouts")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
   });
 
   it("renders AppChrome actions under an active route lease publisher", () => {
@@ -99,6 +121,7 @@ describe("AppChrome surface interaction bridge", () => {
         <IndexRouteChromeHarness pageActions={[{ id: "launch", label: "Launch", onClick: vi.fn() }]} />
       </AgentInteractionProvider>,
     );
+    openToolsDrawer();
     expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
   });
 
@@ -110,6 +133,7 @@ describe("AppChrome surface interaction bridge", () => {
         <IndexRouteChromeHarness pageActions={[{ id: "launch", label: "Launch", onClick: callback1 }]} />
       </AgentInteractionProvider>,
     );
+    openToolsDrawer();
     fireEvent.click(screen.getByRole("button", { name: "Launch" }));
     expect(callback1).toHaveBeenCalledTimes(1);
     expect(callback2).not.toHaveBeenCalled();
@@ -119,6 +143,7 @@ describe("AppChrome surface interaction bridge", () => {
         <IndexRouteChromeHarness pageActions={[{ id: "launch", label: "Launch", onClick: callback2 }]} />
       </AgentInteractionProvider>,
     );
+    openToolsDrawer();
     fireEvent.click(screen.getByRole("button", { name: "Launch" }));
     expect(callback1).toHaveBeenCalledTimes(1);
     expect(callback2).toHaveBeenCalledTimes(1);
@@ -137,6 +162,7 @@ describe("AppChrome surface interaction bridge", () => {
     );
     expect(screen.getByTestId("effective-surface").textContent).toBe("a");
     expect(screen.getByTestId("tool-ids").textContent).toBe("launch");
+    openToolsDrawer();
     fireEvent.click(screen.getByRole("button", { name: "Launch" }));
     expect(onClick).toHaveBeenCalledTimes(1);
 
@@ -147,6 +173,7 @@ describe("AppChrome surface interaction bridge", () => {
     );
     expect(screen.getByTestId("effective-surface").textContent).toBe("b");
     expect(screen.getByTestId("tool-ids").textContent).toBe("launch");
+    openToolsDrawer();
     fireEvent.click(screen.getByRole("button", { name: "Launch" }));
     expect(onClick).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("button", { name: "Launch" })).not.toBeDisabled();
@@ -201,6 +228,7 @@ describe("AppChrome surface interaction bridge", () => {
         />
       </AgentInteractionProvider>,
     );
+    openToolsDrawer();
     expect(screen.getByRole("button", { name: "b:e:c" })).not.toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "b:e:c" }));
     expect(shared).toHaveBeenCalledTimes(1);
@@ -212,6 +240,7 @@ describe("AppChrome surface interaction bridge", () => {
         />
       </AgentInteractionProvider>,
     );
+    openToolsDrawer();
     const nextButton = screen.getByRole("button", { name: "c" });
     expect(nextButton).not.toBeDisabled();
     fireEvent.click(nextButton);

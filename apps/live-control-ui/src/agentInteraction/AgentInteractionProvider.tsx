@@ -67,6 +67,7 @@ import {
   type ProjectionSurfacePublication,
   type ValidatedProjectionSurface,
 } from "./projectionSurfacePublication";
+import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
 
 const AgentInteractionContext = createContext<AgentInteractionContextValue | null>(null);
 
@@ -100,6 +101,11 @@ interface BindingRegistration<T> {
 interface LeasedActiveProjection {
   surfaceToken: symbol;
   projection: ActiveProjection;
+  /**
+   * Tool contribution id that launched this projection (tool kind only).
+   * Distinct from `projection.key`, which is the Projection descriptor id.
+   */
+  launchingToolId?: string;
 }
 
 interface LeasedGraphReference {
@@ -118,35 +124,74 @@ interface CatalogRegistrationAttachment {
   registration: ProjectionCatalogRegistration;
 }
 
+interface ProjectionToolActivatorAttachment {
+  leaseToken: symbol;
+  fn: (toolId: string) => boolean | void | Promise<boolean | void>;
+}
+
+function isThenable<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
+  return typeof value === "object" && value !== null && "then" in value;
+}
+
 function contentSize(resolution: GraphReferenceResolution): ProjectionSize {
   if (resolution.kind === "resolved_graph" || resolution.kind === "resolved_corpus_fallback") return "wide";
   return "compact";
 }
 
+/**
+ * Revalidate an open tool Projection against the *neutral* effective publication.
+ * Active key is the Projection descriptor id; launchingToolId (when present) must
+ * still authorize that descriptor via activation.projectionId.
+ */
+function revalidateLeasedToolProjection(
+  publication: SurfaceInteractionPublication,
+  leased: LeasedActiveProjection,
+): LeasedActiveProjection | null {
+  const projectionId = leased.projection.key;
+  const launchingToolId = leased.launchingToolId;
+
+  const tool = launchingToolId
+    ? publication.tools.find((entry) => entry.id === launchingToolId)
+    : publication.tools.find(
+        (entry) =>
+          entry.activation.kind === "projection"
+          && entry.activation.projectionId === projectionId,
+      );
+
+  if (!tool || tool.availability.status !== "enabled") return null;
+  if (tool.activation.kind !== "projection" || tool.activation.projectionId !== projectionId) {
+    return null;
+  }
+
+  const descriptor = publication.projections.find(
+    (entry) => entry.id === projectionId && entry.kind === "tool",
+  );
+  if (!descriptor) return null;
+
+  return {
+    surfaceToken: leased.surfaceToken,
+    launchingToolId: tool.id,
+    projection: {
+      kind: "tool",
+      key: projectionId,
+      size: descriptor.preferredSize,
+      title: tool.label,
+    },
+  };
+}
+
 function revalidateLeasedProjection(
   validated: ValidatedProjectionSurface,
   leased: LeasedActiveProjection | null,
+  publication: SurfaceInteractionPublication | null,
 ): LeasedActiveProjection | null {
   if (!leased) return null;
   // Canonical disabled state clears every active projection, including tools
   // whose IDs still appear in a contradictory or otherwise invalid config.
   if (!validated.projectionsEnabled) return null;
-  const config = validated.publication.config;
-  const { projection } = leased;
-  if (projection.kind === "tool") {
-    const tool = config.tools.find((entry) => entry.id === projection.key);
-    if (!tool) return null;
-    // Same tool ID may still change label/size — rebuild from latest config
-    // while preserving the lease and exact tool ID.
-    return {
-      surfaceToken: leased.surfaceToken,
-      projection: {
-        kind: "tool",
-        key: tool.id,
-        size: tool.size,
-        title: tool.label,
-      },
-    };
+  if (leased.projection.kind === "tool") {
+    if (!publication) return null;
+    return revalidateLeasedToolProjection(publication, leased);
   }
   return leased;
 }
@@ -232,6 +277,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const catalogEntriesRef = useRef<CatalogRegistrationAttachment[]>([]);
   const [catalogEntries, setCatalogEntries] = useState<CatalogRegistrationAttachment[]>([]);
+  const projectionActivatorRef = useRef<ProjectionToolActivatorAttachment | null>(null);
 
   const clearCatalogEntries = useCallback(() => {
     catalogEntriesRef.current = [];
@@ -292,15 +338,23 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       clearCatalogEntries();
       return;
     }
+    const publication = bundle.snapshot.effectivePublication;
     const legacyValidated = bundle.legacyProjection?.validated;
+    let nextLeased = leasedActiveRef.current;
+
     if (legacyValidated) {
-      const nextLeased = revalidateLeasedProjection(legacyValidated, leasedActiveRef.current);
-      leasedActiveRef.current = nextLeased;
-      setLeasedActive(nextLeased);
-      if (!nextLeased || nextLeased.projection.kind !== "content") {
-        setLeasedGraphReference(null);
-        setLeasedGraphProjectionState(null);
-      }
+      nextLeased = revalidateLeasedProjection(legacyValidated, nextLeased, publication);
+    } else if (nextLeased?.projection.kind === "tool") {
+      // Native publications must clear leasedActive when the launching tool or
+      // target descriptor disappears under the same identity (no resurrection).
+      nextLeased = revalidateLeasedToolProjection(publication, nextLeased);
+    }
+
+    leasedActiveRef.current = nextLeased;
+    setLeasedActive(nextLeased);
+    if (!nextLeased || nextLeased.projection.kind !== "content") {
+      setLeasedGraphReference(null);
+      setLeasedGraphProjectionState(null);
     }
     if (!isAuthorizedPlanPublication(bundle)) {
       graphReferenceRegistrationRef.current = null;
@@ -498,25 +552,32 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     clearSelectedProjection();
   }, [clearSelectedProjection, currentSurfaceToken]);
 
-  const openTool = useCallback(
-    (toolId: string) => {
+  const openToolFromEffectivePublication = useCallback(
+    (toolId: string): boolean => {
       const capturedToken = currentSurfaceToken;
       const bundle = leaseBundleRef.current;
-      if (!surfaceTokenGuard(capturedToken, bundle) || !bundle!.legacyProjection?.validated?.projectionsEnabled) {
-        return;
-      }
-      if (!bundle!.snapshot.effectivePublication) return;
-      const { identity, config } = bundle!.legacyProjection!.validated!.publication;
-      if (identity.surfaceId !== config.id) return;
+      if (!surfaceTokenGuard(capturedToken, bundle)) return false;
+      const publication = bundle!.snapshot.effectivePublication;
+      if (!publication) return false;
+
+      const tool = publication.tools.find((entry) => entry.id === toolId);
+      if (!tool || tool.availability.status !== "enabled") return false;
+      if (tool.activation.kind !== "projection") return false;
+
+      const projectionId = tool.activation.projectionId;
+      const descriptor = publication.projections.find(
+        (entry) => entry.id === projectionId && entry.kind === "tool",
+      );
+      if (!descriptor) return false;
+
       const activeToken = bundle!.snapshot.token;
-      const tool = config.tools.find((entry) => entry.id === toolId);
-      if (!tool) return;
       const next: LeasedActiveProjection = {
         surfaceToken: activeToken,
+        launchingToolId: toolId,
         projection: {
           kind: "tool",
-          key: toolId,
-          size: tool.size,
+          key: projectionId,
+          size: descriptor.preferredSize,
           title: tool.label,
         },
       };
@@ -524,6 +585,53 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setLeasedActive(next);
       setLeasedGraphReference(null);
       setLeasedGraphProjectionState(null);
+      return true;
+    },
+    [currentSurfaceToken],
+  );
+
+  const openTool = useCallback(
+    (toolId: string): boolean => openToolFromEffectivePublication(toolId),
+    [openToolFromEffectivePublication],
+  );
+
+  const activateProjectionTool = useCallback(
+    (toolId: string): boolean | Promise<boolean> => {
+      const activator = projectionActivatorRef.current;
+      const liveToken = leaseBundleRef.current?.snapshot.token ?? null;
+      if (activator && liveToken && activator.leaseToken === liveToken) {
+        const result = activator.fn(toolId);
+        if (isThenable(result)) {
+          return Promise.resolve(result).then((value) => value !== false);
+        }
+        return result !== false;
+      }
+      return openToolFromEffectivePublication(toolId);
+    },
+    [openToolFromEffectivePublication],
+  );
+
+  const registerProjectionToolActivator = useCallback(
+    (activator: (toolId: string) => boolean | void | Promise<boolean | void>) => {
+      const capturedToken = currentSurfaceToken;
+      const bundle = leaseBundleRef.current;
+      if (
+        !capturedToken
+        || bundle?.snapshot.token !== capturedToken
+        || !bundle.snapshot.effectivePublication
+      ) {
+        return () => undefined;
+      }
+      const attachment: ProjectionToolActivatorAttachment = {
+        leaseToken: capturedToken,
+        fn: activator,
+      };
+      projectionActivatorRef.current = attachment;
+      return () => {
+        if (projectionActivatorRef.current?.leaseToken === capturedToken) {
+          projectionActivatorRef.current = null;
+        }
+      };
     },
     [currentSurfaceToken],
   );
@@ -747,10 +855,27 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     if (leasedActive.projection.kind === "content" && !isAuthorizedPlanPublication(leaseBundle)) {
       return null;
     }
-    if (leasedActive.projection.kind === "tool" && !leaseBundle?.legacyProjection?.validated?.projectionsEnabled) {
-      return null;
+    const publication = leaseBundle?.snapshot.effectivePublication;
+    if (!publication) return null;
+    if (leasedActive.projection.kind === "tool") {
+      const projectionId = leasedActive.projection.key;
+      const launchingToolId = leasedActive.launchingToolId;
+      const tool = launchingToolId
+        ? publication.tools.find((entry) => entry.id === launchingToolId)
+        : publication.tools.find(
+            (entry) =>
+              entry.activation.kind === "projection"
+              && entry.activation.projectionId === projectionId,
+          );
+      if (!tool || tool.availability.status !== "enabled") return null;
+      if (tool.activation.kind !== "projection" || tool.activation.projectionId !== projectionId) {
+        return null;
+      }
+      const descriptor = publication.projections.find(
+        (entry) => entry.id === projectionId && entry.kind === "tool",
+      );
+      if (!descriptor) return null;
     }
-    if (!leaseBundle?.snapshot.effectivePublication) return null;
     return leasedActive.projection;
   }, [currentSurfaceToken, leasedActive, leaseBundle]);
 
@@ -946,6 +1071,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     updateSurfaceInteractionPublication,
     publishAppChromeCompatibility,
     openTool,
+    activateProjectionTool,
+    registerProjectionToolActivator,
     openGraphReference,
     expandContent,
     close,
@@ -985,6 +1112,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     graphReviewDiagnosticsPayload,
     openGraphReference,
     openTool,
+    activateProjectionTool,
+    registerProjectionToolActivator,
     paneState,
     projectionSurface,
     surfaceInteractionPublication,

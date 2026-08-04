@@ -1,10 +1,7 @@
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
 import { buildAppChromeCompatibilityFragment } from "../agentInteraction/surfaceInteractionCompat";
-import {
-  resolveGuardedEditInvoke,
-  resolveGuardedToolInvoke,
-} from "../agentInteraction/surfaceInteractionLease";
+import { resolveGuardedEditInvoke } from "../agentInteraction/surfaceInteractionLease";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 
@@ -280,11 +277,9 @@ export function AppChrome({
     ]),
   );
   const [isEditOpen, setIsEditOpen] = useState(editToolboxLayout === "dock");
-  const [isToolsOpen, setIsToolsOpen] = useState(false);
   const pinnedActions = editorTools?.pinnedActions ?? [];
   const sections = editorTools?.sections ?? [];
   const hasEditTools = pinnedActions.length > 0 || sections.length > 0;
-  const hasPageTools = pageActions.length > 0;
   const isDockedEdit = editToolboxLayout === "dock" && hasEditTools;
 
   const agentInteractionRef = useRef(agentInteraction);
@@ -329,9 +324,6 @@ export function AppChrome({
     sectionSignature,
   ]);
 
-  const resolveToolInvoke = leaseBridgeActive
-    ? (id: string) => resolveGuardedToolInvoke(effectivePublication, id)
-    : null;
   const resolveEditInvoke = leaseBridgeActive
     ? (id: string) => resolveGuardedEditInvoke(effectivePublication, id)
     : null;
@@ -390,64 +382,8 @@ export function AppChrome({
           hasEffectivePublication={hasEffectivePublication}
         />
       ) : null}
-
-      {hasPageTools ? (
-        <div className={`app-tools-toolbox${isToolsOpen ? " open" : ""}`}>
-          <button
-            type="button"
-            className="app-tools-toolbox-toggle"
-            onClick={() => setIsToolsOpen((current) => !current)}
-            aria-expanded={isToolsOpen}
-            aria-controls="app-tools-toolbox-drawer"
-            title="Tools"
-          >
-            Tools
-          </button>
-          <div
-            className="app-tools-toolbox-backdrop"
-            hidden={!isToolsOpen}
-            onClick={() => setIsToolsOpen(false)}
-            aria-hidden="true"
-          />
-          <aside id="app-tools-toolbox-drawer" className="app-tools-toolbox-drawer" aria-label="Tools toolbar">
-            <header className="app-tools-toolbox-hd">
-              <div>
-                <div className="app-tools-toolbox-eyebrow">Command Board</div>
-                <h2 className="app-tools-toolbox-title">Tools</h2>
-              </div>
-              <button
-                type="button"
-                className="app-tools-toolbox-close"
-                onClick={() => setIsToolsOpen(false)}
-                aria-label="Close Tools"
-              >
-                x
-              </button>
-            </header>
-            <nav className="app-tools-toolbox-nav" aria-label="Tool groups">
-              <button type="button" className="app-tools-toolbox-nav-btn active">
-                Page
-              </button>
-            </nav>
-            <div className="app-tools-toolbox-body">
-              <details className="app-tools-fold" open>
-                <summary>Page tools</summary>
-                <div className="app-tools-fold-bd app-tools-actions">
-                  {pageActions.map((action) => (
-                    <GuardedActionButton
-                      key={action.id}
-                      action={action}
-                      guardedInvoke={resolveToolInvoke}
-                      leaseBridgeActive={leaseBridgeActive}
-                      hasEffectivePublication={hasEffectivePublication}
-                    />
-                  ))}
-                </div>
-              </details>
-            </div>
-          </aside>
-        </div>
-      ) : null}
+      {/* Tool launcher DOM lives in surfaceInteraction/toolHost/ToolHost (BLD-SIH-04).
+          pageActions still publish through the chrome compatibility fragment above. */}
     </div>
   );
 }
