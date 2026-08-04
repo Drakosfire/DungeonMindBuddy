@@ -41,7 +41,7 @@ import {
   fixtureWorkspaceDocumentRecord,
 } from "./config/planSessionDescriptor";
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
-import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
+import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import {
   activeThreadStorageKey,
   createAgentInteractionThread,
@@ -132,7 +132,7 @@ function mockWorldGraphQueryContext(
 }
 
 function PlanSurfaceTestHarness() {
-  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
 
   return (
     <AgentInteractionProvider>
@@ -1726,7 +1726,7 @@ describe("PlanSurfaceShell", () => {
     );
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
-    let editorTools: AppChromeTools | null = null;
+    let editorTools: AppChromeToolsGeneration | null = null;
 
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
       .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
@@ -1801,13 +1801,13 @@ describe("PlanSurfaceShell", () => {
       expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
     });
     await waitFor(() => {
-      const saveAction = editorTools?.sections
+      const saveAction = editorTools?.tools.sections
         ?.find((section) => section.id === "plan-markdown-save")
         ?.actions.find((action) => action.label === "Save to Markdown");
       expect(saveAction?.disabled).toBeFalsy();
     });
 
-    const saveAction = editorTools!.sections!
+    const saveAction = editorTools!.tools.sections!
       .find((section) => section.id === "plan-markdown-save")!
       .actions.find((action) => action.label === "Save to Markdown")!;
     await act(async () => {
@@ -1834,7 +1834,7 @@ describe("PlanSurfaceShell", () => {
     );
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
-    let editorTools: AppChromeTools | null = null;
+    let editorTools: AppChromeToolsGeneration | null = null;
 
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
       .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
@@ -1928,13 +1928,13 @@ describe("PlanSurfaceShell", () => {
     });
 
     await waitFor(() => {
-      const saveAction = editorTools?.sections
+      const saveAction = editorTools?.tools.sections
         ?.find((section) => section.id === "plan-markdown-save")
         ?.actions.find((action) => action.label === "Save to Markdown");
       expect(saveAction?.disabled).toBeFalsy();
     });
 
-    const saveAction = editorTools!.sections!
+    const saveAction = editorTools!.tools.sections!
       .find((section) => section.id === "plan-markdown-save")!
       .actions.find((action) => action.label === "Save to Markdown")!;
     await act(async () => {

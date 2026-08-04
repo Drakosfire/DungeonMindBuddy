@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { buildPlanSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
-import type { AppChromeTools } from "../chrome/AppChrome";
+import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
 import type { PlanViewProjection } from "../api/types";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
@@ -19,7 +19,7 @@ import "./planSurface.css";
 
 interface PlanSurfaceShellProps {
   planView: PlanViewProjection;
-  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
 }
 
 function themeStyle(config: PlanSurfaceConfig): CSSProperties {

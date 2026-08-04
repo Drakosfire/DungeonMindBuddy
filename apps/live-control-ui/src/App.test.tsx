@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "./api/types";
-import type { AppChromeTools } from "./chrome/AppChrome";
+import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
@@ -37,15 +37,19 @@ const stableTiptapEditorTools: AppChromeTools = {
     },
   ],
 };
+const stableTiptapEditorToolsGeneration: AppChromeToolsGeneration = {
+  target: { kind: "spike", id: "tiptap-callout-spike" },
+  tools: stableTiptapEditorTools,
+};
 
 vi.mock("./tiptap/TiptapCalloutBridgeSpike", () => ({
   TiptapCalloutBridgeSpike({
     onEditorToolsChange,
   }: {
-    onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+    onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
   }) {
     useEffect(() => {
-      onEditorToolsChange?.(stableTiptapEditorTools);
+      onEditorToolsChange?.(stableTiptapEditorToolsGeneration);
       return () => onEditorToolsChange?.(null);
     }, [onEditorToolsChange]);
     return (

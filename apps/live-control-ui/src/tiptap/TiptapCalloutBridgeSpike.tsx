@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
-import type { AppChromeTools } from "../chrome/AppChrome";
+import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { getWorkspaceDocumentSnapshot } from "../api/liveApi";
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { defaultMarkdownDocumentAdapter } from "./MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "./MarkdownEditorCore";
 import {
-  toAppChromeTools,
+  toAppChromeToolsGeneration,
   type MarkdownEditorToolbarModel,
 } from "./MarkdownEditorToolbar";
 import {
@@ -90,12 +90,12 @@ function classifyRunbookBlock(
 }
 
 interface TiptapCalloutBridgeSpikeProps {
-  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
 }
 
 interface RunbookSpikeEditorProps {
   descriptor: TiptapRunbookDescriptor;
-  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
   onImportComplete?: (result: { status: string; diagnostics: MarkdownImportDiagnostic[] }) => void;
   initialStatusOverlay?: SpikeStatusOverlay | null;
   persistedImportStatus?: string;
@@ -428,7 +428,10 @@ function RunbookSpikeEditor({
       ],
     };
 
-    onEditorToolsChange?.(toAppChromeTools(toolbarModel));
+    onEditorToolsChange?.(toAppChromeToolsGeneration(toolbarModel, {
+      kind: "spike",
+      id: "tiptap-callout-spike",
+    }));
 
     return () => onEditorToolsChange?.(null);
   }, [

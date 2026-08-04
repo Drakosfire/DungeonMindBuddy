@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-import type { AppChromeAction, AppChromeToolSection, AppChromeTools } from "../chrome/AppChrome";
+import type { AppChromeAction, AppChromeToolSection, AppChromeTools, AppChromeToolsGeneration } from "../chrome/AppChrome";
+import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction/types";
 
 export type MarkdownEditorToolAction = {
   id: string;
@@ -50,6 +51,13 @@ export function toAppChromeTools(model: MarkdownEditorToolbarModel): AppChromeTo
     pinnedActions: model.pinnedActions?.map(toAppChromeAction),
     sections: model.sections?.map(toAppChromeSection),
   };
+}
+
+export function toAppChromeToolsGeneration(
+  model: MarkdownEditorToolbarModel,
+  target: SurfaceInteractionWorkObjectIdentity,
+): AppChromeToolsGeneration {
+  return { target, tools: toAppChromeTools(model) };
 }
 
 export function MarkdownEditorToolbar({

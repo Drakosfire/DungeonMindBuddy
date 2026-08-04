@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
+import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
@@ -79,7 +79,7 @@ const projectionWithNode = {
 };
 
 function Harness() {
-  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
   return (
     <AgentInteractionProvider>
       <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { readFileSync } from "node:fs";
 import { beforeEach, vi } from "vitest";
 
-import type { AppChromeTools } from "../chrome/AppChrome";
+import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
 import {
   commitTiptapMarkdownWrite,
   createWorkspaceDocument,
@@ -157,18 +157,18 @@ async function waitForEditorReady() {
 }
 
 async function waitForEnabledToolAction(
-  toolsHolder: { current: AppChromeTools | null },
+  toolsHolder: { current: AppChromeToolsGeneration | null },
   sectionId: string,
   label: string,
 ) {
   await waitFor(() => {
-    const action = toolsHolder.current?.sections
+    const action = toolsHolder.current?.tools.sections
       ?.find((section) => section.id === sectionId)
       ?.actions.find((entry) => entry.label === label);
     expect(action).toBeDefined();
     expect(action?.disabled).toBeFalsy();
   });
-  return toolsHolder.current!.sections!
+  return toolsHolder.current!.tools.sections!
     .find((section) => section.id === sectionId)!
     .actions.find((entry) => entry.label === label)!;
 }
@@ -344,7 +344,7 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("saves with the active document id and markdown", async () => {
-    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    const toolsHolder: { current: AppChromeToolsGeneration | null } = { current: null };
     window.history.pushState({}, "", `/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
     render(<TiptapCalloutBridgeSpike onEditorToolsChange={(tools) => { toolsHolder.current = tools; }} />);
     await waitForEditorReady();
@@ -568,7 +568,7 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("prepares and commits derived Markdown in one save action", async () => {
-    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    const toolsHolder: { current: AppChromeToolsGeneration | null } = { current: null };
     render(<TiptapCalloutBridgeSpike onEditorToolsChange={(tools) => { toolsHolder.current = tools; }} />);
     await waitForEditorReady();
 
@@ -603,7 +603,7 @@ describe("semantic callout Markdown bridge", () => {
 
   it("shows save errors", async () => {
     prepareMock.mockRejectedValueOnce(new Error("unsafe target"));
-    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    const toolsHolder: { current: AppChromeToolsGeneration | null } = { current: null };
     render(<TiptapCalloutBridgeSpike onEditorToolsChange={(tools) => { toolsHolder.current = tools; }} />);
     await waitForEditorReady();
 
@@ -633,25 +633,28 @@ describe("semantic callout Markdown bridge", () => {
     await waitFor(() => {
       expect(handleEditorToolsChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          pinnedActions: expect.arrayContaining([
-            expect.objectContaining({ id: "tiptap-edit-lock", label: "Lock editing" }),
-          ]),
-          sections: expect.arrayContaining([
-            expect.objectContaining({ id: "tiptap-local-state", title: "Local working state" }),
-            expect.objectContaining({ id: "tiptap-insert-blocks", title: "Insert blocks" }),
-            expect.objectContaining({ id: "tiptap-insert-refs", title: "Insert refs" }),
-          ]),
+          target: { kind: "spike", id: "tiptap-callout-spike" },
+          tools: expect.objectContaining({
+            pinnedActions: expect.arrayContaining([
+              expect.objectContaining({ id: "tiptap-edit-lock", label: "Lock editing" }),
+            ]),
+            sections: expect.arrayContaining([
+              expect.objectContaining({ id: "tiptap-local-state", title: "Local working state" }),
+              expect.objectContaining({ id: "tiptap-insert-blocks", title: "Insert blocks" }),
+              expect.objectContaining({ id: "tiptap-insert-refs", title: "Insert refs" }),
+            ]),
+          }),
         }),
       );
     });
   });
 
   it("inserts a registered reference action and updates exported Markdown", async () => {
-    let tools: AppChromeTools | null = null;
+    let tools: AppChromeToolsGeneration | null = null;
     render(<TiptapCalloutBridgeSpike onEditorToolsChange={(nextTools) => { tools = nextTools; }} />);
 
-    await waitFor(() => expect(tools?.sections?.find((section) => section.id === "tiptap-insert-refs")).toBeDefined());
-    const insertLocation = tools?.sections
+    await waitFor(() => expect(tools?.tools.sections?.find((section) => section.id === "tiptap-insert-refs")).toBeDefined());
+    const insertLocation = tools?.tools.sections
       ?.find((section) => section.id === "tiptap-insert-refs")
       ?.actions.find((action) => action.label === "North Reach Gate");
 
@@ -707,7 +710,7 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("persists the first edit after ordinary mount", async () => {
-    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    const toolsHolder: { current: AppChromeToolsGeneration | null } = { current: null };
     render(
       <TiptapCalloutBridgeSpike
         onEditorToolsChange={(nextTools) => {
@@ -733,7 +736,7 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("persists the first edit after reset", async () => {
-    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    const toolsHolder: { current: AppChromeToolsGeneration | null } = { current: null };
     render(
       <TiptapCalloutBridgeSpike
         onEditorToolsChange={(nextTools) => {
@@ -767,7 +770,7 @@ describe("semantic callout Markdown bridge", () => {
         headers: { "Content-Type": "text/markdown" },
       }),
     );
-    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    const toolsHolder: { current: AppChromeToolsGeneration | null } = { current: null };
     render(
       <TiptapCalloutBridgeSpike
         onEditorToolsChange={(nextTools) => {

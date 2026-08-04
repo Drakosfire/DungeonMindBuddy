@@ -55,12 +55,24 @@ export interface AppChromeTools {
   sections?: AppChromeToolSection[];
 }
 
+export interface AppChromeToolsGeneration {
+  target: SurfaceInteractionWorkObjectIdentity;
+  tools: AppChromeTools;
+}
+
 interface AppChromeProps {
   activeRoute: AppRouteKey;
   pageActions?: AppChromeAction[];
-  editorTools?: AppChromeTools | null;
+  editorTools?: AppChromeToolsGeneration | null;
   editToolboxLayout?: "overlay" | "dock";
   children: ReactNode;
+}
+
+function isValidEditTarget(
+  target: SurfaceInteractionWorkObjectIdentity | null | undefined,
+): target is SurfaceInteractionWorkObjectIdentity {
+  if (!target) return false;
+  return target.kind.trim() !== "" && target.id.trim() !== "";
 }
 
 function buildLegacyEditPanels(
@@ -115,6 +127,7 @@ export function AppChrome({
   pageActionsRef.current = pageActions;
   const editorToolsRef = useRef(editorTools);
   editorToolsRef.current = editorTools;
+  const generationTools = editorTools?.tools;
   const pageActionSignature = JSON.stringify(
     pageActions.map((action) => [
       action.id,
@@ -124,8 +137,13 @@ export function AppChrome({
       callbackIdentityKey(action.onClick),
     ]),
   );
+  const targetSignature = JSON.stringify(
+    editorTools?.target
+      ? [editorTools.target.kind, editorTools.target.id]
+      : null,
+  );
   const pinnedSignature = JSON.stringify(
-    (editorTools?.pinnedActions ?? []).map((action) => [
+    (generationTools?.pinnedActions ?? []).map((action) => [
       action.id,
       action.disabled === true,
       action.label,
@@ -135,7 +153,7 @@ export function AppChrome({
     ]),
   );
   const sectionSignature = JSON.stringify(
-    (editorTools?.sections ?? []).map((section) => [
+    (generationTools?.sections ?? []).map((section) => [
       section.id,
       section.title,
       encodeOptionalBoolean(section.defaultOpen),
@@ -150,7 +168,7 @@ export function AppChrome({
       ]),
     ]),
   );
-  const editorToolsGenerationSignature = `${pinnedSignature}|${sectionSignature}`;
+  const editorToolsGenerationSignature = `${targetSignature}|${pinnedSignature}|${sectionSignature}`;
 
   const agentInteractionRef = useRef(agentInteraction);
   agentInteractionRef.current = agentInteraction;
@@ -171,27 +189,16 @@ export function AppChrome({
 
   const effectivePublication = agentInteraction?.surfaceInteractionPublication ?? null;
   const hasEffectivePublication = effectivePublication != null;
-  const workObject = basePublication?.canvas?.workObject ?? null;
 
-  const editCommandTargetRef = useRef<SurfaceInteractionWorkObjectIdentity | null>(null);
-  const previousEditorToolsGenerationRef = useRef("");
-  const editorToolsTargetCapturePendingRef = useRef(false);
-  if (previousEditorToolsGenerationRef.current !== editorToolsGenerationSignature) {
-    previousEditorToolsGenerationRef.current = editorToolsGenerationSignature;
-    if (hasEditorToolsContent(editorTools)) {
-      editorToolsTargetCapturePendingRef.current = true;
-    } else {
-      editorToolsTargetCapturePendingRef.current = false;
-      editCommandTargetRef.current = null;
-    }
-  }
-  if (editorToolsTargetCapturePendingRef.current && workObject) {
-    editCommandTargetRef.current = workObject;
-    editorToolsTargetCapturePendingRef.current = false;
-  }
-  const editCommandTarget = editCommandTargetRef.current;
+  const suppliedTarget = editorTools && isValidEditTarget(editorTools.target)
+    ? editorTools.target
+    : null;
+  const shouldPublishEditInventory = suppliedTarget != null
+    && hasEditorToolsContent(generationTools);
 
-  const legacyPanels = buildLegacyEditPanels(editorTools, editCommandTarget);
+  const legacyPanels = shouldPublishEditInventory
+    ? buildLegacyEditPanels(generationTools, suppliedTarget)
+    : [];
 
   const matchingEditCommands = (effectivePublication?.editCommands ?? []).filter((command) =>
     targetsMatch(command.target, effectivePublication?.canvas?.workObject ?? null),
@@ -208,15 +215,19 @@ export function AppChrome({
     const publish = publishAppChromeCompatibilityRef.current;
     const currentBase = agentInteractionRef.current?.surfaceInteractionBasePublication ?? null;
     if (!publish || !currentBase) return;
-    // While a tools generation awaits a Canvas target, still publish pageActions;
-    // withhold edit commands until the generation target is captured.
-    const editToolsPending = editorToolsTargetCapturePendingRef.current;
+    const currentGeneration = editorToolsRef.current;
+    const currentTarget = currentGeneration && isValidEditTarget(currentGeneration.target)
+      ? currentGeneration.target
+      : null;
+    const currentTools = currentGeneration?.tools;
+    const publishEditInventory = currentTarget != null
+      && hasEditorToolsContent(currentTools);
     return publish(
       buildAppChromeCompatibilityFragment({
         pageActions: pageActionsRef.current,
-        editorTools: editToolsPending ? null : editorToolsRef.current,
+        editorTools: publishEditInventory ? currentTools : null,
         basePublication: currentBase,
-        editCommandTarget: editToolsPending ? null : editCommandTargetRef.current,
+        editCommandTarget: publishEditInventory ? currentTarget : null,
       }),
     );
   }, [

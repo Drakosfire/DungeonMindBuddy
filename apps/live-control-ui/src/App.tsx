@@ -21,7 +21,7 @@ import {
 } from "./agentInteraction/surfaceInteractionCompat";
 import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "./surfaceInteraction/toolHost/ToolHost";
-import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
+import { AppChrome, type AppChromeToolsGeneration } from "./chrome/AppChrome";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
@@ -110,7 +110,7 @@ function MirewardIndex() {
 }
 
 function TiptapSpikeRoute() {
-  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
 
   return (
     <AppChrome activeRoute="tiptap-callout-spike" editorTools={editorTools}>
