@@ -1,7 +1,7 @@
 # STATBLOCK — HANDOFF: SBW10a exact Threat query/hydration with SBW09c2b publication-boundary hardening
 
 **Created:** 2026-08-03
-**Status:** ACTIVE — review cycle 1 REQUEST CHANGES repairs ready for re-review (PR #502).
+**Status:** ACTIVE — review cycle 2 REQUEST CHANGES repairs ready for re-review (PR #502).
 **Flow / agent:** `STATBLOCK`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw10a-exact-threat-query-hydration-and-publication-hardening.md`

@@ -137,6 +137,7 @@ def _projection(
     match_reasons: dict[str, list[str]] | None = None,
     revision_id: str = REVISION,
     head_revision_id: str | None = None,
+    query_context_relationships: list[WorldGraphProjectionRelationshipView] | None = None,
 ) -> WorldGraphProjection:
     snapshot = WorldGraphProjectionSnapshot(
         world_id=WORLD,
@@ -155,7 +156,12 @@ def _projection(
         matched_node_ids=matched_node_ids,
         match_reasons=match_reasons or {},
         nodes=[n for n in nodes if n.node_id in matched_node_ids],
-        relationships=relationships,
+        # May be SEARCH_MAX truncated relative to projection.relationships.
+        relationships=(
+            list(query_context_relationships)
+            if query_context_relationships is not None
+            else list(relationships)
+        ),
     )
     return WorldGraphProjection(
         schema="dmb_world_graph_projection_v1",
@@ -653,9 +659,174 @@ def test_malformed_uses_statblock_is_integrity_not_no_binding() -> None:
     hit = response.hits[0]
     assert hit.mechanics_disposition == "integrity_failure"
     assert len(hit.bindings) == 1
-    assert hit.bindings[0].hydration_status == "integrity_failure"
-    assert hit.bindings[0].message == "uses_statblock_binding_missing"
+    binding = hit.bindings[0]
+    assert binding.hydration_status == "integrity_failure"
+    assert binding.message == "uses_statblock_binding_missing"
+    assert binding.relationship_edge_id == "edge:missing-binding-payload"
+    assert binding.binding_id is None
+    assert binding.binding_role is None
+    assert binding.statblock_id is None
+    assert binding.revision_id is None
+    assert binding.definition_digest is None
     assert response.result_label == "threat_query_hydration_integrity_failure"
+
+
+def test_focus_unrelated_to_matched_query_node_discovers_threat() -> None:
+    """Focus anchor discovers Threats even when the query match is elsewhere."""
+    town_square = WorldGraphProjectionNodeView(
+        node_id="location:town-square",
+        label="Town Square",
+        kind="location",
+        role="settlement",
+    )
+    north_gate = WorldGraphProjectionNodeView(
+        node_id="location:north-gate",
+        label="North Gate",
+        kind="location",
+        role="settlement",
+    )
+    threat = _threat_node("threat:latchling", "Latchling")
+    town_rel = WorldGraphProjectionRelationshipView(
+        edge_id="edge:npc-at-town-square",
+        source_node_id="npc:merchant",
+        target_node_id=town_square.node_id,
+        predicate="located_in",
+        label="located_in",
+        direction="outgoing",
+    )
+    gate_rel = WorldGraphProjectionRelationshipView(
+        edge_id="edge:latchling-attacks-north-gate",
+        source_node_id=threat.node_id,
+        target_node_id=north_gate.node_id,
+        predicate="attacks",
+        label="attacks",
+        direction="outgoing",
+    )
+    merchant = WorldGraphProjectionNodeView(
+        node_id="npc:merchant",
+        label="Merchant",
+        kind="entity",
+        role="civilian",
+    )
+    proj = _projection(
+        nodes=[town_square, north_gate, threat, merchant],
+        relationships=[town_rel, gate_rel],
+        matched_node_ids=[town_square.node_id],
+        match_reasons={town_square.node_id: ["exact_label"]},
+    )
+    response = query_threats_with_hydration(
+        _request(
+            query_text="town square",
+            focus_node_ids=[north_gate.node_id],
+            relationship_predicates=["attacks"],
+        ),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    assert response.hits[0].threat.node_id == threat.node_id
+    assert any(
+        r.startswith("related_to_match:location:north-gate:attacks")
+        for r in response.hits[0].match_reasons
+    )
+
+
+def test_threat_edge_beyond_query_context_relationship_cap_still_discovered() -> None:
+    """Discovery must walk projection.relationships, not SEARCH_MAX-capped context."""
+    town_square = WorldGraphProjectionNodeView(
+        node_id="location:town-square",
+        label="Town Square",
+        kind="location",
+        role="settlement",
+    )
+    north_gate = WorldGraphProjectionNodeView(
+        node_id="location:north-gate",
+        label="North Gate",
+        kind="location",
+        role="settlement",
+    )
+    threat = _threat_node("threat:latchling", "Latchling")
+    filler_rels = [
+        WorldGraphProjectionRelationshipView(
+            edge_id=f"edge:filler-{i}",
+            source_node_id=f"npc:filler-{i}",
+            target_node_id=town_square.node_id,
+            predicate="located_in",
+            label="located_in",
+            direction="outgoing",
+        )
+        for i in range(3)
+    ]
+    filler_nodes = [
+        WorldGraphProjectionNodeView(
+            node_id=f"npc:filler-{i}",
+            label=f"Filler {i}",
+            kind="entity",
+            role="civilian",
+        )
+        for i in range(3)
+    ]
+    threat_rel = WorldGraphProjectionRelationshipView(
+        edge_id="edge:latchling-attacks-north-gate",
+        source_node_id=threat.node_id,
+        target_node_id=north_gate.node_id,
+        predicate="attacks",
+        label="attacks",
+        direction="outgoing",
+    )
+    # Full projection includes the Threat edge; capped query context does not.
+    full_rels = [*filler_rels, threat_rel]
+    capped_context_rels = list(filler_rels)
+    proj = _projection(
+        nodes=[town_square, north_gate, threat, *filler_nodes],
+        relationships=full_rels,
+        matched_node_ids=[town_square.node_id],
+        match_reasons={town_square.node_id: ["exact_label"]},
+        query_context_relationships=capped_context_rels,
+    )
+    response = query_threats_with_hydration(
+        _request(
+            query_text="town square",
+            focus_node_ids=[north_gate.node_id],
+        ),
+        project_fn=lambda *_a, **_k: proj,
+        client=MagicMock(),
+    )
+    assert len(response.hits) == 1
+    assert response.hits[0].threat.node_id == threat.node_id
+    assert any(
+        "related_to_match:location:north-gate:attacks" in r
+        for r in response.hits[0].match_reasons
+    )
+
+
+def test_include_mechanics_false_is_not_requested_and_aggregates_ok() -> None:
+    threat = _threat_node("threat:omit", "Omit Me")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_omit00001",
+        revision_id="rev_omit00001",
+        digest=DIGEST_A,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_omit00001")],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+    client = MagicMock()
+    response = query_threats_with_hydration(
+        _request(include_mechanics=False),
+        project_fn=lambda *_a, **_k: proj,
+        client=client,
+    )
+    client.get_exact_revision.assert_not_called()
+    assert len(response.hits) == 1
+    hit = response.hits[0]
+    assert hit.bindings[0].hydration_status == "not_requested"
+    assert hit.bindings[0].binding_id == binding.binding_id
+    assert hit.bindings[0].statblock_id == "sb_omit00001"
+    assert hit.mechanics_disposition == "not_requested"
+    assert response.result_label == "threat_query_hydration_ok"
 
 
 def test_wrong_direction_uses_statblock_is_integrity() -> None:

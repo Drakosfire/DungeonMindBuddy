@@ -112,6 +112,16 @@ def _predicate_admitted(
     return (rel.predicate or "").casefold() in predicate_filter
 
 
+def _resource_endpoint_for_threat(
+    rel: WorldGraphProjectionRelationshipView, threat_node_id: str
+) -> str | None:
+    if rel.source_node_id == threat_node_id:
+        return rel.target_node_id
+    if rel.target_node_id == threat_node_id:
+        return rel.source_node_id
+    return None
+
+
 def _malformed_binding_result(
     *,
     threat_node_id: str,
@@ -119,9 +129,15 @@ def _malformed_binding_result(
     message: str,
     binding: ThreatStatblockBindingV1 | None = None,
 ) -> ThreatBindingHydrationV1:
-    """Integrity-failed binding locator without inventing durable identity."""
+    """Integrity-failed edge result without fabricating binding locators.
+
+    When the typed binding payload is absent, ``binding_id`` / statblock /
+    revision / digest stay null and only ``relationship_edge_id`` identifies
+    the graph edge. An edge ID is never overloaded as a binding ID.
+    """
     if binding is not None:
         return ThreatBindingHydrationV1(
+            relationship_edge_id=rel.edge_id,
             binding_id=binding.binding_id,
             binding_role=binding.role,
             threat_node_id=threat_node_id,
@@ -136,14 +152,15 @@ def _malformed_binding_result(
             message=message,
         )
     return ThreatBindingHydrationV1(
-        binding_id=rel.edge_id,
-        binding_role="",
+        relationship_edge_id=rel.edge_id,
+        binding_id=None,
+        binding_role=None,
         threat_node_id=threat_node_id,
-        resource_node_id=rel.target_node_id if rel.source_node_id == threat_node_id else rel.source_node_id,
+        resource_node_id=_resource_endpoint_for_threat(rel, threat_node_id),
         provider="dungeonmind",
-        statblock_id="",
-        revision_id="",
-        definition_digest="",
+        statblock_id=None,
+        revision_id=None,
+        definition_digest=None,
         hydration_status="integrity_failure",
         binding=None,
         revision=None,
@@ -295,6 +312,7 @@ def _hydrate_binding(
         resource_node=resource_node,
     )
     base = ThreatBindingHydrationV1(
+        relationship_edge_id=rel.edge_id,
         binding_id=binding.binding_id,
         binding_role=binding.role,
         threat_node_id=threat_node_id,
@@ -312,7 +330,10 @@ def _hydrate_binding(
         return base
     if not include_mechanics:
         return base.model_copy(
-            update={"hydration_status": "unavailable", "message": "mechanics omitted by request"}
+            update={
+                "hydration_status": "not_requested",
+                "message": "mechanics omitted by request",
+            }
         )
     if client is None:
         return base.model_copy(
@@ -387,19 +408,22 @@ def _mechanics_disposition(
     if not bindings:
         return "no_binding"
     statuses = {item.hydration_status for item in bindings}
-    if statuses == {"available"}:
+    effective = statuses - {"not_requested"}
+    if not effective:
+        return "not_requested"
+    if effective == {"available"}:
         return "hydrated"
-    if "integrity_failure" in statuses and not (
-        statuses & {"available", "unavailable", "exact_revision_missing"}
+    if "integrity_failure" in effective and not (
+        effective & {"available", "unavailable", "exact_revision_missing"}
     ):
         return "integrity_failure"
-    if "available" in statuses and statuses - {"available"}:
+    if "available" in effective and effective - {"available"}:
         return "partial"
-    if statuses <= {"unavailable", "exact_revision_missing"}:
+    if effective <= {"unavailable", "exact_revision_missing"}:
         return "unavailable"
-    if "available" in statuses:
+    if "available" in effective:
         return "partial"
-    if "integrity_failure" in statuses:
+    if "integrity_failure" in effective:
         return "integrity_failure"
     return "unavailable"
 
@@ -419,7 +443,14 @@ def _aggregate_result_label(
     if not mechanics_bindings:
         return "threat_query_hydration_ok"
 
-    statuses = {binding.hydration_status for binding in mechanics_bindings}
+    # Intentionally omitted mechanics are not dependency failures.
+    statuses = {
+        binding.hydration_status
+        for binding in mechanics_bindings
+        if binding.hydration_status != "not_requested"
+    }
+    if not statuses:
+        return "threat_query_hydration_ok"
     if statuses == {"available"}:
         return "threat_query_hydration_ok"
     if "integrity_failure" in statuses and not (
@@ -429,14 +460,6 @@ def _aggregate_result_label(
     return "threat_query_hydration_partial"
 
 
-def _discovery_relationships(
-    projection: WorldGraphProjection,
-) -> list[WorldGraphProjectionRelationshipView]:
-    if projection.query_context is not None and projection.query_context.relationships:
-        return list(projection.query_context.relationships)
-    return list(projection.relationships)
-
-
 def _collect_threat_hits(
     projection: WorldGraphProjection,
     request: ThreatQueryHydrationRequestV1,
@@ -444,8 +467,10 @@ def _collect_threat_hits(
     """Derive Threat candidates from direct matches and relationship endpoints.
 
     Empty ``matched_node_ids`` with an existing query context means zero matches —
-    never fall back to every projected Threat. Focus nodes and admitted
-    relationships discover Threat endpoints connected to matched/focused anchors.
+    never fall back to every projected Threat. One-hop discovery walks the full
+    admitted ``projection.relationships`` using matched and focus IDs as anchors.
+    Query context supplies match identity/reasons only — never a relationship
+    visibility wall (search relationship caps must not hide Threat edges).
     """
     if projection.query_context is None:
         return []
@@ -461,7 +486,8 @@ def _collect_threat_hits(
 
     nodes_by_id = {node.node_id: node for node in projection.nodes}
     predicate_filter = {p.casefold() for p in request.relationship_predicates}
-    discovery_rels = _discovery_relationships(projection)
+    # Full projection edges — not query_context.relationships (SEARCH_MAX capped).
+    discovery_rels = list(projection.relationships)
 
     candidate_reasons: dict[str, list[str]] = {}
 
@@ -645,8 +671,9 @@ def query_threats_with_hydration(
                 )
             hydrated.append(item)
             if item.message:
+                locator = item.binding_id or item.relationship_edge_id
                 diagnostics.append(
-                    f"{threat.node_id}:{item.binding_id}:{item.hydration_status}"
+                    f"{threat.node_id}:{locator}:{item.hydration_status}"
                 )
         disposition = _mechanics_disposition(hydrated)
         response_hits.append(

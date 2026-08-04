@@ -36,6 +36,7 @@ MechanicsDisposition = Literal[
     "partial",
     "unavailable",
     "integrity_failure",
+    "not_requested",
 ]
 
 BindingHydrationStatus = Literal[
@@ -43,6 +44,7 @@ BindingHydrationStatus = Literal[
     "unavailable",
     "exact_revision_missing",
     "integrity_failure",
+    "not_requested",
 ]
 
 
@@ -91,14 +93,22 @@ class ThreatQueryHydrationRequestV1(StrictModel):
 
 
 class ThreatBindingHydrationV1(StrictModel):
-    binding_id: str
-    binding_role: str
+    """Per-binding hydration result.
+
+    Well-formed bindings carry exact immutable locators. Malformed
+    ``uses_statblock`` edges carry ``relationship_edge_id`` and leave
+    binding/statblock/revision/digest null — never fabricate those identities.
+    """
+
+    relationship_edge_id: str
+    binding_id: str | None = None
+    binding_role: str | None = None
     threat_node_id: str
-    resource_node_id: str
+    resource_node_id: str | None = None
     provider: Literal["dungeonmind"] = "dungeonmind"
-    statblock_id: str
-    revision_id: str
-    definition_digest: str
+    statblock_id: str | None = None
+    revision_id: str | None = None
+    definition_digest: str | None = None
     hydration_status: BindingHydrationStatus
     binding: ThreatStatblockBindingV1 | None = None
     revision: ExactRevisionResourceV1 | None = None
