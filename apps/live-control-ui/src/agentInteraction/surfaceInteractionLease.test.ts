@@ -233,6 +233,7 @@ describe("surfaceInteractionLease", () => {
       pageActions: [{ id: "page-tool", label: "Page tool", onClick: () => {} }],
       editorTools: null,
       basePublication: current.rawBasePublication,
+      editCommandTarget: null,
     });
     current = registerChromeCompatibilityFragment(
       current,

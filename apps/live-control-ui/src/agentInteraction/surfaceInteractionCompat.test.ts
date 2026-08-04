@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppChromeAction } from "../chrome/AppChrome";
@@ -9,7 +11,6 @@ import {
 } from "./projectionSurfacePublication";
 import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
 import {
-  BLANK_COMMAND_TARGET,
   LEGACY_APPCHROME_DISABLED,
   LEGACY_CONTEXT_UNAVAILABLE,
   ROUTE_COMPATIBILITY_PUBLICATIONS,
@@ -223,26 +224,54 @@ describe("surfaceInteractionCompat", () => {
     expect(JSON.stringify(fragment)).not.toContain("panel-never-published");
   });
 
-  it("uses blank edit targets when editCommandTarget is missing", () => {
+  it("publishes no Edit commands when editCommandTarget is null", () => {
+    const pageClick = vi.fn();
+    const fragment = buildAppChromeCompatibilityFragment({
+      pageActions: [{ id: "inspector", label: "Inspector", onClick: pageClick }],
+      editorTools: {
+        pinnedActions: [{ id: "bold", label: "Bold", onClick: () => {} }],
+      },
+      basePublication: {
+        ...buildIndexRouteCompatibilityPublication(),
+        canvas: {
+          canvasId: "markdown-canvas",
+          workObject: { kind: "document", id: "doc-canvas" },
+        },
+      },
+      editCommandTarget: null,
+    });
+    expect(fragment.editCommands).toEqual([]);
+    expect(fragment.tools).toHaveLength(1);
+    expect(fragment.tools[0]?.id).toBe("inspector");
+    expect(fragment.tools[0]?.activation).toEqual({ kind: "command", invoke: pageClick });
+  });
+
+  it("never infers Edit targets from basePublication canvas", () => {
+    const source = readFileSync(join(__dirname, "surfaceInteractionCompat.ts"), "utf8");
+    expect(source).toMatch(
+      /editCommandTarget:\s*SurfaceInteractionWorkObjectIdentity\s*\|\s*null/,
+    );
+    expect(source).not.toMatch(/editCommandTarget\?:/);
+    expect(source).not.toMatch(/canvasWorkObject\(/);
+    expect(source).not.toMatch(
+      /editCommandTarget\s*!==\s*undefined[\s\S]*canvasWorkObject|canvasWorkObject[\s\S]*editCommandTarget/,
+    );
+
     const fragment = buildAppChromeCompatibilityFragment({
       pageActions: [],
       editorTools: {
         pinnedActions: [{ id: "bold", label: "Bold", onClick: () => {} }],
       },
-      basePublication: buildIndexRouteCompatibilityPublication(),
+      basePublication: {
+        ...buildIndexRouteCompatibilityPublication(),
+        canvas: {
+          canvasId: "markdown-canvas",
+          workObject: { kind: "document", id: "doc-canvas" },
+        },
+      },
       editCommandTarget: null,
     });
-    expect(fragment.editCommands[0]?.target).toEqual(BLANK_COMMAND_TARGET);
-    const composed = {
-      ...buildIndexRouteCompatibilityPublication(),
-      editCommands: fragment.editCommands,
-    };
-    const result = validateSurfaceInteractionPublication(composed);
-    expect(result.valid).toBe(false);
-    expect(
-      result.issues.some((issue) =>
-        issue.code === "command_target_invalid" || issue.code === "contribution_shape_invalid"),
-    ).toBe(true);
+    expect(fragment.editCommands).toEqual([]);
   });
 
   it("maps disabled AppChrome actions to deterministic compatibility reasons", () => {

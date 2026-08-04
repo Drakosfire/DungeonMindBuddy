@@ -276,6 +276,7 @@ describe("ToolHost", () => {
             pageActions: pageActionsRef.current,
             editorTools: null,
             basePublication: surfaceInteractionBasePublication,
+            editCommandTarget: null,
           }),
         );
       }, [pageActions, publishAppChromeCompatibility, surfaceInteractionBasePublication]);

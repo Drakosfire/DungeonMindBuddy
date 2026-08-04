@@ -1150,6 +1150,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
           pageActions: [{ id: "recap", label: "Duplicate recap", onClick: vi.fn() }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1168,6 +1169,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
           pageActions: [],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1197,6 +1199,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
           pageActions: [{ id: "ingest-recap", label: "Duplicate recap", onClick: vi.fn() }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1214,6 +1217,7 @@ describe("AgentInteractionProvider projection lease semantics", () => {
           pageActions: [],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1292,6 +1296,7 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
           pageActions: [{ id: "page-tool", label: "Page tool", onClick }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1345,6 +1350,7 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
           pageActions: [{ id: "first-action", label: "First", onClick: firstSpy }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1370,6 +1376,7 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
           pageActions: [{ id: "second-action", label: "Second", onClick: secondSpy }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1416,6 +1423,7 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
           pageActions: [{ id: "page-tool", label: "Page tool", onClick: vi.fn() }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1423,7 +1431,7 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
     expect(result.current.surfaceInteractionPublication?.tools.some((tool) => tool.id === "page-tool")).toBe(true);
   });
 
-  it("invalid AppChrome edit fragments invalidate the effective publication", () => {
+  it("null editCommandTarget withholds Edit commands without invalidating page-action publication", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
       result.current.publishSurfaceInteractionPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
@@ -1431,15 +1439,18 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
     act(() => {
       result.current.publishAppChromeCompatibility(
         buildAppChromeCompatibilityFragment({
-          pageActions: [],
+          pageActions: [{ id: "inspector", label: "Inspector", onClick: vi.fn() }],
           editorTools: {
             pinnedActions: [{ id: "bold", label: "Bold", onClick: vi.fn() }],
           },
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
-    expect(result.current.surfaceInteractionPublication).toBeNull();
+    expect(result.current.surfaceInteractionPublication).not.toBeNull();
+    expect(result.current.surfaceInteractionPublication?.tools.some((tool) => tool.id === "inspector")).toBe(true);
+    expect(result.current.surfaceInteractionPublication?.editCommands ?? []).toEqual([]);
   });
 
   it("executes AppChrome page actions through guarded effective publication", () => {
@@ -1454,6 +1465,7 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
           pageActions: [{ id: "launch", label: "Launch", onClick }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1478,6 +1490,7 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
           pageActions: [{ id: "page-tool", label: "Page tool", onClick }],
           editorTools: null,
           basePublication: result.current.surfaceInteractionBasePublication,
+          editCommandTarget: null,
         }),
       );
     });
@@ -1491,15 +1504,17 @@ describe("AgentInteractionProvider neutral surface interaction lease", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
 
     act(() => {
-      result.current.publishAppChromeCompatibility(
-        buildAppChromeCompatibilityFragment({
-          pageActions: [],
-          editorTools: {
-            pinnedActions: [{ id: "bold", label: "Bold", onClick: vi.fn() }],
-          },
-          basePublication: result.current.surfaceInteractionBasePublication,
-        }),
-      );
+      result.current.publishAppChromeCompatibility({
+        tools: [],
+        editCommands: [{
+          id: "bold",
+          label: "Bold",
+          placement: { groupId: null, groupLabel: null, groupOrder: 0, itemOrder: 0 },
+          availability: { status: "enabled" },
+          target: { kind: "", id: "" },
+          invoke: vi.fn(),
+        }],
+      });
     });
     expect(result.current.surfaceInteractionPublication).toBeNull();
 
