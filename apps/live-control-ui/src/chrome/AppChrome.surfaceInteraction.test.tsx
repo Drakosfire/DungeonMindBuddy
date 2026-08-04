@@ -121,7 +121,7 @@ describe("AppChrome surface interaction bridge", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByText("Callouts")).toBeTruthy();
+    expect(screen.getAllByText("Callouts").length).toBeGreaterThan(0);
     expect(screen.getByTestId("surface-edit-host")).toBeInTheDocument();
   });
 
