@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -11,6 +14,10 @@ import { AppChrome } from "./AppChrome";
 
 function openToolsDrawer() {
   fireEvent.click(screen.getByRole("button", { name: "Tools" }));
+}
+
+function openEditDrawer() {
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 }
 
 function IndexRouteChromeHarness({
@@ -81,6 +88,9 @@ function makeSharedInstancePublication(
   };
 }
 
+const targetA = { kind: "document", id: "doc-a" } as const;
+const targetB = { kind: "document", id: "doc-b" } as const;
+
 describe("AppChrome surface interaction bridge", () => {
   it("preserves Tool host page-tool grouping from AppChrome pageActions", () => {
     render(
@@ -96,23 +106,33 @@ describe("AppChrome surface interaction bridge", () => {
     expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
   });
 
-  it("preserves Edit toolbox section labels from AppChrome editorTools", () => {
+  it("preserves Edit host section labels from AppChrome editorTools via publication", () => {
+    const publication = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: targetA,
+    });
     render(
       <AgentInteractionProvider>
-        <IndexRouteChromeHarness
+        <PublicationChromeHarness
+          publication={publication}
           editorTools={{
-            sections: [{
-              id: "callouts",
-              title: "Callouts",
-              actions: [{ id: "note", label: "Note", onClick: () => {} }],
-            }],
+            target: targetA,
+            tools: {
+              sections: [{
+                id: "callouts",
+                title: "Callouts",
+                defaultOpen: true,
+                actions: [{ id: "note", label: "Note", onClick: () => {} }],
+              }],
+            },
           }}
         />
       </AgentInteractionProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByText("Callouts")).toBeTruthy();
+    openEditDrawer();
+    expect(screen.getAllByText("Callouts").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("surface-edit-host")).toBeInTheDocument();
   });
 
   it("renders AppChrome actions under an active route lease publisher", () => {
@@ -179,44 +199,237 @@ describe("AppChrome surface interaction bridge", () => {
     expect(screen.getByRole("button", { name: "Launch" })).not.toBeDisabled();
   });
 
-  it("republishes Edit targets when the base Canvas work object changes under the same identity", () => {
-    const onClick = vi.fn();
+  it("R1 — late A metadata update after Canvas B stays A and stays hidden", () => {
+    const cbA = vi.fn();
     const publicationA = makeSharedInstancePublication("doc", "Doc surface", {
       canvasId: "canvas-1",
-      workObject: { kind: "document", id: "doc-a" },
+      workObject: targetA,
     });
     const publicationB = makeSharedInstancePublication("doc", "Doc surface", {
       canvasId: "canvas-1",
-      workObject: { kind: "document", id: "doc-b" },
+      workObject: targetB,
     });
-    const editorTools = {
-      pinnedActions: [{ id: "bold", label: "Bold", onClick }],
+    const generationA = {
+      target: targetA,
+      tools: {
+        pinnedActions: [{ id: "bold", label: "Bold", onClick: cbA, pressed: false }],
+      },
     };
 
     const { rerender } = render(
       <AgentInteractionProvider>
-        <PublicationChromeHarness
-          publication={publicationA}
-          editorTools={editorTools}
-        />
+        <PublicationChromeHarness publication={publicationA} editorTools={generationA} />
       </AgentInteractionProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    openEditDrawer();
     expect(screen.getByTestId("edit-target").textContent).toBe("document:doc-a");
     fireEvent.click(screen.getByRole("button", { name: "Bold" }));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(cbA).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness publication={publicationB} editorTools={generationA} />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Bold" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(cbA).toHaveBeenCalledTimes(1);
 
     rerender(
       <AgentInteractionProvider>
         <PublicationChromeHarness
           publication={publicationB}
-          editorTools={editorTools}
+          editorTools={{
+            target: targetA,
+            tools: {
+              pinnedActions: [{ id: "bold", label: "Bold", onClick: cbA, pressed: true }],
+            },
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByTestId("edit-target").textContent).toBe("document:doc-a");
+    expect(screen.queryByRole("button", { name: "Bold" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(cbA).toHaveBeenCalledTimes(1);
+  });
+
+  it("R2 — legitimate B generation with identical shape and stable callback appears", () => {
+    const sameStableCb = vi.fn();
+    const publicationA = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: targetA,
+    });
+    const publicationB = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: targetB,
+    });
+    const generationA = {
+      target: targetA,
+      tools: {
+        pinnedActions: [{ id: "bold", label: "Bold", onClick: sameStableCb }],
+      },
+    };
+
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness publication={publicationA} editorTools={generationA} />
+      </AgentInteractionProvider>,
+    );
+    openEditDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "Bold" }));
+    expect(sameStableCb).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness publication={publicationB} editorTools={generationA} />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Bold" })).toBeNull();
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publicationB}
+          editorTools={{
+            target: targetB,
+            tools: {
+              pinnedActions: [{ id: "bold", label: "Bold", onClick: sameStableCb }],
+            },
+          }}
         />
       </AgentInteractionProvider>,
     );
     expect(screen.getByTestId("edit-target").textContent).toBe("document:doc-b");
+    openEditDrawer();
     fireEvent.click(screen.getByRole("button", { name: "Bold" }));
-    expect(onClick).toHaveBeenCalledTimes(2);
+    expect(sameStableCb).toHaveBeenCalledTimes(2);
+  });
+
+  it("R3 — panel-only A→B generations with identical section metadata", () => {
+    const publicationA = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: targetA,
+    });
+    const publicationB = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: targetB,
+    });
+    const generationA = {
+      target: targetA,
+      tools: {
+        sections: [{
+          id: "search",
+          title: "Search",
+          defaultOpen: true,
+          actions: [],
+          panel: <div data-testid="panel-a">A</div>,
+        }],
+      },
+    };
+    const generationB = {
+      target: targetB,
+      tools: {
+        sections: [{
+          id: "search",
+          title: "Search",
+          defaultOpen: true,
+          actions: [],
+          panel: <div data-testid="panel-b">B</div>,
+        }],
+      },
+    };
+
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness publication={publicationA} editorTools={generationA} />
+      </AgentInteractionProvider>,
+    );
+    openEditDrawer();
+    expect(screen.getByTestId("panel-a")).toBeInTheDocument();
+    expect(screen.queryByTestId("panel-b")).toBeNull();
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness publication={publicationB} editorTools={generationA} />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.queryByTestId("panel-a")).toBeNull();
+    expect(screen.queryByTestId("panel-b")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness publication={publicationB} editorTools={generationB} />
+      </AgentInteractionProvider>,
+    );
+    openEditDrawer();
+    expect(screen.queryByTestId("panel-a")).toBeNull();
+    expect(screen.getByTestId("panel-b")).toBeInTheDocument();
+  });
+
+  it("R4 — absent or invalid target fails closed without stamping current Canvas", () => {
+    const onClick = vi.fn();
+    const publication = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: targetA,
+    });
+    render(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publication}
+          editorTools={{
+            target: { kind: "", id: "" },
+            tools: {
+              pinnedActions: [{ id: "bold", label: "Bold", onClick }],
+            },
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByTestId("edit-target").textContent).toBe("none");
+    expect(screen.queryByRole("button", { name: "Bold" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("republishes pinned action when pressed transitions from absent to false", () => {
+    const onClick = vi.fn();
+    const publication = makeSharedInstancePublication("doc", "Doc surface", {
+      canvasId: "canvas-1",
+      workObject: targetA,
+    });
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publication}
+          editorTools={{
+            target: targetA,
+            tools: {
+              pinnedActions: [{ id: "bold", label: "Bold", onClick }],
+            },
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+    openEditDrawer();
+    const boldButton = screen.getByRole("button", { name: "Bold" });
+    expect(boldButton.getAttribute("aria-pressed")).toBeNull();
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublicationChromeHarness
+          publication={publication}
+          editorTools={{
+            target: targetA,
+            tools: {
+              pinnedActions: [{ id: "bold", label: "Bold", onClick, pressed: false }],
+            },
+          }}
+        />
+      </AgentInteractionProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Bold" }).getAttribute("aria-pressed")).toBe("false");
   });
 
   it("republishes when action id/label would collide under delimiter joining", () => {
@@ -245,5 +458,21 @@ describe("AppChrome surface interaction bridge", () => {
     expect(nextButton).not.toBeDisabled();
     fireEvent.click(nextButton);
     expect(shared).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a singular EditHost: AppChrome source has no EditToolbox ownership", () => {
+    const source = readFileSync(join(__dirname, "AppChrome.tsx"), "utf8");
+    expect(source).not.toMatch(/\bEditToolbox\b/);
+    expect(source).not.toMatch(/\bEditToolboxDrawer\b/);
+    expect(source).not.toMatch(/\bGuardedActionButton\b/);
+    expect(source).not.toMatch(/app-edit-toolbox-toggle/);
+    expect(source).not.toMatch(/\bisEditOpen\b/);
+    expect(source).not.toMatch(/\bonOpenChange\b/);
+    expect(source).not.toMatch(/app-shell--edit-dock-open/);
+    expect(source).not.toMatch(/\beditCommandTargetRef\b/);
+    expect(source).not.toMatch(/\beditorToolsTargetCapturePending\b/);
+    expect(source).toMatch(/EditHost/);
+    expect(source).toMatch(/legacyPanels/);
+    expect(source).toMatch(/AppChromeToolsGeneration/);
   });
 });

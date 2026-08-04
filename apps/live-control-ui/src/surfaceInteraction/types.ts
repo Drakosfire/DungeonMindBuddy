@@ -48,6 +48,11 @@ export interface SurfaceInteractionPlacement {
   groupLabel: string | null;
   groupOrder: number;
   itemOrder: number;
+  /**
+   * Optional group fold default. Must be absent when groupId is null.
+   * Same groupId contributors must agree on presence and value.
+   */
+  groupDefaultOpen?: boolean;
 }
 
 export type SurfaceInteractionToolActivation =
@@ -75,6 +80,8 @@ export interface SurfaceInteractionEditCommandContribution {
   placement: SurfaceInteractionPlacement;
   availability: SurfaceInteractionAvailability;
   target: SurfaceInteractionCommandTarget;
+  /** Optional toggle/pressed presentation for Edit Host buttons. */
+  pressed?: boolean;
   invoke: () => void | Promise<void>;
 }
 

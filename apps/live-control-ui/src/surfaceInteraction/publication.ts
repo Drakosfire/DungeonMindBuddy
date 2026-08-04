@@ -60,10 +60,10 @@ const PUBLICATION_KEYS = [
   "projectionBindings",
 ] as const;
 const TOOL_KEYS = ["id", "label", "eyebrow", "placement", "availability", "activation"] as const;
-const EDIT_KEYS = ["id", "label", "eyebrow", "placement", "availability", "target", "invoke"] as const;
+const EDIT_KEYS = ["id", "label", "eyebrow", "placement", "availability", "target", "pressed", "invoke"] as const;
 const PROJECTION_KEYS = ["id", "kind", "preferredSize", "bindingIds"] as const;
 const BINDING_KEYS = ["id", "value"] as const;
-const PLACEMENT_KEYS = ["groupId", "groupLabel", "groupOrder", "itemOrder"] as const;
+const PLACEMENT_KEYS = ["groupId", "groupLabel", "groupOrder", "itemOrder", "groupDefaultOpen"] as const;
 const AVAILABILITY_KEYS = ["status", "disabledReason"] as const;
 const ACTIVATION_KEYS = ["kind", "invoke", "projectionId"] as const;
 const TARGET_KEYS = ["kind", "id"] as const;
@@ -270,6 +270,16 @@ function validatePlacementFields(
   if (groupLabel !== null && isBlank(groupLabel)) problems.push("group label is blank or not a string");
   if (!Number.isInteger(groupOrder)) problems.push("group order is not a finite integer");
   if (!Number.isInteger(itemOrder)) problems.push("item order is not a finite integer");
+  // Optional groupDefaultOpen: absent is fine; supplied non-boolean is malformed;
+  // must be absent when groupId is null (pinned).
+  if (placement.fields.has("groupDefaultOpen")) {
+    const groupDefaultOpen = placement.fields.get("groupDefaultOpen");
+    if (typeof groupDefaultOpen !== "boolean") {
+      problems.push(`supplied groupDefaultOpen is not a boolean (got ${describeType(groupDefaultOpen)})`);
+    } else if (groupId === null) {
+      problems.push("groupDefaultOpen must be absent when groupId is null");
+    }
+  }
   if (problems.length > 0) {
     issues.push({
       code: "placement_invalid",
@@ -288,6 +298,9 @@ function hasValidPlacementForGroupConflict(placement: RecordSnapshot): boolean {
   if ((groupId === null) !== (groupLabel === null)) return false;
   if (groupLabel !== null && isBlank(groupLabel)) return false;
   if (!Number.isInteger(groupOrder) || !Number.isInteger(itemOrder)) return false;
+  if (placement.fields.has("groupDefaultOpen")) {
+    if (typeof placement.fields.get("groupDefaultOpen") !== "boolean") return false;
+  }
   return true;
 }
 
@@ -379,6 +392,9 @@ function canonicalPlacement(placement: RecordSnapshot): SurfaceInteractionPlacem
     groupLabel: placement.fields.get("groupLabel") as string | null,
     groupOrder: placement.fields.get("groupOrder") as number,
     itemOrder: placement.fields.get("itemOrder") as number,
+    ...(placement.fields.has("groupDefaultOpen")
+      ? { groupDefaultOpen: placement.fields.get("groupDefaultOpen") as boolean }
+      : {}),
   };
 }
 
@@ -429,6 +445,7 @@ function canonicalEdit(
       kind: snap.target.fields.get("kind") as string,
       id: snap.target.fields.get("id") as string,
     },
+    ...(snap.fields.has("pressed") ? { pressed: snap.fields.get("pressed") as boolean } : {}),
     invoke: snap.fields.get("invoke") as () => void | Promise<void>,
   };
 }
@@ -683,6 +700,12 @@ export function validateSurfaceInteractionPublication(
       const eyebrow = snap.fields.get("eyebrow");
       if (typeof eyebrow !== "string") {
         nestedProblems.push(`supplied eyebrow is not a string (got ${describeType(eyebrow)})`);
+      }
+    }
+    if (snap.fields.has("pressed")) {
+      const pressed = snap.fields.get("pressed");
+      if (typeof pressed !== "boolean") {
+        nestedProblems.push(`supplied pressed is not a boolean (got ${describeType(pressed)})`);
       }
     }
     if (nestedProblems.length > 0) {
@@ -1338,7 +1361,13 @@ export function validateSurfaceInteractionPublication(
   // placement_group_conflict: Tool order, then Edit; first declaration canonical.
   const groupCanonical = new Map<
     string,
-    { contributionId: string; groupLabel: unknown; groupOrder: unknown }
+    {
+      contributionId: string;
+      groupLabel: unknown;
+      groupOrder: unknown;
+      groupDefaultOpenPresent: boolean;
+      groupDefaultOpen: unknown;
+    }
   >();
   const scanForGroupConflict = (
     placement: RecordSnapshot,
@@ -1348,19 +1377,36 @@ export function validateSurfaceInteractionPublication(
     const groupId = placement.fields.get("groupId") as string;
     const groupLabel = placement.fields.get("groupLabel");
     const groupOrder = placement.fields.get("groupOrder");
+    const groupDefaultOpenPresent = placement.fields.has("groupDefaultOpen");
+    const groupDefaultOpen = groupDefaultOpenPresent
+      ? placement.fields.get("groupDefaultOpen")
+      : undefined;
     const canonical = groupCanonical.get(groupId);
     if (!canonical) {
-      groupCanonical.set(groupId, { contributionId, groupLabel, groupOrder });
+      groupCanonical.set(groupId, {
+        contributionId,
+        groupLabel,
+        groupOrder,
+        groupDefaultOpenPresent,
+        groupDefaultOpen,
+      });
       return;
     }
-    if (canonical.groupLabel !== groupLabel || canonical.groupOrder !== groupOrder) {
+    if (
+      canonical.groupLabel !== groupLabel
+      || canonical.groupOrder !== groupOrder
+      || canonical.groupDefaultOpenPresent !== groupDefaultOpenPresent
+      || (groupDefaultOpenPresent && canonical.groupDefaultOpen !== groupDefaultOpen)
+    ) {
       issues.push({
         code: "placement_group_conflict",
         message:
           `Group "${groupId}" was first declared by contribution "${canonical.contributionId}" ` +
-          `(label ${JSON.stringify(canonical.groupLabel)}, order ${String(canonical.groupOrder)}); ` +
+          `(label ${JSON.stringify(canonical.groupLabel)}, order ${String(canonical.groupOrder)}, ` +
+          `groupDefaultOpen ${canonical.groupDefaultOpenPresent ? JSON.stringify(canonical.groupDefaultOpen) : "absent"}); ` +
           `contribution "${contributionId}" disagrees ` +
-          `(label ${JSON.stringify(groupLabel)}, order ${String(groupOrder)}).`,
+          `(label ${JSON.stringify(groupLabel)}, order ${String(groupOrder)}, ` +
+          `groupDefaultOpen ${groupDefaultOpenPresent ? JSON.stringify(groupDefaultOpen) : "absent"}).`,
         contributionId,
         referencedId: groupId,
       });

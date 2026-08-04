@@ -41,7 +41,7 @@ import {
   fixtureWorkspaceDocumentRecord,
 } from "./config/planSessionDescriptor";
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
-import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
+import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import {
   activeThreadStorageKey,
   createAgentInteractionThread,
@@ -53,6 +53,7 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
+import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
@@ -131,7 +132,7 @@ function mockWorldGraphQueryContext(
 }
 
 function PlanSurfaceTestHarness() {
-  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
 
   return (
     <AgentInteractionProvider>
@@ -139,6 +140,7 @@ function PlanSurfaceTestHarness() {
         <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
           <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
         </AppChrome>
+        <ToolHost />
         <LegacyProjectionHostAdapter />
         <AgentInteractionChrome />
       </AskPluginSlotProvider>
@@ -218,7 +220,9 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
+    // Projection host is body-only until a tool/content projection is active (SIH-04).
+    expect(screen.queryByRole("navigation", { name: "Toolbox tools" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Plan toolbox" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
     expect(screen.getByText("Plan Board")).toBeInTheDocument();
     expect(screen.getByTestId("plan-graph-load-panel")).toBeInTheDocument();
@@ -226,13 +230,12 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByRole("navigation", { name: "Plan surface navigation" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-memory-source")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review memory" })).not.toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument();
     // Docked Edit starts open; the side tab is hidden until the drawer closes.
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
-    expect(screen.getByText("World Graph objects")).toBeInTheDocument();
+    expect(screen.getAllByText("World Graph objects").length).toBeGreaterThan(0);
     expect(screen.getByTestId("graph-reference-search")).toBeInTheDocument();
   });
 
@@ -242,7 +245,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Recap" })).toHaveAttribute("aria-pressed", "true"),
+      expect(screen.getByRole("button", { name: "Recap", pressed: true })).toBeInTheDocument(),
     );
   });
 
@@ -1519,9 +1522,10 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: "Recap" }));
 
     expect(screen.getByRole("complementary", { name: /Recap projection/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Recap" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Recap", pressed: true })).toBeInTheDocument();
   });
 
   it("opens statblock projection from the toolbar registry", async () => {
@@ -1617,6 +1621,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: "Recap" }));
     expect(screen.getByRole("complementary", { name: /Recap projection/i })).toBeInTheDocument();
     expect(document.querySelector(".surface-projection-backdrop")).not.toHaveAttribute("hidden");
 
@@ -1721,7 +1726,7 @@ describe("PlanSurfaceShell", () => {
     );
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
-    let editorTools: AppChromeTools | null = null;
+    let editorTools: AppChromeToolsGeneration | null = null;
 
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
       .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
@@ -1796,13 +1801,13 @@ describe("PlanSurfaceShell", () => {
       expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
     });
     await waitFor(() => {
-      const saveAction = editorTools?.sections
+      const saveAction = editorTools?.tools.sections
         ?.find((section) => section.id === "plan-markdown-save")
         ?.actions.find((action) => action.label === "Save to Markdown");
       expect(saveAction?.disabled).toBeFalsy();
     });
 
-    const saveAction = editorTools!.sections!
+    const saveAction = editorTools!.tools.sections!
       .find((section) => section.id === "plan-markdown-save")!
       .actions.find((action) => action.label === "Save to Markdown")!;
     await act(async () => {
@@ -1829,7 +1834,7 @@ describe("PlanSurfaceShell", () => {
     );
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
-    let editorTools: AppChromeTools | null = null;
+    let editorTools: AppChromeToolsGeneration | null = null;
 
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
       .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
@@ -1923,13 +1928,13 @@ describe("PlanSurfaceShell", () => {
     });
 
     await waitFor(() => {
-      const saveAction = editorTools?.sections
+      const saveAction = editorTools?.tools.sections
         ?.find((section) => section.id === "plan-markdown-save")
         ?.actions.find((action) => action.label === "Save to Markdown");
       expect(saveAction?.disabled).toBeFalsy();
     });
 
-    const saveAction = editorTools!.sections!
+    const saveAction = editorTools!.tools.sections!
       .find((section) => section.id === "plan-markdown-save")!
       .actions.find((action) => action.label === "Save to Markdown")!;
     await act(async () => {

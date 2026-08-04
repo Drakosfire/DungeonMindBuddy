@@ -35,12 +35,6 @@ function disabledAvailability(reason: string) {
   return { status: "disabled" as const, disabledReason: reason };
 }
 
-function canvasWorkObject(
-  publication: SurfaceInteractionPublication | null,
-): SurfaceInteractionWorkObjectIdentity | null {
-  return publication?.canvas?.workObject ?? null;
-}
-
 function boundedAmbientSummary(label: string, headerLabel?: string): string {
   const parts = [label, headerLabel].filter((entry): entry is string => Boolean(entry && entry.trim()));
   const combined = parts.join(" · ");
@@ -144,14 +138,10 @@ function mapPageAction(action: AppChromeAction, index: number): SurfaceInteracti
   };
 }
 
-function editTarget(workObject: SurfaceInteractionWorkObjectIdentity | null): SurfaceInteractionWorkObjectIdentity {
-  return workObject ?? BLANK_COMMAND_TARGET;
-}
-
 function mapPinnedEditAction(
   action: AppChromeAction,
   index: number,
-  workObject: SurfaceInteractionWorkObjectIdentity | null,
+  workObject: SurfaceInteractionWorkObjectIdentity,
 ): SurfaceInteractionEditCommandContribution {
   return {
     id: action.id,
@@ -164,17 +154,18 @@ function mapPinnedEditAction(
       itemOrder: index,
     },
     availability: action.disabled ? disabledAvailability(LEGACY_APPCHROME_DISABLED) : enabledAvailability(),
-    target: editTarget(workObject),
+    target: workObject,
+    ...(action.pressed !== undefined ? { pressed: action.pressed } : {}),
     invoke: action.onClick,
   };
 }
 
 function mapSectionEditAction(
   action: AppChromeAction,
-  section: { id: string; title: string },
+  section: { id: string; title: string; defaultOpen?: boolean },
   sectionIndex: number,
   actionIndex: number,
-  workObject: SurfaceInteractionWorkObjectIdentity | null,
+  workObject: SurfaceInteractionWorkObjectIdentity,
 ): SurfaceInteractionEditCommandContribution {
   return {
     id: action.id,
@@ -185,9 +176,13 @@ function mapSectionEditAction(
       groupLabel: section.title,
       groupOrder: sectionIndex,
       itemOrder: actionIndex,
+      ...(section.defaultOpen !== undefined
+        ? { groupDefaultOpen: section.defaultOpen }
+        : {}),
     },
     availability: action.disabled ? disabledAvailability(LEGACY_APPCHROME_DISABLED) : enabledAvailability(),
-    target: editTarget(workObject),
+    target: workObject,
+    ...(action.pressed !== undefined ? { pressed: action.pressed } : {}),
     invoke: action.onClick,
   };
 }
@@ -195,13 +190,24 @@ function mapSectionEditAction(
 export function buildAppChromeCompatibilityFragment(input: {
   pageActions: readonly AppChromeAction[];
   editorTools: AppChromeTools | null | undefined;
+  /** Retained for call-site compatibility; Edit targets are never inferred from Canvas. */
   basePublication: SurfaceInteractionPublication | null;
+  /**
+   * Required Edit provenance. Pass an exact work-object identity to stamp commands,
+   * or `null` to publish no Edit commands while still mapping page actions.
+   */
+  editCommandTarget: SurfaceInteractionWorkObjectIdentity | null;
 }): SurfaceInteractionChromeFragment {
-  const workObject = canvasWorkObject(input.basePublication);
+  void input.basePublication;
+  const workObject = input.editCommandTarget;
+  const tools = input.pageActions.map(mapPageAction);
+  if (workObject == null) {
+    return { tools, editCommands: [] };
+  }
   const pinnedActions = input.editorTools?.pinnedActions ?? [];
   const sections = input.editorTools?.sections ?? [];
   return {
-    tools: input.pageActions.map(mapPageAction),
+    tools,
     editCommands: [
       ...pinnedActions.map((action, index) => mapPinnedEditAction(action, index, workObject)),
       ...sections.flatMap((section, sectionIndex) =>

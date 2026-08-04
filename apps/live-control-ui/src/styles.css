@@ -188,7 +188,7 @@ code {
   box-sizing: border-box;
 }
 
-.app-shell--edit-dock.app-shell--edit-dock-open .app-shell-layout {
+.app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-shell-layout {
   padding-left: min(380px, 32vw);
 }
 
@@ -196,7 +196,7 @@ code {
   flex: 0 0 auto;
 }
 
-.app-shell--edit-dock.app-shell--edit-dock-open .app-edit-toolbox--docked .app-edit-toolbox-drawer {
+.app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-edit-toolbox--docked .app-edit-toolbox-drawer {
   position: fixed;
   top: 0;
   left: 0;
@@ -211,14 +211,14 @@ code {
   transition: bottom 0.2s ease, max-height 0.2s ease;
 }
 
-.app-shell--edit-dock.app-shell--edit-dock-open:has(.plan-agent-shell.open)
+.app-shell--edit-dock:has(.app-edit-toolbox--docked.open):has(.plan-agent-shell.open)
   .app-edit-toolbox--docked
   .app-edit-toolbox-drawer {
   bottom: var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px)));
   max-height: calc(100vh - var(--plan-agent-open-chrome-height, calc(4.75rem + min(64vh, 680px))));
 }
 
-.app-shell--edit-dock.app-shell--edit-dock-open .app-edit-toolbox--docked .app-edit-toolbox-body {
+.app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-edit-toolbox--docked .app-edit-toolbox-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;

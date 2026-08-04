@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
-import type { AppChromeTools } from "../../chrome/AppChrome";
+import type { AppChromeToolsGeneration } from "../../chrome/AppChrome";
 import {
   GraphNodeChipRuntimeProvider,
   GraphReferenceSearch,
@@ -14,7 +14,7 @@ import {
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
 import {
-  toAppChromeTools,
+  toAppChromeToolsGeneration,
   type MarkdownEditorToolbarModel,
 } from "../../tiptap/MarkdownEditorToolbar";
 import {
@@ -47,7 +47,7 @@ import "../../graphReference/graphReference.css";
 interface PlanSurfaceCanvasProps {
   sessionDescriptor: PlanSessionDescriptor;
   theme: SurfaceThemeConfig;
-  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
   onSaveStatusChange?: (statusLabel: string) => void;
   onPlanningDocumentCommitted?: (document: PlanDocumentDescriptor) => void;
 }
@@ -372,9 +372,12 @@ export function PlanSurfaceCanvas({
   ]);
 
   useEffect(() => {
-    onEditorToolsChange?.(toAppChromeTools(toolbarModel));
+    onEditorToolsChange?.(toAppChromeToolsGeneration(toolbarModel, {
+      kind: "document",
+      id: planningDocument.documentId,
+    }));
     return () => onEditorToolsChange?.(null);
-  }, [onEditorToolsChange, toolbarModel]);
+  }, [onEditorToolsChange, planningDocument.documentId, toolbarModel]);
 
   const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
 
