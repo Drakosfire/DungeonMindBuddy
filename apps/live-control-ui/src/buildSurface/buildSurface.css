@@ -1,0 +1,55 @@
+/* Build workspace composition: TipTap + graph-reference visual grammar. */
+@import "../tiptap/tiptapSpike.css";
+@import "../graphReference/graphReference.css";
+
+.build-surface-new {
+  width: min(720px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 7rem;
+}
+
+.build-surface-new-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.build-surface-with-graph-context {
+  width: min(960px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0 0 7rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.build-surface-shell {
+  display: grid;
+  gap: 0.75rem;
+  color: var(--fg, #e8eaef);
+}
+
+.build-surface-shell .markdown-canvas-header,
+.build-surface-shell header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.build-surface-editor,
+.build-surface-editor.tiptap-spike-editor {
+  min-height: 18rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: rgba(18, 20, 26, 0.72);
+  padding: 0.85rem 1rem;
+}
+
+.build-surface-editor .ProseMirror {
+  min-height: 16rem;
+  outline: none;
+}
+
+.build-ingest-toolbar {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: var(--radius, 10px);
+  background: rgba(18, 20, 26, 0.55);
+  padding: 0.75rem 0.85rem;
+}

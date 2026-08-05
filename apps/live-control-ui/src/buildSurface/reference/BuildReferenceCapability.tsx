@@ -6,7 +6,7 @@ import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import {
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
 } from "../../graphReference/projectionBindings";
-import { resolveGraphReference } from "../../graphReference/resolveGraphReference";
+import { resolveGraphReference, extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import type {
   GraphReferenceProjectionState,
   GraphReferenceResolution,
@@ -118,6 +118,17 @@ async function resolveBuildRelationshipTarget(input: {
   if (targetId && input.projection) {
     const exactNode = input.projection.nodes.find((node) => node.nodeId === targetId) ?? null;
     if (exactNode) {
+      const graphScope = extractExactGraphReferenceScope(input.projection);
+      if (!graphScope) {
+        return {
+          kind: "error",
+          locator,
+          reference,
+          projectionState: input.projectionState,
+          message:
+            "World Graph projection is missing an exact scope; relationship resolution unavailable.",
+        };
+      }
       const nodeView = adaptWorldGraphNodeView(exactNode);
       return {
         kind: "resolved_graph",
@@ -125,6 +136,7 @@ async function resolveBuildRelationshipTarget(input: {
         reference,
         graphNodeId: exactNode.nodeId,
         graphObject: buildGraphObjectCardFromNodeView(nodeView),
+        graphScope,
         projectionState: input.projectionState,
         message: `Resolved graph node ${exactNode.label}.`,
       };
@@ -242,6 +254,8 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       if (projection.loadKey !== liveKey) return;
       const canonical = projection.items.find((entry) => entry.nodeId === item.nodeId);
       if (!canonical) return;
+      const graphScope = extractExactGraphReferenceScope(projection.projection);
+      if (!graphScope) return;
 
       openGraphReference({
         resolution: {
@@ -250,13 +264,14 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
           reference: canonical.reference,
           graphNodeId: canonical.nodeId,
           graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
+          graphScope,
           projectionState: projection.state,
           message: `Resolved graph node ${canonical.label}.`,
         },
         projectionState: projection.state,
       });
     },
-    [openGraphReference, projection.items, projection.loadKey, projection.state],
+    [openGraphReference, projection.items, projection.loadKey, projection.projection, projection.state],
   );
 
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
@@ -288,14 +303,35 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     viewExact,
   ]);
 
+  const saveDocument = useCallback(async () => {
+    if (!documentId || !session || session.documentId !== documentId) return;
+    if (EMPTY_PUBLICATION_PHASES.has(session.phase)) return;
+    if (!session.record || session.record.document_id !== documentId) return;
+    await session.saveMarkdown();
+  }, [documentId, session]);
+
+  const documentSave = useMemo(() => {
+    if (!acceptedDocument || !session) return null;
+    return {
+      saveDisabled: session.saveDisabled,
+      disabledReason: session.saveDisabled
+        ? (session.statusLabel || "Save is unavailable for this document.")
+        : undefined,
+      save: () => {
+        void saveDocument();
+      },
+    };
+  }, [acceptedDocument, saveDocument, session]);
+
   const publication = useMemo(
     () =>
       buildBuildSurfaceInteractionPublication({
         documentId,
         acceptedDocument,
         referenceContext,
+        documentSave,
       }),
-    [acceptedDocument, documentId, referenceContext],
+    [acceptedDocument, documentId, documentSave, referenceContext],
   );
 
   usePublishSurfaceInteraction(publication);

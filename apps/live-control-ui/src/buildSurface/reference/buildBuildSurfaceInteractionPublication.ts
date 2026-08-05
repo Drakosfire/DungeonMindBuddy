@@ -6,7 +6,11 @@ import type {
 } from "../../graphReference/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
-import type { SurfaceInteractionPublication } from "../../surfaceInteraction/types";
+import type {
+  SurfaceInteractionEditCommandContribution,
+  SurfaceInteractionPublication,
+} from "../../surfaceInteraction/types";
+import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 import { BUILD_SURFACE_LABEL } from "../buildSurfaceConfig";
 import {
   BUILD_FIND_EXISTING_TOOL_ID,
@@ -19,6 +23,9 @@ const BUILD_SURFACE_ID = "build" as const;
 const BUILD_WORLD_REFERENCE_GROUP_ID = "build-world-reference" as const;
 const BUILD_WORLD_REFERENCE_GROUP_LABEL = "World references" as const;
 const BUILD_WORLD_REFERENCE_GROUP_ORDER = 10;
+const BUILD_DOCUMENT_EDIT_GROUP_ID = "build-document" as const;
+const BUILD_DOCUMENT_EDIT_GROUP_LABEL = "Document" as const;
+const BUILD_DOCUMENT_EDIT_GROUP_ORDER = 0;
 
 const EMPTY_GRAPH_REFERENCE_RESOLUTION: GraphReferenceResolution = {
   kind: "unresolved",
@@ -44,10 +51,17 @@ export interface BuildReferenceContextBinding {
   viewExact: (item: GraphReferenceSearchItem) => void;
 }
 
+export interface BuildDocumentSavePublication {
+  saveDisabled: boolean;
+  disabledReason?: string;
+  save: () => void | Promise<void>;
+}
+
 export interface BuildSurfaceInteractionPublicationInput {
   documentId: string | null;
   acceptedDocument: { documentId: string; campaignId: string } | null;
   referenceContext: BuildReferenceContextBinding | null;
+  documentSave?: BuildDocumentSavePublication | null;
 }
 
 function buildBuildIdentity(documentId: string | null) {
@@ -79,10 +93,35 @@ function isAcceptedDocument(
   return acceptedDocument.documentId === documentId && acceptedDocument.campaignId.trim() !== "";
 }
 
+function buildDocumentSaveCommand(
+  documentId: string,
+  documentSave: BuildDocumentSavePublication,
+): SurfaceInteractionEditCommandContribution {
+  return {
+    id: BUILD_DOCUMENT_SAVE_COMMAND_ID,
+    label: "Save",
+    eyebrow: "Document",
+    placement: {
+      groupId: BUILD_DOCUMENT_EDIT_GROUP_ID,
+      groupLabel: BUILD_DOCUMENT_EDIT_GROUP_LABEL,
+      groupOrder: BUILD_DOCUMENT_EDIT_GROUP_ORDER,
+      itemOrder: 0,
+    },
+    availability: documentSave.saveDisabled
+      ? {
+          status: "disabled",
+          disabledReason: documentSave.disabledReason?.trim() || "Save is unavailable for this document.",
+        }
+      : { status: "enabled" },
+    target: { kind: "document", id: documentId },
+    invoke: () => documentSave.save(),
+  };
+}
+
 export function buildBuildSurfaceInteractionPublication(
   input: BuildSurfaceInteractionPublicationInput,
 ): SurfaceInteractionPublication {
-  const { documentId, acceptedDocument, referenceContext } = input;
+  const { documentId, acceptedDocument, referenceContext, documentSave = null } = input;
 
   if (!isAcceptedDocument(documentId, acceptedDocument) || referenceContext == null) {
     return buildEmptyInventoryPublication(documentId);
@@ -96,6 +135,10 @@ export function buildBuildSurfaceInteractionPublication(
     lens.status === "invalid"
       ? { status: "disabled" as const, disabledReason: lens.reason }
       : { status: "enabled" as const };
+
+  const editCommands = documentSave
+    ? [buildDocumentSaveCommand(admittedDocumentId, documentSave)]
+    : [];
 
   return {
     surfaceId: BUILD_SURFACE_ID,
@@ -124,7 +167,7 @@ export function buildBuildSurfaceInteractionPublication(
         },
       },
     ],
-    editCommands: [],
+    editCommands,
     projections: [
       {
         id: BUILD_REFERENCE_SEARCH_PROJECTION_ID,

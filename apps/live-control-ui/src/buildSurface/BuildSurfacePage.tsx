@@ -15,6 +15,7 @@ import { BuildSurfaceShell } from "./BuildSurfaceShell";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 import { BUILD_NEW_SOURCE_HEADING, BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
+import "./buildSurface.css";
 
 function navigateToDocument(documentId: string): void {
   const url = new URL(window.location.href);

@@ -331,7 +331,13 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     expect(screen.getByTestId("surface-edit-host")).toBeInTheDocument();
     expect(screen.getByTestId("surface-tool-host")).toBeInTheDocument();
-    expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+    await waitFor(() => {
+      expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
+    });
     expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
