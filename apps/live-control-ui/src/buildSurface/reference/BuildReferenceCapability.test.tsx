@@ -19,7 +19,7 @@ import { MarkdownCanvasSessionProvider } from "../../markdownCanvas/MarkdownCanv
 import { LegacyProjectionHostAdapter } from "../../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
 import { BUILD_MARKDOWN_CANVAS } from "../buildMarkdownCanvasAdapter";
-import { BUILD_SAVE_CONFLICTS_WITH } from "../buildDocumentCommands";
+import { BUILD_DOCUMENT_SAVE_COMMAND_ID, BUILD_SAVE_CONFLICTS_WITH } from "../buildDocumentCommands";
 import type { BuildReferenceContextBinding } from "./buildBuildSurfaceInteractionPublication";
 import { BUILD_FIND_EXISTING_TOOL_ID, BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./buildReferenceIds";
 import { BuildReferenceCapability } from "./BuildReferenceCapability";
@@ -135,6 +135,16 @@ const innNode = {
   anchoredToFocusSession: true,
   summary: "Meeting place.",
 };
+
+function graphScopeFromProjectionFixture() {
+  const { snapshot } = graphProjectionFixture();
+  return {
+    worldId: snapshot.worldId,
+    campaignId: snapshot.campaignId,
+    scopeMode: snapshot.scopeMode,
+    revisionId: snapshot.revisionId,
+  };
+}
 
 function graphProjectionFixture() {
   return {
@@ -735,6 +745,7 @@ describe("BuildReferenceCapability", () => {
         reference: referenceFromGraphNode(innView),
         graphNodeId: "location-inn",
         graphObject: buildGraphObjectCardFromNodeView(innView),
+        graphScope: graphScopeFromProjectionFixture(),
         projectionState: "ready",
         message: "Resolved graph node Inn.",
       });
@@ -864,6 +875,12 @@ describe("BuildReferenceCapability", () => {
         reference: referenceFromGraphNode(innView),
         graphNodeId: "location-inn",
         graphObject: buildGraphObjectCardFromNodeView(innView),
+        graphScope: {
+          worldId: "eldyrwild",
+          campaignId: "longmont-c2",
+          scopeMode: "campaign",
+          revisionId: "rev-c2",
+        },
         projectionState: "ready",
         message: "Resolved graph node Inn.",
       });
@@ -872,5 +889,59 @@ describe("BuildReferenceCapability", () => {
 
     expect(openResolvedReferenceCalls).toBe(0);
     expect(screen.queryByTestId("active-graph-node-id")?.textContent).not.toBe("location-inn");
+  });
+
+  it("E3/E6 stale Save: retained Save invoke is a no-op after capability unmount", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
+
+    let retainedSave: (() => void | Promise<void>) | null = null;
+
+    function PublicationEditProbe() {
+      const { surfaceInteractionPublication } = useAgentInteraction();
+      const saveCommand = surfaceInteractionPublication?.editCommands.find(
+        (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
+      );
+      if (saveCommand) {
+        retainedSave = saveCommand.invoke;
+      }
+      return (
+        <p data-testid="build-save-command">
+          {saveCommand ? "present" : "absent"}
+        </p>
+      );
+    }
+
+    const { unmount } = render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <PublicationEditProbe />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-save-command")).toHaveTextContent("present");
+    });
+    expect(retainedSave).not.toBeNull();
+    const invokeRetained = retainedSave!;
+
+    unmount();
+
+    await act(async () => {
+      await invokeRetained();
+    });
+
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 });

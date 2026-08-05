@@ -7,6 +7,7 @@ import { App } from "./App";
 import * as liveApi from "./api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "./api/types";
 import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
+import { buildViewExactTestSeam } from "./buildSurface/reference/BuildReferenceCapability";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
@@ -261,8 +262,24 @@ describe("App inspector integration", () => {
     expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
   });
 
-  it("E1: real App /build route renders Canvas, Nav, Tool, Edit, Agent, and one Projection Host", async () => {
+  it("E1/E5: real App /build route renders composition and viewExact seam", async () => {
+    buildViewExactTestSeam.reset();
     const buildDocId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const glowkindleNode = {
+      nodeId: "npc-glowkindle",
+      label: "Glowkindle",
+      kind: "npc",
+      role: "merchant",
+      aliases: ["Glow"],
+      sourceDomains: ["recap"],
+      evidenceBadges: [],
+      adjacency: [],
+      suggestedExpansions: [],
+      evidenceRefIds: [],
+      sourceArtifactIds: [],
+      anchoredToFocusSession: true,
+      summary: "A friendly merchant.",
+    };
     const buildRecord = fixtureWorkspaceDocumentRecord({
       document_id: buildDocId,
       title: "Faction Notes",
@@ -300,14 +317,14 @@ describe("App inspector integration", () => {
         scopeMode: "campaign",
       },
       summary: {
-        nodeCount: 0,
+        nodeCount: 1,
         relationshipCount: 0,
         attributeCount: 0,
         evidenceCount: 0,
         sourceArtifactCount: 0,
         projectionTruncated: false,
       },
-      nodes: [],
+      nodes: [glowkindleNode],
       relationships: [],
       attributes: [],
       evidence: [],
@@ -336,11 +353,120 @@ describe("App inspector integration", () => {
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /Find existing object/ }));
     await waitFor(() => {
+      expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    await user.click(screen.getByRole("button", { name: "View" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+    expect(
+      within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
+    ).toBeInTheDocument();
+    expect(buildViewExactTestSeam.lastGraphNodeId).toBe("npc-glowkindle");
+    expect(buildViewExactTestSeam.lastGraphScope).toEqual({
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign",
+      revisionId: "rev-1",
+    });
+
+    await waitFor(() => {
       expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
     });
     expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+  });
+
+  it("E7: route remount keeps singular ToolHost, EditHost, and Agent chrome", async () => {
+    const buildDocId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const buildRecord = fixtureWorkspaceDocumentRecord({
+      document_id: buildDocId,
+      title: "Faction Notes",
+      campaign_id: "longmont-c1",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${buildDocId}.md`,
+      source_domain: "worldbuilding",
+      document_class: "faction",
+      authority_state: "draft",
+      visibility_state: "internal",
+      content_status: "committed",
+      revision: 2,
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: buildRecord,
+        markdown: "# Faction Notes\n",
+        content_sha256: "sha-build-e7",
+        loaded_revision: 2,
+        file_fingerprint: "present",
+        file_exists: true,
+      }),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c1",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
+    const { unmount: unmountBuild } = render(<App />);
+
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+    });
+
+    unmountBuild();
+
+    window.history.pushState({}, "", "/plan");
+    const { unmount: unmountPlan } = render(<App />);
+
+    expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="surface-edit-host"]').length).toBeLessThanOrEqual(1);
+    });
+
+    unmountPlan();
+
+    window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
+    render(<App />);
+
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+    });
   });
 
   it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {

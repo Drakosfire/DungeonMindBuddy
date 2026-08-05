@@ -16,7 +16,7 @@ import {
   workspaceDocumentStorageKey,
 } from "../tiptap/state/tiptapLocalState";
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
-import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
+import { BUILD_DOCUMENT_SAVE_COMMAND_ID, BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfacePage } from "./BuildSurfacePage";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
@@ -57,6 +57,82 @@ vi.mock("../api/liveApi", async (importOriginal) => {
 });
 
 const DOC_ID = "11111111-1111-4111-8111-111111111111";
+const DOC_B = "22222222-2222-4222-8222-222222222222";
+
+function buildLongmontSnapshot(documentId: string, title: string, markdown = "# Build Source\n") {
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1" as const,
+    record: {
+      schema_version: "dmb_workspace_document_record_v1" as const,
+      document_id: documentId,
+      title,
+      campaign_id: "longmont-c1",
+      target_session: null,
+      kind: "worldbuilding_source" as const,
+      target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+      status: "active" as const,
+      content_status: "committed" as const,
+      revision: 2,
+      created_at: "2026-07-22T00:00:00Z",
+      updated_at: "2026-07-22T00:00:00Z",
+      source_domain: "worldbuilding" as const,
+      document_class: "faction" as const,
+      authority_state: "draft" as const,
+      visibility_state: "internal" as const,
+    },
+    markdown,
+    content_sha256: `sha-${documentId}`,
+    file_fingerprint: "present" as const,
+    file_exists: true,
+    loaded_revision: 2,
+  };
+}
+
+function graphProjectionWithGlowkindle() {
+  return {
+    schema: "dmb_world_graph_projection_v1" as const,
+    snapshot: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      revisionId: "rev-1",
+      headRevisionId: "rev-1",
+      isHead: true,
+      focus: { kind: "none" as const, sessionId: null },
+      admissibility: "gm" as const,
+      scopeMode: "campaign" as const,
+    },
+    summary: {
+      nodeCount: 1,
+      relationshipCount: 0,
+      attributeCount: 0,
+      evidenceCount: 0,
+      sourceArtifactCount: 0,
+      projectionTruncated: false,
+    },
+    nodes: [
+      {
+        nodeId: "npc-glowkindle",
+        label: "Glowkindle",
+        kind: "npc",
+        role: "merchant",
+        aliases: ["Glow"],
+        sourceDomains: ["recap"],
+        evidenceBadges: [],
+        adjacency: [],
+        suggestedExpansions: [],
+        evidenceRefIds: [],
+        sourceArtifactIds: [],
+        anchoredToFocusSession: true,
+        summary: "A friendly merchant.",
+      },
+    ],
+    relationships: [],
+    attributes: [],
+    evidence: [],
+    sourceArtifacts: [],
+    diagnostics: [],
+  };
+}
 
 describe("BuildSurfacePage", () => {
   beforeEach(() => {
@@ -641,6 +717,12 @@ describe("BuildSurfacePage", () => {
           reference: referenceFromGraphNode(glowNodeView),
           graphNodeId: "npc-glowkindle",
           graphObject: buildGraphObjectCardFromNodeView(glowNodeView),
+          graphScope: {
+            worldId: "eldyrwild",
+            campaignId: "longmont-c1",
+            scopeMode: "campaign",
+            revisionId: "rev-1",
+          },
           projectionState: "ready",
           message: "Resolved graph node Glowkindle.",
         },
@@ -685,5 +767,238 @@ describe("BuildSurfacePage", () => {
     expect(closeProjection).not.toBeNull();
     const after = readAuthoritySnapshot();
     expect(after).toEqual(before);
+  });
+
+  it("E3: shared Edit Save commits dirty document via prepare/commit", async () => {
+    const user = userEvent.setup();
+    const dirtyMarkdown = "# Dirty faction draft\n";
+    const editorJson = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Dirty faction draft" }],
+        },
+      ],
+    };
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Faction Notes", "# Faction Notes\n\nKeep this body intact.\n");
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionWithGlowkindle());
+
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Faction Notes",
+      campaignId: "longmont-c1",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: snapshot.content_sha256,
+      starterContent: editorJson,
+    });
+    local.dirty = true;
+    local.exported_markdown = dirtyMarkdown;
+    local.tiptap_json = editorJson;
+    window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
+
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "Faction Notes",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 2,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+dirty\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "Faction Notes",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 3,
+      committed_revision: 3,
+      committed_record: {
+        ...snapshot.record,
+        revision: 3,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha-committed-e3",
+      writer_ok: true,
+      bytes_written: 42,
+      file_fingerprint: "fp-committed-e3",
+      diagnostics: [],
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    const { unmount } = renderBuildPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+    expect(screen.queryByTestId("build-save-button")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(screen.getByTestId("surface-edit-host")).getByRole("button", { name: /Save/i }),
+    );
+
+    await waitFor(() => {
+      expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+      expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    });
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ document_id: DOC_ID }),
+    );
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...snapshot,
+      markdown: dirtyMarkdown,
+      content_sha256: "sha-committed-e3",
+      loaded_revision: 3,
+      record: {
+        ...snapshot.record,
+        revision: 3,
+        content_status: "committed",
+      },
+    });
+
+    unmount();
+    renderBuildPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+    });
+    expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
+  });
+
+  it("E4: graph projection failure leaves canvas dirty with Edit Save available", async () => {
+    const user = userEvent.setup();
+    const editorJson = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Dirty draft" }] }],
+    };
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Faction Notes");
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    vi.mocked(liveApi.postWorldGraphProjection).mockRejectedValue(new Error("graph projection unavailable"));
+
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Faction Notes",
+      campaignId: "longmont-c1",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: snapshot.content_sha256,
+      starterContent: editorJson,
+    });
+    local.dirty = true;
+    local.exported_markdown = "Dirty draft\n";
+    local.tiptap_json = editorJson;
+    window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    renderBuildPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+      expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+
+    const stored = JSON.parse(
+      window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) || "{}",
+    ) as { dirty: boolean; exported_markdown: string };
+    expect(stored.dirty).toBe(true);
+    expect(stored.exported_markdown).toBe("Dirty draft\n");
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    expect(
+      within(screen.getByTestId("surface-edit-host")).getByRole("button", { name: /Save/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("E6: document-A retained Save is a no-op after switching to document B", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) =>
+      buildLongmontSnapshot(id, id === DOC_ID ? "Doc A" : "Doc B"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionWithGlowkindle());
+
+    let retainedSaveA: (() => void | Promise<void>) | null = null;
+    let latestContext: BuildReferenceContextBinding | null = null;
+    let saveCommandDocumentId: string | null = null;
+
+    function PublicationProbe() {
+      const { surfaceInteractionPublication } = useAgentInteraction();
+      const saveCommand = surfaceInteractionPublication?.editCommands.find(
+        (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
+      );
+      const workObjectId = surfaceInteractionPublication?.canvas?.workObject?.id ?? null;
+      if (saveCommand && workObjectId === DOC_ID) {
+        retainedSaveA = saveCommand.invoke;
+      }
+      if (saveCommand) {
+        saveCommandDocumentId = workObjectId;
+      }
+      const binding = surfaceInteractionPublication?.projectionBindings.find(
+        (entry) => entry.id === BUILD_REFERENCE_CONTEXT_BINDING_ID,
+      );
+      latestContext = (binding?.value as BuildReferenceContextBinding | undefined) ?? null;
+      return null;
+    }
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    render(
+      <AgentInteractionProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+        <PublicationProbe />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(retainedSaveA).not.toBeNull();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    await user.click(screen.getByRole("button", { name: "View" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_B}&campaign=longmont-c1`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    expect(await screen.findByText("Doc B")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(latestContext?.documentId).toBe(DOC_B);
+    });
+    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+    expect(saveCommandDocumentId).toBe(DOC_B);
+
+    const invokeRetained = retainedSaveA!;
+    await act(async () => {
+      await invokeRetained();
+    });
+
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ import {
   buildBuildSurfaceInteractionPublication,
   type BuildReferenceContextBinding,
 } from "./buildBuildSurfaceInteractionPublication";
+import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 
 const DOC_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -102,7 +103,7 @@ describe("buildBuildSurfaceInteractionPublication", () => {
 
     expect(publication.editCommands).toHaveLength(1);
     expect(publication.editCommands[0]).toMatchObject({
-      id: "document.save",
+      id: BUILD_DOCUMENT_SAVE_COMMAND_ID,
       label: "Save",
       availability: { status: "enabled" },
       target: { kind: "document", id: DOC_ID },
