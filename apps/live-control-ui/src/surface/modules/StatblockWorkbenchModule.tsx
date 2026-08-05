@@ -2398,10 +2398,14 @@ export function StatblockWorkbenchModule() {
       try {
         const status = await getWorldGraphBootstrapStatus();
         if (cancelled) return;
-        const head =
+        const bootstrapHead =
           typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
             ? status.currentHeadRevisionId.trim()
             : null;
+        // Exact Advanced override is the same authority pin used for create when bootstrap
+        // cannot surface a head (e.g. invalid_bundle with a still-readable store head).
+        const overrideHead = createForm.graphRevisionId.trim() || null;
+        const head = bootstrapHead ?? overrideHead;
         if (head) {
           setPublicationHeadResolution({ draftId, head, error: null, loading: false });
           return;
@@ -2409,11 +2413,23 @@ export function StatblockWorkbenchModule() {
         setPublicationHeadResolution({
           draftId,
           head: null,
-          error: "Publication is disabled until the current World Graph head is readable.",
+          error:
+            "Publication is disabled until the current World Graph head is readable. "
+            + "Set Advanced → Graph revision override to an exact rev:… when bootstrap cannot surface a head.",
           loading: false,
         });
       } catch (error) {
         if (cancelled) return;
+        const overrideHead = createForm.graphRevisionId.trim() || null;
+        if (overrideHead) {
+          setPublicationHeadResolution({
+            draftId,
+            head: overrideHead,
+            error: null,
+            loading: false,
+          });
+          return;
+        }
         setPublicationHeadResolution({
           draftId,
           head: null,
@@ -2429,7 +2445,14 @@ export function StatblockWorkbenchModule() {
     return () => {
       cancelled = true;
     };
-  }, [threatDraft?.draft_id, threatDraft?.workflow_state, threatDraft?.version, threatDraft?.accepted_mechanics_ref?.revision_id, threatDraft?.accepted_mechanics_ref?.definition_digest]);
+  }, [
+    threatDraft?.draft_id,
+    threatDraft?.workflow_state,
+    threatDraft?.version,
+    threatDraft?.accepted_mechanics_ref?.revision_id,
+    threatDraft?.accepted_mechanics_ref?.definition_digest,
+    createForm.graphRevisionId,
+  ]);
 
   const onSubmitCandidate = (event: FormEvent) => {
     event.preventDefault();
@@ -3497,14 +3520,16 @@ export function StatblockWorkbenchModule() {
                   expectedParentRevisionId={publicationHeadResolution.head}
                   resolveExpectedParentRevisionId={async () => {
                     const status = await getWorldGraphBootstrapStatus();
-                    const head =
+                    const bootstrapHead =
                       typeof status.currentHeadRevisionId === "string"
                       && status.currentHeadRevisionId.trim()
                         ? status.currentHeadRevisionId.trim()
                         : null;
+                    const head = bootstrapHead || createForm.graphRevisionId.trim() || null;
                     if (!head) {
                       throw new Error(
-                        "Publication retry requires a readable World Graph head.",
+                        "Publication retry requires a readable World Graph head "
+                        + "(bootstrap head or exact Advanced graph revision override).",
                       );
                     }
                     setPublicationHeadResolution({
