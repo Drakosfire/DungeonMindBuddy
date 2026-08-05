@@ -3677,6 +3677,7 @@ describe("StatblockWorkbenchModule", () => {
             contract: "dungeonmind.dungeonbuddy-statblocks",
             contract_version: "1.0.0",
             definition_digest: `sha256:${"d".repeat(64)}`,
+            accepted_from_draft_version: 1,
             accepted_at: "2026-01-01T00:00:00Z",
           },
         }),
@@ -4316,6 +4317,7 @@ describe("StatblockWorkbenchModule", () => {
         contract: "dungeonmind.dungeonbuddy-statblocks",
         contract_version: "1.0.0",
         definition_digest: `sha256:${"d".repeat(64)}`,
+        accepted_from_draft_version: 2,
         accepted_at: "2026-01-01T00:00:00Z",
       };
     }

@@ -93,12 +93,76 @@ describe("Threat publication API", () => {
     operator_note: null,
   };
 
+  const readyOperation = {
+    schema: "dmb_threat_publication_operation_v1" as const,
+    operation_id: operationId,
+    request_digest: "sha256:req",
+    source_snapshot: {
+      schema: "dmb_threat_publication_source_v1" as const,
+      draft_id: draftId,
+      draft_version: 2,
+      world_id: "world-1",
+      campaign_id: "campaign-1",
+      focus: null,
+      name: "Tripod",
+      slug_hint: null,
+      description: "desc",
+      threat_kind: "aberration",
+      intended_roles: [] as string[],
+      tags: [] as string[],
+      generation_intent: {
+        ruleset: { system: "dnd5e", edition: "2014", house_ruleset_id: null },
+        target_cr: null,
+        complexity: null,
+        must_include: [] as string[],
+        must_avoid: [] as string[],
+      },
+      encounter_context: { party_level: 5, party_size: 4, terrain_notes: [] as string[] },
+      graph_context_snapshot: {
+        graph_revision_id: null,
+        selected_node_ids: [] as string[],
+        admitted_source_anchor_ids: [] as string[],
+      },
+      accepted_mechanics_ref: {
+        provider: "dungeonmind" as const,
+        statblock_id: "sb_1",
+        revision_id: "rev_1",
+        contract: "dungeonmind.dungeonbuddy-statblocks",
+        contract_version: "1.0.0",
+        definition_digest: `sha256:${"a".repeat(64)}`,
+        accepted_from_candidate_id: null,
+        accepted_from_draft_version: 2,
+        accepted_at: "2026-08-01T00:00:00.000Z",
+      },
+    },
+    source_digest: "sha256:source",
+    expected_parent_revision_id: "rev-head-1",
+    state: "ready" as const,
+    stale_reasons: [] as string[],
+    supersedes_operation_id: null,
+    superseded_by_operation_id: null,
+    cancelled_by: null,
+    cancellation_note: null,
+    operator_note: null,
+    created_by: "gm",
+    created_at: "2026-08-04T00:00:00.000Z",
+    updated_at: "2026-08-04T00:00:00.000Z",
+  };
+
   const operationEnvelope = {
     schema: "dmb_threat_publication_operation_response_v1" as const,
     draft_id: draftId,
     result_label: "publication_ready" as const,
-    operation: null,
+    operation: readyOperation,
     message: null,
+  };
+
+  const noRecordEnvelope = {
+    schema: "dmb_threat_publication_operation_response_v1" as const,
+    draft_id: draftId,
+    result_label: "publication_busy" as const,
+    operation: null,
+    message: "Another publication operation is active.",
   };
 
   it("begin posts exact path + body; 201/200 returns envelope", async () => {
@@ -123,23 +187,18 @@ describe("Threat publication API", () => {
   });
 
   it("begin 409 with valid publication envelope returns envelope (does not throw)", async () => {
-    const busyEnvelope = {
-      ...operationEnvelope,
-      result_label: "publication_busy" as const,
-      message: "Another publication operation is active.",
-    };
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse(busyEnvelope, { ok: false, status: 409, statusText: "Conflict" }),
+      mockJsonResponse(noRecordEnvelope, { ok: false, status: 409, statusText: "Conflict" }),
     );
 
     const result = await beginThreatPublicationOperation(draftId, beginRequest);
-    expect(result).toEqual(busyEnvelope);
+    expect(result).toEqual(noRecordEnvelope);
     expect(result.result_label).toBe("publication_busy");
   });
 
   it("begin 503 with valid envelope returns envelope", async () => {
     const unavailableEnvelope = {
-      ...operationEnvelope,
+      ...noRecordEnvelope,
       result_label: "publication_graph_unavailable" as const,
       message: "Graph unavailable.",
     };
@@ -173,7 +232,7 @@ describe("Threat publication API", () => {
 
   it("begin 500 integrity envelope with known label is preserved", async () => {
     const integrityEnvelope = {
-      ...operationEnvelope,
+      ...noRecordEnvelope,
       result_label: "publication_integrity_failure" as const,
       message: "Ledger integrity failure.",
     };
@@ -220,7 +279,7 @@ describe("Threat publication API", () => {
 
     await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
       name: "LiveApiError",
-      message: expect.stringMatching(/schema|result_label|identity/i),
+      message: expect.stringMatching(/schema|result_label|status|record/i),
       status: 200,
     });
     await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
@@ -230,6 +289,60 @@ describe("Threat publication API", () => {
     await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
       name: "LiveApiError",
       status: 200,
+    });
+  });
+
+  it("publication_ready without operation record fails closed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(
+        {
+          schema: "dmb_threat_publication_operation_response_v1",
+          draft_id: draftId,
+          result_label: "publication_ready",
+          operation: null,
+          message: null,
+        },
+        { ok: true, status: 201 },
+      ),
+    );
+
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 201,
+    });
+  });
+
+  it("operation source_snapshot draft_id mismatch fails closed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(
+        {
+          ...operationEnvelope,
+          operation: {
+            ...readyOperation,
+            source_snapshot: {
+              ...readyOperation.source_snapshot,
+              draft_id: "99999999-9999-4999-8999-999999999999",
+            },
+          },
+        },
+        { ok: true, status: 201 },
+      ),
+    );
+
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 201,
+    });
+  });
+
+  it("impossible HTTP status for result_label fails closed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(operationEnvelope, { ok: false, status: 409, statusText: "Conflict" }),
+    );
+
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 409,
     });
   });
 
@@ -256,6 +369,30 @@ describe("Threat publication API", () => {
     });
   });
 
+  it("publication_commit_verified with commit null fails closed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(
+        {
+          schema: "dmb_threat_publication_commit_response_v1",
+          draft_id: draftId,
+          operation_id: operationId,
+          proposal_id: proposalId,
+          commit_id: commitId,
+          result_label: "publication_commit_verified",
+          commit: null,
+          retry_allowed: false,
+          message: null,
+        },
+        { ok: true, status: 200 },
+      ),
+    );
+
+    await expect(getThreatPublicationCommit(draftId, operationId, commitId)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 200,
+    });
+  });
+
   it("begin HTML/non-JSON error body throws", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
@@ -273,6 +410,44 @@ describe("Threat publication API", () => {
   });
 
   it("getThreatPublicationCommit GETs exact commit path (never latest)", async () => {
+    const commitRecord = {
+      schema: "dmb_threat_publication_commit_v1" as const,
+      commit_id: commitId,
+      request_digest: "sha256:req",
+      draft_id: draftId,
+      operation_id: operationId,
+      proposal_id: proposalId,
+      proposal_request_digest: "sha256:preq",
+      sealed_proposal_digest: `sha256:${"a".repeat(64)}`,
+      sealed_proposal_version: 1,
+      resolution_id: "55555555-5555-4555-8555-555555555555",
+      source_digest: "sha256:source",
+      resolution_request_digest: "sha256:resreq",
+      candidate_set_digest: "sha256:candidates",
+      world_id: "world-1",
+      campaign_id: "campaign-1",
+      expected_parent_revision_id: "rev-head-1",
+      expected_contribution_id: "contrib-1",
+      expected_contribution_source_payload_sha256: `sha256:${"b".repeat(64)}`,
+      accepted_assertion_ids: ["assert-1"],
+      decision: "create_new" as const,
+      threat_node_id: "threat:new-1",
+      selected_target: null,
+      external_resource_node_id: "resource-1",
+      binding_id: "binding-1",
+      binding_edge_id: "edge-1",
+      state: "committed_verified" as const,
+      merge_attempt_count: 1 as const,
+      committed_revision_id: "rev-head-2",
+      recovered_via_operation_lookup: false,
+      verification_status: "passed" as const,
+      verification_codes: [] as string[],
+      warnings: [] as string[],
+      created_by: "gm",
+      operator_note: null,
+      created_at: "2026-08-04T00:00:00.000Z",
+      updated_at: "2026-08-04T00:00:00.000Z",
+    };
     const commitEnvelope = {
       schema: "dmb_threat_publication_commit_response_v1" as const,
       draft_id: draftId,
@@ -280,7 +455,7 @@ describe("Threat publication API", () => {
       proposal_id: proposalId,
       commit_id: commitId,
       result_label: "publication_commit_verified" as const,
-      commit: null,
+      commit: commitRecord,
       retry_allowed: false,
       message: null,
     };
@@ -315,7 +490,44 @@ describe("Threat publication API", () => {
       proposal_id: proposalId,
       commit_id: commitId,
       result_label: "publication_commit_verified" as const,
-      commit: null,
+      commit: {
+        schema: "dmb_threat_publication_commit_v1" as const,
+        commit_id: commitId,
+        request_digest: "sha256:req",
+        draft_id: draftId,
+        operation_id: operationId,
+        proposal_id: proposalId,
+        proposal_request_digest: "sha256:preq",
+        sealed_proposal_digest: `sha256:${"a".repeat(64)}`,
+        sealed_proposal_version: 1,
+        resolution_id: "55555555-5555-4555-8555-555555555555",
+        source_digest: "sha256:source",
+        resolution_request_digest: "sha256:resreq",
+        candidate_set_digest: "sha256:candidates",
+        world_id: "world-1",
+        campaign_id: "campaign-1",
+        expected_parent_revision_id: "rev-head-1",
+        expected_contribution_id: "contrib-1",
+        expected_contribution_source_payload_sha256: `sha256:${"b".repeat(64)}`,
+        accepted_assertion_ids: ["assert-1"],
+        decision: "create_new" as const,
+        threat_node_id: "threat:new-1",
+        selected_target: null,
+        external_resource_node_id: "resource-1",
+        binding_id: "binding-1",
+        binding_edge_id: "edge-1",
+        state: "committed_verified" as const,
+        merge_attempt_count: 1 as const,
+        committed_revision_id: "rev-head-2",
+        recovered_via_operation_lookup: false,
+        verification_status: "passed" as const,
+        verification_codes: [] as string[],
+        warnings: [] as string[],
+        created_by: "gm",
+        operator_note: null,
+        created_at: "2026-08-04T00:00:00.000Z",
+        updated_at: "2026-08-04T00:00:00.000Z",
+      },
       retry_allowed: false,
       message: null,
     };

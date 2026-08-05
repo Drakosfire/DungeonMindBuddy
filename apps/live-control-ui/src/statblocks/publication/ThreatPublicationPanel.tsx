@@ -101,8 +101,11 @@ function hasCommittedRevision(
   commit: ThreatPublicationCommitV1 | null,
   resultLabel: string | null,
 ): boolean {
-  if (commit?.committed_revision_id) return true;
-  return resultLabel === "publication_commit_verified" || resultLabel === "publication_commit_committed_unverified";
+  if (!commit?.committed_revision_id) return false;
+  return (
+    resultLabel === "publication_commit_verified"
+    || resultLabel === "publication_commit_committed_unverified"
+  );
 }
 
 interface PanelState {
@@ -209,9 +212,9 @@ function reducer(state: PanelState, action: Action): PanelState {
       }
       const nextOperationId =
         response.operation?.operation_id
-        ?? (source === "retry" ? localOperationId : null)
         ?? localOperationId
         ?? state.operationId;
+      const cancelled = source === "cancel" || response.result_label === "publication_cancelled";
       return {
         ...state,
         mode: "active",
@@ -220,11 +223,11 @@ function reducer(state: PanelState, action: Action): PanelState {
         operation: response.operation ?? state.operation,
         operationResultLabel: response.result_label,
         operationMessage: response.message ?? null,
-        // Successful retry clears downstream identity/proposal/commit UI.
-        ...(source === "retry"
-          && response.result_label === "publication_ready"
-          && response.operation?.operation_id
-          && response.operation.operation_id !== state.operationId
+        ...(cancelled
+          || (source === "retry"
+            && response.result_label === "publication_ready"
+            && response.operation?.operation_id
+            && response.operation.operation_id !== state.operationId)
           ? {
               candidateSet: null,
               candidateMessage: null,
@@ -428,33 +431,78 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
 
     dispatch({ type: "restorePending" });
     try {
-      const operationResponse = await api.getThreatPublicationOperation(draft.draft_id, pointer.operation_id);
+      let activePointer = pointer;
+      let operationResponse = await api.getThreatPublicationOperation(draft.draft_id, activePointer.operation_id);
       if (!isCurrent(generation)) return;
+
+      // Lost successful retry: predecessor is superseded; follow exact server lineage.
       if (
-        operationResponse.draft_id !== pointer.draft_id
-        || operationResponse.operation?.operation_id !== pointer.operation_id
+        operationResponse.result_label === "publication_superseded"
+        && operationResponse.operation?.superseded_by_operation_id
+      ) {
+        const successorId = operationResponse.operation.superseded_by_operation_id;
+        const successorResponse = await api.getThreatPublicationOperation(draft.draft_id, successorId);
+        if (!isCurrent(generation)) return;
+        if (
+          successorResponse.draft_id !== activePointer.draft_id
+          || successorResponse.operation?.operation_id !== successorId
+        ) {
+          dispatch({
+            type: "recoveryError",
+            detail: "Superseding publication operation no longer matches the server.",
+          });
+          return;
+        }
+        activePointer = {
+          schema: SESSION_SCHEMA,
+          draft_id: draft.draft_id,
+          draft_version: draft.version,
+          operation_id: successorId,
+          resolution_id: null,
+          proposal_id: null,
+          commit_id: null,
+          stage: "operation",
+          updated_at: new Date().toISOString(),
+        };
+        writeThreatPublicationSession(activePointer, storage);
+        operationResponse = successorResponse;
+      }
+
+      if (
+        operationResponse.draft_id !== activePointer.draft_id
+        || operationResponse.operation?.operation_id !== activePointer.operation_id
       ) {
         dispatch({ type: "recoveryError", detail: "Stored publication operation no longer matches the server." });
+        return;
+      }
+      if (
+        operationResponse.operation
+        && operationResponse.operation.source_snapshot.draft_id !== draft.draft_id
+      ) {
+        dispatch({
+          type: "recoveryError",
+          detail: "Publication operation source snapshot does not match the active draft.",
+        });
         return;
       }
       dispatch({
         type: "operationResult",
         response: operationResponse,
-        localOperationId: pointer.operation_id,
+        localOperationId: activePointer.operation_id,
         source: "restore",
       });
-      if (operationResponse.result_label !== "publication_ready" || !pointer.resolution_id) return;
+      if (operationResponse.result_label !== "publication_ready" || !activePointer.resolution_id) return;
 
       const identityResponse = await api.getThreatIdentityResolution(
         draft.draft_id,
-        pointer.operation_id,
-        pointer.resolution_id,
+        activePointer.operation_id,
+        activePointer.resolution_id,
       );
       if (!isCurrent(generation)) return;
       if (
-        identityResponse.draft_id !== pointer.draft_id
-        || identityResponse.operation_id !== pointer.operation_id
-        || identityResponse.resolution?.resolution_id !== pointer.resolution_id
+        identityResponse.draft_id !== activePointer.draft_id
+        || identityResponse.operation_id !== activePointer.operation_id
+        || identityResponse.resolution?.resolution_id !== activePointer.resolution_id
       ) {
         dispatch({ type: "recoveryError", detail: "Stored identity resolution no longer matches the server." });
         return;
@@ -465,35 +513,35 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         identityResponse.resolution?.state === "active"
         && (identityResponse.resolution.decision === "create_new"
           || identityResponse.resolution.decision === "connect_existing");
-      if (!resolutionIsActionable || !pointer.proposal_id) return;
+      if (!resolutionIsActionable || !activePointer.proposal_id) return;
 
       const proposalResponse = await api.getThreatPublicationProposal(
         draft.draft_id,
-        pointer.operation_id,
-        pointer.proposal_id,
+        activePointer.operation_id,
+        activePointer.proposal_id,
       );
       if (!isCurrent(generation)) return;
       if (
-        proposalResponse.draft_id !== pointer.draft_id
-        || proposalResponse.operation_id !== pointer.operation_id
-        || proposalResponse.proposal?.proposal_id !== pointer.proposal_id
+        proposalResponse.draft_id !== activePointer.draft_id
+        || proposalResponse.operation_id !== activePointer.operation_id
+        || proposalResponse.proposal?.proposal_id !== activePointer.proposal_id
       ) {
         dispatch({ type: "recoveryError", detail: "Stored publication proposal no longer matches the server." });
         return;
       }
       dispatch({ type: "proposalResult", response: proposalResponse });
-      if (proposalResponse.result_label !== "publication_proposal_ready" || !pointer.commit_id) return;
+      if (proposalResponse.result_label !== "publication_proposal_ready" || !activePointer.commit_id) return;
 
       const commitResponse = await api.getThreatPublicationCommit(
         draft.draft_id,
-        pointer.operation_id,
-        pointer.commit_id,
+        activePointer.operation_id,
+        activePointer.commit_id,
       );
       if (!isCurrent(generation)) return;
       if (
-        commitResponse.draft_id !== pointer.draft_id
-        || commitResponse.operation_id !== pointer.operation_id
-        || commitResponse.commit_id !== pointer.commit_id
+        commitResponse.draft_id !== activePointer.draft_id
+        || commitResponse.operation_id !== activePointer.operation_id
+        || commitResponse.commit_id !== activePointer.commit_id
       ) {
         dispatch({ type: "recoveryError", detail: "Stored publication commit no longer matches the server." });
         return;
@@ -536,15 +584,31 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         operator_note: null,
       });
       if (!isCurrent(generation)) return;
+      const accepted =
+        response.result_label === "publication_ready"
+        && response.operation?.operation_id === operationId;
+      if (!accepted) {
+        // Definitive rejection / busy: do not retain a pointer to a nonexistent operation.
+        clearThreatPublicationSession(draft.draft_id, storage);
+        dispatch({
+          type: "operationResult",
+          response,
+          localOperationId: response.operation?.operation_id ?? null,
+          source: "begin",
+        });
+        return;
+      }
       dispatch({ type: "operationResult", response, localOperationId: operationId, source: "begin" });
     } catch (err) {
       if (!isCurrent(generation)) return;
+      // Transport uncertainty: keep the proposed operation_id for exact replay/read.
       dispatch({ type: "genericError", message: errorMessage(err) });
     }
   }
 
   async function handleCancelOperation(): Promise<void> {
-    if (!state.operationId) return;
+    // Cancel is only valid before identity/proposal/commit authority exists.
+    if (!state.operationId || state.resolution || state.proposal || state.commitId) return;
     const generation = generationRef.current;
     dispatch({ type: "cancelPending" });
     try {
@@ -554,6 +618,16 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         note: null,
       });
       if (!isCurrent(generation)) return;
+      writeThreatPublicationSession(
+        buildPointer({
+          stage: "operation",
+          operationId: state.operationId,
+          resolutionId: null,
+          proposalId: null,
+          commitId: null,
+        }),
+        storage,
+      );
       dispatch({ type: "operationResult", response, localOperationId: state.operationId, source: "cancel" });
     } catch (err) {
       if (!isCurrent(generation)) return;
@@ -645,16 +719,12 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         return;
       }
 
-      // Rejected retry: keep predecessor pointer and operation authority.
-      // Prefer the refreshed stale op as durable authority; surface the rejection message.
+      // Rejected retry: keep predecessor pointer; retain the server's typed classification.
       dispatch({
         type: "operationResult",
         response: {
-          schema: "dmb_threat_publication_operation_response_v1",
-          draft_id: draft.draft_id,
-          result_label: refreshed.result_label,
-          operation: refreshed.operation ?? response.operation ?? state.operation,
-          message: response.message ?? refreshed.message,
+          ...response,
+          operation: response.operation ?? refreshed.operation ?? state.operation,
         },
         localOperationId: previousOperationId,
         source: "retry",
@@ -709,9 +779,31 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         supersedes_resolution_id: null,
       });
       if (!isCurrent(generation)) return;
+      const settled: readonly string[] = [
+        "publication_identity_created_new",
+        "publication_identity_connected_existing",
+        "publication_identity_refused",
+      ];
+      const accepted =
+        settled.includes(response.result_label)
+        && response.resolution?.resolution_id === resolutionId;
+      if (!accepted) {
+        // Definitive rejection: roll pointer back to last accepted predecessor (operation).
+        writeThreatPublicationSession(
+          buildPointer({
+            stage: "operation",
+            operationId: state.operationId,
+            resolutionId: null,
+            proposalId: null,
+            commitId: null,
+          }),
+          storage,
+        );
+      }
       dispatch({ type: "identityResult", response });
     } catch (err) {
       if (!isCurrent(generation)) return;
+      // Transport uncertainty: keep the proposed resolution_id for exact replay/read.
       dispatch({ type: "genericError", message: errorMessage(err) });
     }
   }
@@ -756,6 +848,21 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         },
       );
       if (!isCurrent(generation)) return;
+      const accepted =
+        response.result_label === "publication_proposal_ready"
+        && response.proposal?.proposal_id === proposalId;
+      if (!accepted) {
+        writeThreatPublicationSession(
+          buildPointer({
+            stage: "identity",
+            operationId: state.operationId,
+            resolutionId: state.resolution.resolution_id,
+            proposalId: null,
+            commitId: null,
+          }),
+          storage,
+        );
+      }
       dispatch({ type: "proposalResult", response });
     } catch (err) {
       if (!isCurrent(generation)) return;
@@ -943,7 +1050,8 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             </>
           )}
 
-          {state.operation?.state === "stale"
+          {state.operationResultLabel === "publication_stale"
+            && state.operation?.state === "stale"
             && !state.candidateSet
             && !state.resolution
             && !committed && (
@@ -1136,7 +1244,11 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             </div>
           )}
 
-          {state.operationId && !committed && (
+          {state.operationId
+            && !committed
+            && !state.resolution
+            && !state.proposal
+            && !state.commitId && (
             <button data-testid="cancel-operation" disabled={state.pending} onClick={() => void handleCancelOperation()}>
               Cancel publication
             </button>

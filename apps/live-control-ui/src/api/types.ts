@@ -3314,7 +3314,8 @@ export interface AcceptedMechanicsRefV1 {
   contract_version: string;
   definition_digest: string;
   accepted_from_candidate_id?: string | null;
-  accepted_from_draft_version?: number;
+  /** Required by server AcceptedMechanicsRefV1 (draft version at acceptance). */
+  accepted_from_draft_version: number;
   accepted_at: string;
 }
 
