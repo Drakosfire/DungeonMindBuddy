@@ -162,6 +162,52 @@ function pendingLoadForKey(loadKey: string): StoredProjectionLoad {
   };
 }
 
+/**
+ * Structured load identity. Revision mode and opaque revision id are separate
+ * fields so current-head mode never collides with a pinned revision whose id is
+ * literally "head".
+ */
+export function buildBuildGraphProjectionLoadKey(input: {
+  documentIdentity: { documentId: string; campaignId: string };
+  lens: BuildGraphLensResolution;
+}): string {
+  const { documentIdentity, lens } = input;
+  if (lens.status === "invalid") {
+    return JSON.stringify([
+      "dmb_build_graph_load_v1",
+      documentIdentity.documentId,
+      documentIdentity.campaignId,
+      "invalid",
+      null,
+      null,
+      null,
+      lens.reason,
+    ]);
+  }
+  if (lens.status === "selection_required") {
+    return JSON.stringify([
+      "dmb_build_graph_load_v1",
+      lens.documentId,
+      lens.documentCampaignId,
+      "selection_required",
+      null,
+      lens.revision.kind,
+      lens.revision.kind === "pinned" ? lens.revision.revisionId : null,
+      lens.reason,
+    ]);
+  }
+  return JSON.stringify([
+    "dmb_build_graph_load_v1",
+    lens.documentId,
+    lens.documentCampaignId,
+    "ready",
+    lens.campaignId,
+    lens.revision.kind,
+    lens.revision.kind === "pinned" ? lens.revision.revisionId : null,
+    null,
+  ]);
+}
+
 export function useBuildWorldGraphProjection(
   input: UseBuildWorldGraphProjectionInput,
 ): UseBuildWorldGraphProjectionResult {
@@ -174,20 +220,10 @@ export function useBuildWorldGraphProjection(
   const [generation, setGeneration] = useState(0);
   const requestGenerationRef = useRef(0);
 
-  const loadKey = useMemo(() => {
-    const docKey = `${documentIdentity.documentId}:${documentIdentity.campaignId}`;
-    if (lens.status === "invalid") {
-      return `${docKey}:invalid:${lens.reason}`;
-    }
-    if (lens.status === "selection_required") {
-      const revisionKey =
-        lens.revision.kind === "pinned" ? lens.revision.revisionId : "head";
-      return `${docKey}:selection:${lens.documentCampaignId}:${revisionKey}`;
-    }
-    const revisionKey =
-      lens.revision.kind === "pinned" ? lens.revision.revisionId : "head";
-    return `${docKey}:ready:${lens.campaignId}:${revisionKey}`;
-  }, [documentIdentity.campaignId, documentIdentity.documentId, lens]);
+  const loadKey = useMemo(
+    () => buildBuildGraphProjectionLoadKey({ documentIdentity, lens }),
+    [documentIdentity, lens],
+  );
 
   // Depend on loadKey only (not lens identity). Equivalent lens objects recreated
   // each render must not retrigger loads / setGeneration loops.

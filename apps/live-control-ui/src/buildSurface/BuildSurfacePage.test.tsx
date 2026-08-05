@@ -8,6 +8,10 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
+import {
+  buildInitialWorkspaceDocumentLocalState,
+  workspaceDocumentStorageKey,
+} from "../tiptap/state/tiptapLocalState";
 import { BuildSurfacePage } from "./BuildSurfacePage";
 
 function renderBuildPage() {
@@ -338,5 +342,145 @@ describe("BuildSurfacePage", () => {
     expect(
       within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
     ).toBeInTheDocument();
+  });
+
+  it("E11: search and inspect leave document authority unchanged", async () => {
+    const user = userEvent.setup();
+    const markdownBody = "# Faction Notes\n\nKeep this body intact.\n";
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      schema_version: "dmb_workspace_document_snapshot_v1",
+      record: {
+        schema_version: "dmb_workspace_document_record_v1",
+        document_id: DOC_ID,
+        title: "Faction Notes",
+        campaign_id: "longmont-c1",
+        target_session: null,
+        kind: "worldbuilding_source",
+        target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
+        status: "active",
+        content_status: "committed",
+        revision: 2,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding",
+        document_class: "faction",
+        authority_state: "draft",
+        visibility_state: "internal",
+      },
+      markdown: markdownBody,
+      content_sha256: "sha-faction-e11",
+      file_fingerprint: "present",
+      file_exists: true,
+      loaded_revision: 2,
+    });
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Faction Notes",
+      campaignId: "longmont-c1",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: "sha-faction-e11",
+      starterContent: { type: "doc", content: [] },
+    });
+    local.dirty = true;
+    local.exported_markdown = "# Dirty faction draft\n";
+    window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
+
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c1",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "npc-glowkindle",
+          label: "Glowkindle",
+          kind: "npc",
+          role: "merchant",
+          aliases: ["Glow"],
+          sourceDomains: ["recap"],
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+          anchoredToFocusSession: true,
+          summary: "A friendly merchant.",
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    function readAuthoritySnapshot() {
+      const storedRaw = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
+      expect(storedRaw).toBeTruthy();
+      const stored = JSON.parse(storedRaw!) as {
+        dirty: boolean;
+        exported_markdown: string;
+        base_revision: number;
+        base_content_sha256: string;
+      };
+      const saveButton = screen.queryByRole("button", { name: /^Save$/i });
+      return {
+        dirty: stored.dirty,
+        exportedMarkdown: stored.exported_markdown,
+        baseRevision: stored.base_revision,
+        baseDigest: stored.base_content_sha256,
+        status: screen.getByTestId("build-document-status").textContent,
+        prepareCalls: vi.mocked(liveApi.prepareTiptapMarkdownWrite).mock.calls.length,
+        commitCalls: vi.mocked(liveApi.commitTiptapMarkdownWrite).mock.calls.length,
+        saveDisabled: saveButton ? (saveButton as HTMLButtonElement).disabled : null,
+        saveLabel: saveButton?.textContent ?? null,
+      };
+    }
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    renderBuildPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+    const before = readAuthoritySnapshot();
+    expect(before.dirty).toBe(true);
+    expect(before.baseRevision).toBe(2);
+    expect(before.baseDigest).toBe("sha-faction-e11");
+    expect(before.prepareCalls).toBe(0);
+    expect(before.commitCalls).toBe(0);
+    expect(typeof before.exportedMarkdown).toBe("string");
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    await user.click(screen.getByRole("button", { name: "View" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+
+    const after = readAuthoritySnapshot();
+    expect(after).toEqual(before);
   });
 });

@@ -423,4 +423,62 @@ describe("useBuildWorldGraphProjection", () => {
       resolveProjection(headProjection("rev-after-unmount"));
     });
   });
+
+  it("distinguishes current-head mode from a pinned revision whose opaque id is head", async () => {
+    const postSpy = vi
+      .spyOn(liveApi, "postWorldGraphProjection")
+      .mockResolvedValueOnce(headProjection("rev-current-head"))
+      .mockResolvedValueOnce({
+        ...headProjection("head"),
+        snapshot: {
+          ...headProjection("head").snapshot,
+          revisionId: "head",
+          headRevisionId: "rev-current-head",
+          isHead: false,
+        },
+      });
+
+    const headLens = readyLens({ revision: { kind: "head" } });
+    const { result, rerender } = renderHook(
+      ({ lens }) =>
+        useBuildWorldGraphProjection({
+          lens,
+          documentIdentity: { documentId: "doc-1", campaignId: "longmont-c1" },
+        }),
+      { initialProps: { lens: headLens } },
+    );
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(result.current.revisionMode).toBe("head");
+    expect(result.current.loadedRevisionId).toBe("rev-current-head");
+    expect(result.current.items).toHaveLength(1);
+    const headLoadKey = result.current.loadKey;
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(postSpy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ revisionPin: null }),
+    );
+
+    const pinnedHeadLens = readyLens({
+      revision: { kind: "pinned", revisionId: "head" },
+    });
+    rerender({ lens: pinnedHeadLens });
+
+    // Immediate transition: no prior head results under the pinned lens.
+    expect(result.current.state).toBe("loading");
+    expect(result.current.projection).toBeNull();
+    expect(result.current.items).toEqual([]);
+    expect(result.current.loadedRevisionId).toBeNull();
+    expect(result.current.loadKey).not.toBe(headLoadKey);
+    expect(result.current.revisionMode).toBe("pinned");
+    expect(result.current.requestedRevisionId).toBe("head");
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(postSpy.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({ revisionPin: "head" }),
+    );
+    expect(result.current.loadedRevisionId).toBe("head");
+    expect(result.current.loadedIsHead).toBe(false);
+    expect(result.current.revisionMode).toBe("pinned");
+  });
 });
