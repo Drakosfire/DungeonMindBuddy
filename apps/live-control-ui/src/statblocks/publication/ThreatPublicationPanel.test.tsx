@@ -1085,11 +1085,12 @@ describe("ThreatPublicationPanel", () => {
       label: ThreatPublicationOperationResponseV1["result_label"];
       state: ThreatPublicationOperationV1["state"];
       expectRetry: boolean;
+      expectIdle: boolean;
     }> = [
-      { label: "publication_ready", state: "ready", expectRetry: false },
-      { label: "publication_cancelled", state: "cancelled", expectRetry: false },
-      { label: "publication_invalid_state", state: "ready", expectRetry: false },
-      { label: "publication_stale", state: "stale", expectRetry: true },
+      { label: "publication_ready", state: "ready", expectRetry: false, expectIdle: false },
+      { label: "publication_cancelled", state: "cancelled", expectRetry: false, expectIdle: true },
+      { label: "publication_invalid_state", state: "ready", expectRetry: false, expectIdle: false },
+      { label: "publication_stale", state: "stale", expectRetry: true, expectIdle: false },
     ];
 
     for (const testCase of cases) {
@@ -1112,13 +1113,19 @@ describe("ThreatPublicationPanel", () => {
         />,
       );
 
-      await waitFor(() => {
-        expect(screen.getByTestId("refresh-operation")).toBeInTheDocument();
-      });
-      if (testCase.expectRetry) {
-        expect(screen.getByTestId("retry-operation")).toBeInTheDocument();
-      } else {
+      if (testCase.expectIdle) {
+        expect(await screen.findByTestId("publish")).toBeInTheDocument();
+        expect(screen.queryByTestId("refresh-operation")).not.toBeInTheDocument();
         expect(screen.queryByTestId("retry-operation")).not.toBeInTheDocument();
+      } else {
+        await waitFor(() => {
+          expect(screen.getByTestId("refresh-operation")).toBeInTheDocument();
+        });
+        if (testCase.expectRetry) {
+          expect(screen.getByTestId("retry-operation")).toBeInTheDocument();
+        } else {
+          expect(screen.queryByTestId("retry-operation")).not.toBeInTheDocument();
+        }
       }
       unmount();
     }
@@ -1561,10 +1568,8 @@ describe("ThreatPublicationPanel", () => {
       expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
     });
     expect(screen.getByText(/Parent revision no longer matches/)).toBeInTheDocument();
-    expect(screen.getByTestId("operation-status")).toHaveAttribute(
-      "data-operation-result",
-      "publication_parent_mismatch",
-    );
+    expect(screen.getByTestId("publish")).toBeInTheDocument();
+    expect(screen.queryByTestId("publication-active")).not.toBeInTheDocument();
     expect(screen.queryByTestId("refresh-operation")).not.toBeInTheDocument();
   });
 
@@ -1845,5 +1850,224 @@ describe("ThreatPublicationPanel", () => {
 
     expect(await screen.findByText("Accepted assertions: 3 (2 authored fields)")).toBeInTheDocument();
     expect(screen.queryByText(/Accepted assertions: 5/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the uncertain resolution id after a lost identity response and only permits same-id replay or exact GET", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    const RESOLUTION_ID_B = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValueOnce(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+
+    const user = userEvent.setup();
+    const generateId = sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, RESOLUTION_ID_B]);
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={generateId}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+
+    await waitFor(() => {
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        resolution_id: RESOLUTION_ID,
+        stage: "identity",
+      });
+    });
+    expect(await screen.findByTestId("identity-uncertainty")).toBeInTheDocument();
+    expect(screen.queryByTestId("decide-create")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("decide-connect")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("decide-refuse")).not.toBeInTheDocument();
+    expect(api.createThreatIdentityResolution).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId("replay-identity"));
+
+    await waitFor(() => {
+      expect(api.createThreatIdentityResolution).toHaveBeenCalledTimes(2);
+    });
+    expect(api.createThreatIdentityResolution).toHaveBeenLastCalledWith(
+      draft.draft_id,
+      OPERATION_ID,
+      expect.objectContaining({ resolution_id: RESOLUTION_ID }),
+    );
+    expect(await screen.findByTestId("identity-decision")).toBeInTheDocument();
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+      resolution_id: RESOLUTION_ID,
+    });
+  });
+
+  it("keeps the uncertain proposal id after a lost prepare response and only permits same-id replay or exact GET", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    const PROPOSAL_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValueOnce(proposalResponse(draft));
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, PROPOSAL_ID_B])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+
+    await waitFor(() => {
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        proposal_id: PROPOSAL_ID,
+        stage: "proposal",
+      });
+    });
+    expect(await screen.findByTestId("proposal-uncertainty")).toBeInTheDocument();
+    expect(screen.queryByTestId("prepare-proposal")).not.toBeInTheDocument();
+    expect(api.prepareThreatPublicationProposal).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId("replay-proposal"));
+
+    await waitFor(() => {
+      expect(api.prepareThreatPublicationProposal).toHaveBeenCalledTimes(2);
+    });
+    expect(api.prepareThreatPublicationProposal).toHaveBeenLastCalledWith(
+      draft.draft_id,
+      OPERATION_ID,
+      RESOLUTION_ID,
+      expect.objectContaining({ proposal_id: PROPOSAL_ID }),
+    );
+    expect(await screen.findByTestId("proposal-review")).toBeInTheDocument();
+  });
+
+  it("rolls commit_id back to proposal stage when confirm returns a typed pre-admission rejection with commit null", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(proposalResponse(draft));
+    vi.mocked(api.confirmThreatPublicationCommit).mockResolvedValue({
+      schema: "dmb_threat_publication_commit_response_v1",
+      draft_id: draft.draft_id,
+      operation_id: OPERATION_ID,
+      proposal_id: PROPOSAL_ID,
+      commit_id: COMMIT_ID,
+      result_label: "publication_commit_parent_mismatch",
+      commit: null,
+      retry_allowed: false,
+      message: "expected_parent_revision_id mismatch",
+    });
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, COMMIT_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+    await user.click(await screen.findByTestId("confirm"));
+
+    await waitFor(() => {
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        proposal_id: PROPOSAL_ID,
+        commit_id: null,
+        stage: "proposal",
+      });
+    });
+    expect(screen.getByText(/expected_parent_revision_id mismatch/)).toBeInTheDocument();
+    expect(screen.getByTestId("confirm")).toBeInTheDocument();
+    expect(screen.queryByTestId("commit-status")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("reread-commit")).not.toBeInTheDocument();
+  });
+
+  it("returns to a fresh Publish path only after an exact publication_cancelled result", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.cancelThreatPublicationOperation)
+      .mockResolvedValueOnce({
+        schema: "dmb_threat_publication_operation_response_v1",
+        draft_id: draft.draft_id,
+        result_label: "publication_not_found",
+        operation: null,
+        message: "Publication operation was not found.",
+      })
+      .mockResolvedValueOnce({
+        schema: "dmb_threat_publication_operation_response_v1",
+        draft_id: draft.draft_id,
+        result_label: "publication_cancelled",
+        operation: buildOperation(draft, { state: "cancelled" }),
+        message: "Cancelled by operator.",
+      });
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    expect(await screen.findByTestId("cancel-operation")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("cancel-operation"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("operation-status")).toHaveAttribute(
+        "data-operation-result",
+        "publication_not_found",
+      );
+    });
+    expect(screen.queryByTestId("publish")).not.toBeInTheDocument();
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+      operation_id: OPERATION_ID,
+    });
+
+    await user.click(screen.getByTestId("cancel-operation"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("publish")).toBeInTheDocument();
+    });
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
+    expect(screen.getByText(/Cancelled by operator|Publication cancelled/)).toBeInTheDocument();
+    expect(screen.queryByTestId("publication-active")).not.toBeInTheDocument();
   });
 });

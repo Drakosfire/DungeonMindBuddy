@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useReducer, useRef } from "react";
 
 import type {
+  CreateThreatIdentityResolutionRequestV1,
+  PrepareThreatPublicationProposalRequestV1,
   ThreatDraftV1,
   ThreatIdentityCandidateSetV1,
   ThreatIdentityDecision,
@@ -120,9 +122,15 @@ interface PanelState {
   candidateMessage: string | null;
   rejectedCandidateIds: string[];
   connectTargetId: string | null;
+  /** Proposed or settled resolution id; retained under transport uncertainty. */
+  resolutionId: string | null;
   resolution: ThreatPublicationIdentityResolutionV1 | null;
+  pendingIdentityRequest: CreateThreatIdentityResolutionRequestV1 | null;
   identityMessage: string | null;
+  /** Proposed or settled proposal id; retained under transport uncertainty. */
+  proposalId: string | null;
   proposal: ThreatPublicationProposalV1 | null;
+  pendingProposalRequest: PrepareThreatPublicationProposalRequestV1 | null;
   proposalMessage: string | null;
   commitId: string | null;
   commit: ThreatPublicationCommitV1 | null;
@@ -147,9 +155,13 @@ function initialPanelState(): PanelState {
     candidateMessage: null,
     rejectedCandidateIds: [],
     connectTargetId: null,
+    resolutionId: null,
     resolution: null,
+    pendingIdentityRequest: null,
     identityMessage: null,
+    proposalId: null,
     proposal: null,
+    pendingProposalRequest: null,
     proposalMessage: null,
     commitId: null,
     commit: null,
@@ -180,14 +192,25 @@ type Action =
   | { type: "candidatesResult"; response: ThreatPublicationIdentityResponseV1 }
   | { type: "toggleRejected"; nodeId: string }
   | { type: "setConnectTarget"; nodeId: string }
-  | { type: "identityDecisionPending" }
-  | { type: "identityResult"; response: ThreatPublicationIdentityResponseV1 }
-  | { type: "proposalPending" }
-  | { type: "proposalResult"; response: ThreatPublicationProposalResponseV1 }
+  | {
+      type: "identityDecisionPending";
+      resolutionId: string;
+      request: CreateThreatIdentityResolutionRequestV1;
+    }
+  | { type: "identityResult"; response: ThreatPublicationIdentityResponseV1; accepted: boolean }
+  | { type: "identityTransportError"; message: string }
+  | {
+      type: "proposalPending";
+      proposalId: string;
+      request: PrepareThreatPublicationProposalRequestV1;
+    }
+  | { type: "proposalResult"; response: ThreatPublicationProposalResponseV1; accepted: boolean }
+  | { type: "proposalTransportError"; message: string }
   | { type: "confirmPending"; commitId: string }
   | { type: "commitResult"; response: ThreatPublicationCommitResponseV1 }
   | { type: "commitTransportError"; message: string }
   | { type: "genericError"; message: string }
+  | { type: "beginRejected"; message: string | null; resultLabel: string }
   | { type: "versionMismatch"; pointer: ThreatPublicationWorkbenchSessionV1 }
   | { type: "recoveryError"; detail: string }
   | { type: "clearPointer" };
@@ -210,11 +233,22 @@ function reducer(state: PanelState, action: Action): PanelState {
       if (source === "begin" && response.result_label === "publication_busy") {
         return { ...initialPanelState(), mode: "busy_unknown", busyMessage: response.message ?? null };
       }
+      // Only an exact cancelled record terminalizes cancellation into a fresh begin path.
+      if (response.result_label === "publication_cancelled") {
+        return {
+          ...initialPanelState(),
+          lastError: response.message ?? "Publication cancelled.",
+        };
+      }
       const nextOperationId =
         response.operation?.operation_id
         ?? localOperationId
         ?? state.operationId;
-      const cancelled = source === "cancel" || response.result_label === "publication_cancelled";
+      const clearDownstream =
+        source === "retry"
+        && response.result_label === "publication_ready"
+        && response.operation?.operation_id
+        && response.operation.operation_id !== state.operationId;
       return {
         ...state,
         mode: "active",
@@ -223,19 +257,19 @@ function reducer(state: PanelState, action: Action): PanelState {
         operation: response.operation ?? state.operation,
         operationResultLabel: response.result_label,
         operationMessage: response.message ?? null,
-        ...(cancelled
-          || (source === "retry"
-            && response.result_label === "publication_ready"
-            && response.operation?.operation_id
-            && response.operation.operation_id !== state.operationId)
+        ...(clearDownstream
           ? {
               candidateSet: null,
               candidateMessage: null,
               rejectedCandidateIds: [],
               connectTargetId: null,
+              resolutionId: null,
               resolution: null,
+              pendingIdentityRequest: null,
               identityMessage: null,
+              proposalId: null,
               proposal: null,
+              pendingProposalRequest: null,
               proposalMessage: null,
               commitId: null,
               commit: null,
@@ -269,7 +303,9 @@ function reducer(state: PanelState, action: Action): PanelState {
             response.message ?? "Candidate set changed. Refresh candidates and review again.",
           rejectedCandidateIds: [],
           connectTargetId: null,
+          resolutionId: null,
           resolution: null,
+          pendingIdentityRequest: null,
           identityMessage: null,
         };
       }
@@ -300,9 +336,16 @@ function reducer(state: PanelState, action: Action): PanelState {
         rejectedCandidateIds: state.rejectedCandidateIds.filter((id) => id !== action.nodeId),
       };
     case "identityDecisionPending":
-      return { ...state, pending: true, identityMessage: null, lastError: null };
+      return {
+        ...state,
+        pending: true,
+        resolutionId: action.resolutionId,
+        pendingIdentityRequest: action.request,
+        identityMessage: null,
+        lastError: null,
+      };
     case "identityResult": {
-      const { response } = action;
+      const { response, accepted } = action;
       if (response.result_label === "publication_identity_candidate_set_changed") {
         return {
           ...state,
@@ -312,46 +355,95 @@ function reducer(state: PanelState, action: Action): PanelState {
             response.message ?? "Candidate set changed. Refresh candidates and review again.",
           rejectedCandidateIds: [],
           connectTargetId: null,
+          resolutionId: null,
           resolution: null,
+          pendingIdentityRequest: null,
           identityMessage: null,
         };
       }
-      const settled: readonly string[] = [
-        "publication_identity_created_new",
-        "publication_identity_connected_existing",
-        "publication_identity_refused",
-      ];
-      if (settled.includes(response.result_label) && response.resolution) {
-        return { ...state, pending: false, resolution: response.resolution, identityMessage: null };
+      if (accepted && response.resolution) {
+        return {
+          ...state,
+          pending: false,
+          resolutionId: response.resolution.resolution_id,
+          resolution: response.resolution,
+          pendingIdentityRequest: null,
+          identityMessage: null,
+        };
       }
+      // Definitive typed rejection: clear uncertain resolution pointer from state.
       return {
         ...state,
         pending: false,
+        resolutionId: null,
+        resolution: null,
+        pendingIdentityRequest: null,
         identityMessage: response.message ?? "Identity decision could not be recorded.",
       };
     }
+    case "identityTransportError":
+      return {
+        ...state,
+        pending: false,
+        identityMessage: action.message,
+      };
     case "proposalPending":
-      return { ...state, pending: true, proposalMessage: null, lastError: null };
+      return {
+        ...state,
+        pending: true,
+        proposalId: action.proposalId,
+        pendingProposalRequest: action.request,
+        proposalMessage: null,
+        lastError: null,
+      };
     case "proposalResult": {
-      const { response } = action;
-      if (response.result_label === "publication_proposal_ready" && response.proposal) {
-        return { ...state, pending: false, proposal: response.proposal, proposalMessage: null };
+      const { response, accepted } = action;
+      if (accepted && response.proposal) {
+        return {
+          ...state,
+          pending: false,
+          proposalId: response.proposal.proposal_id,
+          proposal: response.proposal,
+          pendingProposalRequest: null,
+          proposalMessage: null,
+        };
       }
       return {
         ...state,
         pending: false,
+        proposalId: null,
+        proposal: null,
+        pendingProposalRequest: null,
         proposalMessage: response.message ?? "Publication proposal could not be prepared.",
       };
     }
+    case "proposalTransportError":
+      return {
+        ...state,
+        pending: false,
+        proposalMessage: action.message,
+      };
     case "confirmPending":
       return { ...state, pending: true, commitId: action.commitId, commitMessage: null, lastError: null };
     case "commitResult": {
       const { response } = action;
+      // Typed response with no durable commit record: roll back to proposal stage.
+      if (!response.commit) {
+        return {
+          ...state,
+          pending: false,
+          commitId: null,
+          commit: null,
+          commitResultLabel: response.result_label,
+          commitMessage: response.message ?? null,
+          retryAllowed: false,
+        };
+      }
       return {
         ...state,
         pending: false,
-        commitId: response.commit_id,
-        commit: response.commit ?? state.commit,
+        commitId: response.commit.commit_id,
+        commit: response.commit,
         commitResultLabel: response.result_label,
         commitMessage: response.message ?? null,
         retryAllowed: response.retry_allowed,
@@ -361,6 +453,12 @@ function reducer(state: PanelState, action: Action): PanelState {
       return { ...state, pending: false, commitMessage: action.message };
     case "genericError":
       return { ...state, pending: false, lastError: action.message };
+    case "beginRejected":
+      return {
+        ...initialPanelState(),
+        mode: "idle",
+        lastError: action.message ?? `Publication could not begin (${action.resultLabel}).`,
+      };
     case "versionMismatch":
       return { ...initialPanelState(), mode: "version_mismatch", versionMismatchPointer: action.pointer };
     case "recoveryError":
@@ -491,6 +589,10 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         localOperationId: activePointer.operation_id,
         source: "restore",
       });
+      if (operationResponse.result_label === "publication_cancelled") {
+        clearThreatPublicationSession(draft.draft_id, storage);
+        return;
+      }
       if (operationResponse.result_label !== "publication_ready" || !activePointer.resolution_id) return;
 
       const identityResponse = await api.getThreatIdentityResolution(
@@ -507,7 +609,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         dispatch({ type: "recoveryError", detail: "Stored identity resolution no longer matches the server." });
         return;
       }
-      dispatch({ type: "identityResult", response: identityResponse });
+      dispatch({ type: "identityResult", response: identityResponse, accepted: true });
 
       const resolutionIsActionable =
         identityResponse.resolution?.state === "active"
@@ -529,7 +631,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         dispatch({ type: "recoveryError", detail: "Stored publication proposal no longer matches the server." });
         return;
       }
-      dispatch({ type: "proposalResult", response: proposalResponse });
+      dispatch({ type: "proposalResult", response: proposalResponse, accepted: true });
       if (proposalResponse.result_label !== "publication_proposal_ready" || !activePointer.commit_id) return;
 
       const commitResponse = await api.getThreatPublicationCommit(
@@ -590,11 +692,19 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       if (!accepted) {
         // Definitive rejection / busy: do not retain a pointer to a nonexistent operation.
         clearThreatPublicationSession(draft.draft_id, storage);
+        if (response.result_label === "publication_busy") {
+          dispatch({
+            type: "operationResult",
+            response,
+            localOperationId: null,
+            source: "begin",
+          });
+          return;
+        }
         dispatch({
-          type: "operationResult",
-          response,
-          localOperationId: response.operation?.operation_id ?? null,
-          source: "begin",
+          type: "beginRejected",
+          message: response.message ?? null,
+          resultLabel: response.result_label,
         });
         return;
       }
@@ -608,7 +718,16 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
 
   async function handleCancelOperation(): Promise<void> {
     // Cancel is only valid before identity/proposal/commit authority exists.
-    if (!state.operationId || state.resolution || state.proposal || state.commitId) return;
+    if (
+      !state.operationId
+      || state.resolution
+      || state.resolutionId
+      || state.proposal
+      || state.proposalId
+      || state.commitId
+    ) {
+      return;
+    }
     const generation = generationRef.current;
     dispatch({ type: "cancelPending" });
     try {
@@ -618,17 +737,23 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         note: null,
       });
       if (!isCurrent(generation)) return;
-      writeThreatPublicationSession(
-        buildPointer({
-          stage: "operation",
-          operationId: state.operationId,
-          resolutionId: null,
-          proposalId: null,
-          commitId: null,
-        }),
-        storage,
-      );
-      dispatch({ type: "operationResult", response, localOperationId: state.operationId, source: "cancel" });
+      if (response.result_label === "publication_cancelled") {
+        clearThreatPublicationSession(draft.draft_id, storage);
+        dispatch({
+          type: "operationResult",
+          response,
+          localOperationId: state.operationId,
+          source: "cancel",
+        });
+        return;
+      }
+      // Non-cancel labels remain truthfully classified; do not terminalize or invent a pointer rewrite.
+      dispatch({
+        type: "operationResult",
+        response,
+        localOperationId: state.operationId,
+        source: "refresh",
+      });
     } catch (err) {
       if (!isCurrent(generation)) return;
       dispatch({ type: "genericError", message: errorMessage(err) });
@@ -753,31 +878,36 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     decision: ThreatIdentityDecision,
     targetNodeId: string | null,
     reason: string,
+    options?: { reuseResolutionId?: string; rejectedIds?: string[] },
   ): Promise<void> {
     if (!state.operationId || !state.candidateSet) return;
-    const resolutionId = generateId();
+    // Uncertainty mode: never mint a replacement ID while a prior attempt is unresolved.
+    if (state.resolutionId && !state.resolution && !options?.reuseResolutionId) return;
+    const resolutionId = options?.reuseResolutionId ?? state.resolutionId ?? generateId();
     const generation = generationRef.current;
+    const rejectedIds =
+      options?.rejectedIds
+      ?? (decision === "connect_existing" && targetNodeId
+        ? state.rejectedCandidateIds.filter((id) => id !== targetNodeId)
+        : state.rejectedCandidateIds);
+    const request: CreateThreatIdentityResolutionRequestV1 = {
+      schema: "dmb_create_threat_identity_resolution_request_v1",
+      resolution_id: resolutionId,
+      matching_profile: "dmb_threat_identity_match_v1",
+      candidate_query: state.candidateSet.candidate_query,
+      candidate_set_digest: state.candidateSet.candidate_set_digest,
+      decision,
+      target_node_id: targetNodeId,
+      rejected_candidate_node_ids: rejectedIds,
+      actor,
+      reason,
+      supersedes_resolution_id: null,
+    };
     const pointer = buildPointer({ stage: "identity", resolutionId });
     writeThreatPublicationSession(pointer, storage);
-    dispatch({ type: "identityDecisionPending" });
-    const rejectedIds =
-      decision === "connect_existing" && targetNodeId
-        ? state.rejectedCandidateIds.filter((id) => id !== targetNodeId)
-        : state.rejectedCandidateIds;
+    dispatch({ type: "identityDecisionPending", resolutionId, request });
     try {
-      const response = await api.createThreatIdentityResolution(draft.draft_id, state.operationId, {
-        schema: "dmb_create_threat_identity_resolution_request_v1",
-        resolution_id: resolutionId,
-        matching_profile: "dmb_threat_identity_match_v1",
-        candidate_query: state.candidateSet.candidate_query,
-        candidate_set_digest: state.candidateSet.candidate_set_digest,
-        decision,
-        target_node_id: targetNodeId,
-        rejected_candidate_node_ids: rejectedIds,
-        actor,
-        reason,
-        supersedes_resolution_id: null,
-      });
+      const response = await api.createThreatIdentityResolution(draft.draft_id, state.operationId, request);
       if (!isCurrent(generation)) return;
       const settled: readonly string[] = [
         "publication_identity_created_new",
@@ -800,11 +930,11 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           storage,
         );
       }
-      dispatch({ type: "identityResult", response });
+      dispatch({ type: "identityResult", response, accepted });
     } catch (err) {
       if (!isCurrent(generation)) return;
       // Transport uncertainty: keep the proposed resolution_id for exact replay/read.
-      dispatch({ type: "genericError", message: errorMessage(err) });
+      dispatch({ type: "identityTransportError", message: errorMessage(err) });
     }
   }
 
@@ -823,29 +953,82 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     void submitIdentityDecision("refuse", null, "Refuse publication");
   }
 
-  async function handlePrepareProposal(): Promise<void> {
-    if (!state.operationId || !state.resolution) return;
-    const proposalId = generateId();
+  async function handleRereadIdentity(): Promise<void> {
+    if (!state.operationId || !state.resolutionId || state.resolution) return;
     const generation = generationRef.current;
+    dispatch({ type: "cancelPending" });
+    try {
+      const response = await api.getThreatIdentityResolution(
+        draft.draft_id,
+        state.operationId,
+        state.resolutionId,
+      );
+      if (!isCurrent(generation)) return;
+      const settled: readonly string[] = [
+        "publication_identity_created_new",
+        "publication_identity_connected_existing",
+        "publication_identity_refused",
+      ];
+      const accepted =
+        settled.includes(response.result_label)
+        && response.resolution?.resolution_id === state.resolutionId;
+      if (accepted) {
+        dispatch({ type: "identityResult", response, accepted: true });
+        return;
+      }
+      // Still unresolved or not found: remain in uncertainty with the exact ID.
+      dispatch({
+        type: "identityTransportError",
+        message: response.message ?? "Identity decision is not yet confirmed on the server.",
+      });
+    } catch (err) {
+      if (!isCurrent(generation)) return;
+      dispatch({ type: "identityTransportError", message: errorMessage(err) });
+    }
+  }
+
+  function handleReplayIdentity(): void {
+    if (!state.pendingIdentityRequest || !state.resolutionId || state.resolution) return;
+    const request = state.pendingIdentityRequest;
+    void submitIdentityDecision(
+      request.decision,
+      request.target_node_id ?? null,
+      request.reason,
+      {
+        reuseResolutionId: state.resolutionId,
+        rejectedIds: request.rejected_candidate_node_ids,
+      },
+    );
+  }
+
+  async function handlePrepareProposal(options?: {
+    reuseProposalId?: string;
+  }): Promise<void> {
+    if (!state.operationId || !state.resolution) return;
+    // Uncertainty mode: never mint a replacement ID while a prior attempt is unresolved.
+    if (state.proposalId && !state.proposal && !options?.reuseProposalId) return;
+    const proposalId = options?.reuseProposalId ?? state.proposalId ?? generateId();
+    const generation = generationRef.current;
+    const request: PrepareThreatPublicationProposalRequestV1 = {
+      schema: "dmb_prepare_threat_publication_proposal_request_v1",
+      proposal_id: proposalId,
+      actor,
+      operator_note: null,
+      supersedes_proposal_id: null,
+    };
     const pointer = buildPointer({
       stage: "proposal",
       resolutionId: state.resolution.resolution_id,
       proposalId,
     });
     writeThreatPublicationSession(pointer, storage);
-    dispatch({ type: "proposalPending" });
+    dispatch({ type: "proposalPending", proposalId, request });
     try {
       const response = await api.prepareThreatPublicationProposal(
         draft.draft_id,
         state.operationId,
         state.resolution.resolution_id,
-        {
-          schema: "dmb_prepare_threat_publication_proposal_request_v1",
-          proposal_id: proposalId,
-          actor,
-          operator_note: null,
-          supersedes_proposal_id: null,
-        },
+        request,
       );
       if (!isCurrent(generation)) return;
       const accepted =
@@ -863,11 +1046,44 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           storage,
         );
       }
-      dispatch({ type: "proposalResult", response });
+      dispatch({ type: "proposalResult", response, accepted });
     } catch (err) {
       if (!isCurrent(generation)) return;
-      dispatch({ type: "genericError", message: errorMessage(err) });
+      dispatch({ type: "proposalTransportError", message: errorMessage(err) });
     }
+  }
+
+  async function handleRereadProposal(): Promise<void> {
+    if (!state.operationId || !state.proposalId || state.proposal) return;
+    const generation = generationRef.current;
+    dispatch({ type: "cancelPending" });
+    try {
+      const response = await api.getThreatPublicationProposal(
+        draft.draft_id,
+        state.operationId,
+        state.proposalId,
+      );
+      if (!isCurrent(generation)) return;
+      const accepted =
+        response.result_label === "publication_proposal_ready"
+        && response.proposal?.proposal_id === state.proposalId;
+      if (accepted) {
+        dispatch({ type: "proposalResult", response, accepted: true });
+        return;
+      }
+      dispatch({
+        type: "proposalTransportError",
+        message: response.message ?? "Publication proposal is not yet confirmed on the server.",
+      });
+    } catch (err) {
+      if (!isCurrent(generation)) return;
+      dispatch({ type: "proposalTransportError", message: errorMessage(err) });
+    }
+  }
+
+  function handleReplayProposal(): void {
+    if (!state.pendingProposalRequest || !state.proposalId || state.proposal) return;
+    void handlePrepareProposal({ reuseProposalId: state.proposalId });
   }
 
   async function handleConfirm(): Promise<void> {
@@ -882,7 +1098,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     if (isFirstConfirm) {
       const pointer = buildPointer({
         stage: "commit",
-        resolutionId: state.resolution?.resolution_id ?? null,
+        resolutionId: state.resolution?.resolution_id ?? state.resolutionId,
         proposalId: state.proposal.proposal_id,
         commitId,
       });
@@ -904,6 +1120,19 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         },
       );
       if (!isCurrent(generation)) return;
+      if (!response.commit) {
+        // Pre-admission typed rejection: roll local chain back to proposal stage.
+        writeThreatPublicationSession(
+          buildPointer({
+            stage: "proposal",
+            operationId: state.operationId,
+            resolutionId: state.resolution?.resolution_id ?? state.resolutionId,
+            proposalId: state.proposal.proposal_id,
+            commitId: null,
+          }),
+          storage,
+        );
+      }
       dispatch({ type: "commitResult", response });
     } catch (err) {
       if (!isCurrent(generation)) return;
@@ -918,6 +1147,18 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     try {
       const response = await api.getThreatPublicationCommit(draft.draft_id, state.operationId, state.commitId);
       if (!isCurrent(generation)) return;
+      if (!response.commit) {
+        writeThreatPublicationSession(
+          buildPointer({
+            stage: "proposal",
+            operationId: state.operationId,
+            resolutionId: state.resolution?.resolution_id ?? state.resolutionId,
+            proposalId: state.proposal?.proposal_id ?? state.proposalId,
+            commitId: null,
+          }),
+          storage,
+        );
+      }
       dispatch({ type: "commitResult", response });
     } catch (err) {
       if (!isCurrent(generation)) return;
@@ -967,9 +1208,12 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       <h2>Publish Threat</h2>
 
       {state.mode === "idle" && (
-        <button data-testid="publish" onClick={() => void handleClickPublish()}>
-          Publish Threat
-        </button>
+        <div>
+          {state.lastError && <p role="alert">{state.lastError}</p>}
+          <button data-testid="publish" onClick={() => void handleClickPublish()}>
+            Publish Threat
+          </button>
+        </div>
       )}
 
       {state.mode === "version_mismatch" && (
@@ -1030,7 +1274,9 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             && state.operation
             && !committed
             && !state.resolution
+            && !state.resolutionId
             && !state.proposal
+            && !state.proposalId
             && !state.commitId && (
               <button
                 data-testid="refresh-operation"
@@ -1041,7 +1287,10 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
               </button>
           )}
 
-          {!state.candidateSet && !state.resolution && state.operationResultLabel === "publication_ready" && (
+          {!state.candidateSet
+            && !state.resolution
+            && !state.resolutionId
+            && state.operationResultLabel === "publication_ready" && (
             <>
               {state.candidateMessage && <p role="alert">{state.candidateMessage}</p>}
               <button data-testid="prepare-candidates" disabled={state.pending} onClick={() => void handlePrepareCandidates()}>
@@ -1054,13 +1303,14 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             && state.operation?.state === "stale"
             && !state.candidateSet
             && !state.resolution
+            && !state.resolutionId
             && !committed && (
               <button data-testid="retry-operation" disabled={state.pending} onClick={() => void handleRetryOperation()}>
                 Retry publication
               </button>
           )}
 
-          {state.candidateSet && !state.resolution && (
+          {state.candidateSet && !state.resolution && !state.resolutionId && (
             <div data-testid="identity-candidates">
               <h3>Review identity candidates</h3>
               <p>
@@ -1141,6 +1391,42 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             </div>
           )}
 
+          {state.resolutionId && !state.resolution && (
+            <div role="status" data-testid="identity-uncertainty">
+              {state.pending ? (
+                <p>Recording identity decision…</p>
+              ) : (
+                <>
+                  <p>
+                    Identity decision confirmation is uncertain. Re-read the exact decision or replay the same
+                    request. A new decision id will not be generated.
+                  </p>
+                  {state.identityMessage && <p role="alert">{state.identityMessage}</p>}
+                  <details>
+                    <summary>Technical details</summary>
+                    <p>resolution_id: {state.resolutionId}</p>
+                  </details>
+                  <button
+                    data-testid="reread-identity"
+                    disabled={state.pending}
+                    onClick={() => void handleRereadIdentity()}
+                  >
+                    Re-read identity decision
+                  </button>
+                  {state.pendingIdentityRequest && (
+                    <button
+                      data-testid="replay-identity"
+                      disabled={state.pending}
+                      onClick={handleReplayIdentity}
+                    >
+                      Replay identity decision
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {state.resolution && (
             <div role="status" data-testid="identity-decision">
               {state.resolution.decision === "refuse" ? (
@@ -1151,7 +1437,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
                     Identity decision recorded:{" "}
                     {state.resolution.decision === "create_new" ? "create a new Threat" : "connect to an existing Threat"}.
                   </p>
-                  {!state.proposal && (
+                  {!state.proposal && !state.proposalId && (
                     <button data-testid="prepare-proposal" disabled={state.pending} onClick={() => void handlePrepareProposal()}>
                       Review publication proposal
                     </button>
@@ -1159,6 +1445,43 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
                 </>
               )}
               {state.identityMessage && <p role="alert">{state.identityMessage}</p>}
+              {state.proposalMessage && !state.proposalId && <p role="alert">{state.proposalMessage}</p>}
+            </div>
+          )}
+
+          {state.proposalId && !state.proposal && (
+            <div role="status" data-testid="proposal-uncertainty">
+              {state.pending ? (
+                <p>Preparing publication proposal…</p>
+              ) : (
+                <>
+                  <p>
+                    Proposal confirmation is uncertain. Re-read the exact proposal or replay the same request.
+                    A new proposal id will not be generated.
+                  </p>
+                  {state.proposalMessage && <p role="alert">{state.proposalMessage}</p>}
+                  <details>
+                    <summary>Technical details</summary>
+                    <p>proposal_id: {state.proposalId}</p>
+                  </details>
+                  <button
+                    data-testid="reread-proposal"
+                    disabled={state.pending}
+                    onClick={() => void handleRereadProposal()}
+                  >
+                    Re-read proposal
+                  </button>
+                  {state.pendingProposalRequest && (
+                    <button
+                      data-testid="replay-proposal"
+                      disabled={state.pending}
+                      onClick={handleReplayProposal}
+                    >
+                      Replay proposal preparation
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           )}
 
@@ -1187,6 +1510,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
                 <p>Expected parent revision: {state.proposal.expected_parent_revision_id}</p>
               </details>
               {state.proposalMessage && <p role="alert">{state.proposalMessage}</p>}
+              {state.commitMessage && !state.commitId && <p role="alert">{state.commitMessage}</p>}
               {!state.commitId && (
                 <button data-testid="confirm" disabled={state.pending} onClick={() => void handleConfirm()}>
                   Confirm publish
@@ -1247,7 +1571,9 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           {state.operationId
             && !committed
             && !state.resolution
+            && !state.resolutionId
             && !state.proposal
+            && !state.proposalId
             && !state.commitId && (
             <button data-testid="cancel-operation" disabled={state.pending} onClick={() => void handleCancelOperation()}>
               Cancel publication
