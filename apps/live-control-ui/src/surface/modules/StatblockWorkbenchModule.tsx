@@ -47,6 +47,7 @@ import {
   splitIssuesBySeverity,
 } from "../../statblocks/editor/statblockValidationIssues";
 import { StatblockRenderer } from "../../statblocks/render/StatblockRenderer";
+import { ThreatPublicationPanel } from "../../statblocks/publication/ThreatPublicationPanel";
 import {
   MechanicsSavedAppendBoundary,
   ProposalHistoryPanel,
@@ -104,6 +105,13 @@ type ValidationFailure = {
   editorEpoch: number;
   stateRevision: number;
   message: string;
+};
+
+type PublicationHeadResolution = {
+  draftId: string | null;
+  head: string | null;
+  error: string | null;
+  loading: boolean;
 };
 
 function previewIsCurrent(
@@ -1987,6 +1995,13 @@ export function StatblockWorkbenchModule() {
   const [reviseStatusMessage, setReviseStatusMessage] = useState<string | null>(null);
   const [reviseError, setReviseError] = useState<string | null>(null);
   const [revisePending, setRevisePending] = useState(false);
+  const [publicationHeadResolution, setPublicationHeadResolution] =
+    useState<PublicationHeadResolution>({
+      draftId: null,
+      head: null,
+      error: null,
+      loading: false,
+    });
 
   const validateRequestIdRef = useRef(0);
   const editorEpochRef = useRef(0);
@@ -2367,6 +2382,54 @@ export function StatblockWorkbenchModule() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only session restore
   }, []);
+
+  useEffect(() => {
+    const draftId = threatDraft?.draft_id ?? null;
+    const mechanicsSaved = threatDraft?.workflow_state === "mechanics_saved";
+    if (!draftId || !mechanicsSaved) {
+      setPublicationHeadResolution({ draftId: null, head: null, error: null, loading: false });
+      return;
+    }
+
+    let cancelled = false;
+    setPublicationHeadResolution({ draftId, head: null, error: null, loading: true });
+
+    void (async () => {
+      try {
+        const status = await getWorldGraphBootstrapStatus();
+        if (cancelled) return;
+        const head =
+          typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
+            ? status.currentHeadRevisionId.trim()
+            : null;
+        if (head) {
+          setPublicationHeadResolution({ draftId, head, error: null, loading: false });
+          return;
+        }
+        setPublicationHeadResolution({
+          draftId,
+          head: null,
+          error: "Publication is disabled until the current World Graph head is readable.",
+          loading: false,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        setPublicationHeadResolution({
+          draftId,
+          head: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "World Graph bootstrap status unavailable.",
+          loading: false,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [threatDraft?.draft_id, threatDraft?.workflow_state]);
 
   const onSubmitCandidate = (event: FormEvent) => {
     event.preventDefault();
@@ -3406,6 +3469,38 @@ export function StatblockWorkbenchModule() {
               mechanicsSavedDraft={mechanicsSavedDraft}
               draftAuthorityUnavailable={draftSnapshotUnavailable}
             />
+          ) : null}
+
+          {mechanicsSavedDraft && threatDraft ? (
+            <section
+              className="statblock-section"
+              aria-label="Publish to World Graph"
+              data-testid="workbench-publication-entry"
+            >
+              <h3>Publish to World Graph</h3>
+              {publicationHeadResolution.draftId === threatDraft.draft_id &&
+              publicationHeadResolution.loading ? (
+                <p className="module-muted" role="status" data-testid="publication-head-loading">
+                  Resolving World Graph head…
+                </p>
+              ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
+                publicationHeadResolution.head ? (
+                <ThreatPublicationPanel
+                  key={threatDraft.draft_id}
+                  draft={threatDraft}
+                  expectedParentRevisionId={publicationHeadResolution.head}
+                />
+              ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
+                publicationHeadResolution.error ? (
+                <p
+                  className="statblock-command-error"
+                  role="status"
+                  data-testid="publication-head-unavailable"
+                >
+                  {publicationHeadResolution.error}
+                </p>
+              ) : null}
+            </section>
           ) : null}
         </section>
       ) : null}
