@@ -1,0 +1,269 @@
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+
+import type { GraphProjectionNodeView } from "../../api/types";
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
+import {
+  GRAPH_REFERENCE_BINDING_ID,
+  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
+} from "../../graphReference/projectionBindings";
+import type { GraphReferenceResolution } from "../../graphReference/types";
+import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
+
+const glowkindleNode: GraphProjectionNodeView = {
+  node_id: "npc-glowkindle",
+  label: "Glowkindle",
+  kind: "npc",
+  role: "merchant",
+  aliases: ["Glow"],
+  source_domains: ["recap"],
+  evidence_badges: [],
+  adjacency: [
+    {
+      edge_id: "edge-inn",
+      node_id: "loc-inn",
+      label: "The Inn",
+      kind: "location",
+      predicate: "located_in",
+      direction: "outgoing",
+      anchored_to_focus_session: true,
+      source_domains: ["recap"],
+      evidence_ref_ids: [],
+      campaign_scope: "longmont-c1",
+    },
+  ],
+  anchored_to_focus_session: true,
+  summary: "A friendly merchant.",
+};
+
+const innNode: GraphProjectionNodeView = {
+  node_id: "loc-inn",
+  label: "The Inn",
+  kind: "location",
+  role: null,
+  aliases: [],
+  source_domains: ["recap"],
+  evidence_badges: [],
+  adjacency: [],
+  anchored_to_focus_session: true,
+  summary: "Meeting place.",
+};
+
+function resolvedGraphResolution(
+  node: GraphProjectionNodeView,
+): Extract<GraphReferenceResolution, { kind: "resolved_graph" }> {
+  return {
+    kind: "resolved_graph",
+    locator: `dmb-node:${node.node_id}`,
+    reference: referenceFromGraphNode(node),
+    graphNodeId: node.node_id,
+    graphObject: buildGraphObjectCardFromNodeView(node),
+    projectionState: "ready",
+    message: `Resolved graph node ${node.label}.`,
+  };
+}
+
+function renderWithResolution(resolution: GraphReferenceResolution) {
+  return render(
+    <BuildReferenceObjectProjection
+      bindings={{
+        [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolution,
+      }}
+    />,
+  );
+}
+
+describe("BuildReferenceObjectProjection", () => {
+  it("renders resolved_graph through GraphObjectProjectionCard", () => {
+    renderWithResolution(resolvedGraphResolution(glowkindleNode));
+
+    expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    expect(screen.getByText("Glowkindle")).toBeInTheDocument();
+  });
+
+  it("shows ambiguous candidate ids without auto-select", () => {
+    renderWithResolution({
+      kind: "ambiguous",
+      locator: "Lysandra",
+      reference: null,
+      matchingGraphNodeIds: ["npc-lysandra-a", "npc-lysandra-b"],
+      projectionState: "ready",
+      message: "Could not uniquely resolve this object from graph memory.",
+    });
+
+    const list = screen.getByTestId("build-reference-ambiguous-ids");
+    expect(list).toHaveTextContent("npc-lysandra-a");
+    expect(list).toHaveTextContent("npc-lysandra-b");
+    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+  });
+
+  it("fail-closes resolved_corpus_fallback", () => {
+    renderWithResolution({
+      kind: "resolved_corpus_fallback",
+      locator: "npc:old-index",
+      reference: {
+        kind: "ref",
+        refType: "npc",
+        refId: "npc-old",
+        label: "Old Index NPC",
+      },
+      fallback: {
+        status: "resolved",
+        ref: {
+          kind: "ref",
+          refType: "npc",
+          refId: "npc-old",
+          label: "Old Index NPC",
+        },
+        message: "Corpus index found a match.",
+      },
+      projectionState: "ready",
+      message: "Corpus index found a match.",
+    });
+
+    expect(screen.getByTestId("build-reference-corpus-fallback-blocked")).toBeInTheDocument();
+    expect(screen.getByText(/World Graph inspection only/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+  });
+
+  it("wires relationship navigation through graph reference binding", async () => {
+    const user = userEvent.setup();
+    const openResolvedReference = vi.fn();
+    const resolveRelationship = vi.fn(async () => resolvedGraphResolution(innNode));
+
+    render(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: {
+            resolverState: "ready",
+            resolveRelationship,
+            openResolvedReference,
+            openTool: vi.fn(),
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+
+    await waitFor(() => {
+      expect(resolveRelationship).toHaveBeenCalledWith(
+        expect.objectContaining({ targetId: "loc-inn", label: "The Inn" }),
+      );
+    });
+    await waitFor(() => {
+      expect(openResolvedReference).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "resolved_graph", graphNodeId: "loc-inn" }),
+        "ready",
+      );
+    });
+  });
+
+  it("E9: rejects delayed relationship completion after document-binding replacement", async () => {
+    const user = userEvent.setup();
+    let resolveDeferred!: (value: ReturnType<typeof resolvedGraphResolution>) => void;
+    const deferred = new Promise<ReturnType<typeof resolvedGraphResolution>>((resolve) => {
+      resolveDeferred = resolve;
+    });
+    const openResolvedReferenceA = vi.fn();
+    const openResolvedReferenceB = vi.fn();
+    const bindingA = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => deferred),
+      openResolvedReference: openResolvedReferenceA,
+      openTool: vi.fn(),
+    };
+    const bindingB = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => resolvedGraphResolution(innNode)),
+      openResolvedReference: openResolvedReferenceB,
+      openTool: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingA,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => expect(bindingA.resolveRelationship).toHaveBeenCalledTimes(1));
+
+    // Document replacement → new graph-reference binding identity while resolution is pending.
+    rerender(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingB,
+        }}
+      />,
+    );
+
+    await act(async () => {
+      resolveDeferred(resolvedGraphResolution(innNode));
+      await deferred;
+    });
+
+    expect(openResolvedReferenceA).not.toHaveBeenCalled();
+    expect(openResolvedReferenceB).not.toHaveBeenCalled();
+  });
+
+  it("E10: rejects delayed relationship completion after lens-generation binding replacement", async () => {
+    const user = userEvent.setup();
+    let resolveDeferred!: (value: ReturnType<typeof resolvedGraphResolution>) => void;
+    const deferred = new Promise<ReturnType<typeof resolvedGraphResolution>>((resolve) => {
+      resolveDeferred = resolve;
+    });
+    const openResolvedReferenceA = vi.fn();
+    const openResolvedReferenceB = vi.fn();
+    const bindingA = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => deferred),
+      openResolvedReference: openResolvedReferenceA,
+      openTool: vi.fn(),
+    };
+    const bindingB = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => resolvedGraphResolution(innNode)),
+      openResolvedReference: openResolvedReferenceB,
+      openTool: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingA,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => expect(bindingA.resolveRelationship).toHaveBeenCalledTimes(1));
+
+    // Same-document lens generation replacement → new binding identity while resolution is pending.
+    rerender(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingB,
+        }}
+      />,
+    );
+
+    await act(async () => {
+      resolveDeferred(resolvedGraphResolution(innNode));
+      await deferred;
+    });
+
+    expect(openResolvedReferenceA).not.toHaveBeenCalled();
+    expect(openResolvedReferenceB).not.toHaveBeenCalled();
+  });
+});

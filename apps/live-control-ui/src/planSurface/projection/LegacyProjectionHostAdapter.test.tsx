@@ -10,6 +10,10 @@ import { getRecapArtifacts } from "../../api/liveApi";
 import type { GraphProjectionNodeView, RecapArtifactsListResponse } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { SurfaceConfig } from "../types";
+import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
+import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import type { SurfaceInteractionPublication } from "../../surfaceInteraction/types";
+import { BUILD_REFERENCE_SEARCH_PROJECTION_ID } from "../../buildSurface/reference/buildReferenceIds";
 import { LegacyProjectionHostAdapter } from "./LegacyProjectionHostAdapter";
 import {
   AgentInteractionProvider,
@@ -65,6 +69,32 @@ const bubblesNode: GraphProjectionNodeView = {
   anchored_to_focus_session: true,
   summary: "A float goat rescued from the flooded river.",
 };
+
+function StubGraphReferenceBinding() {
+  const { registerGraphReferenceBinding, openGraphReference, openTool } = useProjection();
+  useEffect(() => {
+    return registerGraphReferenceBinding({
+      resolverState: "ready",
+      resolveRelationship: vi.fn(async () => ({
+        kind: "resolved_graph" as const,
+        locator: `dmb-node:${bubblesNode.node_id}`,
+        reference: referenceFromGraphNode(bubblesNode),
+        graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
+        graphNodeId: bubblesNode.node_id,
+        message: `Resolved graph node ${bubblesNode.label}.`,
+        projectionState: "ready",
+      })),
+      openResolvedReference: (nextResolution, projectionState) => {
+        openGraphReference({
+          resolution: nextResolution,
+          projectionState: projectionState ?? "ready",
+        });
+      },
+      openTool,
+    });
+  }, [openGraphReference, openTool, registerGraphReferenceBinding]);
+  return null;
+}
 
 function OpenReferenceButton() {
   const { openGraphReference } = useProjection();
@@ -124,6 +154,86 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+  });
+
+  function NativeBuildPublisher({ publication }: { publication: SurfaceInteractionPublication }) {
+    const { publishSurfaceInteractionPublication } = useAgentInteraction();
+    useEffect(() => {
+      return publishSurfaceInteractionPublication(publication);
+    }, [publication, publishSurfaceInteractionPublication]);
+    return null;
+  }
+
+  it("mounts projection host for native Build publication with projection tools", async () => {
+    const publication: SurfaceInteractionPublication = {
+      surfaceId: "build",
+      label: "Build",
+      identity: buildSurfaceInteractionIdentity({
+        surfaceId: "build",
+        instanceParts: ["build", "adapter-native-test"],
+      }),
+      canvas: null,
+      agentContext: null,
+      tools: [
+        {
+          id: "build-find-existing-object",
+          label: "Find existing object",
+          placement: {
+            groupId: "build-world-reference",
+            groupLabel: "World references",
+            groupOrder: 10,
+            itemOrder: 0,
+          },
+          availability: { status: "enabled" },
+          activation: {
+            kind: "projection",
+            projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
+          },
+        },
+      ],
+      editCommands: [],
+      projections: [
+        {
+          id: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
+          kind: "tool",
+          preferredSize: "wide",
+          bindingIds: [],
+        },
+        {
+          id: GRAPH_REFERENCE_PROJECTION_ID,
+          kind: "content",
+          preferredSize: "wide",
+          bindingIds: [],
+        },
+      ],
+      projectionBindings: [],
+    };
+
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <NativeBuildPublisher publication={publication} />
+        <CaptureApi />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProvider>,
+    );
+
+    act(() => {
+      hostApi!.openTool("build-find-existing-object");
+    });
+
+    await waitFor(() => {
+      expect(document.body).toHaveClass("surface-projection-open");
+    });
+    expect(document.querySelector(".surface-projection-host")).toBeTruthy();
+    const navButton = screen.getByRole("button", { name: "Find existing object" });
+    expect(navButton).toHaveAttribute("aria-pressed", "true");
+    expect(navButton).toHaveClass("active");
   });
 
   it("renders no Tools toggle for a contradictory identity/config publication", () => {
@@ -245,6 +355,7 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
     const user = userEvent.setup();
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <StubGraphReferenceBinding />
         <OpenReferenceButton />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,
@@ -265,10 +376,11 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
     expect(screen.getByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
   });
 
-  it("renders content without a Plan binding and does not crash", async () => {
+  it("renders content with a registered binding and does not crash", async () => {
     const user = userEvent.setup();
     render(
       <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <StubGraphReferenceBinding />
         <OpenReferenceButton />
         <LegacyProjectionHostAdapter />
       </AgentInteractionProjectionTestHost>,

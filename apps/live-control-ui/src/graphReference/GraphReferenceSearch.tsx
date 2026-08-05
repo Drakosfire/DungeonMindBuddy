@@ -5,12 +5,12 @@ import { searchGraphReferences, sortGraphReferenceItems } from "./searchGraphRef
 import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
 
 export interface GraphReferenceSearchProps {
-  items: GraphReferenceSearchItem[];
+  items: readonly GraphReferenceSearchItem[];
   projectionState: GraphReferenceProjectionState;
   projectionError?: string | null;
   /** Disables chip insert only. Search and view stay available while editing is locked. */
   insertDisabled?: boolean;
-  onInsert: (attrs: RunbookReferenceAttrs) => void;
+  onInsert?: (attrs: RunbookReferenceAttrs) => void;
   onView?: (item: GraphReferenceSearchItem) => void;
 }
 
@@ -65,7 +65,7 @@ export function GraphReferenceSearch({
             autoComplete="off"
             onChange={(event) => setQuery(event.target.value)}
           />
-          {insertDisabled ? (
+          {onInsert && insertDisabled ? (
             <p className="graph-reference-search__status" role="status">
               Unlock editing to insert chips into the board. View still works.
             </p>
@@ -97,14 +97,16 @@ export function GraphReferenceSearch({
                         View
                       </button>
                     ) : null}
-                    <button
-                      type="button"
-                      className="graph-reference-search__button graph-reference-search__button--primary"
-                      disabled={insertDisabled}
-                      onClick={() => onInsert(item.reference)}
-                    >
-                      Insert chip
-                    </button>
+                    {onInsert ? (
+                      <button
+                        type="button"
+                        className="graph-reference-search__button graph-reference-search__button--primary"
+                        disabled={insertDisabled}
+                        onClick={() => onInsert(item.reference)}
+                      >
+                        Insert chip
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               ))}

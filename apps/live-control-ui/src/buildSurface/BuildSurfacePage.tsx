@@ -5,8 +5,6 @@ import type {
   WorldbuildingAuthorityState,
   WorldbuildingVisibilityState,
 } from "../api/types";
-import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
-import { createBuildSurfacePublication } from "../agentInteraction/projectionSurfacePublication";
 import { AppChrome } from "../chrome/AppChrome";
 import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { useWorkspaceDocumentUrlSelection } from "../workspaceDocument/useWorkspaceDocumentUrlSelection";
@@ -15,6 +13,7 @@ import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
+import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 import { BUILD_NEW_SOURCE_HEADING, BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
 
 function navigateToDocument(documentId: string): void {
@@ -44,7 +43,6 @@ const DEFAULT_FORM: NewSourceFormState = {
 export function BuildSurfacePage() {
   const documentId = useWorkspaceDocumentUrlSelection();
   const graphPointer = parseBuildGraphPointerFromLocation();
-  const { publishProjectionSurface } = useAgentInteraction();
   const [form, setForm] = useState<NewSourceFormState>(() => ({
     ...DEFAULT_FORM,
     campaignId: graphPointer?.campaignId ?? DEFAULT_FORM.campaignId,
@@ -84,12 +82,6 @@ export function BuildSurfacePage() {
   }, [documentId, graphPointer?.campaignId]);
 
   useEffect(() => {
-    return publishProjectionSurface(
-      createBuildSurfacePublication({ documentId, label: BUILD_SURFACE_LABEL }),
-    );
-  }, [documentId, publishProjectionSurface]);
-
-  useEffect(() => {
     if (documentId) return;
     setCreateError(null);
   }, [documentId]);
@@ -97,6 +89,7 @@ export function BuildSurfacePage() {
   if (!documentId) {
     return (
       <AppChrome activeRoute="build">
+        <BuildReferenceCapability documentId={null} />
         <main className="build-surface-new" data-testid="build-new-source-form">
           <h1>{BUILD_SURFACE_LABEL}</h1>
           <p>{BUILD_NEW_SOURCE_HEADING}</p>
@@ -176,6 +169,7 @@ export function BuildSurfacePage() {
         kind={BUILD_MARKDOWN_CANVAS.kind}
         saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
       >
+        <BuildReferenceCapability documentId={documentId} />
         <BuildIngestToolbar documentId={documentId} />
         <BuildSurfaceShell />
       </MarkdownCanvasSessionProvider>
