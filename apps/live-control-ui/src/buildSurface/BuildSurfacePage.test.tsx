@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -878,6 +879,104 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
     });
     expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
+  });
+
+  it("E3 StrictMode: shared Edit Save still commits once after effect rehearsal", async () => {
+    const user = userEvent.setup();
+    const dirtyMarkdown = "# StrictMode dirty draft\n";
+    const editorJson = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "StrictMode dirty draft" }],
+        },
+      ],
+    };
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Faction Notes", "# Faction Notes\n\nKeep this body intact.\n");
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionWithGlowkindle());
+
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Faction Notes",
+      campaignId: "longmont-c1",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: snapshot.content_sha256,
+      starterContent: editorJson,
+    });
+    local.dirty = true;
+    local.exported_markdown = dirtyMarkdown;
+    local.tiptap_json = editorJson;
+    window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
+
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "Faction Notes",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 2,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token-strict",
+      writer_diff: "+strict\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "Faction Notes",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 3,
+      committed_revision: 3,
+      committed_record: {
+        ...snapshot.record,
+        revision: 3,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha-committed-strict",
+      writer_ok: true,
+      bytes_written: 42,
+      file_fingerprint: "fp-committed-strict",
+      diagnostics: [],
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    render(
+      <StrictMode>
+        <AgentInteractionProvider>
+          <BuildSurfacePage />
+          <ToolHost />
+          <LegacyProjectionHostAdapter />
+        </AgentInteractionProvider>
+      </StrictMode>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(screen.getByTestId("surface-edit-host")).getByRole("button", { name: /Save/i }),
+    );
+
+    await waitFor(() => {
+      expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+      expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    });
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ document_id: DOC_ID }),
+    );
   });
 
   it("E4: graph projection failure leaves canvas dirty with Edit Save available", async () => {

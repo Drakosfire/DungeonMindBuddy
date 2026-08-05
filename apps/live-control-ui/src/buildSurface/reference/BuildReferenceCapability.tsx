@@ -323,36 +323,36 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
   ]);
 
   /**
-   * Build-local Save lease generation. Bumped on documentId change (render) and
-   * synchronously on cleanup so a retained document-A invoke cannot call
-   * A's session.saveMarkdown after A is replaced or unmounted.
-   * (Canvas mountedRef alone is checked only after prepare/commit begins.)
+   * Build-local Save live lease. Effect cleanup marks the capability inactive;
+   * the next effect setup restores liveness (StrictMode rehearsal cleanup must
+   * not permanently kill Save). liveDocumentIdRef is committed only in the
+   * effect so document replacement is event-safe — never mutated during render.
+   * Retained document-A invokes no-op when unmounted or when the live document
+   * no longer matches the bound identity (Canvas mountedRef alone is checked
+   * only after prepare/commit begins).
    */
-  const saveLeaseGenerationRef = useRef(0);
-  const saveLeaseDocumentIdRef = useRef(documentId);
-  if (saveLeaseDocumentIdRef.current !== documentId) {
-    saveLeaseDocumentIdRef.current = documentId;
-    saveLeaseGenerationRef.current += 1;
-  }
+  const saveMountedRef = useRef(false);
+  const liveDocumentIdRef = useRef<string | null>(null);
   useEffect(() => {
-    const aliveGeneration = saveLeaseGenerationRef.current;
+    saveMountedRef.current = true;
+    liveDocumentIdRef.current = documentId;
     return () => {
-      if (saveLeaseGenerationRef.current === aliveGeneration) {
-        saveLeaseGenerationRef.current += 1;
-      }
+      saveMountedRef.current = false;
+      liveDocumentIdRef.current = null;
     };
   }, [documentId]);
 
   const saveDocument = useMemo(() => {
-    const boundGeneration = saveLeaseGenerationRef.current;
     const boundDocumentId = documentId;
     const boundSession = session;
     return async () => {
-      if (saveLeaseGenerationRef.current !== boundGeneration) return;
+      if (!saveMountedRef.current) return;
+      if (liveDocumentIdRef.current !== boundDocumentId) return;
       if (!boundDocumentId || !boundSession || boundSession.documentId !== boundDocumentId) return;
       if (EMPTY_PUBLICATION_PHASES.has(boundSession.phase)) return;
       if (!boundSession.record || boundSession.record.document_id !== boundDocumentId) return;
-      if (saveLeaseGenerationRef.current !== boundGeneration) return;
+      if (!saveMountedRef.current) return;
+      if (liveDocumentIdRef.current !== boundDocumentId) return;
       await boundSession.saveMarkdown();
     };
   }, [documentId, session]);
