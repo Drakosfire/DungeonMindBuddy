@@ -4417,6 +4417,51 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
     });
 
+    it("refreshes ThreatDraft after Accept mechanics_saved so Publish mounts in-session", async () => {
+      mockBootstrapHead();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      const getDraft = vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({ workflow_state: "candidate_ready" }),
+      );
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: DRAFT_ID,
+        operation_id: "op_publish_refresh",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_1",
+          revision_id: "rev_1",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      const user = userEvent.setup();
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      expect(screen.queryByTestId("workbench-publication-entry")).toBeNull();
+
+      getDraft.mockResolvedValue(
+        threatDraftFixture({
+          workflow_state: "mechanics_saved",
+          accepted_mechanics_ref: mechanicsSavedRef(),
+        }),
+      );
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("threat-publication-panel")).toBeTruthy();
+      });
+      expect(screen.getByTestId("publish")).toBeTruthy();
+      expect(getDraft.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
     it("does not show Publish Threat for non-mechanics_saved draft", async () => {
       mockBootstrapHead();
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());

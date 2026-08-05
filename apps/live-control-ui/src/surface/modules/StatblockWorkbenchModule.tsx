@@ -1186,6 +1186,7 @@ function AcceptMechanicsFlow({
   validateDisabled,
   mechanicsSavedDraft,
   draftAuthorityUnavailable = false,
+  onMechanicsSaved,
 }: {
   preview: PreviewValidation | null;
   editorState: StatblockEditorState;
@@ -1201,6 +1202,8 @@ function AcceptMechanicsFlow({
   mechanicsSavedDraft: boolean;
   /** When true, version-dependent Accept/Save stays disabled until draft authority is restored. */
   draftAuthorityUnavailable?: boolean;
+  /** Refresh ThreatDraft authority after a durable mechanics_saved accept so Publish can mount. */
+  onMechanicsSaved?: (draftId: string) => void;
 }) {
   const eligible = acceptPreviewEligible(preview, editorState, editorEpoch);
   const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
@@ -1425,6 +1428,9 @@ function AcceptMechanicsFlow({
       setExistenceUnresolved(false);
     }
     setAcceptResult(response);
+    if (label === "mechanics_saved") {
+      onMechanicsSaved?.(draftId);
+    }
   };
 
   const runAccept = async () => {
@@ -3491,6 +3497,9 @@ export function StatblockWorkbenchModule() {
               }
               mechanicsSavedDraft={mechanicsSavedDraft}
               draftAuthorityUnavailable={draftSnapshotUnavailable}
+              onMechanicsSaved={(id) => {
+                void refreshThreatDraftSnapshot(id);
+              }}
             />
           ) : null}
 
