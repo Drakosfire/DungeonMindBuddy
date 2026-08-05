@@ -8,6 +8,7 @@ import {
 } from "../../graphReference/projectionBindings";
 import { resolveGraphReference, extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import type {
+  ExactGraphReferenceScope,
   GraphReferenceProjectionState,
   GraphReferenceResolution,
   GraphReferenceSearchItem,
@@ -36,6 +37,19 @@ const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = n
   "load_error",
   "conflict",
 ]);
+
+/**
+ * Vitest-only seam: last successful viewExact identity/scope for App-route E5 proof.
+ * Idle outside Vitest; never read by production UI.
+ */
+export const buildViewExactTestSeam = {
+  lastGraphNodeId: null as string | null,
+  lastGraphScope: null as ExactGraphReferenceScope | null,
+  reset() {
+    this.lastGraphNodeId = null;
+    this.lastGraphScope = null;
+  },
+};
 
 function subscribeToLocationSearch(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") {
@@ -257,6 +271,11 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       const graphScope = extractExactGraphReferenceScope(projection.projection);
       if (!graphScope) return;
 
+      if (import.meta.env.VITEST) {
+        buildViewExactTestSeam.lastGraphNodeId = canonical.nodeId;
+        buildViewExactTestSeam.lastGraphScope = graphScope;
+      }
+
       openGraphReference({
         resolution: {
           kind: "resolved_graph",
@@ -303,11 +322,39 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     viewExact,
   ]);
 
-  const saveDocument = useCallback(async () => {
-    if (!documentId || !session || session.documentId !== documentId) return;
-    if (EMPTY_PUBLICATION_PHASES.has(session.phase)) return;
-    if (!session.record || session.record.document_id !== documentId) return;
-    await session.saveMarkdown();
+  /**
+   * Build-local Save lease generation. Bumped on documentId change (render) and
+   * synchronously on cleanup so a retained document-A invoke cannot call
+   * A's session.saveMarkdown after A is replaced or unmounted.
+   * (Canvas mountedRef alone is checked only after prepare/commit begins.)
+   */
+  const saveLeaseGenerationRef = useRef(0);
+  const saveLeaseDocumentIdRef = useRef(documentId);
+  if (saveLeaseDocumentIdRef.current !== documentId) {
+    saveLeaseDocumentIdRef.current = documentId;
+    saveLeaseGenerationRef.current += 1;
+  }
+  useEffect(() => {
+    const aliveGeneration = saveLeaseGenerationRef.current;
+    return () => {
+      if (saveLeaseGenerationRef.current === aliveGeneration) {
+        saveLeaseGenerationRef.current += 1;
+      }
+    };
+  }, [documentId]);
+
+  const saveDocument = useMemo(() => {
+    const boundGeneration = saveLeaseGenerationRef.current;
+    const boundDocumentId = documentId;
+    const boundSession = session;
+    return async () => {
+      if (saveLeaseGenerationRef.current !== boundGeneration) return;
+      if (!boundDocumentId || !boundSession || boundSession.documentId !== boundDocumentId) return;
+      if (EMPTY_PUBLICATION_PHASES.has(boundSession.phase)) return;
+      if (!boundSession.record || boundSession.record.document_id !== boundDocumentId) return;
+      if (saveLeaseGenerationRef.current !== boundGeneration) return;
+      await boundSession.saveMarkdown();
+    };
   }, [documentId, session]);
 
   const documentSave = useMemo(() => {
@@ -317,9 +364,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       disabledReason: session.saveDisabled
         ? (session.statusLabel || "Save is unavailable for this document.")
         : undefined,
-      save: () => {
-        void saveDocument();
-      },
+      save: () => saveDocument(),
     };
   }, [acceptedDocument, saveDocument, session]);
 
