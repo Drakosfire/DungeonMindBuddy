@@ -1,10 +1,13 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
+import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
+import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
@@ -12,7 +15,14 @@ import {
   buildInitialWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
 } from "../tiptap/state/tiptapLocalState";
+import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
+import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
+import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfacePage } from "./BuildSurfacePage";
+import { BuildSurfaceShell } from "./BuildSurfaceShell";
+import type { BuildReferenceContextBinding } from "./reference/buildBuildSurfaceInteractionPublication";
+import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
+import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 
 function renderBuildPage() {
   return render(
@@ -344,16 +354,26 @@ describe("BuildSurfacePage", () => {
     ).toBeInTheDocument();
   });
 
-  it("E11: search and inspect leave document authority unchanged", async () => {
+  it("E11: View/Expand/relationship/close/lens leave document authority unchanged", async () => {
     const user = userEvent.setup();
     const markdownBody = "# Faction Notes\n\nKeep this body intact.\n";
+    const editorJson = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Dirty faction draft" }],
+        },
+      ],
+    };
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v1",
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
         title: "Faction Notes",
-        campaign_id: "longmont-c1",
+        campaign_id: "eldyrwild",
         target_session: null,
         kind: "worldbuilding_source",
         target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
@@ -376,17 +396,44 @@ describe("BuildSurfacePage", () => {
     const local = buildInitialWorkspaceDocumentLocalState({
       documentId: DOC_ID,
       title: "Faction Notes",
-      campaignId: "longmont-c1",
+      campaignId: "eldyrwild",
       kind: "worldbuilding_source",
       targetSession: null,
       surface: "build",
       baseRevision: 2,
       baseContentSha256: "sha-faction-e11",
-      starterContent: { type: "doc", content: [] },
+      starterContent: editorJson,
     });
     local.dirty = true;
     local.exported_markdown = "# Dirty faction draft\n";
+    local.tiptap_json = editorJson;
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
+
+    const glowNodeView = {
+      node_id: "npc-glowkindle",
+      label: "Glowkindle",
+      kind: "npc",
+      role: "merchant",
+      aliases: ["Glow"],
+      source_domains: ["recap"],
+      evidence_badges: [],
+      adjacency: [
+        {
+          edge_id: "edge-inn",
+          node_id: "location-inn",
+          label: "The Inn",
+          kind: "location",
+          predicate: "located_in",
+          direction: "outgoing" as const,
+          anchored_to_focus_session: true,
+          source_domains: ["recap"],
+          evidence_ref_ids: [],
+          campaign_scope: "longmont-c1",
+        },
+      ],
+      anchored_to_focus_session: true,
+      summary: "A friendly merchant.",
+    };
 
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
@@ -401,7 +448,7 @@ describe("BuildSurfacePage", () => {
         scopeMode: "campaign",
       },
       summary: {
-        nodeCount: 1,
+        nodeCount: 2,
         relationshipCount: 0,
         attributeCount: 0,
         evidenceCount: 0,
@@ -417,12 +464,41 @@ describe("BuildSurfacePage", () => {
           aliases: ["Glow"],
           sourceDomains: ["recap"],
           evidenceBadges: [],
-          adjacency: [],
+          adjacency: [
+            {
+              edgeId: "edge-inn",
+              nodeId: "location-inn",
+              label: "The Inn",
+              kind: "location",
+              predicate: "located_in",
+              direction: "outgoing",
+              anchoredToFocusSession: true,
+              sourceDomains: ["recap"],
+              evidenceRefIds: [],
+              sessionIds: [],
+              campaignScope: "longmont-c1",
+            },
+          ],
           suggestedExpansions: [],
           evidenceRefIds: [],
           sourceArtifactIds: [],
           anchoredToFocusSession: true,
           summary: "A friendly merchant.",
+        },
+        {
+          nodeId: "location-inn",
+          label: "The Inn",
+          kind: "location",
+          role: "location",
+          aliases: [],
+          sourceDomains: ["recap"],
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+          anchoredToFocusSession: true,
+          summary: "Meeting place.",
         },
       ],
       relationships: [],
@@ -432,7 +508,50 @@ describe("BuildSurfacePage", () => {
       diagnostics: [],
     });
 
+    let latestContext: BuildReferenceContextBinding | null = null;
+    let openGraphReference: ReturnType<typeof useAgentInteraction>["openGraphReference"] | null = null;
+    let closeProjection: (() => void) | null = null;
+
+    function AuthorityProbe() {
+      const session = useMarkdownCanvasSession();
+      return (
+        <pre data-testid="authority-probe">
+          {JSON.stringify({
+            documentId: session.documentId,
+            dirty: session.dirty,
+            phase: session.phase,
+            statusLabel: session.statusLabel,
+            editorContent: session.editorContent,
+            lastCommitReceipt: session.lastCommitReceipt,
+            activeCommand: session.activeCommand,
+            saveDisabled: session.saveDisabled,
+          })}
+        </pre>
+      );
+    }
+
+    function InteractionProbe() {
+      const interaction = useAgentInteraction();
+      openGraphReference = interaction.openGraphReference;
+      closeProjection = interaction.close;
+      const binding = interaction.surfaceInteractionPublication?.projectionBindings.find(
+        (entry) => entry.id === BUILD_REFERENCE_CONTEXT_BINDING_ID,
+      );
+      latestContext = (binding?.value as BuildReferenceContextBinding | undefined) ?? null;
+      return null;
+    }
+
     function readAuthoritySnapshot() {
+      const probe = JSON.parse(screen.getByTestId("authority-probe").textContent || "{}") as {
+        documentId: string;
+        dirty: boolean;
+        phase: string;
+        statusLabel: string;
+        editorContent: unknown;
+        lastCommitReceipt: unknown;
+        activeCommand: unknown;
+        saveDisabled: boolean;
+      };
       const storedRaw = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
       expect(storedRaw).toBeTruthy();
       const stored = JSON.parse(storedRaw!) as {
@@ -440,34 +559,62 @@ describe("BuildSurfacePage", () => {
         exported_markdown: string;
         base_revision: number;
         base_content_sha256: string;
+        tiptap_json: unknown;
       };
       const saveButton = screen.queryByRole("button", { name: /^Save$/i });
       return {
-        dirty: stored.dirty,
+        documentId: probe.documentId,
+        dirty: probe.dirty,
+        phase: probe.phase,
+        statusLabel: probe.statusLabel,
+        editorContent: probe.editorContent,
+        lastCommitReceipt: probe.lastCommitReceipt,
+        activeCommand: probe.activeCommand,
+        saveDisabled: probe.saveDisabled,
         exportedMarkdown: stored.exported_markdown,
         baseRevision: stored.base_revision,
         baseDigest: stored.base_content_sha256,
-        status: screen.getByTestId("build-document-status").textContent,
+        tiptapJson: stored.tiptap_json,
         prepareCalls: vi.mocked(liveApi.prepareTiptapMarkdownWrite).mock.calls.length,
         commitCalls: vi.mocked(liveApi.commitTiptapMarkdownWrite).mock.calls.length,
-        saveDisabled: saveButton ? (saveButton as HTMLButtonElement).disabled : null,
+        saveControlDisabled: saveButton ? (saveButton as HTMLButtonElement).disabled : null,
         saveLabel: saveButton?.textContent ?? null,
       };
     }
 
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
-    renderBuildPage();
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <BuildIngestToolbar documentId={DOC_ID} />
+          <BuildSurfaceShell />
+          <AuthorityProbe />
+          <InteractionProbe />
+        </MarkdownCanvasSessionProvider>
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
     });
     const before = readAuthoritySnapshot();
+    expect(before.documentId).toBe(DOC_ID);
     expect(before.dirty).toBe(true);
     expect(before.baseRevision).toBe(2);
     expect(before.baseDigest).toBe("sha-faction-e11");
+    expect(before.lastCommitReceipt).toBeNull();
+    expect(before.activeCommand).toBeNull();
     expect(before.prepareCalls).toBe(0);
     expect(before.commitCalls).toBe(0);
-    expect(typeof before.exportedMarkdown).toBe("string");
+    expect(before.editorContent).toEqual(editorJson);
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /Find existing object/ }));
@@ -480,6 +627,62 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     });
 
+    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+    });
+
+    expect(openGraphReference).not.toBeNull();
+    act(() => {
+      openGraphReference!({
+        resolution: {
+          kind: "resolved_graph",
+          locator: "dmb-node:npc-glowkindle",
+          reference: referenceFromGraphNode(glowNodeView),
+          graphNodeId: "npc-glowkindle",
+          graphObject: buildGraphObjectCardFromNodeView(glowNodeView),
+          projectionState: "ready",
+          message: "Resolved graph node Glowkindle.",
+        },
+        glanceOnly: true,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Expand" })).not.toBeInTheDocument();
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId("graph-object-projection-card")).getByText("The Inn"),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => expect(latestContext).not.toBeNull());
+    act(() => {
+      latestContext!.selectCampaign("longmont-c2");
+    });
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c2");
+    });
+    act(() => {
+      latestContext!.selectCampaign("longmont-c1");
+    });
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c1");
+    });
+
+    expect(closeProjection).not.toBeNull();
     const after = readAuthoritySnapshot();
     expect(after).toEqual(before);
   });

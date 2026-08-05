@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -161,5 +161,109 @@ describe("BuildReferenceObjectProjection", () => {
         "ready",
       );
     });
+  });
+
+  it("E9: rejects delayed relationship completion after document-binding replacement", async () => {
+    const user = userEvent.setup();
+    let resolveDeferred!: (value: ReturnType<typeof resolvedGraphResolution>) => void;
+    const deferred = new Promise<ReturnType<typeof resolvedGraphResolution>>((resolve) => {
+      resolveDeferred = resolve;
+    });
+    const openResolvedReferenceA = vi.fn();
+    const openResolvedReferenceB = vi.fn();
+    const bindingA = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => deferred),
+      openResolvedReference: openResolvedReferenceA,
+      openTool: vi.fn(),
+    };
+    const bindingB = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => resolvedGraphResolution(innNode)),
+      openResolvedReference: openResolvedReferenceB,
+      openTool: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingA,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => expect(bindingA.resolveRelationship).toHaveBeenCalledTimes(1));
+
+    // Document replacement → new graph-reference binding identity while resolution is pending.
+    rerender(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingB,
+        }}
+      />,
+    );
+
+    await act(async () => {
+      resolveDeferred(resolvedGraphResolution(innNode));
+      await deferred;
+    });
+
+    expect(openResolvedReferenceA).not.toHaveBeenCalled();
+    expect(openResolvedReferenceB).not.toHaveBeenCalled();
+  });
+
+  it("E10: rejects delayed relationship completion after lens-generation binding replacement", async () => {
+    const user = userEvent.setup();
+    let resolveDeferred!: (value: ReturnType<typeof resolvedGraphResolution>) => void;
+    const deferred = new Promise<ReturnType<typeof resolvedGraphResolution>>((resolve) => {
+      resolveDeferred = resolve;
+    });
+    const openResolvedReferenceA = vi.fn();
+    const openResolvedReferenceB = vi.fn();
+    const bindingA = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => deferred),
+      openResolvedReference: openResolvedReferenceA,
+      openTool: vi.fn(),
+    };
+    const bindingB = {
+      resolverState: "ready" as const,
+      resolveRelationship: vi.fn(async () => resolvedGraphResolution(innNode)),
+      openResolvedReference: openResolvedReferenceB,
+      openTool: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingA,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => expect(bindingA.resolveRelationship).toHaveBeenCalledTimes(1));
+
+    // Same-document lens generation replacement → new binding identity while resolution is pending.
+    rerender(
+      <BuildReferenceObjectProjection
+        bindings={{
+          [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
+          [GRAPH_REFERENCE_BINDING_ID]: bindingB,
+        }}
+      />,
+    );
+
+    await act(async () => {
+      resolveDeferred(resolvedGraphResolution(innNode));
+      await deferred;
+    });
+
+    expect(openResolvedReferenceA).not.toHaveBeenCalled();
+    expect(openResolvedReferenceB).not.toHaveBeenCalled();
   });
 });

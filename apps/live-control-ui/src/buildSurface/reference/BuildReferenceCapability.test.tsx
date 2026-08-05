@@ -5,7 +5,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentInteractionProvider, useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import * as liveApi from "../../api/liveApi";
 import type { GraphProjectionNodeView } from "../../api/types";
-import type { GraphReferenceProjectionBinding } from "../../graphReference/types";
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import {
+  GRAPH_REFERENCE_BINDING_ID,
+  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
+} from "../../graphReference/projectionBindings";
+import type {
+  GraphReferenceProjectionBinding,
+  GraphReferenceResolution,
+} from "../../graphReference/types";
 import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider } from "../../markdownCanvas/MarkdownCanvasSession";
 import { LegacyProjectionHostAdapter } from "../../planSurface/projection/LegacyProjectionHostAdapter";
@@ -15,19 +23,25 @@ import { BUILD_SAVE_CONFLICTS_WITH } from "../buildDocumentCommands";
 import type { BuildReferenceContextBinding } from "./buildBuildSurfaceInteractionPublication";
 import { BUILD_FIND_EXISTING_TOOL_ID, BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./buildReferenceIds";
 import { BuildReferenceCapability } from "./BuildReferenceCapability";
+import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
 
 const DOC_B = "22222222-2222-4222-8222-222222222222";
 
-const innRelationship = {
-  id: "edge-inn",
+const DOC_ID = "11111111-1111-4111-8111-111111111111";
+
+const innAdjacency = {
+  edgeId: "edge-inn",
+  nodeId: "location-inn",
   label: "The Inn",
-  targetId: "location-inn",
-  targetKind: "location",
+  kind: "location",
   predicate: "located_in",
   direction: "outgoing" as const,
+  anchoredToFocusSession: true,
+  sourceDomains: ["recap"],
+  evidenceRefIds: [] as string[],
+  sessionIds: [] as string[],
+  campaignScope: "longmont-c1",
 };
-
-const DOC_ID = "11111111-1111-4111-8111-111111111111";
 
 function PublicationProbe() {
   const { surfaceInteractionPublication } = useAgentInteraction();
@@ -98,7 +112,7 @@ const glowkindleNode = {
   aliases: ["Glow"],
   sourceDomains: ["recap"],
   evidenceBadges: [],
-  adjacency: [],
+  adjacency: [innAdjacency],
   suggestedExpansions: [],
   evidenceRefIds: [],
   sourceArtifactIds: [],
@@ -597,7 +611,142 @@ describe("BuildReferenceCapability", () => {
     expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("none");
   });
 
-  it("E9: rejects delayed relationship completion after lens replacement", async () => {
+  it("E9: rejects delayed relationship completion after document replacement", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) =>
+      snapshotFixture(id, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
+
+    let latestContext: BuildReferenceContextBinding | null = null;
+    let latestBinding: GraphReferenceProjectionBinding | null = null;
+    let lastSeenBinding: GraphReferenceProjectionBinding | null = null;
+    let openResolvedReferenceCalls = 0;
+    let retainedResolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }> | null = null;
+
+    function Probes() {
+      const { graphReferenceBinding, activeGraphReference } = useAgentInteraction();
+      latestBinding = graphReferenceBinding;
+      if (graphReferenceBinding) {
+        lastSeenBinding = graphReferenceBinding;
+      }
+      if (activeGraphReference?.kind === "resolved_graph") {
+        retainedResolution = activeGraphReference;
+      }
+      // Keep one ObjectProjection instance mounted across the binding gap so the
+      // pending await can observe bindingAtStart !== current after replacement.
+      const resolution = retainedResolution;
+      const bindingForCard = graphReferenceBinding ?? lastSeenBinding;
+      if (!resolution || !bindingForCard) {
+        return (
+          <p data-testid="active-graph-node-id">
+            {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+          </p>
+        );
+      }
+      return (
+        <>
+          <p data-testid="active-graph-node-id">
+            {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+          </p>
+          <BuildReferenceObjectProjection
+            bindings={{
+              [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolution,
+              [GRAPH_REFERENCE_BINDING_ID]: bindingForCard,
+            }}
+          />
+        </>
+      );
+    }
+
+    function DocumentHarness({ documentId }: { documentId: string }) {
+      return (
+        <MarkdownCanvasSessionProvider
+          key={documentId}
+          documentId={documentId}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={documentId} />
+          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+        </MarkdownCanvasSessionProvider>
+      );
+    }
+
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <DocumentHarness documentId={DOC_ID} />
+        <Probes />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => expect(latestContext?.items.length).toBe(2));
+    await waitFor(() => expect(latestBinding).not.toBeNull());
+    const glowItem = latestContext!.items.find((item) => item.nodeId === "npc-glowkindle");
+    expect(glowItem).toBeTruthy();
+    latestContext!.viewExact(glowItem!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+      expect(screen.getByTestId("active-graph-node-id")).toHaveTextContent("npc-glowkindle");
+    });
+
+    const bindingAtStart = latestBinding!;
+    let resolveDeferred!: (value: GraphReferenceResolution) => void;
+    const deferred = new Promise<GraphReferenceResolution>((resolve) => {
+      resolveDeferred = resolve;
+    });
+    const originalOpen = bindingAtStart.openResolvedReference.bind(bindingAtStart);
+    bindingAtStart.resolveRelationship = vi.fn(async () => deferred);
+    bindingAtStart.openResolvedReference = ((resolution, state) => {
+      openResolvedReferenceCalls += 1;
+      originalOpen(resolution, state);
+    }) as GraphReferenceProjectionBinding["openResolvedReference"];
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => expect(bindingAtStart.resolveRelationship).toHaveBeenCalledTimes(1));
+
+    window.history.replaceState({}, "", `/build?documentId=${DOC_B}&campaign=longmont-c1`);
+    rerender(
+      <AgentInteractionProvider>
+        <DocumentHarness documentId={DOC_B} />
+        <Probes />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(latestContext?.documentId).toBe(DOC_B);
+    });
+    await waitFor(() => {
+      expect(latestBinding).not.toBeNull();
+      expect(latestBinding).not.toBe(bindingAtStart);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+
+    const innView = searchItemFromApiNode(innNode).nodeView;
+    await act(async () => {
+      resolveDeferred({
+        kind: "resolved_graph",
+        locator: "dmb-node:location-inn",
+        reference: referenceFromGraphNode(innView),
+        graphNodeId: "location-inn",
+        graphObject: buildGraphObjectCardFromNodeView(innView),
+        projectionState: "ready",
+        message: "Resolved graph node Inn.",
+      });
+      await deferred;
+    });
+
+    expect(openResolvedReferenceCalls).toBe(0);
+    expect(screen.queryByTestId("active-graph-node-id")?.textContent).not.toBe("location-inn");
+  });
+
+  it("E10: rejects delayed relationship completion after same-document lens replacement", async () => {
+    const user = userEvent.setup();
     window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       snapshotFixture(DOC_ID, "eldyrwild"),
@@ -617,14 +766,40 @@ describe("BuildReferenceCapability", () => {
 
     let latestContext: BuildReferenceContextBinding | null = null;
     let latestBinding: GraphReferenceProjectionBinding | null = null;
+    let lastSeenBinding: GraphReferenceProjectionBinding | null = null;
+    let openResolvedReferenceCalls = 0;
+    let retainedResolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }> | null = null;
 
     function Probes() {
       const { graphReferenceBinding, activeGraphReference } = useAgentInteraction();
       latestBinding = graphReferenceBinding;
+      if (graphReferenceBinding) {
+        lastSeenBinding = graphReferenceBinding;
+      }
+      if (activeGraphReference?.kind === "resolved_graph") {
+        retainedResolution = activeGraphReference;
+      }
+      const resolution = retainedResolution;
+      const bindingForCard = graphReferenceBinding ?? lastSeenBinding;
+      if (!resolution || !bindingForCard) {
+        return (
+          <p data-testid="active-graph-node-id">
+            {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+          </p>
+        );
+      }
       return (
-        <p data-testid="active-graph-node-id">
-          {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
-        </p>
+        <>
+          <p data-testid="active-graph-node-id">
+            {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+          </p>
+          <BuildReferenceObjectProjection
+            bindings={{
+              [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolution,
+              [GRAPH_REFERENCE_BINDING_ID]: bindingForCard,
+            }}
+          />
+        </>
       );
     }
 
@@ -638,95 +813,64 @@ describe("BuildReferenceCapability", () => {
         >
           <BuildReferenceCapability documentId={DOC_ID} />
           <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
-          <Probes />
         </MarkdownCanvasSessionProvider>
+        <Probes />
       </AgentInteractionProvider>,
     );
 
     await waitFor(() => expect(latestContext?.items.length).toBe(2));
     await waitFor(() => expect(latestBinding).not.toBeNull());
-    const bindingAtStart = latestBinding!;
+    const glowItem = latestContext!.items.find((item) => item.nodeId === "npc-glowkindle");
+    expect(glowItem).toBeTruthy();
+    latestContext!.viewExact(glowItem!);
 
-    const resolution = await bindingAtStart.resolveRelationship(innRelationship);
-    expect(resolution.kind).toBe("resolved_graph");
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+      expect(screen.getByTestId("active-graph-node-id")).toHaveTextContent("npc-glowkindle");
+    });
+
+    const bindingAtStart = latestBinding!;
+    let resolveDeferred!: (value: GraphReferenceResolution) => void;
+    const deferred = new Promise<GraphReferenceResolution>((resolve) => {
+      resolveDeferred = resolve;
+    });
+    const originalOpen = bindingAtStart.openResolvedReference.bind(bindingAtStart);
+    bindingAtStart.resolveRelationship = vi.fn(async () => deferred);
+    bindingAtStart.openResolvedReference = ((resolution, state) => {
+      openResolvedReferenceCalls += 1;
+      originalOpen(resolution, state);
+    }) as GraphReferenceProjectionBinding["openResolvedReference"];
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
+    await waitFor(() => expect(bindingAtStart.resolveRelationship).toHaveBeenCalledTimes(1));
 
     latestContext!.selectCampaign("longmont-c2");
     await waitFor(() => {
       expect(latestContext?.lens.status === "ready" && latestContext.lens.campaignId).toBe("longmont-c2");
     });
-    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
-
-    await act(async () => {
-      bindingAtStart.openResolvedReference(resolution, "ready");
-    });
-
-    expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("none");
-  });
-
-  it("E10: rejects delayed relationship completion after document replacement", async () => {
-    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) =>
-      snapshotFixture(id, "longmont-c1"),
-    );
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionFixture());
-
-    let latestContext: BuildReferenceContextBinding | null = null;
-    let latestBinding: GraphReferenceProjectionBinding | null = null;
-
-    function Probes() {
-      const { graphReferenceBinding, activeGraphReference } = useAgentInteraction();
-      latestBinding = graphReferenceBinding;
-      return (
-        <p data-testid="active-graph-node-id">
-          {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
-        </p>
-      );
-    }
-
-    function DocumentHarness({ documentId }: { documentId: string }) {
-      return (
-        <MarkdownCanvasSessionProvider
-          key={documentId}
-          documentId={documentId}
-          surface={BUILD_MARKDOWN_CANVAS.surface}
-          kind={BUILD_MARKDOWN_CANVAS.kind}
-          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
-        >
-          <BuildReferenceCapability documentId={documentId} />
-          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
-          <Probes />
-        </MarkdownCanvasSessionProvider>
-      );
-    }
-
-    const { rerender } = render(
-      <AgentInteractionProvider>
-        <DocumentHarness documentId={DOC_ID} />
-      </AgentInteractionProvider>,
-    );
-
-    await waitFor(() => expect(latestContext?.items.length).toBe(2));
-    await waitFor(() => expect(latestBinding).not.toBeNull());
-    const bindingAtStart = latestBinding!;
-    const resolution = await bindingAtStart.resolveRelationship(innRelationship);
-    expect(resolution.kind).toBe("resolved_graph");
-
-    window.history.replaceState({}, "", `/build?documentId=${DOC_B}&campaign=longmont-c1`);
-    rerender(
-      <AgentInteractionProvider>
-        <DocumentHarness documentId={DOC_B} />
-      </AgentInteractionProvider>,
-    );
-
     await waitFor(() => {
-      expect(latestContext?.documentId).toBe(DOC_B);
+      expect(latestBinding).not.toBeNull();
+      expect(latestBinding).not.toBe(bindingAtStart);
     });
-    await waitFor(() => expect(latestContext?.projectionState).toBe("ready"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
 
+    const innView = searchItemFromApiNode(innNode).nodeView;
     await act(async () => {
-      bindingAtStart.openResolvedReference(resolution, "ready");
+      resolveDeferred({
+        kind: "resolved_graph",
+        locator: "dmb-node:location-inn",
+        reference: referenceFromGraphNode(innView),
+        graphNodeId: "location-inn",
+        graphObject: buildGraphObjectCardFromNodeView(innView),
+        projectionState: "ready",
+        message: "Resolved graph node Inn.",
+      });
+      await deferred;
     });
 
-    expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("none");
+    expect(openResolvedReferenceCalls).toBe(0);
+    expect(screen.queryByTestId("active-graph-node-id")?.textContent).not.toBe("location-inn");
   });
 });
