@@ -262,20 +262,158 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return parseJsonBody<T>(response);
 }
 
-const PUBLICATION_TYPED_STATUSES = new Set([200, 201, 404, 409, 503]);
+/** Lifecycle statuses that may carry a typed publication envelope, including integrity (500). */
+const PUBLICATION_TYPED_STATUSES = new Set([200, 201, 404, 409, 500, 503]);
 
-function isPublicationEnvelope(body: unknown): body is { schema: string; result_label: string } {
-  return (
-    typeof body === "object"
-    && body !== null
-    && typeof (body as { schema?: unknown }).schema === "string"
-    && typeof (body as { result_label?: unknown }).result_label === "string"
-  );
+const OPERATION_RESPONSE_SCHEMA = "dmb_threat_publication_operation_response_v1";
+const IDENTITY_RESPONSE_SCHEMA = "dmb_threat_publication_identity_response_v1";
+const PROPOSAL_RESPONSE_SCHEMA = "dmb_threat_publication_proposal_response_v1";
+const COMMIT_RESPONSE_SCHEMA = "dmb_threat_publication_commit_response_v1";
+
+const OPERATION_RESULT_LABELS = new Set<string>([
+  "publication_ready",
+  "publication_stale",
+  "publication_cancelled",
+  "publication_superseded",
+  "publication_busy",
+  "publication_input_conflict",
+  "publication_parent_mismatch",
+  "publication_source_mismatch",
+  "publication_history_full",
+  "publication_not_found",
+  "publication_draft_unavailable",
+  "publication_graph_unavailable",
+  "publication_storage_unavailable",
+  "publication_integrity_failure",
+  "publication_invalid_state",
+]);
+
+const IDENTITY_RESULT_LABELS = new Set<string>([
+  "publication_identity_candidates_ready",
+  "publication_identity_created_new",
+  "publication_identity_connected_existing",
+  "publication_identity_refused",
+  "publication_identity_superseded",
+  "publication_identity_operation_not_ready",
+  "publication_identity_candidate_overflow",
+  "publication_identity_candidate_set_changed",
+  "publication_identity_review_required",
+  "publication_identity_target_not_found",
+  "publication_identity_target_invalid",
+  "publication_identity_new_id_collision",
+  "publication_identity_busy",
+  "publication_identity_input_conflict",
+  "publication_identity_history_full",
+  "publication_identity_not_found",
+  "publication_identity_graph_unavailable",
+  "publication_identity_storage_unavailable",
+  "publication_identity_integrity_failure",
+]);
+
+const PROPOSAL_RESULT_LABELS = new Set<string>([
+  "publication_proposal_ready",
+  "publication_proposal_superseded",
+  "publication_proposal_identity_refused",
+  "publication_proposal_operation_not_ready",
+  "publication_proposal_resolution_not_active",
+  "publication_proposal_predecessor_mismatch",
+  "publication_proposal_parent_mismatch",
+  "publication_proposal_typed_collision",
+  "publication_proposal_busy",
+  "publication_proposal_input_conflict",
+  "publication_proposal_history_full",
+  "publication_proposal_not_found",
+  "publication_proposal_graph_unavailable",
+  "publication_proposal_storage_unavailable",
+  "publication_proposal_integrity_failure",
+]);
+
+const COMMIT_RESULT_LABELS = new Set<string>([
+  "publication_commit_verified",
+  "publication_commit_committed_unverified",
+  "publication_commit_recovery_pending",
+  "publication_commit_uncommitted",
+  "publication_commit_outcome_ambiguous",
+  "publication_commit_proposal_not_active",
+  "publication_commit_proposal_incompatible",
+  "publication_commit_operation_not_ready",
+  "publication_commit_resolution_not_active",
+  "publication_commit_predecessor_mismatch",
+  "publication_commit_parent_mismatch",
+  "publication_commit_busy",
+  "publication_commit_input_conflict",
+  "publication_commit_not_found",
+  "publication_commit_graph_unavailable",
+  "publication_commit_storage_unavailable",
+  "publication_commit_integrity_failure",
+]);
+
+function isRecord(body: unknown): body is Record<string, unknown> {
+  return typeof body === "object" && body !== null && !Array.isArray(body);
+}
+
+function validateOperationPublicationEnvelope(
+  body: unknown,
+): ThreatPublicationOperationResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== OPERATION_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !OPERATION_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (typeof body.draft_id !== "string") return null;
+  return body as ThreatPublicationOperationResponseV1;
+}
+
+function validateIdentityPublicationEnvelope(
+  body: unknown,
+): ThreatPublicationIdentityResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== IDENTITY_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !IDENTITY_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (typeof body.draft_id !== "string" || typeof body.operation_id !== "string") return null;
+  if (!("predecessor_usable" in body)) return null;
+  return body as ThreatPublicationIdentityResponseV1;
+}
+
+function validateProposalPublicationEnvelope(
+  body: unknown,
+): ThreatPublicationProposalResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== PROPOSAL_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !PROPOSAL_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (typeof body.draft_id !== "string" || typeof body.operation_id !== "string") return null;
+  if (!("resolution_id" in body)) return null;
+  return body as ThreatPublicationProposalResponseV1;
+}
+
+function validateCommitPublicationEnvelope(
+  body: unknown,
+): ThreatPublicationCommitResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== COMMIT_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !COMMIT_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (
+    typeof body.draft_id !== "string"
+    || typeof body.operation_id !== "string"
+    || typeof body.commit_id !== "string"
+  ) {
+    return null;
+  }
+  if (typeof body.retry_allowed !== "boolean") return null;
+  if (!("proposal_id" in body)) return null;
+  return body as ThreatPublicationCommitResponseV1;
 }
 
 async function publicationFetch<T extends { schema: string; result_label: string }>(
   path: string,
-  init?: RequestInit,
+  init: RequestInit | undefined,
+  validate: (body: unknown) => T | null,
 ): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -293,26 +431,27 @@ async function publicationFetch<T extends { schema: string; result_label: string
     throw new LiveApiError(message, response.status);
   }
 
-  if (PUBLICATION_TYPED_STATUSES.has(response.status) && isPublicationEnvelope(body)) {
-    return body as T;
+  if (PUBLICATION_TYPED_STATUSES.has(response.status)) {
+    const validated = validate(body);
+    if (validated) {
+      return validated;
+    }
+    throw new LiveApiError(
+      "Publication response failed schema, result_label, or identity-field validation",
+      response.status,
+    );
   }
 
   let detail = response.statusText;
-  if (typeof body === "object" && body !== null) {
-    const record = body as { message?: unknown; detail?: unknown };
-    if (typeof record.message === "string") {
-      detail = record.message;
-    } else if (typeof record.detail === "string") {
-      detail = record.detail;
+  if (isRecord(body)) {
+    if (typeof body.message === "string") {
+      detail = body.message;
+    } else if (typeof body.detail === "string") {
+      detail = body.detail;
     }
   }
 
-  throw new LiveApiError(
-    PUBLICATION_TYPED_STATUSES.has(response.status)
-      ? "Publication response missing schema or result_label"
-      : detail,
-    response.status,
-  );
+  throw new LiveApiError(detail, response.status);
 }
 
 function threatPublicationOperationsPrefix(draftId: string): string {
@@ -1027,9 +1166,10 @@ export async function beginThreatPublicationOperation(
   draftId: string,
   request: BeginThreatPublicationOperationRequestV1,
 ): Promise<ThreatPublicationOperationResponseV1> {
-  return publicationFetch<ThreatPublicationOperationResponseV1>(
+  return publicationFetch(
     threatPublicationOperationsPrefix(draftId),
     { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
   );
 }
 
@@ -1037,8 +1177,10 @@ export async function getThreatPublicationOperation(
   draftId: string,
   operationId: string,
 ): Promise<ThreatPublicationOperationResponseV1> {
-  return publicationFetch<ThreatPublicationOperationResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}`,
+    undefined,
+    validateOperationPublicationEnvelope,
   );
 }
 
@@ -1046,9 +1188,10 @@ export async function refreshThreatPublicationOperation(
   draftId: string,
   operationId: string,
 ): Promise<ThreatPublicationOperationResponseV1> {
-  return publicationFetch<ThreatPublicationOperationResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/refresh`,
     { method: "POST" },
+    validateOperationPublicationEnvelope,
   );
 }
 
@@ -1057,9 +1200,10 @@ export async function cancelThreatPublicationOperation(
   operationId: string,
   request: CancelThreatPublicationOperationRequestV1,
 ): Promise<ThreatPublicationOperationResponseV1> {
-  return publicationFetch<ThreatPublicationOperationResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/cancel`,
     { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
   );
 }
 
@@ -1068,9 +1212,10 @@ export async function retryThreatPublicationOperation(
   operationId: string,
   request: RetryThreatPublicationOperationRequestV1,
 ): Promise<ThreatPublicationOperationResponseV1> {
-  return publicationFetch<ThreatPublicationOperationResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/retry`,
     { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
   );
 }
 
@@ -1079,9 +1224,10 @@ export async function prepareThreatIdentityCandidates(
   operationId: string,
   request?: PrepareThreatIdentityCandidatesRequestV1,
 ): Promise<ThreatPublicationIdentityResponseV1> {
-  return publicationFetch<ThreatPublicationIdentityResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-candidates/prepare`,
     { method: "POST", body: JSON.stringify(request ?? {}) },
+    validateIdentityPublicationEnvelope,
   );
 }
 
@@ -1090,9 +1236,10 @@ export async function createThreatIdentityResolution(
   operationId: string,
   request: CreateThreatIdentityResolutionRequestV1,
 ): Promise<ThreatPublicationIdentityResponseV1> {
-  return publicationFetch<ThreatPublicationIdentityResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions`,
     { method: "POST", body: JSON.stringify(request) },
+    validateIdentityPublicationEnvelope,
   );
 }
 
@@ -1101,8 +1248,10 @@ export async function getThreatIdentityResolution(
   operationId: string,
   resolutionId: string,
 ): Promise<ThreatPublicationIdentityResponseV1> {
-  return publicationFetch<ThreatPublicationIdentityResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}`,
+    undefined,
+    validateIdentityPublicationEnvelope,
   );
 }
 
@@ -1112,9 +1261,10 @@ export async function prepareThreatPublicationProposal(
   resolutionId: string,
   request: PrepareThreatPublicationProposalRequestV1,
 ): Promise<ThreatPublicationProposalResponseV1> {
-  return publicationFetch<ThreatPublicationProposalResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}/proposals`,
     { method: "POST", body: JSON.stringify(request) },
+    validateProposalPublicationEnvelope,
   );
 }
 
@@ -1123,8 +1273,10 @@ export async function getThreatPublicationProposal(
   operationId: string,
   proposalId: string,
 ): Promise<ThreatPublicationProposalResponseV1> {
-  return publicationFetch<ThreatPublicationProposalResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}`,
+    undefined,
+    validateProposalPublicationEnvelope,
   );
 }
 
@@ -1134,9 +1286,10 @@ export async function confirmThreatPublicationCommit(
   proposalId: string,
   request: ConfirmThreatPublicationRequestV1,
 ): Promise<ThreatPublicationCommitResponseV1> {
-  return publicationFetch<ThreatPublicationCommitResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}/commits`,
     { method: "POST", body: JSON.stringify(request) },
+    validateCommitPublicationEnvelope,
   );
 }
 
@@ -1145,8 +1298,10 @@ export async function getThreatPublicationCommit(
   operationId: string,
   commitId: string,
 ): Promise<ThreatPublicationCommitResponseV1> {
-  return publicationFetch<ThreatPublicationCommitResponseV1>(
+  return publicationFetch(
     `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/commits/${encodeURIComponent(commitId)}`,
+    undefined,
+    validateCommitPublicationEnvelope,
   );
 }
 

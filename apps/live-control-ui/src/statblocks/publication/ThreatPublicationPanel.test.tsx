@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,7 +16,7 @@ import type {
   ThreatPublicationProposalV1,
   ThreatPublicationSourceSnapshotV1,
 } from "../../api/types";
-import { ThreatPublicationPanel, type ThreatPublicationApi } from "./ThreatPublicationPanel";
+import { ThreatPublicationPanel, type ThreatPublicationApi, type ThreatPublicationPanelProps } from "./ThreatPublicationPanel";
 import {
   SESSION_SCHEMA,
   readThreatPublicationSession,
@@ -24,12 +24,14 @@ import {
   type ThreatPublicationWorkbenchSessionV1,
 } from "./threatPublicationSession";
 
-const DRAFT_ID = "draft-1";
-const OPERATION_ID = "op-1";
-const RESOLUTION_ID = "res-1";
-const PROPOSAL_ID = "prop-1";
-const COMMIT_ID = "commit-1";
-const PARENT_REVISION = "rev-head-1";
+const DRAFT_ID = "11111111-1111-4111-8111-111111111111";
+const OPERATION_ID = "22222222-2222-4222-8222-222222222222";
+const OPERATION_ID_NEW = "33333333-3333-4333-8333-333333333333";
+const RESOLUTION_ID = "44444444-4444-4444-8444-444444444444";
+const PROPOSAL_ID = "55555555-5555-4555-8555-555555555555";
+const COMMIT_ID = "66666666-6666-4666-8666-666666666666";
+const PARENT_REVISION = "77777777-7777-4777-8777-777777777777";
+const PARENT_REVISION_FRESH = "88888888-8888-4888-8888-888888888888";
 
 function createMemoryStorage(): Storage {
   const store = new Map<string, string>();
@@ -908,5 +910,585 @@ describe("ThreatPublicationPanel", () => {
 
     expect(await screen.findByText(/could not be safely restored/i)).toBeInTheDocument();
     expect(api.beginThreatPublicationOperation).not.toHaveBeenCalled();
+  });
+
+  function staleOperationResponse(
+    draft: ThreatDraftV1,
+    overrides: Partial<ThreatPublicationOperationResponseV1> = {},
+  ): ThreatPublicationOperationResponseV1 {
+    return operationResponse(draft, {
+      result_label: "publication_stale",
+      operation: buildOperation(draft, {
+        state: "stale",
+        stale_reasons: ["graph_parent_changed"],
+      }),
+      ...overrides,
+    });
+  }
+
+  function writeOperationPointer(
+    draft: ThreatDraftV1,
+    storage: Storage,
+    operationId: string = OPERATION_ID,
+  ): void {
+    writeThreatPublicationSession(
+      {
+        schema: SESSION_SCHEMA,
+        draft_id: draft.draft_id,
+        draft_version: draft.version,
+        operation_id: operationId,
+        resolution_id: null,
+        proposal_id: null,
+        commit_id: null,
+        stage: "operation",
+        updated_at: "2026-08-04T00:00:00.000Z",
+      },
+      storage,
+    );
+  }
+
+  async function mountRestoredStaleOperation(
+    api: ThreatPublicationApi,
+    draft: ThreatDraftV1,
+    storage: Storage,
+    extraProps: Partial<ThreatPublicationPanelProps> = {},
+  ): Promise<void> {
+    writeOperationPointer(draft, storage);
+    vi.mocked(api.getThreatPublicationOperation).mockResolvedValue(staleOperationResponse(draft));
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        {...extraProps}
+      />,
+    );
+    await screen.findByTestId("retry-operation");
+  }
+
+  it("does not advance the session pointer when a rejected operation retry returns no ready successor", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    await mountRestoredStaleOperation(api, draft, storage, {
+      generateId: sequentialIdGenerator([OPERATION_ID_NEW]),
+    });
+
+    vi.mocked(api.refreshThreatPublicationOperation).mockResolvedValue(staleOperationResponse(draft));
+    vi.mocked(api.retryThreatPublicationOperation).mockResolvedValue({
+      schema: "dmb_threat_publication_operation_response_v1",
+      draft_id: draft.draft_id,
+      result_label: "publication_parent_mismatch",
+      operation: buildOperation(draft, { state: "stale", stale_reasons: ["graph_parent_changed"] }),
+      message: "Parent revision no longer matches.",
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("retry-operation"));
+
+    await waitFor(() => {
+      expect(api.retryThreatPublicationOperation).toHaveBeenCalledTimes(1);
+    });
+
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+      operation_id: OPERATION_ID,
+    });
+    expect(screen.getByText(new RegExp(`operation_id: ${OPERATION_ID}`))).toBeInTheDocument();
+    expect(screen.getByText(/Parent revision no longer matches/)).toBeInTheDocument();
+    expect(screen.getByTestId("retry-operation")).toBeInTheDocument();
+  });
+
+  it("advances the session pointer only after a successful stale retry returns publication_ready with the new operation id", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    await mountRestoredStaleOperation(api, draft, storage, {
+      generateId: sequentialIdGenerator([OPERATION_ID_NEW]),
+    });
+
+    vi.mocked(api.refreshThreatPublicationOperation).mockResolvedValue(staleOperationResponse(draft));
+    vi.mocked(api.retryThreatPublicationOperation).mockResolvedValue(
+      operationResponse(draft, {
+        result_label: "publication_ready",
+        operation: buildOperation(draft, {
+          operation_id: OPERATION_ID_NEW,
+          state: "ready",
+          stale_reasons: [],
+        }),
+      }),
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("retry-operation"));
+
+    await waitFor(() => {
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        operation_id: OPERATION_ID_NEW,
+      });
+    });
+    expect(screen.getByText(new RegExp(`operation_id: ${OPERATION_ID_NEW}`))).toBeInTheDocument();
+    expect(screen.getByTestId("prepare-candidates")).toBeInTheDocument();
+    expect(screen.queryByTestId("retry-operation")).not.toBeInTheDocument();
+  });
+
+  it("shows retry-operation only for stale-active operations and refresh-operation for any active operation", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+
+    const cases: Array<{
+      label: ThreatPublicationOperationResponseV1["result_label"];
+      state: ThreatPublicationOperationV1["state"];
+      expectRetry: boolean;
+    }> = [
+      { label: "publication_ready", state: "ready", expectRetry: false },
+      { label: "publication_cancelled", state: "cancelled", expectRetry: false },
+      { label: "publication_invalid_state", state: "ready", expectRetry: false },
+      { label: "publication_stale", state: "stale", expectRetry: true },
+    ];
+
+    for (const testCase of cases) {
+      storage.clear();
+      vi.clearAllMocks();
+      writeOperationPointer(draft, storage);
+      vi.mocked(api.getThreatPublicationOperation).mockResolvedValue(
+        operationResponse(draft, {
+          result_label: testCase.label,
+          operation: buildOperation(draft, { state: testCase.state }),
+        }),
+      );
+
+      const { unmount } = render(
+        <ThreatPublicationPanel
+          draft={draft}
+          expectedParentRevisionId={PARENT_REVISION}
+          api={api}
+          storage={storage}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("refresh-operation")).toBeInTheDocument();
+      });
+      if (testCase.expectRetry) {
+        expect(screen.getByTestId("retry-operation")).toBeInTheDocument();
+      } else {
+        expect(screen.queryByTestId("retry-operation")).not.toBeInTheDocument();
+      }
+      unmount();
+    }
+  });
+
+  it("passes a freshly resolved parent revision id to retryThreatPublicationOperation", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    const resolveExpectedParentRevisionId = vi.fn().mockResolvedValue(PARENT_REVISION_FRESH);
+    await mountRestoredStaleOperation(api, draft, storage, {
+      generateId: sequentialIdGenerator([OPERATION_ID_NEW]),
+      resolveExpectedParentRevisionId,
+    });
+
+    vi.mocked(api.refreshThreatPublicationOperation).mockResolvedValue(staleOperationResponse(draft));
+    vi.mocked(api.retryThreatPublicationOperation).mockResolvedValue(
+      operationResponse(draft, {
+        result_label: "publication_parent_mismatch",
+        operation: buildOperation(draft, { state: "stale", stale_reasons: ["graph_parent_changed"] }),
+      }),
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("retry-operation"));
+
+    await waitFor(() => {
+      expect(resolveExpectedParentRevisionId).toHaveBeenCalledTimes(1);
+    });
+    expect(api.retryThreatPublicationOperation).toHaveBeenCalledWith(
+      draft.draft_id,
+      OPERATION_ID,
+      expect.objectContaining({
+        new_operation_id: OPERATION_ID_NEW,
+        expected_parent_revision_id: PARENT_REVISION_FRESH,
+      }),
+    );
+  });
+
+  it("reuses the same commit id and sealed proposal digest when retrying recovery_pending confirmation", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    const sealedDigest = `sha256:${"a".repeat(64)}`;
+
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(
+      proposalResponse(draft, {
+        proposal: proposalRecord(draft, {
+          sealed_proposal_digest: sealedDigest,
+          expected_parent_revision_id: PARENT_REVISION,
+        }),
+      }),
+    );
+
+    const recoveryPending = commitResponse(draft, {
+      result_label: "publication_commit_recovery_pending",
+      retry_allowed: true,
+      commit: commitRecord(draft, {
+        state: "committing",
+        merge_attempt_count: 1,
+        committed_revision_id: null,
+      }),
+    });
+    vi.mocked(api.confirmThreatPublicationCommit)
+      .mockResolvedValueOnce(recoveryPending)
+      .mockResolvedValueOnce(commitResponse(draft));
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, COMMIT_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+    await user.click(await screen.findByTestId("confirm"));
+
+    await screen.findByTestId("retry-confirm");
+    await user.click(screen.getByTestId("retry-confirm"));
+
+    await waitFor(() => {
+      expect(api.confirmThreatPublicationCommit).toHaveBeenCalledTimes(2);
+    });
+
+    const firstCall = vi.mocked(api.confirmThreatPublicationCommit).mock.calls[0]?.[3];
+    const secondCall = vi.mocked(api.confirmThreatPublicationCommit).mock.calls[1]?.[3];
+    expect(firstCall?.commit_id).toBe(COMMIT_ID);
+    expect(secondCall?.commit_id).toBe(COMMIT_ID);
+    expect(firstCall?.sealed_proposal_digest).toBe(sealedDigest);
+    expect(secondCall?.sealed_proposal_digest).toBe(sealedDigest);
+    expect(firstCall?.expected_parent_revision_id).toBe(PARENT_REVISION);
+    expect(secondCall?.expected_parent_revision_id).toBe(PARENT_REVISION);
+  });
+
+  it("re-anchors on draft version or accepted mechanics changes and blocks stale async from completing", async () => {
+    const api = buildApiMocks();
+    const draftV3 = buildDraft({ version: 3 });
+    const draftV4 = buildDraft({
+      version: 4,
+      accepted_mechanics_ref: {
+        ...buildDraft().accepted_mechanics_ref!,
+        revision_id: "sb-rev-v4",
+        definition_digest: "sha256:v4digest",
+      },
+    });
+    const storage = createMemoryStorage();
+    writeThreatPublicationSession(
+      {
+        schema: SESSION_SCHEMA,
+        draft_id: draftV3.draft_id,
+        draft_version: 3,
+        operation_id: OPERATION_ID,
+        resolution_id: null,
+        proposal_id: null,
+        commit_id: null,
+        stage: "operation",
+        updated_at: "2026-08-04T00:00:00.000Z",
+      },
+      storage,
+    );
+
+    const mismatchRender = render(
+      <ThreatPublicationPanel
+        draft={draftV4}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+      />,
+    );
+    expect(await screen.findByText(/draft changed since a publication was started/i)).toBeInTheDocument();
+    expect(screen.getByTestId("clear-pointer")).toBeInTheDocument();
+    expect(api.getThreatPublicationOperation).not.toHaveBeenCalled();
+    mismatchRender.unmount();
+
+    storage.clear();
+    let resolveBegin: ((value: ThreatPublicationOperationResponseV1) => void) | undefined;
+    vi.mocked(api.beginThreatPublicationOperation).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveBegin = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <ThreatPublicationPanel
+        draft={draftV3}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    rerender(
+      <ThreatPublicationPanel
+        draft={draftV4}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID])}
+      />,
+    );
+
+    expect(await screen.findByText(/draft changed since a publication was started/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("prepare-candidates")).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveBegin?.(operationResponse(draftV3));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/draft changed since a publication was started/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("prepare-candidates")).not.toBeInTheDocument();
+  });
+
+  it("shows accepted mechanics from the operation source snapshot, not the mutable draft prop", async () => {
+    const api = buildApiMocks();
+    const draftCurrent = buildDraft({
+      accepted_mechanics_ref: {
+        ...buildDraft().accepted_mechanics_ref!,
+        revision_id: "sb-rev-NEW",
+        definition_digest: "sha256:newdigest",
+      },
+    });
+    const snapshotDraft = buildDraft({
+      accepted_mechanics_ref: {
+        ...buildDraft().accepted_mechanics_ref!,
+        revision_id: "sb-rev-OLD",
+        definition_digest: "sha256:olddigest",
+      },
+    });
+
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(
+      operationResponse(draftCurrent, {
+        operation: buildOperation(draftCurrent, {
+          source_snapshot: sourceSnapshot(snapshotDraft),
+        }),
+      }),
+    );
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draftCurrent, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draftCurrent, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(proposalResponse(draftCurrent));
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draftCurrent}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+
+    expect(await screen.findByTestId("proposal-review")).toBeInTheDocument();
+    const proposalReview = screen.getByTestId("proposal-review");
+    expect(within(proposalReview).getByText(/sb-rev-OLD/)).toBeInTheDocument();
+    expect(within(proposalReview).queryByText(/sb-rev-NEW/)).not.toBeInTheDocument();
+    expect(within(proposalReview).getByText(/sha256:olddigest/)).toBeInTheDocument();
+  });
+
+  it("keeps connect and reject selections mutually exclusive and omits the connect target from rejected ids", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    const target = buildCandidate({ node_id: "threat:connect-target", label: "Connect Target" });
+    const other = buildCandidate({ node_id: "threat:other", label: "Other" });
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
+      identityCandidatesReadyResponse(draft, [target, other]),
+    );
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_connected_existing", {
+        decision: "connect_existing",
+        selected_target: target,
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+
+    await user.click(screen.getByTestId(`reject-candidate-${target.node_id}`));
+    expect(screen.getByTestId(`reject-candidate-${target.node_id}`)).toBeChecked();
+    expect(screen.getByTestId(`select-connect-${target.node_id}`)).not.toBeChecked();
+
+    await user.click(screen.getByTestId(`select-connect-${target.node_id}`));
+    expect(screen.getByTestId(`reject-candidate-${target.node_id}`)).not.toBeChecked();
+    expect(screen.getByTestId(`select-connect-${target.node_id}`)).toBeChecked();
+
+    await user.click(screen.getByTestId(`reject-candidate-${target.node_id}`));
+    expect(screen.getByTestId(`select-connect-${target.node_id}`)).not.toBeChecked();
+
+    await user.click(screen.getByTestId(`select-connect-${target.node_id}`));
+    await user.click(screen.getByTestId("decide-connect"));
+
+    expect(api.createThreatIdentityResolution).toHaveBeenCalledWith(
+      draft.draft_id,
+      OPERATION_ID,
+      expect.objectContaining({
+        decision: "connect_existing",
+        target_node_id: target.node_id,
+        rejected_candidate_node_ids: [],
+      }),
+    );
+  });
+
+  it("clears identity decision controls when the candidate set changes during create resolution", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
+      identityCandidatesReadyResponse(draft, [buildCandidate()]),
+    );
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue({
+      schema: "dmb_threat_publication_identity_response_v1",
+      draft_id: draft.draft_id,
+      operation_id: OPERATION_ID,
+      result_label: "publication_identity_candidate_set_changed",
+      candidate_set: null,
+      resolution: null,
+      predecessor_state: "ready",
+      predecessor_usable: true,
+      message: "Candidate set changed upstream.",
+    });
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    expect(screen.getByTestId("identity-candidates")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("decide-create"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("identity-candidates")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("decide-create")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("decide-connect")).not.toBeInTheDocument();
+    expect(screen.getByTestId("prepare-candidates")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/candidate set changed/i);
+  });
+
+  it("offers clear-pointer after a recovery error and returns to idle when used", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    writeOperationPointer(draft, storage);
+
+    vi.mocked(api.getThreatPublicationOperation).mockResolvedValue(
+      operationResponse(draft, {
+        draft_id: "99999999-9999-4999-8999-999999999999",
+        operation: buildOperation(draft),
+      }),
+    );
+
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+      />,
+    );
+
+    expect(await screen.findByText(/could not be safely restored/i)).toBeInTheDocument();
+    expect(screen.getByTestId("clear-pointer")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("clear-pointer"));
+
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
+    expect(screen.getByTestId("publish")).toBeInTheDocument();
+  });
+
+  it("shows accepted assertion count without summing authored field assertions", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(
+      proposalResponse(draft, {
+        proposal: proposalRecord(draft, {
+          effect_summary: {
+            decision: "create_new",
+            threat_node_id: "threat:new-1",
+            external_resource_node_id: "resource-1",
+            binding_edge_id: "edge-1",
+            accepted_assertion_count: 3,
+            authored_field_assertion_count: 2,
+          },
+        }),
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+
+    expect(await screen.findByText("Accepted assertions: 3 (2 authored fields)")).toBeInTheDocument();
+    expect(screen.queryByText(/Accepted assertions: 5/)).not.toBeInTheDocument();
   });
 });

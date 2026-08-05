@@ -60,6 +60,11 @@ export interface ThreatPublicationPanelProps {
   /** Must be workflow_state === "mechanics_saved" with an accepted_mechanics_ref. */
   draft: ThreatDraftV1;
   expectedParentRevisionId: string;
+  /**
+   * Re-resolve the current World Graph head before operation retry.
+   * Required for governed retry; when omitted, the prop head is reused.
+   */
+  resolveExpectedParentRevisionId?: () => Promise<string>;
   actor?: string;
   /** Tests inject mocks here; production uses the real liveApi client by default. */
   api?: Partial<ThreatPublicationApi>;
@@ -160,7 +165,7 @@ type Action =
   | { type: "reset" }
   | { type: "restorePending" }
   | { type: "beginPending"; operationId: string }
-  | { type: "retryPending"; operationId: string }
+  | { type: "retryPending" }
   | { type: "cancelPending" }
   | {
       type: "operationResult";
@@ -193,7 +198,8 @@ function reducer(state: PanelState, action: Action): PanelState {
     case "beginPending":
       return { ...initialPanelState(), mode: "active", pending: true, operationId: action.operationId };
     case "retryPending":
-      return { ...initialPanelState(), mode: "active", pending: true, operationId: action.operationId };
+      // Keep the recoverable predecessor until the server accepts a ready successor.
+      return { ...state, pending: true, lastError: null };
     case "cancelPending":
       return { ...state, pending: true, lastError: null };
     case "operationResult": {
@@ -201,14 +207,40 @@ function reducer(state: PanelState, action: Action): PanelState {
       if (source === "begin" && response.result_label === "publication_busy") {
         return { ...initialPanelState(), mode: "busy_unknown", busyMessage: response.message ?? null };
       }
+      const nextOperationId =
+        response.operation?.operation_id
+        ?? (source === "retry" ? localOperationId : null)
+        ?? localOperationId
+        ?? state.operationId;
       return {
         ...state,
         mode: "active",
         pending: false,
-        operationId: response.operation?.operation_id ?? localOperationId ?? state.operationId,
+        operationId: nextOperationId,
         operation: response.operation ?? state.operation,
         operationResultLabel: response.result_label,
         operationMessage: response.message ?? null,
+        // Successful retry clears downstream identity/proposal/commit UI.
+        ...(source === "retry"
+          && response.result_label === "publication_ready"
+          && response.operation?.operation_id
+          && response.operation.operation_id !== state.operationId
+          ? {
+              candidateSet: null,
+              candidateMessage: null,
+              rejectedCandidateIds: [],
+              connectTargetId: null,
+              resolution: null,
+              identityMessage: null,
+              proposal: null,
+              proposalMessage: null,
+              commitId: null,
+              commit: null,
+              commitResultLabel: null,
+              commitMessage: null,
+              retryAllowed: false,
+            }
+          : {}),
       };
     }
     case "candidatesPending":
@@ -225,6 +257,19 @@ function reducer(state: PanelState, action: Action): PanelState {
           connectTargetId: null,
         };
       }
+      if (response.result_label === "publication_identity_candidate_set_changed") {
+        return {
+          ...state,
+          pending: false,
+          candidateSet: null,
+          candidateMessage:
+            response.message ?? "Candidate set changed. Refresh candidates and review again.",
+          rejectedCandidateIds: [],
+          connectTargetId: null,
+          resolution: null,
+          identityMessage: null,
+        };
+      }
       return {
         ...state,
         pending: false,
@@ -233,19 +278,41 @@ function reducer(state: PanelState, action: Action): PanelState {
     }
     case "toggleRejected": {
       const already = state.rejectedCandidateIds.includes(action.nodeId);
+      if (already) {
+        return {
+          ...state,
+          rejectedCandidateIds: state.rejectedCandidateIds.filter((id) => id !== action.nodeId),
+        };
+      }
       return {
         ...state,
-        rejectedCandidateIds: already
-          ? state.rejectedCandidateIds.filter((id) => id !== action.nodeId)
-          : [...state.rejectedCandidateIds, action.nodeId],
+        rejectedCandidateIds: [...state.rejectedCandidateIds, action.nodeId],
+        connectTargetId: state.connectTargetId === action.nodeId ? null : state.connectTargetId,
       };
     }
     case "setConnectTarget":
-      return { ...state, connectTargetId: action.nodeId };
+      return {
+        ...state,
+        connectTargetId: action.nodeId,
+        rejectedCandidateIds: state.rejectedCandidateIds.filter((id) => id !== action.nodeId),
+      };
     case "identityDecisionPending":
       return { ...state, pending: true, identityMessage: null, lastError: null };
     case "identityResult": {
       const { response } = action;
+      if (response.result_label === "publication_identity_candidate_set_changed") {
+        return {
+          ...state,
+          pending: false,
+          candidateSet: null,
+          candidateMessage:
+            response.message ?? "Candidate set changed. Refresh candidates and review again.",
+          rejectedCandidateIds: [],
+          connectTargetId: null,
+          resolution: null,
+          identityMessage: null,
+        };
+      }
       const settled: readonly string[] = [
         "publication_identity_created_new",
         "publication_identity_connected_existing",
@@ -306,6 +373,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
   const {
     draft,
     expectedParentRevisionId,
+    resolveExpectedParentRevisionId,
     actor = DEFAULT_ACTOR,
     api: apiOverrides,
     storage,
@@ -314,6 +382,13 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
 
   const api = useMemo(() => ({ ...DEFAULT_API, ...apiOverrides }), [apiOverrides]);
   const eligible = isThreatDraftEligibleForPublication(draft, expectedParentRevisionId);
+  const acceptedMechanicsKey = draft.accepted_mechanics_ref
+    ? [
+        draft.accepted_mechanics_ref.statblock_id,
+        draft.accepted_mechanics_ref.revision_id,
+        draft.accepted_mechanics_ref.definition_digest,
+      ].join(":")
+    : "";
 
   const [state, dispatch] = useReducer(reducer, undefined, initialPanelState);
   const generationRef = useRef(0);
@@ -440,10 +515,10 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     return () => {
       generationRef.current += 1;
     };
-    // Re-anchor exactly on draft identity changes and unmount; restoreFromSession
-    // reads live props/api/storage from this render's closure.
+    // Re-anchor on exact draft identity, version, and accepted mechanics locator.
+    // restoreFromSession reads live props/api/storage from this render's closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.draft_id]);
+  }, [draft.draft_id, draft.version, acceptedMechanicsKey]);
 
   async function handleClickPublish(): Promise<void> {
     const operationId = generateId();
@@ -486,24 +561,104 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     }
   }
 
+  async function handleRefreshOperation(): Promise<void> {
+    if (!state.operationId) return;
+    const generation = generationRef.current;
+    dispatch({ type: "cancelPending" });
+    try {
+      const response = await api.refreshThreatPublicationOperation(draft.draft_id, state.operationId);
+      if (!isCurrent(generation)) return;
+      dispatch({
+        type: "operationResult",
+        response,
+        localOperationId: state.operationId,
+        source: "refresh",
+      });
+    } catch (err) {
+      if (!isCurrent(generation)) return;
+      dispatch({ type: "genericError", message: errorMessage(err) });
+    }
+  }
+
   async function handleRetryOperation(): Promise<void> {
     if (!state.operationId) return;
+    if (state.operationResultLabel !== "publication_stale" || state.operation?.state !== "stale") {
+      return;
+    }
+    const previousOperationId = state.operationId;
     const newOperationId = generateId();
     const generation = generationRef.current;
-    const previousOperationId = state.operationId;
-    const pointer = buildPointer({ stage: "operation", operationId: newOperationId });
-    writeThreatPublicationSession(pointer, storage);
-    dispatch({ type: "retryPending", operationId: newOperationId });
+    // Do not advance the session pointer until the server returns a ready successor.
+    dispatch({ type: "retryPending" });
     try {
+      const refreshed = await api.refreshThreatPublicationOperation(draft.draft_id, previousOperationId);
+      if (!isCurrent(generation)) return;
+      if (refreshed.result_label !== "publication_stale" || refreshed.operation?.state !== "stale") {
+        dispatch({
+          type: "operationResult",
+          response: refreshed,
+          localOperationId: previousOperationId,
+          source: "refresh",
+        });
+        return;
+      }
+
+      let parentRevisionId = expectedParentRevisionId;
+      if (resolveExpectedParentRevisionId) {
+        parentRevisionId = await resolveExpectedParentRevisionId();
+        if (!isCurrent(generation)) return;
+      }
+
       const response = await api.retryThreatPublicationOperation(draft.draft_id, previousOperationId, {
         schema: "dmb_retry_threat_publication_operation_request_v1",
         new_operation_id: newOperationId,
-        expected_parent_revision_id: expectedParentRevisionId,
+        expected_parent_revision_id: parentRevisionId,
         actor,
         operator_note: null,
       });
       if (!isCurrent(generation)) return;
-      dispatch({ type: "operationResult", response, localOperationId: newOperationId, source: "retry" });
+
+      const acceptedSuccessor =
+        response.result_label === "publication_ready"
+        && response.operation?.operation_id === newOperationId;
+      if (acceptedSuccessor) {
+        writeThreatPublicationSession(
+          {
+            schema: SESSION_SCHEMA,
+            draft_id: draft.draft_id,
+            draft_version: draft.version,
+            operation_id: newOperationId,
+            resolution_id: null,
+            proposal_id: null,
+            commit_id: null,
+            stage: "operation",
+            updated_at: new Date().toISOString(),
+          },
+          storage,
+        );
+        dispatch({
+          type: "operationResult",
+          response,
+          localOperationId: newOperationId,
+          source: "retry",
+        });
+        return;
+      }
+
+      // Rejected retry: keep predecessor pointer and operation authority.
+      // Prefer the refreshed stale op as durable authority; surface the rejection message.
+      dispatch({
+        type: "operationResult",
+        response: {
+          schema: "dmb_threat_publication_operation_response_v1",
+          draft_id: draft.draft_id,
+          result_label: refreshed.result_label,
+          operation: refreshed.operation ?? response.operation ?? state.operation,
+          message: response.message ?? refreshed.message,
+        },
+        localOperationId: previousOperationId,
+        source: "retry",
+      });
     } catch (err) {
       if (!isCurrent(generation)) return;
       dispatch({ type: "genericError", message: errorMessage(err) });
@@ -535,6 +690,10 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     const pointer = buildPointer({ stage: "identity", resolutionId });
     writeThreatPublicationSession(pointer, storage);
     dispatch({ type: "identityDecisionPending" });
+    const rejectedIds =
+      decision === "connect_existing" && targetNodeId
+        ? state.rejectedCandidateIds.filter((id) => id !== targetNodeId)
+        : state.rejectedCandidateIds;
     try {
       const response = await api.createThreatIdentityResolution(draft.draft_id, state.operationId, {
         schema: "dmb_create_threat_identity_resolution_request_v1",
@@ -544,7 +703,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         candidate_set_digest: state.candidateSet.candidate_set_digest,
         decision,
         target_node_id: targetNodeId,
-        rejected_candidate_node_ids: state.rejectedCandidateIds,
+        rejected_candidate_node_ids: rejectedIds,
         actor,
         reason,
         supersedes_resolution_id: null,
@@ -605,16 +764,23 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
   }
 
   async function handleConfirm(): Promise<void> {
-    if (!state.operationId || !state.proposal || state.commitId) return;
-    const commitId = generateId();
+    if (!state.operationId || !state.proposal) return;
+    if (hasCommittedRevision(state.commit, state.commitResultLabel)) return;
+    // Once a commit ID exists, only governed recovery replay may POST again.
+    if (state.commitId && !state.retryAllowed) return;
+
+    const commitId = state.commitId ?? generateId();
+    const isFirstConfirm = state.commitId == null;
     const generation = generationRef.current;
-    const pointer = buildPointer({
-      stage: "commit",
-      resolutionId: state.resolution?.resolution_id ?? null,
-      proposalId: state.proposal.proposal_id,
-      commitId,
-    });
-    writeThreatPublicationSession(pointer, storage);
+    if (isFirstConfirm) {
+      const pointer = buildPointer({
+        stage: "commit",
+        resolutionId: state.resolution?.resolution_id ?? null,
+        proposalId: state.proposal.proposal_id,
+        commitId,
+      });
+      writeThreatPublicationSession(pointer, storage);
+    }
     dispatch({ type: "confirmPending", commitId });
     try {
       const response = await api.confirmThreatPublicationCommit(
@@ -719,10 +885,15 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       )}
 
       {state.mode === "recovery_error" && (
-        <p role="status">
-          This publication could not be safely restored in this browser.
-          {state.recoveryDetail ? ` ${state.recoveryDetail}` : ""}
-        </p>
+        <div role="status">
+          <p>
+            This publication could not be safely restored in this browser.
+            {state.recoveryDetail ? ` ${state.recoveryDetail}` : ""}
+          </p>
+          <button data-testid="clear-pointer" onClick={handleClearPointer}>
+            Clear local pointer
+          </button>
+        </div>
       )}
 
       {state.mode === "active" && (
@@ -736,22 +907,46 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           >
             {!state.operation && state.pending && <p>Starting publication…</p>}
             {state.operation && <p>{state.operationMessage ?? "Publication operation active."}</p>}
+            {!state.operation && !state.pending && state.operationMessage && (
+              <p>{state.operationMessage}</p>
+            )}
             <details>
               <summary>Technical details</summary>
               <p>operation_id: {state.operationId}</p>
+              {state.operation?.stale_reasons?.length ? (
+                <p>stale_reasons: {state.operation.stale_reasons.join(", ")}</p>
+              ) : null}
             </details>
           </div>
 
-          {!state.candidateSet && !state.resolution && state.operationResultLabel === "publication_ready" && (
-            <button data-testid="prepare-candidates" disabled={state.pending} onClick={() => void handlePrepareCandidates()}>
-              Review identity candidates
-            </button>
+          {state.operationId
+            && state.operation
+            && !committed
+            && !state.resolution
+            && !state.proposal
+            && !state.commitId && (
+              <button
+                data-testid="refresh-operation"
+                disabled={state.pending}
+                onClick={() => void handleRefreshOperation()}
+              >
+                Refresh publication status
+              </button>
           )}
 
-          {state.operationResultLabel
-            && state.operationResultLabel !== "publication_ready"
-            && state.operationResultLabel !== "publication_busy"
-            && !state.candidateSet && (
+          {!state.candidateSet && !state.resolution && state.operationResultLabel === "publication_ready" && (
+            <>
+              {state.candidateMessage && <p role="alert">{state.candidateMessage}</p>}
+              <button data-testid="prepare-candidates" disabled={state.pending} onClick={() => void handlePrepareCandidates()}>
+                {state.candidateMessage ? "Refresh candidates" : "Review identity candidates"}
+              </button>
+            </>
+          )}
+
+          {state.operation?.state === "stale"
+            && !state.candidateSet
+            && !state.resolution
+            && !committed && (
               <button data-testid="retry-operation" disabled={state.pending} onClick={() => void handleRetryOperation()}>
                 Retry publication
               </button>
@@ -864,16 +1059,22 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
               <h3>Review before publishing</h3>
               <p>Decision: {state.proposal.decision === "create_new" ? "Create new Threat" : "Connect to existing Threat"}</p>
               <p>
-                New assertions:{" "}
-                {state.proposal.effect_summary.accepted_assertion_count
-                  + state.proposal.effect_summary.authored_field_assertion_count}
+                Accepted assertions: {state.proposal.effect_summary.accepted_assertion_count}
+                {state.proposal.effect_summary.authored_field_assertion_count > 0
+                  ? ` (${state.proposal.effect_summary.authored_field_assertion_count} authored fields)`
+                  : ""}
               </p>
               <details>
                 <summary>Technical details</summary>
                 <p>Threat node: {state.proposal.threat_node_id}</p>
                 <p>
-                  Accepted mechanics: {draft.accepted_mechanics_ref?.statblock_id} rev{" "}
-                  {draft.accepted_mechanics_ref?.revision_id}
+                  Accepted mechanics:{" "}
+                  {state.operation?.source_snapshot.accepted_mechanics_ref.statblock_id} rev{" "}
+                  {state.operation?.source_snapshot.accepted_mechanics_ref.revision_id}
+                </p>
+                <p>
+                  Mechanics digest:{" "}
+                  {state.operation?.source_snapshot.accepted_mechanics_ref.definition_digest}
                 </p>
                 <p>Expected parent revision: {state.proposal.expected_parent_revision_id}</p>
               </details>
@@ -908,12 +1109,27 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
                   </details>
                 </>
               )}
+              {state.commitResultLabel === "publication_commit_recovery_pending" && (
+                <p>{state.commitMessage ?? "Publication confirmation needs recovery."}</p>
+              )}
               {state.commitResultLabel
                 && state.commitResultLabel !== "publication_commit_verified"
-                && state.commitResultLabel !== "publication_commit_committed_unverified" && (
+                && state.commitResultLabel !== "publication_commit_committed_unverified"
+                && state.commitResultLabel !== "publication_commit_recovery_pending" && (
                   <p>{state.commitMessage ?? "Publication commit status is not yet resolved."}</p>
               )}
               {!state.commitResultLabel && <p>Confirming publication…</p>}
+              {state.retryAllowed
+                && !committed
+                && state.commitResultLabel === "publication_commit_recovery_pending" && (
+                  <button
+                    data-testid="retry-confirm"
+                    disabled={state.pending || !state.proposal}
+                    onClick={() => void handleConfirm()}
+                  >
+                    Retry confirmation
+                  </button>
+              )}
               <button data-testid="reread-commit" disabled={state.pending} onClick={() => void handleRereadCommit()}>
                 Re-read commit status
               </button>

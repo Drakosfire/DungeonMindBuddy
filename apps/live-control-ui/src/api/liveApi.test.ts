@@ -171,6 +171,91 @@ describe("Threat publication API", () => {
     });
   });
 
+  it("begin 500 integrity envelope with known label is preserved", async () => {
+    const integrityEnvelope = {
+      ...operationEnvelope,
+      result_label: "publication_integrity_failure" as const,
+      message: "Ledger integrity failure.",
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(integrityEnvelope, { ok: false, status: 500, statusText: "Internal Server Error" }),
+    );
+
+    const result = await beginThreatPublicationOperation(draftId, beginRequest);
+    expect(result).toEqual(integrityEnvelope);
+    expect(result.result_label).toBe("publication_integrity_failure");
+  });
+
+  it("wrong schema or unknown result_label fails closed", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJsonResponse(
+          {
+            schema: "dmb_unrelated_schema_v1",
+            draft_id: draftId,
+            result_label: "publication_ready",
+          },
+          { ok: true, status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        mockJsonResponse(
+          {
+            schema: "dmb_threat_publication_operation_response_v1",
+            draft_id: draftId,
+            result_label: "not_a_real_label",
+          },
+          { ok: true, status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        mockJsonResponse(
+          {
+            schema: "dmb_threat_publication_operation_response_v1",
+            result_label: "publication_ready",
+          },
+          { ok: true, status: 200 },
+        ),
+      );
+
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      message: expect.stringMatching(/schema|result_label|identity/i),
+      status: 200,
+    });
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 200,
+    });
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 200,
+    });
+  });
+
+  it("commit envelope missing retry_allowed fails closed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(
+        {
+          schema: "dmb_threat_publication_commit_response_v1",
+          draft_id: draftId,
+          operation_id: operationId,
+          proposal_id: proposalId,
+          commit_id: commitId,
+          result_label: "publication_commit_recovery_pending",
+          commit: null,
+          message: null,
+        },
+        { ok: false, status: 503 },
+      ),
+    );
+
+    await expect(getThreatPublicationCommit(draftId, operationId, commitId)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 503,
+    });
+  });
+
   it("begin HTML/non-JSON error body throws", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,

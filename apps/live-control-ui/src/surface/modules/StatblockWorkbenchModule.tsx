@@ -2429,7 +2429,7 @@ export function StatblockWorkbenchModule() {
     return () => {
       cancelled = true;
     };
-  }, [threatDraft?.draft_id, threatDraft?.workflow_state]);
+  }, [threatDraft?.draft_id, threatDraft?.workflow_state, threatDraft?.version, threatDraft?.accepted_mechanics_ref?.revision_id, threatDraft?.accepted_mechanics_ref?.definition_digest]);
 
   const onSubmitCandidate = (event: FormEvent) => {
     event.preventDefault();
@@ -3486,9 +3486,35 @@ export function StatblockWorkbenchModule() {
               ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
                 publicationHeadResolution.head ? (
                 <ThreatPublicationPanel
-                  key={threatDraft.draft_id}
+                  key={[
+                    threatDraft.draft_id,
+                    String(threatDraft.version),
+                    threatDraft.accepted_mechanics_ref?.statblock_id ?? "",
+                    threatDraft.accepted_mechanics_ref?.revision_id ?? "",
+                    threatDraft.accepted_mechanics_ref?.definition_digest ?? "",
+                  ].join(":")}
                   draft={threatDraft}
                   expectedParentRevisionId={publicationHeadResolution.head}
+                  resolveExpectedParentRevisionId={async () => {
+                    const status = await getWorldGraphBootstrapStatus();
+                    const head =
+                      typeof status.currentHeadRevisionId === "string"
+                      && status.currentHeadRevisionId.trim()
+                        ? status.currentHeadRevisionId.trim()
+                        : null;
+                    if (!head) {
+                      throw new Error(
+                        "Publication retry requires a readable World Graph head.",
+                      );
+                    }
+                    setPublicationHeadResolution({
+                      draftId: threatDraft.draft_id,
+                      head,
+                      error: null,
+                      loading: false,
+                    });
+                    return head;
+                  }}
                 />
               ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
                 publicationHeadResolution.error ? (
