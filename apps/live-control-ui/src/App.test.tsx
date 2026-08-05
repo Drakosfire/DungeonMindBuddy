@@ -82,6 +82,7 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     getWorkspaceDocument: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     createWorkspaceDocument: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -258,6 +259,82 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlanView).toHaveBeenCalled();
     expect(liveApi.getGraphIngestRuns).toHaveBeenCalled();
     expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
+  });
+
+  it("E1: real App /build route renders Canvas, Nav, Tool, Edit, Agent, and one Projection Host", async () => {
+    const buildDocId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const buildRecord = fixtureWorkspaceDocumentRecord({
+      document_id: buildDocId,
+      title: "Faction Notes",
+      campaign_id: "longmont-c1",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${buildDocId}.md`,
+      source_domain: "worldbuilding",
+      document_class: "faction",
+      authority_state: "draft",
+      visibility_state: "internal",
+      content_status: "committed",
+      revision: 2,
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: buildRecord,
+        markdown: "# Faction Notes\n",
+        content_sha256: "sha-build-e1",
+        loaded_revision: 2,
+        file_fingerprint: "present",
+        file_exists: true,
+      }),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c1",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
+    render(<App />);
+
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+    expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
+    expect(screen.getByTestId("agent-interaction-bar")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByTestId("surface-edit-host")).toBeInTheDocument();
+    expect(screen.getByTestId("surface-tool-host")).toBeInTheDocument();
+    expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
   });
 
   it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {
