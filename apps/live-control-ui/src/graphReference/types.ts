@@ -42,6 +42,14 @@ export type GraphReferenceProjectionState =
   | "unavailable"
   | "error";
 
+/** Exact World Graph snapshot scope for published Threat projection (SBW10b). */
+export interface ExactGraphReferenceScope {
+  worldId: string;
+  campaignId: string;
+  scopeMode: "campaign" | "world";
+  revisionId: string;
+}
+
 /** Structurally mirrors corpus ReferenceResolution without importing plan adapters. */
 export interface GraphReferenceCorpusFallback {
   status: "resolved" | "unresolved" | "error";
@@ -59,6 +67,8 @@ export type GraphReferenceResolution =
       reference: RunbookReferenceAttrs | null;
       graphNodeId: string;
       graphObject: GraphObjectCardViewModel;
+      /** Exact projection snapshot scope; resolved production nodes never synthesize this. */
+      graphScope: ExactGraphReferenceScope;
       projectionState: GraphReferenceProjectionState | null;
       message?: string | null;
     }
@@ -97,6 +107,7 @@ export interface GraphReferenceProjectionBinding {
   resolverState: GraphReferenceProjectionState | null;
   resolveRelationship(
     relationship: import("../graphObjectCard").GraphObjectRelationshipViewModel,
+    originatingScope?: ExactGraphReferenceScope,
   ): Promise<GraphReferenceResolution>;
   openResolvedReference(
     resolution: GraphReferenceResolution,

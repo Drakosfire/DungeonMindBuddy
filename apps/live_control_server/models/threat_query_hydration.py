@@ -20,6 +20,7 @@ from graph_memory.union_supergraph.statblock_binding import ThreatStatblockBindi
 
 QUERY_REQUEST_SCHEMA = "dmb_threat_query_hydration_request_v1"
 QUERY_RESPONSE_SCHEMA = "dmb_threat_query_hydration_response_v1"
+ScopeMode = Literal["campaign", "world"]
 
 ThreatQueryHydrationResultLabel = Literal[
     "threat_query_hydration_ok",
@@ -63,6 +64,7 @@ class ThreatQueryHydrationRequestV1(StrictModel):
     )
     world_id: str = Field(min_length=1)
     campaign_id: str = Field(min_length=1)
+    scope_mode: ScopeMode = "campaign"
     revision_pin: str = Field(min_length=1)
     query_text: str = Field(min_length=1)
     focus_node_ids: list[str] = Field(default_factory=list, max_length=8)
@@ -132,6 +134,7 @@ class ThreatQueryHydrationResponseV1(StrictModel):
     )
     world_id: str
     campaign_id: str
+    scope_mode: ScopeMode
     revision_id: str
     query_text: str
     result_label: ThreatQueryHydrationResultLabel
@@ -145,6 +148,7 @@ __all__ = [
     "MechanicsDisposition",
     "QUERY_REQUEST_SCHEMA",
     "QUERY_RESPONSE_SCHEMA",
+    "ScopeMode",
     "ThreatBindingHydrationV1",
     "ThreatQueryHydrationHitV1",
     "ThreatQueryHydrationRequestV1",

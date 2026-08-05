@@ -69,7 +69,7 @@
     "create-idempotency-conflict.json": "sha256:396a3bedfbebdc790b67fa2869173a42807578acdb5770ba189e87d38628d839",
     "create-conflict-original-response.json": "sha256:1ffd1c7151ffd6fcb4541a39eac3239afff09f2a9301bd75d3e8ab5c01a6814c",
     "create-conflict-changed-request.json": "sha256:bba3c687f62af158c255e101b35ceb21dbb8eecb77476c87ff3a4ef7c90f5f13",
-    "exact-revision-response.json": "sha256:9d394518ef716f0cd8677eb009fe177c06659b7f69f60676530c5fd95e6af4d2",
+    "exact-revision-response.json": "sha256:9e777f98e25e8a1a4e38f01b08528bfd2a4c99e9bf3d00853cfb0a88b8221c6c",
     "create-persistence-validation-failed.json": "sha256:462c5416f420b30402febcdb35d75e994833622b2cf22ba4c9e2ffbf2f72fdf9",
     "create-invalid-request.json": "sha256:e0c39189c4160c19724cdeb085f4da987a44d703d8ad6158ab3ea9a529d08b37"
   },
@@ -79,6 +79,6 @@
     "Create request definition bytes match the cited simple_bruiser source fixture.",
     "Buddy client tests must consume these recorded bodies; mocks may only replay them.",
     "validation_failed is terminal only when details.is_persistence_ready is exactly false.",
-    "Consumer OpenAPI fingerprint advanced to sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a for ExplainsEdge sync; create leaf fixtures remain prior capture."
+    "Consumer OpenAPI fingerprint advanced to sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a for ExplainsEdge sync; exact-read compatibility fixtures were regenerated against DungeonMindServer commit 7273be812c0158b8e4aa645d0ff19acc0e1639b1, while other create leaf fixtures remain prior capture."
   ]
 }

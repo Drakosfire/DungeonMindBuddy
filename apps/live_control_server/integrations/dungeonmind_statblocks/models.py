@@ -13,14 +13,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     GeneratedStatblockCandidateV1,
 )
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
+    StatblockRevisionResourceV1 as GeneratedStatblockRevisionResourceV1,
+)
 
 # Published v1 identity (DungeonMindServer statblocks_v1).
 ContractNameV1 = Literal["dungeonmind.dungeonbuddy-statblocks"]
 ContractVersionV1 = Literal["1.0.0"]
-
-_STATBLOCK_ID_PATTERN = r"^sb_[a-z0-9]+$"
-_REVISION_ID_PATTERN = r"^rev_[a-z0-9]+$"
-_DEFINITION_DIGEST_PATTERN = r"^sha256:[0-9a-f]{64}$"
 
 __all__ = [
     "ContractNameV1",
@@ -66,17 +65,13 @@ class ReadinessResponseV1(StrictModel):
     detail: str | None = None
 
 
-class ExactRevisionResourceV1(StrictModel):
-    """Minimal exact-revision identity fields required by SBW01 proofs."""
+class ExactRevisionResourceV1(GeneratedStatblockRevisionResourceV1):
+    """Complete published exact-revision resource used by read-only hydration.
 
-    model_config = ConfigDict(extra="allow")
-
-    statblock_id: str = Field(pattern=_STATBLOCK_ID_PATTERN)
-    revision_id: str = Field(pattern=_REVISION_ID_PATTERN)
-    definition_digest: str = Field(pattern=_DEFINITION_DIGEST_PATTERN)
-    contract: ContractNameV1
-    contract_version: ContractVersionV1
-    definition: dict[str, Any] | None = None
+    The generated model owns the nested statblock contract validation. Keeping
+    the Buddy transport name preserves the integration boundary while avoiding
+    an identity-only envelope that could mark malformed mechanics available.
+    """
 
 
 class StatblockIntegrationReadinessV1(StrictModel):

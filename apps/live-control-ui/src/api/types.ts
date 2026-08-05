@@ -1,6 +1,7 @@
 import type {
   GeneratedStatblockCandidateV1,
   StatblockDefinitionV1_Input,
+  StatblockRevisionResourceV1,
   ValidationReceiptV1,
 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 
@@ -3619,4 +3620,116 @@ export interface StatblockIntegrationReadinessV1 {
   contract_version?: string | null;
   capabilities: string[];
   diagnostics: string[];
+}
+
+/** SBW10a exact Threat query/hydration (frontend transport). */
+export type ThreatQueryHydrationResultLabel =
+  | "threat_query_hydration_ok"
+  | "threat_query_hydration_partial"
+  | "threat_query_hydration_empty"
+  | "threat_query_hydration_unavailable"
+  | "threat_query_hydration_not_found"
+  | "threat_query_hydration_integrity_failure";
+
+export type ThreatBindingHydrationStatus =
+  | "available"
+  | "unavailable"
+  | "exact_revision_missing"
+  | "integrity_failure"
+  | "not_requested";
+
+export type ThreatMechanicsDisposition =
+  | "no_binding"
+  | "hydrated"
+  | "partial"
+  | "unavailable"
+  | "integrity_failure"
+  | "not_requested";
+
+export interface ThreatQueryHydrationRequestV1 {
+  schema: "dmb_threat_query_hydration_request_v1";
+  worldId: string;
+  campaignId: string;
+  scopeMode: "campaign" | "world";
+  revisionPin: string;
+  queryText: string;
+  focusNodeIds?: string[];
+  relationshipPredicates?: string[];
+  maxHits?: number;
+  includeMechanics?: boolean;
+}
+
+export interface ThreatStatblockBindingV1 {
+  schema: "dmb_threat_statblock_binding_v1";
+  bindingId: string;
+  provider: "dungeonmind";
+  statblockId: string;
+  revisionId: string;
+  contract: "dungeonmind.dungeonbuddy-statblocks";
+  contractVersion: "1.0.0";
+  definitionDigest: string;
+  role: "primary" | "alternate" | "phase" | "encounter_variant" | "template";
+  phaseKey: string | null;
+  variantLabel: string | null;
+}
+
+export interface WorldGraphProjectionRelationshipView {
+  edgeId: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  predicate: string;
+  label: string;
+  direction: WorldGraphRelationshipDirection;
+  sessionIds: string[];
+  sourceDomains: string[];
+  visibility?: string | null;
+  campaignScope?: string | null;
+  epistemicKind?: string | null;
+  evidenceRefIds: string[];
+  sourceArtifactIds: string[];
+  activeContributionIds: string[];
+  threatStatblockBinding?: Record<string, unknown> | null;
+}
+
+export interface ThreatBindingHydrationV1 {
+  relationshipEdgeId: string;
+  bindingId: string | null;
+  bindingRole: string | null;
+  threatNodeId: string;
+  resourceNodeId: string | null;
+  provider: "dungeonmind";
+  statblockId: string | null;
+  revisionId: string | null;
+  definitionDigest: string | null;
+  hydrationStatus: ThreatBindingHydrationStatus;
+  binding: ThreatStatblockBindingV1 | null;
+  revision: StatblockRevisionResourceV1 | null;
+  message: string | null;
+}
+
+export interface ThreatQueryHydrationHitV1 {
+  threat: WorldGraphProjectionNodeView;
+  matchReasons: string[];
+  relationships: WorldGraphProjectionRelationshipView[];
+  bindings: ThreatBindingHydrationV1[];
+  mechanicsDisposition: ThreatMechanicsDisposition;
+}
+
+export interface ThreatQueryHydrationResponseV1 {
+  schema: "dmb_threat_query_hydration_response_v1";
+  worldId: string;
+  campaignId: string;
+  scopeMode: "campaign" | "world";
+  revisionId: string;
+  queryText: string;
+  resultLabel: ThreatQueryHydrationResultLabel;
+  hits: ThreatQueryHydrationHitV1[];
+  diagnostics: string[];
+  message: string | null;
+}
+
+export interface ThreatQueryHydrationErrorV1 {
+  schema: "dmb_threat_query_hydration_error_v1";
+  resultLabel: ThreatQueryHydrationResultLabel;
+  message?: string | null;
 }

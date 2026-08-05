@@ -16,7 +16,7 @@ function makeNode(overrides: Partial<GraphProjectionNodeView> = {}): GraphProjec
   return {
     node_id: "npc-glowkindle",
     label: "Glowkindle",
-    kind: "npc",
+    kind: "person",
     role: "merchant",
     aliases: [],
     source_domains: ["recap"],
@@ -50,6 +50,12 @@ function resolvedGraphFromNode(
     reference: referenceFromGraphNode(node),
     graphObject: buildGraphObjectCardFromNodeView(node),
     graphNodeId: node.node_id,
+    graphScope: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      revisionId: "rev-1",
+    },
     projectionState: null,
     ...overrides,
   };
@@ -63,7 +69,7 @@ describe("buildPlanGraphObjectActions", () => {
         node_id: "statblock-tripod",
         label: "Tripod Null-Calf",
         kind: "statblock",
-        role: "creature",
+        role: "statblock",
       }),
     );
 
@@ -115,6 +121,7 @@ describe("buildPlanGraphObjectActions", () => {
       makeNode({
         node_id: "npc-lysandra",
         label: "Lysandra",
+        kind: "person",
         adjacency: [
           {
             edge_id: "edge-sb",
@@ -268,5 +275,26 @@ describe("buildPlanGraphObjectActions", () => {
         ),
       ),
     ).toBe(false);
+  });
+
+  it("suppresses generic Open statblock tool for exact resolved Threats", () => {
+    const onOpenStatblock = vi.fn();
+    const resolution = resolvedGraphFromNode(
+      makeNode({
+        node_id: "threat:tripod-null-calf",
+        label: "Tripod Null-Calf",
+        kind: "threat",
+        role: "creature",
+      }),
+    );
+
+    const actions = buildPlanGraphObjectActions({
+      resolution,
+      sessionDescriptor,
+      onOpenStatblock,
+    });
+
+    expect(actions.some((action) => action.id === "open-statblock")).toBe(false);
+    expect(actions.some((action) => action.id === "open-ingest")).toBe(true);
   });
 });

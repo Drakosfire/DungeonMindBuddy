@@ -33,6 +33,7 @@ import { useWorkspaceDocumentAuthoring } from "../../workspaceDocument/useWorksp
 import { useEditCapability } from "../edit/editCapability";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
@@ -181,6 +182,22 @@ export function PlanSurfaceCanvas({
 
   const handleViewGraphReference = useCallback(
     (item: GraphReferenceSearchItem) => {
+      const graphScope = extractExactGraphReferenceScope(projection);
+      if (!graphScope) {
+        openGraphReference({
+          resolution: {
+            kind: "error",
+            locator: `dmb-node:${item.nodeId}`,
+            reference: item.reference,
+            projectionState,
+            message:
+              "World Graph projection snapshot lacks exact world, campaign, or revision scope; graph search open blocked.",
+          },
+          projectionState,
+        });
+        return;
+      }
+
       openGraphReference({
         resolution: {
           kind: "resolved_graph",
@@ -188,13 +205,14 @@ export function PlanSurfaceCanvas({
           reference: item.reference,
           graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
           graphNodeId: item.nodeId,
+          graphScope,
           projectionState,
           message: `Resolved graph node ${item.label}.`,
         },
         projectionState,
       });
     },
-    [openGraphReference, projectionState],
+    [openGraphReference, projection, projectionState],
   );
 
   const graphRefSearchPanel = useMemo(

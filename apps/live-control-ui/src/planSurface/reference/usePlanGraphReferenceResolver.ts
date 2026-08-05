@@ -16,7 +16,14 @@ import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookRefer
 import type { PlanSessionDescriptor } from "../types";
 import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
 import { isFocusValidationBlocking } from "../planGraphFocusOptions";
-import type { GraphReferenceProjectionState, GraphReferenceResolution } from "../../graphReference/types";
+import {
+  extractExactGraphReferenceScope,
+} from "../../graphReference/resolveGraphReference";
+import type {
+  ExactGraphReferenceScope,
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+} from "../../graphReference/types";
 import {
   isCorpusFallbackAllowed,
   isGraphNativeReference,
@@ -28,6 +35,7 @@ import {
   buildPlanWorldGraphProjectionRequest,
   getPlanWorldGraphContext,
   WORLD_GRAPH_REVISION_COMMITTED_EVENT,
+  type PlanWorldGraphContext,
 } from "./planGraphContextRequest";
 
 export interface UsePlanGraphReferenceResolverResult {
@@ -41,6 +49,7 @@ export interface UsePlanGraphReferenceResolverResult {
   resolvePlanReference: (ref: RunbookReferenceAttrs) => Promise<GraphReferenceResolution>;
   resolvePlanRelationship: (
     relationship: GraphObjectRelationshipViewModel,
+    originatingScope?: ExactGraphReferenceScope,
   ) => Promise<GraphReferenceResolution>;
 }
 
@@ -107,6 +116,36 @@ function formatProjectionLoadError(error: unknown): string {
     return error.code ? `${error.message} (${error.code})` : error.message;
   }
   return error instanceof Error ? error.message : "Projection unavailable.";
+}
+
+function projectionMatchesScope(
+  projection: WorldGraphProjection | null,
+  scope: ExactGraphReferenceScope,
+): boolean {
+  const actual = extractExactGraphReferenceScope(projection);
+  return (
+    actual?.worldId === scope.worldId
+    && actual.campaignId === scope.campaignId
+    && actual.scopeMode === scope.scopeMode
+    && actual.revisionId === scope.revisionId
+  );
+}
+
+function pinnedRelationshipError(
+  relationship: GraphObjectRelationshipViewModel,
+  message: string,
+): GraphReferenceResolution {
+  const targetId = String(relationship.targetId || "").trim();
+  const targetKind = String(relationship.targetKind || "").trim();
+  return {
+    kind: "error",
+    locator: targetId ? `dmb-node:${targetId}` : relationship.label,
+    reference: targetId && targetKind
+      ? { kind: "ref", refType: targetKind, refId: targetId, label: relationship.label }
+      : null,
+    projectionState: "error",
+    message,
+  };
 }
 
 export { isCorpusFallbackAllowed };
@@ -340,12 +379,49 @@ function usePlanGraphReferenceResolverLoad(
   );
 
   const resolvePlanRelationship = useCallback(
-    async (relationship: GraphObjectRelationshipViewModel) =>
-      resolvePlanRelationshipTarget({
+    async (
+      relationship: GraphObjectRelationshipViewModel,
+      originatingScope?: ExactGraphReferenceScope,
+    ) => {
+      let relationshipProjection = projection;
+      let relationshipProjectionState = projectionState;
+
+      if (
+        originatingScope
+        && !projectionMatchesScope(relationshipProjection, originatingScope)
+      ) {
+        try {
+          const pinnedContext: PlanWorldGraphContext = {
+            worldId: originatingScope.worldId,
+            campaignId: originatingScope.campaignId,
+            scopeMode: originatingScope.scopeMode,
+            focus: { kind: "none", sessionId: null },
+          };
+          relationshipProjection = await postWorldGraphProjection({
+            ...buildPlanWorldGraphProjectionRequest(pinnedContext),
+            revisionPin: originatingScope.revisionId,
+          });
+          if (!projectionMatchesScope(relationshipProjection, originatingScope)) {
+            return pinnedRelationshipError(
+              relationship,
+              "Pinned World Graph response did not match the Threat Sheet scope.",
+            );
+          }
+          relationshipProjectionState = "ready";
+        } catch (error) {
+          return pinnedRelationshipError(
+            relationship,
+            formatProjectionLoadError(error),
+          );
+        }
+      }
+
+      return resolvePlanRelationshipTarget({
         relationship,
-        projection,
-        projectionState,
-      }),
+        projection: relationshipProjection,
+        projectionState: relationshipProjectionState,
+      });
+    },
     [projection, projectionState],
   );
 

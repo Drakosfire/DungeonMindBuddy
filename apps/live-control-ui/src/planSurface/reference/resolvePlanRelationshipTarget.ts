@@ -3,6 +3,9 @@ import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { WorldGraphProjection } from "../../api/types";
 import type { GraphReferenceCorpusFallback, GraphReferenceProjectionState, GraphReferenceResolution } from "../../graphReference/types";
 import {
+  extractExactGraphReferenceScope,
+} from "../../graphReference/resolveGraphReference";
+import {
   isCorpusFallbackAllowed,
   mapReferenceResolutionToCorpusFallback,
   resolvePlanReferenceFromGraphProjection,
@@ -170,6 +173,17 @@ export async function resolvePlanRelationshipTarget({
   if (targetId) {
     const exactNode = usableProjection?.nodes.find((node) => node.nodeId === targetId) ?? null;
     if (exactNode) {
+      const graphScope = extractExactGraphReferenceScope(usableProjection);
+      if (!graphScope) {
+        return {
+          kind: "error",
+          locator,
+          reference,
+          projectionState,
+          message:
+            "World Graph projection snapshot lacks exact world, campaign, or revision scope; relationship resolution blocked.",
+        };
+      }
       return withProjectionState(
         {
           kind: "resolved_graph",
@@ -177,6 +191,7 @@ export async function resolvePlanRelationshipTarget({
           reference,
           graphNodeId: exactNode.nodeId,
           graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeForPlanCard(exactNode)),
+          graphScope,
           projectionState,
           message: `Resolved graph node ${exactNode.label}.`,
         },

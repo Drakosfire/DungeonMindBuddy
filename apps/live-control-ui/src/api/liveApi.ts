@@ -112,6 +112,8 @@ import type {
   AcceptThreatDraftMechanicsResponseV1,
   ReadAcceptanceOperationResponseV1,
   StatblockIntegrationReadinessV1,
+  ThreatQueryHydrationRequestV1,
+  ThreatQueryHydrationResponseV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
 import { withProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
@@ -799,6 +801,16 @@ export async function generateThreatDraftCandidate(
 
 export async function getThreatDraft(draftId: string): Promise<ThreatDraftV1> {
   return apiFetch<ThreatDraftV1>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}`);
+}
+
+export async function postThreatQueryHydration(
+  request: ThreatQueryHydrationRequestV1,
+): Promise<ThreatQueryHydrationResponseV1> {
+  return apiFetch<ThreatQueryHydrationResponseV1>("/api/live/threats/query-hydration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
 }
 
 export async function reviseThreatDraftCandidate(

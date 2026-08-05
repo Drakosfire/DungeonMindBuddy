@@ -1,12 +1,18 @@
 """SBW10a exact Threat query/hydration owning-boundary tests."""
 from __future__ import annotations
 
+import copy
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
+from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+    canonicalize_definition_dict,
+    source_definition_digest_from_body,
+)
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     downstream_not_found,
     downstream_unavailable,
@@ -46,8 +52,25 @@ from graph_memory.union_supergraph.statblock_binding import (
 WORLD = "world_eldyrwild"
 CAMPAIGN = "campaign_eldyrwild"
 REVISION = "rev_graph_pin_001"
-DIGEST_A = "sha256:" + ("a" * 64)
-DIGEST_B = "sha256:" + ("b" * 64)
+
+_EXACT_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures/statblocks/v1/exact-revision-response.json"
+)
+_EXACT_FIXTURE_PAYLOAD = json.loads(_EXACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def _fixture_definition() -> dict[str, Any]:
+    return copy.deepcopy(_EXACT_FIXTURE_PAYLOAD["definition"])
+
+
+def _variant_b_definition() -> dict[str, Any]:
+    definition = _fixture_definition()
+    definition["abilities"]["strength"] = 19
+    return definition
+
+
+DIGEST_A = source_definition_digest_from_body(_fixture_definition())
+DIGEST_B = source_definition_digest_from_body(_variant_b_definition())
 
 
 def _binding(
@@ -138,16 +161,18 @@ def _projection(
     revision_id: str = REVISION,
     head_revision_id: str | None = None,
     query_context_relationships: list[WorldGraphProjectionRelationshipView] | None = None,
+    campaign_id: str = CAMPAIGN,
+    scope_mode: str = "campaign",
 ) -> WorldGraphProjection:
     snapshot = WorldGraphProjectionSnapshot(
         world_id=WORLD,
-        campaign_id=CAMPAIGN,
+        campaign_id=campaign_id,
         revision_id=revision_id,
         head_revision_id=head_revision_id or revision_id,
         is_head=head_revision_id is None or head_revision_id == revision_id,
         focus=WorldGraphProjectionFocus(kind="none"),
         admissibility="gm",
-        scope_mode="campaign",
+        scope_mode=scope_mode,  # type: ignore[arg-type]
     )
     query_context = WorldGraphQueryContext(
         snapshot=snapshot,
@@ -185,6 +210,7 @@ def _request(**overrides: Any) -> ThreatQueryHydrationRequestV1:
         "schema": "dmb_threat_query_hydration_request_v1",
         "world_id": WORLD,
         "campaign_id": CAMPAIGN,
+        "scope_mode": "campaign",
         "revision_pin": REVISION,
         "query_text": "Float Goat",
         "include_mechanics": True,
@@ -193,15 +219,39 @@ def _request(**overrides: Any) -> ThreatQueryHydrationRequestV1:
     return ThreatQueryHydrationRequestV1.model_validate(payload)
 
 
-def _exact(statblock_id: str, revision_id: str, digest: str) -> ExactRevisionResourceV1:
-    return ExactRevisionResourceV1(
-        statblock_id=statblock_id,
-        revision_id=revision_id,
-        definition_digest=digest,
-        contract="dungeonmind.dungeonbuddy-statblocks",
-        contract_version="1.0.0",
-        definition={"name": "fixture"},
+def _exact(
+    statblock_id: str,
+    revision_id: str,
+    digest: str | None = None,
+    *,
+    definition: dict[str, Any] | None = None,
+    canonical_definition: str | None = None,
+    validation_receipt_digest: str | None = None,
+) -> ExactRevisionResourceV1:
+    payload = copy.deepcopy(_EXACT_FIXTURE_PAYLOAD)
+    payload.update(
+        {
+            "statblock_id": statblock_id,
+            "revision_id": revision_id,
+        }
     )
+    if definition is not None:
+        payload["definition"] = definition
+    definition_body = payload["definition"]
+    computed_digest = source_definition_digest_from_body(definition_body)
+    computed_canonical = canonicalize_definition_dict(definition_body)
+    resolved_digest = digest if digest is not None else computed_digest
+    payload["canonical_definition"] = (
+        canonical_definition if canonical_definition is not None else computed_canonical
+    )
+    payload["definition_digest"] = resolved_digest
+    receipt_digest = (
+        validation_receipt_digest
+        if validation_receipt_digest is not None
+        else resolved_digest
+    )
+    payload["validation_receipt"]["definition_digest"] = receipt_digest
+    return ExactRevisionResourceV1.model_validate(payload)
 
 
 def test_duplicate_labels_return_distinct_threat_ids() -> None:
@@ -250,6 +300,37 @@ def test_alias_hit_preserves_canonical_node_id() -> None:
     assert "exact_alias" in response.hits[0].match_reasons
 
 
+def test_world_scope_preserves_cross_campaign_threat_lens() -> None:
+    threat = _threat_node("threat:other-campaign", "Other Campaign Threat")
+    threat.campaign_scope = "campaign_other"
+    proj = _projection(
+        nodes=[threat],
+        relationships=[],
+        matched_node_ids=[threat.node_id],
+        campaign_id="campaign_lens",
+        scope_mode="world",
+    )
+    seen_requests: list[Any] = []
+
+    def project(request: Any, **_kwargs: Any) -> WorldGraphProjection:
+        seen_requests.append(request)
+        return proj
+
+    response = query_threats_with_hydration(
+        _request(
+            campaign_id="campaign_lens",
+            scope_mode="world",
+            query_text="Other Campaign Threat",
+        ),
+        project_fn=project,
+        client=MagicMock(),
+    )
+
+    assert seen_requests[0].scope_mode == "world"
+    assert response.scope_mode == "world"
+    assert [hit.threat.node_id for hit in response.hits] == [threat.node_id]
+
+
 def test_zero_one_many_bindings_no_first_win() -> None:
     threat = _threat_node("threat:multi", "Multi Bound")
     b_primary = _binding(
@@ -272,8 +353,14 @@ def test_zero_one_many_bindings_no_first_win() -> None:
     proj = _projection(nodes=nodes, relationships=rels, matched_node_ids=[threat.node_id])
 
     def get_exact(statblock_id: str, revision_id: str) -> ExactRevisionResourceV1:
-        digest = DIGEST_A if statblock_id == "sb_primary01" else DIGEST_B
-        return _exact(statblock_id, revision_id, digest)
+        if statblock_id == "sb_phase0001":
+            return _exact(
+                statblock_id,
+                revision_id,
+                DIGEST_B,
+                definition=_variant_b_definition(),
+            )
+        return _exact(statblock_id, revision_id, DIGEST_A)
 
     client = MagicMock()
     client.get_exact_revision.side_effect = get_exact
@@ -342,6 +429,39 @@ def test_exact_revision_missing() -> None:
     assert response.hits[0].bindings[0].hydration_status == "exact_revision_missing"
 
 
+def test_malformed_nested_revision_is_integrity_failure() -> None:
+    threat = _threat_node("threat:malformed", "Malformed")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_malformed01",
+        revision_id="rev_malformed01",
+        digest=DIGEST_A,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_malformed01")],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+    client = MagicMock()
+    malformed = _exact(
+        "sb_malformed01",
+        "rev_malformed01",
+        DIGEST_A,
+    ).model_dump(mode="json")
+    malformed["definition"]["defenses"]["armor_classes"] = {}
+    client.get_exact_revision.return_value = malformed
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=client,
+    )
+
+    hydrated = response.hits[0].bindings[0]
+    assert hydrated.hydration_status == "integrity_failure"
+    assert hydrated.revision is None
+    assert response.result_label == "threat_query_hydration_integrity_failure"
+
+
 def test_definition_digest_mismatch_is_integrity() -> None:
     threat = _threat_node("threat:digest", "Digest")
     binding = _binding(
@@ -357,7 +477,96 @@ def test_definition_digest_mismatch_is_integrity() -> None:
     )
     client = MagicMock()
     client.get_exact_revision.return_value = _exact(
-        "sb_digest001", "rev_digest001", DIGEST_B
+        "sb_digest001",
+        "rev_digest001",
+        DIGEST_B,
+        definition=_variant_b_definition(),
+    )
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=client,
+    )
+    binding_result = response.hits[0].bindings[0]
+    assert binding_result.hydration_status == "integrity_failure"
+    assert binding_result.revision is None
+    assert binding_result.message == "definition_digest mismatch"
+
+
+def test_stale_digest_with_tampered_mechanics_is_integrity_failure() -> None:
+    threat = _threat_node("threat:tampered", "Tampered")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_tampered01",
+        revision_id="rev_tampered01",
+        digest=DIGEST_A,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_tampered01")],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+    client = MagicMock()
+    sealed = _exact("sb_tampered01", "rev_tampered01", DIGEST_A).model_dump(mode="json")
+    sealed["definition"]["abilities"]["strength"] = 19
+    client.get_exact_revision.return_value = sealed
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=client,
+    )
+    assert response.hits[0].bindings[0].hydration_status == "integrity_failure"
+    assert response.hits[0].bindings[0].revision is None
+
+
+def test_stale_canonical_definition_is_integrity_failure() -> None:
+    threat = _threat_node("threat:canonical", "Canonical")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_canonical01",
+        revision_id="rev_canonical01",
+        digest=DIGEST_A,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_canonical01")],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+    client = MagicMock()
+    client.get_exact_revision.return_value = _exact(
+        "sb_canonical01",
+        "rev_canonical01",
+        DIGEST_A,
+        canonical_definition='{"stale":true}',
+    )
+    response = query_threats_with_hydration(
+        _request(),
+        project_fn=lambda *_a, **_k: proj,
+        client=client,
+    )
+    assert response.hits[0].bindings[0].hydration_status == "integrity_failure"
+    assert response.hits[0].bindings[0].revision is None
+
+
+def test_validation_receipt_digest_mismatch_is_integrity_failure() -> None:
+    threat = _threat_node("threat:receipt", "Receipt")
+    binding = _binding(
+        threat_id=threat.node_id,
+        statblock_id="sb_receipt001",
+        revision_id="rev_receipt001",
+        digest=DIGEST_A,
+    )
+    proj = _projection(
+        nodes=[threat, _resource_node("sb_receipt001")],
+        relationships=[_binding_rel(threat.node_id, binding)],
+        matched_node_ids=[threat.node_id],
+    )
+    client = MagicMock()
+    client.get_exact_revision.return_value = _exact(
+        "sb_receipt001",
+        "rev_receipt001",
+        DIGEST_A,
+        validation_receipt_digest=DIGEST_B,
     )
     response = query_threats_with_hydration(
         _request(),

@@ -51,6 +51,7 @@ _SERVER_DEFAULT_EMPTY_LIST_FIELDS = frozenset(
         "disabled_element_keys",
         "effects",
         "enabled_element_keys",
+        "explains",
         "failure_effects",
         "hit_effects",
         "languages",

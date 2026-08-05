@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -252,7 +252,7 @@ describe("PlanReferenceObjectCard", () => {
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
-        worldId: "eldyrwild", campaignId: "longmont-c2", revisionId: "rev-1", headRevisionId: "rev-1",
+        worldId: "eldyrwild", campaignId: "longmont-c2", scopeMode: "campaign", revisionId: "rev-1", headRevisionId: "rev-1",
         isHead: true, focus: { kind: "session", sessionId: "session-21" }, admissibility: "gm",
       },
       summary: { nodeCount: 2, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
@@ -334,7 +334,7 @@ describe("PlanReferenceObjectCard", () => {
       node_id: "statblock-tripod",
       label: "Tripod Null-Calf",
       kind: "statblock",
-      role: "creature",
+      role: "statblock",
     });
 
     const user = userEvent.setup();
@@ -365,7 +365,7 @@ describe("PlanReferenceObjectCard", () => {
       node_id: "statblock-tripod",
       label: "Tripod Null-Calf",
       kind: "statblock",
-      role: "creature",
+      role: "statblock",
     });
 
     renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
@@ -393,6 +393,73 @@ describe("PlanReferenceObjectCard", () => {
     });
     expect(screen.queryByLabelText(/Glowkindle graph object/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/selected object/i)).not.toBeInTheDocument();
+  });
+
+  it("does not commit a stale relationship after the selected object changes", async () => {
+    let resolveRelationship: ((value: GraphReferenceResolution) => void) | undefined;
+    const deferredRelationship = new Promise<GraphReferenceResolution>((resolve) => {
+      resolveRelationship = resolve;
+    });
+    const openResolvedReference = vi.fn();
+    const binding = mockBinding({
+      resolveRelationship: vi.fn(() => deferredRelationship),
+      openResolvedReference,
+    });
+    const firstResolution = resolvedGraphFromNode(glowkindleNode);
+    const secondResolution = resolvedGraphFromNode(innNode);
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <PlanReferenceObjectCard
+        resolution={firstResolution}
+        sessionDescriptor={sessionDescriptor}
+        graphReferenceBinding={binding}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
+    rerender(
+      <PlanReferenceObjectCard
+        resolution={secondResolution}
+        sessionDescriptor={sessionDescriptor}
+        graphReferenceBinding={binding}
+      />,
+    );
+
+    await act(async () => {
+      resolveRelationship?.(secondResolution);
+      await deferredRelationship;
+    });
+    expect(openResolvedReference).not.toHaveBeenCalled();
+  });
+
+  it("does not call openResolvedReference after unmount when deferred relationship resolves", async () => {
+    let resolveRelationship: ((value: GraphReferenceResolution) => void) | undefined;
+    const deferredRelationship = new Promise<GraphReferenceResolution>((resolve) => {
+      resolveRelationship = resolve;
+    });
+    const openResolvedReference = vi.fn();
+    const binding = mockBinding({
+      resolveRelationship: vi.fn(() => deferredRelationship),
+      openResolvedReference,
+    });
+    const resolution = resolvedGraphFromNode(glowkindleNode);
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <PlanReferenceObjectCard
+        resolution={resolution}
+        sessionDescriptor={sessionDescriptor}
+        graphReferenceBinding={binding}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
+    unmount();
+
+    await act(async () => {
+      resolveRelationship?.(resolvedGraphFromNode(innNode));
+      await deferredRelationship;
+    });
+    expect(openResolvedReference).not.toHaveBeenCalled();
   });
 
   it("disables related-object buttons while the card-local graph projection is loading", async () => {

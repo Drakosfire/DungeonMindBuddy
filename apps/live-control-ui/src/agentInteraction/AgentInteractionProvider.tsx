@@ -828,7 +828,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     const { token, value: binding } = registration;
     return {
       resolverState: binding.resolverState,
-      resolveRelationship: (relationship) => binding.resolveRelationship(relationship),
+      resolveRelationship: (relationship, originatingScope) =>
+        binding.resolveRelationship(relationship, originatingScope),
       openResolvedReference: (resolution, projectionState) => {
         const current = graphReferenceRegistrationRef.current;
         const live = leaseBundleRef.current;
