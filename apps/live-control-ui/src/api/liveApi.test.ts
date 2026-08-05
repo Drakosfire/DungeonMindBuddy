@@ -31,7 +31,10 @@ import {
   getThreatDraft,
   validateStatblockDefinition,
   acceptThreatDraftMechanics,
+  beginThreatPublicationOperation,
+  confirmThreatPublicationCommit,
   getAcceptanceOperation,
+  getThreatPublicationCommit,
   reconcileAcceptanceOperation,
   reviseThreatDraftCandidate,
   listGeneratedStatblocks,
@@ -55,14 +58,253 @@ import type {
   WorkspaceDocumentRecord,
 } from "./types";
 
-function mockJsonResponse(payload: unknown): Response {
+function mockJsonResponse(
+  payload: unknown,
+  options: { ok?: boolean; status?: number; statusText?: string } = {},
+): Response {
+  const ok = options.ok ?? true;
+  const status = options.status ?? (ok ? 200 : 500);
+  const statusText = options.statusText ?? (ok ? "OK" : "Error");
   return {
-    ok: true,
-    status: 200,
-    statusText: "OK",
+    ok,
+    status,
+    statusText,
     text: async () => JSON.stringify(payload),
   } as Response;
 }
+
+describe("Threat publication API", () => {
+  afterEach(() => {
+    clearProjectionRequestCache();
+    vi.restoreAllMocks();
+  });
+
+  const draftId = "11111111-1111-4111-8111-111111111111";
+  const operationId = "22222222-2222-4222-8222-222222222222";
+  const proposalId = "33333333-3333-4333-8333-333333333333";
+  const commitId = "44444444-4444-4444-8444-444444444444";
+
+  const beginRequest = {
+    schema: "dmb_begin_threat_publication_operation_request_v1" as const,
+    operation_id: operationId,
+    expected_draft_version: 2,
+    expected_parent_revision_id: "rev-head-1",
+    actor: "gm",
+    operator_note: null,
+  };
+
+  const operationEnvelope = {
+    schema: "dmb_threat_publication_operation_response_v1" as const,
+    draft_id: draftId,
+    result_label: "publication_ready" as const,
+    operation: null,
+    message: null,
+  };
+
+  it("begin posts exact path + body; 201/200 returns envelope", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse(operationEnvelope, { ok: true, status: 201 }))
+      .mockResolvedValueOnce(mockJsonResponse(operationEnvelope, { ok: true, status: 200 }));
+
+    const created = await beginThreatPublicationOperation(draftId, beginRequest);
+    expect(created).toEqual(operationEnvelope);
+    expect(fetchSpy.mock.calls[0][0]).toBe(
+      `/api/live/threat-drafts/${draftId}/publication-operations`,
+    );
+    expect(fetchSpy.mock.calls[0][1]?.method).toBe("POST");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual(beginRequest);
+
+    const replayed = await beginThreatPublicationOperation(draftId, beginRequest);
+    expect(replayed).toEqual(operationEnvelope);
+    expect(fetchSpy.mock.calls[1][0]).toBe(
+      `/api/live/threat-drafts/${draftId}/publication-operations`,
+    );
+  });
+
+  it("begin 409 with valid publication envelope returns envelope (does not throw)", async () => {
+    const busyEnvelope = {
+      ...operationEnvelope,
+      result_label: "publication_busy" as const,
+      message: "Another publication operation is active.",
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(busyEnvelope, { ok: false, status: 409, statusText: "Conflict" }),
+    );
+
+    const result = await beginThreatPublicationOperation(draftId, beginRequest);
+    expect(result).toEqual(busyEnvelope);
+    expect(result.result_label).toBe("publication_busy");
+  });
+
+  it("begin 503 with valid envelope returns envelope", async () => {
+    const unavailableEnvelope = {
+      ...operationEnvelope,
+      result_label: "publication_graph_unavailable" as const,
+      message: "Graph unavailable.",
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(unavailableEnvelope, { ok: false, status: 503, statusText: "Service Unavailable" }),
+    );
+
+    const result = await beginThreatPublicationOperation(draftId, beginRequest);
+    expect(result).toEqual(unavailableEnvelope);
+    expect(result.result_label).toBe("publication_graph_unavailable");
+  });
+
+  it("begin 500 or 418 with JSON lacking result_label throws LiveApiError", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJsonResponse({ schema: "dmb_error_v1", message: "Internal error" }, { ok: false, status: 500 }),
+      )
+      .mockResolvedValueOnce(
+        mockJsonResponse({ detail: "I am a teapot" }, { ok: false, status: 418, statusText: "I'm a teapot" }),
+      );
+
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 500,
+    });
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 418,
+    });
+  });
+
+  it("begin HTML/non-JSON error body throws", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      text: async () => "<html><body>Bad Gateway</body></html>",
+    } as Response);
+
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toSatisfy(
+      (error: unknown) =>
+        error instanceof Error
+        && (error.name === "LiveApiError" || error.name === "Error")
+        && String(error.message).length > 0,
+    );
+  });
+
+  it("getThreatPublicationCommit GETs exact commit path (never latest)", async () => {
+    const commitEnvelope = {
+      schema: "dmb_threat_publication_commit_response_v1" as const,
+      draft_id: draftId,
+      operation_id: operationId,
+      proposal_id: proposalId,
+      commit_id: commitId,
+      result_label: "publication_commit_verified" as const,
+      commit: null,
+      retry_allowed: false,
+      message: null,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(commitEnvelope));
+
+    const result = await getThreatPublicationCommit(draftId, operationId, commitId);
+
+    expect(result).toEqual(commitEnvelope);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(
+      `/api/live/threat-drafts/${draftId}/publication-operations/${operationId}/commits/${commitId}`,
+    );
+    expect(init?.method).toBeUndefined();
+    expect(String(url)).not.toContain("latest");
+    expect(String(url)).not.toContain("current");
+  });
+
+  it("confirmThreatPublicationCommit POSTs exact path + body", async () => {
+    const confirmRequest = {
+      schema: "dmb_confirm_threat_publication_request_v1" as const,
+      commit_id: commitId,
+      sealed_proposal_digest: `sha256:${"a".repeat(64)}`,
+      expected_parent_revision_id: "rev-head-1",
+      actor: "gm",
+      operator_note: null,
+    };
+    const commitEnvelope = {
+      schema: "dmb_threat_publication_commit_response_v1" as const,
+      draft_id: draftId,
+      operation_id: operationId,
+      proposal_id: proposalId,
+      commit_id: commitId,
+      result_label: "publication_commit_verified" as const,
+      commit: null,
+      retry_allowed: false,
+      message: null,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(commitEnvelope));
+
+    const result = await confirmThreatPublicationCommit(
+      draftId,
+      operationId,
+      proposalId,
+      confirmRequest,
+    );
+
+    expect(result).toEqual(commitEnvelope);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(
+      `/api/live/threat-drafts/${draftId}/publication-operations/${operationId}/proposals/${proposalId}/commits`,
+    );
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(confirmRequest);
+  });
+
+  it("propagates fetch transport rejection", async () => {
+    const transportError = new TypeError("Failed to fetch");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(transportError);
+
+    await expect(beginThreatPublicationOperation(draftId, beginRequest)).rejects.toBe(transportError);
+  });
+
+  it("createThreatDraft via apiFetch still throws LiveApiError on ok:false without publication envelope", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(
+        {
+          schema: "dmb_world_graph_projection_error_v1",
+          code: "draft_conflict",
+          message: "Draft version conflict.",
+        },
+        { ok: false, status: 409, statusText: "Conflict" },
+      ),
+    );
+
+    await expect(
+      createThreatDraft({
+        world_id: "world_eldyrwild",
+        campaign_id: "campaign_longmont_c2",
+        focus: { session: 22, prep_label: null },
+        name: "Test Threat",
+        slug_hint: null,
+        description: "Desc",
+        threat_kind: "creature",
+        intended_roles: [],
+        tags: [],
+        generation_intent: {
+          ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+          target_cr: "2",
+          complexity: null,
+          must_include: [],
+          must_avoid: [],
+        },
+        encounter_context: { party_level: null, party_size: null, terrain_notes: [] },
+        graph_context_snapshot: {
+          graph_revision_id: "rev_1",
+          selected_node_ids: [],
+          admitted_source_anchor_ids: [],
+        },
+        created_by: "gm",
+      }),
+    ).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 409,
+      message: "Draft version conflict.",
+    });
+  });
+});
 
 describe("liveApi artifact/capability helpers", () => {
   afterEach(() => {

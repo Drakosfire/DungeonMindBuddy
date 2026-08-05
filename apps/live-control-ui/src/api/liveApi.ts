@@ -110,7 +110,18 @@ import type {
   ValidateDefinitionBuddyResponseV1,
   AcceptThreatDraftMechanicsRequestV1,
   AcceptThreatDraftMechanicsResponseV1,
+  BeginThreatPublicationOperationRequestV1,
+  CancelThreatPublicationOperationRequestV1,
+  ConfirmThreatPublicationRequestV1,
+  CreateThreatIdentityResolutionRequestV1,
+  PrepareThreatIdentityCandidatesRequestV1,
+  PrepareThreatPublicationProposalRequestV1,
   ReadAcceptanceOperationResponseV1,
+  RetryThreatPublicationOperationRequestV1,
+  ThreatPublicationCommitResponseV1,
+  ThreatPublicationIdentityResponseV1,
+  ThreatPublicationOperationResponseV1,
+  ThreatPublicationProposalResponseV1,
   StatblockIntegrationReadinessV1,
   ThreatQueryHydrationRequestV1,
   ThreatQueryHydrationResponseV1,
@@ -249,6 +260,63 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw new LiveApiError(detail, response.status, errorOptions);
   }
   return parseJsonBody<T>(response);
+}
+
+const PUBLICATION_TYPED_STATUSES = new Set([200, 201, 404, 409, 503]);
+
+function isPublicationEnvelope(body: unknown): body is { schema: string; result_label: string } {
+  return (
+    typeof body === "object"
+    && body !== null
+    && typeof (body as { schema?: unknown }).schema === "string"
+    && typeof (body as { result_label?: unknown }).result_label === "string"
+  );
+}
+
+async function publicationFetch<T extends { schema: string; result_label: string }>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  let body: unknown;
+  try {
+    body = await parseJsonBody<unknown>(response);
+  } catch (parseError) {
+    const message = parseError instanceof Error ? parseError.message : String(parseError);
+    throw new LiveApiError(message, response.status);
+  }
+
+  if (PUBLICATION_TYPED_STATUSES.has(response.status) && isPublicationEnvelope(body)) {
+    return body as T;
+  }
+
+  let detail = response.statusText;
+  if (typeof body === "object" && body !== null) {
+    const record = body as { message?: unknown; detail?: unknown };
+    if (typeof record.message === "string") {
+      detail = record.message;
+    } else if (typeof record.detail === "string") {
+      detail = record.detail;
+    }
+  }
+
+  throw new LiveApiError(
+    PUBLICATION_TYPED_STATUSES.has(response.status)
+      ? "Publication response missing schema or result_label"
+      : detail,
+    response.status,
+  );
+}
+
+function threatPublicationOperationsPrefix(draftId: string): string {
+  return `/api/live/threat-drafts/${encodeURIComponent(draftId)}/publication-operations`;
 }
 
 export async function getSurface(): Promise<LiveSurfaceResponse> {
@@ -952,6 +1020,133 @@ export async function reconcileAcceptanceOperation(
     {
       method: "POST",
     },
+  );
+}
+
+export async function beginThreatPublicationOperation(
+  draftId: string,
+  request: BeginThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch<ThreatPublicationOperationResponseV1>(
+    threatPublicationOperationsPrefix(draftId),
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function getThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch<ThreatPublicationOperationResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}`,
+  );
+}
+
+export async function refreshThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch<ThreatPublicationOperationResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/refresh`,
+    { method: "POST" },
+  );
+}
+
+export async function cancelThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+  request: CancelThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch<ThreatPublicationOperationResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/cancel`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function retryThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+  request: RetryThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch<ThreatPublicationOperationResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/retry`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function prepareThreatIdentityCandidates(
+  draftId: string,
+  operationId: string,
+  request?: PrepareThreatIdentityCandidatesRequestV1,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch<ThreatPublicationIdentityResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-candidates/prepare`,
+    { method: "POST", body: JSON.stringify(request ?? {}) },
+  );
+}
+
+export async function createThreatIdentityResolution(
+  draftId: string,
+  operationId: string,
+  request: CreateThreatIdentityResolutionRequestV1,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch<ThreatPublicationIdentityResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function getThreatIdentityResolution(
+  draftId: string,
+  operationId: string,
+  resolutionId: string,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch<ThreatPublicationIdentityResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}`,
+  );
+}
+
+export async function prepareThreatPublicationProposal(
+  draftId: string,
+  operationId: string,
+  resolutionId: string,
+  request: PrepareThreatPublicationProposalRequestV1,
+): Promise<ThreatPublicationProposalResponseV1> {
+  return publicationFetch<ThreatPublicationProposalResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}/proposals`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function getThreatPublicationProposal(
+  draftId: string,
+  operationId: string,
+  proposalId: string,
+): Promise<ThreatPublicationProposalResponseV1> {
+  return publicationFetch<ThreatPublicationProposalResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}`,
+  );
+}
+
+export async function confirmThreatPublicationCommit(
+  draftId: string,
+  operationId: string,
+  proposalId: string,
+  request: ConfirmThreatPublicationRequestV1,
+): Promise<ThreatPublicationCommitResponseV1> {
+  return publicationFetch<ThreatPublicationCommitResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}/commits`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function getThreatPublicationCommit(
+  draftId: string,
+  operationId: string,
+  commitId: string,
+): Promise<ThreatPublicationCommitResponseV1> {
+  return publicationFetch<ThreatPublicationCommitResponseV1>(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/commits/${encodeURIComponent(commitId)}`,
   );
 }
 
