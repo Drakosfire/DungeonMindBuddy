@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import type {
   CreateThreatIdentityResolutionRequestV1,
@@ -58,6 +58,22 @@ export type ThreatPublicationApi = {
   getThreatPublicationCommit: typeof getThreatPublicationCommit;
 };
 
+export type ThreatPublicationDockTone = "info" | "error" | "success";
+
+export interface ThreatPublicationDockAction {
+  testId: string;
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}
+
+/** Compact status + primary actions for the Workbench floating dock. */
+export interface ThreatPublicationDockModel {
+  status: string;
+  tone: ThreatPublicationDockTone;
+  actions: ThreatPublicationDockAction[];
+}
+
 export interface ThreatPublicationPanelProps {
   /** Must be workflow_state === "mechanics_saved" with an accepted_mechanics_ref. */
   draft: ThreatDraftV1;
@@ -72,24 +88,32 @@ export interface ThreatPublicationPanelProps {
   api?: Partial<ThreatPublicationApi>;
   storage?: Storage;
   generateId?: () => string;
+  /**
+   * When set, primary journey CTAs are driven through the Workbench floating dock
+   * and the panel keeps review surfaces (candidates / proposal / commit detail).
+   */
+  onDockModelChange?: (model: ThreatPublicationDockModel | null) => void;
 }
 
 const DEFAULT_ACTOR = "workbench-gm";
 
-const DEFAULT_API: ThreatPublicationApi = {
-  beginThreatPublicationOperation,
-  getThreatPublicationOperation,
-  refreshThreatPublicationOperation,
-  cancelThreatPublicationOperation,
-  retryThreatPublicationOperation,
-  prepareThreatIdentityCandidates,
-  createThreatIdentityResolution,
-  getThreatIdentityResolution,
-  prepareThreatPublicationProposal,
-  getThreatPublicationProposal,
-  confirmThreatPublicationCommit,
-  getThreatPublicationCommit,
-};
+/** Read live module bindings so vitest spies on `liveApi` apply in the Workbench path. */
+function defaultThreatPublicationApi(): ThreatPublicationApi {
+  return {
+    beginThreatPublicationOperation,
+    getThreatPublicationOperation,
+    refreshThreatPublicationOperation,
+    cancelThreatPublicationOperation,
+    retryThreatPublicationOperation,
+    prepareThreatIdentityCandidates,
+    createThreatIdentityResolution,
+    getThreatIdentityResolution,
+    prepareThreatPublicationProposal,
+    getThreatPublicationProposal,
+    confirmThreatPublicationCommit,
+    getThreatPublicationCommit,
+  };
+}
 
 function defaultGenerateId(): string {
   return crypto.randomUUID();
@@ -213,7 +237,8 @@ type Action =
   | { type: "beginRejected"; message: string | null; resultLabel: string }
   | { type: "versionMismatch"; pointer: ThreatPublicationWorkbenchSessionV1 }
   | { type: "recoveryError"; detail: string }
-  | { type: "clearPointer" };
+  | { type: "clearPointer" }
+  | { type: "refuseReleased"; message: string };
 
 function reducer(state: PanelState, action: Action): PanelState {
   switch (action.type) {
@@ -231,7 +256,16 @@ function reducer(state: PanelState, action: Action): PanelState {
     case "operationResult": {
       const { response, localOperationId, source } = action;
       if (source === "begin" && response.result_label === "publication_busy") {
-        return { ...initialPanelState(), mode: "busy_unknown", busyMessage: response.message ?? null };
+        // When the server names the blocker, keep its operation_id so Cancel can release it.
+        return {
+          ...initialPanelState(),
+          mode: "busy_unknown",
+          busyMessage: response.message ?? null,
+          operationId: response.operation?.operation_id ?? null,
+          operation: response.operation ?? null,
+          operationResultLabel: response.result_label,
+          operationMessage: response.message ?? null,
+        };
       }
       // Only an exact cancelled record terminalizes cancellation into a fresh begin path.
       if (response.result_label === "publication_cancelled") {
@@ -369,6 +403,11 @@ function reducer(state: PanelState, action: Action): PanelState {
           resolution: response.resolution,
           pendingIdentityRequest: null,
           identityMessage: null,
+          // Refuse is terminal for this operation — drop candidate review so the UI cannot
+          // look "stuck" waiting for the next stage.
+          candidateSet:
+            response.resolution.decision === "refuse" ? null : state.candidateSet,
+          candidateMessage: null,
         };
       }
       // Definitive typed rejection: clear uncertain resolution pointer from state.
@@ -465,6 +504,12 @@ function reducer(state: PanelState, action: Action): PanelState {
       return { ...initialPanelState(), mode: "recovery_error", recoveryDetail: action.detail };
     case "clearPointer":
       return initialPanelState();
+    case "refuseReleased":
+      // Terminal refuse that also released the server active lock — back to Publish.
+      return {
+        ...initialPanelState(),
+        lastError: action.message,
+      };
     default:
       return state;
   }
@@ -479,10 +524,15 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     api: apiOverrides,
     storage,
     generateId = defaultGenerateId,
+    onDockModelChange,
   } = props;
 
-  const api = useMemo(() => ({ ...DEFAULT_API, ...apiOverrides }), [apiOverrides]);
+  const api = useMemo(
+    () => ({ ...defaultThreatPublicationApi(), ...apiOverrides }),
+    [apiOverrides],
+  );
   const eligible = isThreatDraftEligibleForPublication(draft, expectedParentRevisionId);
+  const dockDriven = typeof onDockModelChange === "function";
   const acceptedMechanicsKey = draft.accepted_mechanics_ref
     ? [
         draft.accepted_mechanics_ref.statblock_id,
@@ -493,6 +543,14 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
 
   const [state, dispatch] = useReducer(reducer, undefined, initialPanelState);
   const generationRef = useRef(0);
+  const autoPreparedCandidatesForOpRef = useRef<string | null>(null);
+  const autoPreparedProposalForResolutionRef = useRef<string | null>(null);
+  const identityCandidatesRef = useRef<HTMLDivElement | null>(null);
+  const proposalReviewRef = useRef<HTMLDivElement | null>(null);
+  const onDockModelChangeRef = useRef(onDockModelChange);
+  onDockModelChangeRef.current = onDockModelChange;
+  /** Blocks dock-driven auto-prepare until session restore finishes (avoids refuse/resolution races). */
+  const [restoreGate, setRestoreGate] = useState<"idle" | "restoring" | "done">("idle");
 
   function isCurrent(generation: number): boolean {
     return generationRef.current === generation;
@@ -659,9 +717,20 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     generationRef.current += 1;
     const generation = generationRef.current;
     dispatch({ type: "reset" });
-    if (eligible) {
-      void restoreFromSession(generation);
+    autoPreparedCandidatesForOpRef.current = null;
+    autoPreparedProposalForResolutionRef.current = null;
+    if (!eligible) {
+      setRestoreGate("done");
+      return () => {
+        generationRef.current += 1;
+      };
     }
+    setRestoreGate("restoring");
+    void restoreFromSession(generation).finally(() => {
+      if (generationRef.current === generation) {
+        setRestoreGate("done");
+      }
+    });
     return () => {
       generationRef.current += 1;
     };
@@ -717,14 +786,16 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
   }
 
   async function handleCancelOperation(): Promise<void> {
-    // Cancel is only valid before identity/proposal/commit authority exists.
+    // Cancel is valid before identity/proposal/commit authority exists, after a
+    // terminal refuse, and after a terminal uncommitted commit (merge rejected;
+    // release the draft lock so Publish can start a fresh operation).
+    const refuseTerminal = state.resolution?.decision === "refuse";
+    const uncommittedTerminal = state.commitResultLabel === "publication_commit_uncommitted";
     if (
       !state.operationId
-      || state.resolution
-      || state.resolutionId
-      || state.proposal
-      || state.proposalId
-      || state.commitId
+      || ((state.resolution || state.resolutionId || state.proposal || state.proposalId || state.commitId)
+        && !refuseTerminal
+        && !uncommittedTerminal)
     ) {
       return;
     }
@@ -931,6 +1002,32 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         );
       }
       dispatch({ type: "identityResult", response, accepted });
+      if (accepted && response.resolution?.decision === "refuse" && state.operationId) {
+        // Release the server active lock so a later Publish is not publication_busy.
+        try {
+          const cancelResponse = await api.cancelThreatPublicationOperation(
+            draft.draft_id,
+            state.operationId,
+            {
+              schema: "dmb_cancel_threat_publication_operation_request_v1",
+              actor,
+              note: "released after identity refuse",
+            },
+          );
+          if (!isCurrent(generation)) return;
+          clearThreatPublicationSession(draft.draft_id, storage);
+          if (cancelResponse.result_label === "publication_cancelled") {
+            dispatch({
+              type: "refuseReleased",
+              message: "Publication refused. No graph write occurred.",
+            });
+            return;
+          }
+        } catch {
+          clearThreatPublicationSession(draft.draft_id, storage);
+          // Keep refuse UI; Start over / Cancel stuck publication can still release the lock.
+        }
+      }
     } catch (err) {
       if (!isCurrent(generation)) return;
       // Transport uncertainty: keep the proposed resolution_id for exact replay/read.
@@ -1191,6 +1288,359 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     }
   }
 
+  const committed = hasCommittedRevision(state.commit, state.commitResultLabel);
+
+  // Auto-advance (dock-driven product path): prepare candidates once the operation is ready.
+  useEffect(() => {
+    if (!dockDriven) return;
+    if (restoreGate !== "done") return;
+    const sessionPointer = readThreatPublicationSession(draft.draft_id, storage);
+    // Never auto-prepare while a stored identity/proposal/commit pointer still needs restore.
+    if (sessionPointer?.resolution_id || sessionPointer?.proposal_id || sessionPointer?.commit_id) {
+      return;
+    }
+    if (
+      state.mode !== "active"
+      || state.operationResultLabel !== "publication_ready"
+      || !state.operationId
+      || state.candidateSet
+      || state.resolution
+      || state.resolutionId
+      || state.pending
+    ) {
+      return;
+    }
+    if (autoPreparedCandidatesForOpRef.current === state.operationId) return;
+    autoPreparedCandidatesForOpRef.current = state.operationId;
+    void handlePrepareCandidates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stage trigger
+  }, [
+    dockDriven,
+    restoreGate,
+    state.mode,
+    state.operationResultLabel,
+    state.operationId,
+    state.candidateSet,
+    state.resolution,
+    state.resolutionId,
+    state.pending,
+  ]);
+
+  // Auto-advance (dock-driven product path): prepare proposal after an actionable identity decision.
+  useEffect(() => {
+    if (!dockDriven) return;
+    if (restoreGate !== "done") return;
+    if (
+      !state.resolution
+      || state.resolution.state !== "active"
+      || state.resolution.decision === "refuse"
+      || (state.resolution.decision !== "create_new" && state.resolution.decision !== "connect_existing")
+      || state.proposal
+      || state.proposalId
+      || state.pending
+    ) {
+      return;
+    }
+    if (autoPreparedProposalForResolutionRef.current === state.resolution.resolution_id) return;
+    autoPreparedProposalForResolutionRef.current = state.resolution.resolution_id;
+    void handlePrepareProposal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stage trigger
+  }, [
+    dockDriven,
+    restoreGate,
+    state.resolution,
+    state.proposal,
+    state.proposalId,
+    state.pending,
+  ]);
+
+  useEffect(() => {
+    if (state.candidateSet && !state.resolution && !state.resolutionId) {
+      const node = identityCandidatesRef.current;
+      if (node && typeof node.scrollIntoView === "function") {
+        node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [state.candidateSet, state.resolution, state.resolutionId]);
+
+  useEffect(() => {
+    if (state.proposal) {
+      const node = proposalReviewRef.current;
+      if (node && typeof node.scrollIntoView === "function") {
+        node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [state.proposal]);
+
+  useEffect(() => {
+    const notify = onDockModelChangeRef.current;
+    if (!notify) return;
+    if (!eligible) {
+      notify(null);
+      return;
+    }
+
+    const actions: ThreatPublicationDockAction[] = [];
+    let status = "Publish this Threat to the World Graph when ready.";
+    let tone: ThreatPublicationDockTone = "info";
+
+    if (state.mode === "version_mismatch") {
+      status = "Draft changed since publication started in this browser. Clear the local pointer or re-read status.";
+      tone = "error";
+      actions.push(
+        { testId: "clear-pointer", label: "Clear local pointer", onClick: handleClearPointer },
+        {
+          testId: "reread-operation-only",
+          label: "Re-read publication status only",
+          onClick: () => void handleRereadOperationOnly(),
+        },
+      );
+    } else if (state.mode === "busy_unknown") {
+      status = state.busyMessage
+        ? `Another publication is active: ${state.busyMessage}`
+        : "Another publication is active and cannot be safely recovered from this browser.";
+      tone = "error";
+      if (state.operationId) {
+        actions.push({
+          testId: "cancel-operation",
+          label: "Cancel stuck publication",
+          disabled: state.pending,
+          onClick: () => void handleCancelOperation(),
+        });
+      }
+    } else if (state.mode === "recovery_error") {
+      status = state.recoveryDetail
+        ? `Publication could not be restored: ${state.recoveryDetail}`
+        : "Publication could not be safely restored in this browser.";
+      tone = "error";
+      actions.push({ testId: "clear-pointer", label: "Clear local pointer", onClick: handleClearPointer });
+    } else if (state.mode === "idle") {
+      if (state.lastError) {
+        status = state.lastError;
+        tone = "error";
+      }
+      actions.push({
+        testId: "publish",
+        label: "Publish Threat",
+        disabled: state.pending,
+        onClick: () => void handleClickPublish(),
+      });
+    } else if (state.mode === "active") {
+      if (committed) {
+        if (state.commitResultLabel === "publication_commit_committed_unverified") {
+          status = `Published; verification needs attention. Revision ${state.commit?.committed_revision_id ?? "unknown"}.`;
+          tone = "error";
+        } else {
+          status = `Published. Revision ${state.commit?.committed_revision_id ?? "unknown"}.`;
+          tone = "success";
+        }
+        actions.push({
+          testId: "reread-commit",
+          label: "Re-read commit status",
+          disabled: state.pending,
+          onClick: () => void handleRereadCommit(),
+        });
+      } else if (state.resolution?.decision === "refuse") {
+        status = "Publication refused. No graph write occurred.";
+        actions.push({
+          testId: "publication-start-over",
+          label: "Start over",
+          onClick: handleClearPointer,
+        });
+      } else if (state.pending && !state.operation && state.mode === "active") {
+        status = "Starting publication…";
+      } else if (state.proposalId && !state.proposal) {
+        status = state.pending
+          ? "Preparing publication proposal…"
+          : (state.proposalMessage ?? "Proposal confirmation is uncertain. Re-read or replay the same proposal.");
+        if (!state.pending) {
+          tone = "error";
+          actions.push({
+            testId: "reread-proposal",
+            label: "Re-read proposal",
+            onClick: () => void handleRereadProposal(),
+          });
+          if (state.pendingProposalRequest) {
+            actions.push({
+              testId: "replay-proposal",
+              label: "Replay proposal preparation",
+              onClick: handleReplayProposal,
+            });
+          }
+        }
+      } else if (state.proposal) {
+        status = state.commitMessage && !state.commitId
+          ? state.commitMessage
+          : "Proposal ready — confirm to publish to the World Graph.";
+        if (state.commitMessage && !state.commitId) tone = "error";
+        if (!state.commitId) {
+          actions.push({
+            testId: "confirm",
+            label: state.pending ? "Confirming…" : "Confirm publish",
+            disabled: state.pending,
+            onClick: () => void handleConfirm(),
+          });
+        } else if (
+          state.retryAllowed
+          && state.commitResultLabel === "publication_commit_recovery_pending"
+        ) {
+          status = state.commitMessage ?? "Publication confirmation needs recovery.";
+          tone = "error";
+          actions.push({
+            testId: "retry-confirm",
+            label: "Retry confirmation",
+            disabled: state.pending,
+            onClick: () => void handleConfirm(),
+          });
+          actions.push({
+            testId: "reread-commit",
+            label: "Re-read commit status",
+            disabled: state.pending,
+            onClick: () => void handleRereadCommit(),
+          });
+        } else if (state.commitResultLabel === "publication_commit_uncommitted") {
+          status =
+            state.commitMessage
+            ?? "Publication did not commit. Cancel and publish again.";
+          tone = "error";
+          actions.push({
+            testId: "cancel-operation",
+            label: "Cancel publication",
+            disabled: state.pending,
+            onClick: () => void handleCancelOperation(),
+          });
+          actions.push({
+            testId: "reread-commit",
+            label: "Re-read commit status",
+            disabled: state.pending,
+            onClick: () => void handleRereadCommit(),
+          });
+        } else if (state.commitId) {
+          status = state.commitMessage ?? "Confirming publication…";
+          actions.push({
+            testId: "reread-commit",
+            label: "Re-read commit status",
+            disabled: state.pending,
+            onClick: () => void handleRereadCommit(),
+          });
+        }
+      } else if (state.resolutionId && !state.resolution) {
+        status = state.pending
+          ? "Recording identity decision…"
+          : (state.identityMessage ?? "Identity confirmation is uncertain. Re-read or replay the same decision.");
+        if (!state.pending) {
+          tone = "error";
+          actions.push({
+            testId: "reread-identity",
+            label: "Re-read identity decision",
+            onClick: () => void handleRereadIdentity(),
+          });
+          if (state.pendingIdentityRequest) {
+            actions.push({
+              testId: "replay-identity",
+              label: "Replay identity decision",
+              onClick: handleReplayIdentity,
+            });
+          }
+        }
+      } else if (state.resolution) {
+        if (state.pending && !state.proposal) {
+          status = "Preparing publication proposal…";
+        } else {
+          status = state.proposalMessage
+            ?? "Identity recorded. Preparing proposal…";
+          if (state.proposalMessage) tone = "error";
+        }
+      } else if (state.candidateSet) {
+        status = state.pending
+          ? "Recording identity decision…"
+          : `Review ${state.candidateSet.candidates.length} identity candidate(s) below, then choose Create / Connect / Refuse.`;
+      } else if (state.operationResultLabel === "publication_stale" && state.operation?.state === "stale") {
+        status = state.operationMessage ?? "Publication is stale — retry with the current graph head.";
+        tone = "error";
+        actions.push({
+          testId: "retry-operation",
+          label: "Retry publication",
+          disabled: state.pending,
+          onClick: () => void handleRetryOperation(),
+        });
+      } else if (state.operationResultLabel === "publication_ready" || state.pending) {
+        status = state.pending || !state.candidateSet
+          ? "Loading identity candidates…"
+          : (state.operationMessage ?? "Publication operation active.");
+      } else if (state.operation) {
+        status = state.operationMessage ?? "Publication operation active.";
+        if (state.lastError) {
+          status = state.lastError;
+          tone = "error";
+        }
+      } else if (state.lastError) {
+        status = state.lastError;
+        tone = "error";
+      }
+
+      const canCancel =
+        Boolean(state.operationId)
+        && !committed
+        && (
+          (!state.resolution
+            && !state.resolutionId
+            && !state.proposal
+            && !state.proposalId
+            && !state.commitId)
+          || state.resolution?.decision === "refuse"
+          || state.commitResultLabel === "publication_commit_uncommitted"
+        );
+      if (canCancel && !actions.some((action) => action.testId === "cancel-operation")) {
+        actions.push({
+          testId: "cancel-operation",
+          label: "Cancel publication",
+          disabled: state.pending,
+          onClick: () => void handleCancelOperation(),
+        });
+      }
+    }
+
+    notify({ status, tone, actions });
+    // Handlers are stable enough for dock projection; state fields are the truth trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    eligible,
+    committed,
+    state.mode,
+    state.pending,
+    state.lastError,
+    state.busyMessage,
+    state.recoveryDetail,
+    state.operationId,
+    state.operation,
+    state.operationResultLabel,
+    state.operationMessage,
+    state.candidateSet,
+    state.candidateMessage,
+    state.resolutionId,
+    state.resolution,
+    state.identityMessage,
+    state.proposalId,
+    state.proposal,
+    state.proposalMessage,
+    state.pendingIdentityRequest,
+    state.pendingProposalRequest,
+    state.commitId,
+    state.commit,
+    state.commitResultLabel,
+    state.commitMessage,
+    state.retryAllowed,
+  ]);
+
+  // Clear dock projection only on true unmount — never on every state tick / Strict remount race
+  // against a sibling effect that just projected a model.
+  useEffect(() => {
+    return () => {
+      onDockModelChangeRef.current?.(null);
+    };
+  }, []);
+
   if (!eligible) {
     return (
       <section data-testid="threat-publication-panel" aria-label="Threat publication">
@@ -1201,18 +1651,27 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     );
   }
 
-  const committed = hasCommittedRevision(state.commit, state.commitResultLabel);
-
   return (
-    <section data-testid="threat-publication-panel" aria-label="Threat publication">
-      <h2>Publish Threat</h2>
+    <section
+      data-testid="threat-publication-panel"
+      aria-label="Threat publication"
+      className="statblock-publication-entry"
+    >
+      <h2>Publish to World Graph</h2>
 
       {state.mode === "idle" && (
         <div>
           {state.lastError && <p role="alert">{state.lastError}</p>}
-          <button data-testid="publish" onClick={() => void handleClickPublish()}>
-            Publish Threat
-          </button>
+          {!dockDriven && (
+            <button data-testid="publish" onClick={() => void handleClickPublish()}>
+              Publish Threat
+            </button>
+          )}
+          {dockDriven && (
+            <p className="module-muted" role="status">
+              Use Publish Threat in the floating bar.
+            </p>
+          )}
         </div>
       )}
 
@@ -1229,10 +1688,27 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       )}
 
       {state.mode === "busy_unknown" && (
-        <p role="status">
-          Another publication is active and cannot be safely recovered from this browser.
-          {state.busyMessage ? ` ${state.busyMessage}` : ""}
-        </p>
+        <div role="status">
+          <p>
+            Another publication is active
+            {state.operationId
+              ? " — cancel it to publish again."
+              : " and cannot be safely recovered from this browser."}
+            {state.busyMessage ? ` ${state.busyMessage}` : ""}
+          </p>
+          {state.operationId && !dockDriven && (
+            <button
+              data-testid="cancel-operation"
+              disabled={state.pending}
+              onClick={() => void handleCancelOperation()}
+            >
+              Cancel stuck publication
+            </button>
+          )}
+          {state.operationId && dockDriven && (
+            <p className="module-muted">Use Cancel stuck publication in the floating bar.</p>
+          )}
+        </div>
       )}
 
       {state.mode === "recovery_error" && (
@@ -1270,7 +1746,8 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             </details>
           </div>
 
-          {state.operationId
+          {!dockDriven
+            && state.operationId
             && state.operation
             && !committed
             && !state.resolution
@@ -1293,13 +1770,19 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             && state.operationResultLabel === "publication_ready" && (
             <>
               {state.candidateMessage && <p role="alert">{state.candidateMessage}</p>}
-              <button data-testid="prepare-candidates" disabled={state.pending} onClick={() => void handlePrepareCandidates()}>
-                {state.candidateMessage ? "Refresh candidates" : "Review identity candidates"}
-              </button>
+              {!dockDriven && (
+                <button data-testid="prepare-candidates" disabled={state.pending} onClick={() => void handlePrepareCandidates()}>
+                  {state.candidateMessage ? "Refresh candidates" : "Review identity candidates"}
+                </button>
+              )}
+              {dockDriven && state.pending && (
+                <p className="module-muted" role="status">Loading identity candidates…</p>
+              )}
             </>
           )}
 
-          {state.operationResultLabel === "publication_stale"
+          {!dockDriven
+            && state.operationResultLabel === "publication_stale"
             && state.operation?.state === "stale"
             && !state.candidateSet
             && !state.resolution
@@ -1311,12 +1794,18 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           )}
 
           {state.candidateSet && !state.resolution && !state.resolutionId && (
-            <div data-testid="identity-candidates">
+            <div data-testid="identity-candidates" ref={identityCandidatesRef}>
               <h3>Review identity candidates</h3>
               <p>
                 {state.candidateSet.candidates.length} candidate(s) found.{" "}
                 {state.candidateSet.exact_collision_count} exact name match(es).
               </p>
+              {state.candidateSet.candidates.length === 0 && (
+                <p className="module-muted" role="status" data-testid="identity-candidates-empty">
+                  No existing Threat matched this draft by name/alias. Create new Threat is the expected path
+                  unless you intentionally connect to a node the matcher did not surface.
+                </p>
+              )}
               {state.candidateMessage && <p role="alert">{state.candidateMessage}</p>}
               <ul>
                 {state.candidateSet.candidates.map((candidate) => {
@@ -1430,17 +1919,30 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           {state.resolution && (
             <div role="status" data-testid="identity-decision">
               {state.resolution.decision === "refuse" ? (
-                <p>Publication refused. No graph write occurred.</p>
+                <>
+                  <p>Publication refused. No graph write occurred.</p>
+                  {!dockDriven && (
+                    <button data-testid="publication-start-over" onClick={handleClearPointer}>
+                      Start over
+                    </button>
+                  )}
+                  {dockDriven && (
+                    <p className="module-muted">Use Start over in the floating bar to publish again.</p>
+                  )}
+                </>
               ) : (
                 <>
                   <p>
                     Identity decision recorded:{" "}
                     {state.resolution.decision === "create_new" ? "create a new Threat" : "connect to an existing Threat"}.
                   </p>
-                  {!state.proposal && !state.proposalId && (
+                  {!state.proposal && !state.proposalId && !dockDriven && (
                     <button data-testid="prepare-proposal" disabled={state.pending} onClick={() => void handlePrepareProposal()}>
                       Review publication proposal
                     </button>
+                  )}
+                  {!state.proposal && !state.proposalId && dockDriven && (
+                    <p className="module-muted" role="status">Preparing publication proposal…</p>
                   )}
                 </>
               )}
@@ -1464,21 +1966,25 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
                     <summary>Technical details</summary>
                     <p>proposal_id: {state.proposalId}</p>
                   </details>
-                  <button
-                    data-testid="reread-proposal"
-                    disabled={state.pending}
-                    onClick={() => void handleRereadProposal()}
-                  >
-                    Re-read proposal
-                  </button>
-                  {state.pendingProposalRequest && (
-                    <button
-                      data-testid="replay-proposal"
-                      disabled={state.pending}
-                      onClick={handleReplayProposal}
-                    >
-                      Replay proposal preparation
-                    </button>
+                  {!dockDriven && (
+                    <>
+                      <button
+                        data-testid="reread-proposal"
+                        disabled={state.pending}
+                        onClick={() => void handleRereadProposal()}
+                      >
+                        Re-read proposal
+                      </button>
+                      {state.pendingProposalRequest && (
+                        <button
+                          data-testid="replay-proposal"
+                          disabled={state.pending}
+                          onClick={handleReplayProposal}
+                        >
+                          Replay proposal preparation
+                        </button>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -1486,7 +1992,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           )}
 
           {state.proposal && (
-            <div data-testid="proposal-review">
+            <div data-testid="proposal-review" ref={proposalReviewRef}>
               <h3>Review before publishing</h3>
               <p>Decision: {state.proposal.decision === "create_new" ? "Create new Threat" : "Connect to existing Threat"}</p>
               <p>
@@ -1511,10 +2017,13 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
               </details>
               {state.proposalMessage && <p role="alert">{state.proposalMessage}</p>}
               {state.commitMessage && !state.commitId && <p role="alert">{state.commitMessage}</p>}
-              {!state.commitId && (
+              {!state.commitId && !dockDriven && (
                 <button data-testid="confirm" disabled={state.pending} onClick={() => void handleConfirm()}>
                   Confirm publish
                 </button>
+              )}
+              {!state.commitId && dockDriven && (
+                <p className="module-muted" role="status">Confirm publish from the floating bar.</p>
               )}
             </div>
           )}
@@ -1544,14 +2053,22 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
               {state.commitResultLabel === "publication_commit_recovery_pending" && (
                 <p>{state.commitMessage ?? "Publication confirmation needs recovery."}</p>
               )}
+              {state.commitResultLabel === "publication_commit_uncommitted" && (
+                <p>
+                  {state.commitMessage
+                    ?? "Publication did not commit to the World Graph. Cancel this publication and publish again."}
+                </p>
+              )}
               {state.commitResultLabel
                 && state.commitResultLabel !== "publication_commit_verified"
                 && state.commitResultLabel !== "publication_commit_committed_unverified"
-                && state.commitResultLabel !== "publication_commit_recovery_pending" && (
+                && state.commitResultLabel !== "publication_commit_recovery_pending"
+                && state.commitResultLabel !== "publication_commit_uncommitted" && (
                   <p>{state.commitMessage ?? "Publication commit status is not yet resolved."}</p>
               )}
               {!state.commitResultLabel && <p>Confirming publication…</p>}
-              {state.retryAllowed
+              {!dockDriven
+                && state.retryAllowed
                 && !committed
                 && state.commitResultLabel === "publication_commit_recovery_pending" && (
                   <button
@@ -1562,13 +2079,16 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
                     Retry confirmation
                   </button>
               )}
-              <button data-testid="reread-commit" disabled={state.pending} onClick={() => void handleRereadCommit()}>
-                Re-read commit status
-              </button>
+              {!dockDriven && (
+                <button data-testid="reread-commit" disabled={state.pending} onClick={() => void handleRereadCommit()}>
+                  Re-read commit status
+                </button>
+              )}
             </div>
           )}
 
-          {state.operationId
+          {!dockDriven
+            && state.operationId
             && !committed
             && !state.resolution
             && !state.resolutionId

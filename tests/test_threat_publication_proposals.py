@@ -521,6 +521,60 @@ def test_create_new_prepare_seals_and_reloads_exactly(tmp_path: Path, monkeypatc
     assert reloaded.response.proposal == proposal
 
 
+def test_create_new_proposal_embeds_evidence_and_source_artifacts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Merge requires embedded provenance; bare evidence:tpub refs leave commits uncommitted."""
+    draft, parent = _mechanics_saved_draft(tmp_path, monkeypatch)
+    op_id, _op = _begin_operation(tmp_path, draft, parent)
+    resolution_id, _resolution = _create_new_resolution(tmp_path, draft, op_id, parent)
+    proposal_id = str(uuid.uuid4())
+
+    outcome = proposal_svc.prepare_threat_publication_proposal(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        resolution_id,
+        _prepare_request(proposal_id),
+        world_root=tmp_path / "graph",
+    )
+    assert outcome.response.result_label == "publication_proposal_ready"
+    proposal = outcome.response.proposal
+    assert proposal is not None
+    accepted = contribution_slices_from_effect(proposal.sealed_proposal["effect"])[0][
+        "accepted_proposals"
+    ]
+    assert accepted
+    for item in accepted:
+        value = item["value"]
+        evidence_ids = item["evidence_ref_ids"]
+        assert evidence_ids
+        embedded = value.get("evidence") or []
+        artifacts = value.get("source_artifacts") or []
+        assert [row["evidence_ref_id"] for row in embedded] == evidence_ids
+        assert artifacts
+        assert artifacts[0]["source_artifact_id"] == item["source_artifact_id"]
+        assert artifacts[0]["uri"].startswith("threat-publication://")
+
+    _verified, rebuilt = resolve_merged_contribution_from_package(
+        review_package=proposal.sealed_proposal,
+        confirming_principal=proposal.created_by,
+        world_id_hint="world_1",
+        root=tmp_path / "graph",
+        expected_parent_revision_id=proposal.expected_parent_revision_id,
+        assertion_ids=None,
+        verify_source=False,
+    )
+    merge = kernel.merge_contribution_to_revision(
+        tmp_path / "graph",
+        world_id="world_1",
+        contribution=rebuilt,
+        expected_parent_revision_id=proposal.expected_parent_revision_id,
+    )
+    assert merge.published is True
+    assert merge.revision_id
+
+
 def test_connect_existing_contains_resource_and_binding_only(tmp_path: Path, monkeypatch) -> None:
     draft, parent = _mechanics_saved_draft(
         tmp_path, monkeypatch, name="Unique Threat", graph_nodes={"threat:1": _threat_store_node()}

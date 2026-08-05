@@ -1787,6 +1787,27 @@ def _verify_committed(
     )
 
 
+def _merge_failure_message(result: ContributionMergeResult | None) -> str | None:
+    """Best-effort human message from merge diagnostics when publish fails."""
+    if result is None:
+        return None
+    diagnostics = list(getattr(result, "diagnostics", None) or [])
+    for item in diagnostics:
+        if isinstance(item, str) and item.startswith("merge_failed:"):
+            detail = item.removeprefix("merge_failed:").strip()
+            if detail:
+                return (
+                    "World Graph merge rejected the proposal "
+                    f"({detail}). Cancel this publication and prepare again."
+                )
+    if result.published is False:
+        return (
+            "World Graph merge did not publish a revision. "
+            "Cancel this publication and prepare again."
+        )
+    return None
+
+
 def _reconcile(
     *,
     root: Path,
@@ -1798,6 +1819,7 @@ def _reconcile(
     merge_fn: MergeFn,
     published_false: bool,
     merge_calls: int,
+    published_false_message: str | None = None,
 ) -> tuple[
     ThreatPublicationCommitV1,
     int,
@@ -1888,12 +1910,29 @@ def _reconcile(
     if published_false:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", False, None
+        return (
+            updated,
+            merge_calls,
+            "publication_commit_uncommitted",
+            False,
+            published_false_message
+            or (
+                "World Graph merge did not publish a revision. "
+                "Cancel this publication and prepare again."
+            ),
+        )
 
     if record.merge_attempt_count >= 2:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", False, None
+        return (
+            updated,
+            merge_calls,
+            "publication_commit_uncommitted",
+            False,
+            "World Graph merge did not publish after recovery retry. "
+            "Cancel this publication and prepare again.",
+        )
 
     # Conditional single retry requires full revalidation by caller.
     return record, merge_calls, "publication_commit_recovery_pending", True, None
@@ -2343,6 +2382,7 @@ def _maybe_retry(
         merge_fn=merge_fn,
         published_false=(result.published is False),
         merge_calls=merge_calls,
+        published_false_message=_merge_failure_message(result),
     )
     return updated, merge_calls, label, message
 
@@ -3092,6 +3132,7 @@ def confirm_threat_publication(
                 merge_fn=merge,
                 published_false=published_false,
                 merge_calls=merge_calls,
+                published_false_message=_merge_failure_message(result),
             )
         )
         outcome_message = reconcile_message

@@ -624,6 +624,7 @@ describe("ThreatPublicationPanel", () => {
   it("ends the journey on refuse without preparing a proposal or confirming", async () => {
     const api = buildApiMocks();
     const draft = buildDraft();
+    const storage = createMemoryStorage();
     vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
     vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
       identityCandidatesReadyResponse(draft, [buildCandidate()]),
@@ -631,13 +632,23 @@ describe("ThreatPublicationPanel", () => {
     vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
       identityDecisionResponse(draft, "publication_identity_refused", { decision: "refuse" }),
     );
+    vi.mocked(api.cancelThreatPublicationOperation).mockResolvedValue({
+      schema: "dmb_threat_publication_operation_response_v1",
+      draft_id: draft.draft_id,
+      result_label: "publication_cancelled",
+      operation: {
+        ...operationResponse(draft).operation!,
+        state: "cancelled",
+      },
+      message: "Cancelled by operator.",
+    });
     const user = userEvent.setup();
     render(
       <ThreatPublicationPanel
         draft={draft}
         expectedParentRevisionId={PARENT_REVISION}
         api={api}
-        storage={createMemoryStorage()}
+        storage={storage}
         generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID])}
       />,
     );
@@ -649,6 +660,19 @@ describe("ThreatPublicationPanel", () => {
     expect(await screen.findByText(/no graph write occurred/i)).toBeInTheDocument();
     expect(api.prepareThreatPublicationProposal).not.toHaveBeenCalled();
     expect(api.confirmThreatPublicationCommit).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(api.cancelThreatPublicationOperation).toHaveBeenCalledWith(
+        draft.draft_id,
+        OPERATION_ID,
+        expect.objectContaining({
+          schema: "dmb_cancel_threat_publication_operation_request_v1",
+          note: "released after identity refuse",
+        }),
+      );
+    });
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
+    // After refuse releases the server lock, Publish is available again.
+    expect(await screen.findByTestId("publish")).toBeInTheDocument();
   });
 
   it("shows published on a verified commit, confirms exactly once, and removes Confirm permanently", async () => {
@@ -2069,5 +2093,134 @@ describe("ThreatPublicationPanel", () => {
     expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
     expect(screen.getByText(/Cancelled by operator|Publication cancelled/)).toBeInTheDocument();
     expect(screen.queryByTestId("publication-active")).not.toBeInTheDocument();
+  });
+
+  it("projects Publish into onDockModelChange and hides the in-panel Publish CTA", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const onDockModelChange = vi.fn();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onDockModelChange).toHaveBeenCalled();
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(
+        true,
+      );
+    });
+    expect(screen.queryByTestId("publish")).not.toBeInTheDocument();
+    expect(screen.getByText(/Use Publish Threat in the floating bar/i)).toBeInTheDocument();
+  });
+
+  it("auto-prepares identity candidates when dock-driven and begin returns publication_ready", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const candidate = buildCandidate({ node_id: "threat:auto", label: "Auto" });
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
+      identityCandidatesReadyResponse(draft, [candidate]),
+    );
+    const onDockModelChange = vi.fn();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(
+        true,
+      );
+    });
+    const publishAction = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "publish"));
+    await act(async () => {
+      publishAction!.actions.find((action: { testId: string }) => action.testId === "publish")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.prepareThreatIdentityCandidates).toHaveBeenCalledWith(draft.draft_id, OPERATION_ID);
+      expect(screen.getByTestId("identity-candidates")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("prepare-candidates")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("refresh-operation")).not.toBeInTheDocument();
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.status).toMatch(/identity candidate/i);
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "cancel-operation")).toBe(
+        true,
+      );
+    });
+  });
+
+  it("auto-prepares the proposal after create_new when dock-driven", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const candidate = buildCandidate({ node_id: "threat:auto-create", label: "Auto Create", exact_name_collision: false });
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
+      identityCandidatesReadyResponse(draft, [candidate]),
+    );
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(proposalResponse(draft));
+    const onDockModelChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(
+        true,
+      );
+    });
+    const publishAction = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "publish"));
+    await act(async () => {
+      publishAction!.actions.find((action: { testId: string }) => action.testId === "publish")!.onClick();
+    });
+    await screen.findByTestId("identity-candidates");
+    await user.click(screen.getByTestId("decide-create"));
+
+    await waitFor(() => {
+      expect(api.prepareThreatPublicationProposal).toHaveBeenCalled();
+      expect(screen.getByTestId("proposal-review")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "confirm")).toBe(
+        true,
+      );
+      expect(latest?.status).toMatch(/confirm to publish/i);
+    });
   });
 });

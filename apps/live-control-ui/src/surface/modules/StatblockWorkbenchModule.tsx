@@ -47,7 +47,10 @@ import {
   splitIssuesBySeverity,
 } from "../../statblocks/editor/statblockValidationIssues";
 import { StatblockRenderer } from "../../statblocks/render/StatblockRenderer";
-import { ThreatPublicationPanel } from "../../statblocks/publication/ThreatPublicationPanel";
+import {
+  ThreatPublicationPanel,
+  type ThreatPublicationDockModel,
+} from "../../statblocks/publication/ThreatPublicationPanel";
 import {
   MechanicsSavedAppendBoundary,
   ProposalHistoryPanel,
@@ -1187,6 +1190,7 @@ function AcceptMechanicsFlow({
   mechanicsSavedDraft,
   draftAuthorityUnavailable = false,
   onMechanicsSaved,
+  publicationDock = null,
 }: {
   preview: PreviewValidation | null;
   editorState: StatblockEditorState;
@@ -1204,6 +1208,8 @@ function AcceptMechanicsFlow({
   draftAuthorityUnavailable?: boolean;
   /** Refresh ThreatDraft authority after a durable mechanics_saved accept so Publish can mount. */
   onMechanicsSaved?: (draftId: string) => void;
+  /** Primary publication journey status/actions for the floating dock. */
+  publicationDock?: ThreatPublicationDockModel | null;
 }) {
   const eligible = acceptPreviewEligible(preview, editorState, editorEpoch);
   const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
@@ -1658,6 +1664,9 @@ function AcceptMechanicsFlow({
   })();
 
   const dockStatus = (() => {
+    if (publicationDock) {
+      return publicationDock.status;
+    }
     if (acceptPending) {
       return "Accepting…";
     }
@@ -1934,32 +1943,56 @@ function AcceptMechanicsFlow({
       >
         <p
           className="statblock-workbench-dock__status"
-          role={dockError ? "alert" : "status"}
-          data-dock-tone={dockError ? "error" : "info"}
+          role={
+            publicationDock?.tone === "error" || dockError
+              ? "alert"
+              : "status"
+          }
+          data-dock-tone={
+            publicationDock?.tone
+            ?? (dockError ? "error" : "info")
+          }
+          data-testid={publicationDock ? "publication-dock-status" : undefined}
           title={dockError?.message}
         >
           {dockStatus}
         </p>
         <div className="statblock-workbench-dock__actions">
-          <button
-            type="button"
-            onClick={() => {
-              setAcceptError(null);
-              onValidate();
-            }}
-            disabled={validateDisabled || validatePending}
-          >
-            {validatePending ? "Validating…" : "Validate working copy"}
-          </button>
-          <button
-            type="button"
-            onClick={onAcceptSave}
-            disabled={!showAcceptEntry || acceptPending}
-            title={showAcceptEntry ? undefined : dockStatus}
-            data-testid="accept-mechanics-save"
-          >
-            {acceptPending ? "Accepting…" : "Accept/Save mechanics"}
-          </button>
+          {publicationDock ? (
+            publicationDock.actions.map((action) => (
+              <button
+                key={action.testId}
+                type="button"
+                data-testid={action.testId}
+                disabled={action.disabled}
+                onClick={action.onClick}
+              >
+                {action.label}
+              </button>
+            ))
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setAcceptError(null);
+                  onValidate();
+                }}
+                disabled={validateDisabled || validatePending}
+              >
+                {validatePending ? "Validating…" : "Validate working copy"}
+              </button>
+              <button
+                type="button"
+                onClick={onAcceptSave}
+                disabled={!showAcceptEntry || acceptPending}
+                title={showAcceptEntry ? undefined : dockStatus}
+                data-testid="accept-mechanics-save"
+              >
+                {acceptPending ? "Accepting…" : "Accept/Save mechanics"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -2008,6 +2041,8 @@ export function StatblockWorkbenchModule() {
       error: null,
       loading: false,
     });
+  const [publicationDock, setPublicationDock] =
+    useState<ThreatPublicationDockModel | null>(null);
 
   const validateRequestIdRef = useRef(0);
   const editorEpochRef = useRef(0);
@@ -3500,6 +3535,7 @@ export function StatblockWorkbenchModule() {
               onMechanicsSaved={(id) => {
                 void refreshThreatDraftSnapshot(id);
               }}
+              publicationDock={publicationDock}
             />
           ) : null}
 
@@ -3509,7 +3545,7 @@ export function StatblockWorkbenchModule() {
               aria-label="Publish to World Graph"
               data-testid="workbench-publication-entry"
             >
-              <h3>Publish to World Graph</h3>
+              <h3>Identity & proposal review</h3>
               {publicationHeadResolution.draftId === threatDraft.draft_id &&
               publicationHeadResolution.loading ? (
                 <p className="module-muted" role="status" data-testid="publication-head-loading">
@@ -3527,6 +3563,7 @@ export function StatblockWorkbenchModule() {
                   ].join(":")}
                   draft={threatDraft}
                   expectedParentRevisionId={publicationHeadResolution.head}
+                  onDockModelChange={setPublicationDock}
                   resolveExpectedParentRevisionId={async () => {
                     const status = await getWorldGraphBootstrapStatus();
                     const bootstrapHead =

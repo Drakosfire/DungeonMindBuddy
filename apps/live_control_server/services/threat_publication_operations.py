@@ -338,10 +338,12 @@ def begin_publication_operation(
             )
 
         if ledger.active_operation_id is not None:
+            active = _find_operation(ledger, ledger.active_operation_id)
             return PublicationOperationOutcome(
                 _response(
                     safe_draft,
                     "publication_busy",
+                    operation=active,
                     message="another publication operation is active for this draft",
                 ),
                 created=False,

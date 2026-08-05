@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -4413,8 +4413,11 @@ describe("StatblockWorkbenchModule", () => {
 
     it("shows Publish Threat for mechanics_saved draft when bootstrap head resolves", async () => {
       await loadMechanicsSavedDraft();
-      expect(screen.getByTestId("publish")).toBeTruthy();
-      expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
+      await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
+      const dock = screen.getByTestId("workbench-edit-dock");
+      expect(within(dock).getByTestId("publish")).toBeTruthy();
+      expect(within(dock).getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
     });
 
     it("refreshes ThreatDraft after Accept mechanics_saved so Publish mounts in-session", async () => {
@@ -4457,8 +4460,8 @@ describe("StatblockWorkbenchModule", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("threat-publication-panel")).toBeTruthy();
+        expect(within(screen.getByTestId("workbench-edit-dock")).getByTestId("publish")).toBeTruthy();
       });
-      expect(screen.getByTestId("publish")).toBeTruthy();
       expect(getDraft.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -4493,7 +4496,7 @@ describe("StatblockWorkbenchModule", () => {
       expect(beginSpy).not.toHaveBeenCalled();
     });
 
-    it("keeps accept/editor chrome after mounting publication and beginning publish", async () => {
+    it("keeps editor chrome and updates the floating dock after beginning publish", async () => {
       vi.spyOn(liveApi, "beginThreatPublicationOperation").mockResolvedValue({
         schema: "dmb_threat_publication_operation_response_v1",
         draft_id: DRAFT_ID,
@@ -4505,19 +4508,22 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
       expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
       expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
+      await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
+      expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
       await user.click(screen.getByTestId("publish"));
       await waitFor(() => {
         expect(screen.queryByTestId("publish")).toBeNull();
+        expect(screen.getByTestId("publication-dock-status").textContent).toMatch(
+          /another publication is active/i,
+        );
       });
       expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
     });
 
     it("removes publication panel when switching away from mechanics_saved draft", async () => {
       const user = await loadMechanicsSavedDraft();
-      expect(screen.getByTestId("publish")).toBeTruthy();
+      await waitFor(() => expect(screen.getByTestId("publish")).toBeTruthy());
 
       const candB = "cand_draft_b";
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({

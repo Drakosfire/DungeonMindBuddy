@@ -667,6 +667,7 @@ def test_published_false_zero_lookup_uncommitted(tmp_path: Path, monkeypatch) ->
             contribution_ids=[],
             accepted_assertion_ids=[],
             published=False,
+            diagnostics=["merge_failed:node assertion assertion:x has unresolved evidence references"],
         )
 
     outcome = commit_svc.confirm_threat_publication(
@@ -685,6 +686,9 @@ def test_published_false_zero_lookup_uncommitted(tmp_path: Path, monkeypatch) ->
     assert outcome.response.commit is not None
     assert outcome.response.commit.state == "uncommitted"
     assert outcome.response.retry_allowed is False
+    assert outcome.response.message is not None
+    assert "unresolved evidence" in outcome.response.message
+    assert "Cancel this publication" in outcome.response.message
 
 
 def test_missing_get_creates_no_commit_dirs(tmp_path: Path, monkeypatch) -> None:

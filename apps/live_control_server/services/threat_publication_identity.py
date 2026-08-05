@@ -61,6 +61,7 @@ from apps.live_control_server.services.world_graph_projection import (
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjection,
+    WorldGraphProjectionAttributeView,
     WorldGraphProjectionNodeView,
     WorldGraphProjectionRelationshipView,
     WorldGraphProjectionRequest,
@@ -363,6 +364,31 @@ def _candidate_from_node(
     )
 
 
+def _has_identity_surface_match(match_reasons: list[str]) -> bool:
+    """True when a candidate matched on node identity surfaces (id/label/alias).
+
+    Attribute-/kind-/summary-only hits are too loose for connect-or-create:
+    place tokens in a draft name (e.g. "Mireward Latchling") otherwise surface
+    unrelated Mireward-linked threats as false positives.
+    """
+    for reason in match_reasons:
+        if reason in {
+            "exact_node_id",
+            "exact_label",
+            "exact_alias",
+            "label_phrase",
+            "alias_phrase",
+        }:
+            return True
+        if reason.startswith("token:") and (
+            reason.endswith(":node_id")
+            or reason.endswith(":label")
+            or reason.endswith(":alias")
+        ):
+            return True
+    return False
+
+
 def _compose_candidate_set(
     *,
     draft_id: str,
@@ -394,8 +420,12 @@ def _compose_candidate_set(
     ranked_non_collision: list[tuple[WorldGraphProjectionNodeView, int]] = []
     collision_ids = {node.node_id for node in collision_nodes}
     for node, score in ranked:
-        if node.node_id not in collision_ids:
-            ranked_non_collision.append((node, score))
+        if node.node_id in collision_ids:
+            continue
+        # Drop attribute/context-only advisory hits (place-name leakage).
+        if not _has_identity_surface_match(match_reasons.get(node.node_id, [])):
+            continue
+        ranked_non_collision.append((node, score))
 
     remaining_slots = MAX_TOTAL_CANDIDATES - exact_collision_count
     advisory_limit = min(SUGGESTED_ADVISORY_CANDIDATES, remaining_slots)
@@ -1217,10 +1247,12 @@ def build_projection_fixture(
     campaign_id: str = "campaign_1",
     nodes: list[WorldGraphProjectionNodeView] | None = None,
     relationships: list[WorldGraphProjectionRelationshipView] | None = None,
+    attributes: list[WorldGraphProjectionAttributeView] | None = None,
 ) -> WorldGraphProjection:
     """Test helper: minimal typed projection pinned to one revision head."""
     node_list = list(nodes or [])
     rel_list = list(relationships or [])
+    attr_list = list(attributes or [])
     return WorldGraphProjection(
         schema="dmb_world_graph_projection_v1",
         snapshot=WorldGraphProjectionSnapshot(
@@ -1236,13 +1268,13 @@ def build_projection_fixture(
         summary=WorldGraphProjectionSummary(
             node_count=len(node_list),
             relationship_count=len(rel_list),
-            attribute_count=0,
+            attribute_count=len(attr_list),
             evidence_count=0,
             source_artifact_count=0,
         ),
         nodes=node_list,
         relationships=rel_list,
-        attributes=[],
+        attributes=attr_list,
         evidence=[],
         source_artifacts=[],
         trust_boundary=WorldGraphProjectionTrustBoundary(),
