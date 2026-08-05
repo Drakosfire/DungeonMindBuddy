@@ -477,15 +477,20 @@ def test_definition_digest_mismatch_is_integrity() -> None:
     )
     client = MagicMock()
     client.get_exact_revision.return_value = _exact(
-        "sb_digest001", "rev_digest001", DIGEST_B
+        "sb_digest001",
+        "rev_digest001",
+        DIGEST_B,
+        definition=_variant_b_definition(),
     )
     response = query_threats_with_hydration(
         _request(),
         project_fn=lambda *_a, **_k: proj,
         client=client,
     )
-    assert response.hits[0].bindings[0].hydration_status == "integrity_failure"
-    assert response.hits[0].bindings[0].revision is None
+    binding_result = response.hits[0].bindings[0]
+    assert binding_result.hydration_status == "integrity_failure"
+    assert binding_result.revision is None
+    assert binding_result.message == "definition_digest mismatch"
 
 
 def test_stale_digest_with_tampered_mechanics_is_integrity_failure() -> None:

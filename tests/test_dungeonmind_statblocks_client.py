@@ -559,7 +559,7 @@ def test_exact_revision_rejects_non_published_path_ids() -> None:
 
 
 def test_exact_revision_fixture_retains_identity() -> None:
-    payload = _reseal_exact_revision_payload(_fixture("exact-revision-response.json"))
+    payload = _fixture("exact-revision-response.json")
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers.get(INTERNAL_KEY_HEADER) == SECRET
@@ -905,8 +905,6 @@ def test_create_to_exact_read_identity_match() -> None:
     transcript = _fixture("server_transcripts/create_to_exact_read.json")
     create_body = json.loads(json.dumps(transcript["create_response"]["json"]))
     read_body = json.loads(json.dumps(transcript["exact_read_response"]["json"]))
-    create_body["revision"] = _reseal_revision_payload(create_body["revision"])
-    read_body = _reseal_revision_payload(read_body)
     observed_paths: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
