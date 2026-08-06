@@ -414,3 +414,120 @@ def test_service_unpinned_uses_new_head_after_advance(
     assert at_head_b.snapshot.revision_id == revision_b
     assert at_head_b is not at_head_a
     assert observation.projection_cache_status == "miss"
+
+
+def test_blank_campaign_invalid_request_precedes_storage_error(tmp_path: Path) -> None:
+    """Blank campaign_id must fail as invalid_request before missing-world storage."""
+    blank = WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id="   ",
+    )
+    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
+        project_world_graph(blank, root=tmp_path)
+    assert exc_info.value.code == "invalid_request"
+    assert exc_info.value.status_code == 400
+    observation = _observation()
+    assert observation.campaign_id == "   "
+    assert observation.graph_payload_reads_this_request == 0
+    assert observation.revision_manifest_reads_this_request == 0
+
+
+def test_service_emits_observation_on_storage_error(tmp_path: Path) -> None:
+    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
+        project_world_graph(_request(), root=tmp_path)
+    assert exc_info.value.code == "world_graph_unavailable"
+    observation = _observation()
+    assert observation.world_id == WORLD_ID
+    assert observation.campaign_id == CAMPAIGN_ID
+
+
+def test_mismatched_projection_context_is_rejected(tmp_path: Path) -> None:
+    _initialize(tmp_path)
+    other = tmp_path / "other-root"
+    other.mkdir()
+    _initialize(other)
+
+    request = _request()
+    foreign_context = kernel.resolve_projection_read_context(other, request)
+    with pytest.raises(kernel.WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph_from_context(tmp_path, request, foreign_context)
+    assert exc_info.value.code == "projection_internal_error"
+    assert "resolved_root" in str(exc_info.value.diagnostics[0].message)
+
+
+def test_deterministic_read_counts_across_focus_pin_and_clear(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from graph_memory.projection.world_projection import WorldGraphProjectionFocus
+
+    monkeypatch.setenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", "0")
+    _initialize(tmp_path)
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    pinned_revision = _historical_revision(tmp_path, head.head_revision_id)
+
+    cold = project_world_graph(_request(), root=tmp_path)
+    cold_obs = _observation()
+    assert cold_obs.resident_status == "miss"
+    assert cold_obs.graph_payload_reads_this_request == 1
+    assert cold_obs.revision_manifest_reads_this_request == 1
+    assert cold_obs.contribution_reads_this_request > 0
+    cold_contributions = cold_obs.contribution_reads_this_request
+
+    warm = project_world_graph(_request(), root=tmp_path)
+    warm_obs = _observation()
+    assert warm.snapshot.revision_id == cold.snapshot.revision_id
+    assert warm_obs.resident_status == "hit"
+    assert warm_obs.graph_payload_reads_this_request == 0
+    assert warm_obs.revision_manifest_reads_this_request == 0
+    assert warm_obs.contribution_reads_this_request == 0
+    assert warm_obs.source_index_reads_this_request == 0
+
+    focused = WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        focus=WorldGraphProjectionFocus(kind="session", session_id=FOCUS_SESSION_ID),
+    )
+    focus_proj = project_world_graph(focused, root=tmp_path)
+    focus_obs = _observation()
+    assert focus_proj.snapshot.focus.kind == "session"
+    assert focus_obs.resident_status == "hit"
+    assert focus_obs.graph_payload_reads_this_request == 0
+    assert focus_obs.contribution_reads_this_request == 0
+
+    # Admit the historical pin before head advances so the later pinned request
+    # can prove selected-resident reuse.
+    project_world_graph(_request(revision_pin=pinned_revision), root=tmp_path)
+
+    published = kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        kernel.load_world_graph_revision(tmp_path, WORLD_ID, head.head_revision_id),
+        operation_ids=["op:test-deterministic-pin-after-advance"],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    assert published.revision.revision_id != head.head_revision_id
+
+    pinned = project_world_graph(
+        _request(revision_pin=pinned_revision),
+        root=tmp_path,
+    )
+    pinned_obs = _observation()
+    assert pinned.snapshot.revision_id == pinned_revision
+    assert pinned.snapshot.head_revision_id == published.revision.revision_id
+    # Selected pin is a resident hit; only the new head may cold-load.
+    assert pinned_obs.resident_status == "hit"
+    assert pinned_obs.graph_payload_reads_this_request == 1
+    assert pinned_obs.revision_manifest_reads_this_request == 1
+    assert pinned_obs.contribution_reads_this_request == cold_contributions
+
+    kernel.clear_world_read_runtime()
+    clear_projection_cache()
+    post_clear = project_world_graph(_request(), root=tmp_path)
+    post_clear_obs = _observation()
+    assert post_clear.snapshot.revision_id == published.revision.revision_id
+    assert post_clear_obs.resident_status == "miss"
+    assert post_clear_obs.graph_payload_reads_this_request == 1
+    assert post_clear_obs.revision_manifest_reads_this_request == 1
+    assert post_clear_obs.contribution_reads_this_request > 0

@@ -107,10 +107,12 @@ from graph_memory.kernel.world_projection import (
     project_world_graph_from_context,
     resolve_projection_admissibility,
     search_world_graph_projection,
+    validate_projection_request_policy,
 )
 from graph_memory.kernel.world_read_runtime import (
     ProjectionReadContext,
     ProjectionRequestObservation,
+    RequestIoCounters,
     ResidentRevision,
     begin_request_io,
     clear_world_read_runtime,
@@ -261,11 +263,13 @@ __all__ = [
     "load_world_graph_revision_with_integrity",
     "project_world_graph",
     "project_world_graph_from_context",
+    "RequestIoCounters",
     "reset_request_io",
     "resolve_projection_admissibility",
     "resolve_projection_read_context",
     "search_world_graph_projection",
     "set_last_projection_observation",
+    "validate_projection_request_policy",
     # Retrieval + source-anchor admission (PR010A)
     "WorldGraphRetrievalError",
     "get_campaign_object",

@@ -749,6 +749,11 @@ def _assert_campaign_scope(request: WorldGraphProjectionRequest, store: UnionSup
     ``campaign_id`` label from bootstrap; it is not a projection hard gate.
     """
     del store  # legacy store.campaign_id is intentionally unused
+    _assert_request_campaign_policy(request)
+
+
+def _assert_request_campaign_policy(request: WorldGraphProjectionRequest) -> None:
+    """Request-only campaign/scope checks that must precede durable reads."""
     campaign_id = (request.campaign_id or "").strip()
     if not campaign_id:
         raise WorldGraphProjectionError(
@@ -775,6 +780,26 @@ def _assert_campaign_scope(request: WorldGraphProjectionRequest, store: UnionSup
                 )
             ],
         )
+
+
+def validate_projection_request_policy(
+    request: WorldGraphProjectionRequest,
+) -> WorldGraphProjectionRequest:
+    """Revalidate request-only policy before any world storage access."""
+    try:
+        validated = WorldGraphProjectionRequest.model_validate(
+            request.model_dump(mode="json")
+        )
+    except Exception as exc:
+        raise WorldGraphProjectionError(
+            "Projection request is invalid.",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[_diagnostic("invalid_request", str(exc))],
+        ) from exc
+    resolve_projection_admissibility(validated.admissibility)
+    _assert_request_campaign_policy(validated)
+    return validated
 
 
 def _effective_focus_campaign_id(
@@ -2539,17 +2564,13 @@ def build_projection_payload(
     return projection
 
 
-def project_world_graph_from_context(
+def _assert_projection_read_context_matches_request(
     root: Path,
     request: WorldGraphProjectionRequest,
     context: Any,
-) -> WorldGraphProjection:
-    """Build a projection from an already-resolved resident read context."""
-    from graph_memory.kernel.world_read_runtime import (
-        ProjectionReadContext,
-        reset_active_resident,
-        set_active_resident,
-    )
+) -> None:
+    """Refuse mismatched resident contexts before building a projection payload."""
+    from graph_memory.kernel.world_read_runtime import ProjectionReadContext
 
     if not isinstance(context, ProjectionReadContext):
         raise WorldGraphProjectionError(
@@ -2558,6 +2579,52 @@ def project_world_graph_from_context(
             status_code=500,
             diagnostics=[_diagnostic("projection_internal_error", "invalid read context")],
         )
+
+    resolved_root = str(root.resolve())
+    selected = context.selected
+    head = context.head
+    mismatches: list[str] = []
+    if selected.key.resolved_root != resolved_root or head.key.resolved_root != resolved_root:
+        mismatches.append("resolved_root")
+    if selected.key.world_id != request.world_id or head.key.world_id != request.world_id:
+        mismatches.append("world_id")
+    if context.selected_revision_id != selected.key.revision_id:
+        mismatches.append("selected_revision_id")
+    if context.head_revision_id != head.key.revision_id:
+        mismatches.append("head_revision_id")
+    if request.revision_pin:
+        if context.selected_revision_id != request.revision_pin:
+            mismatches.append("revision_pin")
+    elif context.selected_revision_id != context.head_revision_id:
+        mismatches.append("unpinned_selected_head")
+    elif selected.key != head.key:
+        mismatches.append("unpinned_resident_key")
+    if mismatches:
+        raise WorldGraphProjectionError(
+            "Projection read context does not match the projection request.",
+            code="projection_internal_error",
+            status_code=500,
+            diagnostics=[
+                _diagnostic(
+                    "projection_internal_error",
+                    "context/request mismatch: " + ", ".join(mismatches),
+                )
+            ],
+        )
+
+
+def project_world_graph_from_context(
+    root: Path,
+    request: WorldGraphProjectionRequest,
+    context: Any,
+) -> WorldGraphProjection:
+    """Build a projection from an already-resolved resident read context."""
+    from graph_memory.kernel.world_read_runtime import (
+        reset_active_resident,
+        set_active_resident,
+    )
+
+    _assert_projection_read_context_matches_request(root, request, context)
 
     token = set_active_resident(context.selected)
     try:
@@ -2582,19 +2649,7 @@ def project_world_graph(
         resolve_projection_read_context,
     )
 
-    try:
-        request = WorldGraphProjectionRequest.model_validate(
-            request.model_dump(mode="json")
-        )
-    except Exception as exc:
-        raise WorldGraphProjectionError(
-            "Projection request is invalid.",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[_diagnostic("invalid_request", str(exc))],
-        ) from exc
-
-    resolve_projection_admissibility(request.admissibility)
+    request = validate_projection_request_policy(request)
     begin_request_io()
 
     try:
@@ -2764,6 +2819,8 @@ __all__ = [
     "build_projection_payload",
     "load_world_graph_revision_with_integrity",
     "project_world_graph",
+    "project_world_graph_from_context",
     "resolve_projection_admissibility",
     "search_world_graph_projection",
+    "validate_projection_request_policy",
 ]

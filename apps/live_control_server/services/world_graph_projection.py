@@ -106,6 +106,20 @@ def _emit_observation(observation: kernel.ProjectionRequestObservation) -> None:
     )
 
 
+def _sync_observation_from_counters(
+    observation: kernel.ProjectionRequestObservation,
+    counters: kernel.RequestIoCounters,
+) -> None:
+    observation.resident_status = counters.last_resident_status
+    observation.resident_wait_ms = counters.resident_wait_ms
+    observation.cold_load_ms = counters.cold_load_ms
+    observation.resident_revision_count = kernel.get_world_read_runtime().resident_count()
+    observation.graph_payload_reads_this_request = counters.graph_payload_reads
+    observation.revision_manifest_reads_this_request = counters.revision_manifest_reads
+    observation.contribution_reads_this_request = counters.contribution_reads
+    observation.source_index_reads_this_request = counters.source_index_reads
+
+
 def project_world_graph(
     request: WorldGraphProjectionRequest,
     *,
@@ -118,6 +132,11 @@ def project_world_graph(
         campaign_id=request.campaign_id,
     )
     try:
+        # Request-only policy must win over storage failures.
+        request = kernel.validate_projection_request_policy(request)
+        observation.world_id = request.world_id
+        observation.campaign_id = request.campaign_id
+
         head_started = time.perf_counter()
         context = kernel.resolve_projection_read_context(graph_root, request)
         observation.head_resolution_ms = (time.perf_counter() - head_started) * 1000.0
@@ -126,14 +145,7 @@ def project_world_graph(
         observation.selected_resident_generation = context.selected.generation
         observation.head_resident_generation = context.head.generation
         observation.backing_health = context.selected.backing_health
-        observation.resident_status = counters.last_resident_status
-        observation.resident_wait_ms = counters.resident_wait_ms
-        observation.cold_load_ms = counters.cold_load_ms
-        observation.resident_revision_count = kernel.get_world_read_runtime().resident_count()
-        observation.graph_payload_reads_this_request = counters.graph_payload_reads
-        observation.revision_manifest_reads_this_request = counters.revision_manifest_reads
-        observation.contribution_reads_this_request = counters.contribution_reads
-        observation.source_index_reads_this_request = counters.source_index_reads
+        _sync_observation_from_counters(observation, counters)
 
         cache_enabled = _service_cache_enabled()
         cache_key = None
@@ -173,8 +185,14 @@ def project_world_graph(
         _emit_observation(observation)
         return projection
     except kernel.WorldGraphProjectionError as exc:
+        _sync_observation_from_counters(observation, counters)
+        kernel.set_last_projection_observation(observation)
+        _emit_observation(observation)
         raise _map_kernel_error(exc) from None
     except Exception:
+        _sync_observation_from_counters(observation, counters)
+        kernel.set_last_projection_observation(observation)
+        _emit_observation(observation)
         raise WorldGraphProjectionServiceError(
             "World graph projection failed unexpectedly.",
             code="projection_internal_error",
