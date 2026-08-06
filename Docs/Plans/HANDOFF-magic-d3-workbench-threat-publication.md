@@ -12,15 +12,15 @@ PR / branch: optional transport metadata only
 
 Verification pointer
 
-Base/head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / d1123dd08ab925964de4c9d54634f58ec908be14
+Base/head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / 855a6877f9d0d15eb4e663290f54bbfb73585661 (dogfood implementation head: d1123dd0)
 
-Changed paths: 22 cumulative branch paths from b6d1df07 through implementation head d1123dd0; corrective ownership and verification are recorded in §4, §6E, and §7.
+Changed paths: 22 cumulative branch paths from b6d1df07 through d1123dd0 plus the corrective contract commit 855a6877; corrective ownership and verification are recorded in §4, §6E, and §7.
 
 Verification: owning backend identity/operation/proposal/commit tests and the frontend publication/workbench suite; exact commands and results are recorded in §7.
 
 HANDOFF — Workbench governed Threat publication bridge
 
-Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion at head d1123dd0.
+Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion at head 855a6877 (dogfood implementation head d1123dd0).
 
 Canonical handoff path: Docs/Plans/HANDOFF-magic-d3-workbench-threat-publication.md
 Conversation name: MAGIC-D3 Workbench Publication Bridge
