@@ -70,6 +70,9 @@ function baseContext(
     items: [searchItem(glowkindleNode)],
     selectCampaign: vi.fn(),
     viewExact: vi.fn(),
+    insertAvailable: true,
+    insertExact: vi.fn(),
+    insertionError: null,
     ...overrides,
   };
 }
@@ -114,19 +117,53 @@ describe("BuildReferenceSearchProjection", () => {
     expect(screen.queryByTestId("graph-reference-search")).not.toBeInTheDocument();
   });
 
-  it("ready state shows View without Insert and lens summary", async () => {
+  it("ready state shows View and Insert when available and lens summary", async () => {
     const user = userEvent.setup();
     const viewExact = vi.fn();
+    const insertExact = vi.fn();
 
-    renderWithContext(baseContext({ viewExact }));
+    renderWithContext(baseContext({ viewExact, insertExact, insertAvailable: true }));
 
     expect(screen.getByTestId("build-reference-lens-summary")).toHaveTextContent(
       "longmont-c1 · Current head · loaded rev-head",
     );
     await user.type(screen.getByLabelText("Find objects"), "glow");
-    expect(screen.queryByRole("button", { name: "Insert chip" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Insert chip" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(viewExact).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-glowkindle" }));
+    await user.click(screen.getByRole("button", { name: "Insert chip" }));
+    expect(insertExact).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-glowkindle" }));
+  });
+
+  it("ready state disables Insert while keeping View when insertAvailable is false", async () => {
+    const user = userEvent.setup();
+    const viewExact = vi.fn();
+
+    renderWithContext(
+      baseContext({
+        viewExact,
+        insertAvailable: false,
+        insertDisabledReason: "Unlock editing to insert chips into the board.",
+      }),
+    );
+
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(/Unlock editing to insert chips/i);
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(viewExact).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-glowkindle" }));
+  });
+
+  it("shows bounded insertion error from context", () => {
+    renderWithContext(
+      baseContext({
+        insertionError: "Reference scope does not match the current projection.",
+      }),
+    );
+
+    expect(screen.getByTestId("build-reference-insertion-error")).toHaveTextContent(
+      "Reference scope does not match the current projection.",
+    );
   });
 
   it("does not label a non-head snapshot as Current head", () => {

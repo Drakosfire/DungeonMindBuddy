@@ -49,6 +49,10 @@ export interface BuildReferenceContextBinding {
   items: readonly GraphReferenceSearchItem[];
   selectCampaign: (campaignId: string) => void;
   viewExact: (item: GraphReferenceSearchItem) => void;
+  insertAvailable: boolean;
+  insertDisabledReason?: string;
+  insertExact: (item: GraphReferenceSearchItem) => void | Promise<void>;
+  insertionError?: string | null;
 }
 
 export interface BuildDocumentSavePublication {

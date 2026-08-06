@@ -18,6 +18,8 @@ function isBuildReferenceContextBinding(value: unknown): value is BuildReference
     && typeof candidate.loadedIsHead === "boolean"
     && typeof candidate.selectCampaign === "function"
     && typeof candidate.viewExact === "function"
+    && typeof candidate.insertExact === "function"
+    && typeof candidate.insertAvailable === "boolean"
   );
 }
 
@@ -173,11 +175,29 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
       <p className="build-reference-search-projection__lens" data-testid="build-reference-lens-summary">
         {campaignLabel} · {revisionSummary}
       </p>
+      {context.insertionError ? (
+        <p
+          className="build-reference-search-projection__status build-reference-search-projection__status--error"
+          role="alert"
+          data-testid="build-reference-insertion-error"
+        >
+          {context.insertionError}
+        </p>
+      ) : null}
       <GraphReferenceSearch
         items={context.items}
         projectionState={context.projectionState}
         projectionError={context.projectionError}
         onView={context.viewExact}
+        onInsert={(attrs) => {
+          const item = context.items.find(
+            (entry) => entry.nodeId === attrs.refId || entry.reference.refId === attrs.refId,
+          );
+          if (item) {
+            void context.insertExact(item);
+          }
+        }}
+        insertDisabled={!context.insertAvailable}
       />
     </section>
   );

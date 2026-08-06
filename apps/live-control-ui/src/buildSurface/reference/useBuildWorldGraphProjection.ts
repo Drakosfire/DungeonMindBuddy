@@ -6,6 +6,8 @@ import type {
   WorldGraphProjectionRequest,
 } from "../../api/types";
 import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
+import { extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
+import { referenceAttrsWithExactScope } from "../../graphReference/scopedGraphReference";
 import type {
   GraphReferenceProjectionState,
   GraphReferenceSearchItem,
@@ -60,8 +62,10 @@ function adaptProjectionSearchItems(
   projection: WorldGraphProjection,
   scopeCampaignId: string,
 ): GraphReferenceSearchItem[] {
+  const scope = extractExactGraphReferenceScope(projection);
   return projection.nodes.map((node) => {
     const nodeView = adaptWorldGraphNodeView(node);
+    const baseReference = referenceFromGraphNode(nodeView);
     return {
       nodeId: nodeView.node_id,
       label: nodeView.label,
@@ -70,7 +74,7 @@ function adaptProjectionSearchItems(
       summary: nodeView.summary ?? null,
       aliases: nodeView.aliases ?? [],
       scopeLabel: nodeView.campaign_scope ?? scopeCampaignId,
-      reference: referenceFromGraphNode(nodeView),
+      reference: scope ? referenceAttrsWithExactScope(baseReference, scope) : baseReference,
       nodeView,
     };
   });

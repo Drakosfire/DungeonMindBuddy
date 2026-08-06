@@ -150,6 +150,12 @@ describe("useBuildWorldGraphProjection", () => {
     expect(result.current.loadedRevisionId).toBe("rev-head");
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0]?.nodeId).toBe("npc-glowkindle");
+    expect(result.current.items[0]?.reference).toMatchObject({
+      graphWorldId: "eldyrwild",
+      graphCampaignId: "longmont-c1",
+      graphScopeMode: "campaign",
+      graphRevisionId: "rev-head",
+    });
   });
 
   it("requests pinned projection with exact revision id", async () => {
@@ -178,6 +184,9 @@ describe("useBuildWorldGraphProjection", () => {
     expect(result.current.revisionMode).toBe("pinned");
     expect(result.current.requestedRevisionId).toBe(pinnedRevision);
     expect(result.current.loadedRevisionId).toBe(pinnedRevision);
+    expect(result.current.items[0]?.reference).toMatchObject({
+      graphRevisionId: pinnedRevision,
+    });
   });
 
   it("fails closed on pinned revision mismatch without head retry", async () => {

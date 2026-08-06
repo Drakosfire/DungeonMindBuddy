@@ -1,12 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import {
+  GraphNodeChipRuntimeProvider,
+} from "../../graphReference/GraphNodeChipRuntime";
+import type { GraphNodeChipRuntimeValue } from "../../graphReference/types";
+import {
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
 } from "../../graphReference/projectionBindings";
 import { resolveGraphReference, extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
+import {
+  exactScopeFromReferenceAttrs,
+  exactScopesEqual,
+} from "../../graphReference/scopedGraphReference";
 import type {
   ExactGraphReferenceScope,
   GraphReferenceProjectionState,
@@ -14,6 +22,14 @@ import type {
   GraphReferenceSearchItem,
 } from "../../graphReference/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import {
+  GRAPH_NODE_REF_TYPE,
+  graphScopePresence,
+  isSupportedRunbookReference,
+  normalizeRunbookReferenceAttrs,
+  type RunbookReferenceAttrs,
+} from "../../tiptap/references/runbookReferences";
+import type { GraphProjectionNodeView } from "../../api/types";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
@@ -50,6 +66,13 @@ export const buildViewExactTestSeam = {
     this.lastGraphNodeId = null;
     this.lastGraphScope = null;
   },
+};
+
+type PendingActivation = {
+  documentId: string;
+  attrs: RunbookReferenceAttrs;
+  scope: ExactGraphReferenceScope;
+  generation: number;
 };
 
 function subscribeToLocationSearch(onStoreChange: () => void): () => void {
@@ -191,11 +214,14 @@ export interface BuildReferenceCapabilityProps {
 
 export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilityProps) {
   const session = useOptionalMarkdownCanvasSession();
+  const [insertionError, setInsertionError] = useState<string | null>(null);
+  const [pendingActivation, setPendingActivation] = useState<PendingActivation | null>(null);
   const {
     openGraphReference,
     openTool,
     registerGraphReferenceBinding,
     registerProjectionCatalog,
+    graphReferenceBinding,
   } = useAgentInteraction();
   const locationSearch = useSyncExternalStore(
     subscribeToLocationSearch,
@@ -251,6 +277,23 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
   projectionGenerationRef.current = projection.generation;
   const relationshipResolveGenerationRef = useRef<number | null>(null);
   const relationshipResolveLoadKeyRef = useRef<string | null>(null);
+  const pendingGenerationRef = useRef(0);
+
+  const saveMountedRef = useRef(false);
+  const liveDocumentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    saveMountedRef.current = true;
+    liveDocumentIdRef.current = documentId;
+    setPendingActivation(null);
+    pendingGenerationRef.current += 1;
+    setInsertionError(null);
+    return () => {
+      saveMountedRef.current = false;
+      liveDocumentIdRef.current = null;
+      setPendingActivation(null);
+      pendingGenerationRef.current += 1;
+    };
+  }, [documentId]);
 
   const selectCampaign = useCallback((campaignId: string) => {
     if (typeof window === "undefined") return;
@@ -296,6 +339,305 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     [openGraphReference, projection.items, projection.loadKey, projection.projection, projection.state],
   );
 
+  const openResolvedGraphNode = useCallback(
+    (input: {
+      nodeId: string;
+      reference: RunbookReferenceAttrs;
+      graphScope: ExactGraphReferenceScope;
+    }) => {
+      const authorizedKey = authorizedLoadKeyRef.current;
+      const liveKey = liveLoadKeyRef.current;
+      if (!authorizedKey || authorizedKey !== liveKey) return;
+      if (projection.state !== "ready") return;
+      const canonical = projection.items.find((entry) => entry.nodeId === input.nodeId);
+      if (!canonical) return;
+
+      openGraphReference({
+        resolution: {
+          kind: "resolved_graph",
+          locator: `dmb-node:${input.nodeId}`,
+          reference: input.reference,
+          graphNodeId: input.nodeId,
+          graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
+          graphScope: input.graphScope,
+          projectionState: projection.state,
+          message: `Resolved graph node ${canonical.label}.`,
+        },
+        projectionState: projection.state,
+      });
+    },
+    [openGraphReference, projection.items, projection.state],
+  );
+
+  const insertExact = useCallback(
+    async (item: GraphReferenceSearchItem) => {
+      if (!saveMountedRef.current) return;
+      if (liveDocumentIdRef.current !== documentId) return;
+
+      const authorizedKey = authorizedLoadKeyRef.current;
+      const liveKey = liveLoadKeyRef.current;
+      if (!authorizedKey || authorizedKey !== liveKey) {
+        setInsertionError("Graph projection is stale; refresh search and try again.");
+        return;
+      }
+      if (projection.state !== "ready") return;
+
+      const canonical = projection.items.find((entry) => entry.nodeId === item.nodeId);
+      if (!canonical) {
+        setInsertionError("Selected node is no longer in the current projection.");
+        return;
+      }
+
+      const projectionScope = extractExactGraphReferenceScope(projection.projection);
+      const itemScope = exactScopeFromReferenceAttrs(canonical.reference);
+      if (!projectionScope || !itemScope || !exactScopesEqual(itemScope, projectionScope)) {
+        setInsertionError("Reference scope does not match the current projection.");
+        return;
+      }
+
+      if (!session || session.documentId !== documentId) return;
+      const admission = session.lookupAdmission("editable");
+      if (!admission.ok) {
+        setInsertionError(
+          admission.detail?.trim() || "Unlock editing to insert chips into the board.",
+        );
+        return;
+      }
+
+      const result = await session.insertReference(canonical.reference);
+      if (!saveMountedRef.current || liveDocumentIdRef.current !== documentId) return;
+      if (!result.ok) {
+        setInsertionError(result.reason?.trim() || "Could not insert reference.");
+        return;
+      }
+      setInsertionError(null);
+    },
+    [documentId, projection.items, projection.projection, projection.state, session],
+  );
+
+  const activateChip = useCallback(
+    (rawAttrs: RunbookReferenceAttrs) => {
+      if (!saveMountedRef.current) return;
+      if (!acceptedDocument || liveDocumentIdRef.current !== acceptedDocument.documentId) return;
+
+      const normalized = normalizeRunbookReferenceAttrs(rawAttrs);
+      if (!isSupportedRunbookReference(normalized)) return;
+      if (normalized.refType !== GRAPH_NODE_REF_TYPE) return;
+
+      const scopePresence = graphScopePresence(normalized);
+      if (scopePresence === "partial") return;
+
+      const storedScope = exactScopeFromReferenceAttrs(normalized);
+      const nodeId = normalized.refId;
+
+      if (scopePresence === "none") {
+        const authorizedKey = authorizedLoadKeyRef.current;
+        const liveKey = liveLoadKeyRef.current;
+        if (!authorizedKey || authorizedKey !== liveKey || projection.state !== "ready") return;
+
+        const currentScope = extractExactGraphReferenceScope(projection.projection);
+        if (!currentScope) return;
+
+        const canonical = projection.items.find((entry) => entry.nodeId === nodeId);
+        if (!canonical) {
+          openGraphReference({
+            resolution: {
+              kind: "unresolved",
+              locator: `dmb-node:${nodeId}`,
+              reference: normalized,
+              projectionState: projection.state,
+              message: `Graph node "${nodeId}" was not found in the loaded World Graph projection.`,
+            },
+            projectionState: projection.state,
+          });
+          return;
+        }
+
+        openResolvedGraphNode({
+          nodeId,
+          reference: normalized,
+          graphScope: currentScope,
+        });
+        return;
+      }
+
+      if (!storedScope) return;
+
+      const currentScope = extractExactGraphReferenceScope(projection.projection);
+      const authorizedKey = authorizedLoadKeyRef.current;
+      const liveKey = liveLoadKeyRef.current;
+
+      if (
+        projection.state === "ready"
+        && authorizedKey === liveKey
+        && currentScope
+        && exactScopesEqual(storedScope, currentScope)
+      ) {
+        const canonical = projection.items.find((entry) => entry.nodeId === nodeId);
+        if (!canonical) {
+          openGraphReference({
+            resolution: {
+              kind: "unresolved",
+              locator: `dmb-node:${nodeId}`,
+              reference: normalized,
+              projectionState: projection.state,
+              message: `Graph node "${nodeId}" was not found in the loaded World Graph projection.`,
+            },
+            projectionState: projection.state,
+          });
+          return;
+        }
+
+        openResolvedGraphNode({
+          nodeId,
+          reference: normalized,
+          graphScope: storedScope,
+        });
+        return;
+      }
+
+      const pinLens = resolveBuildGraphLens({
+        documentId: acceptedDocument.documentId,
+        documentCampaignId: acceptedDocument.campaignId,
+        requestedCampaignId: storedScope.campaignId,
+        requestedRevisionId: storedScope.revisionId,
+      });
+      if (pinLens.status === "invalid") return;
+
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+      url.searchParams.set("campaign", storedScope.campaignId);
+      url.searchParams.set("graphRevision", storedScope.revisionId);
+      window.history.replaceState({}, "", url.toString());
+      window.dispatchEvent(new PopStateEvent("popstate"));
+
+      pendingGenerationRef.current += 1;
+      setPendingActivation({
+        documentId: acceptedDocument.documentId,
+        attrs: normalized,
+        scope: storedScope,
+        generation: pendingGenerationRef.current,
+      });
+    },
+    [
+      acceptedDocument,
+      openGraphReference,
+      openResolvedGraphNode,
+      projection.items,
+      projection.projection,
+      projection.state,
+    ],
+  );
+
+  useEffect(() => {
+    const pending = pendingActivation;
+    if (!pending) return;
+    if (!graphReferenceBinding) return;
+    if (liveDocumentIdRef.current !== pending.documentId) {
+      setPendingActivation(null);
+      return;
+    }
+
+    if (projection.state === "error" || projection.state === "unavailable") {
+      setPendingActivation(null);
+      return;
+    }
+
+    if (projection.state !== "ready") return;
+
+    const loadedScope = extractExactGraphReferenceScope(projection.projection);
+    const lensMatchesPending =
+      lens.status === "ready"
+      && lens.campaignId === pending.scope.campaignId
+      && (
+        lens.revision.kind === "pinned"
+          ? lens.revision.revisionId === pending.scope.revisionId
+          : pending.scope.revisionId === projection.loadedRevisionId
+      );
+
+    if (!loadedScope || !exactScopesEqual(loadedScope, pending.scope)) {
+      if (
+        lensMatchesPending
+        && projection.loadedRevisionId === pending.scope.revisionId
+      ) {
+        setPendingActivation(null);
+      }
+      return;
+    }
+
+    const nodeId = pending.attrs.refId;
+    const canonical = projection.items.find((entry) => entry.nodeId === nodeId);
+    if (!canonical) {
+      setPendingActivation(null);
+      openGraphReference({
+        resolution: {
+          kind: "unresolved",
+          locator: `dmb-node:${nodeId}`,
+          reference: pending.attrs,
+          projectionState: projection.state,
+          message: `Graph node "${nodeId}" was not found in the loaded World Graph projection.`,
+        },
+        projectionState: projection.state,
+      });
+      return;
+    }
+
+    const pendingSnapshot = pending;
+    queueMicrotask(() => {
+      if (liveDocumentIdRef.current !== pendingSnapshot.documentId) return;
+      openGraphReference({
+        resolution: {
+          kind: "resolved_graph",
+          locator: `dmb-node:${nodeId}`,
+          reference: pendingSnapshot.attrs,
+          graphNodeId: nodeId,
+          graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
+          graphScope: pendingSnapshot.scope,
+          projectionState: projection.state,
+          message: `Resolved graph node ${canonical.label}.`,
+        },
+        projectionState: projection.state,
+      });
+      setPendingActivation((current) => (
+        current?.generation === pendingSnapshot.generation ? null : current
+      ));
+    });
+  }, [
+    graphReferenceBinding,
+    lens,
+    openGraphReference,
+    pendingActivation,
+    projection.items,
+    projection.loadedRevisionId,
+    projection.projection,
+    projection.state,
+  ]);
+
+  const insertAvailable = useMemo(() => {
+    if (!acceptedDocument || !session) return false;
+    if (session.documentId !== acceptedDocument.documentId) return false;
+    if (EMPTY_PUBLICATION_PHASES.has(session.phase)) return false;
+    const admission = session.lookupAdmission("editable");
+    if (!admission.ok) return false;
+    if (projection.state !== "ready") return false;
+    if (!extractExactGraphReferenceScope(projection.projection)) return false;
+    return authorizedLoadKeyRef.current === liveLoadKeyRef.current;
+  }, [acceptedDocument, projection.projection, projection.state, session]);
+
+  const insertDisabledReason = useMemo(() => {
+    if (insertAvailable) return undefined;
+    if (!acceptedDocument || !session) return "Insert is unavailable for this document.";
+    const admission = session.lookupAdmission("editable");
+    if (!admission.ok) {
+      return admission.detail?.trim() || "Unlock editing to insert chips into the board.";
+    }
+    if (projection.state !== "ready") return "World Graph projection is not ready.";
+    if (!extractExactGraphReferenceScope(projection.projection)) {
+      return "World Graph projection lacks exact scope.";
+    }
+    return "Insert is unavailable for the current graph lens.";
+  }, [acceptedDocument, insertAvailable, projection.projection, projection.state, session]);
+
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
     if (!acceptedDocument) return null;
     return {
@@ -311,9 +653,17 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       items: projection.items,
       selectCampaign,
       viewExact,
+      insertAvailable,
+      insertDisabledReason,
+      insertExact,
+      insertionError,
     };
   }, [
     acceptedDocument,
+    insertAvailable,
+    insertDisabledReason,
+    insertExact,
+    insertionError,
     lens,
     projection.error,
     projection.items,
@@ -334,17 +684,6 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
    * no longer matches the bound identity (Canvas mountedRef alone is checked
    * only after prepare/commit begins).
    */
-  const saveMountedRef = useRef(false);
-  const liveDocumentIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    saveMountedRef.current = true;
-    liveDocumentIdRef.current = documentId;
-    return () => {
-      saveMountedRef.current = false;
-      liveDocumentIdRef.current = null;
-    };
-  }, [documentId]);
-
   const saveDocument = useMemo(() => {
     const boundDocumentId = documentId;
     const boundSession = session;
@@ -463,5 +802,46 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     registerGraphReferenceBinding,
   ]);
 
-  return null;
+  const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
+    if (!catalogActive || !acceptedDocument) {
+      return {
+        nodeViews: {},
+        activeNodeId: null,
+        onSelectNode: () => undefined,
+      };
+    }
+
+    const nodeViews: Record<string, GraphProjectionNodeView> = {};
+    if (projection.state === "ready" && projection.projection) {
+      for (const node of projection.projection.nodes) {
+        nodeViews[node.nodeId] = adaptWorldGraphNodeView(node);
+      }
+    }
+
+    return {
+      nodeViews,
+      activeNodeId: null,
+      onSelectNode: (nodeId: string) => {
+        activateChip({
+          kind: "ref",
+          refType: GRAPH_NODE_REF_TYPE,
+          refId: nodeId,
+          label: nodeViews[nodeId]?.label ?? nodeId,
+        });
+      },
+      onSelectReference: (attrs: RunbookReferenceAttrs) => {
+        activateChip(attrs);
+      },
+    };
+  }, [acceptedDocument, activateChip, catalogActive, projection.projection, projection.state]);
+
+  if (!catalogActive) {
+    return null;
+  }
+
+  return (
+    <GraphNodeChipRuntimeProvider value={chipRuntime}>
+      {null}
+    </GraphNodeChipRuntimeProvider>
+  );
 }
