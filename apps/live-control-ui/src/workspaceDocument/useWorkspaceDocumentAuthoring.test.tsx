@@ -13,7 +13,9 @@ import {
   fixtureWorkspaceDocumentRecord,
 } from "../planSurface/config/planSessionDescriptor";
 import {
+  buildInitialWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
+  writeWorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
 
@@ -207,6 +209,7 @@ describe("useWorkspaceDocumentAuthoring", () => {
     });
 
     act(() => {
+      editor.editTo("Build Source during verify");
       result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
     });
 
@@ -215,6 +218,7 @@ describe("useWorkspaceDocumentAuthoring", () => {
         loaded_revision: 2,
         content_sha256: "sha-committed",
         file_fingerprint: "fp-committed",
+        markdown: "Build Source\n",
         record: fixtureWorkspaceDocumentRecord({
           document_id: BUILD_DOC_ID,
           kind: "worldbuilding_source",
@@ -1287,5 +1291,90 @@ describe("useWorkspaceDocumentAuthoring", () => {
     expect(result.current.snapshot?.loaded_revision).toBe(7);
     expect(result.current.lastCommitReceipt).toBeNull();
     expect(result.current.phase).toBe("ready_clean");
+  });
+
+  it("reopens clean when stale dirty local Markdown is identical to snapshot", async () => {
+    const starter = {
+      type: "doc",
+      content: [{ type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Build Source" }] }],
+    };
+    const stored = buildInitialWorkspaceDocumentLocalState({
+      documentId: BUILD_DOC_ID,
+      title: "Build Source",
+      campaignId: "eldyrwild",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: "sha-committed",
+      starterContent: starter,
+    });
+    stored.dirty = true;
+    writeWorkspaceDocumentLocalState(window.localStorage, stored);
+
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(buildSnapshot({
+      markdown: stored.exported_markdown,
+      content_sha256: "sha-committed",
+      loaded_revision: 2,
+      file_exists: true,
+      file_fingerprint: "fp-committed",
+      record: fixtureWorkspaceDocumentRecord({
+        document_id: BUILD_DOC_ID,
+        kind: "worldbuilding_source",
+        campaign_id: "eldyrwild",
+        target_session: null,
+        revision: 2,
+        content_status: "committed",
+      }),
+    }));
+
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.statusLabel).not.toMatch(/Unsaved local changes/i);
+    expect(result.current.snapshot?.loaded_revision).toBe(2);
+
+    const rewritten = JSON.parse(
+      window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID))!,
+    );
+    expect(rewritten.dirty).toBe(false);
+  });
+
+  it("does not re-dirty on editor update when Markdown still matches the snapshot", async () => {
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(buildSnapshot({
+      markdown: "Build Source\n",
+    }));
+    const editor = createEditor("Build Source");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+    });
+
+    act(() => {
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.phase).toBe("ready_clean");
+    expect(result.current.statusLabel).not.toMatch(/Unsaved local changes/i);
+    const stored = JSON.parse(
+      window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID))!,
+    );
+    expect(stored.dirty).toBe(false);
   });
 });

@@ -33,12 +33,12 @@ describe("buildBareEntryCampaign", () => {
     expect(resolveBareBuildCampaignId({ search: "?campaign=typo" })).toBeNull();
   });
 
-  it("treats blank route campaign as absent and may use last", () => {
+  it("fails closed on blank route campaign (does not fall through to last)", () => {
     expect(resolveBareBuildCampaignId({ search: "?campaign=" })).toBeNull();
     expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBeNull();
     writeBuildLastCampaignId("longmont-c1");
-    expect(resolveBareBuildCampaignId({ search: "?campaign=" })).toBe("longmont-c1");
-    expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBe("longmont-c1");
+    expect(resolveBareBuildCampaignId({ search: "?campaign=" })).toBeNull();
+    expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBeNull();
   });
 
   it("keys auto-create latch by campaign identity", () => {

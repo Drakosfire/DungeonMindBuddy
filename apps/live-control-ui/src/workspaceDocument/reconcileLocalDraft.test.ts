@@ -60,7 +60,7 @@ describe("reconcileLocalDraft", () => {
     expect(result.markdown).toContain("Server body.");
   });
 
-  it("restores dirty local draft when base matches", () => {
+  it("restores dirty local draft when base matches and Markdown differs", () => {
     const local = buildInitialWorkspaceDocumentLocalState({
       documentId: DOC_ID,
       title: "World Lore",
@@ -77,6 +77,26 @@ describe("reconcileLocalDraft", () => {
     const result = reconcileLocalDraft(snapshot(), local);
     expect(result.kind).toBe("dirty-match");
     expect(result.markdown).toBe("# Local edits\n");
+  });
+
+  it("clears stale dirty when base matches and Markdown is byte-identical to snapshot", () => {
+    const snap = snapshot();
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "World Lore",
+      campaignId: "eldyrwild",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: "sha-server",
+      starterContent: { type: "doc", content: [] },
+    });
+    local.dirty = true;
+    local.exported_markdown = snap.markdown;
+    const result = reconcileLocalDraft(snap, local);
+    expect(result.kind).toBe("clean-match");
+    expect(result.markdown).toBe(snap.markdown);
   });
 
   it("enters conflict when dirty local draft base mismatches", () => {

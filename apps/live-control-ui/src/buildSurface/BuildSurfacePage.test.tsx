@@ -18,6 +18,7 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID, BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
+import { writeBuildLastCampaignId } from "./buildBareEntryCampaign";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import {
   BuildSurfacePage,
@@ -325,6 +326,18 @@ describe("BuildSurfacePage", () => {
 
     expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+  });
+
+  it("E2: blank route campaign with remembered campaign still fails closed to picker", async () => {
+    mockUntitledDraftCreate();
+    writeBuildLastCampaignId("longmont-c2");
+    window.history.pushState({}, "", "/build?campaign=");
+
+    renderBuildPage();
+
+    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
   });
 
   it("E2: bare /build create failure shows retry without navigating", async () => {
