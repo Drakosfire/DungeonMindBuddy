@@ -157,6 +157,60 @@ def _build_supports_by_graph_object(
     return {key: tuple(supports) for key, supports in grouped.items()}
 
 
+def _assert_active_support_contribution_closure(
+    store: UnionSupergraphStore,
+    contributions: Mapping[str, GraphContribution],
+) -> None:
+    """Fail closed if any active support lacks its assertion in named contributions."""
+    for raw_support in store.assertion_support.values():
+        support = _parse_support(raw_support)
+        if support.support_state != "supported" or not support.active_contribution_ids:
+            continue
+        active_contribution_ids = set(support.active_contribution_ids)
+        if set(support.per_contribution_evidence_ref_ids) != active_contribution_ids:
+            raise _integrity_error(
+                "Contribution evidence lineage keys do not match active support.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"active_contributions={sorted(active_contribution_ids)!r} "
+                    "per_contribution_evidence_ref_ids="
+                    f"{sorted(support.per_contribution_evidence_ref_ids)!r}"
+                ),
+            )
+        if set(support.per_contribution_source_artifact_ids) != active_contribution_ids:
+            raise _integrity_error(
+                "Contribution source-artifact lineage keys do not match active support.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"active_contributions={sorted(active_contribution_ids)!r} "
+                    "per_contribution_source_artifact_ids="
+                    f"{sorted(support.per_contribution_source_artifact_ids)!r}"
+                ),
+            )
+        for contribution_id in support.active_contribution_ids:
+            contribution = contributions.get(contribution_id)
+            if contribution is None:
+                raise _integrity_error(
+                    f"Contribution record {contribution_id!r} could not be loaded.",
+                    detail=(
+                        f"assertion_id={support.assertion_id!r} "
+                        f"contribution_id={contribution_id!r} missing from "
+                        "cold-admission contribution set"
+                    ),
+                )
+            if not any(
+                candidate.assertion_id == support.assertion_id
+                for candidate in contribution.accepted_assertions
+            ):
+                raise _integrity_error(
+                    "Active contribution does not contain the supported assertion.",
+                    detail=(
+                        f"assertion_id={support.assertion_id!r} "
+                        f"contribution_id={contribution_id!r}"
+                    ),
+                )
+
+
 def _load_source_span_paragraph_text_indexed(
     root: Path,
     store: UnionSupergraphStore,
@@ -238,6 +292,9 @@ class WorldReadRuntime:
         with self._lock:
             self._epoch += 1
             self._ready.clear()
+            # Detach in-flight loads so post-clear callers cannot join them.
+            # Pre-clear waiters still hold their ``_InflightLoad`` references.
+            self._inflight.clear()
 
     def resident_count(self) -> int:
         with self._lock:
@@ -268,7 +325,7 @@ class WorldReadRuntime:
                     return ready
 
                 inflight = self._inflight.get(key)
-                if inflight is not None:
+                if inflight is not None and inflight.epoch == self._epoch:
                     wait_target = inflight
                     is_loader = False
                 else:
@@ -289,6 +346,11 @@ class WorldReadRuntime:
                 if counters is not None:
                     counters.last_resident_status = "coalesced"
                     counters.resident_wait_ms += wait_ms
+                with self._lock:
+                    stale = wait_target.epoch != self._epoch
+                if stale:
+                    # Clear invalidated this coalesced load for return purposes.
+                    continue
                 if wait_target.completion.error is not None:
                     raise wait_target.completion.error
                 assert wait_target.completion.resident is not None
@@ -309,7 +371,11 @@ class WorldReadRuntime:
                 wait_target.completion.error = exc
                 wait_target.event.set()
                 with self._lock:
-                    self._inflight.pop(key, None)
+                    if self._inflight.get(key) is wait_target:
+                        self._inflight.pop(key, None)
+                    stale = wait_target.epoch != self._epoch
+                if stale:
+                    continue
                 raise
 
             load_ms = (time.perf_counter() - load_started) * 1000.0
@@ -330,8 +396,28 @@ class WorldReadRuntime:
                         self._ready.popitem(last=False)
                 wait_target.completion.resident = resident
                 wait_target.event.set()
-                self._inflight.pop(key, None)
+                if self._inflight.get(key) is wait_target:
+                    self._inflight.pop(key, None)
+                stale = wait_target.epoch != self._epoch
+            if stale:
+                # Do not return a pre-clear generation after clear isolation.
+                continue
             return resident
+
+    def _cas_ready_backing_health(
+        self,
+        key: ResidentKey,
+        expected_generation: int,
+        updated: ResidentRevision,
+    ) -> bool:
+        """Replace ready entry only when the same generation is still installed."""
+        with self._lock:
+            current = self._ready.get(key)
+            if current is None or current.generation != expected_generation:
+                return False
+            self._ready[key] = updated
+            self._ready.move_to_end(key)
+            return True
 
     def scrub_resident(
         self,
@@ -346,6 +432,7 @@ class WorldReadRuntime:
         if resident is None:
             return {"status": "miss", "diagnostics": ["resident not loaded"]}
 
+        expected_generation = resident.generation
         try:
             self._verify_backing_integrity(
                 root,
@@ -360,9 +447,14 @@ class WorldReadRuntime:
                 backing_health="unhealthy",
                 unhealthy_diagnostics=tuple(diagnostics),
             )
-            with self._lock:
-                if key in self._ready:
-                    self._ready[key] = updated
+            replaced = self._cas_ready_backing_health(key, expected_generation, updated)
+            if not replaced:
+                return {
+                    "status": "stale",
+                    "diagnostics": [
+                        "resident generation changed during scrub; backing health not applied"
+                    ],
+                }
             return {"status": "unhealthy", "diagnostics": diagnostics}
 
         updated = replace(
@@ -370,9 +462,14 @@ class WorldReadRuntime:
             backing_health="healthy",
             unhealthy_diagnostics=(),
         )
-        with self._lock:
-            if key in self._ready:
-                self._ready[key] = updated
+        replaced = self._cas_ready_backing_health(key, expected_generation, updated)
+        if not replaced:
+            return {
+                "status": "stale",
+                "diagnostics": [
+                    "resident generation changed during scrub; backing health not applied"
+                ],
+            }
         return {"status": "healthy", "diagnostics": []}
 
     def resolve_projection_read_context(
@@ -472,6 +569,7 @@ class WorldReadRuntime:
                 contribution_id,
             )
 
+        _assert_active_support_contribution_closure(store, contributions)
         supports_by_graph_object = _build_supports_by_graph_object(store)
         identity_context = build_union_projection_identity_context(store)
         source_span_paragraph_text = _load_source_span_paragraph_text_indexed(root, store)
@@ -495,7 +593,7 @@ class WorldReadRuntime:
         revision_id: str,
         resident: ResidentRevision,
     ) -> None:
-        _load_revision_store_with_integrity(
+        _revision_id, store = _load_revision_store_with_integrity(
             root,
             world_id,
             revision_id,
@@ -503,8 +601,23 @@ class WorldReadRuntime:
             not_found_message=f"Revision backing verification failed: {revision_id!r}",
             not_found_as_integrity_error=True,
         )
+        del _revision_id
+        contributions: dict[str, GraphContribution] = {}
+        for contribution_id in sorted(_active_contribution_ids(store)):
+            contributions[contribution_id] = _load_validated_contribution_from_disk(
+                root,
+                world_id,
+                contribution_id,
+            )
+        # Also re-check contributions named by the resident generation itself.
         for contribution_id in sorted(resident.contributions):
-            _load_validated_contribution_from_disk(root, world_id, contribution_id)
+            if contribution_id not in contributions:
+                contributions[contribution_id] = _load_validated_contribution_from_disk(
+                    root,
+                    world_id,
+                    contribution_id,
+                )
+        _assert_active_support_contribution_closure(store, contributions)
 
 
 _RUNTIME: WorldReadRuntime | None = None

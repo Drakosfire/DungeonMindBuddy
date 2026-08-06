@@ -375,3 +375,192 @@ def test_scrub_detects_backing_corruption_without_mutating_resident(
     with pytest.raises(WorldGraphProjectionError) as exc_info:
         runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
     assert exc_info.value.code == "projection_integrity_error"
+
+
+def test_failed_manifest_load_does_not_retain_resident_and_retry_succeeds(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    revision_id = result.current_head_revision_id
+    manifest_path = world_paths.revision_manifest_path(tmp_path, WORLD_ID, revision_id)
+    original = manifest_path.read_bytes()
+    manifest_path.write_text("{not-valid-json", encoding="utf-8")
+
+    runtime = _fresh_runtime()
+    with pytest.raises(WorldGraphProjectionError):
+        runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert runtime.resident_count() == 0
+
+    manifest_path.write_bytes(original)
+    repaired = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert repaired.key.revision_id == revision_id
+    assert runtime.resident_count() == 1
+
+
+def test_missing_supported_assertion_fails_before_residency(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    revision_id = result.current_head_revision_id
+    contrib_path = _contribution_path(tmp_path, TRIPOD_CONTRIBUTION_ID)
+    payload = json.loads(contrib_path.read_text(encoding="utf-8"))
+    assert payload["accepted_assertions"], "fixture contribution must have assertions"
+    removed = payload["accepted_assertions"].pop(0)
+    contrib_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    runtime = _fresh_runtime()
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert removed["assertion_id"] in str(exc_info.value) or "supported assertion" in str(
+        exc_info.value
+    ).lower() or any(
+        "supported assertion" in (diag.message or "").lower()
+        for diag in exc_info.value.diagnostics
+    )
+    assert runtime.resident_count() == 0
+
+
+def test_mid_load_contribution_failure_does_not_retain_resident(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    revision_id = result.current_head_revision_id
+    runtime = _fresh_runtime()
+
+    calls = {"n": 0}
+    original = kernel.world_read_runtime._load_validated_contribution_from_disk
+
+    def _fail_after_first(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] >= 2:
+            raise WorldGraphProjectionError(
+                "Injected mid-load contribution failure.",
+                code="projection_integrity_error",
+                status_code=409,
+                diagnostics=[],
+            )
+        return original(*args, **kwargs)
+
+    with patch(
+        "graph_memory.kernel.world_read_runtime._load_validated_contribution_from_disk",
+        side_effect=_fail_after_first,
+    ):
+        with pytest.raises(WorldGraphProjectionError) as exc_info:
+            runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert runtime.resident_count() == 0
+
+    repaired = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert repaired.key.revision_id == revision_id
+    assert runtime.resident_count() == 1
+
+
+def test_clear_during_blocked_load_isolates_new_caller(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    revision_id = result.current_head_revision_id
+    runtime = _fresh_runtime()
+
+    load_started = threading.Event()
+    release_first_load = threading.Event()
+    original_cold = runtime._cold_load
+    load_generations: list[tuple[int, int]] = []
+    load_count = {"n": 0}
+    lock = threading.Lock()
+
+    def _gated_cold_load(*args, **kwargs):
+        with lock:
+            load_count["n"] += 1
+            n = load_count["n"]
+        if n == 1:
+            load_started.set()
+            assert release_first_load.wait(timeout=30)
+        resident = original_cold(*args, **kwargs)
+        with lock:
+            load_generations.append((n, resident.generation))
+        return resident
+
+    first_error: list[BaseException] = []
+    first_resident: list = []
+
+    def _first_caller() -> None:
+        try:
+            first_resident.append(
+                runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+            )
+        except BaseException as exc:
+            first_error.append(exc)
+
+    with patch.object(runtime, "_cold_load", side_effect=_gated_cold_load):
+        first = threading.Thread(target=_first_caller)
+        first.start()
+        assert load_started.wait(timeout=30)
+
+        runtime.clear()
+        assert runtime.resident_count() == 0
+
+        # Post-clear caller must start a fresh load, not join the detached one.
+        second = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+        release_first_load.set()
+        first.join(timeout=30)
+
+    assert not first_error
+    assert first_resident
+    assert load_count["n"] >= 2
+    by_load = dict(load_generations)
+    assert second.generation == by_load[2]
+    ready = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert ready.generation == second.generation
+    # Pre-clear completion must not remain installed after clear isolation.
+    assert ready.generation != by_load[1]
+
+
+def test_stale_scrub_cannot_replace_newer_resident_generation(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    result = _initialize(tmp_path, loaded_bundle)
+    revision_id = result.current_head_revision_id
+    runtime = _fresh_runtime()
+
+    g1 = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    scrub_started = threading.Event()
+    release_scrub = threading.Event()
+    original_verify = runtime._verify_backing_integrity
+
+    def _blocked_verify(*args, **kwargs):
+        scrub_started.set()
+        assert release_scrub.wait(timeout=30)
+        return original_verify(*args, **kwargs)
+
+    scrub_result: dict = {}
+
+    def _scrubber() -> None:
+        scrub_result.update(runtime.scrub_resident(tmp_path, WORLD_ID, revision_id))
+
+    with patch.object(runtime, "_verify_backing_integrity", side_effect=_blocked_verify):
+        scrub_thread = threading.Thread(target=_scrubber)
+        scrub_thread.start()
+        assert scrub_started.wait(timeout=30)
+
+        runtime.clear()
+        g2 = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+        assert g2.generation != g1.generation
+
+        release_scrub.set()
+        scrub_thread.join(timeout=30)
+
+    assert scrub_result.get("status") == "stale"
+    ready = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert ready.generation == g2.generation
+    assert ready.backing_health == "healthy"
+    assert ready.unhealthy_diagnostics == ()
