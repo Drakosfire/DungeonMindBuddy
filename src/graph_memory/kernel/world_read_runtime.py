@@ -16,6 +16,7 @@ import contextvars
 import json
 import os
 import threading
+import time
 from collections import OrderedDict
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -36,7 +37,7 @@ from graph_memory.kernel.world_projection import (
     _integrity_error,
     _load_revision_store_with_integrity,
     _load_source_span_paragraph_text_index,
-    _load_validated_contribution,
+    _load_validated_contribution_from_disk,
     _parse_support,
     _resolve_repo_uri_file,
 )
@@ -90,6 +91,10 @@ class RequestIoCounters:
     contribution_reads: int = 0
     source_index_reads: int = 0
     head_json_reads: int = 0
+    # Last get_or_load outcome observed on this request (selected/head loads).
+    last_resident_status: Literal["hit", "miss", "coalesced"] = "miss"
+    cold_load_ms: float | None = None
+    resident_wait_ms: float = 0.0
 
 
 _REQUEST_IO: contextvars.ContextVar[RequestIoCounters | None] = contextvars.ContextVar(
@@ -142,9 +147,12 @@ def _active_contribution_ids(store: UnionSupergraphStore) -> set[str]:
 def _build_supports_by_graph_object(
     store: UnionSupergraphStore,
 ) -> dict[str, tuple[DurableAssertionSupport, ...]]:
+    """Index active (supported + non-empty) supports by graph object id."""
     grouped: dict[str, list[DurableAssertionSupport]] = {}
     for raw_support in store.assertion_support.values():
         support = _parse_support(raw_support)
+        if support.support_state != "supported" or not support.active_contribution_ids:
+            continue
         grouped.setdefault(support.graph_object_id, []).append(support)
     return {key: tuple(supports) for key, supports in grouped.items()}
 
@@ -254,6 +262,9 @@ class WorldReadRuntime:
                 ready = self._ready.get(key)
                 if ready is not None:
                     self._ready.move_to_end(key)
+                    counters = _REQUEST_IO.get()
+                    if counters is not None:
+                        counters.last_resident_status = "hit"
                     return ready
 
                 inflight = self._inflight.get(key)
@@ -271,12 +282,19 @@ class WorldReadRuntime:
                     is_loader = True
 
             if not is_loader:
+                wait_started = time.perf_counter()
                 wait_target.event.wait()
+                wait_ms = (time.perf_counter() - wait_started) * 1000.0
+                counters = _REQUEST_IO.get()
+                if counters is not None:
+                    counters.last_resident_status = "coalesced"
+                    counters.resident_wait_ms += wait_ms
                 if wait_target.completion.error is not None:
                     raise wait_target.completion.error
                 assert wait_target.completion.resident is not None
                 return wait_target.completion.resident
 
+            load_started = time.perf_counter()
             try:
                 resident = self._cold_load(
                     Path(resolved_root),
@@ -293,6 +311,16 @@ class WorldReadRuntime:
                 with self._lock:
                     self._inflight.pop(key, None)
                 raise
+
+            load_ms = (time.perf_counter() - load_started) * 1000.0
+            counters = _REQUEST_IO.get()
+            if counters is not None:
+                counters.last_resident_status = "miss"
+                counters.cold_load_ms = (
+                    load_ms
+                    if counters.cold_load_ms is None
+                    else counters.cold_load_ms + load_ms
+                )
 
             with self._lock:
                 if wait_target.epoch == self._epoch:
@@ -438,7 +466,7 @@ class WorldReadRuntime:
         contributions: dict[str, GraphContribution] = {}
         for contribution_id in sorted(_active_contribution_ids(store)):
             _increment_io("contribution_reads")
-            contributions[contribution_id] = _load_validated_contribution(
+            contributions[contribution_id] = _load_validated_contribution_from_disk(
                 root,
                 world_id,
                 contribution_id,
@@ -476,11 +504,16 @@ class WorldReadRuntime:
             not_found_as_integrity_error=True,
         )
         for contribution_id in sorted(resident.contributions):
-            _load_validated_contribution(root, world_id, contribution_id)
+            _load_validated_contribution_from_disk(root, world_id, contribution_id)
 
 
 _RUNTIME: WorldReadRuntime | None = None
 _RUNTIME_LOCK = threading.Lock()
+
+_ACTIVE_RESIDENT: contextvars.ContextVar[ResidentRevision | None] = contextvars.ContextVar(
+    "dmb_world_read_active_resident",
+    default=None,
+)
 
 
 def get_world_read_runtime() -> WorldReadRuntime:
@@ -497,3 +530,63 @@ def clear_world_read_runtime() -> None:
     with _RUNTIME_LOCK:
         if _RUNTIME is not None:
             _RUNTIME.clear()
+
+
+def set_active_resident(resident: ResidentRevision | None) -> contextvars.Token:
+    """Bind the selected resident for warm contribution/index lookups."""
+    return _ACTIVE_RESIDENT.set(resident)
+
+
+def reset_active_resident(token: contextvars.Token) -> None:
+    _ACTIVE_RESIDENT.reset(token)
+
+
+def get_active_resident() -> ResidentRevision | None:
+    return _ACTIVE_RESIDENT.get()
+
+
+def resolve_projection_read_context(
+    root: Path,
+    request: WorldGraphProjectionRequest,
+) -> ProjectionReadContext:
+    return get_world_read_runtime().resolve_projection_read_context(root, request)
+
+
+@dataclass
+class ProjectionRequestObservation:
+    """Structured optimization observation for one service/kernel projection."""
+
+    world_id: str = ""
+    campaign_id: str = ""
+    selected_revision_id: str = ""
+    head_revision_id: str = ""
+    resident_status: Literal["hit", "miss", "coalesced"] = "miss"
+    selected_resident_generation: int | None = None
+    head_resident_generation: int | None = None
+    backing_health: BackingHealth = "unknown"
+    head_resolution_ms: float = 0.0
+    resident_wait_ms: float = 0.0
+    cold_load_ms: float | None = None
+    projection_cache_status: Literal["disabled", "hit", "miss"] = "disabled"
+    projection_build_ms: float = 0.0
+    resident_revision_count: int = 0
+    graph_payload_reads_this_request: int = 0
+    revision_manifest_reads_this_request: int = 0
+    contribution_reads_this_request: int = 0
+    source_index_reads_this_request: int = 0
+    nodes_returned: int = 0
+    relationships_returned: int = 0
+    attributes_returned: int = 0
+
+
+_LAST_OBSERVATION: contextvars.ContextVar[ProjectionRequestObservation | None] = (
+    contextvars.ContextVar("dmb_world_read_last_observation", default=None)
+)
+
+
+def get_last_projection_observation() -> ProjectionRequestObservation | None:
+    return _LAST_OBSERVATION.get()
+
+
+def set_last_projection_observation(observation: ProjectionRequestObservation) -> None:
+    _LAST_OBSERVATION.set(observation)

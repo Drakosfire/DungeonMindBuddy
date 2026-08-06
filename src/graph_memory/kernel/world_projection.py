@@ -94,6 +94,9 @@ from graph_memory.world_supergraph.storage import (
     sha256_hex,
 )
 
+# Late-bound import helpers for OPT01 resident runtime (same package; avoid cycle
+# at module import of public re-exports). Functions are imported where used.
+
 _UNSUPPORTED_ASSERTION_MEMORY_STATE = "unsupported_assertion"
 
 _TRUST_CANNOT = [
@@ -582,11 +585,12 @@ def _validate_assertion_identity(
         )
 
 
-def _load_validated_contribution(
+def _load_validated_contribution_from_disk(
     root: Path,
     world_id: str,
     contribution_id: str,
 ) -> GraphContribution:
+    """Durable contribution load used by resident cold admission / scrub."""
     try:
         contribution = load_contribution_record(root, world_id, contribution_id)
     except (FileNotFoundError, OSError, ValueError, ValidationError, json.JSONDecodeError) as exc:
@@ -622,6 +626,34 @@ def _load_validated_contribution(
                 context=collection_name,
             )
     return contribution
+
+
+def _load_validated_contribution(
+    root: Path,
+    world_id: str,
+    contribution_id: str,
+) -> GraphContribution:
+    """Resolve a contribution from the active resident, else durable storage.
+
+    Warm projection binds a resident via ``set_active_resident`` and must not
+    reread contribution files. Cold admission / scrub call this without a
+    resident binding and use the durable path.
+    """
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None:
+        contribution = resident.contributions.get(contribution_id)
+        if contribution is None:
+            raise _integrity_error(
+                f"Contribution record {contribution_id!r} could not be loaded.",
+                detail=(
+                    f"contribution {contribution_id!r} missing from resident "
+                    f"generation={resident.generation}"
+                ),
+            )
+        return contribution
+    return _load_validated_contribution_from_disk(root, world_id, contribution_id)
 
 
 def _load_head_with_integrity(
@@ -1483,7 +1515,7 @@ def _build_relationship_views(
     request_campaign_id: str,
     scope_mode: str = "campaign",
 ) -> list[WorldGraphProjectionRelationshipView]:
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     relationships: list[WorldGraphProjectionRelationshipView] = []
     for edge_id, edge in sorted(store.edges.items()):
         if not is_projectable_union_edge(edge, identity_context):
@@ -1616,6 +1648,12 @@ def _active_supports_for_graph_object(
     store: UnionSupergraphStore,
     graph_object_id: str,
 ) -> list[DurableAssertionSupport]:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None and resident.store is store:
+        return list(resident.supports_by_graph_object.get(graph_object_id, ()))
+
     supports: list[DurableAssertionSupport] = []
     for raw_support in store.assertion_support.values():
         support = _parse_support(raw_support)
@@ -1625,6 +1663,15 @@ def _active_supports_for_graph_object(
             continue
         supports.append(support)
     return supports
+
+
+def _projection_identity_context(store: UnionSupergraphStore) -> UnionProjectionIdentityContext:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None and resident.store is store:
+        return resident.identity_context
+    return build_union_projection_identity_context(store)
 
 
 def _node_evidence_from_projection_context(
@@ -1919,6 +1966,12 @@ def _paragraph_text_by_span_id_from_source_artifacts(
     embed paragraph prose. Ingest runs keep that prose in sibling
     ``source_span_index.json`` files next to the artifact's ``normalized_recap``.
     """
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None and resident.store is store:
+        return dict(resident.source_span_paragraph_text)
+
     paragraph_text_by_span_id: dict[str, str] = {}
     for artifact in store.source_artifacts.values():
         uri = getattr(artifact, "uri", None)
@@ -2027,7 +2080,7 @@ def _build_node_views(
     request_campaign_id: str,
     scope_mode: str = "campaign",
 ) -> list[WorldGraphProjectionNodeView]:
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     focus_session_id = focus.session_id if focus.kind == "session" else None
     focus_campaign_id = _effective_focus_campaign_id(
         focus, request_campaign_id=request_campaign_id
@@ -2220,7 +2273,7 @@ def _build_node_views(
 
 
 def _count_omitted_unsupported_objects(store: UnionSupergraphStore) -> tuple[int, int]:
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     omitted_nodes = sum(
         1
         for node in store.nodes.values()
@@ -2406,7 +2459,7 @@ def build_projection_payload(
             diagnostics=[_diagnostic("projection_internal_error", str(exc))],
         ) from exc
 
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     focus_session_id = request.focus.session_id if request.focus.kind == "session" else None
     focus_campaign_id = _effective_focus_campaign_id(
         request.focus, request_campaign_id=request.campaign_id
@@ -2486,10 +2539,49 @@ def build_projection_payload(
     return projection
 
 
+def project_world_graph_from_context(
+    root: Path,
+    request: WorldGraphProjectionRequest,
+    context: Any,
+) -> WorldGraphProjection:
+    """Build a projection from an already-resolved resident read context."""
+    from graph_memory.kernel.world_read_runtime import (
+        ProjectionReadContext,
+        reset_active_resident,
+        set_active_resident,
+    )
+
+    if not isinstance(context, ProjectionReadContext):
+        raise WorldGraphProjectionError(
+            "Projection read context is invalid.",
+            code="projection_internal_error",
+            status_code=500,
+            diagnostics=[_diagnostic("projection_internal_error", "invalid read context")],
+        )
+
+    token = set_active_resident(context.selected)
+    try:
+        return build_projection_payload(
+            request=request,
+            revision_id=context.selected_revision_id,
+            head_revision_id=context.head_revision_id,
+            store=context.selected.store,
+            root=root,
+            world_id=request.world_id,
+        )
+    finally:
+        reset_active_resident(token)
+
+
 def project_world_graph(
     root: Path,
     request: WorldGraphProjectionRequest,
 ) -> WorldGraphProjection:
+    from graph_memory.kernel.world_read_runtime import (
+        begin_request_io,
+        resolve_projection_read_context,
+    )
+
     try:
         request = WorldGraphProjectionRequest.model_validate(
             request.model_dump(mode="json")
@@ -2503,17 +2595,11 @@ def project_world_graph(
         ) from exc
 
     resolve_projection_admissibility(request.admissibility)
+    begin_request_io()
 
     try:
-        revision_id, head_revision_id, store = _load_revision_context(root, request)
-        return build_projection_payload(
-            request=request,
-            revision_id=revision_id,
-            head_revision_id=head_revision_id,
-            store=store,
-            root=root,
-            world_id=request.world_id,
-        )
+        context = resolve_projection_read_context(root, request)
+        return project_world_graph_from_context(root, request, context)
     except WorldGraphProjectionError:
         raise
     except Exception as exc:
