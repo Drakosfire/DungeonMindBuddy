@@ -165,6 +165,7 @@ from graph_memory.kernel.world_revision_ready import (
     notification_from_publish_result,
     offer_revision_ready,
     offer_revision_ready_from_publish,
+    pop_revision_ready_queue_wait_ms,
     reset_revision_ready_mailbox,
 )
 
@@ -202,6 +203,7 @@ __all__ = [
     "notification_from_publish_result",
     "offer_revision_ready",
     "offer_revision_ready_from_publish",
+    "pop_revision_ready_queue_wait_ms",
     "reset_revision_ready_mailbox",
     # World initialization (PR006D1)
     "WorldInitializationApprovalAttestation",

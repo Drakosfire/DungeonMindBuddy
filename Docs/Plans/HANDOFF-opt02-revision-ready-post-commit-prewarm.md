@@ -647,7 +647,9 @@ Do not hide a second capability inside “prewarm.” In particular, do not buil
 
 **Dispatch note:** Operator dispatched implementation while OPT01 E10 remained NOT PROVEN / unwaved. OPT02 E10 likewise remains NOT PROVEN pending live Workbench dogfood or an explicit operator waiver.
 
-1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/511 ; branch `opt/opt02-revision-ready-post-commit-prewarm`; head `d294ac18989d851d08b7a4dfece91821bbdabbf1`.
+**PR #511 review repair (post-request-changes):** addressed late-A-after-B mailbox ordering, full post-commit offer containment, shutdown-orphan isolation, bounded `_enqueued_at`, `head.world_id` mismatch → `failed`/`WorldIdMismatch`, and live-server imports only via `graph_memory.kernel`.
+
+1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/511 ; branch `opt/opt02-revision-ready-post-commit-prewarm`; head pinned after push.
 2. **Immutable base:** `d50d0c3a45761376185d36fb39ae3a098a5b8cfc` (merge of PR #509 / OPT01 onto main). Design anchor tip `34b041d91980e1eac1d148b972332e057bdcb92f` is an ancestor of this base.
 3. **§1 Mission (exact):** After a successful World Graph publish, the live server can best-effort prewarm that exact committed revision so the next same-process read can reuse verified resident authority without delaying or weakening publication.
 4. **§1 Merge-ready invariant (exact):** Every successful Kernel publication offers one exact process-local notification only after the existing durable commit and Kernel post-publish work; offering never performs graph-scale I/O or changes publication success, the live-server worker processes bounded notifications through the OPT01 verifier, skips revisions no longer named by current head, coalesces with ordinary readers, and reports every ready, superseded, dropped, or failed outcome without treating notification state as graph authority.
@@ -656,52 +658,53 @@ Do not hide a second capability inside “prewarm.” In particular, do not buil
 | ID | Result | Provenance |
 | --- | --- | --- |
 | E1 | PASS — exact mapped notification after successful Kernel publish | `tests/test_graph_kernel_world_revision_ready.py` |
-| E2 | PASS — stale-parent failure emits no offer observations | same module |
-| E3 | PASS — publish returns while offer blocked; mailbox/offer failures contained | same module |
+| E2 | PASS — validation failure, stale parent, and revision-exists collision emit zero offer observations | same module (`test_failed_and_noop_publishes_emit_no_offer_observations`) |
+| E3 | PASS — publish returns while worker cold-load gated; offer/observation failures + Kernel facade final `try/except` cannot alter committed publish return | revision_ready + `test_publish_returns_while_worker_cold_load_remains_blocked` |
 | E4 | PASS — coordinator admits via OPT01; second load zero durable reads | `tests/test_world_graph_prewarm_service.py` |
 | E5 | PASS — reader/prewarm share one `_cold_load`; duplicate notification `resident_hit` with zero reads | same module |
-| E6 | PASS — latest-by-world keeps B; A not admitted as head-following warm authority | same module |
-| E7 | PASS — lifespan start/stop + consumer lease; clear during gated prewarm | `tests/test_live_control_server_lifespan.py` + prewarm clear test |
-| E8 | PASS — corrupt graph after commit → failed observation; head unchanged; resident_count 0 | prewarm service |
-| E9 | PASS for OPT02 scope — public API exports; `world_revision_ready` does not import storage; no route/schema change | public API + focused diff |
+| E6 | PASS — late offer of stale A after B keeps B pending/admitted; in-flight A then B keeps B as head-following authority; ordinary A→B mailbox coalesce | `test_late_offer_of_stale_a_after_b_keeps_b_for_prewarm`, `test_inflight_a_then_b_keeps_b_as_head_following_authority`, `test_mailbox_latest_by_world_prewarms_only_head_revision_b` |
+| E7 | PASS — lifespan start/stop + lease; clear during gated prewarm; shutdown join timeout orphans worker (blocks second start; no post-invalidation observation; cleanup then allows restart) | lifespan suite + `test_clear_during_blocked_prewarm…` + `test_shutdown_timeout_orphans_worker_and_blocks_second_lifecycle` |
+| E8 | PASS — corrupt graph after commit → failed observation; head unchanged; resident_count 0; world_id mismatch → `failed`/`WorldIdMismatch` (not superseded) | prewarm service |
+| E9 | PASS for OPT02 scope — public API exports; prewarm imports `graph_memory.kernel` only; `world_revision_ready` does not import storage; no route/schema change | public API + focused diff |
 | E10 | NOT PROVEN — live Publish accepted Threat → Plan → Build → Threat/Hermes → hard refresh not run; no operator waiver | deferred |
 
-6. **Nano-commits:** discrete stories for handoff, notification mailbox, Kernel emit, prewarm+lifespan, owning tests, §8 sync (see `git log`).
-7. **Changed paths:** exactly the §4 allowlist (10 paths).
-8. **Required commands / results (base `d50d0c3a`)**
-   - revision_ready + public_api → included in **18 passed** owning set
-   - prewarm + lifespan + OPT01 runtime/service → **37 passed**
-   - contribution merge / Graph Review seam / Threat commits / initialization / rebuild → **133 passed**
-   - routes + recap + projection + retrieval + boundaries → **167 passed, 6 failed** (all six pre-existing on `d50d0c3a`: multi-source retract, recap compatibility, retrieval heading digest, three boundary tests)
-   - scoped ruff → **All checks passed!**
-   - `git diff --check` → clean
-9. **Result provenance:** independently rerun local after implementation.
-10. **Base/head failing gates:** identical pre-existing six failures; head adds none among required owning tests.
+6. **Nano-commits:** prior discrete stories on branch; review repair commit pending operator request.
+7. **Changed paths:** exactly the §4 allowlist (10 paths); this repair touches allowlisted implementation + owning tests + this handoff only.
+8. **Required owning commands / results (repair rerun)**
+   - `uv run pytest tests/test_graph_kernel_world_revision_ready.py tests/test_world_graph_prewarm_service.py tests/test_live_control_server_lifespan.py tests/test_graph_kernel_public_api.py -q` → **24 passed**
+   - Full §7 non-owning suites not re-swept in this repair turn; prior base `d50d0c3a` six pre-existing failures unchanged by scope.
+9. **Result provenance:** independently rerun local after review repair.
+10. **Base/head failing gates:** repair adds none among required owning tests (24/24 green).
 11. **Public Kernel notification API**
     - Types: `WorldRevisionReadyNotification`, `RevisionReadyOfferResult`, `RevisionReadyMailbox`, `RevisionReadyConsumerLease`
-    - Functions: `offer_revision_ready`, `offer_revision_ready_from_publish`, `notification_from_publish_result`, `get_revision_ready_mailbox`, `reset_revision_ready_mailbox`, offer observation helpers
+    - Functions: `offer_revision_ready`, `offer_revision_ready_from_publish`, `notification_from_publish_result`, `get_revision_ready_mailbox`, `reset_revision_ready_mailbox`, `pop_revision_ready_queue_wait_ms`, offer observation helpers
     - Field mapping: `resolved_root=str(root.resolve())`, `world_id`, `revision_id`, `parent_revision_id`, `operation_ids` (tuple), `created_at`; require head.revision_id == published revision at mapping time
-12. **Mailbox:** latest-by-`(resolved_root, world_id)` `OrderedDict`; default capacity 64 (`DMB_WORLD_GRAPH_REVISION_READY_MAILBOX_CAPACITY`); same-world replace → `coalesced`; saturation of distinct keys → `dropped`; exclusive consumer lease (second acquire fails).
-13. **Coordinator lifecycle:** `start_world_graph_prewarm_coordinator` acquires lease + one daemon worker; intake via mailbox; current-head via `open_world_graph_head`; admission via `get_or_load_resident`; `stop` closes mailbox (pending → dropped observations), joins worker, releases lease, resets mailbox for next lifecycle. FastAPI lifespan starts before yield and stops in `finally` before Hermes shutdown.
-14. **Emission point:** after storage publish return **and** `sync_identity_decisions_from_store`, immediately before returning `WorldGraphPublishResult`. Contained; never alters result.
-15. **No notification for:** publish exceptions / stale parent / no successful Kernel return. Idempotent merge `published=False` never reaches Kernel publish.
-16. **Failure isolation:** blocked/raising offer cannot change publish return or durable head (E3/E8 proofs).
-17. **Barrier evidence:** gated `_cold_load` proves one cold load for reader+worker; A/B latest-by-world proves stale A not head-following.
+12. **Mailbox:** newest-**committed**-by-`(resolved_root, world_id)` using `created_at` (then revision_id tie-break); late older offer → `dropped` without displacing pending; default capacity 64; same-world newer replace → `coalesced` and forgets replaced timing; `_enqueued_at` lives under mailbox lock and is cleared on replace/pop/close/reset; exclusive consumer lease.
+13. **Coordinator lifecycle:** start acquires lease + one daemon worker; intake via mailbox; current-head via Kernel `open_world_graph_head`; `world_id` mismatch → `failed`/`WorldIdMismatch`; revision mismatch alone → `superseded`; admission via `get_or_load_resident`. `stop` invalidates run-generation, closes mailbox (pending → dropped), joins; on join timeout keeps lease/coordinator as orphan (`is_orphaned`), refuses new start until orphan exits and self-cleans; clean stop releases lease and resets mailbox. Lifespan starts before yield and stops in `finally`.
+14. **Emission point:** after storage publish return **and** `sync_identity_decisions_from_store`, immediately before returning `WorldGraphPublishResult`. Offer path + facade final containment; never alters result.
+15. **No notification for:** publish exceptions / validation / stale parent / revision-exists / no successful Kernel return.
+16. **Failure isolation:** blocked/raising offer and observation bookkeeping cannot change publish return or durable head (E3/E8 proofs).
+17. **Barrier evidence:** gated `_cold_load` for publish-before-load, reader coalesce, in-flight A→B, and shutdown-orphan isolation; late-A-after-B gated `mailbox.offer` proves stale A cannot discard B.
 18. **Deterministic prewarm/read table (local fixture world)**
 
 | Scenario | Notification status | Head reads | Graph | Manifest | Contributions | Source indexes | First surface read |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Publish with worker, no competing read | resident_miss (cold admit) | 1 | ≥1 | ≥1 | ≥1 | 0 | subsequent get_or_load hit / 0 durable |
 | Publish + ordinary read races worker | coalesced/miss shared | — | one `_cold_load` total | one | one | — | same generation |
+| Publish returns while worker load blocked | publish complete before release | 1 | worker still gated | — | — | — | after release: resident |
 | Duplicate exact notification | resident_hit | 1 | 0 | 0 | 0 | 0 | resident hit |
 | A pending, B becomes head | B resident_miss; A absent or superseded | B:1 | A=0; B cold once | A=0; B cold | A=0; B cold | A=0 | B hit |
+| Late A offer after B committed/offered | A dropped at mailbox; B admitted | B:1 | B cold | B cold | B cold | — | B hit |
+| In-flight A then B | B head-following resident; A not authority | B:1 | B cold (A may complete historical) | — | — | — | B hit |
+| head.world_id mismatch | failed / WorldIdMismatch | 1 | 0 admit | 0 | 0 | 0 | no false resident |
 | Prewarm failure | failed | 1 | — | — | — | — | ordinary exact failure; head unchanged |
+| Shutdown timeout mid-load | orphan; no post-invalidation obs; second start refused until cleanup | — | — | — | — | — | new lifecycle after orphan exit |
 | Server restart before any new publish | no event | normal | cold on first read | cold | cold | as applicable | correct cold path |
 
 19. **Structured observation examples:** `event=world_graph_post_commit_prewarm` with statuses `resident_miss`, `resident_hit`, `coalesced`, `superseded`, `failed`, `dropped`; offer side uses `world_graph_revision_ready_offer`. No graph/contribution/source bodies logged.
 20. **E10:** NOT PROVEN — requires live Workbench → Plan → Build → Threat/Hermes → hard refresh, or operator waiver.
 21. **Public/durable confirmation:** no route/schema/UI, durable format, contribution/publication semantic, payload recipe, or cross-process contract changed.
-22. **Paths outside §4:** none.
-23. **Stop conditions:** none.
+22. **Paths outside §4:** none (handoff doc is allowlisted).
+23. **Stop conditions:** none open for the review blockers named on PR #511; E10 remains acceptance-gap / NOT PROVEN.
 24. **Successors still false:** no bounded surface recipe prewarm; no cross-process/durable event delivery; no startup head scan; no delta-aware publication/materialization.
-25. **Authority confirmation:** authoritative handoff implemented without compressed or omitted constraints; OPT01 E10 gate was open at dispatch per operator instruction and remains recorded honestly for OPT02 acceptance.
+25. **Authority confirmation:** authoritative handoff constraints retained; review blockers from PR #511 addressed in code + owning tests; OPT01/OPT02 E10 gate remains recorded honestly.

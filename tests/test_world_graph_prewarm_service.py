@@ -13,14 +13,9 @@ import graph_memory.kernel as kernel
 from apps.live_control_server.services.world_graph_prewarm import (
     clear_prewarm_observations,
     get_prewarm_observations,
+    get_world_graph_prewarm_coordinator,
     start_world_graph_prewarm_coordinator,
     stop_world_graph_prewarm_coordinator,
-)
-from graph_memory.kernel.world_revision_ready import (
-    clear_revision_ready_offer_observations,
-    notification_from_publish_result,
-    offer_revision_ready,
-    reset_revision_ready_mailbox,
 )
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
@@ -30,17 +25,31 @@ from graph_memory.union_supergraph.load import (
 WORLD_ID = "eldyrwild"
 
 
+def _drain_coordinator(*, timeout_s: float = 10.0) -> None:
+    """Stop coordinator and wait out any orphaned worker from a prior timeout."""
+    stop_world_graph_prewarm_coordinator(timeout_s=timeout_s)
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        coordinator = get_world_graph_prewarm_coordinator()
+        if coordinator is None:
+            return
+        if not coordinator.is_orphaned and not coordinator.is_running:
+            stop_world_graph_prewarm_coordinator(timeout_s=timeout_s)
+            return
+        time.sleep(0.01)
+
+
 @pytest.fixture(autouse=True)
 def _isolated_prewarm_state() -> None:
-    reset_revision_ready_mailbox()
-    clear_revision_ready_offer_observations()
+    _drain_coordinator()
+    kernel.reset_revision_ready_mailbox()
+    kernel.clear_revision_ready_offer_observations()
     clear_prewarm_observations()
     kernel.clear_world_read_runtime()
-    stop_world_graph_prewarm_coordinator()
     yield
-    stop_world_graph_prewarm_coordinator()
-    reset_revision_ready_mailbox()
-    clear_revision_ready_offer_observations()
+    _drain_coordinator()
+    kernel.reset_revision_ready_mailbox()
+    kernel.clear_revision_ready_offer_observations()
     clear_prewarm_observations()
     kernel.clear_world_read_runtime()
 
@@ -113,7 +122,7 @@ def test_publish_with_coordinator_prewarms_resident_and_second_load_is_hit(
 
     published = _publish(tmp_path, ["op:prewarm-success"])
     revision_id = published.revision.revision_id
-    observations = _wait_for_prewarm_observations(
+    _wait_for_prewarm_observations(
         coordinator,
         revision_id=revision_id,
         expected_count=1,
@@ -133,10 +142,40 @@ def test_publish_with_coordinator_prewarms_resident_and_second_load_is_hit(
     assert counters.contribution_reads == 0
     assert counters.source_index_reads == 0
 
-    observations = get_prewarm_observations()
-    matching = [obs for obs in observations if obs.revision_id == revision_id]
+    matching = [
+        obs for obs in get_prewarm_observations() if obs.revision_id == revision_id
+    ]
     assert len(matching) == 1
     assert matching[0].status == "resident_miss"
+
+
+def test_publish_returns_while_worker_cold_load_remains_blocked(
+    tmp_path: Path,
+) -> None:
+    runtime = kernel.get_world_read_runtime()
+    load_started = threading.Event()
+    release_load = threading.Event()
+    original_cold = runtime._cold_load
+
+    def _gated_cold_load(*args, **kwargs):
+        load_started.set()
+        assert release_load.wait(timeout=30.0)
+        return original_cold(*args, **kwargs)
+
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+    with patch.object(runtime, "_cold_load", side_effect=_gated_cold_load):
+        published = _publish(tmp_path, ["op:prewarm-publish-before-load"])
+        assert published.revision.revision_id
+        head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+        assert head.head_revision_id == published.revision.revision_id
+        assert load_started.wait(timeout=30.0)
+        release_load.set()
+        _wait_for_prewarm_observations(
+            coordinator,
+            revision_id=published.revision.revision_id,
+            expected_count=1,
+        )
 
 
 def test_reader_and_prewarm_worker_share_one_cold_load(
@@ -193,8 +232,8 @@ def test_duplicate_exact_notification_reports_resident_hit_with_zero_reads(
     )
     clear_prewarm_observations()
 
-    notification = notification_from_publish_result(tmp_path, WORLD_ID, published)
-    offer_revision_ready(notification)
+    notification = kernel.notification_from_publish_result(tmp_path, WORLD_ID, published)
+    kernel.offer_revision_ready(notification)
     observations = _wait_for_prewarm_observations(
         coordinator,
         revision_id=published.revision.revision_id,
@@ -242,6 +281,159 @@ def test_mailbox_latest_by_world_prewarms_only_head_revision_b(
         pub_b.revision.revision_id,
     )
     assert resident_b.key.revision_id == pub_b.revision.revision_id
+
+
+def test_late_offer_of_stale_a_after_b_keeps_b_for_prewarm(
+    tmp_path: Path,
+) -> None:
+    """Publish A stalls before offer; B commits/offers first; late A must not win."""
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    a_offer_gate = threading.Event()
+    a_entered = threading.Event()
+    mailbox = kernel.get_revision_ready_mailbox()
+    original_offer = mailbox.offer
+    offer_count = {"n": 0}
+
+    def _gated_offer(notification):
+        offer_count["n"] += 1
+        if offer_count["n"] == 1:
+            a_entered.set()
+            assert a_offer_gate.wait(timeout=30.0)
+        return original_offer(notification)
+
+    publish_a_result: list[kernel.WorldGraphPublishResult] = []
+
+    def _publish_a() -> None:
+        publish_a_result.append(
+            kernel.publish_world_revision(
+                tmp_path,
+                WORLD_ID,
+                store,
+                operation_ids=["op:prewarm-late-a"],
+            )
+        )
+
+    with patch.object(mailbox, "offer", side_effect=_gated_offer):
+        thread_a = threading.Thread(target=_publish_a)
+        thread_a.start()
+        assert a_entered.wait(timeout=30.0)
+
+        # A has committed (head advanced) but not offered yet.
+        head_after_a = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+        assert head_after_a.head_revision_id is not None
+        pub_b = kernel.publish_world_revision(
+            tmp_path,
+            WORLD_ID,
+            store,
+            operation_ids=["op:prewarm-late-b"],
+            expected_parent_revision_id=head_after_a.head_revision_id,
+        )
+        a_offer_gate.set()
+        thread_a.join(timeout=30.0)
+
+    assert publish_a_result
+    pub_a = publish_a_result[0]
+    assert pub_a.revision.created_at < pub_b.revision.created_at or (
+        pub_a.revision.revision_id != pub_b.revision.revision_id
+    )
+
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+    _wait_for_prewarm_observations(
+        coordinator,
+        revision_id=pub_b.revision.revision_id,
+        expected_count=1,
+    )
+    by_revision = {obs.revision_id: obs for obs in get_prewarm_observations()}
+    assert pub_b.revision.revision_id in by_revision
+    assert by_revision[pub_b.revision.revision_id].status in {
+        "resident_miss",
+        "resident_hit",
+        "coalesced",
+    }
+    # Stale A must not be the only/final head-following warm authority.
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    assert head.head_revision_id == pub_b.revision.revision_id
+    resident_b = kernel.get_world_read_runtime().get_or_load_resident(
+        tmp_path,
+        WORLD_ID,
+        pub_b.revision.revision_id,
+    )
+    assert resident_b.key.revision_id == pub_b.revision.revision_id
+
+
+def test_inflight_a_then_b_keeps_b_as_head_following_authority(
+    tmp_path: Path,
+) -> None:
+    runtime = kernel.get_world_read_runtime()
+    load_started = threading.Event()
+    release_load = threading.Event()
+    original_cold = runtime._cold_load
+    cold_targets: list[str] = []
+
+    def _gated_cold_load(*args, **kwargs):
+        revision_id = args[2] if len(args) >= 3 else kwargs.get("revision_id")
+        cold_targets.append(str(revision_id))
+        if len(cold_targets) == 1:
+            load_started.set()
+            assert release_load.wait(timeout=30.0)
+        return original_cold(*args, **kwargs)
+
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+    with patch.object(runtime, "_cold_load", side_effect=_gated_cold_load):
+        pub_a = _publish(tmp_path, ["op:prewarm-inflight-a"])
+        assert load_started.wait(timeout=30.0)
+        _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+        pub_b = kernel.publish_world_revision(
+            tmp_path,
+            WORLD_ID,
+            store,
+            operation_ids=["op:prewarm-inflight-b"],
+            expected_parent_revision_id=pub_a.revision.revision_id,
+        )
+        release_load.set()
+        _wait_for_prewarm_observations(
+            coordinator,
+            revision_id=pub_b.revision.revision_id,
+            expected_count=1,
+        )
+
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    assert head.head_revision_id == pub_b.revision.revision_id
+    resident_b = runtime.get_or_load_resident(
+        tmp_path,
+        WORLD_ID,
+        pub_b.revision.revision_id,
+    )
+    assert resident_b.key.revision_id == pub_b.revision.revision_id
+
+
+def test_head_world_id_mismatch_reports_failed_not_superseded(
+    tmp_path: Path,
+) -> None:
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+    published = _publish(tmp_path, ["op:prewarm-world-mismatch"])
+    clear_prewarm_observations()
+
+    notification = kernel.notification_from_publish_result(
+        tmp_path, WORLD_ID, published
+    )
+    mismatched = kernel.WorldGraphHead(
+        world_id="other-world",
+        head_revision_id=notification.revision_id,
+        updated_at=published.head.updated_at,
+    )
+    with patch.object(kernel, "open_world_graph_head", return_value=mismatched):
+        kernel.offer_revision_ready(notification)
+        observations = _wait_for_prewarm_observations(
+            coordinator,
+            revision_id=notification.revision_id,
+            expected_count=1,
+        )
+    assert observations[0].status == "failed"
+    assert observations[0].error_type == "WorldIdMismatch"
 
 
 def test_prewarm_failure_leaves_head_unchanged_and_no_resident(
@@ -298,3 +490,54 @@ def test_clear_during_blocked_prewarm_does_not_pin_stale_generation(
     first = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
     second = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
     assert second.generation == first.generation
+
+
+def test_shutdown_timeout_orphans_worker_and_blocks_second_lifecycle(
+    tmp_path: Path,
+) -> None:
+    runtime = kernel.get_world_read_runtime()
+    load_started = threading.Event()
+    release_load = threading.Event()
+    original_cold = runtime._cold_load
+
+    def _gated_cold_load(*args, **kwargs):
+        load_started.set()
+        assert release_load.wait(timeout=30.0)
+        return original_cold(*args, **kwargs)
+
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+    with patch.object(runtime, "_cold_load", side_effect=_gated_cold_load):
+        published = _publish(tmp_path, ["op:prewarm-orphan"])
+        assert load_started.wait(timeout=30.0)
+        stopped = stop_world_graph_prewarm_coordinator(timeout_s=0.05)
+        assert stopped is False
+        orphan = get_world_graph_prewarm_coordinator()
+        assert orphan is not None
+        assert orphan.is_orphaned
+        assert orphan.is_running
+        assert start_world_graph_prewarm_coordinator() is None
+
+        before = list(get_prewarm_observations())
+        release_load.set()
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline:
+            current = get_world_graph_prewarm_coordinator()
+            if current is None:
+                break
+            time.sleep(0.01)
+        else:
+            pytest.fail("orphaned coordinator did not clear after worker exit")
+        # Orphan must not emit under the invalidated generation.
+        after = [
+            obs
+            for obs in get_prewarm_observations()
+            if obs.revision_id == published.revision.revision_id
+            and obs not in before
+        ]
+        assert after == []
+
+    # After orphan exit cleanup, a new lifecycle can start.
+    restarted = start_world_graph_prewarm_coordinator()
+    assert restarted is not None
+    assert stop_world_graph_prewarm_coordinator(timeout_s=5.0) is True

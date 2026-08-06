@@ -10,12 +10,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 import graph_memory.kernel as kernel
-from graph_memory.kernel.world_revision_ready import (
-    RevisionReadyConsumerLease,
-    WorldRevisionReadyNotification,
-    get_revision_ready_mailbox,
-    pop_revision_ready_queue_wait_ms,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -106,9 +100,11 @@ class WorldGraphPrewarmCoordinator:
         self._stop = threading.Event()
         self._idle = threading.Event()
         self._idle.set()
-        self._lease: RevisionReadyConsumerLease | None = None
+        self._lease: kernel.RevisionReadyConsumerLease | None = None
         self._active = False
         self._busy = 0
+        self._run_generation = 0
+        self._orphaned = False
         self._lock = threading.Lock()
 
     @property
@@ -116,11 +112,21 @@ class WorldGraphPrewarmCoordinator:
         thread = self._thread
         return bool(thread is not None and thread.is_alive())
 
+    @property
+    def is_orphaned(self) -> bool:
+        with self._lock:
+            return self._orphaned
+
     def start(self) -> bool:
         with self._lock:
-            if self._active:
+            if self._orphaned and self.is_running:
+                logger.error(
+                    "world graph prewarm coordinator start refused: orphaned worker still alive"
+                )
+                return False
+            if self._active and self.is_running:
                 return True
-            mailbox = get_revision_ready_mailbox()
+            mailbox = kernel.get_revision_ready_mailbox()
             lease = mailbox.acquire_consumer()
             if lease is None:
                 logger.error("world graph prewarm coordinator consumer lease unavailable")
@@ -128,10 +134,14 @@ class WorldGraphPrewarmCoordinator:
             self._lease = lease
             self._stop.clear()
             self._busy = 0
+            self._orphaned = False
+            self._run_generation += 1
+            run_generation = self._run_generation
             self._idle.set()
             self._active = True
             self._thread = threading.Thread(
                 target=self._run,
+                kwargs={"run_generation": run_generation},
                 name="world-graph-prewarm",
                 daemon=True,
             )
@@ -142,11 +152,15 @@ class WorldGraphPrewarmCoordinator:
         with self._lock:
             if not self._active and self._thread is None:
                 return True
+            # Invalidate the current worker before closing intake so an orphan
+            # cannot admit residents or emit under a later lifecycle.
+            self._run_generation += 1
             self._stop.set()
-            mailbox = get_revision_ready_mailbox()
+            mailbox = kernel.get_revision_ready_mailbox()
             discarded = mailbox.close()
             lease = self._lease
             thread = self._thread
+            stop_generation = self._run_generation
         for notification in discarded:
             _emit_observation(
                 PrewarmObservation(
@@ -170,54 +184,101 @@ class WorldGraphPrewarmCoordinator:
             thread.join(timeout=timeout_s)
         with self._lock:
             alive = thread is not None and thread.is_alive()
+            if alive:
+                # Keep lease + coordinator identity so a new lifecycle cannot
+                # race an orphan worker that still holds the old run.
+                self._orphaned = True
+                self._active = False
+                self._idle.set()
+                return False
             if lease is not None:
                 lease.release()
             self._lease = None
             self._thread = None
             self._active = False
+            self._orphaned = False
             self._idle.set()
-            # Re-open mailbox for the next app lifecycle / tests.
-            mailbox = get_revision_ready_mailbox()
-            mailbox.reset()
-            return not alive
+            # Re-open mailbox only after the worker has fully stopped.
+            if stop_generation == self._run_generation:
+                mailbox = kernel.get_revision_ready_mailbox()
+                mailbox.reset()
+            return True
 
     def wait_idle(self, *, timeout_s: float = 30.0) -> bool:
         return self._idle.wait(timeout=timeout_s)
 
-    def _run(self) -> None:
-        assert self._lease is not None
-        lease = self._lease
-        mailbox = get_revision_ready_mailbox()
-        while not self._stop.is_set():
-            try:
-                notification = mailbox.wait_for_notification(
-                    lease,
-                    timeout=_POLL_TIMEOUT_S,
-                )
-            except RuntimeError:
-                break
-            if notification is None:
-                if self._stop.is_set():
-                    break
-                continue
-            with self._lock:
-                self._busy += 1
-                self._idle.clear()
-            try:
-                self._handle(notification)
-            finally:
-                with self._lock:
-                    self._busy = max(0, self._busy - 1)
-                    if (
-                        self._busy == 0
-                        and mailbox.pending_count() == 0
-                        and not self._stop.is_set()
-                    ):
-                        self._idle.set()
-        self._idle.set()
+    def _still_current(self, run_generation: int) -> bool:
+        with self._lock:
+            return run_generation == self._run_generation and not self._stop.is_set()
 
-    def _handle(self, notification: WorldRevisionReadyNotification) -> None:
-        queue_wait_ms = pop_revision_ready_queue_wait_ms(notification)
+    def _cleanup_orphan_after_exit(self) -> None:
+        """Release lease/mailbox when a timed-out worker finally terminates."""
+        global _COORDINATOR
+        with self._lock:
+            if not self._orphaned:
+                return
+            if self._thread is not threading.current_thread():
+                return
+            lease = self._lease
+            self._lease = None
+            self._thread = None
+            self._orphaned = False
+            self._active = False
+        if lease is not None:
+            lease.release()
+        kernel.get_revision_ready_mailbox().reset()
+        with _COORDINATOR_LOCK:
+            if _COORDINATOR is self:
+                _COORDINATOR = None
+
+    def _run(self, *, run_generation: int) -> None:
+        lease = self._lease
+        if lease is None:
+            return
+        mailbox = kernel.get_revision_ready_mailbox()
+        try:
+            while self._still_current(run_generation):
+                try:
+                    notification = mailbox.wait_for_notification(
+                        lease,
+                        timeout=_POLL_TIMEOUT_S,
+                    )
+                except RuntimeError:
+                    break
+                if not self._still_current(run_generation):
+                    break
+                if notification is None:
+                    continue
+                with self._lock:
+                    if run_generation != self._run_generation:
+                        break
+                    self._busy += 1
+                    self._idle.clear()
+                try:
+                    self._handle(notification, run_generation=run_generation)
+                finally:
+                    with self._lock:
+                        self._busy = max(0, self._busy - 1)
+                        if (
+                            run_generation == self._run_generation
+                            and self._busy == 0
+                            and mailbox.pending_count() == 0
+                            and not self._stop.is_set()
+                        ):
+                            self._idle.set()
+        finally:
+            self._idle.set()
+            self._cleanup_orphan_after_exit()
+
+    def _handle(
+        self,
+        notification: kernel.WorldRevisionReadyNotification,
+        *,
+        run_generation: int,
+    ) -> None:
+        if not self._still_current(run_generation):
+            return
+        queue_wait_ms = kernel.pop_revision_ready_queue_wait_ms(notification)
         started = time.perf_counter()
         counters = kernel.begin_request_io()
         status: PrewarmStatus = "failed"
@@ -225,6 +286,8 @@ class WorldGraphPrewarmCoordinator:
         error_type: str | None = None
         error_message: str | None = None
         try:
+            if not self._still_current(run_generation):
+                return
             try:
                 head = kernel.open_world_graph_head(
                     Path(notification.resolved_root),
@@ -237,11 +300,18 @@ class WorldGraphPrewarmCoordinator:
                 counters.head_json_reads += 1
                 return
             counters.head_json_reads += 1
-            if (
-                head.world_id != notification.world_id
-                or head.head_revision_id != notification.revision_id
-            ):
+            if head.world_id != notification.world_id:
+                status = "failed"
+                error_type = "WorldIdMismatch"
+                error_message = (
+                    f"head world_id={head.world_id!r} "
+                    f"notification world_id={notification.world_id!r}"
+                )
+                return
+            if head.head_revision_id != notification.revision_id:
                 status = "superseded"
+                return
+            if not self._still_current(run_generation):
                 return
             try:
                 resident = kernel.get_world_read_runtime().get_or_load_resident(
@@ -254,6 +324,8 @@ class WorldGraphPrewarmCoordinator:
                 error_type = type(exc).__name__
                 error_message = str(exc)
                 return
+            if not self._still_current(run_generation):
+                return
             generation = resident.generation
             outcome = counters.last_resident_status
             if outcome == "hit":
@@ -263,6 +335,9 @@ class WorldGraphPrewarmCoordinator:
             else:
                 status = "resident_miss"
         finally:
+            if not self._still_current(run_generation):
+                kernel.reset_request_io()
+                return
             prewarm_ms = (time.perf_counter() - started) * 1000.0
             _emit_observation(
                 PrewarmObservation(
@@ -292,8 +367,16 @@ def start_world_graph_prewarm_coordinator() -> WorldGraphPrewarmCoordinator | No
     """Start the process-local coordinator; no-op if already running."""
     global _COORDINATOR
     with _COORDINATOR_LOCK:
-        if _COORDINATOR is not None and _COORDINATOR.is_running:
-            return _COORDINATOR
+        if _COORDINATOR is not None:
+            # Orphan check must precede is_running: a timed-out worker is still
+            # alive but must not be treated as a healthy lifecycle coordinator.
+            if _COORDINATOR.is_orphaned:
+                logger.error(
+                    "world graph prewarm coordinator start refused while orphaned worker alive"
+                )
+                return None
+            if _COORDINATOR.is_running:
+                return _COORDINATOR
         coordinator = WorldGraphPrewarmCoordinator()
         if not coordinator.start():
             return None
@@ -308,10 +391,15 @@ def stop_world_graph_prewarm_coordinator(
     global _COORDINATOR
     with _COORDINATOR_LOCK:
         coordinator = _COORDINATOR
-        _COORDINATOR = None
     if coordinator is None:
         return True
-    return coordinator.stop(timeout_s=timeout_s)
+    stopped = coordinator.stop(timeout_s=timeout_s)
+    with _COORDINATOR_LOCK:
+        if stopped:
+            if _COORDINATOR is coordinator:
+                _COORDINATOR = None
+        # Orphaned coordinator remains registered to block a second lease/lifecycle.
+    return stopped
 
 
 def get_world_graph_prewarm_coordinator() -> WorldGraphPrewarmCoordinator | None:

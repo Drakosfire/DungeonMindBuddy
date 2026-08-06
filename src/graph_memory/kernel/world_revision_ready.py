@@ -61,8 +61,21 @@ class RevisionReadyConsumerLease:
         self.released = True
 
 
+def _notification_is_newer(
+    candidate: WorldRevisionReadyNotification,
+    existing: WorldRevisionReadyNotification,
+) -> bool:
+    """Prefer the later-committed revision; never let a late older offer win."""
+    if candidate.revision_id == existing.revision_id:
+        return False
+    if candidate.created_at != existing.created_at:
+        return candidate.created_at > existing.created_at
+    # Deterministic tie-break when timestamps collide: lexicographic revision id.
+    return candidate.revision_id > existing.revision_id
+
+
 class RevisionReadyMailbox:
-    """Latest-by-world bounded mailbox with one exclusive consumer lease."""
+    """Newest-committed-by-world bounded mailbox with one exclusive consumer lease."""
 
     def __init__(self, *, capacity: int | None = None) -> None:
         self._capacity = capacity if capacity is not None else _default_mailbox_capacity()
@@ -70,6 +83,7 @@ class RevisionReadyMailbox:
         self._lock = threading.Lock()
         self._condition = threading.Condition(self._lock)
         self._pending: OrderedDict[WorldKey, WorldRevisionReadyNotification] = OrderedDict()
+        self._enqueued_at: dict[ExactRevisionKey, float] = {}
         self._closed = False
         self._consumer_token: object | None = None
         self._generation = 0
@@ -82,12 +96,18 @@ class RevisionReadyMailbox:
         with self._lock:
             return len(self._pending)
 
+    def enqueued_timing_count(self) -> int:
+        """Test helper: timing map size must stay bounded with pending offers."""
+        with self._lock:
+            return len(self._enqueued_at)
+
     def close(self) -> list[WorldRevisionReadyNotification]:
         """Stop intake and return discarded pending notifications."""
         with self._condition:
             self._closed = True
             discarded = list(self._pending.values())
             self._pending.clear()
+            self._enqueued_at.clear()
             self._condition.notify_all()
             return discarded
 
@@ -95,10 +115,24 @@ class RevisionReadyMailbox:
         """Test/lifecycle helper: clear pending, reopen, release consumer."""
         with self._condition:
             self._pending.clear()
+            self._enqueued_at.clear()
             self._closed = False
             self._consumer_token = None
             self._generation += 1
             self._condition.notify_all()
+
+    def _exact_key(self, notification: WorldRevisionReadyNotification) -> ExactRevisionKey:
+        return (
+            notification.resolved_root,
+            notification.world_id,
+            notification.revision_id,
+        )
+
+    def _forget_timing(self, notification: WorldRevisionReadyNotification) -> None:
+        self._enqueued_at.pop(self._exact_key(notification), None)
+
+    def _mark_timing(self, notification: WorldRevisionReadyNotification) -> None:
+        self._enqueued_at[self._exact_key(notification)] = time.perf_counter()
 
     def offer(
         self,
@@ -111,15 +145,24 @@ class RevisionReadyMailbox:
                     notification=notification,
                 )
             key = (notification.resolved_root, notification.world_id)
-            replaced = self._pending.get(key)
-            if replaced is not None:
+            existing = self._pending.get(key)
+            if existing is not None:
+                if not _notification_is_newer(notification, existing):
+                    # Late older offer must not displace a newer pending revision.
+                    return RevisionReadyOfferResult(
+                        status="dropped",
+                        notification=notification,
+                        replaced=None,
+                    )
+                self._forget_timing(existing)
                 self._pending[key] = notification
                 self._pending.move_to_end(key)
+                self._mark_timing(notification)
                 self._condition.notify()
                 return RevisionReadyOfferResult(
                     status="coalesced",
                     notification=notification,
-                    replaced=replaced,
+                    replaced=existing,
                 )
             if len(self._pending) >= self._capacity:
                 return RevisionReadyOfferResult(
@@ -127,11 +170,19 @@ class RevisionReadyMailbox:
                     notification=notification,
                 )
             self._pending[key] = notification
+            self._mark_timing(notification)
             self._condition.notify()
             return RevisionReadyOfferResult(
                 status="accepted",
                 notification=notification,
             )
+
+    def pop_queue_wait_ms(self, notification: WorldRevisionReadyNotification) -> float:
+        with self._lock:
+            started = self._enqueued_at.pop(self._exact_key(notification), None)
+        if started is None:
+            return 0.0
+        return max(0.0, (time.perf_counter() - started) * 1000.0)
 
     def acquire_consumer(self) -> RevisionReadyConsumerLease | None:
         with self._lock:
@@ -169,8 +220,6 @@ _MAILBOX: RevisionReadyMailbox | None = None
 _MAILBOX_LOCK = threading.Lock()
 _OFFER_OBSERVATIONS: list[dict[str, object]] = []
 _OFFER_OBS_LOCK = threading.Lock()
-_ENQUEUED_AT: dict[ExactRevisionKey, float] = {}
-_ENQUEUED_LOCK = threading.Lock()
 
 
 def _default_mailbox_capacity() -> int:
@@ -199,33 +248,12 @@ def reset_revision_ready_mailbox() -> None:
     mailbox.reset()
     with _OFFER_OBS_LOCK:
         _OFFER_OBSERVATIONS.clear()
-    with _ENQUEUED_LOCK:
-        _ENQUEUED_AT.clear()
-
-
-def mark_revision_ready_enqueued(notification: WorldRevisionReadyNotification) -> None:
-    key = (
-        notification.resolved_root,
-        notification.world_id,
-        notification.revision_id,
-    )
-    with _ENQUEUED_LOCK:
-        _ENQUEUED_AT[key] = time.perf_counter()
 
 
 def pop_revision_ready_queue_wait_ms(
     notification: WorldRevisionReadyNotification,
 ) -> float:
-    key = (
-        notification.resolved_root,
-        notification.world_id,
-        notification.revision_id,
-    )
-    with _ENQUEUED_LOCK:
-        started = _ENQUEUED_AT.pop(key, None)
-    if started is None:
-        return 0.0
-    return max(0.0, (time.perf_counter() - started) * 1000.0)
+    return get_revision_ready_mailbox().pop_queue_wait_ms(notification)
 
 
 def get_revision_ready_offer_observations() -> list[dict[str, object]]:
@@ -296,13 +324,17 @@ def offer_revision_ready(
     """Non-blocking offer into the process mailbox. Never raises to callers."""
     try:
         result = get_revision_ready_mailbox().offer(notification)
+        try:
+            _record_offer_observation(result)
+        except Exception:  # pragma: no cover - observational bookkeeping only
+            logger.exception("revision-ready offer observation failed")
+        return result
     except Exception as exc:  # pragma: no cover - defensive containment
-        logger.exception("revision-ready offer failed: %s", exc)
-        result = RevisionReadyOfferResult(status="dropped", notification=notification)
-    if result.status in {"accepted", "coalesced"}:
-        mark_revision_ready_enqueued(notification)
-    _record_offer_observation(result)
-    return result
+        try:
+            logger.exception("revision-ready offer failed: %s", exc)
+        except Exception:
+            pass
+        return RevisionReadyOfferResult(status="dropped", notification=notification)
 
 
 def offer_revision_ready_from_publish(
@@ -313,10 +345,13 @@ def offer_revision_ready_from_publish(
     """Map a successful publish result and offer it. Contain all failures."""
     try:
         notification = notification_from_publish_result(root, world_id, result)
+        return offer_revision_ready(notification)
     except Exception as exc:
-        logger.exception("revision-ready mapping failed after publish: %s", exc)
+        try:
+            logger.exception("revision-ready mapping/offer failed after publish: %s", exc)
+        except Exception:
+            pass
         return None
-    return offer_revision_ready(notification)
 
 
 __all__ = [

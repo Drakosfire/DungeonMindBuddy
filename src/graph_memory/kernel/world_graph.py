@@ -90,9 +90,16 @@ def publish_world_graph_revision(
     sync_identity_decisions_from_store(root, world_id, graph)
     # OPT02: best-effort process-local revision-ready signal after successful
     # durable publish + Kernel post-publish work. Never changes the result.
-    from graph_memory.kernel.world_revision_ready import offer_revision_ready_from_publish
+    try:
+        from graph_memory.kernel.world_revision_ready import (
+            offer_revision_ready_from_publish,
+        )
 
-    offer_revision_ready_from_publish(root, world_id, result)
+        offer_revision_ready_from_publish(root, world_id, result)
+    except Exception:
+        # Final containment: head is already committed; notification must not
+        # convert a successful publish into an exception.
+        pass
     return result
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import graph_memory.kernel as kernel
 from fastapi.testclient import TestClient
 
@@ -11,17 +13,18 @@ from apps.live_control_server.services.world_graph_prewarm import (
     start_world_graph_prewarm_coordinator,
     stop_world_graph_prewarm_coordinator,
 )
-from graph_memory.kernel.world_revision_ready import (
-    clear_revision_ready_offer_observations,
-    get_revision_ready_mailbox,
-    reset_revision_ready_mailbox,
-)
 
 
 def _reset_process_state() -> None:
-    stop_world_graph_prewarm_coordinator()
-    reset_revision_ready_mailbox()
-    clear_revision_ready_offer_observations()
+    stop_world_graph_prewarm_coordinator(timeout_s=5.0)
+    deadline = time.monotonic() + 10.0
+    while time.monotonic() < deadline:
+        coordinator = get_world_graph_prewarm_coordinator()
+        if coordinator is None:
+            break
+        time.sleep(0.01)
+    kernel.reset_revision_ready_mailbox()
+    kernel.clear_revision_ready_offer_observations()
     kernel.clear_world_read_runtime()
 
 
@@ -58,10 +61,10 @@ def test_sequential_lifecycles_do_not_leak_revision_ready_consumer() -> None:
         pass
     stop_world_graph_prewarm_coordinator()
 
-    first = get_revision_ready_mailbox().acquire_consumer()
+    first = kernel.get_revision_ready_mailbox().acquire_consumer()
     assert first is not None
     first.release()
 
-    second = get_revision_ready_mailbox().acquire_consumer()
+    second = kernel.get_revision_ready_mailbox().acquire_consumer()
     assert second is not None
     second.release()
