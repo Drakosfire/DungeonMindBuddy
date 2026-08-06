@@ -12,15 +12,15 @@ PR / branch: optional transport metadata only
 
 Verification pointer
 
-Base/reviewed head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / cf8e68cad24dd897337012f3081f9de1d50466c6 (cycle-6 recovery head; cycle-7 recovery repair is the current worktree slice; dogfood implementation head: d1123dd0)
+Base/reviewed head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / 96a008dae9936536a6362c17f21258d5d2fa118c (cycle-7 recovery head; dogfood implementation head: d1123dd0)
 
-Changed paths: cumulative branch paths from b6d1df07 through d1123dd0 plus corrective contract/provenance and cycle-5/6 commits through cf8e68ca; cycle-7 recovery ownership and verification are recorded in §4, §6E, §6F, §6G, §6H, and §7.
+Changed paths: cumulative branch paths from b6d1df07 through d1123dd0 plus corrective contract/provenance and cycle-5/6/7 commits through 96a008da; cycle-7 recovery ownership and verification are recorded in §4, §6E, §6F, §6G, §6H, and §7.
 
 Verification: owning backend identity/operation/proposal/commit tests and the frontend publication/workbench suite; exact commands and results are recorded in §7.
 
 HANDOFF — Workbench governed Threat publication bridge
 
-Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion through cycle-6 head cf8e68ca, with cycle-5, cycle-6, and cycle-7 recovery contracts recorded below (dogfood implementation head d1123dd0).
+Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion through cycle-7 head 96a008da, with cycle-5, cycle-6, and cycle-7 recovery contracts recorded below (dogfood implementation head d1123dd0).
 
 Canonical handoff path: Docs/Plans/HANDOFF-magic-d3-workbench-threat-publication.md
 Conversation name: MAGIC-D3 Workbench Publication Bridge
@@ -1480,7 +1480,7 @@ destroys an exact commit chain.
 
 Run and record exact results:
 
-Recorded provenance for reviewed head cf8e68cad24dd897337012f3081f9de1d50466c6, dogfood implementation head d1123dd08ab925964de4c9d54634f58ec908be14, and the current cycle-7 worktree verification:
+Recorded provenance for reviewed head 96a008dae9936536a6362c17f21258d5d2fa118c, dogfood implementation head d1123dd08ab925964de4c9d54634f58ec908be14, and the current cycle-7 verification:
 
 - `cd apps/live-control-ui && npm test -- --run src/api/liveApi.test.ts src/statblocks/publication/threatPublicationSession.test.ts src/statblocks/publication/ThreatPublicationPanel.test.tsx src/surface/modules/StatblockWorkbenchModule.test.tsx` — **228 passed** (4 files).
 - `cd apps/live-control-ui && npx tsc -b --force` — **baseline waiver**: two pre-existing `BuildReferenceCapability.tsx` `graphScope` errors at lines 122 and 247; publication client errors are cleared.
