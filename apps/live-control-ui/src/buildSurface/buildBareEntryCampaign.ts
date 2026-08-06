@@ -32,8 +32,9 @@ export function writeBuildLastCampaignId(campaignId: string): void {
 /**
  * Resolve the campaign for bare `/build` auto-create.
  * Priority: known route `?campaign=` → last Build campaign.
- * Unknown or non-empty invalid route campaigns fail closed (null → picker / no write).
- * Blank `?campaign=` is treated as absent and falls through to last Build campaign.
+ * Unknown or blank route `?campaign=` fail closed (null → picker / no write),
+ * including when a remembered campaign exists — explicit malformed context
+ * must not fall through to last.
  * Returns null when none are available (operator must pick; no silent dogfood campaign).
  * Agent scope is intentionally not read here — subscribing to AgentInteraction from
  * BuildSurfacePage re-entered lease publication and exceeded React update depth.
@@ -46,13 +47,10 @@ export function resolveBareBuildCampaignId(input?: {
     const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
     if (params.has("campaign")) {
       const fromRoute = params.get("campaign")?.trim() ?? "";
-      if (!fromRoute) {
-        // Present but blank — not a durable campaign id; fall through.
-      } else if (!isBuildKnownCampaignId(fromRoute)) {
+      if (!fromRoute || !isBuildKnownCampaignId(fromRoute)) {
         return null;
-      } else {
-        return fromRoute;
       }
+      return fromRoute;
     }
   }
 
