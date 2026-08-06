@@ -7,6 +7,7 @@ import * as liveApi from "../api/liveApi";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
+import { __resetGraphNodeChipRuntimeForTests } from "../graphReference/GraphNodeChipRuntime";
 import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
@@ -190,6 +191,7 @@ describe("BuildSurfacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    __resetGraphNodeChipRuntimeForTests();
     resetBuildBareEntryAutoCreateForTests();
     window.history.pushState({}, "", "/build");
   });
@@ -1093,8 +1095,11 @@ describe("BuildSurfacePage", () => {
     });
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
 
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId("surface-tool-host")).toBeInTheDocument();
+    });
+    await user.click(await screen.findByRole("button", { name: "Tools" }));
+    await user.click(await screen.findByRole("button", { name: /Find existing object/ }));
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
