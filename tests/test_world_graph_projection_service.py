@@ -1,4 +1,4 @@
-"""Service-boundary tests for PR007A world graph projection."""
+"""Service-boundary tests for PR007A world graph projection (OPT01 resident trust)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from unittest.mock import patch
 import pytest
 
 import graph_memory.kernel as kernel
-import graph_memory.world_projection_cache as cache_module
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
     project_world_graph,
@@ -27,7 +26,6 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRequest,
 )
 from graph_memory.world_projection_cache import (
-    ProjectionSourceUnavailableError,
     clear_projection_cache,
     make_projection_cache_key,
     projection_cache_stats,
@@ -43,6 +41,7 @@ BUNDLE_DIGEST = (
     "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
 )
 APPROVED_MERGE_SHA = "65ae001e0852d827ecd680200a965a576c705b1d"
+TRIPOD_CONTRIBUTION_ID = "contribution:022187fdefdf4557"
 ORDERED_CONTRIBUTION_IDS = [
     "contribution:82f23934d8eaca8a",
     "contribution:43782369bd717d32",
@@ -51,6 +50,15 @@ ORDERED_CONTRIBUTION_IDS = [
     "contribution:1227841724520c18",
     "contribution:022187fdefdf4557",
 ]
+
+
+@pytest.fixture(autouse=True)
+def _clear_runtime_and_cache() -> None:
+    clear_projection_cache()
+    kernel.clear_world_read_runtime()
+    yield
+    clear_projection_cache()
+    kernel.clear_world_read_runtime()
 
 
 def _initialize(root: Path) -> None:
@@ -84,12 +92,57 @@ def _initialize(root: Path) -> None:
     )
 
 
-def _request() -> WorldGraphProjectionRequest:
+def _request(*, revision_pin: str | None = None, query_text: str | None = None) -> WorldGraphProjectionRequest:
     return WorldGraphProjectionRequest(
         schema=PROJECTION_REQUEST_SCHEMA,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
+        revision_pin=revision_pin,
+        query_text=query_text,
     )
+
+
+def _revision_graph_path(root: Path, revision_id: str) -> Path:
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "graph.json"
+    )
+
+
+def _contribution_path(root: Path, contribution_id: str) -> Path:
+    safe_id = contribution_id.replace(":", "__")
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{safe_id}.json"
+    )
+
+
+def _head_path(root: Path) -> Path:
+    return root / "graph_memory" / "worlds" / WORLD_ID / "head.json"
+
+
+def _historical_revision(root: Path, head_revision_id: str) -> str:
+    revisions_dir = root / "graph_memory" / "worlds" / WORLD_ID / "revisions"
+    return next(
+        path.name
+        for path in sorted(revisions_dir.iterdir())
+        if path.is_dir() and path.name != head_revision_id
+    )
+
+
+def _observation() -> kernel.ProjectionRequestObservation:
+    observation = kernel.get_last_projection_observation()
+    assert observation is not None
+    return observation
 
 
 def test_service_uses_configured_root_and_kernel_boundary(tmp_path: Path) -> None:
@@ -116,206 +169,159 @@ def test_service_maps_kernel_errors(tmp_path: Path) -> None:
     assert exc_info.value.status_code == 404
 
 
-def test_service_caches_warm_projection_hits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_service_caches_warm_projection_hits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
     _initialize(tmp_path)
 
     first = project_world_graph(_request(), root=tmp_path)
-    stats_after_first = projection_cache_stats()
     second = project_world_graph(_request(), root=tmp_path)
-    stats_after_second = projection_cache_stats()
+    observation = _observation()
+    stats = projection_cache_stats()
 
     assert first.snapshot.revision_id == second.snapshot.revision_id
     assert first is second
-    assert stats_after_first["misses"] >= 1
-    assert stats_after_second["hits"] >= 1
-    clear_projection_cache()
+    assert stats["hits"] >= 1
+    assert observation.projection_cache_status == "hit"
+    assert observation.graph_payload_reads_this_request == 0
+    assert observation.contribution_reads_this_request == 0
 
 
 def test_service_cache_disabled_by_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", "0")
-    clear_projection_cache()
     _initialize(tmp_path)
 
     first = project_world_graph(_request(), root=tmp_path)
     second = project_world_graph(_request(), root=tmp_path)
+    observation = _observation()
     stats = projection_cache_stats()
 
     assert first.snapshot.revision_id == second.snapshot.revision_id
     assert first is not second
     assert stats["hits"] == 0
     assert stats["size"] == 0
-    clear_projection_cache()
+    assert observation.projection_cache_status == "disabled"
+    assert observation.graph_payload_reads_this_request == 0
+    assert observation.contribution_reads_this_request == 0
 
 
-def test_service_cache_skips_query_text(
+def test_service_cache_includes_query_text(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
     _initialize(tmp_path)
 
-    request = WorldGraphProjectionRequest(
-        schema=PROJECTION_REQUEST_SCHEMA,
-        world_id=WORLD_ID,
-        campaign_id=CAMPAIGN_ID,
-        query_text="Glowkindle",
-    )
+    request = _request(query_text="Glowkindle")
     first = project_world_graph(request, root=tmp_path)
     second = project_world_graph(request, root=tmp_path)
+    observation = _observation()
     stats = projection_cache_stats()
 
     assert first.snapshot.revision_id == second.snapshot.revision_id
-    assert first is not second
-    assert stats["hits"] == 0
-    assert stats["size"] == 0
-    clear_projection_cache()
-
-
-def test_service_cache_misses_after_ledger_fingerprint_change(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
-    _initialize(tmp_path)
-
-    first = project_world_graph(_request(), root=tmp_path)
-    contrib_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "contributions"
-    assert contrib_dir.is_dir()
-    # Fingerprint digests every contribution filename + bytes; adding a file
-    # must miss the warm cache without mutating the contribution index JSON.
-    (contrib_dir / "contribution:cache-bust-probe.json").write_text("{}\n", encoding="utf-8")
-
-    second = project_world_graph(_request(), root=tmp_path)
-    stats = projection_cache_stats()
-
-    assert first.snapshot.revision_id == second.snapshot.revision_id
-    assert first is not second
-    assert stats["misses"] >= 2
-    clear_projection_cache()
+    assert first is second
+    assert stats["hits"] >= 1
+    assert observation.projection_cache_status == "hit"
 
 
 def test_service_cache_keys_revision_pin_separately(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
     _initialize(tmp_path)
     head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    pinned_revision = _historical_revision(tmp_path, head.head_revision_id)
 
-    head_projection = project_world_graph(_request(), root=tmp_path)
-    pinned_request = WorldGraphProjectionRequest(
-        schema=PROJECTION_REQUEST_SCHEMA,
-        world_id=WORLD_ID,
-        campaign_id=CAMPAIGN_ID,
-        revision_pin=head.head_revision_id,
-    )
-    pinned_key = make_projection_cache_key(
+    context = kernel.resolve_projection_read_context(tmp_path, _request())
+    pinned_context = kernel.resolve_projection_read_context(
         tmp_path,
-        pinned_request,
-        revision_id=head.head_revision_id,
-        head_revision_id=head.head_revision_id,
+        _request(revision_pin=pinned_revision),
     )
     head_key = make_projection_cache_key(
         tmp_path,
         _request(),
-        revision_id=head.head_revision_id,
-        head_revision_id=head.head_revision_id,
+        revision_id=context.selected_revision_id,
+        head_revision_id=context.head_revision_id,
+        selected_resident_generation=context.selected.generation,
+        head_resident_generation=context.head.generation,
     )
-    assert pinned_key == head_key
+    pinned_key = make_projection_cache_key(
+        tmp_path,
+        _request(revision_pin=pinned_revision),
+        revision_id=pinned_context.selected_revision_id,
+        head_revision_id=pinned_context.head_revision_id,
+        selected_resident_generation=pinned_context.selected.generation,
+        head_resident_generation=pinned_context.head.generation,
+    )
+    assert pinned_key != head_key
 
+    head_projection = project_world_graph(_request(), root=tmp_path)
+    pinned_request = _request(revision_pin=pinned_revision)
     pinned = project_world_graph(pinned_request, root=tmp_path)
-    stats = projection_cache_stats()
-    assert pinned is head_projection
-    assert stats["hits"] >= 1
-    clear_projection_cache()
+    stats_after_first_pin = projection_cache_stats()
+    pinned_again = project_world_graph(pinned_request, root=tmp_path)
+    observation = _observation()
+
+    assert pinned.snapshot.revision_id == pinned_revision
+    assert pinned is not head_projection
+    assert stats_after_first_pin["hits"] == 0
+    assert pinned is pinned_again
+    assert observation.projection_cache_status == "hit"
 
 
-def _revision_graph_path(root: Path, revision_id: str) -> Path:
-    return (
-        root
-        / "graph_memory"
-        / "worlds"
-        / WORLD_ID
-        / "revisions"
-        / revision_id
-        / "graph.json"
-    )
-
-
-def _revision_manifest_path(root: Path, revision_id: str) -> Path:
-    return (
-        root
-        / "graph_memory"
-        / "worlds"
-        / WORLD_ID
-        / "revisions"
-        / revision_id
-        / "revision.json"
-    )
-
-
-def _head_path(root: Path) -> Path:
-    return root / "graph_memory" / "worlds" / WORLD_ID / "head.json"
-
-
-def test_service_cache_cannot_hide_graph_payload_integrity_failure(
+def test_resident_warm_reads_ignore_graph_and_contribution_tamper(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Warm hit must not survive graph.json mutation under a stable revision id."""
     monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
     _initialize(tmp_path)
 
     warm = project_world_graph(_request(), root=tmp_path)
-    hits_before = projection_cache_stats()["hits"]
-    graph_path = _revision_graph_path(tmp_path, warm.snapshot.revision_id)
-    graph_path.write_text("{not-valid-json", encoding="utf-8")
+    revision_id = warm.snapshot.revision_id
 
-    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
-        project_world_graph(_request(), root=tmp_path)
-    assert exc_info.value.code == "projection_integrity_error"
-    assert exc_info.value.status_code == 409
-    assert projection_cache_stats()["hits"] == hits_before
-    clear_projection_cache()
+    graph_path = _revision_graph_path(tmp_path, revision_id)
+    graph_payload = json.loads(graph_path.read_text(encoding="utf-8"))
+    graph_payload["campaign_id"] = "tampered-campaign-id"
+    graph_path.write_text(
+        json.dumps(graph_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    contrib_path = _contribution_path(tmp_path, TRIPOD_CONTRIBUTION_ID)
+    contrib_payload = json.loads(contrib_path.read_text(encoding="utf-8"))
+    contrib_payload["accepted_assertions"][0]["label"] = "tampered-contribution"
+    contrib_path.write_text(
+        json.dumps(contrib_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    same_request = project_world_graph(_request(), root=tmp_path)
+    different_query = project_world_graph(
+        _request(query_text="Glowkindle"),
+        root=tmp_path,
+    )
+    observation = _observation()
+
+    assert same_request.snapshot.revision_id == revision_id
+    assert different_query.snapshot.revision_id == revision_id
+    assert same_request.model_dump() == warm.model_dump()
+    assert observation.graph_payload_reads_this_request == 0
+    assert observation.contribution_reads_this_request == 0
+    assert observation.source_index_reads_this_request == 0
 
 
-def test_service_cache_cannot_hide_revision_manifest_integrity_failure(
+def test_head_corruption_fails_closed_while_resident_exists(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
-    _initialize(tmp_path)
-
-    warm = project_world_graph(_request(), root=tmp_path)
-    hits_before = projection_cache_stats()["hits"]
-    manifest_path = _revision_manifest_path(tmp_path, warm.snapshot.revision_id)
-    manifest_path.write_text("{not-valid-json", encoding="utf-8")
-
-    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
-        project_world_graph(_request(), root=tmp_path)
-    assert exc_info.value.code == "projection_integrity_error"
-    assert exc_info.value.status_code == 409
-    assert projection_cache_stats()["hits"] == hits_before
-    clear_projection_cache()
-
-
-def test_service_cache_cannot_hide_head_integrity_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Integrity-relevant head mutation must miss cache even when head still parses."""
-    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
     _initialize(tmp_path)
 
     project_world_graph(_request(), root=tmp_path)
     hits_before = projection_cache_stats()["hits"]
+
     head_path = _head_path(tmp_path)
     head_payload = json.loads(head_path.read_text(encoding="utf-8"))
-    # Keep head_revision_id stable so a revision-id-only key would still hit.
     head_payload["world_id"] = "tampered-world"
     head_path.write_text(
         json.dumps(head_payload, indent=2, sort_keys=True) + "\n",
@@ -327,178 +333,84 @@ def test_service_cache_cannot_hide_head_integrity_failure(
     assert exc_info.value.code == "projection_integrity_error"
     assert exc_info.value.status_code == 409
     assert projection_cache_stats()["hits"] == hits_before
-    clear_projection_cache()
 
 
-def test_service_cache_cannot_hide_head_revision_corruption_for_pinned_request(
+def test_scrub_and_clear_reverify_after_backing_corruption(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Pinned warm hit must not survive corruption of the head's target revision.
-
-    The kernel validates head.head_revision_id even for pinned requests
-    (headRevisionId / isHead metadata trusts it), so a cache key that
-    fingerprints only the pinned revision would return the cached projection
-    where the kernel would raise projection_integrity_error.
-    """
     monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
-    _initialize(tmp_path)
-    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
-    revisions_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "revisions"
-    # Initialization publishes a revision chain; pick any provably historical
-    # revision rather than assuming an ordering of content-addressed ids.
-    pinned = next(
-        path.name
-        for path in sorted(revisions_dir.iterdir())
-        if path.is_dir() and path.name != head.head_revision_id
-    )
-    pinned_request = WorldGraphProjectionRequest(
-        schema=PROJECTION_REQUEST_SCHEMA,
-        world_id=WORLD_ID,
-        campaign_id=CAMPAIGN_ID,
-        revision_pin=pinned,
-    )
-
-    warm = project_world_graph(pinned_request, root=tmp_path)
-    assert warm.snapshot.revision_id == pinned
-    hits_before = projection_cache_stats()["hits"]
-    # Corrupt the head's target revision while leaving head.json unchanged.
-    _revision_graph_path(tmp_path, head.head_revision_id).write_text(
-        "{not-valid-json", encoding="utf-8"
-    )
-
-    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
-        project_world_graph(pinned_request, root=tmp_path)
-    assert exc_info.value.code == "projection_integrity_error"
-    assert exc_info.value.status_code == 409
-    assert projection_cache_stats()["hits"] == hits_before
-    clear_projection_cache()
-
-
-def test_service_cache_skips_insert_when_head_moves_during_projection(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A projection must not be cached under a pre-projection source state.
-
-    Simulates the pinned-request race: the pre-key is computed for head B, the
-    head moves (here: rolls back to the pinned revision A) before the kernel
-    reads the world, and the kernel returns pinned revision A with
-    headRevisionId=A. The stale head-B key must not capture that projection —
-    otherwise a later rollback to B would hit it and serve is_head /
-    headRevisionId metadata that does not correspond to the key.
-    """
-    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
-    _initialize(tmp_path)
-    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
-    revisions_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "revisions"
-    pinned = next(
-        path.name
-        for path in sorted(revisions_dir.iterdir())
-        if path.is_dir() and path.name != head.head_revision_id
-    )
-    pinned_request = WorldGraphProjectionRequest(
-        schema=PROJECTION_REQUEST_SCHEMA,
-        world_id=WORLD_ID,
-        campaign_id=CAMPAIGN_ID,
-        revision_pin=pinned,
-    )
-
-    head_path = _head_path(tmp_path)
-    original_head = json.loads(head_path.read_text(encoding="utf-8"))
-    real_project = kernel.project_world_graph
-
-    def _move_head_then_project(root: Path, request: WorldGraphProjectionRequest):
-        moved = {**original_head, "head_revision_id": pinned}
-        head_path.write_text(
-            json.dumps(moved, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        return real_project(root, request)
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.world_graph_projection.kernel.project_world_graph",
-        _move_head_then_project,
-    )
-
-    projection = project_world_graph(pinned_request, root=tmp_path)
-
-    assert projection.snapshot.revision_id == pinned
-    assert projection.snapshot.head_revision_id == pinned
-    assert projection.snapshot.is_head is True
-    stats = projection_cache_stats()
-    assert stats["size"] == 0
-    assert stats["hits"] == 0
-    clear_projection_cache()
-
-
-def test_service_cache_bypasses_transiently_unreadable_sources(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A transient read failure must bypass the cache, not poison it.
-
-    An unreadable integrity-checked input raises ProjectionSourceUnavailableError
-    during key computation; the service must fall back to an uncached kernel
-    call and must not insert anything under sentinel fingerprints. Once the
-    failure clears, caching resumes normally.
-    """
-    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
     _initialize(tmp_path)
 
-    real_digest = cache_module._file_digest
-    injected = iter([True])
+    warm = project_world_graph(_request(), root=tmp_path)
+    revision_id = warm.snapshot.revision_id
 
-    def _flaky_digest(path: Path) -> str:
-        if next(injected, False):
-            raise ProjectionSourceUnavailableError(f"injected transient: {path}")
-        return real_digest(path)
+    graph_path = _revision_graph_path(tmp_path, revision_id)
+    graph_path.write_text("{not-valid-json", encoding="utf-8")
 
-    monkeypatch.setattr(cache_module, "_file_digest", _flaky_digest)
+    still_warm = project_world_graph(_request(), root=tmp_path)
+    assert still_warm.snapshot.revision_id == revision_id
 
-    bypassed = project_world_graph(_request(), root=tmp_path)
-    assert bypassed.snapshot.revision_id
-    stats = projection_cache_stats()
-    assert stats["size"] == 0
-    assert stats["hits"] == 0
+    runtime = kernel.get_world_read_runtime()
+    scrub = runtime.scrub_resident(tmp_path, WORLD_ID, revision_id)
+    assert scrub["status"] == "unhealthy"
 
-    second = project_world_graph(_request(), root=tmp_path)
-    assert projection_cache_stats()["size"] == 1
-    third = project_world_graph(_request(), root=tmp_path)
-    assert third is second
-    assert projection_cache_stats()["hits"] == 1
+    kernel.clear_world_read_runtime()
     clear_projection_cache()
-
-
-def test_service_cache_cannot_hide_contribution_rename(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Renaming a referenced contribution file must miss the warm cache.
-
-    os.rename preserves both the file count and every file mtime, so an
-    aggregate count + newest-mtime fingerprint stays stable; the kernel still
-    fails integrity when the id-derived record path goes missing.
-    """
-    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
-    clear_projection_cache()
-    _initialize(tmp_path)
-
-    project_world_graph(_request(), root=tmp_path)
-    hits_before = projection_cache_stats()["hits"]
-    contrib_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "contributions"
-    referenced = sorted(contrib_dir.glob("*.json"))
-    assert referenced
-    metadata_before = (len(referenced), max(p.stat().st_mtime_ns for p in referenced))
-    renamed = referenced[0].with_name("contribution__renamed_under_stable_metadata.json")
-    referenced[0].rename(renamed)
-    after = sorted(contrib_dir.glob("*.json"))
-    # Prove the rename kept aggregate metadata stable: a count + newest-mtime
-    # fingerprint would not have detected it.
-    assert (len(after), max(p.stat().st_mtime_ns for p in after)) == metadata_before
 
     with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
         project_world_graph(_request(), root=tmp_path)
     assert exc_info.value.code == "projection_integrity_error"
     assert exc_info.value.status_code == 409
-    assert projection_cache_stats()["hits"] == hits_before
-    clear_projection_cache()
+
+
+def test_payload_cache_cannot_survive_runtime_clear_generation_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    first = project_world_graph(_request(), root=tmp_path)
+    assert _observation().projection_cache_status == "miss"
+    assert projection_cache_stats()["size"] == 1
+
+    kernel.clear_world_read_runtime()
+
+    second = project_world_graph(_request(), root=tmp_path)
+    second_observation = _observation()
+    assert second.snapshot.revision_id == first.snapshot.revision_id
+    assert second is not first
+    assert second_observation.projection_cache_status == "miss"
+
+    third = project_world_graph(_request(), root=tmp_path)
+    third_observation = _observation()
+    assert third is second
+    assert third_observation.projection_cache_status == "hit"
+
+
+def test_service_unpinned_uses_new_head_after_advance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After head advance, unpinned requests use the new head, not a stale cache."""
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    head_a, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    at_head_a = project_world_graph(_request(), root=tmp_path)
+    assert at_head_a.snapshot.revision_id == head_a.head_revision_id
+
+    published = kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:test-service-head-advance"],
+        expected_parent_revision_id=head_a.head_revision_id,
+    )
+    revision_b = published.revision.revision_id
+    assert revision_b != head_a.head_revision_id
+
+    at_head_b = project_world_graph(_request(), root=tmp_path)
+    observation = _observation()
+
+    assert at_head_b.snapshot.revision_id == revision_b
+    assert at_head_b is not at_head_a
+    assert observation.projection_cache_status == "miss"
