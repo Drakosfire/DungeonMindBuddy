@@ -2,15 +2,23 @@
 @import "../tiptap/tiptapSpike.css";
 @import "../graphReference/graphReference.css";
 
-.build-surface-new {
+.build-surface-opening {
   width: min(720px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 1.5rem 0 7rem;
+  display: grid;
+  gap: 0.75rem;
+  color: var(--fg, #e8eaef);
 }
 
-.build-surface-new-layout {
-  display: grid;
-  gap: 1rem;
+.build-surface-opening button {
+  justify-self: start;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(122, 162, 247, 0.45);
+  border-radius: 7px;
+  background: rgba(18, 20, 26, 0.85);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
 }
 
 .build-surface-with-graph-context {
