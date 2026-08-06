@@ -649,7 +649,7 @@ Do not hide a second capability inside “prewarm.” In particular, do not buil
 
 **PR #511 review repair (post-request-changes):** addressed late-A-after-B mailbox ordering, full post-commit offer containment, shutdown-orphan isolation, bounded `_enqueued_at`, `head.world_id` mismatch → `failed`/`WorldIdMismatch`, and live-server imports only via `graph_memory.kernel`.
 
-1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/511 ; branch `opt/opt02-revision-ready-post-commit-prewarm`; head `21539981bbdea4aa77ae826e419b8bd9de2824d9`.
+1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/511 ; branch `opt/opt02-revision-ready-post-commit-prewarm`; head `01f8e2ec847bdeb84505813bd030aa8a3eed00e3`.
 2. **Immutable base:** `d50d0c3a45761376185d36fb39ae3a098a5b8cfc` (merge of PR #509 / OPT01 onto main). Design anchor tip `34b041d91980e1eac1d148b972332e057bdcb92f` is an ancestor of this base.
 3. **§1 Mission (exact):** After a successful World Graph publish, the live server can best-effort prewarm that exact committed revision so the next same-process read can reuse verified resident authority without delaying or weakening publication.
 4. **§1 Merge-ready invariant (exact):** Every successful Kernel publication offers one exact process-local notification only after the existing durable commit and Kernel post-publish work; offering never performs graph-scale I/O or changes publication success, the live-server worker processes bounded notifications through the OPT01 verifier, skips revisions no longer named by current head, coalesces with ordinary readers, and reports every ready, superseded, dropped, or failed outcome without treating notification state as graph authority.
