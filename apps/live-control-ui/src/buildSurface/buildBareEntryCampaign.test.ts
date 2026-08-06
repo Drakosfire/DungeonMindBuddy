@@ -27,6 +27,20 @@ describe("buildBareEntryCampaign", () => {
     expect(localStorage.getItem(BUILD_LAST_CAMPAIGN_STORAGE_KEY)).toBeNull();
   });
 
+  it("fails closed on unknown route campaign (does not fall through to last)", () => {
+    writeBuildLastCampaignId("longmont-c2");
+    expect(resolveBareBuildCampaignId({ search: "?campaign=eldyrwild" })).toBeNull();
+    expect(resolveBareBuildCampaignId({ search: "?campaign=typo" })).toBeNull();
+  });
+
+  it("treats blank route campaign as absent and may use last", () => {
+    expect(resolveBareBuildCampaignId({ search: "?campaign=" })).toBeNull();
+    expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBeNull();
+    writeBuildLastCampaignId("longmont-c1");
+    expect(resolveBareBuildCampaignId({ search: "?campaign=" })).toBe("longmont-c1");
+    expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBe("longmont-c1");
+  });
+
   it("keys auto-create latch by campaign identity", () => {
     expect(bareBuildAutoCreateKey("longmont-c1")).not.toBe(bareBuildAutoCreateKey("longmont-c2"));
   });

@@ -257,6 +257,76 @@ describe("BuildSurfacePage", () => {
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
   });
 
+  it("E2: browser Back after admit does not create another document", async () => {
+    mockUntitledDraftCreate();
+    const pushSpy = vi.spyOn(window.history, "pushState");
+    const replaceSpy = vi.spyOn(window.history, "replaceState");
+
+    // Simulate Command Board → Build entry, then campaign-resolved auto-create.
+    window.history.replaceState({}, "", "/");
+    pushSpy.mockClear();
+    replaceSpy.mockClear();
+    window.history.pushState({}, "", "/build?campaign=longmont-c2");
+
+    const view = renderBuildPage();
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
+
+    const admissionReplaces = replaceSpy.mock.calls.filter((call) =>
+      String(call[2] ?? "").includes("documentId="),
+    );
+    expect(admissionReplaces.length).toBeGreaterThanOrEqual(1);
+    const admissionPushes = pushSpy.mock.calls.filter((call) =>
+      String(call[2] ?? "").includes("documentId="),
+    );
+    expect(admissionPushes).toHaveLength(0);
+
+    await act(async () => {
+      const popped = new Promise<void>((resolve) => {
+        window.addEventListener("popstate", () => resolve(), { once: true });
+      });
+      window.history.back();
+      await popped;
+    });
+
+    // Transient campaign/document URLs were replaced, so Back leaves Build.
+    expect(window.location.pathname.replace(/\/+$/, "") || "/").toBe("/");
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+
+    // App chrome would unmount Build off-route; mirror that so last-campaign
+    // memory cannot replay create while a stale page instance remains mounted.
+    view.unmount();
+    resetBuildBareEntryAutoCreateForTests();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("E2: unknown route campaign fails closed to picker without create", async () => {
+    mockUntitledDraftCreate();
+    window.history.pushState({}, "", "/build?campaign=eldyrwild");
+
+    renderBuildPage();
+
+    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
+  });
+
+  it("E2: blank route campaign without memory shows picker", async () => {
+    mockUntitledDraftCreate();
+    window.history.pushState({}, "", "/build?campaign=");
+
+    renderBuildPage();
+
+    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+  });
+
   it("E2: bare /build create failure shows retry without navigating", async () => {
     const user = userEvent.setup();
     mockUntitledDraftCreate();
