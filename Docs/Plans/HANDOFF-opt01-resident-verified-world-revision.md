@@ -711,7 +711,18 @@ The implementation is successful even if broad projection construction remains e
 
 ## §8 Coding-agent review handback (filled)
 
-1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/509 ; branch `opt/opt01-resident-verified-world-revision`; head `b5d5800b965d9d6fb11219237c292ac82dbef0b1`.
+### Review repair (post PR #509 COMMENT / changes-required)
+
+Addressed merge blockers from the formal review comment:
+1. request-only policy (`validate_projection_request_policy`) runs before any head/resident storage access;
+2. `clear()` detaches `_inflight` and requires epoch equality on join/return so post-clear callers cannot receive pre-clear generations;
+3. scrub backing-health updates use generation CAS (`stale` when a newer resident replaced the scrubbed one);
+4. cold admission + scrub prove active support→contribution assertion closure before readiness;
+5. `project_world_graph_from_context` asserts root/world/revision/pin identity against the request;
+6. service emits structured observations on success **and** error branches;
+7. E3 expanded beyond malformed graph JSON; clear-during-load + scrub-vs-reload races added; deterministic table covers focus / pinned-after-advance / post-clear.
+
+1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/509 ; branch `opt/opt01-resident-verified-world-revision`; head TBD after review-repair commits.
 2. **§1 Mission (exact):** Projection callers can reuse one exact verified World Graph revision so that repeated reads of that revision do not reread or rehash immutable graph, contribution, or admitted source-index files.
 3. **§1 Merge-ready invariant (exact):** Every projection response is still derived from the exact world, selected revision, current observed head revision, campaign scope, focus, admissibility, and query named by the existing request contract, while each resident generation is admitted only after one complete fail-closed verification, concurrent callers share that generation, completed projection caches cannot outlive it, and later out-of-band backing mutation can neither poison nor silently replace the already verified in-memory authority.
 4. **§7 evidence ledger**
@@ -720,56 +731,48 @@ The implementation is successful even if broad projection construction remains e
 | --- | --- | --- |
 | E1 | PASS — `test_cold_and_warm_projections_are_model_equal` plus service cold/warm model equality | independently rerun local |
 | E2 | PASS — `test_coalesced_concurrent_cold_load_single_io_batch` | independently rerun local |
-| E3 | PASS — `test_failed_cold_load_does_not_retain_resident_and_retry_succeeds` | independently rerun local |
+| E3 | PASS — malformed graph + malformed manifest + missing supported assertion + mid-load contribution failure; all leave `resident_count==0` and repaired retry succeeds | independently rerun local |
 | E4 | PASS — `test_head_corruption_fails_closed_while_resident_exists` | independently rerun local |
-| E5 | PASS — `test_head_advance_while_revision_load_blocked` + `test_service_unpinned_uses_new_head_after_advance` | independently rerun local |
-| E6 | PASS — runtime scrub/clear tests + service `test_scrub_and_clear_reverify_after_backing_corruption` / warm-tamper ignore | independently rerun local |
+| E5 | PASS — `test_head_advance_while_revision_load_blocked` + `test_service_unpinned_uses_new_head_after_advance` + `test_clear_during_blocked_load_isolates_new_caller` | independently rerun local |
+| E6 | PASS — scrub/clear trust tests + `test_stale_scrub_cannot_replace_newer_resident_generation` | independently rerun local |
 | E7 | PASS — generation-bound payload cache + query cache eligibility + cache-disabled resident correctness | independently rerun local |
-| E8 | PASS — warm same-revision requests show 0 graph/manifest/contribution/source reads (head.json allowed) | independently rerun local |
+| E8 | PASS — warm same-revision / different-focus show 0 graph/manifest/contribution/source reads; pinned-after-advance selected hit with only new-head cold reads; post-clear reloads | independently rerun local |
 | E9 | PASS for OPT01 scope — no new illegal Kernel boundary imports; suite has pre-existing base failures unrelated to allowlisted paths | independently rerun local + base comparison |
-| E10 | WAIVED — live Eldyrwild dogfood not run in this coding session (operator waiver) | operator waiver |
+| E10 | NOT PROVEN — live Eldyrwild Plan→Build→Threat dogfood not run; no operator waiver recorded on the PR | deferred / needs operator |
 
 5. **Nano-commits**
-   - `46857396` feat(opt01): add resident world revision runtime and lifecycle tests
-   - `2c5a7f0f` test(opt01): replace fingerprint cache tests with resident trust contract
-   - `3d91b3a1` feat(opt01): serve projections from verified resident revision context
-   - `0991b09b` test(opt01): align contribution-tamper proof with resident trust bargain
-   - `8fd46602` docs(opt01): check in authoritative handoff and cold/warm contract proof
-   - `a668febb` / `b5d5800b` docs(opt01): fill §8 handback + record PR #509
-6. **Base / head:** base `b6d1df07fae7b28760994509dcf2ae9bd8fb74c7`; head `b5d5800b965d9d6fb11219237c292ac82dbef0b1`.
+   - prior OPT01 commits through `91fd8511`
+   - review-repair commits appended on this branch (lifecycle/integrity + evidence)
+6. **Base / head:** base `b6d1df07fae7b28760994509dcf2ae9bd8fb74c7`; head TBD after review-repair commits.
 7. **Changed paths / focused diffstat:** exactly the §4 allowlist (9 paths). See verification command output.
-8. **Required commands / results**
-   - `uv run pytest tests/test_graph_kernel_world_read_runtime.py -q` → **5 passed**
-   - projection suite (service + kernel + routes + recap) → **105 passed, 2 failed** (both also fail on base; see waivers)
-   - retrieval + boundaries → **73 passed, 4 failed** (all four also fail on base)
+8. **Required commands / results (post review repair)**
+   - `uv run pytest tests/test_graph_kernel_world_read_runtime.py tests/test_world_graph_projection_service.py -q` → **25 passed**
+   - `uv run pytest tests/test_graph_kernel_world_read_runtime.py tests/test_world_graph_projection_service.py tests/test_graph_kernel_world_projection.py -q` → **95 passed, 1 failed** (`test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head` — also fails on base)
    - scoped `ruff check` on allowlisted paths → **All checks passed!**
-   - `git diff --check` → clean
-   - repo-wide `ruff check .` → pre-existing mass failures on base/head (not greened)
-9. **Result provenance:** independently rerun local (author coding agent).
-10. **Base/head failing gates:** identical failing set on base `b6d1df07` for:
+9. **Result provenance:** independently rerun local (author coding agent). No GitHub Actions/status checks on this head.
+10. **Base/head failing gates:** identical pre-existing base failure retained:
     - `test_multi_source_one_supporter_retracted_drops_retracted_evidence_on_head`
-    - `test_recap_compatibility_replays_prechange_baseline`
-    - `test_repo_heading_anchor_without_admitted_digest_is_unreadable`
-    - three `test_graph_kernel_boundaries.py` selector/import failures
-    Head adds **no** new failures among required commands.
-11. **Operator waivers:** E10 live dogfood unavailable in this session; accept pre-existing base failures listed above without claiming them green.
+    Head adds **no** new failures among required owning tests.
+11. **Operator waivers:** none granted on the PR. E10 remains NOT PROVEN. Pre-existing base failures are listed without claiming them green.
 12. **Paths outside §4:** none.
 13. **Stop conditions:** none.
 14. **Runtime summary**
     - resident key: `(resolved_root, world_id, revision_id)`
     - generation: monotonic process-local int per successful cold load
     - capacity: default 8 via `DMB_WORLD_GRAPH_RESIDENT_CAPACITY` (min 2); LRU registry eviction only
-    - coalescing: one in-flight loader per key; waiters share generation/error; clear bumps epoch so completions do not reinsert
-    - clear/restart: `clear_world_read_runtime()` drops ready residents; pair with `clear_projection_cache()` for payload entries
-    - scrub: re-verifies durable backing; marks `healthy`/`unhealthy` without mutating resident store/contribs
-15. **Deterministic read-count table (service observation, local tmp world)**
+    - coalescing: one in-flight loader per key+epoch; waiters share generation/error; clear bumps epoch, clears ready, and detaches `_inflight`
+    - clear/restart: `clear_world_read_runtime()` drops ready residents and isolates future callers from pre-clear loads; pair with `clear_projection_cache()` for payload entries
+    - scrub: re-verifies durable backing + support closure; CAS-updates `healthy`/`unhealthy` only for the scrubbed generation
+    - observations: emitted for cache hit, build success, and both error branches
+15. **Deterministic read-count table (service observation, local tmp world; payload cache disabled for focus/pin/clear rows)**
 
-| Scenario | graph | manifest | contribution | source-index | resident_status | cache |
+| Scenario | graph | manifest | contribution | source-index | resident_status | notes |
 | --- | ---: | ---: | ---: | ---: | --- | --- |
-| cold unpinned | 1 | 1 | 6 | 0 | miss | miss |
-| warm same request | 0 | 0 | 0 | 0 | hit | hit |
-| warm different query (first) | 0 | 0 | 0 | 0 | hit | miss |
-| warm different query (second) | 0 | 0 | 0 | 0 | hit | hit |
+| cold unpinned | 1 | 1 | 6 | 0 | miss | first admit |
+| warm same request | 0 | 0 | 0 | 0 | hit | same recipe |
+| warm different focus | 0 | 0 | 0 | 0 | hit | session focus |
+| pinned historical after head advance | 1 | 1 | 6 | 0 | hit | selected pin hit; counts are new-head cold only |
+| post-clear reload | 1 | 1 | 6 | 0 | miss | clear + unpinned head |
 
 16. **Cold/warm characterization timings (local tmp initialize; not a universal latency claim)**
     - cold unpinned ≈ 7.0 ms (miss + build)
@@ -778,4 +781,4 @@ The implementation is successful even if broad projection construction remains e
     - warm query cached ≈ 0.11 ms
 17. **Public/durable confirmation:** no projection request/response schema, UI caller, durable storage format, publication protocol, or contribution merge semantics changed.
 18. **Successors still false:** no post-commit prewarm; no bounded object/search/adjacency APIs; no write/materialization optimization; no DungeonMind/PostgreSQL cutover.
-19. **Authority confirmation:** authoritative handoff implemented without compressed or omitted constraints; stub replaced by full dispatch text before handback fill-in.
+19. **Authority confirmation:** authoritative handoff implemented without compressed or omitted constraints; review-repair preserves the same §1 invariant with stricter lifecycle/admission proofs.
