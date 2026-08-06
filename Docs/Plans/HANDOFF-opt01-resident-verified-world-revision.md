@@ -723,7 +723,7 @@ Addressed the remaining merge blockers after provenance admission landed:
 
 Earlier review repairs remain in force (request-before-storage, clear/scrub races, full per-support provenance authority, context/request identity, error observations).
 
-1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/509 ; branch `opt/opt01-resident-verified-world-revision`; head `f0166564e8b20903191c059b39193259509bb169`.
+1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/509 ; branch `opt/opt01-resident-verified-world-revision`; head `6087fd2f0b0bf14d5bd7d2abd40b199df9494738`.
 2. **§1 Mission (exact):** Projection callers can reuse one exact verified World Graph revision so that repeated reads of that revision do not reread or rehash immutable graph, contribution, or admitted source-index files.
 3. **§1 Merge-ready invariant (exact):** Every projection response is still derived from the exact world, selected revision, current observed head revision, campaign scope, focus, admissibility, and query named by the existing request contract, while each resident generation is admitted only after one complete fail-closed verification, concurrent callers share that generation, completed projection caches cannot outlive it, and later out-of-band backing mutation can neither poison nor silently replace the already verified in-memory authority.
 4. **§7 evidence ledger**
@@ -745,7 +745,7 @@ Earlier review repairs remain in force (request-before-storage, clear/scrub race
    - OPT01 stack rebased onto `9d4f5a30`
    - graph-object agreement admission + adversarial proofs
    - this §8 evidence sync
-6. **Base / head:** base `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`; head `f0166564e8b20903191c059b39193259509bb169`.
+6. **Base / head:** base `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`; head `6087fd2f0b0bf14d5bd7d2abd40b199df9494738`.
 7. **Changed paths / focused diffstat:** exactly the §4 allowlist (9 paths).
 8. **Required commands / results (post rebase + graph-object agreement)**
    - `uv run pytest tests/test_graph_kernel_world_read_runtime.py tests/test_world_graph_projection_service.py -q` → **28 passed**
