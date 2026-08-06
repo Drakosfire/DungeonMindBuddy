@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { createWorkspaceDocument } from "../api/liveApi";
 import type {
@@ -12,80 +12,131 @@ import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
-import { parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 import { BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
+import {
+  BUILD_KNOWN_CAMPAIGN_IDS,
+  bareBuildAutoCreateKey,
+  resolveBareBuildCampaignId,
+  writeBuildLastCampaignId,
+} from "./buildBareEntryCampaign";
 import "./buildSurface.css";
 
 const DEFAULT_DRAFT_TITLE = "Untitled worldbuilding source";
-const DEFAULT_CAMPAIGN_ID = "longmont-c2";
 const DEFAULT_DOCUMENT_CLASS = "lore";
 const DEFAULT_AUTHORITY_STATE: WorldbuildingAuthorityState = "draft";
 const DEFAULT_VISIBILITY_STATE: WorldbuildingVisibilityState = "internal";
 
-function navigateToDocument(documentId: string): void {
+function navigateToDocument(documentId: string, campaignId: string): void {
   const url = new URL(window.location.href);
   url.pathname = BUILD_SURFACE_ROUTE;
   url.searchParams.set("documentId", documentId);
+  url.searchParams.set("campaign", campaignId);
   window.history.pushState({}, "", url.toString());
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-function resolveDefaultCampaignId(): string {
-  const fromPointer = parseBuildGraphPointerFromLocation()?.campaignId?.trim();
-  if (fromPointer) return fromPointer;
-  const fromUrl = new URL(window.location.href).searchParams.get("campaign")?.trim();
-  if (fromUrl) return fromUrl;
-  return DEFAULT_CAMPAIGN_ID;
+function chooseCampaignOnBareBuild(campaignId: string): void {
+  const url = new URL(window.location.href);
+  url.pathname = BUILD_SURFACE_ROUTE;
+  url.searchParams.set("campaign", campaignId.trim());
+  writeBuildLastCampaignId(campaignId);
+  window.history.pushState({}, "", url.toString());
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
+
+type BareCreateResult = { documentId: string; campaignId: string };
+
+type BareCreateLatch = {
+  key: string;
+  promise: Promise<BareCreateResult>;
+} | null;
 
 /**
  * Module-scoped create latch so React StrictMode's effect rehearsal cannot
- * mint two workspace documents for one bare `/build` entry.
+ * mint two workspace documents for one bare `/build` entry identity.
+ * Keyed by campaign so route/campaign replacement cannot reuse a stale create.
  */
-let bareBuildAutoCreatePromise: Promise<string> | null = null;
+let bareBuildAutoCreateLatch: BareCreateLatch = null;
 
 /** @internal Vitest helper — clears the bare-entry create latch between tests. */
 export function resetBuildBareEntryAutoCreateForTests(): void {
-  bareBuildAutoCreatePromise = null;
+  bareBuildAutoCreateLatch = null;
 }
 
-function startBareBuildAutoCreate(): Promise<string> {
-  if (!bareBuildAutoCreatePromise) {
-    bareBuildAutoCreatePromise = createWorkspaceDocument({
-      title: DEFAULT_DRAFT_TITLE,
-      campaign_id: resolveDefaultCampaignId(),
-      kind: "worldbuilding_source",
-      source_domain: "worldbuilding",
-      document_class: DEFAULT_DOCUMENT_CLASS,
-      authority_state: DEFAULT_AUTHORITY_STATE,
-      visibility_state: DEFAULT_VISIBILITY_STATE,
-    }).then((created) => created.document_id);
+function startBareBuildAutoCreate(campaignId: string): Promise<BareCreateResult> {
+  const key = bareBuildAutoCreateKey(campaignId);
+  if (bareBuildAutoCreateLatch?.key === key) {
+    return bareBuildAutoCreateLatch.promise;
   }
-  return bareBuildAutoCreatePromise;
+  const promise = createWorkspaceDocument({
+    title: DEFAULT_DRAFT_TITLE,
+    campaign_id: campaignId,
+    kind: "worldbuilding_source",
+    source_domain: "worldbuilding",
+    document_class: DEFAULT_DOCUMENT_CLASS,
+    authority_state: DEFAULT_AUTHORITY_STATE,
+    visibility_state: DEFAULT_VISIBILITY_STATE,
+  }).then((created) => ({
+    documentId: created.document_id,
+    campaignId,
+  }));
+  bareBuildAutoCreateLatch = { key, promise };
+  return promise;
+}
+
+/** Route + last-Build memory only — do not subscribe to AgentInteraction here (lease publish loops). */
+function useBareBuildCampaignId(): string | null {
+  const [locationSearch, setLocationSearch] = useState(
+    () => (typeof window !== "undefined" ? window.location.search : ""),
+  );
+
+  useEffect(() => {
+    const sync = () => setLocationSearch(window.location.search);
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+
+  return useMemo(
+    () => resolveBareBuildCampaignId({ search: locationSearch }),
+    [locationSearch],
+  );
 }
 
 export function BuildSurfacePage() {
   const documentId = useWorkspaceDocumentUrlSelection();
+  const bareCampaignId = useBareBuildCampaignId();
   const [openingError, setOpeningError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (documentId) {
-      bareBuildAutoCreatePromise = null;
+      bareBuildAutoCreateLatch = null;
+      return;
+    }
+    if (!bareCampaignId) {
       return;
     }
 
+    const createKey = bareBuildAutoCreateKey(bareCampaignId);
     let cancelled = false;
     setOpeningError(null);
 
-    void startBareBuildAutoCreate()
-      .then((createdId) => {
+    void startBareBuildAutoCreate(bareCampaignId)
+      .then((created) => {
         if (cancelled) return;
-        navigateToDocument(createdId);
+        const liveCampaign = resolveBareBuildCampaignId({
+          search: window.location.search,
+        });
+        if (bareBuildAutoCreateKey(created.campaignId) !== createKey) return;
+        if (!liveCampaign || bareBuildAutoCreateKey(liveCampaign) !== createKey) return;
+        writeBuildLastCampaignId(created.campaignId);
+        navigateToDocument(created.documentId, created.campaignId);
       })
       .catch((error: unknown) => {
-        bareBuildAutoCreatePromise = null;
+        if (bareBuildAutoCreateLatch?.key === createKey) {
+          bareBuildAutoCreateLatch = null;
+        }
         if (cancelled) return;
         setOpeningError(
           error instanceof Error ? error.message : "Unable to open worldbuilding source.",
@@ -95,7 +146,12 @@ export function BuildSurfacePage() {
     return () => {
       cancelled = true;
     };
-  }, [documentId, retryToken]);
+  }, [bareCampaignId, documentId, retryToken]);
+
+  useEffect(() => {
+    if (!documentId || !bareCampaignId) return;
+    writeBuildLastCampaignId(bareCampaignId);
+  }, [bareCampaignId, documentId]);
 
   if (!documentId) {
     return (
@@ -117,8 +173,24 @@ export function BuildSurfacePage() {
                 Retry
               </button>
             </>
-          ) : (
+          ) : bareCampaignId ? (
             <p>Opening worldbuilding source…</p>
+          ) : (
+            <div className="build-surface-campaign-pick" data-testid="build-campaign-pick">
+              <p>Choose a campaign for this worldbuilding source.</p>
+              <div className="build-surface-campaign-pick__actions">
+                {BUILD_KNOWN_CAMPAIGN_IDS.map((campaignId) => (
+                  <button
+                    key={campaignId}
+                    type="button"
+                    data-testid={`build-campaign-pick-${campaignId}`}
+                    onClick={() => chooseCampaignOnBareBuild(campaignId)}
+                  >
+                    {campaignId}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </main>
       </AppChrome>

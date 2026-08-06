@@ -18,6 +18,7 @@ import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdap
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
 import type { WorkspaceDocumentAuthoringPhase } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
+import { writeBuildLastCampaignId } from "../buildBareEntryCampaign";
 import {
   buildBuildSurfaceInteractionPublication,
   type BuildReferenceContextBinding,
@@ -253,8 +254,10 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
 
   const selectCampaign = useCallback((campaignId: string) => {
     if (typeof window === "undefined") return;
+    const trimmed = campaignId.trim();
     const url = new URL(window.location.href);
-    url.searchParams.set("campaign", campaignId.trim());
+    url.searchParams.set("campaign", trimmed);
+    writeBuildLastCampaignId(trimmed);
     window.history.pushState({}, "", url.toString());
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, []);
