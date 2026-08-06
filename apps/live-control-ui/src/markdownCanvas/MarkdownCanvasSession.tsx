@@ -2,10 +2,20 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   type ReactNode,
 } from "react";
 
+import type { Editor } from "@tiptap/react";
+
+import { insertMarkdownReference } from "../graphReference/insertMarkdownReference";
+import {
+  isSupportedRunbookReference,
+  normalizeRunbookReferenceAttrs,
+  type RunbookReferenceAttrs,
+} from "../tiptap/references/runbookReferences";
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { isEditorInteractive } from "../workspaceDocument/workspaceDocumentAuthoringMachine";
 import type {
@@ -15,7 +25,10 @@ import type {
   MarkdownCanvasSessionProviderProps,
   MarkdownCanvasSessionValue,
 } from "./markdownCanvasTypes";
-import { DOCUMENT_SAVE_COMMAND_ID } from "./markdownCanvasTypes";
+import {
+  DOCUMENT_REFERENCE_INSERT_COMMAND_ID,
+  DOCUMENT_SAVE_COMMAND_ID,
+} from "./markdownCanvasTypes";
 import { useCanvasCommand } from "./useCanvasCommand";
 
 const MarkdownCanvasSessionContext = createContext<MarkdownCanvasSessionValue | null>(null);
@@ -203,6 +216,57 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     lookupAdmission,
   });
 
+  const editorRef = useRef<Editor | null>(null);
+  const editorDocumentIdRef = useRef<string | null>(null);
+
+  const setEditor = useCallback((nextEditor: Editor | null) => {
+    editorRef.current = nextEditor;
+    editorDocumentIdRef.current = nextEditor ? documentId : null;
+    authoring.setEditor(nextEditor);
+  }, [authoring, documentId]);
+
+  useEffect(() => {
+    editorRef.current = null;
+    editorDocumentIdRef.current = null;
+  }, [documentId]);
+
+  const insertReference = useCallback(async (attrs: RunbookReferenceAttrs) => {
+    return runDocumentCommand(
+      {
+        id: DOCUMENT_REFERENCE_INSERT_COMMAND_ID,
+        conflictsWith: [DOCUMENT_SAVE_COMMAND_ID, ...saveConflicts],
+        admission: "editable",
+        invalidateOnDocumentChange: true,
+      },
+      async (ctx) => {
+        if (ctx.signal.aborted) {
+          throw new Error("Reference insert aborted.");
+        }
+        if (ctx.envelope && ctx.envelope.documentId !== ctx.documentId) {
+          throw new Error("Document identity mismatch.");
+        }
+        if (editorDocumentIdRef.current !== ctx.documentId) {
+          throw new Error("Editor lease is stale for the active document.");
+        }
+        const editor = editorRef.current;
+        if (!editor) {
+          throw new Error("Editor not available.");
+        }
+        const normalized = normalizeRunbookReferenceAttrs(attrs);
+        if (!isSupportedRunbookReference(normalized)) {
+          throw new Error("Unsupported reference");
+        }
+        const inserted = insertMarkdownReference(editor, normalized);
+        if (!inserted) {
+          throw new Error("Editor insert failed");
+        }
+        // Programmatic chain inserts do not emit a non-programmatic handleEditorUpdate;
+        // mark dirty explicitly so mock editors and real TipTap paths stay consistent.
+        authoring.markDirty();
+      },
+    );
+  }, [authoring, runDocumentCommand, saveConflicts]);
+
   const saveMarkdown = useCallback(async () => {
     const result = await runDocumentCommand(
       {
@@ -241,9 +305,10 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       saveDisabled: authoring.saveDisabled || saveBlockedByCommand,
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
-      setEditor: authoring.setEditor,
+      setEditor,
       handleEditorUpdate: authoring.handleEditorUpdate,
       markDirty: authoring.markDirty,
+      insertReference,
       saveMarkdown,
       reloadFromSnapshot: authoring.reloadFromSnapshot,
       discardLocalDraft: authoring.discardLocalDraft,
@@ -256,10 +321,12 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       authoring,
       documentId,
       getAdmittedDocument,
+      insertReference,
       lookupAdmission,
       runDocumentCommand,
       saveBlockedByCommand,
       saveMarkdown,
+      setEditor,
     ],
   );
 

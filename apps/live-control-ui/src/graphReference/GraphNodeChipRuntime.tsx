@@ -47,6 +47,7 @@ function publishRuntime(next: GraphNodeChipRuntimeValue) {
     nodeViews: next.nodeViews,
     activeNodeId: next.activeNodeId,
     onSelectNode: next.onSelectNode,
+    onSelectReference: next.onSelectReference,
     deltaByNodeId: next.deltaByNodeId ?? {},
   };
   emit();
@@ -81,9 +82,16 @@ export function GraphNodeChipRuntimeProvider({
       nodeViews: value.nodeViews,
       activeNodeId: value.activeNodeId,
       onSelectNode: value.onSelectNode,
+      onSelectReference: value.onSelectReference,
       deltaByNodeId: value.deltaByNodeId ?? {},
     }),
-    [value.activeNodeId, value.deltaByNodeId, value.nodeViews, value.onSelectNode],
+    [
+      value.activeNodeId,
+      value.deltaByNodeId,
+      value.nodeViews,
+      value.onSelectNode,
+      value.onSelectReference,
+    ],
   );
 
   useEffect(() => {

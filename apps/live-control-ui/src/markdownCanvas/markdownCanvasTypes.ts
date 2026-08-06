@@ -12,6 +12,7 @@ import type {
 } from "../tiptap/state/tiptapLocalState";
 import type { WorkspaceDocumentAuthoringPhase } from "../workspaceDocument/workspaceDocumentAuthoringMachine";
 import type { ReconcileLocalDraftResult } from "../workspaceDocument/reconcileLocalDraft";
+import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
 
 /** Policies a tool may request against the current canvas document authority. */
 export type DocumentAdmissionPolicy = "loaded" | "editable" | "committed_clean";
@@ -126,6 +127,7 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
     spec: DocumentCommandSpec,
     execute: (ctx: DocumentCommandExecuteContext) => Promise<T>,
   ) => Promise<DocumentCommandResult<T>>;
+  insertReference: (attrs: RunbookReferenceAttrs) => Promise<DocumentCommandResult<void>>;
 }
 
 export interface MarkdownCanvasSessionProviderProps {
@@ -146,3 +148,6 @@ export interface MarkdownCanvasSessionProviderProps {
 
 /** Generic document-save command id owned by the canvas session. */
 export const DOCUMENT_SAVE_COMMAND_ID = "document.save";
+
+/** Neutral document-bound reference insertion command id owned by the canvas session. */
+export const DOCUMENT_REFERENCE_INSERT_COMMAND_ID = "document.reference.insert";

@@ -294,4 +294,137 @@ describe("GraphNodeChipRuntimeProvider stack", () => {
       );
     });
   });
+
+  it("publishes onSelectReference through the module store", async () => {
+    const scopedReference = vi.fn();
+    const scopedAttrs = {
+      kind: "ref" as const,
+      refType: "graph-node",
+      refId: canvasNode.node_id,
+      label: canvasNode.label,
+      graphWorldId: "eldyrwild",
+      graphCampaignId: "longmont-c2",
+      graphScopeMode: "campaign" as const,
+      graphRevisionId: "rev:3413bf6f5044cf2680233f5e37c90dcf",
+    };
+
+    function CallbackProbe() {
+      const runtime = useGraphNodeChipRuntime();
+      return createElement("button", {
+        type: "button",
+        onClick: () => runtime.onSelectReference?.(scopedAttrs),
+        children: "Activate scoped",
+      });
+    }
+
+    render(
+      createElement(
+        GraphNodeChipRuntimeProvider,
+        {
+          value: {
+            nodeViews: { [canvasNode.node_id]: canvasNode },
+            activeNodeId: canvasNode.node_id,
+            onSelectNode: vi.fn(),
+            onSelectReference: scopedReference,
+          },
+        },
+        createElement(CallbackProbe),
+      ),
+    );
+
+    screen.getByRole("button", { name: "Activate scoped" }).click();
+    expect(scopedReference).toHaveBeenCalledWith(scopedAttrs);
+  });
+
+  it("restores prior onSelectReference when a scoped provider unmounts", async () => {
+    const canvasReference = vi.fn();
+    const toolReference = vi.fn();
+
+    function ReferenceProbe({ testId }: { testId: string }) {
+      const runtime = useGraphNodeChipRuntime();
+      return createElement("button", {
+        type: "button",
+        "data-testid": testId,
+        onClick: () =>
+          runtime.onSelectReference?.({
+            kind: "ref",
+            refType: "graph-node",
+            refId: canvasNode.node_id,
+            label: canvasNode.label,
+            graphWorldId: null,
+            graphCampaignId: null,
+            graphScopeMode: null,
+            graphRevisionId: null,
+          }),
+        children: "Probe reference",
+      });
+    }
+
+    function Harness({ showTool }: { showTool: boolean }) {
+      const canvasRuntime: GraphNodeChipRuntimeValue = {
+        nodeViews: { [canvasNode.node_id]: canvasNode },
+        activeNodeId: canvasNode.node_id,
+        onSelectNode: vi.fn(),
+        onSelectReference: canvasReference,
+      };
+      const toolRuntime: GraphNodeChipRuntimeValue = {
+        nodeViews: { [toolNode.node_id]: toolNode },
+        activeNodeId: toolNode.node_id,
+        onSelectNode: vi.fn(),
+        onSelectReference: toolReference,
+      };
+
+      return createElement(
+        GraphNodeChipRuntimeProvider,
+        { value: canvasRuntime },
+        createElement(ReferenceProbe, { testId: "canvas-probe" }),
+        showTool
+          ? createElement(
+              GraphNodeChipRuntimeProvider,
+              { value: toolRuntime },
+              createElement(ReferenceProbe, { testId: "tool-probe" }),
+            )
+          : null,
+      );
+    }
+
+    const { rerender } = render(createElement(Harness, { showTool: true }));
+    screen.getByTestId("tool-probe").click();
+    expect(toolReference).toHaveBeenCalledTimes(1);
+    expect(canvasReference).not.toHaveBeenCalled();
+
+    rerender(createElement(Harness, { showTool: false }));
+    screen.getByTestId("canvas-probe").click();
+    expect(canvasReference).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps legacy onSelectNode when onSelectReference is absent", () => {
+    const onSelectNode = vi.fn();
+
+    function LegacyProbe() {
+      const runtime = useGraphNodeChipRuntime();
+      return createElement("button", {
+        type: "button",
+        onClick: () => runtime.onSelectNode(canvasNode.node_id),
+        children: "Legacy select",
+      });
+    }
+
+    render(
+      createElement(
+        GraphNodeChipRuntimeProvider,
+        {
+          value: {
+            nodeViews: { [canvasNode.node_id]: canvasNode },
+            activeNodeId: canvasNode.node_id,
+            onSelectNode,
+          },
+        },
+        createElement(LegacyProbe),
+      ),
+    );
+
+    screen.getByRole("button", { name: "Legacy select" }).click();
+    expect(onSelectNode).toHaveBeenCalledWith(canvasNode.node_id);
+  });
 });

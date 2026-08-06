@@ -33,6 +33,8 @@ export interface GraphNodeChipRuntimeValue {
   nodeViews: Record<string, GraphProjectionNodeView>;
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
+  /** When set, graph chip activation receives full normalized reference attrs. */
+  onSelectReference?: (attrs: RunbookReferenceAttrs) => void;
   deltaByNodeId?: Record<string, GraphNodeChipDeltaPresentation>;
 }
 

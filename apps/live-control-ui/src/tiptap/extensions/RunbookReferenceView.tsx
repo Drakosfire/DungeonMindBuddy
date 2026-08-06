@@ -20,7 +20,7 @@ import {
  */
 export function RunbookReferenceView({ node }: NodeViewProps) {
   const attrs = normalizeRunbookReferenceAttrs(node.attrs as Partial<RunbookReferenceAttrs>);
-  const { nodeViews, activeNodeId, onSelectNode } = useGraphNodeChipRuntime();
+  const { nodeViews, activeNodeId, onSelectNode, onSelectReference } = useGraphNodeChipRuntime();
   const supported = isSupportedRunbookReference(attrs);
   const isGraphNode = supported && attrs.refType === GRAPH_NODE_REF_TYPE;
 
@@ -32,7 +32,13 @@ export function RunbookReferenceView({ node }: NodeViewProps) {
           presentation={presentation}
           label={attrs.label || attrs.refId}
           pinned={activeNodeId === attrs.refId}
-          onSelect={() => onSelectNode(attrs.refId)}
+          onSelect={() => {
+            if (onSelectReference) {
+              onSelectReference(attrs);
+              return;
+            }
+            onSelectNode(attrs.refId);
+          }}
           tokenClassName={runbookReferenceClasses(attrs)}
           buttonProps={{
             "data-md-ref-kind": attrs.kind,

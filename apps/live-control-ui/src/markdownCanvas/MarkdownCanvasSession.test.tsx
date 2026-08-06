@@ -27,6 +27,36 @@ vi.mock("../api/liveApi", async (importOriginal) => {
 const DOC_ID = "22222222-2222-4222-8222-222222222222";
 const PLUGIN_WORK_ID = "plugin.work";
 
+const VALID_GRAPH_REFERENCE = {
+  kind: "ref" as const,
+  refType: "graph-node",
+  refId: "threat:tripod-null-calf",
+  label: "Tripod Null Calf",
+  graphWorldId: null,
+  graphCampaignId: null,
+  graphScopeMode: null,
+  graphRevisionId: null,
+};
+
+function createInsertEditor() {
+  const run = vi.fn(() => true);
+  const chain = {
+    focus: vi.fn().mockReturnThis(),
+    insertRunbookReference: vi.fn().mockReturnThis(),
+    run,
+  };
+  const editor = {
+    getJSON: vi.fn(() => ({
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Session Doc" }] }],
+    })),
+    chain: vi.fn(() => chain),
+  } as unknown as Editor & {
+    chain: ReturnType<typeof vi.fn>;
+  };
+  return { editor, chain, run };
+}
+
 function createEditor(initialText: string) {
   let text = initialText;
   return {
@@ -320,6 +350,205 @@ describe("MarkdownCanvasSession", () => {
     await act(async () => {
       releasePlugin?.("too-late");
       settled = await pluginPromise;
+    });
+
+    expect(settled.ok).toBe(false);
+    if (!settled.ok) {
+      expect(["invalidated", "aborted"]).toContain(settled.code);
+    }
+  });
+
+  it("does not expose editor or getEditor on the public session value", async () => {
+    const { result } = renderHook(() => useMarkdownCanvasSession(), {
+      wrapper: sessionWrapper(),
+    });
+    await waitFor(() => expect(result.current.phase).toMatch(/ready|committed/));
+    expect(result.current).not.toHaveProperty("editor");
+    expect(result.current).not.toHaveProperty("getEditor");
+  });
+
+  it("insertReference succeeds when editable and marks the document dirty", async () => {
+    const { editor, chain, run } = createInsertEditor();
+    const { result } = renderHook(() => useMarkdownCanvasSession(), {
+      wrapper: sessionWrapper(),
+    });
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+    expect(result.current.dirty).toBe(false);
+
+    act(() => {
+      result.current.setEditor(editor);
+    });
+
+    let insertResult!: Awaited<ReturnType<typeof result.current.insertReference>>;
+    await act(async () => {
+      insertResult = await result.current.insertReference(VALID_GRAPH_REFERENCE);
+    });
+
+    expect(insertResult.ok).toBe(true);
+    expect(editor.chain).toHaveBeenCalled();
+    expect(chain.focus).toHaveBeenCalled();
+    expect(chain.insertRunbookReference).toHaveBeenCalledWith(VALID_GRAPH_REFERENCE);
+    expect(run).toHaveBeenCalled();
+    // Mock editors do not emit handleEditorUpdate; insertReference marks dirty explicitly.
+    expect(result.current.dirty).toBe(true);
+  });
+
+  it("rejects insertReference during loading without mutating the editor", async () => {
+    const { editor, chain } = createInsertEditor();
+    const { result } = renderHook(() => useMarkdownCanvasSession(), {
+      wrapper: sessionWrapper(),
+    });
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    act(() => {
+      result.current.setEditor(editor);
+    });
+
+    let releaseReload:
+      | ((value: Awaited<ReturnType<typeof liveApi.getWorkspaceDocumentSnapshot>>) => void)
+      | undefined;
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseReload = resolve;
+        }),
+    );
+
+    act(() => {
+      void result.current.reloadFromSnapshot();
+    });
+
+    await waitFor(() => expect(result.current.phase).toBe("loading"));
+
+    let insertResult!: Awaited<ReturnType<typeof result.current.insertReference>>;
+    await act(async () => {
+      insertResult = await result.current.insertReference(VALID_GRAPH_REFERENCE);
+    });
+
+    expect(insertResult.ok).toBe(false);
+    if (!insertResult.ok) {
+      expect(insertResult.code).toBe("admission_failed");
+      expect(["document_not_editable", "document_missing"]).toContain(insertResult.admissionCode);
+    }
+    expect(editor.chain).not.toHaveBeenCalled();
+    expect(chain.insertRunbookReference).not.toHaveBeenCalled();
+
+    await act(async () => {
+      releaseReload?.({
+        schema_version: "dmb_workspace_document_snapshot_v1",
+        record: {
+          schema_version: "dmb_workspace_document_record_v1",
+          document_id: DOC_ID,
+          title: "Session Doc",
+          campaign_id: "eldyrwild",
+          target_session: null,
+          kind: "worldbuilding_source",
+          target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
+          status: "active",
+          content_status: "committed",
+          revision: 1,
+          created_at: "2026-07-22T00:00:00Z",
+          updated_at: "2026-07-22T00:00:00Z",
+          source_domain: "worldbuilding",
+          document_class: "lore",
+          authority_state: "draft",
+          visibility_state: "internal",
+        },
+        markdown: "# Session Doc\n",
+        content_sha256: "sha-1",
+        file_fingerprint: "fp",
+        file_exists: true,
+        loaded_revision: 1,
+      });
+    });
+  });
+
+  it("rejects insertReference for invalid attrs without editor mutation", async () => {
+    const { editor, chain } = createInsertEditor();
+    const { result } = renderHook(() => useMarkdownCanvasSession(), {
+      wrapper: sessionWrapper(),
+    });
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    act(() => {
+      result.current.setEditor(editor);
+    });
+
+    let insertResult!: Awaited<ReturnType<typeof result.current.insertReference>>;
+    await act(async () => {
+      insertResult = await result.current.insertReference({
+        kind: "ref",
+        refType: "graph-node",
+        refId: "threat:tripod-null-calf",
+        label: "Tripod Null Calf",
+        graphWorldId: "eldyrwild",
+      });
+    });
+
+    expect(insertResult.ok).toBe(false);
+    if (!insertResult.ok) {
+      expect(insertResult.code).toBe("execute_failed");
+      expect(insertResult.reason).toBe("Unsupported reference");
+    }
+    expect(editor.chain).not.toHaveBeenCalled();
+    expect(chain.insertRunbookReference).not.toHaveBeenCalled();
+  });
+
+  it("rejects insertReference when the editor lease is missing on an editable document", async () => {
+    const { result } = renderHook(() => useMarkdownCanvasSession(), {
+      wrapper: sessionWrapper(),
+    });
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    let insertResult!: Awaited<ReturnType<typeof result.current.insertReference>>;
+    await act(async () => {
+      insertResult = await result.current.insertReference(VALID_GRAPH_REFERENCE);
+    });
+
+    expect(insertResult.ok).toBe(false);
+    if (!insertResult.ok) {
+      expect(insertResult.code).toBe("execute_failed");
+      expect(insertResult.reason).toBe("Editor lease is stale for the active document.");
+    }
+  });
+
+  it("invalidates insertReference on unmount before adopting the result", async () => {
+    let releaseInsert: (() => void) | undefined;
+    const { editor } = createInsertEditor();
+    const { result, unmount } = renderHook(() => useMarkdownCanvasSession(), {
+      wrapper: sessionWrapper(),
+    });
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    act(() => {
+      result.current.setEditor(editor);
+    });
+
+    let insertPromise!: Promise<Awaited<ReturnType<typeof result.current.insertReference>>>;
+    act(() => {
+      insertPromise = result.current.runDocumentCommand(
+        {
+          id: "document.reference.insert",
+          conflictsWith: [DOCUMENT_SAVE_COMMAND_ID, PLUGIN_WORK_ID],
+          admission: "editable",
+          invalidateOnDocumentChange: true,
+        },
+        () => new Promise<void>((resolve) => {
+          releaseInsert = resolve;
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeCommand?.id).toBe("document.reference.insert");
+    });
+
+    unmount();
+
+    let settled!: Awaited<typeof insertPromise>;
+    await act(async () => {
+      releaseInsert?.();
+      settled = await insertPromise;
     });
 
     expect(settled.ok).toBe(false);
