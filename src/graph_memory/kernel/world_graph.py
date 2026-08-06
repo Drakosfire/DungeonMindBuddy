@@ -86,16 +86,26 @@ def publish_world_graph_revision(
         operation_ids=operation_ids,
         expected_parent_revision_id=expected_parent_revision_id,
     )
+    # Allocate commit order immediately after durable publish succeeds and
+    # before post-publish work / notification. Storage created_at drops
+    # microseconds; this seq is the process-local newest-committed authority.
+    from graph_memory.kernel.world_revision_ready import (
+        allocate_revision_ready_commit_seq,
+        offer_revision_ready_from_publish,
+    )
+
+    commit_seq = allocate_revision_ready_commit_seq()
     # Durable replay source for rebuild — independent of the current head.
     sync_identity_decisions_from_store(root, world_id, graph)
     # OPT02: best-effort process-local revision-ready signal after successful
     # durable publish + Kernel post-publish work. Never changes the result.
     try:
-        from graph_memory.kernel.world_revision_ready import (
-            offer_revision_ready_from_publish,
+        offer_revision_ready_from_publish(
+            root,
+            world_id,
+            result,
+            commit_seq=commit_seq,
         )
-
-        offer_revision_ready_from_publish(root, world_id, result)
     except Exception:
         # Final containment: head is already committed; notification must not
         # convert a successful publish into an exception.

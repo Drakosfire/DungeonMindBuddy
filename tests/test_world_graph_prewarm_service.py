@@ -232,7 +232,12 @@ def test_duplicate_exact_notification_reports_resident_hit_with_zero_reads(
     )
     clear_prewarm_observations()
 
-    notification = kernel.notification_from_publish_result(tmp_path, WORLD_ID, published)
+    notification = kernel.notification_from_publish_result(
+        tmp_path,
+        WORLD_ID,
+        published,
+        commit_seq=kernel.allocate_revision_ready_commit_seq(),
+    )
     kernel.offer_revision_ready(notification)
     observations = _wait_for_prewarm_observations(
         coordinator,
@@ -333,8 +338,16 @@ def test_late_offer_of_stale_a_after_b_keeps_b_for_prewarm(
 
     assert publish_a_result
     pub_a = publish_a_result[0]
-    assert pub_a.revision.created_at < pub_b.revision.created_at or (
-        pub_a.revision.revision_id != pub_b.revision.revision_id
+    offer_rows = kernel.get_revision_ready_offer_observations()
+    seq_by_revision = {
+        str(row["revision_id"]): int(row["commit_seq"]) for row in offer_rows
+    }
+    assert seq_by_revision[pub_a.revision.revision_id] < seq_by_revision[
+        pub_b.revision.revision_id
+    ]
+    # Same-second publish is common because storage strips microseconds.
+    assert pub_a.revision.created_at == pub_b.revision.created_at or (
+        pub_a.revision.created_at <= pub_b.revision.created_at
     )
 
     coordinator = start_world_graph_prewarm_coordinator()
@@ -415,17 +428,28 @@ def test_head_world_id_mismatch_reports_failed_not_superseded(
     coordinator = start_world_graph_prewarm_coordinator()
     assert coordinator is not None
     published = _publish(tmp_path, ["op:prewarm-world-mismatch"])
+    _wait_for_prewarm_observations(
+        coordinator,
+        revision_id=published.revision.revision_id,
+        expected_count=1,
+    )
     clear_prewarm_observations()
 
     notification = kernel.notification_from_publish_result(
-        tmp_path, WORLD_ID, published
+        tmp_path,
+        WORLD_ID,
+        published,
+        commit_seq=kernel.allocate_revision_ready_commit_seq(),
     )
     mismatched = kernel.WorldGraphHead(
         world_id="other-world",
         head_revision_id=notification.revision_id,
         updated_at=published.head.updated_at,
     )
-    with patch.object(kernel, "open_world_graph_head", return_value=mismatched):
+    with patch(
+        "apps.live_control_server.services.world_graph_prewarm.kernel.open_world_graph_head",
+        return_value=mismatched,
+    ):
         kernel.offer_revision_ready(notification)
         observations = _wait_for_prewarm_observations(
             coordinator,
@@ -516,18 +540,33 @@ def test_shutdown_timeout_orphans_worker_and_blocks_second_lifecycle(
         assert orphan is not None
         assert orphan.is_orphaned
         assert orphan.is_running
-        assert start_world_graph_prewarm_coordinator() is None
+        assert start_world_graph_prewarm_coordinator(wait_s=0) is None
 
         before = list(get_prewarm_observations())
+        start_after_orphan: list = []
+
+        def _start_waiting() -> None:
+            start_after_orphan.append(
+                start_world_graph_prewarm_coordinator(wait_s=10.0)
+            )
+
+        waiter = threading.Thread(target=_start_waiting)
+        waiter.start()
+        time.sleep(0.05)
+        assert start_after_orphan == []
         release_load.set()
+        waiter.join(timeout=10.0)
         deadline = time.monotonic() + 10.0
         while time.monotonic() < deadline:
             current = get_world_graph_prewarm_coordinator()
-            if current is None:
+            if current is not None and current.is_running and not current.is_orphaned:
                 break
             time.sleep(0.01)
         else:
-            pytest.fail("orphaned coordinator did not clear after worker exit")
+            pytest.fail("waiting start did not obtain a healthy coordinator")
+        assert start_after_orphan and start_after_orphan[0] is not None
+        assert start_after_orphan[0].is_running
+        assert not start_after_orphan[0].is_orphaned
         # Orphan must not emit under the invalidated generation.
         after = [
             obs
@@ -537,7 +576,60 @@ def test_shutdown_timeout_orphans_worker_and_blocks_second_lifecycle(
         ]
         assert after == []
 
-    # After orphan exit cleanup, a new lifecycle can start.
-    restarted = start_world_graph_prewarm_coordinator()
-    assert restarted is not None
+    assert stop_world_graph_prewarm_coordinator(timeout_s=5.0) is True
+
+
+def test_start_during_stop_waits_and_returns_fresh_coordinator(tmp_path: Path) -> None:
+    runtime = kernel.get_world_read_runtime()
+    load_started = threading.Event()
+    release_load = threading.Event()
+    original_cold = runtime._cold_load
+
+    def _gated_cold_load(*args, **kwargs):
+        load_started.set()
+        assert release_load.wait(timeout=30.0)
+        return original_cold(*args, **kwargs)
+
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+    with patch.object(runtime, "_cold_load", side_effect=_gated_cold_load):
+        _publish(tmp_path, ["op:prewarm-stop-race"])
+        assert load_started.wait(timeout=30.0)
+
+        stop_result: list[bool] = []
+
+        def _stop() -> None:
+            stop_result.append(stop_world_graph_prewarm_coordinator(timeout_s=5.0))
+
+        stopper = threading.Thread(target=_stop)
+        stopper.start()
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            current = get_world_graph_prewarm_coordinator()
+            if current is not None and current.is_stopping:
+                break
+            time.sleep(0.01)
+        else:
+            release_load.set()
+            stopper.join(timeout=5.0)
+            pytest.fail("stop did not mark coordinator stopping")
+
+        started: list = []
+
+        def _start() -> None:
+            started.append(start_world_graph_prewarm_coordinator(wait_s=10.0))
+
+        starter = threading.Thread(target=_start)
+        starter.start()
+        time.sleep(0.05)
+        assert started == []
+        release_load.set()
+        stopper.join(timeout=10.0)
+        starter.join(timeout=10.0)
+
+    assert stop_result == [True]
+    assert started and started[0] is not None
+    assert started[0].is_running
+    assert not started[0].is_stopping
+    assert started[0] is not coordinator
     assert stop_world_graph_prewarm_coordinator(timeout_s=5.0) is True

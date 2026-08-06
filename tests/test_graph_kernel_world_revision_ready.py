@@ -57,6 +57,7 @@ def _notification(
     parent_revision_id: str | None = None,
     operation_ids: tuple[str, ...] = ("op:test",),
     created_at: str = "2026-01-01T00:00:00Z",
+    commit_seq: int = 0,
 ) -> kernel.WorldRevisionReadyNotification:
     return kernel.WorldRevisionReadyNotification(
         resolved_root=str(root.resolve()),
@@ -65,16 +66,24 @@ def _notification(
         parent_revision_id=parent_revision_id,
         operation_ids=operation_ids,
         created_at=created_at,
+        commit_seq=commit_seq,
     )
 
 
 def test_successful_publish_offers_exact_mapped_notification(tmp_path: Path) -> None:
     published = _publish(tmp_path, ["op:rev-ready-success"])
 
-    expected = kernel.notification_from_publish_result(tmp_path, WORLD_ID, published)
     observations = kernel.get_revision_ready_offer_observations()
     assert len(observations) == 1
     row = observations[0]
+    assert isinstance(row["commit_seq"], int)
+    assert int(row["commit_seq"]) >= 1
+    expected = kernel.notification_from_publish_result(
+        tmp_path,
+        WORLD_ID,
+        published,
+        commit_seq=int(row["commit_seq"]),
+    )
     assert row["status"] == "accepted"
     assert row["resolved_root"] == expected.resolved_root
     assert row["world_id"] == expected.world_id
@@ -82,6 +91,7 @@ def test_successful_publish_offers_exact_mapped_notification(tmp_path: Path) -> 
     assert row["parent_revision_id"] == expected.parent_revision_id
     assert row["operation_ids"] == list(expected.operation_ids)
     assert row["created_at"] == expected.created_at
+    assert row["commit_seq"] == expected.commit_seq
 
     head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
     assert head.head_revision_id == expected.revision_id
@@ -94,12 +104,14 @@ def test_second_offer_same_world_coalesces_before_consumer_drain(
         tmp_path,
         revision_id="rev:first",
         created_at="2026-01-01T00:00:00Z",
+        commit_seq=1,
     )
     second = _notification(
         tmp_path,
         revision_id="rev:second",
         parent_revision_id="rev:first",
         created_at="2026-01-02T00:00:00Z",
+        commit_seq=2,
     )
 
     first_result = kernel.offer_revision_ready(first)
@@ -125,11 +137,13 @@ def test_late_older_offer_does_not_displace_newer_pending_revision(
         tmp_path,
         revision_id="rev:b",
         created_at="2026-01-02T00:00:00Z",
+        commit_seq=2,
     )
     older = _notification(
         tmp_path,
         revision_id="rev:a",
         created_at="2026-01-01T00:00:00Z",
+        commit_seq=1,
     )
 
     assert kernel.offer_revision_ready(newer).status == "accepted"
@@ -144,6 +158,42 @@ def test_late_older_offer_does_not_displace_newer_pending_revision(
     assert pending is not None
     assert pending.revision_id == "rev:b"
     assert mailbox.enqueued_timing_count() <= 1
+
+
+def test_equal_created_at_lower_commit_seq_does_not_win_via_revision_id_lexicographic_order(
+    tmp_path: Path,
+) -> None:
+    """Storage drops microseconds; SHA revision ids must not decide commit order."""
+    same_ts = "2026-01-01T00:00:00Z"
+    # Pending B sorts first lexicographically; late stale A sorts later.
+    newer_b = _notification(
+        tmp_path,
+        revision_id="rev:aaa",
+        created_at=same_ts,
+        commit_seq=2,
+    )
+    stale_a = _notification(
+        tmp_path,
+        revision_id="rev:zzz",
+        created_at=same_ts,
+        commit_seq=1,
+    )
+    assert stale_a.revision_id > newer_b.revision_id
+    assert stale_a.created_at == newer_b.created_at
+    assert stale_a.commit_seq < newer_b.commit_seq
+
+    assert kernel.offer_revision_ready(newer_b).status == "accepted"
+    late = kernel.offer_revision_ready(stale_a)
+    assert late.status == "dropped"
+
+    mailbox = kernel.get_revision_ready_mailbox()
+    lease = mailbox.acquire_consumer()
+    assert lease is not None
+    pending = mailbox.wait_for_notification(lease, timeout=0.1)
+    lease.release()
+    assert pending is not None
+    assert pending.revision_id == "rev:aaa"
+    assert pending.commit_seq == 2
 
 
 def test_mailbox_full_drops_distinct_world_keys_without_raising(

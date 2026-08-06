@@ -90,6 +90,7 @@ def test_opt02_revision_ready_exports_and_no_storage_import() -> None:
     public_names = set(kernel.__all__)
     for name in (
         "WorldRevisionReadyNotification",
+        "allocate_revision_ready_commit_seq",
         "offer_revision_ready",
         "offer_revision_ready_from_publish",
         "get_revision_ready_mailbox",

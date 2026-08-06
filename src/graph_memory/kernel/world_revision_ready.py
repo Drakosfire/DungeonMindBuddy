@@ -37,6 +37,10 @@ class WorldRevisionReadyNotification:
     parent_revision_id: str | None
     operation_ids: tuple[str, ...]
     created_at: str
+    # Process-local commit order assigned immediately after durable publish
+    # succeeds. Storage timestamps drop microseconds, so this is the authority
+    # for newest-committed mailbox ordering — never SHA lexicographic order.
+    commit_seq: int = 0
 
 
 @dataclass(frozen=True)
@@ -61,6 +65,18 @@ class RevisionReadyConsumerLease:
         self.released = True
 
 
+_COMMIT_SEQ = 0
+_COMMIT_SEQ_LOCK = threading.Lock()
+
+
+def allocate_revision_ready_commit_seq() -> int:
+    """Allocate a process-local seq immediately after durable publish succeeds."""
+    global _COMMIT_SEQ
+    with _COMMIT_SEQ_LOCK:
+        _COMMIT_SEQ += 1
+        return _COMMIT_SEQ
+
+
 def _notification_is_newer(
     candidate: WorldRevisionReadyNotification,
     existing: WorldRevisionReadyNotification,
@@ -68,10 +84,13 @@ def _notification_is_newer(
     """Prefer the later-committed revision; never let a late older offer win."""
     if candidate.revision_id == existing.revision_id:
         return False
+    if candidate.commit_seq != existing.commit_seq:
+        return candidate.commit_seq > existing.commit_seq
+    # Commit seq is the publication authority. When both are unset (manual
+    # test offers), fall back to created_at only — never revision-id hash order.
     if candidate.created_at != existing.created_at:
         return candidate.created_at > existing.created_at
-    # Deterministic tie-break when timestamps collide: lexicographic revision id.
-    return candidate.revision_id > existing.revision_id
+    return False
 
 
 class RevisionReadyMailbox:
@@ -244,8 +263,11 @@ def get_revision_ready_mailbox() -> RevisionReadyMailbox:
 
 def reset_revision_ready_mailbox() -> None:
     """Clear process mailbox state for tests / deterministic restarts."""
+    global _COMMIT_SEQ
     mailbox = get_revision_ready_mailbox()
     mailbox.reset()
+    with _COMMIT_SEQ_LOCK:
+        _COMMIT_SEQ = 0
     with _OFFER_OBS_LOCK:
         _OFFER_OBSERVATIONS.clear()
 
@@ -276,6 +298,7 @@ def _record_offer_observation(result: RevisionReadyOfferResult) -> None:
         "parent_revision_id": result.notification.parent_revision_id,
         "operation_ids": list(result.notification.operation_ids),
         "created_at": result.notification.created_at,
+        "commit_seq": result.notification.commit_seq,
         "replaced_revision_id": (
             result.replaced.revision_id if result.replaced is not None else None
         ),
@@ -291,6 +314,8 @@ def notification_from_publish_result(
     root: Path,
     world_id: str,
     result: WorldGraphPublishResult,
+    *,
+    commit_seq: int,
 ) -> WorldRevisionReadyNotification:
     if result.head.world_id != world_id:
         raise ValueError(
@@ -315,6 +340,7 @@ def notification_from_publish_result(
         parent_revision_id=result.revision.parent_revision_id,
         operation_ids=tuple(result.revision.operation_ids),
         created_at=result.revision.created_at,
+        commit_seq=commit_seq,
     )
 
 
@@ -341,10 +367,17 @@ def offer_revision_ready_from_publish(
     root: Path,
     world_id: str,
     result: WorldGraphPublishResult,
+    *,
+    commit_seq: int,
 ) -> RevisionReadyOfferResult | None:
     """Map a successful publish result and offer it. Contain all failures."""
     try:
-        notification = notification_from_publish_result(root, world_id, result)
+        notification = notification_from_publish_result(
+            root,
+            world_id,
+            result,
+            commit_seq=commit_seq,
+        )
         return offer_revision_ready(notification)
     except Exception as exc:
         try:
@@ -360,6 +393,7 @@ __all__ = [
     "RevisionReadyMailbox",
     "RevisionReadyOfferResult",
     "WorldRevisionReadyNotification",
+    "allocate_revision_ready_commit_seq",
     "clear_revision_ready_offer_observations",
     "get_revision_ready_mailbox",
     "get_revision_ready_offer_observations",

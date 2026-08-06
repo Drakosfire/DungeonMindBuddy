@@ -71,7 +71,7 @@ class PrewarmObservation:
 _OBSERVATIONS: list[PrewarmObservation] = []
 _OBS_LOCK = threading.Lock()
 _COORDINATOR: "WorldGraphPrewarmCoordinator | None" = None
-_COORDINATOR_LOCK = threading.Lock()
+_COORDINATOR_COND = threading.Condition()
 
 
 def get_prewarm_observations() -> list[PrewarmObservation]:
@@ -105,6 +105,7 @@ class WorldGraphPrewarmCoordinator:
         self._busy = 0
         self._run_generation = 0
         self._orphaned = False
+        self._stopping = False
         self._lock = threading.Lock()
 
     @property
@@ -117,11 +118,19 @@ class WorldGraphPrewarmCoordinator:
         with self._lock:
             return self._orphaned
 
+    @property
+    def is_stopping(self) -> bool:
+        with self._lock:
+            return self._stopping
+
     def start(self) -> bool:
         with self._lock:
-            if self._orphaned and self.is_running:
+            if self._stopping or self._orphaned:
                 logger.error(
-                    "world graph prewarm coordinator start refused: orphaned worker still alive"
+                    "world graph prewarm coordinator start refused: "
+                    "stopping=%s orphaned=%s",
+                    self._stopping,
+                    self._orphaned,
                 )
                 return False
             if self._active and self.is_running:
@@ -135,6 +144,7 @@ class WorldGraphPrewarmCoordinator:
             self._stop.clear()
             self._busy = 0
             self._orphaned = False
+            self._stopping = False
             self._run_generation += 1
             run_generation = self._run_generation
             self._idle.set()
@@ -150,8 +160,12 @@ class WorldGraphPrewarmCoordinator:
 
     def stop(self, *, timeout_s: float = _DEFAULT_SHUTDOWN_TIMEOUT_S) -> bool:
         with self._lock:
-            if not self._active and self._thread is None:
+            if not self._active and self._thread is None and not self._orphaned:
+                self._stopping = False
                 return True
+            # Mark stopping before any wait so concurrent start() cannot treat
+            # this instance as a healthy running coordinator.
+            self._stopping = True
             # Invalidate the current worker before closing intake so an orphan
             # cannot admit residents or emit under a later lifecycle.
             self._run_generation += 1
@@ -189,6 +203,7 @@ class WorldGraphPrewarmCoordinator:
                 # race an orphan worker that still holds the old run.
                 self._orphaned = True
                 self._active = False
+                self._stopping = False
                 self._idle.set()
                 return False
             if lease is not None:
@@ -197,6 +212,7 @@ class WorldGraphPrewarmCoordinator:
             self._thread = None
             self._active = False
             self._orphaned = False
+            self._stopping = False
             self._idle.set()
             # Re-open mailbox only after the worker has fully stopped.
             if stop_generation == self._run_generation:
@@ -224,12 +240,14 @@ class WorldGraphPrewarmCoordinator:
             self._thread = None
             self._orphaned = False
             self._active = False
+            self._stopping = False
         if lease is not None:
             lease.release()
         kernel.get_revision_ready_mailbox().reset()
-        with _COORDINATOR_LOCK:
+        with _COORDINATOR_COND:
             if _COORDINATOR is self:
                 _COORDINATOR = None
+            _COORDINATOR_COND.notify_all()
 
     def _run(self, *, run_generation: int) -> None:
         lease = self._lease
@@ -363,25 +381,44 @@ class WorldGraphPrewarmCoordinator:
             kernel.reset_request_io()
 
 
-def start_world_graph_prewarm_coordinator() -> WorldGraphPrewarmCoordinator | None:
-    """Start the process-local coordinator; no-op if already running."""
+def start_world_graph_prewarm_coordinator(
+    *,
+    wait_s: float = 30.0,
+) -> WorldGraphPrewarmCoordinator | None:
+    """Start the process-local coordinator; wait out stopping/orphan priors.
+
+    Concurrent callers never receive a coordinator that is mid-stop. ``wait_s=0``
+    refuses immediately while a prior lifecycle is stopping or orphaned.
+    """
     global _COORDINATOR
-    with _COORDINATOR_LOCK:
-        if _COORDINATOR is not None:
-            # Orphan check must precede is_running: a timed-out worker is still
-            # alive but must not be treated as a healthy lifecycle coordinator.
-            if _COORDINATOR.is_orphaned:
-                logger.error(
-                    "world graph prewarm coordinator start refused while orphaned worker alive"
-                )
+    deadline = time.monotonic() + max(0.0, wait_s)
+    with _COORDINATOR_COND:
+        while True:
+            coordinator = _COORDINATOR
+            if coordinator is not None and (
+                coordinator.is_stopping or coordinator.is_orphaned
+            ):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    logger.error(
+                        "world graph prewarm coordinator start refused while "
+                        "prior lifecycle stopping=%s orphaned=%s",
+                        coordinator.is_stopping,
+                        coordinator.is_orphaned,
+                    )
+                    return None
+                _COORDINATOR_COND.wait(timeout=remaining)
+                continue
+            if coordinator is not None and coordinator.is_running:
+                return coordinator
+            if coordinator is not None and not coordinator.is_running:
+                _COORDINATOR = None
+            created = WorldGraphPrewarmCoordinator()
+            if not created.start():
                 return None
-            if _COORDINATOR.is_running:
-                return _COORDINATOR
-        coordinator = WorldGraphPrewarmCoordinator()
-        if not coordinator.start():
-            return None
-        _COORDINATOR = coordinator
-        return coordinator
+            _COORDINATOR = created
+            _COORDINATOR_COND.notify_all()
+            return created
 
 
 def stop_world_graph_prewarm_coordinator(
@@ -389,19 +426,25 @@ def stop_world_graph_prewarm_coordinator(
     timeout_s: float = _DEFAULT_SHUTDOWN_TIMEOUT_S,
 ) -> bool:
     global _COORDINATOR
-    with _COORDINATOR_LOCK:
+    with _COORDINATOR_COND:
         coordinator = _COORDINATOR
-    if coordinator is None:
-        return True
+        if coordinator is None:
+            return True
+        # Flip stopping under the global condition before join so concurrent
+        # start() waits instead of returning this shutting-down instance.
+        with coordinator._lock:
+            coordinator._stopping = True
+        _COORDINATOR_COND.notify_all()
     stopped = coordinator.stop(timeout_s=timeout_s)
-    with _COORDINATOR_LOCK:
+    with _COORDINATOR_COND:
         if stopped:
             if _COORDINATOR is coordinator:
                 _COORDINATOR = None
-        # Orphaned coordinator remains registered to block a second lease/lifecycle.
+        # Orphaned coordinator remains registered until self-cleanup.
+        _COORDINATOR_COND.notify_all()
     return stopped
 
 
 def get_world_graph_prewarm_coordinator() -> WorldGraphPrewarmCoordinator | None:
-    with _COORDINATOR_LOCK:
+    with _COORDINATOR_COND:
         return _COORDINATOR

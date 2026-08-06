@@ -67,7 +67,11 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
     """Own Hermes host + OPT02 prewarm coordinator for deterministic shutdown."""
     # Lazy start on first execute remains allowed; shutdown ownership is required.
     get_hermes_graph_agent_host()
-    start_world_graph_prewarm_coordinator()
+    coordinator = start_world_graph_prewarm_coordinator(wait_s=30.0)
+    if coordinator is None:
+        raise RuntimeError(
+            "world graph prewarm coordinator failed to start for this app lifecycle"
+        )
     try:
         yield
     finally:
