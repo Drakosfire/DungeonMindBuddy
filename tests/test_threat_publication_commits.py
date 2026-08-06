@@ -667,7 +667,9 @@ def test_published_false_zero_lookup_uncommitted(tmp_path: Path, monkeypatch) ->
             contribution_ids=[],
             accepted_assertion_ids=[],
             published=False,
-            diagnostics=["merge_failed:node assertion assertion:x has unresolved evidence references"],
+            diagnostics=["legacy diagnostic should not be the UI source"],
+            failure_code="merge_failed",
+            failure_message="node assertion assertion:x has unresolved evidence references",
         )
 
     outcome = commit_svc.confirm_threat_publication(
@@ -689,6 +691,22 @@ def test_published_false_zero_lookup_uncommitted(tmp_path: Path, monkeypatch) ->
     assert outcome.response.message is not None
     assert "unresolved evidence" in outcome.response.message
     assert "Cancel this publication" in outcome.response.message
+
+
+def test_structured_merge_failure_diagnostic_is_the_ui_source() -> None:
+    result = ContributionMergeResult(
+        world_id="world_1",
+        published=False,
+        diagnostics=["merge_failed:stale legacy text"],
+        failure_code="merge_failed",
+        failure_message="canonical failure detail",
+    )
+
+    message = commit_svc._merge_failure_message(result)
+
+    assert message is not None
+    assert "canonical failure detail" in message
+    assert "stale legacy text" not in message
 
 
 def test_missing_get_creates_no_commit_dirs(tmp_path: Path, monkeypatch) -> None:
@@ -836,7 +854,7 @@ def _verification_store(proposal, world_root: Path, *, binding_direction: str = 
             "kind": "external_resource",
             "role": "statblock",
             "aliases": [resource_label],
-            "source_domains": ["manual_seed"],
+            "source_domains": ["statblock"],
             "evidence_ref_ids": [],
             "external_resource": resource,
         }
@@ -855,7 +873,9 @@ def _verification_store(proposal, world_root: Path, *, binding_direction: str = 
             "kind": str(threat_value.get("kind", "Threat")),
             "role": str(threat_value.get("role", "threat")),
             "aliases": list(threat_value.get("aliases") or []),
-            "source_domains": list(threat_value.get("source_domains") or ["worldbuilding"]),
+            "source_domains": commit_svc._provenance_domains_for_object(
+                contribution, proposal.threat_node_id
+            ),
             "evidence_ref_ids": [],
             "external_resource": None,
         }
@@ -869,7 +889,7 @@ def _verification_store(proposal, world_root: Path, *, binding_direction: str = 
             "predicate": "uses_statblock",
             "label": "uses statblock",
             "direction": binding_direction,
-            "source_domains": ["worldbuilding"],
+            "source_domains": ["statblock"],
             "session_ids": [],
             "evidence_ref_ids": [],
             "threat_statblock_binding": binding,
@@ -1078,7 +1098,9 @@ def test_projection_audit_accepts_outgoing_direction(tmp_path: Path, monkeypatch
                 kind=str(threat_value.get("kind", "Threat")),
                 role=threat_value.get("role"),
                 aliases=list(threat_value.get("aliases") or []),
-                source_domains=list(threat_value.get("source_domains") or []),
+                source_domains=commit_svc._provenance_domains_for_object(
+                    contribution, record.threat_node_id
+                ),
                 external_resource=None,
             ),
             _Node(
@@ -1087,7 +1109,7 @@ def test_projection_audit_accepts_outgoing_direction(tmp_path: Path, monkeypatch
                 kind="external_resource",
                 role="statblock",
                 aliases=["External statblock sb_1"],
-                source_domains=["manual_seed"],
+                source_domains=["statblock"],
                 external_resource=ExternalResourceV1.model_validate(
                     {
                         "schema": "dmb_external_resource_v1",
@@ -1375,7 +1397,7 @@ def _connect_verification_store(
             "kind": "external_resource",
             "role": "statblock",
             "aliases": [resource_label],
-            "source_domains": ["manual_seed"],
+            "source_domains": ["statblock"],
             "evidence_ref_ids": [],
             "external_resource": resource,
         }
@@ -1405,7 +1427,7 @@ def _connect_verification_store(
                 "predicate": "uses_statblock",
                 "label": "uses statblock",
                 "direction": "outbound",
-                "source_domains": ["worldbuilding"],
+                "source_domains": ["statblock"],
                 "session_ids": [],
                 "evidence_ref_ids": [],
                 "threat_statblock_binding": binding,
@@ -1422,7 +1444,7 @@ def _connect_verification_store(
                 "predicate": "uses_statblock",
                 "label": "uses statblock",
                 "direction": "outbound",
-                "source_domains": ["worldbuilding"],
+                "source_domains": ["statblock"],
                 "session_ids": [],
                 "evidence_ref_ids": [],
                 "threat_statblock_binding": binding.model_copy(
@@ -1490,7 +1512,9 @@ def _projection_for_verified_commit(*, record, contribution, binding, selected_t
             "kind": str(threat_value.get("kind", "Threat")),
             "role": threat_value.get("role"),
             "aliases": list(threat_value.get("aliases") or []),
-            "source_domains": list(threat_value.get("source_domains") or []),
+            "source_domains": commit_svc._provenance_domains_for_object(
+                contribution, record.threat_node_id
+            ),
             "campaign_scope": threat_value.get("campaign_scope"),
             "summary": threat_value.get("summary"),
             "external_resource": None,
@@ -1531,7 +1555,7 @@ def _projection_for_verified_commit(*, record, contribution, binding, selected_t
                 kind="external_resource",
                 role="statblock",
                 aliases=["External statblock sb_1"],
-                source_domains=["manual_seed"],
+                source_domains=["statblock"],
                 external_resource=ExternalResourceV1.model_validate(
                     {
                         "schema": "dmb_external_resource_v1",

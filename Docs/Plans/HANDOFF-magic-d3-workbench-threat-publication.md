@@ -12,19 +12,27 @@ PR / branch: optional transport metadata only
 
 Verification pointer
 
-Base/head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / {{TODO}}
+Base/head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / d1123dd08ab925964de4c9d54634f58ec908be14
 
-Changed paths: {{TODO exact §4 accounting}}
+Changed paths: 22 cumulative branch paths from b6d1df07 through implementation head d1123dd0; corrective ownership and verification are recorded in §4, §6E, and §7.
 
-Verification: {{TODO exact commands, results, and provenance}}
+Verification: owning backend identity/operation/proposal/commit tests and the frontend publication/workbench suite; exact commands and results are recorded in §7.
 
 HANDOFF — Workbench governed Threat publication bridge
 
-Created: 2026-08-04.Status: ACTIVE — dispatch exactly one implementation capability after re-anchoring to current origin/main.Canonical handoff path: Docs/Plans/HANDOFF-magic-d3-workbench-threat-publication.mdConversation name: MAGIC-D3 Workbench Publication BridgeFlow / agent: STATBLOCKHandoff direction: DESIGN → CODEDesign agent: DungeonBuddy MAGIC-D3 stewardship design agentCode agent: STATBLOCK code agent using the exact conversation name abovePR title: STATBLOCK: publish accepted Threat from Workbench
+Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion at head d1123dd0.
 
-Dispatch gate: Dispatch is prohibited until origin/main still contains commitb6d1df07fae7b28760994509dcf2ae9bd8fb74c7, the current publication route andmodel contracts match §6D, and no open PR owns the same Workbench/API-client paths.
+Canonical handoff path: Docs/Plans/HANDOFF-magic-d3-workbench-threat-publication.md
+Conversation name: MAGIC-D3 Workbench Publication Bridge
+Flow / agent: STATBLOCK
+Handoff direction: DESIGN → CODE
+Design agent: DungeonBuddy MAGIC-D3 stewardship design agent
+Code agent: STATBLOCK code agent using the exact conversation name above
+PR title: STATBLOCK: publish accepted Threat from Workbench
 
-This checked-in handoff is complete authority for one implementation capability.Do not compress it into a PR description or silently add Threat presentation,Hermes cards, performance work, placement, Build insertion, or graph-contract repair.
+Historical dispatch gate: before implementation, origin/main had to contain commit b6d1df07fae7b28760994509dcf2ae9bd8fb74c7, the publication route/model contracts had to match §6D, and no open PR could own the same Workbench/API-client paths. That gate is satisfied; this handoff now records the implemented head and corrective expansion.
+
+This checked-in handoff is complete authority for the implemented Workbench publication capability and its corrective contract expansion. The original frontend-only dispatch boundary was widened after the Latchling dogfood exposed server/kernel contracts required for a complete governed path. Do not silently add Threat presentation, Hermes cards, performance work, placement, Build insertion, or graph-contract repair beyond the contracts recorded here.
 
 Shared vocabulary
 
@@ -136,11 +144,9 @@ Integrity candidate
 
 Dogfood reached committed_unverified with verification codes.
 
-Display truthfully and prohibit re-confirmation. Do not repair verification semantics in this PR.
+Display truthfully and prohibit re-confirmation. The corrective cycle also repairs proposal provenance packaging and aligns source-domain verification with the canonical embedded shape; broader projection/audit policy remains a successor.
 
 Named successors not included
-
-STATBLOCK: repair Threat publication verification mismatch — only after a clean-current-main reproduction proves a server/package defect rather than expected committed_unverified behavior.
 
 STATBLOCK: make Threat glance campaign-useful
 
@@ -226,11 +232,11 @@ Campaign-useful Threat glance.
 
 What remains false
 
-Hermes card output, automatic Plan refresh, cross-device publication recovery, generic object publication, verified-state repair, latency budgets, placement/combat.
+Hermes card output, automatic Plan refresh, cross-device publication recovery, generic object publication, latency budgets, placement/combat, and broad automatic verification repair. The publication-specific provenance and source-domain contracts required to make the dogfood merge/audit behavior explicit are now implemented.
 
 Explicit non-goals
 
-No server route/model/service changes; no Kernel change; no graph write outside existing confirm route; no Threat Sheet styling; no Hermes prompt/tool changes; no Build or Plan mutation.
+No new publication route or persistence store; no graph write outside the existing confirm route; no Threat Sheet styling; no Hermes prompt/tool changes; no Build or Plan mutation; no generic object-publication framework; no cross-device recovery. Existing server and Kernel owners were changed only to make the Workbench path's identity, ledger, provenance, merge-diagnostic, and verification contracts durable.
 
 Read authoritative inputs in this order before changing code:
 
@@ -585,7 +591,69 @@ Decision rule: required to keep ThreatPublicationPanel free of duplicated pure
 classification logic and directly exercised by its own test; no CSS, barrel, or
 general-purpose framework file may be added under this exception.
 
-No other path may change. A required backend or shared-surface path is a stop condition.
+Corrective contract owners promoted by the Latchling dogfood:
+
+Modify
+
+apps/live_control_server/services/threat_publication_identity.py
+
+Make identity-surface evidence the candidate policy; preserve exact collision, mixed-match, ranking, and digest behavior.
+
+Modify
+
+apps/live_control_server/services/threat_publication_operations.py
+
+Validate the active-operation pointer and return the ledger's exact active record in publication_busy.
+
+Modify
+
+apps/live_control_server/services/threat_publication_proposals.py
+
+Canonicalize embedded evidence, source_artifacts, and source_domains in every packaged assertion for create-new and connect-existing.
+
+Modify
+
+apps/live_control_server/services/threat_publication_commits.py
+
+Consume structured merge diagnostics and verify the canonical provenance domains without brittle diagnostic-string dependence.
+
+Modify
+
+src/graph_memory/kernel/contribution_models.py
+
+Expose structured failure_code and failure_message on merge results.
+
+Modify
+
+src/graph_memory/kernel/contribution_merge.py
+
+Populate structured merge failure fields at the owning merge boundary.
+
+Modify
+
+src/graph_memory/kernel/contributions.py
+
+Normalize embedded evidence/source-artifact source domains into the shared provenance contract.
+
+Modify
+
+apps/live-control-ui/src/statblocks/publication/ThreatPublicationPanel.tsx
+
+Provide dock-driven candidate/proposal retry recovery, publication_busy recovery, structured uncommitted messaging, exact commit-ID preservation, and refusal-cancellation uncertainty handling.
+
+Tests
+
+tests/test_threat_publication_identity.py; tests/test_threat_publication_operations.py; tests/test_threat_publication_proposals.py; tests/test_threat_publication_commits.py; apps/live-control-ui/src/statblocks/publication/ThreatPublicationPanel.test.tsx; apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.test.tsx
+
+Prove the promoted server/client contracts and the no-duplicate-confirm reload path.
+
+Evidence artifacts
+
+Docs/Reports/MAGIC-MOMENT-D3-2026-08-05.md; evals/c2_live_prep/live/session_22/current_state.json; evals/c2_live_prep/live/session_22/hermes_thread_pointers.json
+
+Record exact dogfood provenance; these artifacts are evidence, not new runtime authority.
+
+The original frontend-only allowlist was expanded after the Latchling dogfood. The paths above are the recorded corrective contract owners; no other backend, Kernel, Plan, Build, Hermes, projection, or styling path is included.
 
 §5 Explicitly out of scope
 
@@ -593,13 +661,13 @@ Path, layer, or capability
 
 Why excluded
 
-apps/live_control_server/**
+Generic server routes, new persistence stores, and unrelated server services
 
-Existing server contracts are predecessors. Any server change is a separate capability and re-anchor.
+The existing Threat publication routes remain the API surface. The listed service changes only harden their response/ledger/proposal/verification behavior.
 
-src/graph_memory/**
+Unrelated src/graph_memory/**
 
-Kernel identity, merge, revisions, and projections are locked architecture.
+The listed contribution model/merge/provenance helpers are the owning Kernel contracts for the embedded proposal package; graph schema redesign, identity architecture, and unrelated projection work remain excluded.
 
 apps/live-control-ui/src/statblocks/projection/**
 
@@ -1087,6 +1155,65 @@ does not weaken generic apiFetch behavior for unrelated callers.
 
 Do not globally change all API error handling.
 
+§6E. Corrective cycle-4 durable contracts
+
+Identity candidate policy
+
+Identity decision candidates require identity-surface evidence. A candidate is
+eligible for operator identity choice only when its match reasons include a
+surface match on the draft label, an alias, or the exact node_id. Attribute,
+binding, source-domain, or other context-only matches remain diagnostic context
+and are hidden from identity choice. Exact surface matches remain; mixed
+surface-plus-context matches remain; exact-name collisions remain visible and
+block create-new until explicitly rejected. Candidate ranking and the sealed
+candidate_set_digest are deterministic for the same inputs, independent of
+input ordering.
+
+Busy recovery contract
+
+publication_busy returns the exact non-terminal operation record named by the
+ledger's active_operation_id for the same draft. Ledger load fails closed when
+the pointer is missing, terminal, dangling, or coexists with multiple active
+records; it never invents an operation. The client may expose Cancel stuck
+publication only for the returned exact operation_id. A busy response without
+an operation is an honest unrecoverable-from-this-browser state.
+
+Canonical proposal provenance
+
+Every accepted assertion in a sealed create-new or connect-existing package
+uses the same embedded shape:
+
+  value.evidence[]:
+    evidence_ref_id, locator, source_artifact_id, source_domain
+  value.source_artifacts[]:
+    campaign_id, source_artifact_id, source_domain, uri
+  value.source_domains: sorted source-domain names
+
+The assertion keeps its evidence_ref_ids and source_artifact_id alongside that
+embedded value. The shape applies to node, attribute, and edge assertions,
+including resource and binding assertions. The sealed package is the replay
+authority: its canonical JSON/digest must reconstruct the same contribution
+and preserve the exact source-domain semantics. Reference-only
+evidence:tpub IDs are not sufficient for merge.
+
+Structured merge diagnostics
+
+ContributionMergeResult.failure_code and failure_message are the owning merge
+diagnostic contract. The commit service and UI use those fields for actionable
+uncommitted messages. Parsing legacy merge_failed: strings is compatibility
+fallback only for pre-contract injected/persisted results.
+
+Dock recovery and exact chain IDs
+
+Candidate prepare failures and changed candidate sets expose Refresh identity
+candidates. Proposal rejection or transport uncertainty exposes Retry proposal
+preparation/replay with the same proposal ID when one was admitted. Classified
+failures block one-shot auto-advance until an explicit dock action succeeds.
+After a commit ID is admitted, it is retained through ambiguous, lost-response,
+and non-terminal refusal-cancellation outcomes. Only a pre-admission rejection
+may clear it; a refused chain clears its session pointer only after the server
+returns publication_cancelled.
+
 §7 Evidence required to merge
 
 ID
@@ -1221,7 +1348,66 @@ Verified or honestly committed-unverified result through UI; no copied IDs.
 
 Backend scripting or hidden storage edit required.
 
+E11
+
+Identity candidates require identity-surface evidence and deterministic ranking/digest.
+
+threat_publication_identity.py + identity tests
+
+Attribute-only context matches are hidden; exact and mixed surface matches remain; collisions, input-order variation, and candidate digests are deterministic.
+
+Matching policy is implicit, order-dependent, or label-only.
+
+E12
+
+publication_busy is an exact active-operation response contract.
+
+threat_publication_operations.py + operation tests + dock client tests
+
+Returned operation equals the ledger record for the same draft; dangling, terminal, missing, and multiple-active pointers fail closed; client cancellation uses that exact ID.
+
+Client guesses an operation or invents recovery for null operation.
+
+E13
+
+Proposal provenance is self-contained and replayable.
+
+threat_publication_proposals.py + contributions.py + proposal tests
+
+Create-new and connect-existing node/attribute/edge assertions embed evidence, source_artifacts, and source_domains; sealed replay reconstructs the intended contribution and merge/verification uses the same domains.
+
+Reference-only evidence, missing assertion kind coverage, or source-domain drift.
+
+E14
+
+Merge failures have structured UI diagnostics.
+
+contribution_models.py + contribution_merge.py + threat_publication_commits.py + commit tests
+
+failure_code/failure_message drive the actionable uncommitted message; legacy string parsing is compatibility-only.
+
+UI requires parsing an ungoverned diagnostic string.
+
+E15
+
+Dock failure recovery never strands the operator or changes an admitted chain ID.
+
+ThreatPublicationPanel.tsx + panel tests
+
+Candidate refresh, proposal retry, changed-set recovery, lost-response re-read, refusal cancellation, and pre-admission commit rollback are explicit and tested; an admitted commit ID survives ambiguity.
+
+Auto-advance repeats after a classified failure or cancellation clears an uncertain chain.
+
 Run and record exact results:
+
+Recorded provenance for the dogfood implementation head d1123dd08ab925964de4c9d54634f58ec908be14 and the corrective test pass:
+
+- `cd apps/live-control-ui && npm test -- --run src/api/liveApi.test.ts src/statblocks/publication/threatPublicationSession.test.ts src/statblocks/publication/ThreatPublicationPanel.test.tsx src/surface/modules/StatblockWorkbenchModule.test.tsx` — **221 passed** (4 files).
+- `cd apps/live-control-ui && npm run typecheck` — **baseline waiver**: two pre-existing `BuildReferenceCapability.tsx` `graphScope` errors at lines 122 and 247; publication client errors are cleared.
+- `cd apps/live-control-ui && npm run build` — same two baseline `BuildReferenceCapability.tsx` errors; Vite phase is not reached.
+- `uv run pytest tests/test_threat_publication_identity.py tests/test_threat_publication_operations.py tests/test_threat_publication_proposals.py tests/test_threat_publication_commits.py -q` — **196 passed**.
+- `uv run pytest tests/test_threat_publication_routes.py tests/test_threat_publication_identity_routes.py tests/test_threat_publication_proposal_api.py tests/test_threat_publication_commit_api.py -q` — **26 passed**, 10 existing Pydantic warnings.
+- `/usr/bin/git --no-pager diff --check` — clean.
 
 cd apps/live-control-ui
 
@@ -1236,10 +1422,10 @@ npm run build
 
 cd ../..
 uv run pytest \
-  tests/test_threat_publication_routes.py \
-  tests/test_threat_publication_identity_routes.py \
-  tests/test_threat_publication_proposal_api.py \
-  tests/test_threat_publication_commit_api.py -q
+  tests/test_threat_publication_identity.py \
+  tests/test_threat_publication_operations.py \
+  tests/test_threat_publication_proposals.py \
+  tests/test_threat_publication_commits.py -q
 
 git diff --check
 git diff --stat b6d1df07fae7b28760994509dcf2ae9bd8fb74c7...HEAD -- \
@@ -1325,7 +1511,7 @@ stop conditions encountered, or none;
 
 named successors still false;
 
-confirmation that no backend, Kernel, Plan, Build, Hermes, Threat Sheet, or style path changed.
+confirmation that only the recorded backend/Kernel contract owners changed; no unrelated Plan, Build, Hermes, Threat Sheet, projection, performance, or style path changed.
 
 Demolition declaration
 
@@ -1368,7 +1554,7 @@ Unknown publication_busy is honest rather than guessed around.
 
 Publication never mutates accepted mechanics, editor state, candidate state, or draft version.
 
-No server, Kernel, Plan, Build, Hermes, projection, style, performance, or documentation scope entered the PR.
+Only the recorded Threat publication service/Kernel contract owners entered the corrective PR; no unrelated Plan, Build, Hermes, projection, style, performance, or generic documentation scope entered it.
 
 Every acceptance claim has owning evidence and exact result provenance.
 
@@ -1384,7 +1570,7 @@ an existing open PR already contains the dogfood publication chrome;
 
 current origin/main changed any predecessor route/model contract;
 
-a server route/model/service change is required;
+a new server route/model/service or unrelated Kernel change is required;
 
 recovery requires a new “list active publication chain” endpoint;
 

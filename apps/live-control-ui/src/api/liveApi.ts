@@ -561,7 +561,7 @@ function validateOperationPublicationEnvelope(
   } else if (operation != null && operation !== undefined) {
     if (!isOperationRecord(operation, body.draft_id)) return null;
   }
-  return body as ThreatPublicationOperationResponseV1;
+  return body as unknown as ThreatPublicationOperationResponseV1;
 }
 
 function validateIdentityPublicationEnvelope(
@@ -588,7 +588,7 @@ function validateIdentityPublicationEnvelope(
   if (body.candidate_set != null && body.candidate_set !== undefined) {
     if (!isCandidateSetRecord(body.candidate_set, body.draft_id, body.operation_id)) return null;
   }
-  return body as ThreatPublicationIdentityResponseV1;
+  return body as unknown as ThreatPublicationIdentityResponseV1;
 }
 
 function validateProposalPublicationEnvelope(
@@ -609,7 +609,7 @@ function validateProposalPublicationEnvelope(
   } else if (body.proposal != null && body.proposal !== undefined) {
     if (!isProposalRecord(body.proposal, body.draft_id, body.operation_id)) return null;
   }
-  return body as ThreatPublicationProposalResponseV1;
+  return body as unknown as ThreatPublicationProposalResponseV1;
 }
 
 function validateCommitPublicationEnvelope(
@@ -652,7 +652,7 @@ function validateCommitPublicationEnvelope(
       return null;
     }
   }
-  return body as ThreatPublicationCommitResponseV1;
+  return body as unknown as ThreatPublicationCommitResponseV1;
 }
 
 async function publicationFetch<T extends { schema: string; result_label: string }>(

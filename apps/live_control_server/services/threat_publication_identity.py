@@ -364,21 +364,27 @@ def _candidate_from_node(
     )
 
 
-def _has_identity_surface_match(match_reasons: list[str]) -> bool:
-    """True when a candidate matched on node identity surfaces (id/label/alias).
+IDENTITY_CANDIDATE_POLICY = "identity decision candidates require identity-surface evidence"
+_IDENTITY_SURFACE_MATCH_REASONS = frozenset(
+    {
+        "exact_node_id",
+        "exact_label",
+        "exact_alias",
+        "label_phrase",
+        "alias_phrase",
+    }
+)
 
-    Attribute-/kind-/summary-only hits are too loose for connect-or-create:
-    place tokens in a draft name (e.g. "Mireward Latchling") otherwise surface
-    unrelated Mireward-linked threats as false positives.
+
+def _has_identity_surface_match(match_reasons: list[str]) -> bool:
+    """Return whether a candidate has evidence on an identity surface.
+
+    Attribute, kind, role, and summary matches remain useful diagnostics but
+    cannot make an advisory candidate eligible for connect-or-create. Token
+    matches are eligible only when their surface is node_id, label, or alias.
     """
     for reason in match_reasons:
-        if reason in {
-            "exact_node_id",
-            "exact_label",
-            "exact_alias",
-            "label_phrase",
-            "alias_phrase",
-        }:
+        if reason in _IDENTITY_SURFACE_MATCH_REASONS:
             return True
         if reason.startswith("token:") and (
             reason.endswith(":node_id")

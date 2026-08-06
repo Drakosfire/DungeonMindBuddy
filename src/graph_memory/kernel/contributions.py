@@ -158,6 +158,7 @@ class AssertionProvenance:
 
     evidence_ref_ids: list[str]
     source_artifact_ids: list[str]
+    source_domains: list[str]
 
 
 def normalize_assertion_provenance(
@@ -173,6 +174,17 @@ def normalize_assertion_provenance(
         )
 
     source_artifact_ids: set[str] = set()
+    source_domains: set[str] = set()
+    source_domain = value.get("source_domain")
+    if isinstance(source_domain, str) and source_domain.strip():
+        source_domains.add(source_domain.strip())
+    declared_source_domains = value.get("source_domains")
+    if isinstance(declared_source_domains, list):
+        source_domains.update(
+            str(item).strip()
+            for item in declared_source_domains
+            if isinstance(item, str) and item.strip()
+        )
     if assertion.source_artifact_id:
         source_artifact_ids.add(assertion.source_artifact_id)
     nested_source_artifact_id = value.get("source_artifact_id")
@@ -188,16 +200,23 @@ def normalize_assertion_provenance(
         source_artifact_id = entry.get("source_artifact_id")
         if source_artifact_id:
             source_artifact_ids.add(str(source_artifact_id))
+        entry_source_domain = entry.get("source_domain")
+        if isinstance(entry_source_domain, str) and entry_source_domain.strip():
+            source_domains.add(entry_source_domain.strip())
 
     for entry in value.get("source_artifacts") or []:
         if isinstance(entry, dict):
             source_artifact_id = entry.get("source_artifact_id")
             if source_artifact_id:
                 source_artifact_ids.add(str(source_artifact_id))
+            entry_source_domain = entry.get("source_domain")
+            if isinstance(entry_source_domain, str) and entry_source_domain.strip():
+                source_domains.add(entry_source_domain.strip())
 
     return AssertionProvenance(
         evidence_ref_ids=sorted(evidence_ref_ids),
         source_artifact_ids=sorted(source_artifact_ids),
+        source_domains=sorted(source_domains),
     )
 
 

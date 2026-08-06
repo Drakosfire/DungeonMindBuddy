@@ -2223,4 +2223,282 @@ describe("ThreatPublicationPanel", () => {
       expect(latest?.status).toMatch(/confirm to publish/i);
     });
   });
+
+  it("offers dock candidate refresh after an unavailable candidate prepare", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const candidate = buildCandidate({ node_id: "threat:refresh", label: "Refresh me" });
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates)
+      .mockResolvedValueOnce({
+        ...identityCandidatesReadyResponse(draft, []),
+        result_label: "publication_identity_graph_unavailable",
+        candidate_set: null,
+        message: "Identity graph is unavailable.",
+      })
+      .mockResolvedValueOnce(identityCandidatesReadyResponse(draft, [candidate]));
+    const onDockModelChange = vi.fn();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(
+        true,
+      );
+    });
+    const publish = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "publish"));
+    await act(async () => {
+      publish!.actions.find((action: { testId: string }) => action.testId === "publish")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.prepareThreatIdentityCandidates).toHaveBeenCalledTimes(1);
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "refresh-candidates")).toBe(
+        true,
+      );
+    });
+    const refresh = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "refresh-candidates"));
+    await act(async () => {
+      refresh!.actions.find((action: { testId: string }) => action.testId === "refresh-candidates")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.prepareThreatIdentityCandidates).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("identity-candidates")).toBeInTheDocument();
+    });
+  });
+
+  it("offers dock candidate refresh after the server changes the frozen candidate set", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const firstCandidate = buildCandidate({
+      node_id: "threat:changed-first",
+      label: "Changed first",
+      exact_name_collision: false,
+    });
+    const replacementCandidate = buildCandidate({
+      node_id: "threat:changed-second",
+      label: "Changed second",
+      exact_name_collision: false,
+    });
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates)
+      .mockResolvedValueOnce(identityCandidatesReadyResponse(draft, [firstCandidate]))
+      .mockResolvedValueOnce(identityCandidatesReadyResponse(draft, [replacementCandidate]));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue({
+      ...identityDecisionResponse(draft, "publication_identity_candidate_set_changed"),
+      candidate_set: null,
+      resolution: null,
+      message: "Candidate set changed upstream.",
+    });
+    const onDockModelChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(
+        true,
+      );
+    });
+    const publish = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "publish"));
+    await act(async () => {
+      publish!.actions.find((action: { testId: string }) => action.testId === "publish")!.onClick();
+    });
+    await screen.findByTestId("identity-candidates");
+    await user.click(screen.getByTestId("decide-create"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/candidate set changed/i);
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "refresh-candidates")).toBe(
+        true,
+      );
+    });
+    const refresh = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "refresh-candidates"));
+    await act(async () => {
+      refresh!.actions.find((action: { testId: string }) => action.testId === "refresh-candidates")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.prepareThreatIdentityCandidates).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("identity-candidates")).toHaveTextContent("Changed second");
+    });
+  });
+
+  it("offers dock proposal retry after a typed proposal rejection", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const candidate = buildCandidate({ node_id: "threat:proposal-retry", exact_name_collision: false });
+    const retryProposalId = "proposal-retry";
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
+      identityCandidatesReadyResponse(draft, [candidate]),
+    );
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal)
+      .mockResolvedValueOnce({
+        ...proposalResponse(draft),
+        result_label: "publication_proposal_parent_mismatch",
+        proposal: null,
+        message: "The graph parent changed.",
+      })
+      .mockResolvedValueOnce(
+        proposalResponse(draft, {
+          proposal: proposalRecord(draft, { proposal_id: retryProposalId }),
+        }),
+      );
+    const onDockModelChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, retryProposalId])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(
+        true,
+      );
+    });
+    const publish = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "publish"));
+    await act(async () => {
+      publish!.actions.find((action: { testId: string }) => action.testId === "publish")!.onClick();
+    });
+    await screen.findByTestId("identity-candidates");
+    await user.click(screen.getByTestId("decide-create"));
+
+    await waitFor(() => {
+      expect(api.prepareThreatPublicationProposal).toHaveBeenCalledTimes(1);
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "retry-proposal")).toBe(
+        true,
+      );
+    });
+    const retry = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "retry-proposal"));
+    await act(async () => {
+      retry!.actions.find((action: { testId: string }) => action.testId === "retry-proposal")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.prepareThreatPublicationProposal).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("proposal-review")).toBeInTheDocument();
+    });
+  });
+
+  it("preserves the exact commit pointer after a lost dock confirm response", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const candidate = buildCandidate({ node_id: "threat:lost-dock", exact_name_collision: false });
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
+      identityCandidatesReadyResponse(draft, [candidate]),
+    );
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(proposalResponse(draft));
+    vi.mocked(api.confirmThreatPublicationCommit).mockRejectedValue(new TypeError("Failed to fetch"));
+    const storage = createMemoryStorage();
+    const onDockModelChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, COMMIT_ID])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(
+        true,
+      );
+    });
+    const publish = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "publish"));
+    await act(async () => {
+      publish!.actions.find((action: { testId: string }) => action.testId === "publish")!.onClick();
+    });
+    await screen.findByTestId("identity-candidates");
+    await user.click(screen.getByTestId("decide-create"));
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "confirm")).toBe(
+        true,
+      );
+    });
+    const confirm = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "confirm"));
+    await act(async () => {
+      confirm!.actions.find((action: { testId: string }) => action.testId === "confirm")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.confirmThreatPublicationCommit).toHaveBeenCalledTimes(1);
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        operation_id: OPERATION_ID,
+        proposal_id: PROPOSAL_ID,
+        commit_id: COMMIT_ID,
+        stage: "commit",
+      });
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "reread-commit")).toBe(
+        true,
+      );
+    });
+  });
 });

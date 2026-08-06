@@ -10,6 +10,7 @@
 **Starting graph head (this session):** `rev:50f80a916d63a6ec68411810935023ab` (ANything)  
 **Ending graph head:** `rev:3413bf6f5044cf2680233f5e37c90dcf`  
 **Result:** PARTIAL — preferred Mireward threat published through Workbench; rediscovery works; campaign presentation + Plan/Hermes latency still FAIL_PRODUCT for GM feel
+**Publication bridge E10:** PASS — the governed Workbench path reached a durable World Graph revision and the exact-chain recovery/no-duplicate-confirm contract is covered by the Workbench component evidence below.
 
 ## Intent
 
@@ -51,6 +52,9 @@ Workbench floating dock drove the chain: **Publish** → identity → proposal �
 |---|---|
 | ThreatDraft | `2169f965-6098-4287-9a0b-90adfdeb1b6e` |
 | Publication operation | `ca9fff4d-92f4-45ed-bb02-672b3b175e34` |
+| Identity resolution | `c05f202f-2f94-4902-88a4-902bc9f91066` |
+| Proposal | `5461a95b-11eb-40b2-b2b7-ecbdead35b2d` |
+| Commit | `523e293c-02c8-41db-97bc-58db9e00891b` |
 | Identity decision | `create_new` |
 | Threat node | `threat:authored:d16d43d376833e38caf46dd19b1dd17f` (**Mireward Latchling**) |
 | Binding | `threat-statblock-binding:07ab38b331085b426bb69474` |
@@ -61,6 +65,19 @@ Workbench floating dock drove the chain: **Publish** → identity → proposal �
 | Verification codes | `rebuild_unavailable`, `projection_threat_source_domains_mismatch`, `projection_external_resource_source_domain_mismatch` |
 
 Post-commit audit fails on projection source-domain shape (threat projects `['statblock','worldbuilding']` vs sealed `['worldbuilding']`; external resource projects `['statblock']` vs verifier expecting `['manual_seed']`) plus an unrelated pinned-contribution digest warning. **Store materialization and head advance succeeded** — same class as ANything `committed_unverified`.
+
+The source-domain disagreement above is the observed pre-correction dogfood result, not a claim that the durable write failed. Cycle 4 promotes embedded provenance and source-domain aggregation to an explicit package/verification contract; it does not retroactively relabel this recorded commit.
+
+## Exact-chain reload and duplicate-confirm proof
+
+The browser recovery contract for this run is:
+
+1. The accepted chain is pinned as `draft 2169f965… → operation ca9fff4d… → resolution c05f202f… → proposal 5461a95b… → commit 523e293c…`.
+2. On reload/reopen of the same Workbench draft, the pointer-only session record rehydrates those IDs and the panel re-reads the exact operation, resolution, proposal, and commit endpoints. It does not query “latest” or mint a replacement ID.
+3. The commit re-read returns the durable revision `rev:3413bf6f…` with `committed_unverified`; the UI shows “Published; verification needs attention,” keeps Confirm unavailable, and offers only exact commit re-read.
+4. `ThreatPublicationPanel.test.tsx` proves the lost-confirm/remount path: `confirmThreatPublicationCommit` is called exactly once, `getThreatPublicationCommit` receives the exact `draft_id`, `operation_id`, and `commit_id`, and the call count remains one after recovery. The dock-driven lost-response test also proves the exact `commit_id` remains in session storage.
+
+This is component-level reload evidence for the publication bridge. The live dogfood captured the durable IDs and rediscovery outcome, but did not retain a browser network HAR; the zero-additional-confirm claim is therefore test-backed rather than inferred from a missing log.
 
 ## Rediscovery (Plan + Hermes)
 
@@ -89,12 +106,14 @@ Post-commit audit fails on projection source-domain shape (threat projects `['st
 
 ## Verdict
 
-**PARTIAL.** MAGIC-D3 publication bridge is product-reachable for a real siege Threat. Unqualified PASS still blocked by:
+**Publication bridge: PASS.** E10 is satisfied: a real mechanics-saved Latchling reached durable publication through the normal Workbench path, exact IDs are recorded, rediscovery succeeded, and the recovery contract proves no duplicate confirm.
+
+**Overall MAGIC-D3: PARTIAL.** The experience is not an unqualified pass because:
 
 - Campaign glance / hover presentation  
 - Plan graph load latency + reload-on-navigate  
 - Hermes agent-loop UX feedback (and underlying latency)  
-- Post-commit verification domain mismatches (audit debt; not a missing Threat)
+- Post-commit verification domain mismatches in the recorded dogfood result (audit debt; not a missing Threat)
 
 ## Follow-ons (do not expand this PR)
 

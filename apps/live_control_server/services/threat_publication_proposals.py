@@ -414,6 +414,7 @@ def _resource_payload(statblock_id: str) -> dict[str, object]:
     return {
         "kind": "external_resource",
         "role": "statblock",
+        "source_domains": ["statblock"],
         "external_resource": resource.model_dump(mode="json", by_alias=True),
     }
 
@@ -453,6 +454,7 @@ def _binding_payload(
     value = {
         "edge_id": edge_id,
         "direction": "outbound",
+        "source_domains": ["statblock"],
         "threat_statblock_binding": binding.model_dump(mode="json", by_alias=True),
     }
     return value, edge_id, binding.binding_id
@@ -504,9 +506,6 @@ def _embed_assertion_provenance(
         for item in (assertion.evidence_ref_ids or [])
         if isinstance(item, str) and item.strip()
     ]
-    if not evidence_ids:
-        return assertion
-
     snapshot = operation.source_snapshot
     if artifact_scope == "operation":
         artifact_id = operation_source_artifact_id(operation.operation_id)
@@ -527,6 +526,9 @@ def _embed_assertion_provenance(
         )
 
     value = dict(assertion.value or {})
+    value["source_domains"] = [source_domain]
+    if not evidence_ids:
+        return assertion.model_copy(update={"value": value})
     value["evidence"] = [
         {
             "evidence_ref_id": evidence_id,

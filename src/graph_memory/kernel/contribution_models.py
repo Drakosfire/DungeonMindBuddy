@@ -125,6 +125,8 @@ class ContributionMergeResult(_ContributionModel):
     retracted_assertion_ids: list[str] = Field(default_factory=list)
     superseded_contribution_ids: list[str] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
+    failure_code: str | None = None
+    failure_message: str | None = None
     published: bool = False
 
 

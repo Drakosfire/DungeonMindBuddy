@@ -123,6 +123,20 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+const PRE_ADMISSION_COMMIT_REJECTION_LABELS = new Set([
+  "publication_commit_proposal_not_active",
+  "publication_commit_proposal_incompatible",
+  "publication_commit_operation_not_ready",
+  "publication_commit_resolution_not_active",
+  "publication_commit_predecessor_mismatch",
+  "publication_commit_parent_mismatch",
+  "publication_commit_input_conflict",
+]);
+
+function isPreAdmissionCommitRejection(label: string): boolean {
+  return PRE_ADMISSION_COMMIT_REJECTION_LABELS.has(label);
+}
+
 function hasCommittedRevision(
   commit: ThreatPublicationCommitV1 | null,
   resultLabel: string | null,
@@ -346,7 +360,10 @@ function reducer(state: PanelState, action: Action): PanelState {
       return {
         ...state,
         pending: false,
+        candidateSet: null,
         candidateMessage: response.message ?? "Identity candidates could not be prepared.",
+        rejectedCandidateIds: [],
+        connectTargetId: null,
       };
     }
     case "toggleRejected": {
@@ -466,16 +483,17 @@ function reducer(state: PanelState, action: Action): PanelState {
       return { ...state, pending: true, commitId: action.commitId, commitMessage: null, lastError: null };
     case "commitResult": {
       const { response } = action;
-      // Typed response with no durable commit record: roll back to proposal stage.
+      // Only a pre-admission rejection rolls back the exact commit pointer.
       if (!response.commit) {
+        const preAdmission = isPreAdmissionCommitRejection(response.result_label);
         return {
           ...state,
           pending: false,
-          commitId: null,
+          commitId: preAdmission ? null : state.commitId,
           commit: null,
           commitResultLabel: response.result_label,
           commitMessage: response.message ?? null,
-          retryAllowed: false,
+          retryAllowed: response.retry_allowed,
         };
       }
       return {
@@ -545,6 +563,8 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
   const generationRef = useRef(0);
   const autoPreparedCandidatesForOpRef = useRef<string | null>(null);
   const autoPreparedProposalForResolutionRef = useRef<string | null>(null);
+  const candidateAutoAdvanceBlockedRef = useRef(false);
+  const proposalAutoAdvanceBlockedRef = useRef(false);
   const identityCandidatesRef = useRef<HTMLDivElement | null>(null);
   const proposalReviewRef = useRef<HTMLDivElement | null>(null);
   const onDockModelChangeRef = useRef(onDockModelChange);
@@ -719,6 +739,8 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     dispatch({ type: "reset" });
     autoPreparedCandidatesForOpRef.current = null;
     autoPreparedProposalForResolutionRef.current = null;
+    candidateAutoAdvanceBlockedRef.current = false;
+    proposalAutoAdvanceBlockedRef.current = false;
     if (!eligible) {
       setRestoreGate("done");
       return () => {
@@ -777,6 +799,8 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         });
         return;
       }
+      autoPreparedCandidatesForOpRef.current = null;
+      candidateAutoAdvanceBlockedRef.current = false;
       dispatch({ type: "operationResult", response, localOperationId: operationId, source: "begin" });
     } catch (err) {
       if (!isCurrent(generation)) return;
@@ -892,6 +916,10 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         response.result_label === "publication_ready"
         && response.operation?.operation_id === newOperationId;
       if (acceptedSuccessor) {
+        autoPreparedCandidatesForOpRef.current = null;
+        candidateAutoAdvanceBlockedRef.current = false;
+        autoPreparedProposalForResolutionRef.current = null;
+        proposalAutoAdvanceBlockedRef.current = false;
         writeThreatPublicationSession(
           {
             schema: SESSION_SCHEMA,
@@ -933,14 +961,18 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
 
   async function handlePrepareCandidates(): Promise<void> {
     if (!state.operationId) return;
+    candidateAutoAdvanceBlockedRef.current = false;
     const generation = generationRef.current;
     dispatch({ type: "candidatesPending" });
     try {
       const response = await api.prepareThreatIdentityCandidates(draft.draft_id, state.operationId);
       if (!isCurrent(generation)) return;
+      candidateAutoAdvanceBlockedRef.current =
+        response.result_label !== "publication_identity_candidates_ready";
       dispatch({ type: "candidatesResult", response });
     } catch (err) {
       if (!isCurrent(generation)) return;
+      candidateAutoAdvanceBlockedRef.current = true;
       dispatch({ type: "genericError", message: errorMessage(err) });
     }
   }
@@ -1015,17 +1047,26 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             },
           );
           if (!isCurrent(generation)) return;
-          clearThreatPublicationSession(draft.draft_id, storage);
           if (cancelResponse.result_label === "publication_cancelled") {
+            clearThreatPublicationSession(draft.draft_id, storage);
             dispatch({
               type: "refuseReleased",
               message: "Publication refused. No graph write occurred.",
             });
             return;
           }
+          dispatch({
+            type: "identityTransportError",
+            message:
+              cancelResponse.message
+              ?? "Publication refused, but cancellation is not yet confirmed. The exact chain is retained.",
+          });
         } catch {
-          clearThreatPublicationSession(draft.draft_id, storage);
-          // Keep refuse UI; Start over / Cancel stuck publication can still release the lock.
+          dispatch({
+            type: "identityTransportError",
+            message:
+              "Publication refused, but cancellation is not yet confirmed. The exact chain is retained.",
+          });
         }
       }
     } catch (err) {
@@ -1104,6 +1145,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     if (!state.operationId || !state.resolution) return;
     // Uncertainty mode: never mint a replacement ID while a prior attempt is unresolved.
     if (state.proposalId && !state.proposal && !options?.reuseProposalId) return;
+    proposalAutoAdvanceBlockedRef.current = false;
     const proposalId = options?.reuseProposalId ?? state.proposalId ?? generateId();
     const generation = generationRef.current;
     const request: PrepareThreatPublicationProposalRequestV1 = {
@@ -1131,6 +1173,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       const accepted =
         response.result_label === "publication_proposal_ready"
         && response.proposal?.proposal_id === proposalId;
+      proposalAutoAdvanceBlockedRef.current = !accepted;
       if (!accepted) {
         writeThreatPublicationSession(
           buildPointer({
@@ -1146,6 +1189,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       dispatch({ type: "proposalResult", response, accepted });
     } catch (err) {
       if (!isCurrent(generation)) return;
+      proposalAutoAdvanceBlockedRef.current = true;
       dispatch({ type: "proposalTransportError", message: errorMessage(err) });
     }
   }
@@ -1217,7 +1261,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         },
       );
       if (!isCurrent(generation)) return;
-      if (!response.commit) {
+      if (!response.commit && isPreAdmissionCommitRejection(response.result_label)) {
         // Pre-admission typed rejection: roll local chain back to proposal stage.
         writeThreatPublicationSession(
           buildPointer({
@@ -1244,7 +1288,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     try {
       const response = await api.getThreatPublicationCommit(draft.draft_id, state.operationId, state.commitId);
       if (!isCurrent(generation)) return;
-      if (!response.commit) {
+      if (!response.commit && isPreAdmissionCommitRejection(response.result_label)) {
         writeThreatPublicationSession(
           buildPointer({
             stage: "proposal",
@@ -1310,6 +1354,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     ) {
       return;
     }
+    if (candidateAutoAdvanceBlockedRef.current) return;
     if (autoPreparedCandidatesForOpRef.current === state.operationId) return;
     autoPreparedCandidatesForOpRef.current = state.operationId;
     void handlePrepareCandidates();
@@ -1341,6 +1386,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     ) {
       return;
     }
+    if (proposalAutoAdvanceBlockedRef.current) return;
     if (autoPreparedProposalForResolutionRef.current === state.resolution.resolution_id) return;
     autoPreparedProposalForResolutionRef.current = state.resolution.resolution_id;
     void handlePrepareProposal();
@@ -1549,12 +1595,31 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         } else {
           status = state.proposalMessage
             ?? "Identity recorded. Preparing proposal…";
-          if (state.proposalMessage) tone = "error";
+          if (state.proposalMessage) {
+            tone = "error";
+            actions.push({
+              testId: "retry-proposal",
+              label: "Retry proposal preparation",
+              disabled: state.pending,
+              onClick: state.pendingProposalRequest
+                ? handleReplayProposal
+                : () => void handlePrepareProposal(),
+            });
+          }
         }
       } else if (state.candidateSet) {
         status = state.pending
           ? "Recording identity decision…"
           : `Review ${state.candidateSet.candidates.length} identity candidate(s) below, then choose Create / Connect / Refuse.`;
+      } else if (state.candidateMessage && state.operationId) {
+        status = state.candidateMessage;
+        tone = "error";
+        actions.push({
+          testId: "refresh-candidates",
+          label: "Refresh identity candidates",
+          disabled: state.pending,
+          onClick: () => void handlePrepareCandidates(),
+        });
       } else if (state.operationResultLabel === "publication_stale" && state.operation?.state === "stale") {
         status = state.operationMessage ?? "Publication is stale — retry with the current graph head.";
         tone = "error";

@@ -159,9 +159,13 @@ def _node(
 
 
 def _projection_for(
-    *nodes: WorldGraphProjectionNodeView, revision_id: str = PARENT
+    *nodes: WorldGraphProjectionNodeView,
+    revision_id: str = PARENT,
+    attributes: list[WorldGraphProjectionAttributeView] | None = None,
 ):
-    return identity_svc.build_projection_fixture(revision_id=revision_id, nodes=list(nodes))
+    return identity_svc.build_projection_fixture(
+        revision_id=revision_id, nodes=list(nodes), attributes=attributes
+    )
 
 
 def _prepare(tmp_path: Path, draft_id: str, operation_id: str, **overrides: Any):
@@ -326,6 +330,99 @@ def test_candidate_rank_never_selects_identity(tmp_path: Path, monkeypatch) -> N
     assert cs.candidates[0].node_id == "threat:a"
     assert cs.candidates[0].match_score >= cs.candidates[1].match_score
     assert outcome.response.resolution is None
+
+
+def test_identity_candidate_policy_hides_attribute_only_context_matches(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Mireward Latchling")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    projection = _projection_for(
+        _node("threat:context-only", label="Tripod Null-Calf"),
+        _node("threat:surface", label="Mireward Latchling"),
+        attributes=[
+            WorldGraphProjectionAttributeView(
+                assertion_id="assertion:context",
+                subject_node_id="threat:context-only",
+                predicate="location",
+                label="Mireward",
+                value={"text": "Mireward"},
+                text_value="Mireward",
+            )
+        ],
+    )
+
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        outcome = _prepare(tmp_path, draft.draft_id, op_id, query_text="Mireward Latchling")
+
+    candidate_set = outcome.response.candidate_set
+    assert candidate_set is not None
+    assert [candidate.node_id for candidate in candidate_set.candidates] == ["threat:surface"]
+    assert identity_svc.IDENTITY_CANDIDATE_POLICY == (
+        "identity decision candidates require identity-surface evidence"
+    )
+
+
+def test_identity_candidate_policy_keeps_mixed_surface_and_context_match(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Mireward Latchling")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    projection = _projection_for(
+        _node("threat:mixed", label="Mireward Watcher"),
+        attributes=[
+            WorldGraphProjectionAttributeView(
+                assertion_id="assertion:mixed",
+                subject_node_id="threat:mixed",
+                predicate="location",
+                label="Mireward",
+                value={"text": "Mireward"},
+                text_value="Mireward",
+            )
+        ],
+    )
+
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        outcome = _prepare(tmp_path, draft.draft_id, op_id, query_text="Mireward Latchling")
+
+    candidate_set = outcome.response.candidate_set
+    assert candidate_set is not None
+    assert [candidate.node_id for candidate in candidate_set.candidates] == ["threat:mixed"]
+    assert "token:mireward:label" in candidate_set.candidates[0].match_reasons
+    assert "token:mireward:attribute" in candidate_set.candidates[0].match_reasons
+
+
+def test_candidate_order_and_digest_are_deterministic_for_input_order(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Alpha Threat")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    nodes = [
+        _node("threat:z", label="Alpha Threat Z"),
+        _node("threat:a", label="Alpha Threat A"),
+    ]
+
+    with patch.object(
+        identity_svc,
+        "project_world_graph",
+        return_value=_projection_for(*nodes),
+    ):
+        first = _prepare(tmp_path, draft.draft_id, op_id, query_text="Alpha Threat")
+    with patch.object(
+        identity_svc,
+        "project_world_graph",
+        return_value=_projection_for(*reversed(nodes)),
+    ):
+        second = _prepare(tmp_path, draft.draft_id, op_id, query_text="Alpha Threat")
+
+    first_set = first.response.candidate_set
+    second_set = second.response.candidate_set
+    assert first_set is not None and second_set is not None
+    assert [candidate.node_id for candidate in first_set.candidates] == [
+        candidate.node_id for candidate in second_set.candidates
+    ]
+    assert first_set.candidate_set_digest == second_set.candidate_set_digest
+    assert first_set.candidates[0].node_id == "threat:a"
 
 
 def test_create_new_requires_explicit_rejection_of_every_exact_collision(

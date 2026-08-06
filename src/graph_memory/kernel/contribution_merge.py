@@ -1550,6 +1550,8 @@ def merge_contribution_to_revision(
             accepted_assertion_ids=[],
             rejected_assertion_ids=rejected_ids,
             diagnostics=diagnostics,
+            failure_code="merge_failed",
+            failure_message=str(exc),
             published=False,
         )
 
