@@ -374,9 +374,13 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       if (!saveMountedRef.current) return;
       if (liveDocumentIdRef.current !== documentId) return;
 
+      const boundLoadKey = projection.loadKey;
       const authorizedKey = authorizedLoadKeyRef.current;
       const liveKey = liveLoadKeyRef.current;
-      if (!authorizedKey || authorizedKey !== liveKey) {
+      if (
+        liveKey !== boundLoadKey
+        || authorizedKey !== boundLoadKey
+      ) {
         setInsertionError("Graph projection is stale; refresh search and try again.");
         return;
       }
@@ -412,7 +416,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       }
       setInsertionError(null);
     },
-    [documentId, projection.items, projection.projection, projection.state, session],
+    [documentId, projection.items, projection.loadKey, projection.projection, projection.state, session],
   );
 
   const activateChip = useCallback(
@@ -502,13 +506,28 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
         requestedCampaignId: storedScope.campaignId,
         requestedRevisionId: storedScope.revisionId,
       });
-      if (pinLens.status === "invalid") return;
+      if (pinLens.status === "invalid") {
+        openGraphReference({
+          resolution: {
+            kind: "error",
+            locator: `dmb-node:${nodeId}`,
+            reference: normalized,
+            projectionState: projection.state,
+            message:
+              pinLens.reason?.trim()
+              || `Cannot pin World Graph revision "${storedScope.revisionId}" for exact reopen.`,
+          },
+          projectionState: projection.state,
+        });
+        return;
+      }
 
       if (typeof window === "undefined") return;
       const url = new URL(window.location.href);
       url.searchParams.set("campaign", storedScope.campaignId);
       url.searchParams.set("graphRevision", storedScope.revisionId);
-      window.history.replaceState({}, "", url.toString());
+      // pushState so Browser Back restores the prior Build lens.
+      window.history.pushState({}, "", url.toString());
       window.dispatchEvent(new PopStateEvent("popstate"));
 
       pendingGenerationRef.current += 1;
@@ -538,8 +557,36 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       return;
     }
 
-    if (projection.state === "error" || projection.state === "unavailable") {
+    const publishPendingFailure = (
+      kind: "error" | "unresolved",
+      message: string,
+    ) => {
+      const pendingSnapshot = pending;
       setPendingActivation(null);
+      // Defer past registerGraphReferenceBinding cleanup on projection.state changes,
+      // which clears leased graph content synchronously in the same effect flush.
+      queueMicrotask(() => {
+        if (liveDocumentIdRef.current !== pendingSnapshot.documentId) return;
+        openGraphReference({
+          resolution: {
+            kind,
+            locator: `dmb-node:${pendingSnapshot.attrs.refId}`,
+            reference: pendingSnapshot.attrs,
+            projectionState: projection.state,
+            message,
+          },
+          projectionState: projection.state,
+        });
+      });
+    };
+
+    if (projection.state === "error" || projection.state === "unavailable") {
+      const revision = pending.scope.revisionId;
+      publishPendingFailure(
+        "error",
+        projection.error?.trim()
+          || `Could not load World Graph revision "${revision}" for exact reopen.`,
+      );
       return;
     }
 
@@ -555,30 +602,28 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
           : pending.scope.revisionId === projection.loadedRevisionId
       );
 
+    // Operator navigated to a different valid lens — revoke without opening.
+    if (!lensMatchesPending) {
+      setPendingActivation(null);
+      return;
+    }
+
+    // Pin lens is live but response scope mismatches stored chip scope.
     if (!loadedScope || !exactScopesEqual(loadedScope, pending.scope)) {
-      if (
-        lensMatchesPending
-        && projection.loadedRevisionId === pending.scope.revisionId
-      ) {
-        setPendingActivation(null);
-      }
+      publishPendingFailure(
+        "error",
+        `Pinned World Graph response did not match stored revision "${pending.scope.revisionId}".`,
+      );
       return;
     }
 
     const nodeId = pending.attrs.refId;
     const canonical = projection.items.find((entry) => entry.nodeId === nodeId);
     if (!canonical) {
-      setPendingActivation(null);
-      openGraphReference({
-        resolution: {
-          kind: "unresolved",
-          locator: `dmb-node:${nodeId}`,
-          reference: pending.attrs,
-          projectionState: projection.state,
-          message: `Graph node "${nodeId}" was not found in the loaded World Graph projection.`,
-        },
-        projectionState: projection.state,
-      });
+      publishPendingFailure(
+        "unresolved",
+        `Graph node "${nodeId}" was not found in World Graph revision "${pending.scope.revisionId}".`,
+      );
       return;
     }
 
@@ -607,6 +652,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     lens,
     openGraphReference,
     pendingActivation,
+    projection.error,
     projection.items,
     projection.loadedRevisionId,
     projection.projection,

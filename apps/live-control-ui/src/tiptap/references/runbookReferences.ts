@@ -42,20 +42,28 @@ function normalizedString(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
-function normalizedNullableString(value: unknown): string | null {
-  const normalized = normalizedString(value);
-  return normalized || null;
+/** Opaque scope IDs: trim ends only; preserve internal whitespace and content. */
+function trimmedOpaqueString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
 }
 
 function normalizedScopeMode(value: unknown): "campaign" | "world" | null {
-  const normalized = normalizedString(value);
-  return normalized === "campaign" || normalized === "world" ? normalized : null;
+  const trimmed = trimmedOpaqueString(value);
+  return trimmed === "campaign" || trimmed === "world" ? trimmed : null;
+}
+
+function isScopeFieldAbsent(value: unknown): boolean {
+  return value === null || value === undefined || value === "";
 }
 
 export function graphScopePresence(
-  attrs: Pick<
-    RunbookReferenceAttrs,
-    "graphWorldId" | "graphCampaignId" | "graphScopeMode" | "graphRevisionId"
+  attrs: Partial<
+    Pick<
+      RunbookReferenceAttrs,
+      "graphWorldId" | "graphCampaignId" | "graphScopeMode" | "graphRevisionId"
+    >
   >,
 ): "none" | "complete" | "partial" {
   const fields = [
@@ -64,14 +72,14 @@ export function graphScopePresence(
     attrs.graphScopeMode,
     attrs.graphRevisionId,
   ];
-  const populated = fields.filter((value) => value !== null && value !== "");
+  const populated = fields.filter((value) => !isScopeFieldAbsent(value));
   if (populated.length === 0) return "none";
   if (
     populated.length === 4
-    && attrs.graphWorldId
-    && attrs.graphCampaignId
-    && attrs.graphScopeMode
-    && attrs.graphRevisionId
+    && !isScopeFieldAbsent(attrs.graphWorldId)
+    && !isScopeFieldAbsent(attrs.graphCampaignId)
+    && !isScopeFieldAbsent(attrs.graphScopeMode)
+    && !isScopeFieldAbsent(attrs.graphRevisionId)
   ) {
     return "complete";
   }
@@ -91,10 +99,10 @@ export function normalizeRunbookReferenceAttrs(
     refType,
     refId,
     label,
-    graphWorldId: normalizedNullableString(input.graphWorldId),
-    graphCampaignId: normalizedNullableString(input.graphCampaignId),
+    graphWorldId: trimmedOpaqueString(input.graphWorldId),
+    graphCampaignId: trimmedOpaqueString(input.graphCampaignId),
     graphScopeMode: normalizedScopeMode(input.graphScopeMode),
-    graphRevisionId: normalizedNullableString(input.graphRevisionId),
+    graphRevisionId: trimmedOpaqueString(input.graphRevisionId),
   };
 }
 
@@ -122,13 +130,34 @@ export function isSupportedRunbookReference(attrs: RunbookReferenceAttrs): boole
     : RUNBOOK_ACTION_TYPES.includes(attrs.refType as RunbookActionType);
 }
 
+/**
+ * Percent-encode scope component values. encodeURIComponent leaves `()` unescaped,
+ * which truncates Markdown link destinations that terminate at `)`.
+ */
+function encodeGraphScopeComponent(value: string): string {
+  return encodeURIComponent(value).replace(/[()]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+}
+
 function buildGraphScopeQuery(attrs: RunbookReferenceAttrs): string {
   return [
-    `world=${encodeURIComponent(attrs.graphWorldId ?? "")}`,
-    `campaign=${encodeURIComponent(attrs.graphCampaignId ?? "")}`,
-    `scope=${encodeURIComponent(attrs.graphScopeMode ?? "")}`,
-    `revision=${encodeURIComponent(attrs.graphRevisionId ?? "")}`,
+    `world=${encodeGraphScopeComponent(attrs.graphWorldId ?? "")}`,
+    `campaign=${encodeGraphScopeComponent(attrs.graphCampaignId ?? "")}`,
+    `scope=${encodeGraphScopeComponent(attrs.graphScopeMode ?? "")}`,
+    `revision=${encodeGraphScopeComponent(attrs.graphRevisionId ?? "")}`,
   ].join("&");
+}
+
+/** Reject malformed percent-encoding before URLSearchParams' single decode pass. */
+function hasMalformedPercentEncoding(raw: string): boolean {
+  for (let index = 0; index < raw.length; index += 1) {
+    if (raw[index] !== "%") continue;
+    const hex = raw.slice(index + 1, index + 3);
+    if (!/^[0-9A-Fa-f]{2}$/.test(hex)) return true;
+    index += 2;
+  }
+  return false;
 }
 
 export function runbookReferenceHref(attrs: RunbookReferenceAttrs): string | null {
@@ -152,17 +181,17 @@ export type ParsedGraphScopeQuery = Pick<
 export function parseGraphScopeQuery(query: string): ParsedGraphScopeQuery | null {
   if (!query.startsWith("?")) return null;
 
-  const params = new URLSearchParams(query.slice(1));
+  const raw = query.slice(1);
+  if (hasMalformedPercentEncoding(raw)) return null;
+
+  // URLSearchParams performs the single decode pass; do not decode again.
+  const params = new URLSearchParams(raw);
   const seen = new Map<string, string>();
 
   for (const [key, value] of params.entries()) {
     if (!GRAPH_SCOPE_QUERY_KEYS.includes(key as GraphScopeQueryKey)) return null;
     if (seen.has(key)) return null;
-    try {
-      seen.set(key, decodeURIComponent(value));
-    } catch {
-      return null;
-    }
+    seen.set(key, value);
   }
 
   if (seen.size === 0) return null;
