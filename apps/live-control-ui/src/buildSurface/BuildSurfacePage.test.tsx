@@ -193,8 +193,18 @@ describe("BuildSurfacePage", () => {
     window.history.pushState({}, "", "/build");
   });
 
+  it("E2: bare /build without campaign shows picker and does not create", async () => {
+    mockUntitledDraftCreate();
+    renderBuildPage();
+
+    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
+  });
+
   it("E2: bare /build auto-creates one untitled draft and admits the Canvas", async () => {
     mockUntitledDraftCreate();
+    window.history.pushState({}, "", "/build?campaign=longmont-c2");
 
     render(
       <AgentInteractionProvider>
@@ -226,10 +236,12 @@ describe("BuildSurfacePage", () => {
     expect(screen.queryByTestId("build-opening-draft")).not.toBeInTheDocument();
     expect(screen.queryByTestId("build-new-source-form")).not.toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
+    expect(new URL(window.location.href).searchParams.get("campaign")).toBe("longmont-c2");
   });
 
   it("E2 StrictMode: bare /build creates at most one document", async () => {
     mockUntitledDraftCreate();
+    window.history.pushState({}, "", "/build?campaign=longmont-c2");
 
     render(
       <StrictMode>
@@ -249,6 +261,7 @@ describe("BuildSurfacePage", () => {
     const user = userEvent.setup();
     mockUntitledDraftCreate();
     vi.mocked(liveApi.createWorkspaceDocument).mockRejectedValueOnce(new Error("create failed"));
+    window.history.pushState({}, "", "/build?campaign=longmont-c2");
 
     renderBuildPage();
 
@@ -259,6 +272,111 @@ describe("BuildSurfacePage", () => {
     await user.click(screen.getByTestId("build-opening-retry"));
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
+  });
+
+  it("E2: delayed create for campaign A is ignored after route switches to campaign B", async () => {
+    const docA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const docB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    let resolveA: ((value: Awaited<ReturnType<typeof liveApi.createWorkspaceDocument>>) => void) | null = null;
+    const deferredA = new Promise<Awaited<ReturnType<typeof liveApi.createWorkspaceDocument>>>((resolve) => {
+      resolveA = resolve;
+    });
+
+    vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(async (payload) => {
+      const record = {
+        schema_version: "dmb_workspace_document_record_v1" as const,
+        document_id: payload.campaign_id === "longmont-c1" ? docA : docB,
+        title: "Untitled worldbuilding source",
+        campaign_id: payload.campaign_id,
+        target_session: null,
+        kind: "worldbuilding_source" as const,
+        target_relpath: `out/workspace/worldbuilding/${payload.campaign_id === "longmont-c1" ? docA : docB}.md`,
+        status: "active" as const,
+        content_status: "draft" as const,
+        revision: 1,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding" as const,
+        document_class: "lore",
+        authority_state: "draft" as const,
+        visibility_state: "internal" as const,
+      };
+      if (payload.campaign_id === "longmont-c1") {
+        return deferredA;
+      }
+      return record;
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) => ({
+      schema_version: "dmb_workspace_document_snapshot_v1",
+      record: {
+        schema_version: "dmb_workspace_document_record_v1",
+        document_id: id,
+        title: "Untitled worldbuilding source",
+        campaign_id: id === docA ? "longmont-c1" : "longmont-c2",
+        target_session: null,
+        kind: "worldbuilding_source",
+        target_relpath: `out/workspace/worldbuilding/${id}.md`,
+        status: "active",
+        content_status: "draft",
+        revision: 1,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding",
+        document_class: "lore",
+        authority_state: "draft",
+        visibility_state: "internal",
+      },
+      markdown: "",
+      content_sha256: `sha-${id}`,
+      file_fingerprint: "absent",
+      file_exists: false,
+      loaded_revision: 1,
+    }));
+
+    window.history.pushState({}, "", "/build?campaign=longmont-c1");
+    renderBuildPage();
+
+    await waitFor(() => {
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+        expect.objectContaining({ campaign_id: "longmont-c1" }),
+      );
+    });
+
+    await act(async () => {
+      window.history.pushState({}, "", "/build?campaign=longmont-c2");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => {
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+        expect.objectContaining({ campaign_id: "longmont-c2" }),
+      );
+    });
+
+    await act(async () => {
+      resolveA?.({
+        schema_version: "dmb_workspace_document_record_v1",
+        document_id: docA,
+        title: "Untitled worldbuilding source",
+        campaign_id: "longmont-c1",
+        target_session: null,
+        kind: "worldbuilding_source",
+        target_relpath: `out/workspace/worldbuilding/${docA}.md`,
+        status: "active",
+        content_status: "draft",
+        revision: 1,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding",
+        document_class: "lore",
+        authority_state: "draft",
+        visibility_state: "internal",
+      });
+    });
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(docB);
+    expect(new URL(window.location.href).searchParams.get("campaign")).toBe("longmont-c2");
   });
 
   it("loads snapshot markdown when reopening with documentId", async () => {
@@ -339,7 +457,7 @@ describe("BuildSurfacePage", () => {
     const draftId = "33333333-3333-4333-8333-333333333333";
     mockUntitledDraftCreate(draftId);
     await act(async () => {
-      window.history.pushState({}, "", "/build");
+      window.history.pushState({}, "", "/build?campaign=longmont-c2");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();

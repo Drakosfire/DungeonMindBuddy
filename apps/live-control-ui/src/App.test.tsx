@@ -297,8 +297,13 @@ describe("App inspector integration", () => {
   });
 
   it("E1 bare /build: real App auto-admits Canvas without metadata form", async () => {
+    const user = userEvent.setup();
     window.history.pushState({}, "", "/build");
     render(<App />);
+
+    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId("build-campaign-pick-longmont-c2"));
 
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Untitled worldbuilding source" })).toBeInTheDocument();
@@ -323,6 +328,7 @@ describe("App inspector integration", () => {
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(
       "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     );
+    expect(new URL(window.location.href).searchParams.get("campaign")).toBe("longmont-c2");
   });
 
   it("E1/E5: real App /build route renders composition and viewExact seam", async () => {
