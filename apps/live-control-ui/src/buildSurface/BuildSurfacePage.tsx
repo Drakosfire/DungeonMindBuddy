@@ -32,7 +32,9 @@ function navigateToDocument(documentId: string, campaignId: string): void {
   url.pathname = BUILD_SURFACE_ROUTE;
   url.searchParams.set("documentId", documentId);
   url.searchParams.set("campaign", campaignId);
-  window.history.pushState({}, "", url.toString());
+  // Replace transient bare-entry / campaign-only URLs so Back leaves Build
+  // instead of replaying auto-create (E2: at most one create per entry).
+  window.history.replaceState({}, "", url.toString());
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -41,8 +43,15 @@ function chooseCampaignOnBareBuild(campaignId: string): void {
   url.pathname = BUILD_SURFACE_ROUTE;
   url.searchParams.set("campaign", campaignId.trim());
   writeBuildLastCampaignId(campaignId);
-  window.history.pushState({}, "", url.toString());
+  // Replace bare `/build` rather than stacking a campaign-only entry.
+  window.history.replaceState({}, "", url.toString());
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function isBuildSurfacePath(): boolean {
+  if (typeof window === "undefined") return false;
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  return path === BUILD_SURFACE_ROUTE;
 }
 
 type BareCreateResult = { documentId: string; campaignId: string };
@@ -114,6 +123,9 @@ export function BuildSurfacePage() {
       bareBuildAutoCreateLatch = null;
       return;
     }
+    if (!isBuildSurfacePath()) {
+      return;
+    }
     if (!bareCampaignId) {
       return;
     }
@@ -125,11 +137,13 @@ export function BuildSurfacePage() {
     void startBareBuildAutoCreate(bareCampaignId)
       .then((created) => {
         if (cancelled) return;
+        if (!isBuildSurfacePath()) return;
         const liveCampaign = resolveBareBuildCampaignId({
           search: window.location.search,
         });
         if (bareBuildAutoCreateKey(created.campaignId) !== createKey) return;
         if (!liveCampaign || bareBuildAutoCreateKey(liveCampaign) !== createKey) return;
+        if (new URLSearchParams(window.location.search).get("documentId")) return;
         writeBuildLastCampaignId(created.campaignId);
         navigateToDocument(created.documentId, created.campaignId);
       })
