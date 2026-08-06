@@ -722,7 +722,7 @@ Addressed merge blockers from the formal review comment:
 6. service emits structured observations on success **and** error branches;
 7. E3 expanded beyond malformed graph JSON; clear-during-load + scrub-vs-reload races added; deterministic table covers focus / pinned-after-advance / post-clear.
 
-1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/509 ; branch `opt/opt01-resident-verified-world-revision`; head TBD after review-repair commits.
+1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/509 ; branch `opt/opt01-resident-verified-world-revision`; head `48b6ad9ba709be07035a2349afcbdaf6747a5094`.
 2. **§1 Mission (exact):** Projection callers can reuse one exact verified World Graph revision so that repeated reads of that revision do not reread or rehash immutable graph, contribution, or admitted source-index files.
 3. **§1 Merge-ready invariant (exact):** Every projection response is still derived from the exact world, selected revision, current observed head revision, campaign scope, focus, admissibility, and query named by the existing request contract, while each resident generation is admitted only after one complete fail-closed verification, concurrent callers share that generation, completed projection caches cannot outlive it, and later out-of-band backing mutation can neither poison nor silently replace the already verified in-memory authority.
 4. **§7 evidence ledger**
@@ -743,7 +743,7 @@ Addressed merge blockers from the formal review comment:
 5. **Nano-commits**
    - prior OPT01 commits through `91fd8511`
    - review-repair commits appended on this branch (lifecycle/integrity + evidence)
-6. **Base / head:** base `b6d1df07fae7b28760994509dcf2ae9bd8fb74c7`; head TBD after review-repair commits.
+6. **Base / head:** base `b6d1df07fae7b28760994509dcf2ae9bd8fb74c7`; head `48b6ad9ba709be07035a2349afcbdaf6747a5094` (review-repair evidence commit; tip may include this pin commit).
 7. **Changed paths / focused diffstat:** exactly the §4 allowlist (9 paths). See verification command output.
 8. **Required commands / results (post review repair)**
    - `uv run pytest tests/test_graph_kernel_world_read_runtime.py tests/test_world_graph_projection_service.py -q` → **25 passed**
