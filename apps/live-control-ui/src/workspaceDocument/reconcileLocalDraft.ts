@@ -61,6 +61,16 @@ export function reconcileLocalDraft(
       };
     }
     if (baseMatchesSnapshot(localState, snapshot)) {
+      // Post-commit local drafts can remain dirty:true while Markdown already
+      // matches the refreshed snapshot (Save succeeded; overlay flag stale).
+      // Treat byte-identical body as clean so hard reload reopens clean.
+      if (localState.exported_markdown === snapshot.markdown) {
+        return {
+          kind: "clean-match",
+          markdown: snapshot.markdown,
+          localState,
+        };
+      }
       return {
         kind: "dirty-match",
         markdown: localState.exported_markdown,
