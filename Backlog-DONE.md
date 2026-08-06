@@ -7,6 +7,12 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Canvas save/reload leaves dirty-match when Markdown is identical — captured 2026-08-05, done 2026-08-06
+**Context:** PR #507 cycle-6/7 E10: after Save + settle + hard reload, marker survived but UI still showed “Unsaved local changes”. Local draft remained `dirty: true` with base matching snapshot and `exported_markdown` byte-identical to server body. `reconcileLocalDraft` returned `dirty-match` without checking Markdown identity.
+**Insight:** Server persistence alone is insufficient for E10; operator-facing Canvas authority must reopen clean when local draft equals the refreshed snapshot.
+**Action completed:** Approved allowlist expansion on #507: `reconcileLocalDraft` treats dirty + base-match + byte-identical Markdown as `clean-match`. Owning unit + open/authoring reload tests added. Blank `?campaign=` also fail-closed to picker (aligned with handoff).
+**Refs:** `apps/live-control-ui/src/workspaceDocument/reconcileLocalDraft.ts`; PR #507 cycle-7
+
 ## [DONE] TL01 temporal prompt calibration — closed as not ready — captured 2026-08-01, done 2026-08-03
 **Context:** PR #500 (merged `ba56baaf`) executed the decisive bounded experiment: certified V15 / Adv V13 matrix, six lanes × three repetitions, 18 attempts, zero retry. Authoritative disposition `PROMOTION_EVIDENCE_INCOMPLETE` — shared control/candidate development grounding collapse plus shared Adv source-time over-resolution, with a candidate-only V15 signal on `assertion:1131fb59ebcaae89`.
 **Insight:** The campaign's most valuable output was its willingness to refuse promotion on bad evidence — but the ratio went bad. Ten `REPORT-tl01*` docs and 21,228 lines of temporal Python (3,442 of them one cohort-integrity test file) produced no production consumer and no promotable prompt. The churn signature: PR #498 took three review cycles and PR #500 took two, and all five were resolved by tightening the evidence apparatus rather than learning anything about whether the model can read time out of prose. Separately, TL01 was never the Timeline capability — the recap→timeline-append path is live-verified (T1–T5 PASS, 3/3) and has populated 32 corpus `timeline.md` files without touching TL01.
