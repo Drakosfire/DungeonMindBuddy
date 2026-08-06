@@ -8,6 +8,7 @@ import * as liveApi from "./api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "./api/types";
 import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
 import { buildViewExactTestSeam } from "./buildSurface/reference/BuildReferenceCapability";
+import { resetBuildBareEntryAutoCreateForTests } from "./buildSurface/BuildSurfacePage";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
@@ -117,6 +118,7 @@ function fixtureSnapshot(
 describe("App inspector integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetBuildBareEntryAutoCreateForTests();
     window.history.pushState({}, "", "/");
     localStorage.clear();
     vi.mocked(liveApi.getSurface).mockResolvedValue({
@@ -166,11 +168,43 @@ describe("App inspector integration", () => {
       if (payload.kind === "runbook") {
         return northGateRunbookRecord();
       }
+      if (payload.kind === "worldbuilding_source") {
+        const documentId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        return fixtureWorkspaceDocumentRecord({
+          document_id: documentId,
+          title: payload.title,
+          campaign_id: payload.campaign_id,
+          target_session: null,
+          kind: "worldbuilding_source",
+          target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+          source_domain: "worldbuilding",
+          document_class: payload.document_class ?? "lore",
+          authority_state: payload.authority_state ?? "draft",
+          visibility_state: payload.visibility_state ?? "internal",
+        });
+      }
       return fixtureWorkspaceDocumentRecord();
     });
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (documentId) => {
       if (documentId === FIXTURE_DOC_ID) {
         return fixtureSnapshot({ record: northGateRunbookRecord() });
+      }
+      if (documentId === "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb") {
+        return fixtureSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: documentId,
+            title: "Untitled worldbuilding source",
+            campaign_id: "longmont-c2",
+            target_session: null,
+            kind: "worldbuilding_source",
+            target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+            source_domain: "worldbuilding",
+            document_class: "lore",
+            authority_state: "draft",
+            visibility_state: "internal",
+          }),
+          markdown: "",
+        });
       }
       return fixtureSnapshot({ record: fixtureWorkspaceDocumentRecord({ document_id: documentId }) });
     });
@@ -260,6 +294,35 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlanView).toHaveBeenCalled();
     expect(liveApi.getGraphIngestRuns).toHaveBeenCalled();
     expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
+  });
+
+  it("E1 bare /build: real App auto-admits Canvas without metadata form", async () => {
+    window.history.pushState({}, "", "/build");
+    render(<App />);
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Untitled worldbuilding source" })).toBeInTheDocument();
+    expect(screen.queryByTestId("build-new-source-form")).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith({
+      title: "Untitled worldbuilding source",
+      campaign_id: "longmont-c2",
+      kind: "worldbuilding_source",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    });
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    );
   });
 
   it("E1/E5: real App /build route renders composition and viewExact seam", async () => {

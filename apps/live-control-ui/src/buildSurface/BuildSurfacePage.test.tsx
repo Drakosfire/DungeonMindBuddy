@@ -19,7 +19,10 @@ import {
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID, BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
-import { BuildSurfacePage } from "./BuildSurfacePage";
+import {
+  BuildSurfacePage,
+  resetBuildBareEntryAutoCreateForTests,
+} from "./BuildSurfacePage";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 import type { BuildReferenceContextBinding } from "./reference/buildBuildSurfaceInteractionPublication";
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
@@ -33,6 +36,53 @@ function renderBuildPage() {
       <LegacyProjectionHostAdapter />
     </AgentInteractionProvider>,
   );
+}
+
+function mockUntitledDraftCreate(documentId = DOC_ID, campaignId = "longmont-c2") {
+  vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
+    schema_version: "dmb_workspace_document_record_v1",
+    document_id: documentId,
+    title: "Untitled worldbuilding source",
+    campaign_id: campaignId,
+    target_session: null,
+    kind: "worldbuilding_source",
+    target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+    status: "active",
+    content_status: "draft",
+    revision: 1,
+    created_at: "2026-07-22T00:00:00Z",
+    updated_at: "2026-07-22T00:00:00Z",
+    source_domain: "worldbuilding",
+    document_class: "lore",
+    authority_state: "draft",
+    visibility_state: "internal",
+  });
+  vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record: {
+      schema_version: "dmb_workspace_document_record_v1",
+      document_id: documentId,
+      title: "Untitled worldbuilding source",
+      campaign_id: campaignId,
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+      status: "active",
+      content_status: "draft",
+      revision: 1,
+      created_at: "2026-07-22T00:00:00Z",
+      updated_at: "2026-07-22T00:00:00Z",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    },
+    markdown: "",
+    content_sha256: "sha-empty",
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: 1,
+  });
 }
 
 function BuildPublicationProbe() {
@@ -139,87 +189,76 @@ describe("BuildSurfacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    resetBuildBareEntryAutoCreateForTests();
     window.history.pushState({}, "", "/build");
   });
 
-  it("does not create a document on mount without documentId", () => {
+  it("E2: bare /build auto-creates one untitled draft and admits the Canvas", async () => {
+    mockUntitledDraftCreate();
+
     render(
       <AgentInteractionProvider>
         <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
         <BuildPublicationProbe />
       </AgentInteractionProvider>,
     );
-    expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
+
+    expect(screen.getByTestId("build-opening-draft")).toBeInTheDocument();
     expect(screen.getByTestId("build-projection-enabled")).toHaveTextContent("inactive");
-    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-  });
-
-  it("creates a document only when the new-source form is submitted", async () => {
-    const user = userEvent.setup();
-    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
-      schema_version: "dmb_workspace_document_record_v1",
-      document_id: DOC_ID,
-      title: "Faction Notes",
-      campaign_id: "eldyrwild",
-      target_session: null,
-      kind: "worldbuilding_source",
-      target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
-      status: "active",
-      content_status: "draft",
-      revision: 1,
-      created_at: "2026-07-22T00:00:00Z",
-      updated_at: "2026-07-22T00:00:00Z",
-      source_domain: "worldbuilding",
-      document_class: "faction",
-      authority_state: "draft",
-      visibility_state: "internal",
-    });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
-      schema_version: "dmb_workspace_document_snapshot_v1",
-      record: {
-        schema_version: "dmb_workspace_document_record_v1",
-        document_id: DOC_ID,
-        title: "Faction Notes",
-        campaign_id: "eldyrwild",
-        target_session: null,
-        kind: "worldbuilding_source",
-        target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
-        status: "active",
-        content_status: "draft",
-        revision: 1,
-        created_at: "2026-07-22T00:00:00Z",
-        updated_at: "2026-07-22T00:00:00Z",
-        source_domain: "worldbuilding",
-        document_class: "faction",
-        authority_state: "draft",
-        visibility_state: "internal",
-      },
-      markdown: "",
-      content_sha256: "sha-empty",
-      file_fingerprint: "absent",
-      file_exists: false,
-      loaded_revision: 1,
-    });
-
-    renderBuildPage();
-    await user.type(screen.getByTestId("build-new-title"), "Faction Notes");
-    await user.clear(screen.getByTestId("build-new-class"));
-    await user.type(screen.getByTestId("build-new-class"), "faction");
-    await user.click(screen.getByTestId("build-create-button"));
 
     await waitFor(() => {
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
     });
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith({
-      title: "Faction Notes",
-      campaign_id: "eldyrwild",
+      title: "Untitled worldbuilding source",
+      campaign_id: "longmont-c2",
       kind: "worldbuilding_source",
       source_domain: "worldbuilding",
-      document_class: "faction",
+      document_class: "lore",
       authority_state: "draft",
       visibility_state: "internal",
     });
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Untitled worldbuilding source" })).toBeInTheDocument();
+    expect(screen.queryByTestId("build-opening-draft")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("build-new-source-form")).not.toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
+  });
+
+  it("E2 StrictMode: bare /build creates at most one document", async () => {
+    mockUntitledDraftCreate();
+
+    render(
+      <StrictMode>
+        <AgentInteractionProvider>
+          <BuildSurfacePage />
+          <ToolHost />
+          <LegacyProjectionHostAdapter />
+        </AgentInteractionProvider>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("E2: bare /build create failure shows retry without navigating", async () => {
+    const user = userEvent.setup();
+    mockUntitledDraftCreate();
+    vi.mocked(liveApi.createWorkspaceDocument).mockRejectedValueOnce(new Error("create failed"));
+
+    renderBuildPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("create failed");
+    expect(screen.getByTestId("build-opening-draft")).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
+
+    await user.click(screen.getByTestId("build-opening-retry"));
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
   });
 
   it("loads snapshot markdown when reopening with documentId", async () => {
@@ -297,17 +336,24 @@ describe("BuildSurfacePage", () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(await screen.findByText("Doc B")).toBeInTheDocument();
 
-    window.history.pushState({}, "", "/build");
-    window.dispatchEvent(new PopStateEvent("popstate"));
-    expect(await screen.findByTestId("build-new-source-form")).toBeInTheDocument();
+    const draftId = "33333333-3333-4333-8333-333333333333";
+    mockUntitledDraftCreate(draftId);
+    await act(async () => {
+      window.history.pushState({}, "", "/build");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Untitled worldbuilding source" })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(draftId);
   });
 
-  it("PR380B: shows graph-object context when pointer params are present", async () => {
+  it("PR380B: preserves graph pointer campaign when auto-creating from bare /build", async () => {
     window.history.pushState(
       {},
       "",
       `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
+    mockUntitledDraftCreate(DOC_ID, "longmont-c2");
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: session23WorldGraphRecapFixture.snapshot,
@@ -327,8 +373,11 @@ describe("BuildSurfacePage", () => {
       diagnostics: [],
     });
     renderBuildPage();
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ campaign_id: "longmont-c2" }),
+    );
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
-    expect(screen.getByTestId("build-new-campaign")).toHaveValue("longmont-c2");
   });
 
   it("E5: BuildSurfacePage → ToolHost → Find existing → View → content renderer", async () => {
