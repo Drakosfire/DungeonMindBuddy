@@ -647,7 +647,7 @@ Do not hide a second capability inside “prewarm.” In particular, do not buil
 
 **Dispatch note:** Operator dispatched implementation while OPT01 E10 remained NOT PROVEN / unwaved. OPT02 E10 likewise remains NOT PROVEN pending live Workbench dogfood or an explicit operator waiver.
 
-1. **PR / branch / head:** TODO_PR_URL ; branch `opt/opt02-revision-ready-post-commit-prewarm`; head `TODO_HEAD`.
+1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/511 ; branch `opt/opt02-revision-ready-post-commit-prewarm`; head `93e447203ccb0611dc8e734967eeefb2e6c3c9ad`.
 2. **Immutable base:** `d50d0c3a45761376185d36fb39ae3a098a5b8cfc` (merge of PR #509 / OPT01 onto main). Design anchor tip `34b041d91980e1eac1d148b972332e057bdcb92f` is an ancestor of this base.
 3. **§1 Mission (exact):** After a successful World Graph publish, the live server can best-effort prewarm that exact committed revision so the next same-process read can reuse verified resident authority without delaying or weakening publication.
 4. **§1 Merge-ready invariant (exact):** Every successful Kernel publication offers one exact process-local notification only after the existing durable commit and Kernel post-publish work; offering never performs graph-scale I/O or changes publication success, the live-server worker processes bounded notifications through the OPT01 verifier, skips revisions no longer named by current head, coalesces with ordinary readers, and reports every ready, superseded, dropped, or failed outcome without treating notification state as graph authority.
