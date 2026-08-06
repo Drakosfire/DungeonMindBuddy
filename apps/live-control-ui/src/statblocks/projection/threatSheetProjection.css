@@ -78,9 +78,11 @@
   color: #5c4633;
 }
 
-.threat-sheet-hover-shell .threat-sheet-projection__summary {
+.threat-sheet-hover-shell .threat-sheet-projection__summary,
+.md-content[data-md-theme] .recap-node-hover-card--threat .threat-sheet-projection__summary {
   color: #000000;
   font-style: italic;
+  font-weight: 400;
 }
 
 /*
@@ -128,11 +130,13 @@
   line-height: 1.4;
   color: #000000;
   font-style: italic;
+  font-weight: 400;
 }
 
 .threat-sheet-projection__summary--empty {
   color: #5c4633;
   font-style: italic;
+  font-weight: 400;
 }
 
 .threat-sheet-projection__muted {
