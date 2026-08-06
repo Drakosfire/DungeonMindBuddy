@@ -12,15 +12,15 @@ PR / branch: optional transport metadata only
 
 Verification pointer
 
-Base/reviewed head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / a37fa03cc2b47581a4afa723df3e12ca129d9bc6 (dogfood implementation head: d1123dd0; cycle-5 recovery repair is the current worktree slice)
+Base/reviewed head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / 824fe6db94c1b30b6812b06c549727083bd42037 (one commit beyond a37fa03c; dogfood implementation head: d1123dd0; cycle-6 recovery repair is the current worktree slice)
 
-Changed paths: 22 cumulative branch paths from b6d1df07 through d1123dd0 plus corrective contract/provenance commits through a37fa03c; cycle-5 recovery ownership and verification are recorded in §4, §6E, §6F, and §7.
+Changed paths: cumulative branch paths from b6d1df07 through d1123dd0 plus corrective contract/provenance commits through 824fe6db; cycle-5 and cycle-6 recovery ownership and verification are recorded in §4, §6E, §6F, §6G, and §7.
 
 Verification: owning backend identity/operation/proposal/commit tests and the frontend publication/workbench suite; exact commands and results are recorded in §7.
 
 HANDOFF — Workbench governed Threat publication bridge
 
-Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion through reviewed head a37fa03c, with cycle-5 recovery contracts recorded below (dogfood implementation head d1123dd0).
+Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion through reviewed head 824fe6db, with cycle-5 and cycle-6 recovery contracts recorded below (dogfood implementation head d1123dd0).
 
 Canonical handoff path: Docs/Plans/HANDOFF-magic-d3-workbench-threat-publication.md
 Conversation name: MAGIC-D3 Workbench Publication Bridge
@@ -1248,10 +1248,30 @@ Commit admission and exact reads
 The server response's commit_admitted field is the admission authority. False
 means no commit ledger record exists and commit is null; true means the response
 carries the exact durable record, including post-admission graph or integrity
-failures. The client clears the local commit pointer on a confirm POST only when
+failures; null means admission is unknown because the ledger could not be read.
+The client clears the local commit pointer on a confirm POST only when
 commit_admitted is false. An exact GET not-found is a separate, authoritative
 absence result that returns the chain to proposal review so it can be retried;
-ambiguous transport errors and admitted records retain the exact commit ID.
+unknown admission, ambiguous transport errors, and admitted records retain the
+exact commit ID.
+
+§6G. Corrective cycle-6 recovery contracts
+
+Unknown commit admission
+
+If the server cannot load the commit ledger while handling confirm or exact
+commit read, commit_admitted is null. This is not evidence of pre-admission:
+the ledger may already contain the requested commit record. The client retains
+the exact commit ID and session pointer, disables a fresh confirmation, and
+offers exact reread/recovery. Only commit_admitted=false on a confirm POST
+proves that no durable commit record was admitted.
+
+Cancellation reread
+
+When an explicit operation reread returns publication_cancelled, the client
+clears the bounded session pointer before resetting the panel to Publish. Lost
+cancellation responses therefore cannot leave a cancelled operation pointer
+behind for the next mount.
 
 §7 Evidence required to merge
 
@@ -1436,22 +1456,23 @@ ThreatPublicationPanel.tsx + panel tests
 
 Candidate refresh after typed or transport failure, proposal retry, changed-set
 recovery, lost-response re-read, refusal cancellation recovery, explicit
-commit_admitted handling, exact GET not-found rollback, and pre/post-admission
-graph/integrity outcomes are explicit and tested; an admitted commit ID
-survives ambiguity.
+commit_admitted handling including unknown admission, exact GET not-found
+rollback, cancellation reread cleanup, and pre/post-admission graph/integrity
+outcomes are explicit and tested; an admitted commit ID survives ambiguity.
 
 Auto-advance repeats after a classified or transport failure, Start over clears
-a refusal before publication_cancelled, or a null post-admission response
-leaves a pointer to a nonexistent commit record.
+a refusal before publication_cancelled, cancellation reread leaves a cancelled
+pointer in storage, or unknown admission is treated as pre-admission and
+destroys an exact commit chain.
 
 Run and record exact results:
 
-Recorded provenance for reviewed head a37fa03cc2b47581a4afa723df3e12ca129d9bc6, dogfood implementation head d1123dd08ab925964de4c9d54634f58ec908be14, and the current cycle-5 worktree verification:
+Recorded provenance for reviewed head 824fe6db94c1b30b6812b06c549727083bd42037, dogfood implementation head d1123dd08ab925964de4c9d54634f58ec908be14, and the current cycle-6 worktree verification:
 
-- `cd apps/live-control-ui && npm test -- --run src/api/liveApi.test.ts src/statblocks/publication/threatPublicationSession.test.ts src/statblocks/publication/ThreatPublicationPanel.test.tsx src/surface/modules/StatblockWorkbenchModule.test.tsx` — **224 passed** (4 files).
+- `cd apps/live-control-ui && npm test -- --run src/api/liveApi.test.ts src/statblocks/publication/threatPublicationSession.test.ts src/statblocks/publication/ThreatPublicationPanel.test.tsx src/surface/modules/StatblockWorkbenchModule.test.tsx` — **227 passed** (4 files).
 - `cd apps/live-control-ui && npx tsc -b --force` — **baseline waiver**: two pre-existing `BuildReferenceCapability.tsx` `graphScope` errors at lines 122 and 247; publication client errors are cleared.
 - `cd apps/live-control-ui && npm run build` — same two baseline `BuildReferenceCapability.tsx` errors; Vite phase is not reached.
-- `uv run pytest tests/test_threat_publication_identity.py tests/test_threat_publication_operations.py tests/test_threat_publication_proposals.py tests/test_threat_publication_commits.py -q` — **198 passed**.
+- `uv run pytest tests/test_threat_publication_identity.py tests/test_threat_publication_operations.py tests/test_threat_publication_proposals.py tests/test_threat_publication_commits.py -q` — **199 passed**.
 - `uv run pytest tests/test_threat_publication_routes.py tests/test_threat_publication_identity_routes.py tests/test_threat_publication_proposal_api.py tests/test_threat_publication_commit_api.py -q` — **26 passed**, 10 existing Pydantic warnings.
 - `/usr/bin/git --no-pager diff --check` — clean.
 

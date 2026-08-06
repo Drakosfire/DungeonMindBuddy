@@ -395,6 +395,29 @@ describe("Threat publication API", () => {
     });
   });
 
+  it("preserves unknown commit admission when the ledger cannot be read", async () => {
+    const envelope = {
+      schema: "dmb_threat_publication_commit_response_v1",
+      draft_id: draftId,
+      operation_id: operationId,
+      proposal_id: proposalId,
+      commit_id: commitId,
+      result_label: "publication_commit_storage_unavailable" as const,
+      commit_admitted: null,
+      commit: null,
+      retry_allowed: false,
+      message: "publication commit ledger unavailable",
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(envelope, { ok: false, status: 503, statusText: "Service Unavailable" }),
+    );
+
+    const result = await getThreatPublicationCommit(draftId, operationId, commitId);
+
+    expect(result).toEqual(envelope);
+    expect(result.commit_admitted).toBeNull();
+  });
+
   it("begin HTML/non-JSON error body throws", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,

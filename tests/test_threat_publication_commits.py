@@ -202,6 +202,59 @@ def test_create_new_confirm_intent_merge_receipt(tmp_path: Path, monkeypatch) ->
     }
 
 
+def test_admitted_ledger_load_failure_returns_unknown_admission(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _resolution_id, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    commit_id = str(uuid.uuid4())
+    request = _confirm_request(proposal, commit_id)
+
+    first = commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        request,
+        world_root=tmp_path / "graph",
+        merge_fn=lambda *_a, **_k: _merge_success_result(proposal),
+        lookup_fn=lambda *_a, **_k: tuple(),
+    )
+
+    assert first.response.commit is not None
+    assert first.response.commit.commit_id == commit_id
+    assert first.response.commit_admitted is True
+    assert load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    ) is not None
+
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        ThreatPublicationCommitStorageError,
+    )
+
+    with patch.object(
+        commit_svc,
+        "load_threat_publication_commit_ledger_unlocked",
+        side_effect=ThreatPublicationCommitStorageError(
+            "admitted ledger became unreadable", kind="integrity"
+        ),
+    ):
+        replay = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=tmp_path / "graph",
+        )
+
+    assert replay.response.commit_id == commit_id
+    assert replay.response.commit is None
+    assert replay.response.commit_admitted is None
+    assert replay.response.result_label == "publication_commit_integrity_failure"
+
+
 def test_connect_existing_no_threat_rewrite_in_contribution(
     tmp_path: Path, monkeypatch
 ) -> None:

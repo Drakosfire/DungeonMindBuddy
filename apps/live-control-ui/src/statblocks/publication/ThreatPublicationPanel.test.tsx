@@ -1216,6 +1216,43 @@ describe("ThreatPublicationPanel", () => {
     }
   });
 
+  it("clears the stored session when operation reread returns publication_cancelled", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    writeOperationPointer(draft, storage);
+    vi.mocked(api.getThreatPublicationOperation).mockResolvedValue(
+      operationResponse(draft, {
+        result_label: "publication_ready",
+        operation: buildOperation(draft, { state: "ready" }),
+      }),
+    );
+    vi.mocked(api.refreshThreatPublicationOperation).mockResolvedValue(
+      operationResponse(draft, {
+        result_label: "publication_cancelled",
+        operation: buildOperation(draft, { state: "cancelled" }),
+        message: "Cancelled by operator.",
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+      />,
+    );
+
+    await user.click(await screen.findByTestId("refresh-operation"));
+    await waitFor(() => {
+      expect(screen.getByTestId("publish")).toBeInTheDocument();
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
+    });
+    expect(api.refreshThreatPublicationOperation).toHaveBeenCalledWith(draft.draft_id, OPERATION_ID);
+  });
+
   it("passes a freshly resolved parent revision id to retryThreatPublicationOperation", async () => {
     const api = buildApiMocks();
     const draft = buildDraft();
@@ -2097,6 +2134,59 @@ describe("ThreatPublicationPanel", () => {
     expect(screen.getByTestId("confirm")).toBeInTheDocument();
     expect(screen.queryByTestId("commit-status")).not.toBeInTheDocument();
     expect(screen.queryByTestId("reread-commit")).not.toBeInTheDocument();
+  });
+
+  it("retains the exact commit pointer when confirm cannot determine ledger admission", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(proposalResponse(draft));
+    vi.mocked(api.confirmThreatPublicationCommit).mockResolvedValue({
+      schema: "dmb_threat_publication_commit_response_v1",
+      draft_id: draft.draft_id,
+      operation_id: OPERATION_ID,
+      proposal_id: PROPOSAL_ID,
+      commit_id: COMMIT_ID,
+      result_label: "publication_commit_storage_unavailable",
+      commit_admitted: null,
+      commit: null,
+      retry_allowed: false,
+      message: "publication commit ledger unavailable",
+    });
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, COMMIT_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+    await user.click(await screen.findByTestId("confirm"));
+
+    await waitFor(() => {
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        operation_id: OPERATION_ID,
+        proposal_id: PROPOSAL_ID,
+        commit_id: COMMIT_ID,
+        stage: "commit",
+      });
+    });
+    expect(screen.getByTestId("reread-commit")).toBeInTheDocument();
+    expect(screen.queryByTestId("confirm")).not.toBeInTheDocument();
+    expect(screen.getByText(/ledger unavailable/i)).toBeInTheDocument();
   });
 
   it("rolls an exact GET not-found back to proposal review without treating it as a POST rejection", async () => {

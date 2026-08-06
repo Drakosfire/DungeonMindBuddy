@@ -316,9 +316,9 @@ class ThreatPublicationCommitResponseV1(StrictModel):
     commit_id: str
     result_label: ThreatPublicationCommitResultLabel
     commit: ThreatPublicationCommitV1 | None = None
-    # True means the confirm request was admitted into the durable commit ledger.
-    # Admitted responses must carry that exact record; pre-admission responses do not.
-    commit_admitted: bool
+    # True/False is a known admission result. Null means admission could not be
+    # determined, such as when an existing ledger cannot be loaded.
+    commit_admitted: bool | None
     retry_allowed: bool
     message: str | None = Field(default=None, max_length=_MAX_NOTE)
 
@@ -348,6 +348,9 @@ class ThreatPublicationCommitResponseV1(StrictModel):
 
     @model_validator(mode="after")
     def _admission_matches_record(self) -> ThreatPublicationCommitResponseV1:
-        if self.commit_admitted != (self.commit is not None):
+        if (
+            self.commit_admitted is not None
+            and self.commit_admitted != (self.commit is not None)
+        ):
             raise ValueError("commit_admitted must match whether the durable commit record is present")
         return self

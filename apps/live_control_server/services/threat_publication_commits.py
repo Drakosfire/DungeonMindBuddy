@@ -100,10 +100,15 @@ def _response(
     *,
     commit: ThreatPublicationCommitV1 | None = None,
     commit_admitted: bool | None = None,
+    infer_commit_admission: bool = True,
     retry_allowed: bool = False,
     message: str | None = None,
 ) -> ThreatPublicationCommitResponseV1:
-    admitted = commit is not None if commit_admitted is None else commit_admitted
+    admitted = (
+        commit is not None
+        if infer_commit_admission and commit_admitted is None
+        else commit_admitted
+    )
     return ThreatPublicationCommitResponseV1(
         draft_id=draft_id,
         operation_id=operation_id,
@@ -139,6 +144,8 @@ def _outcome_storage(
     proposal_id: str | None,
     commit_id: str,
     exc: ThreatPublicationCommitStorageError | ThreatPublicationProposalStorageError,
+    *,
+    admission_known: bool = True,
 ) -> CommitOutcome:
     kind = getattr(exc, "kind", "unavailable")
     label: ThreatPublicationCommitResultLabel = (
@@ -147,7 +154,16 @@ def _outcome_storage(
         else "publication_commit_storage_unavailable"
     )
     return CommitOutcome(
-        _response(draft_id, operation_id, proposal_id, commit_id, label, message=str(exc))
+        _response(
+            draft_id,
+            operation_id,
+            proposal_id,
+            commit_id,
+            label,
+            commit_admitted=False if admission_known else None,
+            infer_commit_admission=False,
+            message=str(exc),
+        )
     )
 
 
@@ -2483,7 +2499,14 @@ def confirm_threat_publication(
                 root, safe_draft, safe_op
             )
         except ThreatPublicationCommitStorageError as exc:
-            return _outcome_storage(safe_draft, safe_op, safe_proposal, safe_commit, exc)
+            return _outcome_storage(
+                safe_draft,
+                safe_op,
+                safe_proposal,
+                safe_commit,
+                exc,
+                admission_known=False,
+            )
 
         if existing is not None:
             record = existing.commit
@@ -3270,7 +3293,14 @@ def read_threat_publication_commit(
                 root, safe_draft, safe_op
             )
         except ThreatPublicationCommitStorageError as exc:
-            return _outcome_storage(safe_draft, safe_op, None, safe_commit, exc)
+            return _outcome_storage(
+                safe_draft,
+                safe_op,
+                None,
+                safe_commit,
+                exc,
+                admission_known=False,
+            )
         if ledger is None or ledger.commit.commit_id != safe_commit:
             return CommitOutcome(
                 _response(

@@ -488,11 +488,11 @@ function reducer(state: PanelState, action: Action): PanelState {
     case "commitResult": {
       const { response } = action;
       if (!response.commit) {
-        const preAdmission = action.source === "confirm" && !response.commit_admitted;
+        const preAdmission = action.source === "confirm" && response.commit_admitted === false;
         const exactGetNotFound =
           action.source !== "confirm"
           && response.result_label === "publication_commit_not_found"
-          && !response.commit_admitted;
+          && response.commit_admitted === false;
         return {
           ...state,
           pending: false,
@@ -745,7 +745,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       }
       if (
         commitResponse.result_label === "publication_commit_not_found"
-        && !commitResponse.commit_admitted
+        && commitResponse.commit_admitted === false
       ) {
         writeThreatPublicationSession(
           buildPointer({
@@ -894,6 +894,9 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     try {
       const response = await api.refreshThreatPublicationOperation(draft.draft_id, state.operationId);
       if (!isCurrent(generation)) return;
+      if (response.result_label === "publication_cancelled") {
+        clearThreatPublicationSession(draft.draft_id, storage);
+      }
       dispatch({
         type: "operationResult",
         response,
@@ -1293,7 +1296,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         },
       );
       if (!isCurrent(generation)) return;
-      if (!response.commit_admitted) {
+      if (response.commit_admitted === false) {
         writeThreatPublicationSession(
           buildPointer({
             stage: "proposal",
@@ -1321,7 +1324,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
       if (!isCurrent(generation)) return;
       if (
         response.result_label === "publication_commit_not_found"
-        && !response.commit_admitted
+        && response.commit_admitted === false
       ) {
         writeThreatPublicationSession(
           buildPointer({
