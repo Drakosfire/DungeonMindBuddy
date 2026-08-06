@@ -255,6 +255,58 @@ def test_admitted_ledger_load_failure_returns_unknown_admission(
     assert replay.response.result_label == "publication_commit_integrity_failure"
 
 
+def test_admitted_committing_record_survives_proposal_ledger_load_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _resolution_id, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    request = _confirm_request(proposal)
+    record, early, _contribution, _prepared_proposal = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=tmp_path / "graph",
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    assert record.state == "committing"
+    commit_svc._save_commit(tmp_path, record)
+
+    stored = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert stored is not None
+    assert stored.commit == record
+
+    from apps.live_control_server.services.threat_publication_proposals import (
+        ThreatPublicationProposalStorageError,
+    )
+
+    with patch.object(
+        commit_svc,
+        "load_threat_publication_proposal_ledger_unlocked",
+        side_effect=ThreatPublicationProposalStorageError(
+            "proposal ledger became unreadable", kind="integrity"
+        ),
+    ):
+        replay = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=tmp_path / "graph",
+        )
+
+    assert replay.merge_calls == 0
+    assert replay.response.commit_id == record.commit_id
+    assert replay.response.commit == record
+    assert replay.response.commit_admitted is True
+    assert replay.response.result_label == "publication_commit_integrity_failure"
+
+
 def test_connect_existing_no_threat_rewrite_in_contribution(
     tmp_path: Path, monkeypatch
 ) -> None:

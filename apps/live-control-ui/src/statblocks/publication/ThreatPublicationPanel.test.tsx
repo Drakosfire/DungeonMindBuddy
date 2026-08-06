@@ -2189,6 +2189,61 @@ describe("ThreatPublicationPanel", () => {
     expect(screen.getByText(/ledger unavailable/i)).toBeInTheDocument();
   });
 
+  it("retains an admitted committing record when proposal replay is unavailable", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(proposalResponse(draft));
+    vi.mocked(api.confirmThreatPublicationCommit).mockResolvedValue(
+      commitResponse(draft, {
+        result_label: "publication_commit_integrity_failure",
+        commit_admitted: true,
+        commit: commitRecord(draft, {
+          state: "committing",
+          merge_attempt_count: 1,
+          committed_revision_id: null,
+        }),
+        retry_allowed: false,
+        message: "proposal ledger became unreadable",
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, COMMIT_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+    await user.click(await screen.findByTestId("confirm"));
+
+    await waitFor(() => {
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        operation_id: OPERATION_ID,
+        proposal_id: PROPOSAL_ID,
+        commit_id: COMMIT_ID,
+        stage: "commit",
+      });
+    });
+    expect(screen.getByTestId("reread-commit")).toBeInTheDocument();
+    expect(screen.queryByTestId("confirm")).not.toBeInTheDocument();
+    expect(screen.getByText(/proposal ledger became unreadable/i)).toBeInTheDocument();
+    expect(api.confirmThreatPublicationCommit).toHaveBeenCalledTimes(1);
+  });
+
   it("rolls an exact GET not-found back to proposal review without treating it as a POST rejection", async () => {
     const api = buildApiMocks();
     const draft = buildDraft();

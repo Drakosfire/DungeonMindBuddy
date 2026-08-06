@@ -145,6 +145,7 @@ def _outcome_storage(
     commit_id: str,
     exc: ThreatPublicationCommitStorageError | ThreatPublicationProposalStorageError,
     *,
+    commit: ThreatPublicationCommitV1 | None = None,
     admission_known: bool = True,
 ) -> CommitOutcome:
     kind = getattr(exc, "kind", "unavailable")
@@ -160,7 +161,14 @@ def _outcome_storage(
             proposal_id,
             commit_id,
             label,
-            commit_admitted=False if admission_known else None,
+            commit=commit,
+            commit_admitted=(
+                True
+                if commit is not None
+                else False
+                if admission_known
+                else None
+            ),
             infer_commit_admission=False,
             message=str(exc),
         )
@@ -2594,7 +2602,12 @@ def confirm_threat_publication(
                         )
                     )
                 return _outcome_storage(
-                    safe_draft, safe_op, safe_proposal, safe_commit, exc
+                    safe_draft,
+                    safe_op,
+                    safe_proposal,
+                    safe_commit,
+                    exc,
+                    commit=record,
                 )
             proposal = (
                 find_threat_publication_proposal(proposal_ledger, record.proposal_id)
