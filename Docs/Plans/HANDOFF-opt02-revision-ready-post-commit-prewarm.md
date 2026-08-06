@@ -10,7 +10,7 @@
 **Code agent:** `Optimization Coding Agent`
 **PR title:** `OPTIMIZATION: prewarm committed World Graph revision`
 **Suggested branch:** `opt/opt02-revision-ready-post-commit-prewarm`
-**Design anchor:** PR #509 reviewed head `ba61289d1b20522713845082afe7d823c4886777`. rebased onto completed Build/Statblock main `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`.
+**Design anchor:** PR #509 reviewed head `c36f9d31c78ef23d5e299830d4817ea2ee7fb5fc`. rebased onto completed Build/Statblock main `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`.
 
 ### Predecessor gate status (recorded 2026-08-06)
 
