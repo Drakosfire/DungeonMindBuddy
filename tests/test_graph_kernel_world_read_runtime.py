@@ -551,6 +551,229 @@ def test_clear_during_blocked_load_isolates_new_caller(
     assert ready.generation != by_load[1]
 
 
+def test_edge_assertion_disagreement_fails_cold_admission(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Active edge semantic disagreement must fail before residency."""
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    contrib_path = _contribution_path(tmp_path, TRIPOD_CONTRIBUTION_ID)
+    original_payload = json.loads(contrib_path.read_text(encoding="utf-8"))
+    original_assertion = next(
+        kernel.GraphContributionAssertion.model_validate(assertion)
+        for assertion in original_payload["accepted_assertions"]
+        if assertion.get("assertion_kind") == "edge"
+        and str((assertion.get("value") or {}).get("edge_id") or "") == edge_id
+    )
+    divergent = original_assertion.model_copy(
+        update={
+            "label": "appeared elsewhere",
+            "temporal_scope": {"session_id": "session-99"},
+            "value": {
+                **dict(original_assertion.value),
+                "session_ids": ["session-99"],
+            },
+        }
+    )
+    divergent_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:test:edge-core-divergence-runtime",
+        source_revision_id="edge-core-divergence-runtime-1",
+        accepted_assertions=[divergent],
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=divergent_contribution,
+    )
+    assert merged.published is True
+    revision_id = merged.revision_id
+
+    runtime = _fresh_runtime()
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert "Active edge assertions disagree" in str(exc_info.value)
+    assert runtime.resident_count() == 0
+
+
+def test_threat_binding_disagreement_fails_authority_index_and_scrub(
+    tmp_path: Path,
+) -> None:
+    """Materialized Threat binding mismatch must fail admission/scrub validators."""
+    from graph_memory.kernel.world_projection import build_active_support_authority_index
+    from graph_memory.union_supergraph.load import (
+        DEFAULT_FIXTURE_PATH,
+        load_union_supergraph_store,
+    )
+    from graph_memory.union_supergraph.statblock_binding import (
+        CONTRACT,
+        CONTRACT_VERSION,
+        PROVIDER,
+        ThreatStatblockBindingV1,
+        compute_binding_id,
+        edge_id_from_binding_id,
+        external_statblock_node_id,
+    )
+
+    threat_world_id = "sbw08-opt01-test-world"
+    threat_id = "threat:sbw08-opt01"
+    statblock_id = "sb_w08opt01"
+    digest = f"sha256:{'a' * 64}"
+    binding = {
+        "schema": "dmb_threat_statblock_binding_v1",
+        "binding_id": compute_binding_id(
+            threat_node_id=threat_id,
+            provider=PROVIDER,
+            statblock_id=statblock_id,
+            revision_id="rev_1",
+            contract=CONTRACT,
+            contract_version=CONTRACT_VERSION,
+            definition_digest=digest,
+            role="primary",
+            phase_key=None,
+            variant_label=None,
+        ),
+        "provider": PROVIDER,
+        "statblock_id": statblock_id,
+        "revision_id": "rev_1",
+        "contract": CONTRACT,
+        "contract_version": CONTRACT_VERSION,
+        "definition_digest": digest,
+        "role": "primary",
+        "phase_key": None,
+        "variant_label": None,
+    }
+    resource_node_id = external_statblock_node_id(statblock_id)
+    edge_id = edge_id_from_binding_id(str(binding["binding_id"]))
+
+    kernel.publish_world_revision(
+        tmp_path,
+        threat_world_id,
+        load_union_supergraph_store(DEFAULT_FIXTURE_PATH),
+        operation_ids=["op:sbw08-opt01-baseline"],
+    )
+
+    def _contribution(*assertions):
+        return kernel.create_graph_contribution(
+            world_id=threat_world_id,
+            source_kind="manual_import",
+            source_artifact_id="graph-native:sbw08-opt01",
+            source_revision_id=f"sbw08-opt01-{len(assertions)}",
+            campaign_scope=CAMPAIGN_ID,
+            accepted_assertions=list(assertions),
+        )
+
+    threat = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=threat_id,
+        label="Synthetic Threat",
+        campaign_scope=CAMPAIGN_ID,
+        value={"kind": "threat", "role": "threat", "source_domains": ["manual_seed"]},
+    )
+    assert kernel.merge_contribution_to_revision(
+        tmp_path, world_id=threat_world_id, contribution=_contribution(threat)
+    ).published
+    resource = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=resource_node_id,
+        label="External statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value={
+            "kind": "external_resource",
+            "role": "statblock",
+            "external_resource": {
+                "schema": "dmb_external_resource_v1",
+                "provider": PROVIDER,
+                "resource_type": "statblock",
+                "resource_id": statblock_id,
+                "contract": CONTRACT,
+                "contract_version": CONTRACT_VERSION,
+            },
+        },
+    )
+    edge = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=threat_id,
+        target_node_id=resource_node_id,
+        predicate="uses_statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value={
+            "edge_id": edge_id,
+            "direction": "outbound",
+            "threat_statblock_binding": binding,
+        },
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=threat_world_id,
+        contribution=_contribution(resource, edge),
+    )
+    assert merged.published is True
+    revision_id = merged.revision_id
+
+    runtime = _fresh_runtime()
+    clean = runtime.get_or_load_resident(tmp_path, threat_world_id, revision_id)
+    assert clean.backing_health == "healthy"
+
+    mismatched_binding = ThreatStatblockBindingV1.model_validate(
+        {
+            **binding,
+            "revision_id": "rev_2",
+            "binding_id": compute_binding_id(
+                threat_node_id=threat_id,
+                provider=PROVIDER,
+                statblock_id=statblock_id,
+                revision_id="rev_2",
+                contract=CONTRACT,
+                contract_version=CONTRACT_VERSION,
+                definition_digest=digest,
+                role="primary",
+                phase_key=None,
+                variant_label=None,
+            ),
+        }
+    )
+    mutated_edge = clean.store.edges[edge_id].model_copy(
+        update={"threat_statblock_binding": mismatched_binding}
+    )
+    mutated_store = clean.store.model_copy(
+        update={"edges": {**dict(clean.store.edges), edge_id: mutated_edge}}
+    )
+    with pytest.raises(WorldGraphProjectionError) as index_info:
+        build_active_support_authority_index(mutated_store, clean.contributions)
+    assert index_info.value.code == "projection_integrity_error"
+    assert "Stored statblock binding disagrees" in str(index_info.value)
+
+    def _verify_with_mismatch(root, world_id, rev_id, resident):
+        del root, world_id, rev_id
+        build_active_support_authority_index(mutated_store, resident.contributions)
+
+    with patch.object(runtime, "_verify_backing_integrity", side_effect=_verify_with_mismatch):
+        scrub = runtime.scrub_resident(tmp_path, threat_world_id, revision_id)
+    assert scrub["status"] == "unhealthy"
+    assert any("Stored statblock binding disagrees" in item for item in scrub["diagnostics"])
+
+    runtime.clear()
+    with patch(
+        "graph_memory.kernel.world_read_runtime._load_revision_store_with_integrity",
+        return_value=(revision_id, mutated_store),
+    ):
+        with pytest.raises(WorldGraphProjectionError) as cold_info:
+            runtime.get_or_load_resident(tmp_path, threat_world_id, revision_id)
+    assert cold_info.value.code == "projection_integrity_error"
+    assert "Stored statblock binding disagrees" in str(cold_info.value)
+    assert runtime.resident_count() == 0
+
+
 def test_provenance_only_corruption_fails_cold_admission_and_scrub(
     tmp_path: Path,
     loaded_bundle,

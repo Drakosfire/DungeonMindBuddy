@@ -1199,12 +1199,79 @@ def _resolve_assertion_from_support_map(
     return assertion, tuple(evidence_ref_ids), tuple(source_artifact_ids)
 
 
+def _assert_materialized_threat_binding_agrees(
+    store: UnionSupergraphStore,
+    *,
+    graph_object_id: str,
+    representative: GraphContributionAssertion,
+) -> None:
+    """Fail closed when active edge authority disagrees with stored Threat binding."""
+    edge = store.edges.get(graph_object_id)
+    if edge is None:
+        return
+    threat_statblock_binding = parse_threat_statblock_binding_assertion(
+        subject_node_id=representative.subject_node_id,
+        target_node_id=representative.target_node_id,
+        predicate=representative.predicate,
+        value=dict(representative.value),
+    )
+    if (
+        threat_statblock_binding is not None
+        and edge.threat_statblock_binding != threat_statblock_binding
+    ):
+        raise _integrity_error(
+            "Stored statblock binding disagrees with active assertion authority.",
+            detail=f"edge_id={graph_object_id!r}",
+        )
+
+
+def _assert_graph_object_support_authority_agreement(
+    store: UnionSupergraphStore,
+    authority: Mapping[str, ValidatedSupportAuthority],
+    active_supports: list[DurableAssertionSupport],
+) -> None:
+    """Group active supports by object and apply projection agreement checks."""
+    by_object: dict[str, list[DurableAssertionSupport]] = {}
+    for support in active_supports:
+        if not support.graph_object_id:
+            continue
+        by_object.setdefault(support.graph_object_id, []).append(support)
+
+    for graph_object_id, supports in by_object.items():
+        node_assertions = [
+            authority[support.assertion_id].representative
+            for support in supports
+            if support.assertion_kind == "node"
+        ]
+        if node_assertions:
+            _assert_active_node_assertions_agree(
+                node_assertions,
+                node_id=graph_object_id,
+            )
+
+        if graph_object_id in store.edges:
+            edge_assertions = [
+                authority[support.assertion_id].representative for support in supports
+            ]
+            if edge_assertions:
+                _assert_active_edge_assertions_agree(
+                    edge_assertions,
+                    graph_object_id=graph_object_id,
+                )
+                _assert_materialized_threat_binding_agrees(
+                    store,
+                    graph_object_id=graph_object_id,
+                    representative=edge_assertions[0],
+                )
+
+
 def build_active_support_authority_index(
     store: UnionSupergraphStore,
     contributions: Mapping[str, GraphContribution],
 ) -> dict[str, ValidatedSupportAuthority]:
     """Fail-closed cold-admission/scrub proof for every active support."""
     authority: dict[str, ValidatedSupportAuthority] = {}
+    active_supports: list[DurableAssertionSupport] = []
     for raw_support in store.assertion_support.values():
         support = _parse_support(raw_support)
         if support.support_state != "supported" or not support.active_contribution_ids:
@@ -1217,6 +1284,8 @@ def build_active_support_authority_index(
             evidence_ref_ids=evidence_ref_ids,
             source_artifact_ids=source_artifact_ids,
         )
+        active_supports.append(support)
+    _assert_graph_object_support_authority_agreement(store, authority, active_supports)
     return authority
 
 
