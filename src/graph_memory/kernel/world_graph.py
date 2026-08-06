@@ -88,6 +88,11 @@ def publish_world_graph_revision(
     )
     # Durable replay source for rebuild — independent of the current head.
     sync_identity_decisions_from_store(root, world_id, graph)
+    # OPT02: best-effort process-local revision-ready signal after successful
+    # durable publish + Kernel post-publish work. Never changes the result.
+    from graph_memory.kernel.world_revision_ready import offer_revision_ready_from_publish
+
+    offer_revision_ready_from_publish(root, world_id, result)
     return result
 
 

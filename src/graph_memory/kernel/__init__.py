@@ -154,6 +154,19 @@ from graph_memory.kernel.world_graph import (
     publish_world_revision,
     rollback_world_graph_head,
 )
+from graph_memory.kernel.world_revision_ready import (
+    RevisionReadyConsumerLease,
+    RevisionReadyMailbox,
+    RevisionReadyOfferResult,
+    WorldRevisionReadyNotification,
+    clear_revision_ready_offer_observations,
+    get_revision_ready_mailbox,
+    get_revision_ready_offer_observations,
+    notification_from_publish_result,
+    offer_revision_ready,
+    offer_revision_ready_from_publish,
+    reset_revision_ready_mailbox,
+)
 
 __all__ = [
     # World graph (PR002/PR003)
@@ -178,6 +191,18 @@ __all__ = [
     "publish_world_graph_revision",
     "publish_world_revision",
     "rollback_world_graph_head",
+    # Revision-ready notification (OPT02)
+    "RevisionReadyConsumerLease",
+    "RevisionReadyMailbox",
+    "RevisionReadyOfferResult",
+    "WorldRevisionReadyNotification",
+    "clear_revision_ready_offer_observations",
+    "get_revision_ready_mailbox",
+    "get_revision_ready_offer_observations",
+    "notification_from_publish_result",
+    "offer_revision_ready",
+    "offer_revision_ready_from_publish",
+    "reset_revision_ready_mailbox",
     # World initialization (PR006D1)
     "WorldInitializationApprovalAttestation",
     "WorldInitializationContribution",
