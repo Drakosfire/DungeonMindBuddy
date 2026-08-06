@@ -220,6 +220,26 @@ def test_head_projection_matches_initialized_world(
     assert projection.summary.attribute_count == 3
 
 
+def test_cold_and_warm_projections_are_model_equal(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """E1: resident warm reuse preserves the exact projection contract."""
+    result = _initialize(tmp_path, loaded_bundle)
+    head_revision_id = result.current_head_revision_id
+    requests = (
+        _request(),
+        _request(revision_pin=head_revision_id),
+        _request(focus_kind="session", session_id=FOCUS_SESSION_ID),
+        _request(query_text="Tripod"),
+    )
+    for request in requests:
+        kernel.clear_world_read_runtime()
+        cold = kernel.project_world_graph(tmp_path, request)
+        warm = kernel.project_world_graph(tmp_path, request)
+        assert warm.model_dump(mode="json") == cold.model_dump(mode="json")
+
+
 def test_revision_pin_projection_reads_historical_revision(
     tmp_path: Path,
     loaded_bundle,
