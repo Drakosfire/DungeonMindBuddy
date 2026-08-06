@@ -711,7 +711,7 @@ The implementation is successful even if broad projection construction remains e
 
 ## §8 Coding-agent review handback (filled)
 
-1. **PR / branch / head:** branch `opt/opt01-resident-verified-world-revision`; head `75aef56b1dec40491ff2a918742fff8589fcd284` (PR URL filled after open).
+1. **PR / branch / head:** https://github.com/Drakosfire/DungeonMindBuddy/pull/509 ; branch `opt/opt01-resident-verified-world-revision`; head `a668febb4e811b9c060c27ce1d0a0d1ba6cdcaac`.
 2. **§1 Mission (exact):** Projection callers can reuse one exact verified World Graph revision so that repeated reads of that revision do not reread or rehash immutable graph, contribution, or admitted source-index files.
 3. **§1 Merge-ready invariant (exact):** Every projection response is still derived from the exact world, selected revision, current observed head revision, campaign scope, focus, admissibility, and query named by the existing request contract, while each resident generation is admitted only after one complete fail-closed verification, concurrent callers share that generation, completed projection caches cannot outlive it, and later out-of-band backing mutation can neither poison nor silently replace the already verified in-memory authority.
 4. **§7 evidence ledger**
@@ -735,8 +735,8 @@ The implementation is successful even if broad projection construction remains e
    - `3d91b3a1` feat(opt01): serve projections from verified resident revision context
    - `0991b09b` test(opt01): align contribution-tamper proof with resident trust bargain
    - `8fd46602` docs(opt01): check in authoritative handoff and cold/warm contract proof
-   - `75aef56b` docs(opt01): fill §8 coding-agent handback evidence ledger
-6. **Base / head:** base `b6d1df07fae7b28760994509dcf2ae9bd8fb74c7`; head `75aef56b1dec40491ff2a918742fff8589fcd284`.
+   - `a668febb` docs(opt01): fill §8 coding-agent handback evidence ledger
+6. **Base / head:** base `b6d1df07fae7b28760994509dcf2ae9bd8fb74c7`; head `a668febb4e811b9c060c27ce1d0a0d1ba6cdcaac`.
 7. **Changed paths / focused diffstat:** exactly the §4 allowlist (9 paths). See verification command output.
 8. **Required commands / results**
    - `uv run pytest tests/test_graph_kernel_world_read_runtime.py -q` → **5 passed**
