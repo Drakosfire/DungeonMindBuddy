@@ -73,6 +73,13 @@ ORDERED_CONTRIBUTION_IDS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _clear_opt01_runtime() -> None:
+    kernel.clear_world_read_runtime()
+    yield
+    kernel.clear_world_read_runtime()
+
+
 @pytest.fixture
 def loaded_bundle():
     return load_contribution_bundle(BUNDLE_PATH)
@@ -1873,14 +1880,17 @@ def test_load_world_graph_revision_with_integrity_reports_missing_revision(
     assert exc_info.value.code == "revision_not_found"
 
 
-def test_provenance_only_mutation_of_embedded_evidence_fails_integrity(
+def test_provenance_only_mutation_ignored_while_resident_fails_after_clear(
     tmp_path: Path,
     loaded_bundle,
 ) -> None:
-    """Removing evidence that lives only in ``value["evidence"]`` is a
-    provenance-only mutation (excluded from ``assertion_id`` identity), so it
-    must be caught by the per-contribution evidence-lineage check rather than
-    silently dropping evidence from the projection.
+    """OPT01 integrity bargain for provenance-only contribution mutation.
+
+    Removing evidence that lives only in ``value["evidence"]`` is a
+    provenance-only mutation (excluded from ``assertion_id`` identity). After a
+    resident generation is admitted, ordinary warm projection continues from
+    verified memory. Explicit runtime clear forces re-verification, which must
+    fail closed with ``projection_integrity_error``.
     """
     _initialize(tmp_path, loaded_bundle)
     node_id = "location:test-provenance-lineage"
@@ -1953,6 +1963,12 @@ def test_provenance_only_mutation_of_embedded_evidence_fails_integrity(
     # missed.
     assert mutated_assertion["assertion_id"] == original_assertion_id
 
+    for request in (_request(), _request(revision_pin=pinned_revision_id)):
+        warm = kernel.project_world_graph(tmp_path, request)
+        warm_node = next(item for item in warm.nodes if item.node_id == node_id)
+        assert evidence_ref_id in warm_node.evidence_ref_ids
+
+    kernel.clear_world_read_runtime()
     for request in (_request(), _request(revision_pin=pinned_revision_id)):
         with pytest.raises(WorldGraphProjectionError) as exc_info:
             kernel.project_world_graph(tmp_path, request)
