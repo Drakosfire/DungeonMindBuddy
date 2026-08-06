@@ -629,8 +629,10 @@ function validateCommitPublicationEnvelope(
   ) {
     return null;
   }
+  if (typeof body.commit_admitted !== "boolean") return null;
   if (typeof body.retry_allowed !== "boolean") return null;
   if (!("proposal_id" in body)) return null;
+  if (body.commit_admitted !== (body.commit != null)) return null;
 
   const requireRevision = COMMIT_LABELS_REQUIRING_COMMITTED_REVISION.has(body.result_label);
   if (COMMIT_LABELS_REQUIRING_COMMIT_RECORD.has(body.result_label) || requireRevision) {

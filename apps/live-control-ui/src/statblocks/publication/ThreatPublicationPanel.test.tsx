@@ -405,6 +405,7 @@ function commitResponse(
     proposal_id: PROPOSAL_ID,
     commit_id: COMMIT_ID,
     result_label: "publication_commit_verified",
+    commit_admitted: true,
     commit: commitRecord(draft),
     retry_allowed: false,
     message: null,
@@ -673,6 +674,66 @@ describe("ThreatPublicationPanel", () => {
     expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
     // After refuse releases the server lock, Publish is available again.
     expect(await screen.findByTestId("publish")).toBeInTheDocument();
+  });
+
+  it("keeps refusal recovery distinct until a retry returns publication_cancelled", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(
+      identityCandidatesReadyResponse(draft, [buildCandidate()]),
+    );
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_refused", { decision: "refuse" }),
+    );
+    vi.mocked(api.cancelThreatPublicationOperation)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({
+        schema: "dmb_threat_publication_operation_response_v1",
+        draft_id: draft.draft_id,
+        result_label: "publication_cancelled",
+        operation: {
+          ...operationResponse(draft).operation!,
+          state: "cancelled",
+        },
+        message: "Cancelled by operator.",
+      });
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-refuse"));
+
+    expect(
+      within(await screen.findByTestId("identity-decision")).getByRole("alert"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("retry-cancel")).toBeInTheDocument();
+    expect(screen.getByTestId("reread-operation")).toBeInTheDocument();
+    expect(screen.queryByTestId("publication-start-over")).not.toBeInTheDocument();
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+      operation_id: OPERATION_ID,
+      resolution_id: RESOLUTION_ID,
+      stage: "identity",
+    });
+
+    await user.click(screen.getByTestId("retry-cancel"));
+
+    await waitFor(() => {
+      expect(api.cancelThreatPublicationOperation).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("publish")).toBeInTheDocument();
+    });
+    expect(readThreatPublicationSession(draft.draft_id, storage)).toBeNull();
   });
 
   it("shows published on a verified commit, confirms exactly once, and removes Confirm permanently", async () => {
@@ -1985,7 +2046,7 @@ describe("ThreatPublicationPanel", () => {
     expect(await screen.findByTestId("proposal-review")).toBeInTheDocument();
   });
 
-  it("rolls commit_id back to proposal stage when confirm returns a typed pre-admission rejection with commit null", async () => {
+  it("rolls commit_id back to proposal stage when confirm returns any pre-admission rejection with commit null", async () => {
     const api = buildApiMocks();
     const draft = buildDraft();
     const storage = createMemoryStorage();
@@ -2001,10 +2062,11 @@ describe("ThreatPublicationPanel", () => {
       operation_id: OPERATION_ID,
       proposal_id: PROPOSAL_ID,
       commit_id: COMMIT_ID,
-      result_label: "publication_commit_parent_mismatch",
+      result_label: "publication_commit_integrity_failure",
+      commit_admitted: false,
       commit: null,
       retry_allowed: false,
-      message: "expected_parent_revision_id mismatch",
+      message: "graph head could not be read before admission",
     });
 
     const user = userEvent.setup();
@@ -2031,10 +2093,63 @@ describe("ThreatPublicationPanel", () => {
         stage: "proposal",
       });
     });
-    expect(screen.getByText(/expected_parent_revision_id mismatch/)).toBeInTheDocument();
+    expect(screen.getByText(/graph head could not be read before admission/)).toBeInTheDocument();
     expect(screen.getByTestId("confirm")).toBeInTheDocument();
     expect(screen.queryByTestId("commit-status")).not.toBeInTheDocument();
     expect(screen.queryByTestId("reread-commit")).not.toBeInTheDocument();
+  });
+
+  it("rolls an exact GET not-found back to proposal review without treating it as a POST rejection", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const storage = createMemoryStorage();
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates).mockResolvedValue(identityCandidatesReadyResponse(draft, []));
+    vi.mocked(api.createThreatIdentityResolution).mockResolvedValue(
+      identityDecisionResponse(draft, "publication_identity_created_new", { decision: "create_new" }),
+    );
+    vi.mocked(api.prepareThreatPublicationProposal).mockResolvedValue(proposalResponse(draft));
+    vi.mocked(api.confirmThreatPublicationCommit).mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.mocked(api.getThreatPublicationCommit).mockResolvedValue(
+      commitResponse(draft, {
+        result_label: "publication_commit_not_found",
+        commit_admitted: false,
+        commit: null,
+        message: "publication commit not found",
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={storage}
+        generateId={sequentialIdGenerator([OPERATION_ID, RESOLUTION_ID, PROPOSAL_ID, COMMIT_ID])}
+      />,
+    );
+
+    await user.click(screen.getByTestId("publish"));
+    await user.click(await screen.findByTestId("prepare-candidates"));
+    await user.click(await screen.findByTestId("decide-create"));
+    await user.click(await screen.findByTestId("prepare-proposal"));
+    await user.click(await screen.findByTestId("confirm"));
+    await screen.findByTestId("reread-commit");
+    await user.click(screen.getByTestId("reread-commit"));
+
+    await waitFor(() => {
+      expect(readThreatPublicationSession(draft.draft_id, storage)).toMatchObject({
+        operation_id: OPERATION_ID,
+        resolution_id: RESOLUTION_ID,
+        proposal_id: PROPOSAL_ID,
+        commit_id: null,
+        stage: "proposal",
+      });
+    });
+    expect(screen.getByTestId("confirm")).toBeInTheDocument();
+    expect(screen.getByText(/publication commit not found/i)).toBeInTheDocument();
+    expect(api.confirmThreatPublicationCommit).toHaveBeenCalledTimes(1);
   });
 
   it("returns to a fresh Publish path only after an exact publication_cancelled result", async () => {
@@ -2281,6 +2396,60 @@ describe("ThreatPublicationPanel", () => {
     await waitFor(() => {
       expect(api.prepareThreatIdentityCandidates).toHaveBeenCalledTimes(2);
       expect(screen.getByTestId("identity-candidates")).toBeInTheDocument();
+    });
+  });
+
+  it("offers dock candidate refresh after a candidate transport failure", async () => {
+    const api = buildApiMocks();
+    const draft = buildDraft();
+    const candidate = buildCandidate({ node_id: "threat:transport-refresh", label: "Transport refresh" });
+    vi.mocked(api.beginThreatPublicationOperation).mockResolvedValue(operationResponse(draft));
+    vi.mocked(api.prepareThreatIdentityCandidates)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(identityCandidatesReadyResponse(draft, [candidate]));
+    const onDockModelChange = vi.fn();
+    render(
+      <ThreatPublicationPanel
+        draft={draft}
+        expectedParentRevisionId={PARENT_REVISION}
+        api={api}
+        storage={createMemoryStorage()}
+        generateId={sequentialIdGenerator([OPERATION_ID])}
+        onDockModelChange={onDockModelChange}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "publish")).toBe(true);
+    });
+    const publish = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "publish"));
+    await act(async () => {
+      publish!.actions.find((action: { testId: string }) => action.testId === "publish")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.prepareThreatIdentityCandidates).toHaveBeenCalledTimes(1);
+      const latest = onDockModelChange.mock.calls.at(-1)?.[0];
+      expect(latest?.status).toMatch(/failed to fetch/i);
+      expect(latest?.actions.some((action: { testId: string }) => action.testId === "refresh-candidates")).toBe(
+        true,
+      );
+    });
+    const refresh = onDockModelChange.mock.calls
+      .map((call) => call[0])
+      .reverse()
+      .find((model) => model?.actions.some((action: { testId: string }) => action.testId === "refresh-candidates"));
+    await act(async () => {
+      refresh!.actions.find((action: { testId: string }) => action.testId === "refresh-candidates")!.onClick();
+    });
+
+    await waitFor(() => {
+      expect(api.prepareThreatIdentityCandidates).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("identity-candidates")).toHaveTextContent("Transport refresh");
     });
   });
 

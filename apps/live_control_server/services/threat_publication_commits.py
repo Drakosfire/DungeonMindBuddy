@@ -99,15 +99,18 @@ def _response(
     label: ThreatPublicationCommitResultLabel,
     *,
     commit: ThreatPublicationCommitV1 | None = None,
+    commit_admitted: bool | None = None,
     retry_allowed: bool = False,
     message: str | None = None,
 ) -> ThreatPublicationCommitResponseV1:
+    admitted = commit is not None if commit_admitted is None else commit_admitted
     return ThreatPublicationCommitResponseV1(
         draft_id=draft_id,
         operation_id=operation_id,
         proposal_id=proposal_id,
         commit_id=commit_id,
         result_label=label,
+        commit_admitted=admitted,
         commit=commit,
         retry_allowed=retry_allowed,
         message=message,

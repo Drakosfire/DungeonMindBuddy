@@ -193,6 +193,7 @@ def test_create_new_confirm_intent_merge_receipt(tmp_path: Path, monkeypatch) ->
 
     assert outcome.merge_calls == 1
     assert outcome.response.commit is not None
+    assert outcome.response.commit_admitted is True
     assert outcome.response.commit.state in {"committed_verified", "committed_unverified"}
     assert outcome.response.commit.committed_revision_id is not None
     assert outcome.response.result_label in {
@@ -719,6 +720,8 @@ def test_missing_get_creates_no_commit_dirs(tmp_path: Path, monkeypatch) -> None
     )
 
     assert outcome.response.result_label == "publication_commit_not_found"
+    assert outcome.response.commit_admitted is False
+    assert outcome.response.commit is None
     _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
     proposal_lock = (
         proposal_svc._operation_directory(tmp_path, draft.draft_id, op_id) / ".proposal.lock"
@@ -2726,6 +2729,8 @@ def test_legacy_c2a_trust_requires_historical_source_digest(
     assert lookup_calls["n"] == 0
     assert outcome.merge_calls == 0
     assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert outcome.response.commit_admitted is True
+    assert outcome.response.commit is not None
     assert "contribution_source_digest_mismatch" in (outcome.response.message or "")
     ledger = load_threat_publication_commit_ledger_unlocked(
         tmp_path, draft.draft_id, op_id
@@ -3721,6 +3726,72 @@ def test_admission_identity_integrity_failure_no_artifacts(
     assert outcome.merge_calls == 0
     assert outcome.response.result_label == "publication_commit_integrity_failure"
     _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
+
+
+def test_admission_graph_unavailable_is_explicitly_pre_admission(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+
+    with patch.object(
+        commit_svc.kernel,
+        "open_current_world_graph",
+        side_effect=OSError("graph head unavailable"),
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            _confirm_request(proposal),
+            world_root=tmp_path / "graph",
+            merge_fn=lambda *_a, **_k: _merge_success_result(proposal),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_graph_unavailable"
+    assert outcome.response.commit is None
+    assert outcome.response.commit_admitted is False
+    _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
+
+
+def test_graph_unavailable_after_admission_returns_the_durable_record(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    real_open = commit_svc.kernel.open_current_world_graph
+    open_calls = {"n": 0}
+
+    def open_graph(*args, **kwargs):
+        open_calls["n"] += 1
+        if open_calls["n"] >= 2:
+            raise OSError("graph head unavailable during recovery")
+        return real_open(*args, **kwargs)
+
+    with patch.object(commit_svc.kernel, "open_current_world_graph", side_effect=open_graph):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            _confirm_request(proposal),
+            world_root=tmp_path / "graph",
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(
+                RuntimeError("merge outcome uncertain")
+            ),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 1
+    assert outcome.response.result_label == "publication_commit_graph_unavailable"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit_admitted is True
+    assert outcome.response.commit.state == "committing"
 
 
 def test_admission_identity_not_found_is_conflict(tmp_path: Path, monkeypatch) -> None:

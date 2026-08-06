@@ -4119,6 +4119,8 @@ export interface ThreatPublicationCommitResponseV1 {
   proposal_id: string | null;
   commit_id: string;
   result_label: ThreatPublicationCommitResultLabel;
+  /** True only when the confirm request admitted a durable commit record. */
+  commit_admitted: boolean;
   commit?: ThreatPublicationCommitV1 | null;
   retry_allowed: boolean;
   message?: string | null;

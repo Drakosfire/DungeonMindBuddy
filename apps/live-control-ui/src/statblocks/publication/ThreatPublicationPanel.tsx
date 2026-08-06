@@ -123,20 +123,6 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-const PRE_ADMISSION_COMMIT_REJECTION_LABELS = new Set([
-  "publication_commit_proposal_not_active",
-  "publication_commit_proposal_incompatible",
-  "publication_commit_operation_not_ready",
-  "publication_commit_resolution_not_active",
-  "publication_commit_predecessor_mismatch",
-  "publication_commit_parent_mismatch",
-  "publication_commit_input_conflict",
-]);
-
-function isPreAdmissionCommitRejection(label: string): boolean {
-  return PRE_ADMISSION_COMMIT_REJECTION_LABELS.has(label);
-}
-
 function hasCommittedRevision(
   commit: ThreatPublicationCommitV1 | null,
   resultLabel: string | null,
@@ -175,6 +161,7 @@ interface PanelState {
   commitResultLabel: string | null;
   commitMessage: string | null;
   retryAllowed: boolean;
+  refusalCancellation: "none" | "unresolved";
   recoveryDetail: string | null;
   busyMessage: string | null;
   versionMismatchPointer: ThreatPublicationWorkbenchSessionV1 | null;
@@ -206,6 +193,7 @@ function initialPanelState(): PanelState {
     commitResultLabel: null,
     commitMessage: null,
     retryAllowed: false,
+    refusalCancellation: "none",
     recoveryDetail: null,
     busyMessage: null,
     versionMismatchPointer: null,
@@ -228,6 +216,7 @@ type Action =
     }
   | { type: "candidatesPending" }
   | { type: "candidatesResult"; response: ThreatPublicationIdentityResponseV1 }
+  | { type: "candidatesTransportError"; message: string }
   | { type: "toggleRejected"; nodeId: string }
   | { type: "setConnectTarget"; nodeId: string }
   | {
@@ -245,8 +234,13 @@ type Action =
   | { type: "proposalResult"; response: ThreatPublicationProposalResponseV1; accepted: boolean }
   | { type: "proposalTransportError"; message: string }
   | { type: "confirmPending"; commitId: string }
-  | { type: "commitResult"; response: ThreatPublicationCommitResponseV1 }
+  | {
+      type: "commitResult";
+      response: ThreatPublicationCommitResponseV1;
+      source: "confirm" | "reread" | "restore";
+    }
   | { type: "commitTransportError"; message: string }
+  | { type: "refusalCancellationUnresolved"; message: string }
   | { type: "genericError"; message: string }
   | { type: "beginRejected"; message: string | null; resultLabel: string }
   | { type: "versionMismatch"; pointer: ThreatPublicationWorkbenchSessionV1 }
@@ -324,6 +318,7 @@ function reducer(state: PanelState, action: Action): PanelState {
               commitResultLabel: null,
               commitMessage: null,
               retryAllowed: false,
+              refusalCancellation: "none",
             }
           : {}),
       };
@@ -366,6 +361,13 @@ function reducer(state: PanelState, action: Action): PanelState {
         connectTargetId: null,
       };
     }
+    case "candidatesTransportError":
+      return {
+        ...state,
+        pending: false,
+        candidateMessage: action.message,
+        lastError: null,
+      };
     case "toggleRejected": {
       const already = state.rejectedCandidateIds.includes(action.nodeId);
       if (already) {
@@ -425,6 +427,8 @@ function reducer(state: PanelState, action: Action): PanelState {
           candidateSet:
             response.resolution.decision === "refuse" ? null : state.candidateSet,
           candidateMessage: null,
+          refusalCancellation:
+            response.resolution.decision === "refuse" ? "unresolved" : "none",
         };
       }
       // Definitive typed rejection: clear uncertain resolution pointer from state.
@@ -483,16 +487,22 @@ function reducer(state: PanelState, action: Action): PanelState {
       return { ...state, pending: true, commitId: action.commitId, commitMessage: null, lastError: null };
     case "commitResult": {
       const { response } = action;
-      // Only a pre-admission rejection rolls back the exact commit pointer.
       if (!response.commit) {
-        const preAdmission = isPreAdmissionCommitRejection(response.result_label);
+        const preAdmission = action.source === "confirm" && !response.commit_admitted;
+        const exactGetNotFound =
+          action.source !== "confirm"
+          && response.result_label === "publication_commit_not_found"
+          && !response.commit_admitted;
         return {
           ...state,
           pending: false,
-          commitId: preAdmission ? null : state.commitId,
+          commitId: preAdmission || exactGetNotFound ? null : state.commitId,
           commit: null,
           commitResultLabel: response.result_label,
-          commitMessage: response.message ?? null,
+          commitMessage:
+            exactGetNotFound
+              ? (response.message ?? "No durable commit record exists; confirmation may be retried.")
+              : response.message ?? null,
           retryAllowed: response.retry_allowed,
         };
       }
@@ -508,6 +518,13 @@ function reducer(state: PanelState, action: Action): PanelState {
     }
     case "commitTransportError":
       return { ...state, pending: false, commitMessage: action.message };
+    case "refusalCancellationUnresolved":
+      return {
+        ...state,
+        pending: false,
+        refusalCancellation: "unresolved",
+        identityMessage: action.message,
+      };
     case "genericError":
       return { ...state, pending: false, lastError: action.message };
     case "beginRejected":
@@ -726,7 +743,22 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         dispatch({ type: "recoveryError", detail: "Stored publication commit no longer matches the server." });
         return;
       }
-      dispatch({ type: "commitResult", response: commitResponse });
+      if (
+        commitResponse.result_label === "publication_commit_not_found"
+        && !commitResponse.commit_admitted
+      ) {
+        writeThreatPublicationSession(
+          buildPointer({
+            stage: "proposal",
+            operationId: activePointer.operation_id,
+            resolutionId: activePointer.resolution_id,
+            proposalId: activePointer.proposal_id,
+            commitId: null,
+          }),
+          storage,
+        );
+      }
+      dispatch({ type: "commitResult", response: commitResponse, source: "restore" });
     } catch (err) {
       if (!isCurrent(generation)) return;
       dispatch({ type: "recoveryError", detail: errorMessage(err) });
@@ -973,7 +1005,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     } catch (err) {
       if (!isCurrent(generation)) return;
       candidateAutoAdvanceBlockedRef.current = true;
-      dispatch({ type: "genericError", message: errorMessage(err) });
+      dispatch({ type: "candidatesTransportError", message: errorMessage(err) });
     }
   }
 
@@ -1056,14 +1088,14 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             return;
           }
           dispatch({
-            type: "identityTransportError",
+            type: "refusalCancellationUnresolved",
             message:
               cancelResponse.message
               ?? "Publication refused, but cancellation is not yet confirmed. The exact chain is retained.",
           });
         } catch {
           dispatch({
-            type: "identityTransportError",
+            type: "refusalCancellationUnresolved",
             message:
               "Publication refused, but cancellation is not yet confirmed. The exact chain is retained.",
           });
@@ -1261,8 +1293,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
         },
       );
       if (!isCurrent(generation)) return;
-      if (!response.commit && isPreAdmissionCommitRejection(response.result_label)) {
-        // Pre-admission typed rejection: roll local chain back to proposal stage.
+      if (!response.commit_admitted) {
         writeThreatPublicationSession(
           buildPointer({
             stage: "proposal",
@@ -1274,7 +1305,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           storage,
         );
       }
-      dispatch({ type: "commitResult", response });
+      dispatch({ type: "commitResult", response, source: "confirm" });
     } catch (err) {
       if (!isCurrent(generation)) return;
       dispatch({ type: "commitTransportError", message: errorMessage(err) });
@@ -1288,7 +1319,10 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     try {
       const response = await api.getThreatPublicationCommit(draft.draft_id, state.operationId, state.commitId);
       if (!isCurrent(generation)) return;
-      if (!response.commit && isPreAdmissionCommitRejection(response.result_label)) {
+      if (
+        response.result_label === "publication_commit_not_found"
+        && !response.commit_admitted
+      ) {
         writeThreatPublicationSession(
           buildPointer({
             stage: "proposal",
@@ -1300,7 +1334,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           storage,
         );
       }
-      dispatch({ type: "commitResult", response });
+      dispatch({ type: "commitResult", response, source: "reread" });
     } catch (err) {
       if (!isCurrent(generation)) return;
       dispatch({ type: "commitTransportError", message: errorMessage(err) });
@@ -1487,11 +1521,22 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
           onClick: () => void handleRereadCommit(),
         });
       } else if (state.resolution?.decision === "refuse") {
-        status = "Publication refused. No graph write occurred.";
+        const cancellationUnresolved = state.refusalCancellation === "unresolved";
+        status = cancellationUnresolved
+          ? "Publication refused, but cancellation is not yet confirmed. The exact chain is retained."
+          : "Publication refused. No graph write occurred.";
+        if (cancellationUnresolved) tone = "error";
         actions.push({
-          testId: "publication-start-over",
-          label: "Start over",
-          onClick: handleClearPointer,
+          testId: "cancel-operation",
+          label: cancellationUnresolved ? "Retry cancellation" : "Cancel publication",
+          disabled: state.pending,
+          onClick: () => void handleCancelOperation(),
+        });
+        actions.push({
+          testId: "reread-operation",
+          label: "Re-read publication status",
+          disabled: state.pending,
+          onClick: () => void handleRefreshOperation(),
         });
       } else if (state.pending && !state.operation && state.mode === "active") {
         status = "Starting publication…";
@@ -1696,6 +1741,7 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
     state.commitResultLabel,
     state.commitMessage,
     state.retryAllowed,
+    state.refusalCancellation,
   ]);
 
   // Clear dock projection only on true unmount — never on every state tick / Strict remount race
@@ -1985,14 +2031,37 @@ export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.
             <div role="status" data-testid="identity-decision">
               {state.resolution.decision === "refuse" ? (
                 <>
-                  <p>Publication refused. No graph write occurred.</p>
-                  {!dockDriven && (
-                    <button data-testid="publication-start-over" onClick={handleClearPointer}>
-                      Start over
-                    </button>
-                  )}
-                  {dockDriven && (
-                    <p className="module-muted">Use Start over in the floating bar to publish again.</p>
+                  {state.refusalCancellation === "unresolved" ? (
+                    <>
+                      <p>
+                        Publication refused, but cancellation is not yet confirmed. The exact chain is retained.
+                      </p>
+                      {!dockDriven && (
+                        <>
+                          <button
+                            data-testid="retry-cancel"
+                            disabled={state.pending}
+                            onClick={() => void handleCancelOperation()}
+                          >
+                            Retry cancellation
+                          </button>
+                          <button
+                            data-testid="reread-operation"
+                            disabled={state.pending}
+                            onClick={() => void handleRefreshOperation()}
+                          >
+                            Re-read publication status
+                          </button>
+                        </>
+                      )}
+                      {dockDriven && (
+                        <p className="module-muted">
+                          Use Retry cancellation or Re-read publication status in the floating bar.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p>Publication refused. No graph write occurred.</p>
                   )}
                 </>
               ) : (

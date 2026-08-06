@@ -12,15 +12,15 @@ PR / branch: optional transport metadata only
 
 Verification pointer
 
-Base/head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / 855a6877f9d0d15eb4e663290f54bbfb73585661 (dogfood implementation head: d1123dd0)
+Base/reviewed head: b6d1df07fae7b28760994509dcf2ae9bd8fb74c7 / a37fa03cc2b47581a4afa723df3e12ca129d9bc6 (dogfood implementation head: d1123dd0; cycle-5 recovery repair is the current worktree slice)
 
-Changed paths: 22 cumulative branch paths from b6d1df07 through d1123dd0 plus the corrective contract commit 855a6877; corrective ownership and verification are recorded in §4, §6E, and §7.
+Changed paths: 22 cumulative branch paths from b6d1df07 through d1123dd0 plus corrective contract/provenance commits through a37fa03c; cycle-5 recovery ownership and verification are recorded in §4, §6E, §6F, and §7.
 
 Verification: owning backend identity/operation/proposal/commit tests and the frontend publication/workbench suite; exact commands and results are recorded in §7.
 
 HANDOFF — Workbench governed Threat publication bridge
 
-Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion at head 855a6877 (dogfood implementation head d1123dd0).
+Created: 2026-08-04. Status: IMPLEMENTED — corrective cycle-4 contract expansion through reviewed head a37fa03c, with cycle-5 recovery contracts recorded below (dogfood implementation head d1123dd0).
 
 Canonical handoff path: Docs/Plans/HANDOFF-magic-d3-workbench-threat-publication.md
 Conversation name: MAGIC-D3 Workbench Publication Bridge
@@ -881,7 +881,10 @@ Disable confirm immediately and retain commit ID.
 
 Verified or committed-unverified.
 
-Not found after uncertain POST → exact re-read remains available; do not generate a new ID.
+Confirm POST with commit_admitted=false → return to proposal review without
+label enumeration. Exact GET publication_commit_not_found → return to proposal
+review as a distinct read outcome. Lost transport or an admitted failure →
+retain the exact commit ID and use exact reread/retry policy.
 
 Preserve exact chain.
 
@@ -1209,10 +1212,46 @@ Candidate prepare failures and changed candidate sets expose Refresh identity
 candidates. Proposal rejection or transport uncertainty exposes Retry proposal
 preparation/replay with the same proposal ID when one was admitted. Classified
 failures block one-shot auto-advance until an explicit dock action succeeds.
-After a commit ID is admitted, it is retained through ambiguous, lost-response,
-and non-terminal refusal-cancellation outcomes. Only a pre-admission rejection
-may clear it; a refused chain clears its session pointer only after the server
-returns publication_cancelled.
+Candidate transport failures use the same candidate-specific message lane as
+typed failures, so the dock never falls back to a misleading loading state.
+Refusal is a distinct "recorded, cancellation unresolved" state: Start over is
+hidden, exact re-cancel and operation reread remain available, and the session
+pointer is cleared only after publication_cancelled.
+The commit response carries commit_admitted. Confirm POST responses with
+commit_admitted=false are pre-admission and roll back to proposal review
+regardless of result label. Every admitted response carries the durable commit
+record. An exact GET publication_commit_not_found is handled as a distinct
+read outcome and rolls back only after that exact read; it is not inferred from
+a client-maintained rejection label list.
+
+§6F. Corrective cycle-5 recovery contracts
+
+Refusal cancellation
+
+An accepted refusal records the resolution before attempting cancellation. If
+the automatic cancellation throws or returns any non-publication_cancelled
+envelope, the UI enters refusal-cancellation-unresolved, retains the exact
+operation/resolution pointer, hides Start over, and exposes exact re-cancel plus
+operation reread. Only publication_cancelled terminalizes the chain and clears
+the pointer. Reload reconstructs the same refusal state from the exact
+resolution.
+
+Candidate transport recovery
+
+A rejected candidate-prepare promise is a candidate-specific transport failure,
+not a generic panel error. It sets candidateMessage, blocks automatic
+repetition, and exposes Refresh identity candidates in both the panel and dock.
+An explicit successful refresh replaces the candidate set and reopens review.
+
+Commit admission and exact reads
+
+The server response's commit_admitted field is the admission authority. False
+means no commit ledger record exists and commit is null; true means the response
+carries the exact durable record, including post-admission graph or integrity
+failures. The client clears the local commit pointer on a confirm POST only when
+commit_admitted is false. An exact GET not-found is a separate, authoritative
+absence result that returns the chain to proposal review so it can be retried;
+ambiguous transport errors and admitted records retain the exact commit ID.
 
 §7 Evidence required to merge
 
@@ -1390,22 +1429,29 @@ UI requires parsing an ungoverned diagnostic string.
 
 E15
 
-Dock failure recovery never strands the operator or changes an admitted chain ID.
+Dock failure recovery never strands the operator or changes an admitted chain ID;
+refusal cancellation and commit admission remain explicit.
 
 ThreatPublicationPanel.tsx + panel tests
 
-Candidate refresh, proposal retry, changed-set recovery, lost-response re-read, refusal cancellation, and pre-admission commit rollback are explicit and tested; an admitted commit ID survives ambiguity.
+Candidate refresh after typed or transport failure, proposal retry, changed-set
+recovery, lost-response re-read, refusal cancellation recovery, explicit
+commit_admitted handling, exact GET not-found rollback, and pre/post-admission
+graph/integrity outcomes are explicit and tested; an admitted commit ID
+survives ambiguity.
 
-Auto-advance repeats after a classified failure or cancellation clears an uncertain chain.
+Auto-advance repeats after a classified or transport failure, Start over clears
+a refusal before publication_cancelled, or a null post-admission response
+leaves a pointer to a nonexistent commit record.
 
 Run and record exact results:
 
-Recorded provenance for the dogfood implementation head d1123dd08ab925964de4c9d54634f58ec908be14 and the corrective test pass:
+Recorded provenance for reviewed head a37fa03cc2b47581a4afa723df3e12ca129d9bc6, dogfood implementation head d1123dd08ab925964de4c9d54634f58ec908be14, and the current cycle-5 worktree verification:
 
-- `cd apps/live-control-ui && npm test -- --run src/api/liveApi.test.ts src/statblocks/publication/threatPublicationSession.test.ts src/statblocks/publication/ThreatPublicationPanel.test.tsx src/surface/modules/StatblockWorkbenchModule.test.tsx` — **221 passed** (4 files).
-- `cd apps/live-control-ui && npm run typecheck` — **baseline waiver**: two pre-existing `BuildReferenceCapability.tsx` `graphScope` errors at lines 122 and 247; publication client errors are cleared.
+- `cd apps/live-control-ui && npm test -- --run src/api/liveApi.test.ts src/statblocks/publication/threatPublicationSession.test.ts src/statblocks/publication/ThreatPublicationPanel.test.tsx src/surface/modules/StatblockWorkbenchModule.test.tsx` — **224 passed** (4 files).
+- `cd apps/live-control-ui && npx tsc -b --force` — **baseline waiver**: two pre-existing `BuildReferenceCapability.tsx` `graphScope` errors at lines 122 and 247; publication client errors are cleared.
 - `cd apps/live-control-ui && npm run build` — same two baseline `BuildReferenceCapability.tsx` errors; Vite phase is not reached.
-- `uv run pytest tests/test_threat_publication_identity.py tests/test_threat_publication_operations.py tests/test_threat_publication_proposals.py tests/test_threat_publication_commits.py -q` — **196 passed**.
+- `uv run pytest tests/test_threat_publication_identity.py tests/test_threat_publication_operations.py tests/test_threat_publication_proposals.py tests/test_threat_publication_commits.py -q` — **198 passed**.
 - `uv run pytest tests/test_threat_publication_routes.py tests/test_threat_publication_identity_routes.py tests/test_threat_publication_proposal_api.py tests/test_threat_publication_commit_api.py -q` — **26 passed**, 10 existing Pydantic warnings.
 - `/usr/bin/git --no-pager diff --check` — clean.
 
