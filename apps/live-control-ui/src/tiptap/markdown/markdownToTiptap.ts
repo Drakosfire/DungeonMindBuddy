@@ -1,8 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 import { normalizeCalloutKind } from "./calloutMarkdown";
 import {
+  GRAPH_NODE_REF_TYPE,
   isSupportedRunbookReference,
   normalizeRunbookReferenceAttrs,
+  parseGraphScopeQuery,
   type RunbookReferenceAttrs,
 } from "../references/runbookReferences";
 
@@ -30,7 +32,7 @@ type TiptapNode = {
 
 /** refId may include colons for graph-native durable IDs (`threat:tripod-null-calf`). */
 const typedReferencePattern =
-  /\[([^\]]+)\]\(#dmb-(ref|action):([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_.:-]*)\)/g;
+  /\[([^\]]+)\]\(#dmb-(ref|action):([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_.:-]*)(\?[^)]+)?\)/g;
 const graphNodeReferencePattern = /\[([^\]]+)\]\(dmb-node:([^)]+)\)/g;
 const headingPattern = /^(#{1,3})\s+(.+)$/;
 const bulletListPattern = /^-\s+(.+)$/;
@@ -71,8 +73,24 @@ function parseInlineContent(text: string, options: MarkdownImportOptions = {}): 
       const [, label, nodeId] = item.match;
       content.push({ type: "graphNodeReference", attrs: { nodeId, label } });
     } else {
-      const [, label, kind, refType, refId] = item.match;
-      const attrs: RunbookReferenceAttrs = normalizeRunbookReferenceAttrs({ kind, refType, refId, label } as RunbookReferenceAttrs);
+      const [, label, kindRaw, refType, refId, rawQuery] = item.match;
+      const kind = kindRaw === "action" ? "action" : "ref";
+      const scopeInput: Partial<RunbookReferenceAttrs> = { kind, refType, refId, label };
+      if (rawQuery) {
+        if (kind !== "ref" || refType !== GRAPH_NODE_REF_TYPE) {
+          content.push({ type: "text", text: item.match[0] });
+          lastIndex = item.index + item.length;
+          continue;
+        }
+        const parsedScope = parseGraphScopeQuery(rawQuery);
+        if (!parsedScope) {
+          content.push({ type: "text", text: item.match[0] });
+          lastIndex = item.index + item.length;
+          continue;
+        }
+        Object.assign(scopeInput, parsedScope);
+      }
+      const attrs = normalizeRunbookReferenceAttrs(scopeInput);
       if (isSupportedRunbookReference(attrs)) {
         content.push({ type: "runbookReference", attrs });
       } else {

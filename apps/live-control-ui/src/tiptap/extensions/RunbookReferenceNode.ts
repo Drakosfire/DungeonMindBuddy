@@ -30,6 +30,10 @@ export const RunbookReferenceNode = Node.create({
       refType: { default: "npc", rendered: false },
       refId: { default: "", rendered: false },
       label: { default: "", rendered: false },
+      graphWorldId: { default: null, rendered: false },
+      graphCampaignId: { default: null, rendered: false },
+      graphScopeMode: { default: null, rendered: false },
+      graphRevisionId: { default: null, rendered: false },
     };
   },
 

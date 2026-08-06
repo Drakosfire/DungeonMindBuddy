@@ -176,6 +176,71 @@ describe("Tiptap rich text Markdown export", () => {
     );
   });
 
+  it("serializes legacy runbook refs unchanged", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "paragraph",
+        content: [{
+          type: "runbookReference",
+          attrs: {
+            kind: "ref",
+            refType: "npc",
+            refId: "lysandro-ironveil",
+            label: "Lysandro Ironveil",
+            graphWorldId: null,
+            graphCampaignId: null,
+            graphScopeMode: null,
+            graphRevisionId: null,
+          },
+        }],
+      }),
+    ).toBe("[Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil)\n");
+  });
+
+  it("serializes complete scoped graph-node refs with canonical query", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "paragraph",
+        content: [{
+          type: "runbookReference",
+          attrs: {
+            kind: "ref",
+            refType: "graph-node",
+            refId: "threat:authored:d16d43d376833e38caf46dd19b1dd17f",
+            label: "Mireward Latchling",
+            graphWorldId: "eldyrwild",
+            graphCampaignId: "longmont-c2",
+            graphScopeMode: "campaign",
+            graphRevisionId: "rev:3413bf6f5044cf2680233f5e37c90dcf",
+          },
+        }],
+      }),
+    ).toBe(
+      "[Mireward Latchling](#dmb-ref:graph-node:threat:authored:d16d43d376833e38caf46dd19b1dd17f?world=eldyrwild&campaign=longmont-c2&scope=campaign&revision=rev%3A3413bf6f5044cf2680233f5e37c90dcf)\n",
+    );
+  });
+
+  it("exports partial scoped refs as label-only text", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "paragraph",
+        content: [{
+          type: "runbookReference",
+          attrs: {
+            kind: "ref",
+            refType: "graph-node",
+            refId: "threat:tripod-null-calf",
+            label: "Tripod Null Calf",
+            graphWorldId: "eldyrwild",
+            graphCampaignId: null,
+            graphScopeMode: null,
+            graphRevisionId: null,
+          },
+        }],
+      }),
+    ).toBe("Tripod Null Calf\n");
+  });
+
   it("matches the hardened DungeonBuddy semantic Markdown golden export", () => {
     expect(
       tiptapJsonToSemanticMarkdown({

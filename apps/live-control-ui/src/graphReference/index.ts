@@ -34,6 +34,12 @@ export {
   type ResolveGraphReferenceInput,
   type WorldGraphNodeIndex,
 } from "./resolveGraphReference";
+export {
+  exactScopeFromReferenceAttrs,
+  exactScopesEqual,
+  graphScopePresence,
+  referenceAttrsWithExactScope,
+} from "./scopedGraphReference";
 export { insertMarkdownReference } from "./insertMarkdownReference";
 export { useOpenGraphReference, type UseOpenGraphReferenceOptions } from "./useOpenGraphReference";
 export {

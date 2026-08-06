@@ -3,6 +3,13 @@ import { readFileSync } from "node:fs";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { markdownToTiptapDoc } from "./markdownToTiptap";
 
+const NULL_SCOPE = {
+  graphWorldId: null,
+  graphCampaignId: null,
+  graphScopeMode: null,
+  graphRevisionId: null,
+} as const;
+
 describe("markdownToTiptapDoc", () => {
   it("imports headings and paragraphs", () => {
     const result = markdownToTiptapDoc("# Title\n\n## Section\n\nA normal paragraph.");
@@ -24,7 +31,13 @@ describe("markdownToTiptapDoc", () => {
           { type: "text", text: "Talk to " },
           {
             type: "runbookReference",
-            attrs: { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" },
+            attrs: {
+              kind: "ref",
+              refType: "npc",
+              refId: "lysandro-ironveil",
+              label: "Lysandro Ironveil",
+              ...NULL_SCOPE,
+            },
           },
           { type: "text", text: "." },
         ],
@@ -88,13 +101,50 @@ describe("markdownToTiptapDoc", () => {
               type: "paragraph",
               content: [
                 { type: "text", text: "Use " },
-                { type: "runbookReference", attrs: { kind: "ref", refType: "roll-table", refId: "gate-dilemma-d12", label: "Gate Dilemma d12" } },
+                { type: "runbookReference", attrs: { kind: "ref", refType: "roll-table", refId: "gate-dilemma-d12", label: "Gate Dilemma d12", ...NULL_SCOPE } },
               ],
             }],
           },
         ],
       },
     ]);
+  });
+
+  it("imports complete scoped graph-node refs", () => {
+    const markdown =
+      "Track [Mireward Latchling](#dmb-ref:graph-node:threat:authored:d16d43d376833e38caf46dd19b1dd17f?world=eldyrwild&campaign=longmont-c2&scope=campaign&revision=rev%3A3413bf6f5044cf2680233f5e37c90dcf).";
+    const result = markdownToTiptapDoc(markdown);
+    const paragraph = result.doc.content[0] as { content: Array<{ type: string; attrs?: Record<string, unknown> }> };
+
+    expect(paragraph.content[1]).toEqual({
+      type: "runbookReference",
+      attrs: {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "threat:authored:d16d43d376833e38caf46dd19b1dd17f",
+        label: "Mireward Latchling",
+        graphWorldId: "eldyrwild",
+        graphCampaignId: "longmont-c2",
+        graphScopeMode: "campaign",
+        graphRevisionId: "rev:3413bf6f5044cf2680233f5e37c90dcf",
+      },
+    });
+  });
+
+  it("keeps partial or invalid scoped refs as plain text", () => {
+    const partial =
+      "Broken [Latchling](#dmb-ref:graph-node:threat:authored:abc?world=eldyrwild&campaign=longmont-c2&scope=campaign).";
+    const duplicate =
+      "Broken [Latchling](#dmb-ref:graph-node:threat:authored:abc?world=a&world=b&campaign=c&scope=campaign&revision=rev%3A1).";
+    const npcScoped =
+      "Broken [Lysandro](#dmb-ref:npc:lysandro-ironveil?world=eldyrwild&campaign=longmont-c2&scope=campaign&revision=rev%3A1).";
+
+    for (const markdown of [partial, duplicate, npcScoped]) {
+      const result = markdownToTiptapDoc(markdown);
+      const paragraph = result.doc.content[0] as { content: Array<{ type: string; text?: string }> };
+      expect(paragraph.content.every((node) => node.type === "text")).toBe(true);
+      expect(paragraph.content.map((node) => node.text ?? "").join("")).toBe(markdown);
+    }
   });
 
   it("imports and re-exports the real north gate runbook smoke fixture", () => {
