@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -952,11 +953,37 @@ def _object_campaign_scope(state: Mapping[str, Any] | None) -> str | None:
     return text
 
 
-def _collect_assertion_provenance_from_contributions(
-    root: Path,
-    world_id: str,
+@dataclass(frozen=True)
+class ValidatedSupportAuthority:
+    """Cold-admission proof for one active support's projection authority."""
+
+    representative: GraphContributionAssertion
+    evidence_ref_ids: tuple[str, ...]
+    source_artifact_ids: tuple[str, ...]
+
+
+def _contribution_from_map(
+    contributions: Mapping[str, GraphContribution],
+    contribution_id: str,
+    *,
+    assertion_id: str,
+) -> GraphContribution:
+    contribution = contributions.get(contribution_id)
+    if contribution is None:
+        raise _integrity_error(
+            f"Contribution record {contribution_id!r} could not be loaded.",
+            detail=(
+                f"assertion_id={assertion_id!r} contribution_id={contribution_id!r} "
+                "missing from support-authority contribution set"
+            ),
+        )
+    return contribution
+
+
+def _collect_assertion_provenance_from_contribution_map(
     store: UnionSupergraphStore,
     support: DurableAssertionSupport,
+    contributions: Mapping[str, GraphContribution],
     *,
     graph_object_id: str | None = None,
     materialized_evidence_ref_ids: list[str] | None = None,
@@ -991,7 +1018,11 @@ def _collect_assertion_provenance_from_contributions(
             ),
         )
     for contribution_id in support.active_contribution_ids:
-        contribution = _load_validated_contribution(root, world_id, contribution_id)
+        contribution = _contribution_from_map(
+            contributions,
+            contribution_id,
+            assertion_id=support.assertion_id,
+        )
         matched_candidate: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
             if candidate.assertion_id != support.assertion_id:
@@ -1080,17 +1111,21 @@ def _collect_assertion_provenance_from_contributions(
     return sorted(evidence_ids), sorted(artifact_ids)
 
 
-def _resolve_assertion_from_support(
-    root: Path,
-    world_id: str,
+def _resolve_assertion_from_support_map(
     store: UnionSupergraphStore,
     support: DurableAssertionSupport,
-) -> GraphContributionAssertion:
+    contributions: Mapping[str, GraphContribution],
+) -> tuple[GraphContributionAssertion, tuple[str, ...], tuple[str, ...]]:
+    """Validate one active support against an in-memory contribution map."""
     assertions_by_contribution: dict[str, GraphContributionAssertion] = {}
     fingerprints: dict[str, tuple[Any, ...]] = {}
 
     for contribution_id in support.active_contribution_ids:
-        contribution = _load_validated_contribution(root, world_id, contribution_id)
+        contribution = _contribution_from_map(
+            contributions,
+            contribution_id,
+            assertion_id=support.assertion_id,
+        )
 
         matched: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
@@ -1155,12 +1190,96 @@ def _resolve_assertion_from_support(
                 ],
             )
 
-    _collect_assertion_provenance_from_contributions(
-        root,
-        world_id,
+    evidence_ref_ids, source_artifact_ids = _collect_assertion_provenance_from_contribution_map(
         store,
         support,
+        contributions,
         graph_object_id=support.graph_object_id,
+    )
+    return assertion, tuple(evidence_ref_ids), tuple(source_artifact_ids)
+
+
+def build_active_support_authority_index(
+    store: UnionSupergraphStore,
+    contributions: Mapping[str, GraphContribution],
+) -> dict[str, ValidatedSupportAuthority]:
+    """Fail-closed cold-admission/scrub proof for every active support."""
+    authority: dict[str, ValidatedSupportAuthority] = {}
+    for raw_support in store.assertion_support.values():
+        support = _parse_support(raw_support)
+        if support.support_state != "supported" or not support.active_contribution_ids:
+            continue
+        representative, evidence_ref_ids, source_artifact_ids = (
+            _resolve_assertion_from_support_map(store, support, contributions)
+        )
+        authority[support.assertion_id] = ValidatedSupportAuthority(
+            representative=representative,
+            evidence_ref_ids=evidence_ref_ids,
+            source_artifact_ids=source_artifact_ids,
+        )
+    return authority
+
+
+def _collect_assertion_provenance_from_contributions(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    support: DurableAssertionSupport,
+    *,
+    graph_object_id: str | None = None,
+    materialized_evidence_ref_ids: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None:
+        authority = resident.support_authority_by_assertion_id.get(support.assertion_id)
+        if authority is not None:
+            return list(authority.evidence_ref_ids), list(authority.source_artifact_ids)
+
+    contributions = {
+        contribution_id: _load_validated_contribution(root, world_id, contribution_id)
+        for contribution_id in support.active_contribution_ids
+    }
+    return _collect_assertion_provenance_from_contribution_map(
+        store,
+        support,
+        contributions,
+        graph_object_id=graph_object_id,
+        materialized_evidence_ref_ids=materialized_evidence_ref_ids,
+    )
+
+
+def _resolve_assertion_from_support(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    support: DurableAssertionSupport,
+) -> GraphContributionAssertion:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None:
+        authority = resident.support_authority_by_assertion_id.get(support.assertion_id)
+        if authority is not None:
+            return authority.representative
+        if support.support_state == "supported" and support.active_contribution_ids:
+            raise _integrity_error(
+                "Active support missing from resident authority index.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"generation={resident.generation}"
+                ),
+            )
+
+    contributions = {
+        contribution_id: _load_validated_contribution(root, world_id, contribution_id)
+        for contribution_id in support.active_contribution_ids
+    }
+    assertion, _evidence_ref_ids, _source_artifact_ids = _resolve_assertion_from_support_map(
+        store,
+        support,
+        contributions,
     )
     return assertion
 
@@ -2815,7 +2934,9 @@ def search_world_graph_projection(
 
 
 __all__ = [
+    "ValidatedSupportAuthority",
     "WorldGraphProjectionError",
+    "build_active_support_authority_index",
     "build_projection_payload",
     "load_world_graph_revision_with_integrity",
     "project_world_graph",

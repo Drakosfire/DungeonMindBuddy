@@ -32,6 +32,7 @@ from graph_memory.kernel.world_graph import (
     open_world_graph_head,
 )
 from graph_memory.kernel.world_projection import (
+    ValidatedSupportAuthority,
     WorldGraphProjectionError,
     _diagnostic,
     _integrity_error,
@@ -40,6 +41,7 @@ from graph_memory.kernel.world_projection import (
     _load_validated_contribution_from_disk,
     _parse_support,
     _resolve_repo_uri_file,
+    build_active_support_authority_index,
 )
 from graph_memory.projection.world_projection import WorldGraphProjectionRequest
 from graph_memory.union_supergraph.model import UnionSupergraphStore
@@ -70,6 +72,7 @@ class ResidentRevision:
     store: UnionSupergraphStore
     contributions: Mapping[str, GraphContribution]
     supports_by_graph_object: Mapping[str, tuple[DurableAssertionSupport, ...]]
+    support_authority_by_assertion_id: Mapping[str, ValidatedSupportAuthority]
     identity_context: UnionProjectionIdentityContext
     source_span_paragraph_text: Mapping[str, str]
     backing_health: BackingHealth
@@ -155,60 +158,6 @@ def _build_supports_by_graph_object(
             continue
         grouped.setdefault(support.graph_object_id, []).append(support)
     return {key: tuple(supports) for key, supports in grouped.items()}
-
-
-def _assert_active_support_contribution_closure(
-    store: UnionSupergraphStore,
-    contributions: Mapping[str, GraphContribution],
-) -> None:
-    """Fail closed if any active support lacks its assertion in named contributions."""
-    for raw_support in store.assertion_support.values():
-        support = _parse_support(raw_support)
-        if support.support_state != "supported" or not support.active_contribution_ids:
-            continue
-        active_contribution_ids = set(support.active_contribution_ids)
-        if set(support.per_contribution_evidence_ref_ids) != active_contribution_ids:
-            raise _integrity_error(
-                "Contribution evidence lineage keys do not match active support.",
-                detail=(
-                    f"assertion_id={support.assertion_id!r} "
-                    f"active_contributions={sorted(active_contribution_ids)!r} "
-                    "per_contribution_evidence_ref_ids="
-                    f"{sorted(support.per_contribution_evidence_ref_ids)!r}"
-                ),
-            )
-        if set(support.per_contribution_source_artifact_ids) != active_contribution_ids:
-            raise _integrity_error(
-                "Contribution source-artifact lineage keys do not match active support.",
-                detail=(
-                    f"assertion_id={support.assertion_id!r} "
-                    f"active_contributions={sorted(active_contribution_ids)!r} "
-                    "per_contribution_source_artifact_ids="
-                    f"{sorted(support.per_contribution_source_artifact_ids)!r}"
-                ),
-            )
-        for contribution_id in support.active_contribution_ids:
-            contribution = contributions.get(contribution_id)
-            if contribution is None:
-                raise _integrity_error(
-                    f"Contribution record {contribution_id!r} could not be loaded.",
-                    detail=(
-                        f"assertion_id={support.assertion_id!r} "
-                        f"contribution_id={contribution_id!r} missing from "
-                        "cold-admission contribution set"
-                    ),
-                )
-            if not any(
-                candidate.assertion_id == support.assertion_id
-                for candidate in contribution.accepted_assertions
-            ):
-                raise _integrity_error(
-                    "Active contribution does not contain the supported assertion.",
-                    detail=(
-                        f"assertion_id={support.assertion_id!r} "
-                        f"contribution_id={contribution_id!r}"
-                    ),
-                )
 
 
 def _load_source_span_paragraph_text_indexed(
@@ -569,7 +518,7 @@ class WorldReadRuntime:
                 contribution_id,
             )
 
-        _assert_active_support_contribution_closure(store, contributions)
+        support_authority = build_active_support_authority_index(store, contributions)
         supports_by_graph_object = _build_supports_by_graph_object(store)
         identity_context = build_union_projection_identity_context(store)
         source_span_paragraph_text = _load_source_span_paragraph_text_indexed(root, store)
@@ -581,6 +530,7 @@ class WorldReadRuntime:
             store=store,
             contributions=MappingProxyType(dict(contributions)),
             supports_by_graph_object=MappingProxyType(supports_by_graph_object),
+            support_authority_by_assertion_id=MappingProxyType(support_authority),
             identity_context=identity_context,
             source_span_paragraph_text=MappingProxyType(source_span_paragraph_text),
             backing_health="healthy",
@@ -617,7 +567,7 @@ class WorldReadRuntime:
                     world_id,
                     contribution_id,
                 )
-        _assert_active_support_contribution_closure(store, contributions)
+        build_active_support_authority_index(store, contributions)
 
 
 _RUNTIME: WorldReadRuntime | None = None

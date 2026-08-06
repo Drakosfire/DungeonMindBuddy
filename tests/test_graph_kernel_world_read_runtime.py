@@ -34,7 +34,6 @@ from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionRequest,
 )
-from graph_memory.world_supergraph import paths as world_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_PATH = (
@@ -119,11 +118,39 @@ def _request(*, revision_pin: str | None = None) -> WorldGraphProjectionRequest:
 
 
 def _revision_graph_path(root: Path, revision_id: str) -> Path:
-    return world_paths.graph_payload_path(root, WORLD_ID, revision_id)
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "graph.json"
+    )
+
+
+def _revision_manifest_path(root: Path, revision_id: str) -> Path:
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "revision.json"
+    )
 
 
 def _contribution_path(root: Path, contribution_id: str) -> Path:
-    return world_paths.contribution_path(root, WORLD_ID, contribution_id)
+    safe_id = contribution_id.replace(":", "__")
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{safe_id}.json"
+    )
 
 
 def _fresh_runtime() -> WorldReadRuntime:
@@ -383,7 +410,7 @@ def test_failed_manifest_load_does_not_retain_resident_and_retry_succeeds(
 ) -> None:
     result = _initialize(tmp_path, loaded_bundle)
     revision_id = result.current_head_revision_id
-    manifest_path = world_paths.revision_manifest_path(tmp_path, WORLD_ID, revision_id)
+    manifest_path = _revision_manifest_path(tmp_path, revision_id)
     original = manifest_path.read_bytes()
     manifest_path.write_text("{not-valid-json", encoding="utf-8")
 
@@ -522,6 +549,77 @@ def test_clear_during_blocked_load_isolates_new_caller(
     assert ready.generation == second.generation
     # Pre-clear completion must not remain installed after clear isolation.
     assert ready.generation != by_load[1]
+
+
+def test_provenance_only_corruption_fails_cold_admission_and_scrub(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Provenance-only evidence removal must fail before residency / scrub health."""
+    _initialize(tmp_path, loaded_bundle)
+    node_id = "location:test-provenance-lineage-runtime"
+    evidence_ref_id = "evidence:test:provenance-lineage-runtime"
+    artifact_id = "graph-native:test:provenance-lineage-runtime"
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label="Provenance Lineage Runtime",
+        campaign_scope=CAMPAIGN_ID,
+        value={
+            "kind": "location",
+            "role": "location",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Provenance Lineage Runtime"],
+            "canon_state": "canonical",
+            "evidence": [
+                {
+                    "evidence_ref_id": evidence_ref_id,
+                    "source_artifact_id": artifact_id,
+                    "source_domain": "manual_seed",
+                    "locator": "test://provenance-lineage-runtime",
+                }
+            ],
+        },
+        evidence_ref_ids=[],
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=artifact_id,
+        source_revision_id="provenance-lineage-runtime-1",
+        accepted_assertions=[node_assertion],
+        campaign_scope=CAMPAIGN_ID,
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+    )
+    assert merged.published is True
+    revision_id = merged.revision_id
+    contribution_id = merged.contribution_ids[0]
+
+    runtime = _fresh_runtime()
+    clean = runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert clean.backing_health == "healthy"
+    assert runtime.resident_count() == 1
+
+    contrib_path = _contribution_path(tmp_path, contribution_id)
+    payload = json.loads(contrib_path.read_text(encoding="utf-8"))
+    original_assertion_id = payload["accepted_assertions"][0]["assertion_id"]
+    payload["accepted_assertions"][0]["value"]["evidence"] = []
+    contrib_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    assert payload["accepted_assertions"][0]["assertion_id"] == original_assertion_id
+
+    scrub = runtime.scrub_resident(tmp_path, WORLD_ID, revision_id)
+    assert scrub["status"] == "unhealthy"
+
+    runtime.clear()
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        runtime.get_or_load_resident(tmp_path, WORLD_ID, revision_id)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert runtime.resident_count() == 0
 
 
 def test_stale_scrub_cannot_replace_newer_resident_generation(

@@ -1988,11 +1988,22 @@ def test_provenance_only_mutation_ignored_while_resident_fails_after_clear(
         warm_node = next(item for item in warm.nodes if item.node_id == node_id)
         assert evidence_ref_id in warm_node.evidence_ref_ids
 
+    runtime = kernel.get_world_read_runtime()
+    scrub = runtime.scrub_resident(tmp_path, WORLD_ID, pinned_revision_id)
+    assert scrub["status"] == "unhealthy"
+
     kernel.clear_world_read_runtime()
+    assert runtime.resident_count() == 0
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        runtime.get_or_load_resident(tmp_path, WORLD_ID, pinned_revision_id)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert runtime.resident_count() == 0
+
     for request in (_request(), _request(revision_pin=pinned_revision_id)):
         with pytest.raises(WorldGraphProjectionError) as exc_info:
             kernel.project_world_graph(tmp_path, request)
         assert exc_info.value.code == "projection_integrity_error"
+    assert runtime.resident_count() == 0
 
 
 def test_active_alias_assertion_appears_matches_search_and_pins_correctly(
