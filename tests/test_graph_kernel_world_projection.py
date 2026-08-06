@@ -73,6 +73,13 @@ ORDERED_CONTRIBUTION_IDS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _clear_opt01_runtime() -> None:
+    kernel.clear_world_read_runtime()
+    yield
+    kernel.clear_world_read_runtime()
+
+
 @pytest.fixture
 def loaded_bundle():
     return load_contribution_bundle(BUNDLE_PATH)
@@ -211,6 +218,26 @@ def test_head_projection_matches_initialized_world(
     assert projection.summary.node_count == 12
     assert projection.summary.relationship_count == 11
     assert projection.summary.attribute_count == 3
+
+
+def test_cold_and_warm_projections_are_model_equal(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """E1: resident warm reuse preserves the exact projection contract."""
+    result = _initialize(tmp_path, loaded_bundle)
+    head_revision_id = result.current_head_revision_id
+    requests = (
+        _request(),
+        _request(revision_pin=head_revision_id),
+        _request(focus_kind="session", session_id=FOCUS_SESSION_ID),
+        _request(query_text="Tripod"),
+    )
+    for request in requests:
+        kernel.clear_world_read_runtime()
+        cold = kernel.project_world_graph(tmp_path, request)
+        warm = kernel.project_world_graph(tmp_path, request)
+        assert warm.model_dump(mode="json") == cold.model_dump(mode="json")
 
 
 def test_revision_pin_projection_reads_historical_revision(
@@ -1873,14 +1900,17 @@ def test_load_world_graph_revision_with_integrity_reports_missing_revision(
     assert exc_info.value.code == "revision_not_found"
 
 
-def test_provenance_only_mutation_of_embedded_evidence_fails_integrity(
+def test_provenance_only_mutation_ignored_while_resident_fails_after_clear(
     tmp_path: Path,
     loaded_bundle,
 ) -> None:
-    """Removing evidence that lives only in ``value["evidence"]`` is a
-    provenance-only mutation (excluded from ``assertion_id`` identity), so it
-    must be caught by the per-contribution evidence-lineage check rather than
-    silently dropping evidence from the projection.
+    """OPT01 integrity bargain for provenance-only contribution mutation.
+
+    Removing evidence that lives only in ``value["evidence"]`` is a
+    provenance-only mutation (excluded from ``assertion_id`` identity). After a
+    resident generation is admitted, ordinary warm projection continues from
+    verified memory. Explicit runtime clear forces re-verification, which must
+    fail closed with ``projection_integrity_error``.
     """
     _initialize(tmp_path, loaded_bundle)
     node_id = "location:test-provenance-lineage"
@@ -1954,9 +1984,26 @@ def test_provenance_only_mutation_of_embedded_evidence_fails_integrity(
     assert mutated_assertion["assertion_id"] == original_assertion_id
 
     for request in (_request(), _request(revision_pin=pinned_revision_id)):
+        warm = kernel.project_world_graph(tmp_path, request)
+        warm_node = next(item for item in warm.nodes if item.node_id == node_id)
+        assert evidence_ref_id in warm_node.evidence_ref_ids
+
+    runtime = kernel.get_world_read_runtime()
+    scrub = runtime.scrub_resident(tmp_path, WORLD_ID, pinned_revision_id)
+    assert scrub["status"] == "unhealthy"
+
+    kernel.clear_world_read_runtime()
+    assert runtime.resident_count() == 0
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        runtime.get_or_load_resident(tmp_path, WORLD_ID, pinned_revision_id)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert runtime.resident_count() == 0
+
+    for request in (_request(), _request(revision_pin=pinned_revision_id)):
         with pytest.raises(WorldGraphProjectionError) as exc_info:
             kernel.project_world_graph(tmp_path, request)
         assert exc_info.value.code == "projection_integrity_error"
+    assert runtime.resident_count() == 0
 
 
 def test_active_alias_assertion_appears_matches_search_and_pins_correctly(

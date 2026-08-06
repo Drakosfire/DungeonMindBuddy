@@ -1,30 +1,16 @@
-"""Optional process-local World Graph projection cache.
+"""Optional process-local World Graph completed-projection cache (OPT01).
 
-NOT wired into the kernel by default. Projection integrity tests may mutate
-contribution ledger bytes or revision payloads under an existing revision id;
-caching only on revision id would hide those failures. Callers that opt in
-must fingerprint every integrity-checked input in the cache key: the
-contribution ledger, head.json, and the graph.json / revision.json payloads of
-the selected revision *and* of the revision referenced by head (the kernel
-validates the head's target revision even for pinned requests). Fingerprints
-are content digests — aggregate metadata (file count, newest mtime) cannot
-detect a contribution-file rename, which the kernel treats as an integrity
-failure when the id-derived record path goes missing.
+Consulted only after a projection read context has been resolved. Cache keys
+are exact resident-generation context keys and perform zero durable file reads
+and zero content hashing. Correctness must hold with this cache disabled via
+``DMB_WORLD_GRAPH_PROJECTION_CACHE=0``.
 
-Two further fail-closed rules:
-
-- A missing or unreadable fingerprinted input raises
-  ``ProjectionSourceUnavailableError``; callers must treat that as "bypass the
-  cache" rather than caching under sentinel fingerprints.
-- Insertion must be gated by recomputing the key from the projection snapshot
-  after the kernel read (post_key == pre_key). The key reflects source state
-  observed *before* projection; a head move or payload mutation between
-  fingerprinting and the kernel read must not be cached under the stale key.
+Resident revision verification is owned by ``world_read_runtime`` and is not
+disabled by the payload-cache env switch.
 """
 
 from __future__ import annotations
 
-import hashlib
 import re
 import threading
 import time
@@ -40,9 +26,6 @@ from graph_memory.projection.world_projection import (
 _DEFAULT_MAX_ENTRIES = 16
 _DEFAULT_TTL_S = 120.0
 _WORLD_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
-# Mirror of world_supergraph.paths._REVISION_ID_RE (the kernel boundary forbids
-# importing it here). Guards digest paths against traversal from an unvalidated
-# request revision_pin, which the service reads before the kernel rejects it.
 _REVISION_ID_RE = re.compile(r"^rev:[a-f0-9]{16,64}$")
 
 
@@ -52,8 +35,9 @@ class CacheKey:
     world_id: str
     campaign_id: str
     revision_id: str
+    selected_resident_generation: int
     head_revision_id: str
-    source_fingerprint: str
+    head_resident_generation: int
     focus_kind: str
     focus_session_id: str
     focus_campaign_id: str
@@ -69,7 +53,7 @@ class _CacheEntry:
 
 
 class WorldGraphProjectionCache:
-    """Tiny LRU+TTL cache for projection payloads."""
+    """Tiny LRU+TTL cache for completed projection payloads."""
 
     def __init__(
         self,
@@ -133,132 +117,33 @@ def clear_projection_cache() -> None:
     _PROJECTION_CACHE.clear()
 
 
-def _world_dir(root: Path, world_id: str) -> Path:
-    """Mirror the documented World SuperGraph layout without importing internals."""
-    if not _WORLD_ID_RE.fullmatch(world_id):
-        raise ValueError(f"invalid world_id: {world_id!r}")
-    return root / "graph_memory" / "worlds" / world_id
-
-
-class ProjectionSourceUnavailableError(RuntimeError):
-    """A fingerprinted source file is missing or unreadable.
-
-    Callers must treat this as "bypass the cache": an integrity-checked input
-    that cannot be read must never produce cacheable sentinel fingerprints.
-    """
-
-
-def _file_digest(path: Path) -> str:
-    """sha256 of file bytes.
-
-    Raises ProjectionSourceUnavailableError when the file is missing or cannot
-    be read.
-    """
-    if not path.is_file():
-        raise ProjectionSourceUnavailableError(f"source file missing: {path}")
-    try:
-        digest = hashlib.sha256()
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(65536), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
-    except OSError as exc:
-        raise ProjectionSourceUnavailableError(f"source file unreadable: {path}") from exc
-
-
-def ledger_fingerprint(root: Path, world_id: str) -> str:
-    """Content fingerprint of the contribution index + contributions directory.
-
-    Sorted ``filename:sha256`` pairs so renames, rewrites, additions, and
-    deletions all change the fingerprint. The kernel loads contribution records
-    from id-derived paths and fails integrity when a referenced record is
-    missing; a count + newest-mtime aggregate survives ``os.rename`` and would
-    let a warm hit hide that failure.
-    """
-    world_dir = _world_dir(root, world_id)
-    parts = [f"idx:{_file_digest(world_dir / 'contribution_index.json')}"]
-    contrib_dir = world_dir / "contributions"
-    if not contrib_dir.is_dir():
-        raise ProjectionSourceUnavailableError(
-            f"contributions directory missing: {contrib_dir}"
-        )
-    entries = ",".join(
-        f"{path.name}:{_file_digest(path)}"
-        for path in sorted(contrib_dir.glob("*.json"), key=lambda p: p.name)
-    )
-    parts.append(f"files:[{entries}]")
-    return "|".join(parts)
-
-
-def source_fingerprint(
-    root: Path,
-    world_id: str,
-    revision_id: str,
-    *,
-    head_revision_id: str,
-) -> str:
-    """Digest every integrity-checked input the projection path validates.
-
-    Warm hits must miss when head.json, the contribution ledger, or the
-    selected revision's graph.json / revision.json change under a stable
-    revision id — and, for pinned requests, also when the *head* revision's
-    payloads change. The kernel validates the head's target revision even for
-    pinned requests (response metadata such as ``headRevisionId`` / ``isHead``
-    trusts it), so a pinned key that fingerprints only the pinned revision
-    could serve a warm hit where the kernel would raise
-    ``projection_integrity_error``.
-
-    Raises ProjectionSourceUnavailableError if any input is missing or
-    unreadable — callers must treat that as a cache bypass, not a cacheable
-    state.
-    """
-    for candidate in (revision_id, head_revision_id):
-        if not _REVISION_ID_RE.fullmatch(candidate):
-            raise ValueError(f"invalid revision_id: {candidate!r}")
-    world_dir = _world_dir(root, world_id)
-    revision_dir = world_dir / "revisions" / revision_id
-    parts = [
-        f"ledger:{ledger_fingerprint(root, world_id)}",
-        f"head:{_file_digest(world_dir / 'head.json')}",
-        f"graph:{_file_digest(revision_dir / 'graph.json')}",
-        f"rev:{_file_digest(revision_dir / 'revision.json')}",
-    ]
-    if head_revision_id != revision_id:
-        head_revision_dir = world_dir / "revisions" / head_revision_id
-        parts.append(f"headgraph:{_file_digest(head_revision_dir / 'graph.json')}")
-        parts.append(f"headrev:{_file_digest(head_revision_dir / 'revision.json')}")
-    return "|".join(parts)
-
-
 def make_projection_cache_key(
     root: Path,
     request: WorldGraphProjectionRequest,
     *,
     revision_id: str,
     head_revision_id: str,
-    source_fp: str | None = None,
-    ledger_fp: str | None = None,
+    selected_resident_generation: int,
+    head_resident_generation: int,
 ) -> CacheKey:
+    """Build a completed-payload cache key from an already-resolved context.
+
+    Performs no durable file reads and no content hashing.
+    """
+    if not _WORLD_ID_RE.fullmatch(request.world_id):
+        raise ValueError(f"invalid world_id: {request.world_id!r}")
+    for candidate in (revision_id, head_revision_id):
+        if not _REVISION_ID_RE.fullmatch(candidate):
+            raise ValueError(f"invalid revision_id: {candidate!r}")
     focus = request.focus
-    # ``ledger_fp`` retained as a deprecated alias for callers/tests that still
-    # pass contribution-only fingerprints; prefer ``source_fp``.
-    fingerprint = source_fp
-    if fingerprint is None and ledger_fp is not None:
-        fingerprint = ledger_fp
-    if fingerprint is None:
-        fingerprint = source_fingerprint(
-            root,
-            request.world_id,
-            revision_id,
-            head_revision_id=head_revision_id,
-        )
     return CacheKey(
         root=str(root.resolve()),
         world_id=request.world_id,
         campaign_id=request.campaign_id,
         revision_id=revision_id,
+        selected_resident_generation=int(selected_resident_generation),
         head_revision_id=head_revision_id,
-        source_fingerprint=fingerprint,
+        head_resident_generation=int(head_resident_generation),
         focus_kind=focus.kind,
         focus_session_id=str(focus.session_id or ""),
         focus_campaign_id=str(getattr(focus, "campaign_id", None) or ""),
@@ -278,12 +163,9 @@ def put_cached_projection(key: CacheKey, projection: WorldGraphProjection) -> No
 
 __all__ = [
     "CacheKey",
-    "ProjectionSourceUnavailableError",
     "clear_projection_cache",
     "get_cached_projection",
-    "ledger_fingerprint",
     "make_projection_cache_key",
     "projection_cache_stats",
     "put_cached_projection",
-    "source_fingerprint",
 ]

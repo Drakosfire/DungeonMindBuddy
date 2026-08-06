@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -93,6 +94,9 @@ from graph_memory.world_supergraph.storage import (
     load_world_graph_revision_manifest,
     sha256_hex,
 )
+
+# Late-bound import helpers for OPT01 resident runtime (same package; avoid cycle
+# at module import of public re-exports). Functions are imported where used.
 
 _UNSUPPORTED_ASSERTION_MEMORY_STATE = "unsupported_assertion"
 
@@ -582,11 +586,12 @@ def _validate_assertion_identity(
         )
 
 
-def _load_validated_contribution(
+def _load_validated_contribution_from_disk(
     root: Path,
     world_id: str,
     contribution_id: str,
 ) -> GraphContribution:
+    """Durable contribution load used by resident cold admission / scrub."""
     try:
         contribution = load_contribution_record(root, world_id, contribution_id)
     except (FileNotFoundError, OSError, ValueError, ValidationError, json.JSONDecodeError) as exc:
@@ -622,6 +627,34 @@ def _load_validated_contribution(
                 context=collection_name,
             )
     return contribution
+
+
+def _load_validated_contribution(
+    root: Path,
+    world_id: str,
+    contribution_id: str,
+) -> GraphContribution:
+    """Resolve a contribution from the active resident, else durable storage.
+
+    Warm projection binds a resident via ``set_active_resident`` and must not
+    reread contribution files. Cold admission / scrub call this without a
+    resident binding and use the durable path.
+    """
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None:
+        contribution = resident.contributions.get(contribution_id)
+        if contribution is None:
+            raise _integrity_error(
+                f"Contribution record {contribution_id!r} could not be loaded.",
+                detail=(
+                    f"contribution {contribution_id!r} missing from resident "
+                    f"generation={resident.generation}"
+                ),
+            )
+        return contribution
+    return _load_validated_contribution_from_disk(root, world_id, contribution_id)
 
 
 def _load_head_with_integrity(
@@ -717,6 +750,11 @@ def _assert_campaign_scope(request: WorldGraphProjectionRequest, store: UnionSup
     ``campaign_id`` label from bootstrap; it is not a projection hard gate.
     """
     del store  # legacy store.campaign_id is intentionally unused
+    _assert_request_campaign_policy(request)
+
+
+def _assert_request_campaign_policy(request: WorldGraphProjectionRequest) -> None:
+    """Request-only campaign/scope checks that must precede durable reads."""
     campaign_id = (request.campaign_id or "").strip()
     if not campaign_id:
         raise WorldGraphProjectionError(
@@ -743,6 +781,26 @@ def _assert_campaign_scope(request: WorldGraphProjectionRequest, store: UnionSup
                 )
             ],
         )
+
+
+def validate_projection_request_policy(
+    request: WorldGraphProjectionRequest,
+) -> WorldGraphProjectionRequest:
+    """Revalidate request-only policy before any world storage access."""
+    try:
+        validated = WorldGraphProjectionRequest.model_validate(
+            request.model_dump(mode="json")
+        )
+    except Exception as exc:
+        raise WorldGraphProjectionError(
+            "Projection request is invalid.",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[_diagnostic("invalid_request", str(exc))],
+        ) from exc
+    resolve_projection_admissibility(validated.admissibility)
+    _assert_request_campaign_policy(validated)
+    return validated
 
 
 def _effective_focus_campaign_id(
@@ -895,11 +953,37 @@ def _object_campaign_scope(state: Mapping[str, Any] | None) -> str | None:
     return text
 
 
-def _collect_assertion_provenance_from_contributions(
-    root: Path,
-    world_id: str,
+@dataclass(frozen=True)
+class ValidatedSupportAuthority:
+    """Cold-admission proof for one active support's projection authority."""
+
+    representative: GraphContributionAssertion
+    evidence_ref_ids: tuple[str, ...]
+    source_artifact_ids: tuple[str, ...]
+
+
+def _contribution_from_map(
+    contributions: Mapping[str, GraphContribution],
+    contribution_id: str,
+    *,
+    assertion_id: str,
+) -> GraphContribution:
+    contribution = contributions.get(contribution_id)
+    if contribution is None:
+        raise _integrity_error(
+            f"Contribution record {contribution_id!r} could not be loaded.",
+            detail=(
+                f"assertion_id={assertion_id!r} contribution_id={contribution_id!r} "
+                "missing from support-authority contribution set"
+            ),
+        )
+    return contribution
+
+
+def _collect_assertion_provenance_from_contribution_map(
     store: UnionSupergraphStore,
     support: DurableAssertionSupport,
+    contributions: Mapping[str, GraphContribution],
     *,
     graph_object_id: str | None = None,
     materialized_evidence_ref_ids: list[str] | None = None,
@@ -934,7 +1018,11 @@ def _collect_assertion_provenance_from_contributions(
             ),
         )
     for contribution_id in support.active_contribution_ids:
-        contribution = _load_validated_contribution(root, world_id, contribution_id)
+        contribution = _contribution_from_map(
+            contributions,
+            contribution_id,
+            assertion_id=support.assertion_id,
+        )
         matched_candidate: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
             if candidate.assertion_id != support.assertion_id:
@@ -1023,17 +1111,21 @@ def _collect_assertion_provenance_from_contributions(
     return sorted(evidence_ids), sorted(artifact_ids)
 
 
-def _resolve_assertion_from_support(
-    root: Path,
-    world_id: str,
+def _resolve_assertion_from_support_map(
     store: UnionSupergraphStore,
     support: DurableAssertionSupport,
-) -> GraphContributionAssertion:
+    contributions: Mapping[str, GraphContribution],
+) -> tuple[GraphContributionAssertion, tuple[str, ...], tuple[str, ...]]:
+    """Validate one active support against an in-memory contribution map."""
     assertions_by_contribution: dict[str, GraphContributionAssertion] = {}
     fingerprints: dict[str, tuple[Any, ...]] = {}
 
     for contribution_id in support.active_contribution_ids:
-        contribution = _load_validated_contribution(root, world_id, contribution_id)
+        contribution = _contribution_from_map(
+            contributions,
+            contribution_id,
+            assertion_id=support.assertion_id,
+        )
 
         matched: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
@@ -1098,12 +1190,165 @@ def _resolve_assertion_from_support(
                 ],
             )
 
-    _collect_assertion_provenance_from_contributions(
-        root,
-        world_id,
+    evidence_ref_ids, source_artifact_ids = _collect_assertion_provenance_from_contribution_map(
         store,
         support,
+        contributions,
         graph_object_id=support.graph_object_id,
+    )
+    return assertion, tuple(evidence_ref_ids), tuple(source_artifact_ids)
+
+
+def _assert_materialized_threat_binding_agrees(
+    store: UnionSupergraphStore,
+    *,
+    graph_object_id: str,
+    representative: GraphContributionAssertion,
+) -> None:
+    """Fail closed when active edge authority disagrees with stored Threat binding."""
+    edge = store.edges.get(graph_object_id)
+    if edge is None:
+        return
+    threat_statblock_binding = parse_threat_statblock_binding_assertion(
+        subject_node_id=representative.subject_node_id,
+        target_node_id=representative.target_node_id,
+        predicate=representative.predicate,
+        value=dict(representative.value),
+    )
+    if (
+        threat_statblock_binding is not None
+        and edge.threat_statblock_binding != threat_statblock_binding
+    ):
+        raise _integrity_error(
+            "Stored statblock binding disagrees with active assertion authority.",
+            detail=f"edge_id={graph_object_id!r}",
+        )
+
+
+def _assert_graph_object_support_authority_agreement(
+    store: UnionSupergraphStore,
+    authority: Mapping[str, ValidatedSupportAuthority],
+    active_supports: list[DurableAssertionSupport],
+) -> None:
+    """Group active supports by object and apply projection agreement checks."""
+    by_object: dict[str, list[DurableAssertionSupport]] = {}
+    for support in active_supports:
+        if not support.graph_object_id:
+            continue
+        by_object.setdefault(support.graph_object_id, []).append(support)
+
+    for graph_object_id, supports in by_object.items():
+        node_assertions = [
+            authority[support.assertion_id].representative
+            for support in supports
+            if support.assertion_kind == "node"
+        ]
+        if node_assertions:
+            _assert_active_node_assertions_agree(
+                node_assertions,
+                node_id=graph_object_id,
+            )
+
+        if graph_object_id in store.edges:
+            edge_assertions = [
+                authority[support.assertion_id].representative for support in supports
+            ]
+            if edge_assertions:
+                _assert_active_edge_assertions_agree(
+                    edge_assertions,
+                    graph_object_id=graph_object_id,
+                )
+                _assert_materialized_threat_binding_agrees(
+                    store,
+                    graph_object_id=graph_object_id,
+                    representative=edge_assertions[0],
+                )
+
+
+def build_active_support_authority_index(
+    store: UnionSupergraphStore,
+    contributions: Mapping[str, GraphContribution],
+) -> dict[str, ValidatedSupportAuthority]:
+    """Fail-closed cold-admission/scrub proof for every active support."""
+    authority: dict[str, ValidatedSupportAuthority] = {}
+    active_supports: list[DurableAssertionSupport] = []
+    for raw_support in store.assertion_support.values():
+        support = _parse_support(raw_support)
+        if support.support_state != "supported" or not support.active_contribution_ids:
+            continue
+        representative, evidence_ref_ids, source_artifact_ids = (
+            _resolve_assertion_from_support_map(store, support, contributions)
+        )
+        authority[support.assertion_id] = ValidatedSupportAuthority(
+            representative=representative,
+            evidence_ref_ids=evidence_ref_ids,
+            source_artifact_ids=source_artifact_ids,
+        )
+        active_supports.append(support)
+    _assert_graph_object_support_authority_agreement(store, authority, active_supports)
+    return authority
+
+
+def _collect_assertion_provenance_from_contributions(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    support: DurableAssertionSupport,
+    *,
+    graph_object_id: str | None = None,
+    materialized_evidence_ref_ids: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None:
+        authority = resident.support_authority_by_assertion_id.get(support.assertion_id)
+        if authority is not None:
+            return list(authority.evidence_ref_ids), list(authority.source_artifact_ids)
+
+    contributions = {
+        contribution_id: _load_validated_contribution(root, world_id, contribution_id)
+        for contribution_id in support.active_contribution_ids
+    }
+    return _collect_assertion_provenance_from_contribution_map(
+        store,
+        support,
+        contributions,
+        graph_object_id=graph_object_id,
+        materialized_evidence_ref_ids=materialized_evidence_ref_ids,
+    )
+
+
+def _resolve_assertion_from_support(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    support: DurableAssertionSupport,
+) -> GraphContributionAssertion:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None:
+        authority = resident.support_authority_by_assertion_id.get(support.assertion_id)
+        if authority is not None:
+            return authority.representative
+        if support.support_state == "supported" and support.active_contribution_ids:
+            raise _integrity_error(
+                "Active support missing from resident authority index.",
+                detail=(
+                    f"assertion_id={support.assertion_id!r} "
+                    f"generation={resident.generation}"
+                ),
+            )
+
+    contributions = {
+        contribution_id: _load_validated_contribution(root, world_id, contribution_id)
+        for contribution_id in support.active_contribution_ids
+    }
+    assertion, _evidence_ref_ids, _source_artifact_ids = _resolve_assertion_from_support_map(
+        store,
+        support,
+        contributions,
     )
     return assertion
 
@@ -1483,7 +1728,7 @@ def _build_relationship_views(
     request_campaign_id: str,
     scope_mode: str = "campaign",
 ) -> list[WorldGraphProjectionRelationshipView]:
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     relationships: list[WorldGraphProjectionRelationshipView] = []
     for edge_id, edge in sorted(store.edges.items()):
         if not is_projectable_union_edge(edge, identity_context):
@@ -1616,6 +1861,12 @@ def _active_supports_for_graph_object(
     store: UnionSupergraphStore,
     graph_object_id: str,
 ) -> list[DurableAssertionSupport]:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None and resident.store is store:
+        return list(resident.supports_by_graph_object.get(graph_object_id, ()))
+
     supports: list[DurableAssertionSupport] = []
     for raw_support in store.assertion_support.values():
         support = _parse_support(raw_support)
@@ -1625,6 +1876,15 @@ def _active_supports_for_graph_object(
             continue
         supports.append(support)
     return supports
+
+
+def _projection_identity_context(store: UnionSupergraphStore) -> UnionProjectionIdentityContext:
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None and resident.store is store:
+        return resident.identity_context
+    return build_union_projection_identity_context(store)
 
 
 def _node_evidence_from_projection_context(
@@ -1919,6 +2179,12 @@ def _paragraph_text_by_span_id_from_source_artifacts(
     embed paragraph prose. Ingest runs keep that prose in sibling
     ``source_span_index.json`` files next to the artifact's ``normalized_recap``.
     """
+    from graph_memory.kernel.world_read_runtime import get_active_resident
+
+    resident = get_active_resident()
+    if resident is not None and resident.store is store:
+        return dict(resident.source_span_paragraph_text)
+
     paragraph_text_by_span_id: dict[str, str] = {}
     for artifact in store.source_artifacts.values():
         uri = getattr(artifact, "uri", None)
@@ -2027,7 +2293,7 @@ def _build_node_views(
     request_campaign_id: str,
     scope_mode: str = "campaign",
 ) -> list[WorldGraphProjectionNodeView]:
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     focus_session_id = focus.session_id if focus.kind == "session" else None
     focus_campaign_id = _effective_focus_campaign_id(
         focus, request_campaign_id=request_campaign_id
@@ -2220,7 +2486,7 @@ def _build_node_views(
 
 
 def _count_omitted_unsupported_objects(store: UnionSupergraphStore) -> tuple[int, int]:
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     omitted_nodes = sum(
         1
         for node in store.nodes.values()
@@ -2406,7 +2672,7 @@ def build_projection_payload(
             diagnostics=[_diagnostic("projection_internal_error", str(exc))],
         ) from exc
 
-    identity_context = build_union_projection_identity_context(store)
+    identity_context = _projection_identity_context(store)
     focus_session_id = request.focus.session_id if request.focus.kind == "session" else None
     focus_campaign_id = _effective_focus_campaign_id(
         request.focus, request_campaign_id=request.campaign_id
@@ -2486,34 +2752,97 @@ def build_projection_payload(
     return projection
 
 
+def _assert_projection_read_context_matches_request(
+    root: Path,
+    request: WorldGraphProjectionRequest,
+    context: Any,
+) -> None:
+    """Refuse mismatched resident contexts before building a projection payload."""
+    from graph_memory.kernel.world_read_runtime import ProjectionReadContext
+
+    if not isinstance(context, ProjectionReadContext):
+        raise WorldGraphProjectionError(
+            "Projection read context is invalid.",
+            code="projection_internal_error",
+            status_code=500,
+            diagnostics=[_diagnostic("projection_internal_error", "invalid read context")],
+        )
+
+    resolved_root = str(root.resolve())
+    selected = context.selected
+    head = context.head
+    mismatches: list[str] = []
+    if selected.key.resolved_root != resolved_root or head.key.resolved_root != resolved_root:
+        mismatches.append("resolved_root")
+    if selected.key.world_id != request.world_id or head.key.world_id != request.world_id:
+        mismatches.append("world_id")
+    if context.selected_revision_id != selected.key.revision_id:
+        mismatches.append("selected_revision_id")
+    if context.head_revision_id != head.key.revision_id:
+        mismatches.append("head_revision_id")
+    if request.revision_pin:
+        if context.selected_revision_id != request.revision_pin:
+            mismatches.append("revision_pin")
+    elif context.selected_revision_id != context.head_revision_id:
+        mismatches.append("unpinned_selected_head")
+    elif selected.key != head.key:
+        mismatches.append("unpinned_resident_key")
+    if mismatches:
+        raise WorldGraphProjectionError(
+            "Projection read context does not match the projection request.",
+            code="projection_internal_error",
+            status_code=500,
+            diagnostics=[
+                _diagnostic(
+                    "projection_internal_error",
+                    "context/request mismatch: " + ", ".join(mismatches),
+                )
+            ],
+        )
+
+
+def project_world_graph_from_context(
+    root: Path,
+    request: WorldGraphProjectionRequest,
+    context: Any,
+) -> WorldGraphProjection:
+    """Build a projection from an already-resolved resident read context."""
+    from graph_memory.kernel.world_read_runtime import (
+        reset_active_resident,
+        set_active_resident,
+    )
+
+    _assert_projection_read_context_matches_request(root, request, context)
+
+    token = set_active_resident(context.selected)
+    try:
+        return build_projection_payload(
+            request=request,
+            revision_id=context.selected_revision_id,
+            head_revision_id=context.head_revision_id,
+            store=context.selected.store,
+            root=root,
+            world_id=request.world_id,
+        )
+    finally:
+        reset_active_resident(token)
+
+
 def project_world_graph(
     root: Path,
     request: WorldGraphProjectionRequest,
 ) -> WorldGraphProjection:
-    try:
-        request = WorldGraphProjectionRequest.model_validate(
-            request.model_dump(mode="json")
-        )
-    except Exception as exc:
-        raise WorldGraphProjectionError(
-            "Projection request is invalid.",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[_diagnostic("invalid_request", str(exc))],
-        ) from exc
+    from graph_memory.kernel.world_read_runtime import (
+        begin_request_io,
+        resolve_projection_read_context,
+    )
 
-    resolve_projection_admissibility(request.admissibility)
+    request = validate_projection_request_policy(request)
+    begin_request_io()
 
     try:
-        revision_id, head_revision_id, store = _load_revision_context(root, request)
-        return build_projection_payload(
-            request=request,
-            revision_id=revision_id,
-            head_revision_id=head_revision_id,
-            store=store,
-            root=root,
-            world_id=request.world_id,
-        )
+        context = resolve_projection_read_context(root, request)
+        return project_world_graph_from_context(root, request, context)
     except WorldGraphProjectionError:
         raise
     except Exception as exc:
@@ -2674,10 +3003,14 @@ def search_world_graph_projection(
 
 
 __all__ = [
+    "ValidatedSupportAuthority",
     "WorldGraphProjectionError",
+    "build_active_support_authority_index",
     "build_projection_payload",
     "load_world_graph_revision_with_integrity",
     "project_world_graph",
+    "project_world_graph_from_context",
     "resolve_projection_admissibility",
     "search_world_graph_projection",
+    "validate_projection_request_policy",
 ]
