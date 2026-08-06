@@ -1,0 +1,319 @@
+"""Live-server post-commit World Graph resident prewarm coordinator (OPT02)."""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal
+
+import graph_memory.kernel as kernel
+from graph_memory.kernel.world_revision_ready import (
+    RevisionReadyConsumerLease,
+    WorldRevisionReadyNotification,
+    get_revision_ready_mailbox,
+    pop_revision_ready_queue_wait_ms,
+)
+
+logger = logging.getLogger(__name__)
+
+PrewarmStatus = Literal[
+    "resident_hit",
+    "resident_miss",
+    "coalesced",
+    "superseded",
+    "failed",
+    "dropped",
+]
+
+_DEFAULT_SHUTDOWN_TIMEOUT_S = 5.0
+_POLL_TIMEOUT_S = 0.25
+
+
+@dataclass(frozen=True)
+class PrewarmObservation:
+    event: str
+    resolved_root: str
+    world_id: str
+    revision_id: str
+    parent_revision_id: str | None
+    operation_ids: tuple[str, ...]
+    status: PrewarmStatus
+    queue_wait_ms: float
+    prewarm_ms: float
+    graph_payload_reads: int
+    revision_manifest_reads: int
+    contribution_reads: int
+    source_index_reads: int
+    head_json_reads: int
+    resident_generation: int | None = None
+    error_type: str | None = None
+    error_message: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "event": self.event,
+            "resolved_root": self.resolved_root,
+            "world_id": self.world_id,
+            "revision_id": self.revision_id,
+            "parent_revision_id": self.parent_revision_id,
+            "operation_ids": list(self.operation_ids),
+            "status": self.status,
+            "queue_wait_ms": self.queue_wait_ms,
+            "prewarm_ms": self.prewarm_ms,
+            "graph_payload_reads": self.graph_payload_reads,
+            "revision_manifest_reads": self.revision_manifest_reads,
+            "contribution_reads": self.contribution_reads,
+            "source_index_reads": self.source_index_reads,
+            "head_json_reads": self.head_json_reads,
+            "resident_generation": self.resident_generation,
+            "error_type": self.error_type,
+            "error_message": self.error_message,
+        }
+
+
+_OBSERVATIONS: list[PrewarmObservation] = []
+_OBS_LOCK = threading.Lock()
+_COORDINATOR: "WorldGraphPrewarmCoordinator | None" = None
+_COORDINATOR_LOCK = threading.Lock()
+
+
+def get_prewarm_observations() -> list[PrewarmObservation]:
+    with _OBS_LOCK:
+        return list(_OBSERVATIONS)
+
+
+def clear_prewarm_observations() -> None:
+    with _OBS_LOCK:
+        _OBSERVATIONS.clear()
+
+
+def _emit_observation(observation: PrewarmObservation) -> None:
+    with _OBS_LOCK:
+        _OBSERVATIONS.append(observation)
+        if len(_OBSERVATIONS) > 256:
+            del _OBSERVATIONS[:-128]
+    logger.info("world_graph_post_commit_prewarm", extra=observation.as_dict())
+
+
+class WorldGraphPrewarmCoordinator:
+    """One bounded worker that admits exact notified revisions via OPT01."""
+
+    def __init__(self) -> None:
+        self._thread: threading.Thread | None = None
+        self._stop = threading.Event()
+        self._idle = threading.Event()
+        self._idle.set()
+        self._lease: RevisionReadyConsumerLease | None = None
+        self._active = False
+        self._busy = 0
+        self._lock = threading.Lock()
+
+    @property
+    def is_running(self) -> bool:
+        thread = self._thread
+        return bool(thread is not None and thread.is_alive())
+
+    def start(self) -> bool:
+        with self._lock:
+            if self._active:
+                return True
+            mailbox = get_revision_ready_mailbox()
+            lease = mailbox.acquire_consumer()
+            if lease is None:
+                logger.error("world graph prewarm coordinator consumer lease unavailable")
+                return False
+            self._lease = lease
+            self._stop.clear()
+            self._busy = 0
+            self._idle.set()
+            self._active = True
+            self._thread = threading.Thread(
+                target=self._run,
+                name="world-graph-prewarm",
+                daemon=True,
+            )
+            self._thread.start()
+            return True
+
+    def stop(self, *, timeout_s: float = _DEFAULT_SHUTDOWN_TIMEOUT_S) -> bool:
+        with self._lock:
+            if not self._active and self._thread is None:
+                return True
+            self._stop.set()
+            mailbox = get_revision_ready_mailbox()
+            discarded = mailbox.close()
+            lease = self._lease
+            thread = self._thread
+        for notification in discarded:
+            _emit_observation(
+                PrewarmObservation(
+                    event="world_graph_post_commit_prewarm",
+                    resolved_root=notification.resolved_root,
+                    world_id=notification.world_id,
+                    revision_id=notification.revision_id,
+                    parent_revision_id=notification.parent_revision_id,
+                    operation_ids=notification.operation_ids,
+                    status="dropped",
+                    queue_wait_ms=0.0,
+                    prewarm_ms=0.0,
+                    graph_payload_reads=0,
+                    revision_manifest_reads=0,
+                    contribution_reads=0,
+                    source_index_reads=0,
+                    head_json_reads=0,
+                )
+            )
+        if thread is not None:
+            thread.join(timeout=timeout_s)
+        with self._lock:
+            alive = thread is not None and thread.is_alive()
+            if lease is not None:
+                lease.release()
+            self._lease = None
+            self._thread = None
+            self._active = False
+            self._idle.set()
+            # Re-open mailbox for the next app lifecycle / tests.
+            mailbox = get_revision_ready_mailbox()
+            mailbox.reset()
+            return not alive
+
+    def wait_idle(self, *, timeout_s: float = 30.0) -> bool:
+        return self._idle.wait(timeout=timeout_s)
+
+    def _run(self) -> None:
+        assert self._lease is not None
+        lease = self._lease
+        mailbox = get_revision_ready_mailbox()
+        while not self._stop.is_set():
+            try:
+                notification = mailbox.wait_for_notification(
+                    lease,
+                    timeout=_POLL_TIMEOUT_S,
+                )
+            except RuntimeError:
+                break
+            if notification is None:
+                if self._stop.is_set():
+                    break
+                continue
+            with self._lock:
+                self._busy += 1
+                self._idle.clear()
+            try:
+                self._handle(notification)
+            finally:
+                with self._lock:
+                    self._busy = max(0, self._busy - 1)
+                    if (
+                        self._busy == 0
+                        and mailbox.pending_count() == 0
+                        and not self._stop.is_set()
+                    ):
+                        self._idle.set()
+        self._idle.set()
+
+    def _handle(self, notification: WorldRevisionReadyNotification) -> None:
+        queue_wait_ms = pop_revision_ready_queue_wait_ms(notification)
+        started = time.perf_counter()
+        counters = kernel.begin_request_io()
+        status: PrewarmStatus = "failed"
+        generation: int | None = None
+        error_type: str | None = None
+        error_message: str | None = None
+        try:
+            try:
+                head = kernel.open_world_graph_head(
+                    Path(notification.resolved_root),
+                    notification.world_id,
+                )
+            except Exception as exc:
+                status = "failed"
+                error_type = type(exc).__name__
+                error_message = str(exc)
+                counters.head_json_reads += 1
+                return
+            counters.head_json_reads += 1
+            if (
+                head.world_id != notification.world_id
+                or head.head_revision_id != notification.revision_id
+            ):
+                status = "superseded"
+                return
+            try:
+                resident = kernel.get_world_read_runtime().get_or_load_resident(
+                    Path(notification.resolved_root),
+                    notification.world_id,
+                    notification.revision_id,
+                )
+            except Exception as exc:
+                status = "failed"
+                error_type = type(exc).__name__
+                error_message = str(exc)
+                return
+            generation = resident.generation
+            outcome = counters.last_resident_status
+            if outcome == "hit":
+                status = "resident_hit"
+            elif outcome == "coalesced":
+                status = "coalesced"
+            else:
+                status = "resident_miss"
+        finally:
+            prewarm_ms = (time.perf_counter() - started) * 1000.0
+            _emit_observation(
+                PrewarmObservation(
+                    event="world_graph_post_commit_prewarm",
+                    resolved_root=notification.resolved_root,
+                    world_id=notification.world_id,
+                    revision_id=notification.revision_id,
+                    parent_revision_id=notification.parent_revision_id,
+                    operation_ids=notification.operation_ids,
+                    status=status,
+                    queue_wait_ms=queue_wait_ms,
+                    prewarm_ms=prewarm_ms,
+                    graph_payload_reads=counters.graph_payload_reads,
+                    revision_manifest_reads=counters.revision_manifest_reads,
+                    contribution_reads=counters.contribution_reads,
+                    source_index_reads=counters.source_index_reads,
+                    head_json_reads=counters.head_json_reads,
+                    resident_generation=generation,
+                    error_type=error_type,
+                    error_message=error_message,
+                )
+            )
+            kernel.reset_request_io()
+
+
+def start_world_graph_prewarm_coordinator() -> WorldGraphPrewarmCoordinator | None:
+    """Start the process-local coordinator; no-op if already running."""
+    global _COORDINATOR
+    with _COORDINATOR_LOCK:
+        if _COORDINATOR is not None and _COORDINATOR.is_running:
+            return _COORDINATOR
+        coordinator = WorldGraphPrewarmCoordinator()
+        if not coordinator.start():
+            return None
+        _COORDINATOR = coordinator
+        return coordinator
+
+
+def stop_world_graph_prewarm_coordinator(
+    *,
+    timeout_s: float = _DEFAULT_SHUTDOWN_TIMEOUT_S,
+) -> bool:
+    global _COORDINATOR
+    with _COORDINATOR_LOCK:
+        coordinator = _COORDINATOR
+        _COORDINATOR = None
+    if coordinator is None:
+        return True
+    return coordinator.stop(timeout_s=timeout_s)
+
+
+def get_world_graph_prewarm_coordinator() -> WorldGraphPrewarmCoordinator | None:
+    with _COORDINATOR_LOCK:
+        return _COORDINATOR
