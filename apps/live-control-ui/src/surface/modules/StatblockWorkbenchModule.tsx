@@ -48,6 +48,10 @@ import {
 } from "../../statblocks/editor/statblockValidationIssues";
 import { StatblockRenderer } from "../../statblocks/render/StatblockRenderer";
 import {
+  ThreatPublicationPanel,
+  type ThreatPublicationDockModel,
+} from "../../statblocks/publication/ThreatPublicationPanel";
+import {
   MechanicsSavedAppendBoundary,
   ProposalHistoryPanel,
   ReviseWithAiPanel,
@@ -104,6 +108,13 @@ type ValidationFailure = {
   editorEpoch: number;
   stateRevision: number;
   message: string;
+};
+
+type PublicationHeadResolution = {
+  draftId: string | null;
+  head: string | null;
+  error: string | null;
+  loading: boolean;
 };
 
 function previewIsCurrent(
@@ -1178,6 +1189,8 @@ function AcceptMechanicsFlow({
   validateDisabled,
   mechanicsSavedDraft,
   draftAuthorityUnavailable = false,
+  onMechanicsSaved,
+  publicationDock = null,
 }: {
   preview: PreviewValidation | null;
   editorState: StatblockEditorState;
@@ -1193,6 +1206,10 @@ function AcceptMechanicsFlow({
   mechanicsSavedDraft: boolean;
   /** When true, version-dependent Accept/Save stays disabled until draft authority is restored. */
   draftAuthorityUnavailable?: boolean;
+  /** Refresh ThreatDraft authority after a durable mechanics_saved accept so Publish can mount. */
+  onMechanicsSaved?: (draftId: string) => void;
+  /** Primary publication journey status/actions for the floating dock. */
+  publicationDock?: ThreatPublicationDockModel | null;
 }) {
   const eligible = acceptPreviewEligible(preview, editorState, editorEpoch);
   const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
@@ -1417,6 +1434,9 @@ function AcceptMechanicsFlow({
       setExistenceUnresolved(false);
     }
     setAcceptResult(response);
+    if (label === "mechanics_saved") {
+      onMechanicsSaved?.(draftId);
+    }
   };
 
   const runAccept = async () => {
@@ -1644,6 +1664,9 @@ function AcceptMechanicsFlow({
   })();
 
   const dockStatus = (() => {
+    if (publicationDock) {
+      return publicationDock.status;
+    }
     if (acceptPending) {
       return "Accepting…";
     }
@@ -1920,32 +1943,56 @@ function AcceptMechanicsFlow({
       >
         <p
           className="statblock-workbench-dock__status"
-          role={dockError ? "alert" : "status"}
-          data-dock-tone={dockError ? "error" : "info"}
+          role={
+            publicationDock?.tone === "error" || dockError
+              ? "alert"
+              : "status"
+          }
+          data-dock-tone={
+            publicationDock?.tone
+            ?? (dockError ? "error" : "info")
+          }
+          data-testid={publicationDock ? "publication-dock-status" : undefined}
           title={dockError?.message}
         >
           {dockStatus}
         </p>
         <div className="statblock-workbench-dock__actions">
-          <button
-            type="button"
-            onClick={() => {
-              setAcceptError(null);
-              onValidate();
-            }}
-            disabled={validateDisabled || validatePending}
-          >
-            {validatePending ? "Validating…" : "Validate working copy"}
-          </button>
-          <button
-            type="button"
-            onClick={onAcceptSave}
-            disabled={!showAcceptEntry || acceptPending}
-            title={showAcceptEntry ? undefined : dockStatus}
-            data-testid="accept-mechanics-save"
-          >
-            {acceptPending ? "Accepting…" : "Accept/Save mechanics"}
-          </button>
+          {publicationDock ? (
+            publicationDock.actions.map((action) => (
+              <button
+                key={action.testId}
+                type="button"
+                data-testid={action.testId}
+                disabled={action.disabled}
+                onClick={action.onClick}
+              >
+                {action.label}
+              </button>
+            ))
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setAcceptError(null);
+                  onValidate();
+                }}
+                disabled={validateDisabled || validatePending}
+              >
+                {validatePending ? "Validating…" : "Validate working copy"}
+              </button>
+              <button
+                type="button"
+                onClick={onAcceptSave}
+                disabled={!showAcceptEntry || acceptPending}
+                title={showAcceptEntry ? undefined : dockStatus}
+                data-testid="accept-mechanics-save"
+              >
+                {acceptPending ? "Accepting…" : "Accept/Save mechanics"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1987,6 +2034,15 @@ export function StatblockWorkbenchModule() {
   const [reviseStatusMessage, setReviseStatusMessage] = useState<string | null>(null);
   const [reviseError, setReviseError] = useState<string | null>(null);
   const [revisePending, setRevisePending] = useState(false);
+  const [publicationHeadResolution, setPublicationHeadResolution] =
+    useState<PublicationHeadResolution>({
+      draftId: null,
+      head: null,
+      error: null,
+      loading: false,
+    });
+  const [publicationDock, setPublicationDock] =
+    useState<ThreatPublicationDockModel | null>(null);
 
   const validateRequestIdRef = useRef(0);
   const editorEpochRef = useRef(0);
@@ -2367,6 +2423,77 @@ export function StatblockWorkbenchModule() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only session restore
   }, []);
+
+  useEffect(() => {
+    const draftId = threatDraft?.draft_id ?? null;
+    const mechanicsSaved = threatDraft?.workflow_state === "mechanics_saved";
+    if (!draftId || !mechanicsSaved) {
+      setPublicationHeadResolution({ draftId: null, head: null, error: null, loading: false });
+      return;
+    }
+
+    let cancelled = false;
+    setPublicationHeadResolution({ draftId, head: null, error: null, loading: true });
+
+    void (async () => {
+      try {
+        const status = await getWorldGraphBootstrapStatus();
+        if (cancelled) return;
+        const bootstrapHead =
+          typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
+            ? status.currentHeadRevisionId.trim()
+            : null;
+        // Exact Advanced override is the same authority pin used for create when bootstrap
+        // cannot surface a head (e.g. invalid_bundle with a still-readable store head).
+        const overrideHead = createForm.graphRevisionId.trim() || null;
+        const head = bootstrapHead ?? overrideHead;
+        if (head) {
+          setPublicationHeadResolution({ draftId, head, error: null, loading: false });
+          return;
+        }
+        setPublicationHeadResolution({
+          draftId,
+          head: null,
+          error:
+            "Publication is disabled until the current World Graph head is readable. "
+            + "Set Advanced → Graph revision override to an exact rev:… when bootstrap cannot surface a head.",
+          loading: false,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        const overrideHead = createForm.graphRevisionId.trim() || null;
+        if (overrideHead) {
+          setPublicationHeadResolution({
+            draftId,
+            head: overrideHead,
+            error: null,
+            loading: false,
+          });
+          return;
+        }
+        setPublicationHeadResolution({
+          draftId,
+          head: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "World Graph bootstrap status unavailable.",
+          loading: false,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    threatDraft?.draft_id,
+    threatDraft?.workflow_state,
+    threatDraft?.version,
+    threatDraft?.accepted_mechanics_ref?.revision_id,
+    threatDraft?.accepted_mechanics_ref?.definition_digest,
+    createForm.graphRevisionId,
+  ]);
 
   const onSubmitCandidate = (event: FormEvent) => {
     event.preventDefault();
@@ -3405,7 +3532,72 @@ export function StatblockWorkbenchModule() {
               }
               mechanicsSavedDraft={mechanicsSavedDraft}
               draftAuthorityUnavailable={draftSnapshotUnavailable}
+              onMechanicsSaved={(id) => {
+                void refreshThreatDraftSnapshot(id);
+              }}
+              publicationDock={publicationDock}
             />
+          ) : null}
+
+          {mechanicsSavedDraft && threatDraft ? (
+            <section
+              className="statblock-section"
+              aria-label="Publish to World Graph"
+              data-testid="workbench-publication-entry"
+            >
+              <h3>Identity & proposal review</h3>
+              {publicationHeadResolution.draftId === threatDraft.draft_id &&
+              publicationHeadResolution.loading ? (
+                <p className="module-muted" role="status" data-testid="publication-head-loading">
+                  Resolving World Graph head…
+                </p>
+              ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
+                publicationHeadResolution.head ? (
+                <ThreatPublicationPanel
+                  key={[
+                    threatDraft.draft_id,
+                    String(threatDraft.version),
+                    threatDraft.accepted_mechanics_ref?.statblock_id ?? "",
+                    threatDraft.accepted_mechanics_ref?.revision_id ?? "",
+                    threatDraft.accepted_mechanics_ref?.definition_digest ?? "",
+                  ].join(":")}
+                  draft={threatDraft}
+                  expectedParentRevisionId={publicationHeadResolution.head}
+                  onDockModelChange={setPublicationDock}
+                  resolveExpectedParentRevisionId={async () => {
+                    const status = await getWorldGraphBootstrapStatus();
+                    const bootstrapHead =
+                      typeof status.currentHeadRevisionId === "string"
+                      && status.currentHeadRevisionId.trim()
+                        ? status.currentHeadRevisionId.trim()
+                        : null;
+                    const head = bootstrapHead || createForm.graphRevisionId.trim() || null;
+                    if (!head) {
+                      throw new Error(
+                        "Publication retry requires a readable World Graph head "
+                        + "(bootstrap head or exact Advanced graph revision override).",
+                      );
+                    }
+                    setPublicationHeadResolution({
+                      draftId: threatDraft.draft_id,
+                      head,
+                      error: null,
+                      loading: false,
+                    });
+                    return head;
+                  }}
+                />
+              ) : publicationHeadResolution.draftId === threatDraft.draft_id &&
+                publicationHeadResolution.error ? (
+                <p
+                  className="statblock-command-error"
+                  role="status"
+                  data-testid="publication-head-unavailable"
+                >
+                  {publicationHeadResolution.error}
+                </p>
+              ) : null}
+            </section>
           ) : null}
         </section>
       ) : null}

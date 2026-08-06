@@ -193,12 +193,118 @@ def test_create_new_confirm_intent_merge_receipt(tmp_path: Path, monkeypatch) ->
 
     assert outcome.merge_calls == 1
     assert outcome.response.commit is not None
+    assert outcome.response.commit_admitted is True
     assert outcome.response.commit.state in {"committed_verified", "committed_unverified"}
     assert outcome.response.commit.committed_revision_id is not None
     assert outcome.response.result_label in {
         "publication_commit_verified",
         "publication_commit_committed_unverified",
     }
+
+
+def test_admitted_ledger_load_failure_returns_unknown_admission(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _resolution_id, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    commit_id = str(uuid.uuid4())
+    request = _confirm_request(proposal, commit_id)
+
+    first = commit_svc.confirm_threat_publication(
+        tmp_path,
+        draft.draft_id,
+        op_id,
+        proposal_id,
+        request,
+        world_root=tmp_path / "graph",
+        merge_fn=lambda *_a, **_k: _merge_success_result(proposal),
+        lookup_fn=lambda *_a, **_k: tuple(),
+    )
+
+    assert first.response.commit is not None
+    assert first.response.commit.commit_id == commit_id
+    assert first.response.commit_admitted is True
+    assert load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    ) is not None
+
+    from apps.live_control_server.services.threat_publication_commit_store import (
+        ThreatPublicationCommitStorageError,
+    )
+
+    with patch.object(
+        commit_svc,
+        "load_threat_publication_commit_ledger_unlocked",
+        side_effect=ThreatPublicationCommitStorageError(
+            "admitted ledger became unreadable", kind="integrity"
+        ),
+    ):
+        replay = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=tmp_path / "graph",
+        )
+
+    assert replay.response.commit_id == commit_id
+    assert replay.response.commit is None
+    assert replay.response.commit_admitted is None
+    assert replay.response.result_label == "publication_commit_integrity_failure"
+
+
+def test_admitted_committing_record_survives_proposal_ledger_load_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _resolution_id, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    request = _confirm_request(proposal)
+    record, early, _contribution, _prepared_proposal = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=tmp_path / "graph",
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=request,
+    )
+    assert early is None and record is not None
+    assert record.state == "committing"
+    commit_svc._save_commit(tmp_path, record)
+
+    stored = load_threat_publication_commit_ledger_unlocked(
+        tmp_path, draft.draft_id, op_id
+    )
+    assert stored is not None
+    assert stored.commit == record
+
+    from apps.live_control_server.services.threat_publication_proposals import (
+        ThreatPublicationProposalStorageError,
+    )
+
+    with patch.object(
+        commit_svc,
+        "load_threat_publication_proposal_ledger_unlocked",
+        side_effect=ThreatPublicationProposalStorageError(
+            "proposal ledger became unreadable", kind="integrity"
+        ),
+    ):
+        replay = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            request,
+            world_root=tmp_path / "graph",
+        )
+
+    assert replay.merge_calls == 0
+    assert replay.response.commit_id == record.commit_id
+    assert replay.response.commit == record
+    assert replay.response.commit_admitted is True
+    assert replay.response.result_label == "publication_commit_integrity_failure"
 
 
 def test_connect_existing_no_threat_rewrite_in_contribution(
@@ -667,6 +773,9 @@ def test_published_false_zero_lookup_uncommitted(tmp_path: Path, monkeypatch) ->
             contribution_ids=[],
             accepted_assertion_ids=[],
             published=False,
+            diagnostics=["legacy diagnostic should not be the UI source"],
+            failure_code="merge_failed",
+            failure_message="node assertion assertion:x has unresolved evidence references",
         )
 
     outcome = commit_svc.confirm_threat_publication(
@@ -685,6 +794,25 @@ def test_published_false_zero_lookup_uncommitted(tmp_path: Path, monkeypatch) ->
     assert outcome.response.commit is not None
     assert outcome.response.commit.state == "uncommitted"
     assert outcome.response.retry_allowed is False
+    assert outcome.response.message is not None
+    assert "unresolved evidence" in outcome.response.message
+    assert "Cancel this publication" in outcome.response.message
+
+
+def test_structured_merge_failure_diagnostic_is_the_ui_source() -> None:
+    result = ContributionMergeResult(
+        world_id="world_1",
+        published=False,
+        diagnostics=["merge_failed:stale legacy text"],
+        failure_code="merge_failed",
+        failure_message="canonical failure detail",
+    )
+
+    message = commit_svc._merge_failure_message(result)
+
+    assert message is not None
+    assert "canonical failure detail" in message
+    assert "stale legacy text" not in message
 
 
 def test_missing_get_creates_no_commit_dirs(tmp_path: Path, monkeypatch) -> None:
@@ -697,6 +825,8 @@ def test_missing_get_creates_no_commit_dirs(tmp_path: Path, monkeypatch) -> None
     )
 
     assert outcome.response.result_label == "publication_commit_not_found"
+    assert outcome.response.commit_admitted is False
+    assert outcome.response.commit is None
     _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
     proposal_lock = (
         proposal_svc._operation_directory(tmp_path, draft.draft_id, op_id) / ".proposal.lock"
@@ -832,7 +962,7 @@ def _verification_store(proposal, world_root: Path, *, binding_direction: str = 
             "kind": "external_resource",
             "role": "statblock",
             "aliases": [resource_label],
-            "source_domains": ["manual_seed"],
+            "source_domains": ["statblock"],
             "evidence_ref_ids": [],
             "external_resource": resource,
         }
@@ -851,7 +981,9 @@ def _verification_store(proposal, world_root: Path, *, binding_direction: str = 
             "kind": str(threat_value.get("kind", "Threat")),
             "role": str(threat_value.get("role", "threat")),
             "aliases": list(threat_value.get("aliases") or []),
-            "source_domains": list(threat_value.get("source_domains") or ["worldbuilding"]),
+            "source_domains": commit_svc._provenance_domains_for_object(
+                contribution, proposal.threat_node_id
+            ),
             "evidence_ref_ids": [],
             "external_resource": None,
         }
@@ -865,7 +997,7 @@ def _verification_store(proposal, world_root: Path, *, binding_direction: str = 
             "predicate": "uses_statblock",
             "label": "uses statblock",
             "direction": binding_direction,
-            "source_domains": ["worldbuilding"],
+            "source_domains": ["statblock"],
             "session_ids": [],
             "evidence_ref_ids": [],
             "threat_statblock_binding": binding,
@@ -1074,7 +1206,9 @@ def test_projection_audit_accepts_outgoing_direction(tmp_path: Path, monkeypatch
                 kind=str(threat_value.get("kind", "Threat")),
                 role=threat_value.get("role"),
                 aliases=list(threat_value.get("aliases") or []),
-                source_domains=list(threat_value.get("source_domains") or []),
+                source_domains=commit_svc._provenance_domains_for_object(
+                    contribution, record.threat_node_id
+                ),
                 external_resource=None,
             ),
             _Node(
@@ -1083,7 +1217,7 @@ def test_projection_audit_accepts_outgoing_direction(tmp_path: Path, monkeypatch
                 kind="external_resource",
                 role="statblock",
                 aliases=["External statblock sb_1"],
-                source_domains=["manual_seed"],
+                source_domains=["statblock"],
                 external_resource=ExternalResourceV1.model_validate(
                     {
                         "schema": "dmb_external_resource_v1",
@@ -1371,7 +1505,7 @@ def _connect_verification_store(
             "kind": "external_resource",
             "role": "statblock",
             "aliases": [resource_label],
-            "source_domains": ["manual_seed"],
+            "source_domains": ["statblock"],
             "evidence_ref_ids": [],
             "external_resource": resource,
         }
@@ -1401,7 +1535,7 @@ def _connect_verification_store(
                 "predicate": "uses_statblock",
                 "label": "uses statblock",
                 "direction": "outbound",
-                "source_domains": ["worldbuilding"],
+                "source_domains": ["statblock"],
                 "session_ids": [],
                 "evidence_ref_ids": [],
                 "threat_statblock_binding": binding,
@@ -1418,7 +1552,7 @@ def _connect_verification_store(
                 "predicate": "uses_statblock",
                 "label": "uses statblock",
                 "direction": "outbound",
-                "source_domains": ["worldbuilding"],
+                "source_domains": ["statblock"],
                 "session_ids": [],
                 "evidence_ref_ids": [],
                 "threat_statblock_binding": binding.model_copy(
@@ -1486,7 +1620,9 @@ def _projection_for_verified_commit(*, record, contribution, binding, selected_t
             "kind": str(threat_value.get("kind", "Threat")),
             "role": threat_value.get("role"),
             "aliases": list(threat_value.get("aliases") or []),
-            "source_domains": list(threat_value.get("source_domains") or []),
+            "source_domains": commit_svc._provenance_domains_for_object(
+                contribution, record.threat_node_id
+            ),
             "campaign_scope": threat_value.get("campaign_scope"),
             "summary": threat_value.get("summary"),
             "external_resource": None,
@@ -1527,7 +1663,7 @@ def _projection_for_verified_commit(*, record, contribution, binding, selected_t
                 kind="external_resource",
                 role="statblock",
                 aliases=["External statblock sb_1"],
-                source_domains=["manual_seed"],
+                source_domains=["statblock"],
                 external_resource=ExternalResourceV1.model_validate(
                     {
                         "schema": "dmb_external_resource_v1",
@@ -2698,6 +2834,8 @@ def test_legacy_c2a_trust_requires_historical_source_digest(
     assert lookup_calls["n"] == 0
     assert outcome.merge_calls == 0
     assert outcome.response.result_label == "publication_commit_integrity_failure"
+    assert outcome.response.commit_admitted is True
+    assert outcome.response.commit is not None
     assert "contribution_source_digest_mismatch" in (outcome.response.message or "")
     ledger = load_threat_publication_commit_ledger_unlocked(
         tmp_path, draft.draft_id, op_id
@@ -3693,6 +3831,72 @@ def test_admission_identity_integrity_failure_no_artifacts(
     assert outcome.merge_calls == 0
     assert outcome.response.result_label == "publication_commit_integrity_failure"
     _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
+
+
+def test_admission_graph_unavailable_is_explicitly_pre_admission(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+
+    with patch.object(
+        commit_svc.kernel,
+        "open_current_world_graph",
+        side_effect=OSError("graph head unavailable"),
+    ):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            _confirm_request(proposal),
+            world_root=tmp_path / "graph",
+            merge_fn=lambda *_a, **_k: _merge_success_result(proposal),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 0
+    assert outcome.response.result_label == "publication_commit_graph_unavailable"
+    assert outcome.response.commit is None
+    assert outcome.response.commit_admitted is False
+    _assert_no_commit_storage(tmp_path, draft.draft_id, op_id)
+
+
+def test_graph_unavailable_after_admission_returns_the_durable_record(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _rid, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    real_open = commit_svc.kernel.open_current_world_graph
+    open_calls = {"n": 0}
+
+    def open_graph(*args, **kwargs):
+        open_calls["n"] += 1
+        if open_calls["n"] >= 2:
+            raise OSError("graph head unavailable during recovery")
+        return real_open(*args, **kwargs)
+
+    with patch.object(commit_svc.kernel, "open_current_world_graph", side_effect=open_graph):
+        outcome = commit_svc.confirm_threat_publication(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            proposal_id,
+            _confirm_request(proposal),
+            world_root=tmp_path / "graph",
+            merge_fn=lambda *_a, **_k: (_ for _ in ()).throw(
+                RuntimeError("merge outcome uncertain")
+            ),
+            lookup_fn=lambda *_a, **_k: tuple(),
+        )
+
+    assert outcome.merge_calls == 1
+    assert outcome.response.result_label == "publication_commit_graph_unavailable"
+    assert outcome.response.commit is not None
+    assert outcome.response.commit_admitted is True
+    assert outcome.response.commit.state == "committing"
 
 
 def test_admission_identity_not_found_is_conflict(tmp_path: Path, monkeypatch) -> None:

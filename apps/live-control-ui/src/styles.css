@@ -2010,6 +2010,11 @@ button:disabled {
   font-weight: 600;
 }
 
+.statblock-workbench-dock__status[data-dock-tone="success"] {
+  color: #9fd4a8;
+  font-weight: 600;
+}
+
 .statblock-workbench-dock__actions {
   display: flex;
   flex-wrap: wrap;

@@ -110,7 +110,18 @@ import type {
   ValidateDefinitionBuddyResponseV1,
   AcceptThreatDraftMechanicsRequestV1,
   AcceptThreatDraftMechanicsResponseV1,
+  BeginThreatPublicationOperationRequestV1,
+  CancelThreatPublicationOperationRequestV1,
+  ConfirmThreatPublicationRequestV1,
+  CreateThreatIdentityResolutionRequestV1,
+  PrepareThreatIdentityCandidatesRequestV1,
+  PrepareThreatPublicationProposalRequestV1,
   ReadAcceptanceOperationResponseV1,
+  RetryThreatPublicationOperationRequestV1,
+  ThreatPublicationCommitResponseV1,
+  ThreatPublicationIdentityResponseV1,
+  ThreatPublicationOperationResponseV1,
+  ThreatPublicationProposalResponseV1,
   StatblockIntegrationReadinessV1,
   ThreatQueryHydrationRequestV1,
   ThreatQueryHydrationResponseV1,
@@ -249,6 +260,454 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw new LiveApiError(detail, response.status, errorOptions);
   }
   return parseJsonBody<T>(response);
+}
+
+/** Lifecycle statuses that may carry a typed publication envelope, including integrity (500). */
+const PUBLICATION_TYPED_STATUSES = new Set([200, 201, 404, 409, 500, 503]);
+
+const OPERATION_RESPONSE_SCHEMA = "dmb_threat_publication_operation_response_v1";
+const IDENTITY_RESPONSE_SCHEMA = "dmb_threat_publication_identity_response_v1";
+const PROPOSAL_RESPONSE_SCHEMA = "dmb_threat_publication_proposal_response_v1";
+const COMMIT_RESPONSE_SCHEMA = "dmb_threat_publication_commit_response_v1";
+const OPERATION_RECORD_SCHEMA = "dmb_threat_publication_operation_v1";
+const RESOLUTION_RECORD_SCHEMA = "dmb_threat_publication_identity_resolution_v1";
+const CANDIDATE_SET_SCHEMA = "dmb_threat_identity_candidate_set_v1";
+const PROPOSAL_RECORD_SCHEMA = "dmb_threat_publication_proposal_v1";
+const COMMIT_RECORD_SCHEMA = "dmb_threat_publication_commit_v1";
+
+const OPERATION_RESULT_LABELS = new Set<string>([
+  "publication_ready",
+  "publication_stale",
+  "publication_cancelled",
+  "publication_superseded",
+  "publication_busy",
+  "publication_input_conflict",
+  "publication_parent_mismatch",
+  "publication_source_mismatch",
+  "publication_history_full",
+  "publication_not_found",
+  "publication_draft_unavailable",
+  "publication_graph_unavailable",
+  "publication_storage_unavailable",
+  "publication_integrity_failure",
+  "publication_invalid_state",
+]);
+
+const IDENTITY_RESULT_LABELS = new Set<string>([
+  "publication_identity_candidates_ready",
+  "publication_identity_created_new",
+  "publication_identity_connected_existing",
+  "publication_identity_refused",
+  "publication_identity_superseded",
+  "publication_identity_operation_not_ready",
+  "publication_identity_candidate_overflow",
+  "publication_identity_candidate_set_changed",
+  "publication_identity_review_required",
+  "publication_identity_target_not_found",
+  "publication_identity_target_invalid",
+  "publication_identity_new_id_collision",
+  "publication_identity_busy",
+  "publication_identity_input_conflict",
+  "publication_identity_history_full",
+  "publication_identity_not_found",
+  "publication_identity_graph_unavailable",
+  "publication_identity_storage_unavailable",
+  "publication_identity_integrity_failure",
+]);
+
+const PROPOSAL_RESULT_LABELS = new Set<string>([
+  "publication_proposal_ready",
+  "publication_proposal_superseded",
+  "publication_proposal_identity_refused",
+  "publication_proposal_operation_not_ready",
+  "publication_proposal_resolution_not_active",
+  "publication_proposal_predecessor_mismatch",
+  "publication_proposal_parent_mismatch",
+  "publication_proposal_typed_collision",
+  "publication_proposal_busy",
+  "publication_proposal_input_conflict",
+  "publication_proposal_history_full",
+  "publication_proposal_not_found",
+  "publication_proposal_graph_unavailable",
+  "publication_proposal_storage_unavailable",
+  "publication_proposal_integrity_failure",
+]);
+
+const COMMIT_RESULT_LABELS = new Set<string>([
+  "publication_commit_verified",
+  "publication_commit_committed_unverified",
+  "publication_commit_recovery_pending",
+  "publication_commit_uncommitted",
+  "publication_commit_outcome_ambiguous",
+  "publication_commit_proposal_not_active",
+  "publication_commit_proposal_incompatible",
+  "publication_commit_operation_not_ready",
+  "publication_commit_resolution_not_active",
+  "publication_commit_predecessor_mismatch",
+  "publication_commit_parent_mismatch",
+  "publication_commit_busy",
+  "publication_commit_input_conflict",
+  "publication_commit_not_found",
+  "publication_commit_graph_unavailable",
+  "publication_commit_storage_unavailable",
+  "publication_commit_integrity_failure",
+]);
+
+/** Labels that must carry their durable record (mirrors route success classes). */
+const OPERATION_LABELS_REQUIRING_RECORD = new Set<string>([
+  "publication_ready",
+  "publication_stale",
+  "publication_cancelled",
+  "publication_superseded",
+]);
+
+const IDENTITY_LABELS_REQUIRING_RESOLUTION = new Set<string>([
+  "publication_identity_created_new",
+  "publication_identity_connected_existing",
+  "publication_identity_refused",
+  "publication_identity_superseded",
+]);
+
+const PROPOSAL_LABELS_REQUIRING_PROPOSAL = new Set<string>([
+  "publication_proposal_ready",
+  "publication_proposal_superseded",
+]);
+
+const COMMIT_LABELS_REQUIRING_COMMITTED_REVISION = new Set<string>([
+  "publication_commit_verified",
+  "publication_commit_committed_unverified",
+]);
+
+const COMMIT_LABELS_REQUIRING_COMMIT_RECORD = new Set<string>([
+  "publication_commit_verified",
+  "publication_commit_committed_unverified",
+  "publication_commit_recovery_pending",
+  "publication_commit_uncommitted",
+  "publication_commit_outcome_ambiguous",
+]);
+
+const OPERATION_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_ready: new Set([200, 201]),
+  publication_stale: new Set([200]),
+  publication_cancelled: new Set([200]),
+  publication_superseded: new Set([200]),
+  publication_busy: new Set([409]),
+  publication_input_conflict: new Set([409]),
+  publication_parent_mismatch: new Set([409]),
+  publication_source_mismatch: new Set([409]),
+  publication_history_full: new Set([409]),
+  publication_invalid_state: new Set([409]),
+  publication_not_found: new Set([404]),
+  publication_draft_unavailable: new Set([503]),
+  publication_graph_unavailable: new Set([503]),
+  publication_storage_unavailable: new Set([503]),
+  publication_integrity_failure: new Set([500]),
+};
+
+const IDENTITY_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_identity_candidates_ready: new Set([200]),
+  publication_identity_created_new: new Set([200, 201]),
+  publication_identity_connected_existing: new Set([200, 201]),
+  publication_identity_refused: new Set([200, 201]),
+  publication_identity_superseded: new Set([200, 201]),
+  publication_identity_operation_not_ready: new Set([409]),
+  publication_identity_candidate_overflow: new Set([409]),
+  publication_identity_candidate_set_changed: new Set([409]),
+  publication_identity_review_required: new Set([409]),
+  publication_identity_target_invalid: new Set([409]),
+  publication_identity_new_id_collision: new Set([409]),
+  publication_identity_busy: new Set([409]),
+  publication_identity_input_conflict: new Set([409]),
+  publication_identity_history_full: new Set([409]),
+  publication_identity_not_found: new Set([404]),
+  publication_identity_target_not_found: new Set([404]),
+  publication_identity_graph_unavailable: new Set([503]),
+  publication_identity_storage_unavailable: new Set([503]),
+  publication_identity_integrity_failure: new Set([500]),
+};
+
+const PROPOSAL_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_proposal_ready: new Set([200, 201]),
+  publication_proposal_superseded: new Set([200]),
+  publication_proposal_identity_refused: new Set([409]),
+  publication_proposal_operation_not_ready: new Set([409]),
+  publication_proposal_resolution_not_active: new Set([409]),
+  publication_proposal_predecessor_mismatch: new Set([409]),
+  publication_proposal_parent_mismatch: new Set([409]),
+  publication_proposal_typed_collision: new Set([409]),
+  publication_proposal_busy: new Set([409]),
+  publication_proposal_input_conflict: new Set([409]),
+  publication_proposal_history_full: new Set([409]),
+  publication_proposal_not_found: new Set([404]),
+  publication_proposal_graph_unavailable: new Set([503]),
+  publication_proposal_storage_unavailable: new Set([503]),
+  publication_proposal_integrity_failure: new Set([500]),
+};
+
+const COMMIT_STATUS_BY_LABEL: Record<string, ReadonlySet<number>> = {
+  publication_commit_verified: new Set([200, 201]),
+  publication_commit_committed_unverified: new Set([200, 201]),
+  publication_commit_recovery_pending: new Set([503]),
+  publication_commit_uncommitted: new Set([409]),
+  publication_commit_outcome_ambiguous: new Set([409]),
+  publication_commit_proposal_not_active: new Set([409]),
+  publication_commit_proposal_incompatible: new Set([409]),
+  publication_commit_operation_not_ready: new Set([409]),
+  publication_commit_resolution_not_active: new Set([409]),
+  publication_commit_predecessor_mismatch: new Set([409]),
+  publication_commit_parent_mismatch: new Set([409]),
+  publication_commit_busy: new Set([409]),
+  publication_commit_input_conflict: new Set([409]),
+  publication_commit_not_found: new Set([404]),
+  publication_commit_graph_unavailable: new Set([503]),
+  publication_commit_storage_unavailable: new Set([503]),
+  publication_commit_integrity_failure: new Set([500]),
+};
+
+function isRecord(body: unknown): body is Record<string, unknown> {
+  return typeof body === "object" && body !== null && !Array.isArray(body);
+}
+
+function statusAllowsLabel(
+  status: number,
+  label: string,
+  table: Record<string, ReadonlySet<number>>,
+): boolean {
+  const allowed = table[label];
+  return allowed != null && allowed.has(status);
+}
+
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isOperationRecord(value: unknown, draftId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== OPERATION_RECORD_SCHEMA) return false;
+  if (!isNonBlankString(value.operation_id)) return false;
+  if (!isRecord(value.source_snapshot)) return false;
+  if (value.source_snapshot.draft_id !== draftId) return false;
+  if (!isNonBlankString(value.source_snapshot.draft_id)) return false;
+  if (!isRecord(value.source_snapshot.accepted_mechanics_ref)) return false;
+  const mechanics = value.source_snapshot.accepted_mechanics_ref;
+  if (!isNonBlankString(mechanics.statblock_id) || !isNonBlankString(mechanics.revision_id)) {
+    return false;
+  }
+  if (!isNonBlankString(mechanics.definition_digest)) return false;
+  if (typeof mechanics.accepted_from_draft_version !== "number") return false;
+  return true;
+}
+
+function isCandidateSetRecord(value: unknown, draftId: string, operationId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== CANDIDATE_SET_SCHEMA) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!Array.isArray(value.candidates)) return false;
+  if (!isNonBlankString(value.candidate_set_digest)) return false;
+  return true;
+}
+
+function isResolutionRecord(value: unknown, draftId: string, operationId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== RESOLUTION_RECORD_SCHEMA) return false;
+  if (!isNonBlankString(value.resolution_id)) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!isCandidateSetRecord(value.candidate_set, draftId, operationId)) return false;
+  return true;
+}
+
+function isProposalRecord(value: unknown, draftId: string, operationId: string): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== PROPOSAL_RECORD_SCHEMA) return false;
+  if (!isNonBlankString(value.proposal_id)) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!isNonBlankString(value.sealed_proposal_digest)) return false;
+  if (!isNonBlankString(value.expected_parent_revision_id)) return false;
+  if (!isRecord(value.effect_summary)) return false;
+  return true;
+}
+
+function isCommitRecord(
+  value: unknown,
+  draftId: string,
+  operationId: string,
+  commitId: string,
+  requireCommittedRevision: boolean,
+): boolean {
+  if (!isRecord(value)) return false;
+  if (value.schema !== COMMIT_RECORD_SCHEMA) return false;
+  if (value.commit_id !== commitId) return false;
+  if (value.draft_id !== draftId || value.operation_id !== operationId) return false;
+  if (!isNonBlankString(value.sealed_proposal_digest)) return false;
+  if (requireCommittedRevision && !isNonBlankString(value.committed_revision_id)) return false;
+  return true;
+}
+
+function validateOperationPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationOperationResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== OPERATION_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !OPERATION_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, OPERATION_STATUS_BY_LABEL)) return null;
+  if (typeof body.draft_id !== "string") return null;
+
+  const operation = body.operation;
+  if (OPERATION_LABELS_REQUIRING_RECORD.has(body.result_label)) {
+    if (!isOperationRecord(operation, body.draft_id)) return null;
+  } else if (operation != null && operation !== undefined) {
+    if (!isOperationRecord(operation, body.draft_id)) return null;
+  }
+  return body as unknown as ThreatPublicationOperationResponseV1;
+}
+
+function validateIdentityPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationIdentityResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== IDENTITY_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !IDENTITY_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, IDENTITY_STATUS_BY_LABEL)) return null;
+  if (typeof body.draft_id !== "string" || typeof body.operation_id !== "string") return null;
+  if (!("predecessor_usable" in body)) return null;
+
+  if (body.result_label === "publication_identity_candidates_ready") {
+    if (!isCandidateSetRecord(body.candidate_set, body.draft_id, body.operation_id)) return null;
+  }
+  if (IDENTITY_LABELS_REQUIRING_RESOLUTION.has(body.result_label)) {
+    if (!isResolutionRecord(body.resolution, body.draft_id, body.operation_id)) return null;
+  } else if (body.resolution != null && body.resolution !== undefined) {
+    if (!isResolutionRecord(body.resolution, body.draft_id, body.operation_id)) return null;
+  }
+  if (body.candidate_set != null && body.candidate_set !== undefined) {
+    if (!isCandidateSetRecord(body.candidate_set, body.draft_id, body.operation_id)) return null;
+  }
+  return body as unknown as ThreatPublicationIdentityResponseV1;
+}
+
+function validateProposalPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationProposalResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== PROPOSAL_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !PROPOSAL_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, PROPOSAL_STATUS_BY_LABEL)) return null;
+  if (typeof body.draft_id !== "string" || typeof body.operation_id !== "string") return null;
+  if (!("resolution_id" in body)) return null;
+
+  if (PROPOSAL_LABELS_REQUIRING_PROPOSAL.has(body.result_label)) {
+    if (!isProposalRecord(body.proposal, body.draft_id, body.operation_id)) return null;
+  } else if (body.proposal != null && body.proposal !== undefined) {
+    if (!isProposalRecord(body.proposal, body.draft_id, body.operation_id)) return null;
+  }
+  return body as unknown as ThreatPublicationProposalResponseV1;
+}
+
+function validateCommitPublicationEnvelope(
+  body: unknown,
+  status: number,
+): ThreatPublicationCommitResponseV1 | null {
+  if (!isRecord(body)) return null;
+  if (body.schema !== COMMIT_RESPONSE_SCHEMA) return null;
+  if (typeof body.result_label !== "string" || !COMMIT_RESULT_LABELS.has(body.result_label)) {
+    return null;
+  }
+  if (!statusAllowsLabel(status, body.result_label, COMMIT_STATUS_BY_LABEL)) return null;
+  if (
+    typeof body.draft_id !== "string"
+    || typeof body.operation_id !== "string"
+    || typeof body.commit_id !== "string"
+  ) {
+    return null;
+  }
+  if (body.commit_admitted !== null && typeof body.commit_admitted !== "boolean") return null;
+  if (typeof body.retry_allowed !== "boolean") return null;
+  if (!("proposal_id" in body)) return null;
+  if (
+    body.commit_admitted !== null
+    && body.commit_admitted !== (body.commit != null)
+  ) {
+    return null;
+  }
+
+  const requireRevision = COMMIT_LABELS_REQUIRING_COMMITTED_REVISION.has(body.result_label);
+  if (COMMIT_LABELS_REQUIRING_COMMIT_RECORD.has(body.result_label) || requireRevision) {
+    if (
+      !isCommitRecord(
+        body.commit,
+        body.draft_id,
+        body.operation_id,
+        body.commit_id,
+        requireRevision,
+      )
+    ) {
+      return null;
+    }
+  } else if (body.commit != null && body.commit !== undefined) {
+    if (
+      !isCommitRecord(body.commit, body.draft_id, body.operation_id, body.commit_id, false)
+    ) {
+      return null;
+    }
+  }
+  return body as unknown as ThreatPublicationCommitResponseV1;
+}
+
+async function publicationFetch<T extends { schema: string; result_label: string }>(
+  path: string,
+  init: RequestInit | undefined,
+  validate: (body: unknown, status: number) => T | null,
+): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  let body: unknown;
+  try {
+    body = await parseJsonBody<unknown>(response);
+  } catch (parseError) {
+    const message = parseError instanceof Error ? parseError.message : String(parseError);
+    throw new LiveApiError(message, response.status);
+  }
+
+  if (PUBLICATION_TYPED_STATUSES.has(response.status)) {
+    const validated = validate(body, response.status);
+    if (validated) {
+      return validated;
+    }
+    throw new LiveApiError(
+      "Publication response failed schema, result_label, status, or record validation",
+      response.status,
+    );
+  }
+
+  let detail = response.statusText;
+  if (isRecord(body)) {
+    if (typeof body.message === "string") {
+      detail = body.message;
+    } else if (typeof body.detail === "string") {
+      detail = body.detail;
+    }
+  }
+
+  throw new LiveApiError(detail, response.status);
+}
+
+function threatPublicationOperationsPrefix(draftId: string): string {
+  return `/api/live/threat-drafts/${encodeURIComponent(draftId)}/publication-operations`;
 }
 
 export async function getSurface(): Promise<LiveSurfaceResponse> {
@@ -952,6 +1411,149 @@ export async function reconcileAcceptanceOperation(
     {
       method: "POST",
     },
+  );
+}
+
+export async function beginThreatPublicationOperation(
+  draftId: string,
+  request: BeginThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    threatPublicationOperationsPrefix(draftId),
+    { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function getThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}`,
+    undefined,
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function refreshThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/refresh`,
+    { method: "POST" },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function cancelThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+  request: CancelThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/cancel`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function retryThreatPublicationOperation(
+  draftId: string,
+  operationId: string,
+  request: RetryThreatPublicationOperationRequestV1,
+): Promise<ThreatPublicationOperationResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/retry`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateOperationPublicationEnvelope,
+  );
+}
+
+export async function prepareThreatIdentityCandidates(
+  draftId: string,
+  operationId: string,
+  request?: PrepareThreatIdentityCandidatesRequestV1,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-candidates/prepare`,
+    { method: "POST", body: JSON.stringify(request ?? {}) },
+    validateIdentityPublicationEnvelope,
+  );
+}
+
+export async function createThreatIdentityResolution(
+  draftId: string,
+  operationId: string,
+  request: CreateThreatIdentityResolutionRequestV1,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateIdentityPublicationEnvelope,
+  );
+}
+
+export async function getThreatIdentityResolution(
+  draftId: string,
+  operationId: string,
+  resolutionId: string,
+): Promise<ThreatPublicationIdentityResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}`,
+    undefined,
+    validateIdentityPublicationEnvelope,
+  );
+}
+
+export async function prepareThreatPublicationProposal(
+  draftId: string,
+  operationId: string,
+  resolutionId: string,
+  request: PrepareThreatPublicationProposalRequestV1,
+): Promise<ThreatPublicationProposalResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/identity-resolutions/${encodeURIComponent(resolutionId)}/proposals`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateProposalPublicationEnvelope,
+  );
+}
+
+export async function getThreatPublicationProposal(
+  draftId: string,
+  operationId: string,
+  proposalId: string,
+): Promise<ThreatPublicationProposalResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}`,
+    undefined,
+    validateProposalPublicationEnvelope,
+  );
+}
+
+export async function confirmThreatPublicationCommit(
+  draftId: string,
+  operationId: string,
+  proposalId: string,
+  request: ConfirmThreatPublicationRequestV1,
+): Promise<ThreatPublicationCommitResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/proposals/${encodeURIComponent(proposalId)}/commits`,
+    { method: "POST", body: JSON.stringify(request) },
+    validateCommitPublicationEnvelope,
+  );
+}
+
+export async function getThreatPublicationCommit(
+  draftId: string,
+  operationId: string,
+  commitId: string,
+): Promise<ThreatPublicationCommitResponseV1> {
+  return publicationFetch(
+    `${threatPublicationOperationsPrefix(draftId)}/${encodeURIComponent(operationId)}/commits/${encodeURIComponent(commitId)}`,
+    undefined,
+    validateCommitPublicationEnvelope,
   );
 }
 

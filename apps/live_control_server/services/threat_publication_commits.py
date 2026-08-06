@@ -18,6 +18,7 @@ from typing import Any, Callable, Literal
 import graph_memory.kernel as kernel
 from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
 from graph_memory.kernel.contribution_models import ContributionMergeResult, GraphContribution
+from graph_memory.kernel.contributions import normalize_assertion_provenance
 from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionFocus,
@@ -98,15 +99,23 @@ def _response(
     label: ThreatPublicationCommitResultLabel,
     *,
     commit: ThreatPublicationCommitV1 | None = None,
+    commit_admitted: bool | None = None,
+    infer_commit_admission: bool = True,
     retry_allowed: bool = False,
     message: str | None = None,
 ) -> ThreatPublicationCommitResponseV1:
+    admitted = (
+        commit is not None
+        if infer_commit_admission and commit_admitted is None
+        else commit_admitted
+    )
     return ThreatPublicationCommitResponseV1(
         draft_id=draft_id,
         operation_id=operation_id,
         proposal_id=proposal_id,
         commit_id=commit_id,
         result_label=label,
+        commit_admitted=admitted,
         commit=commit,
         retry_allowed=retry_allowed,
         message=message,
@@ -135,6 +144,9 @@ def _outcome_storage(
     proposal_id: str | None,
     commit_id: str,
     exc: ThreatPublicationCommitStorageError | ThreatPublicationProposalStorageError,
+    *,
+    commit: ThreatPublicationCommitV1 | None = None,
+    admission_known: bool = True,
 ) -> CommitOutcome:
     kind = getattr(exc, "kind", "unavailable")
     label: ThreatPublicationCommitResultLabel = (
@@ -143,7 +155,23 @@ def _outcome_storage(
         else "publication_commit_storage_unavailable"
     )
     return CommitOutcome(
-        _response(draft_id, operation_id, proposal_id, commit_id, label, message=str(exc))
+        _response(
+            draft_id,
+            operation_id,
+            proposal_id,
+            commit_id,
+            label,
+            commit=commit,
+            commit_admitted=(
+                True
+                if commit is not None
+                else False
+                if admission_known
+                else None
+            ),
+            infer_commit_admission=False,
+            message=str(exc),
+        )
     )
 
 
@@ -956,8 +984,15 @@ def _advance_committed_verification(
     try:
         _save_commit(root, verified)
     except ThreatPublicationCommitStorageError:
+        try:
+            persisted = load_threat_publication_commit_ledger_unlocked(
+                root, record.draft_id, record.operation_id
+            )
+            durable_record = persisted.commit if persisted is not None else record
+        except ThreatPublicationCommitStorageError:
+            durable_record = record
         return (
-            record,
+            durable_record,
             "publication_commit_committed_unverified",
             "verification could not persist",
         )
@@ -986,6 +1021,30 @@ def _resource_statblock_id_from_contribution(
             if isinstance(resource_id, str) and resource_id:
                 return resource_id
     return _statblock_id_from_resource_node_id(resource_node_id)
+
+
+def _provenance_domains_for_object(
+    contribution: GraphContribution, node_id: str
+) -> list[str]:
+    """Return source domains declared by assertions connected to one graph object.
+
+    Projection nodes aggregate provenance from their authored fields and
+    connected binding edges, so verification compares this declared package
+    contract as a subset of the projected domains rather than requiring the
+    projection to discard legitimate connected-source domains.
+    """
+    domains: set[str] = set()
+    for assertion in contribution.accepted_assertions:
+        connected = (
+            assertion.subject_node_id == node_id
+            or (
+                assertion.assertion_kind == "edge"
+                and assertion.target_node_id == node_id
+            )
+        )
+        if connected:
+            domains.update(normalize_assertion_provenance(assertion).source_domains)
+    return sorted(domains)
 
 
 def _identity_fields_match(
@@ -1051,7 +1110,12 @@ def _identity_fields_match(
     return True
 
 
-def _verify_external_resource_node(node: Any, *, statblock_id: str) -> str | None:
+def _verify_external_resource_node(
+    node: Any,
+    *,
+    statblock_id: str,
+    expected_source_domains: list[str] | None = None,
+) -> str | None:
     expected_node_id = external_statblock_node_id(statblock_id)
     expected_label = f"External statblock {statblock_id}"
     if node.node_id != expected_node_id:
@@ -1064,7 +1128,8 @@ def _verify_external_resource_node(node: Any, *, statblock_id: str) -> str | Non
         return "external_resource_label_mismatch"
     if sorted(node.aliases) != sorted([expected_label]):
         return "external_resource_aliases_mismatch"
-    if sorted(node.source_domains) != ["manual_seed"]:
+    expected_domains = sorted(expected_source_domains or ["manual_seed"])
+    if not set(expected_domains).issubset(set(node.source_domains)):
         return "external_resource_source_domain_mismatch"
     if node.external_resource is None:
         return "external_resource_payload_missing"
@@ -1199,7 +1264,10 @@ def _verify_create_new_materialization(
         codes.append("threat_label_materialization_mismatch")
     if sorted(threat.aliases) != sorted(list(expected.get("aliases") or [])):
         codes.append("threat_aliases_materialization_mismatch")
-    if sorted(threat.source_domains) != sorted(list(expected.get("source_domains") or [])):
+    expected_domains = _provenance_domains_for_object(
+        contribution, record.threat_node_id
+    )
+    if sorted(threat.source_domains) != sorted(expected_domains):
         codes.append("threat_source_domains_materialization_mismatch")
 
     authored_ids = {item.assertion_id for item in _authored_field_assertions(contribution, record.threat_node_id)}
@@ -1292,8 +1360,11 @@ def _projection_threat_matches_selected_target(
         if key == "kind":
             if str(expected).casefold() != str(actual).casefold():
                 codes.append(f"projection_connect_threat_{key}_mismatch")
-        elif key in {"aliases", "source_domains"}:
+        elif key == "aliases":
             if sorted(expected or []) != sorted(actual or []):
+                codes.append(f"projection_connect_threat_{key}_mismatch")
+        elif key == "source_domains":
+            if not set(expected or []).issubset(set(actual or [])):
                 codes.append(f"projection_connect_threat_{key}_mismatch")
         elif expected != actual:
             codes.append(f"projection_connect_threat_{key}_mismatch")
@@ -1328,9 +1399,10 @@ def _verify_projection_audit(
                 codes.append("projection_threat_role_mismatch")
             if sorted(threat.aliases) != sorted(list(expected.get("aliases") or [])):
                 codes.append("projection_threat_aliases_mismatch")
-            if sorted(threat.source_domains) != sorted(
-                list(expected.get("source_domains") or [])
-            ):
+            expected_domains = _provenance_domains_for_object(
+                contribution, record.threat_node_id
+            )
+            if not set(expected_domains).issubset(set(threat.source_domains)):
                 codes.append("projection_threat_source_domains_mismatch")
         elif record.decision == "connect_existing" and record.selected_target is not None:
             # No Threat node assertion in connect_existing contributions — bind the
@@ -1359,7 +1431,13 @@ def _verify_projection_audit(
     if resource is None:
         codes.append("projection_missing_resource")
     else:
-        resource_reason = _verify_external_resource_node(resource, statblock_id=statblock_id)
+        resource_reason = _verify_external_resource_node(
+            resource,
+            statblock_id=statblock_id,
+            expected_source_domains=_provenance_domains_for_object(
+                contribution, record.external_resource_node_id
+            ),
+        )
         if resource_reason is not None:
             codes.append(f"projection_{resource_reason}")
 
@@ -1634,7 +1712,11 @@ def _verify_committed(
                 status = "failed"
             else:
                 resource_reason = _verify_external_resource_node(
-                    resource, statblock_id=statblock_id
+                    resource,
+                    statblock_id=statblock_id,
+                    expected_source_domains=_provenance_domains_for_object(
+                        contribution, record.external_resource_node_id
+                    ),
                 )
                 if resource_reason is not None:
                     codes.append(resource_reason)
@@ -1787,6 +1869,39 @@ def _verify_committed(
     )
 
 
+def _merge_failure_message(result: ContributionMergeResult | None) -> str | None:
+    """Return the governed merge failure diagnostic for the UI.
+
+    New merge results carry a structured ``failure_code`` / ``failure_message``
+    pair. The prefixed diagnostic fallback is retained only for old injected
+    results and persisted records created before that contract existed.
+    """
+    if result is None:
+        return None
+    failure_code = getattr(result, "failure_code", None)
+    failure_message = getattr(result, "failure_message", None)
+    if failure_code == "merge_failed" and failure_message:
+        return (
+            "World Graph merge rejected the proposal "
+            f"({failure_message}). Cancel this publication and prepare again."
+        )
+    diagnostics = list(getattr(result, "diagnostics", None) or [])
+    for item in diagnostics:
+        if isinstance(item, str) and item.startswith("merge_failed:"):
+            detail = item.removeprefix("merge_failed:").strip()
+            if detail:
+                return (
+                    "World Graph merge rejected the proposal "
+                    f"({detail}). Cancel this publication and prepare again."
+                )
+    if result.published is False:
+        return (
+            "World Graph merge did not publish a revision. "
+            "Cancel this publication and prepare again."
+        )
+    return None
+
+
 def _reconcile(
     *,
     root: Path,
@@ -1798,6 +1913,7 @@ def _reconcile(
     merge_fn: MergeFn,
     published_false: bool,
     merge_calls: int,
+    published_false_message: str | None = None,
 ) -> tuple[
     ThreatPublicationCommitV1,
     int,
@@ -1888,12 +2004,29 @@ def _reconcile(
     if published_false:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", False, None
+        return (
+            updated,
+            merge_calls,
+            "publication_commit_uncommitted",
+            False,
+            published_false_message
+            or (
+                "World Graph merge did not publish a revision. "
+                "Cancel this publication and prepare again."
+            ),
+        )
 
     if record.merge_attempt_count >= 2:
         updated = _with_updated(record, state="uncommitted")
         _save_commit(root, updated)
-        return updated, merge_calls, "publication_commit_uncommitted", False, None
+        return (
+            updated,
+            merge_calls,
+            "publication_commit_uncommitted",
+            False,
+            "World Graph merge did not publish after recovery retry. "
+            "Cancel this publication and prepare again.",
+        )
 
     # Conditional single retry requires full revalidation by caller.
     return record, merge_calls, "publication_commit_recovery_pending", True, None
@@ -2343,6 +2476,7 @@ def _maybe_retry(
         merge_fn=merge_fn,
         published_false=(result.published is False),
         merge_calls=merge_calls,
+        published_false_message=_merge_failure_message(result),
     )
     return updated, merge_calls, label, message
 
@@ -2373,7 +2507,14 @@ def confirm_threat_publication(
                 root, safe_draft, safe_op
             )
         except ThreatPublicationCommitStorageError as exc:
-            return _outcome_storage(safe_draft, safe_op, safe_proposal, safe_commit, exc)
+            return _outcome_storage(
+                safe_draft,
+                safe_op,
+                safe_proposal,
+                safe_commit,
+                exc,
+                admission_known=False,
+            )
 
         if existing is not None:
             record = existing.commit
@@ -2461,7 +2602,12 @@ def confirm_threat_publication(
                         )
                     )
                 return _outcome_storage(
-                    safe_draft, safe_op, safe_proposal, safe_commit, exc
+                    safe_draft,
+                    safe_op,
+                    safe_proposal,
+                    safe_commit,
+                    exc,
+                    commit=record,
                 )
             proposal = (
                 find_threat_publication_proposal(proposal_ledger, record.proposal_id)
@@ -3092,6 +3238,7 @@ def confirm_threat_publication(
                 merge_fn=merge,
                 published_false=published_false,
                 merge_calls=merge_calls,
+                published_false_message=_merge_failure_message(result),
             )
         )
         outcome_message = reconcile_message
@@ -3159,7 +3306,14 @@ def read_threat_publication_commit(
                 root, safe_draft, safe_op
             )
         except ThreatPublicationCommitStorageError as exc:
-            return _outcome_storage(safe_draft, safe_op, None, safe_commit, exc)
+            return _outcome_storage(
+                safe_draft,
+                safe_op,
+                None,
+                safe_commit,
+                exc,
+                admission_known=False,
+            )
         if ledger is None or ledger.commit.commit_id != safe_commit:
             return CommitOutcome(
                 _response(

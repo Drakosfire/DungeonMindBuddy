@@ -3313,6 +3313,9 @@ export interface AcceptedMechanicsRefV1 {
   contract: string;
   contract_version: string;
   definition_digest: string;
+  accepted_from_candidate_id?: string | null;
+  /** Required by server AcceptedMechanicsRefV1 (draft version at acceptance). */
+  accepted_from_draft_version: number;
   accepted_at: string;
 }
 
@@ -3731,5 +3734,394 @@ export interface ThreatQueryHydrationResponseV1 {
 export interface ThreatQueryHydrationErrorV1 {
   schema: "dmb_threat_query_hydration_error_v1";
   resultLabel: ThreatQueryHydrationResultLabel;
+  message?: string | null;
+}
+
+/** SBW09a–c2b: Threat publication operation / identity / proposal / commit envelopes. */
+
+export type ThreatPublicationStaleReason =
+  | "draft_version_changed"
+  | "source_digest_changed"
+  | "accepted_mechanics_changed"
+  | "world_or_campaign_changed"
+  | "graph_parent_changed";
+
+export type ThreatPublicationOperationState =
+  | "ready"
+  | "stale"
+  | "cancelled"
+  | "superseded";
+
+export type ThreatPublicationResultLabel =
+  | "publication_ready"
+  | "publication_stale"
+  | "publication_cancelled"
+  | "publication_superseded"
+  | "publication_busy"
+  | "publication_input_conflict"
+  | "publication_parent_mismatch"
+  | "publication_source_mismatch"
+  | "publication_history_full"
+  | "publication_not_found"
+  | "publication_draft_unavailable"
+  | "publication_graph_unavailable"
+  | "publication_storage_unavailable"
+  | "publication_integrity_failure"
+  | "publication_invalid_state";
+
+export interface ThreatPublicationSourceSnapshotV1 {
+  schema: "dmb_threat_publication_source_v1";
+  draft_id: string;
+  draft_version: number;
+  world_id: string;
+  campaign_id: string;
+  focus?: ThreatDraftFocusV1 | null;
+  name: string;
+  slug_hint?: string | null;
+  description: string;
+  threat_kind: string;
+  intended_roles: string[];
+  tags: string[];
+  generation_intent: ThreatDraftGenerationIntentV1;
+  encounter_context: ThreatDraftEncounterContextV1;
+  graph_context_snapshot: ThreatDraftGraphContextSnapshotV1;
+  accepted_mechanics_ref: AcceptedMechanicsRefV1;
+}
+
+export interface BeginThreatPublicationOperationRequestV1 {
+  schema: "dmb_begin_threat_publication_operation_request_v1";
+  operation_id: string;
+  expected_draft_version: number;
+  expected_parent_revision_id: string;
+  actor: string;
+  operator_note?: string | null;
+}
+
+export interface CancelThreatPublicationOperationRequestV1 {
+  schema: "dmb_cancel_threat_publication_operation_request_v1";
+  actor: string;
+  note?: string | null;
+}
+
+export interface RetryThreatPublicationOperationRequestV1 {
+  schema: "dmb_retry_threat_publication_operation_request_v1";
+  new_operation_id: string;
+  expected_parent_revision_id: string;
+  actor: string;
+  operator_note?: string | null;
+}
+
+export interface ThreatPublicationOperationV1 {
+  schema: "dmb_threat_publication_operation_v1";
+  operation_id: string;
+  request_digest: string;
+  source_snapshot: ThreatPublicationSourceSnapshotV1;
+  source_digest: string;
+  expected_parent_revision_id: string;
+  state: ThreatPublicationOperationState;
+  stale_reasons: ThreatPublicationStaleReason[];
+  supersedes_operation_id?: string | null;
+  superseded_by_operation_id?: string | null;
+  cancelled_by?: string | null;
+  cancellation_note?: string | null;
+  operator_note?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreatPublicationOperationResponseV1 {
+  schema: "dmb_threat_publication_operation_response_v1";
+  draft_id: string;
+  result_label: ThreatPublicationResultLabel;
+  operation?: ThreatPublicationOperationV1 | null;
+  message?: string | null;
+}
+
+export type ThreatIdentityDecision = "create_new" | "connect_existing" | "refuse";
+
+export type ThreatIdentityResolutionState = "active" | "superseded";
+
+export type ThreatPublicationIdentityResultLabel =
+  | "publication_identity_candidates_ready"
+  | "publication_identity_created_new"
+  | "publication_identity_connected_existing"
+  | "publication_identity_refused"
+  | "publication_identity_superseded"
+  | "publication_identity_operation_not_ready"
+  | "publication_identity_candidate_overflow"
+  | "publication_identity_candidate_set_changed"
+  | "publication_identity_review_required"
+  | "publication_identity_target_not_found"
+  | "publication_identity_target_invalid"
+  | "publication_identity_new_id_collision"
+  | "publication_identity_busy"
+  | "publication_identity_input_conflict"
+  | "publication_identity_history_full"
+  | "publication_identity_not_found"
+  | "publication_identity_graph_unavailable"
+  | "publication_identity_storage_unavailable"
+  | "publication_identity_integrity_failure";
+
+export interface PrepareThreatIdentityCandidatesRequestV1 {
+  schema: "dmb_prepare_threat_identity_candidates_request_v1";
+  query_text?: string | null;
+}
+
+export interface ThreatIdentityCandidateV1 {
+  node_id: string;
+  label: string;
+  kind: string;
+  role: string;
+  aliases: string[];
+  campaign_scope?: string | null;
+  summary?: string | null;
+  source_domains: string[];
+  binding_ids: string[];
+  has_exact_accepted_binding: boolean;
+  match_score: number;
+  match_reasons: string[];
+  exact_name_collision: boolean;
+}
+
+export interface ThreatIdentityCandidateSetV1 {
+  schema: "dmb_threat_identity_candidate_set_v1";
+  draft_id: string;
+  operation_id: string;
+  source_digest: string;
+  expected_parent_revision_id: string;
+  matching_profile: "dmb_threat_identity_match_v1";
+  candidate_query: string;
+  eligible_threat_count: number;
+  exact_collision_count: number;
+  truncated: boolean;
+  candidates: ThreatIdentityCandidateV1[];
+  candidate_set_digest: string;
+}
+
+export interface CreateThreatIdentityResolutionRequestV1 {
+  schema: "dmb_create_threat_identity_resolution_request_v1";
+  resolution_id: string;
+  matching_profile: "dmb_threat_identity_match_v1";
+  candidate_query: string;
+  candidate_set_digest: string;
+  decision: ThreatIdentityDecision;
+  target_node_id?: string | null;
+  rejected_candidate_node_ids: string[];
+  actor: string;
+  reason: string;
+  supersedes_resolution_id?: string | null;
+}
+
+export interface ThreatPublicationIdentityResolutionV1 {
+  schema: "dmb_threat_publication_identity_resolution_v1";
+  resolution_id: string;
+  draft_id: string;
+  operation_id: string;
+  source_digest: string;
+  expected_parent_revision_id: string;
+  matching_profile: "dmb_threat_identity_match_v1";
+  candidate_query: string;
+  candidate_set: ThreatIdentityCandidateSetV1;
+  candidate_set_digest: string;
+  request_digest: string;
+  decision: ThreatIdentityDecision;
+  selected_target?: ThreatIdentityCandidateV1 | null;
+  created_node_id?: string | null;
+  rejected_candidate_node_ids: string[];
+  actor: string;
+  reason: string;
+  state: ThreatIdentityResolutionState;
+  supersedes_resolution_id?: string | null;
+  superseded_by_resolution_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreatPublicationIdentityResponseV1 {
+  schema: "dmb_threat_publication_identity_response_v1";
+  draft_id: string;
+  operation_id: string;
+  result_label: ThreatPublicationIdentityResultLabel;
+  candidate_set?: ThreatIdentityCandidateSetV1 | null;
+  resolution?: ThreatPublicationIdentityResolutionV1 | null;
+  predecessor_state?: ThreatPublicationOperationState | null;
+  /** Null means no current freshness observation was made. */
+  predecessor_usable: boolean | null;
+  message?: string | null;
+}
+
+export type ThreatPublicationProposalDecision = "create_new" | "connect_existing";
+
+export type ThreatPublicationProposalState = "active" | "superseded";
+
+export type ThreatPublicationProposalResultLabel =
+  | "publication_proposal_ready"
+  | "publication_proposal_superseded"
+  | "publication_proposal_identity_refused"
+  | "publication_proposal_operation_not_ready"
+  | "publication_proposal_resolution_not_active"
+  | "publication_proposal_predecessor_mismatch"
+  | "publication_proposal_parent_mismatch"
+  | "publication_proposal_typed_collision"
+  | "publication_proposal_busy"
+  | "publication_proposal_input_conflict"
+  | "publication_proposal_history_full"
+  | "publication_proposal_not_found"
+  | "publication_proposal_graph_unavailable"
+  | "publication_proposal_storage_unavailable"
+  | "publication_proposal_integrity_failure";
+
+export interface PrepareThreatPublicationProposalRequestV1 {
+  schema: "dmb_prepare_threat_publication_proposal_request_v1";
+  proposal_id: string;
+  actor: string;
+  operator_note?: string | null;
+  supersedes_proposal_id?: string | null;
+}
+
+export interface ThreatPublicationEffectSummaryV1 {
+  decision: ThreatPublicationProposalDecision;
+  threat_node_id: string;
+  external_resource_node_id: string;
+  binding_edge_id: string;
+  accepted_assertion_count: number;
+  authored_field_assertion_count: number;
+}
+
+export interface ThreatPublicationProposalV1 {
+  schema: "dmb_threat_publication_proposal_v1";
+  proposal_id: string;
+  request_digest: string;
+  draft_id: string;
+  operation_id: string;
+  resolution_id: string;
+  source_digest: string;
+  resolution_request_digest: string;
+  candidate_set_digest: string;
+  expected_parent_revision_id: string;
+  decision: ThreatPublicationProposalDecision;
+  threat_node_id: string;
+  sealed_proposal_id: string;
+  sealed_proposal_digest: string;
+  sealed_proposal_version: number;
+  sealed_proposal: Record<string, unknown>;
+  expected_contribution_id: string;
+  accepted_assertion_ids: string[];
+  effect_summary: ThreatPublicationEffectSummaryV1;
+  state: ThreatPublicationProposalState;
+  supersedes_proposal_id?: string | null;
+  superseded_by_proposal_id?: string | null;
+  created_by: string;
+  operator_note?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreatPublicationProposalResponseV1 {
+  schema: "dmb_threat_publication_proposal_response_v1";
+  draft_id: string;
+  operation_id: string;
+  resolution_id: string | null;
+  result_label: ThreatPublicationProposalResultLabel;
+  proposal?: ThreatPublicationProposalV1 | null;
+  message?: string | null;
+}
+
+export type ThreatPublicationCommitDecision = "create_new" | "connect_existing";
+
+export type ThreatPublicationCommitState =
+  | "committing"
+  | "uncommitted"
+  | "ambiguous"
+  | "committed_unverified"
+  | "committed_verified";
+
+export type ThreatPublicationVerificationStatus =
+  | "not_started"
+  | "passed"
+  | "degraded"
+  | "failed";
+
+export type ThreatPublicationMergeAttemptCount = 1 | 2;
+
+export type ThreatPublicationCommitResultLabel =
+  | "publication_commit_verified"
+  | "publication_commit_committed_unverified"
+  | "publication_commit_recovery_pending"
+  | "publication_commit_uncommitted"
+  | "publication_commit_outcome_ambiguous"
+  | "publication_commit_proposal_not_active"
+  | "publication_commit_proposal_incompatible"
+  | "publication_commit_operation_not_ready"
+  | "publication_commit_resolution_not_active"
+  | "publication_commit_predecessor_mismatch"
+  | "publication_commit_parent_mismatch"
+  | "publication_commit_busy"
+  | "publication_commit_input_conflict"
+  | "publication_commit_not_found"
+  | "publication_commit_graph_unavailable"
+  | "publication_commit_storage_unavailable"
+  | "publication_commit_integrity_failure";
+
+export interface ConfirmThreatPublicationRequestV1 {
+  schema: "dmb_confirm_threat_publication_request_v1";
+  commit_id: string;
+  sealed_proposal_digest: string;
+  expected_parent_revision_id: string;
+  actor: string;
+  operator_note?: string | null;
+}
+
+export interface ThreatPublicationCommitV1 {
+  schema: "dmb_threat_publication_commit_v1";
+  commit_id: string;
+  request_digest: string;
+  draft_id: string;
+  operation_id: string;
+  proposal_id: string;
+  proposal_request_digest: string;
+  sealed_proposal_digest: string;
+  sealed_proposal_version: number;
+  resolution_id: string;
+  source_digest: string;
+  resolution_request_digest: string;
+  candidate_set_digest: string;
+  world_id: string;
+  campaign_id: string;
+  expected_parent_revision_id: string;
+  expected_contribution_id: string;
+  expected_contribution_source_payload_sha256: string;
+  accepted_assertion_ids: string[];
+  decision: ThreatPublicationCommitDecision;
+  threat_node_id: string;
+  selected_target?: ThreatIdentityCandidateV1 | null;
+  external_resource_node_id: string;
+  binding_id: string;
+  binding_edge_id: string;
+  state: ThreatPublicationCommitState;
+  merge_attempt_count: ThreatPublicationMergeAttemptCount;
+  committed_revision_id?: string | null;
+  recovered_via_operation_lookup: boolean;
+  verification_status: ThreatPublicationVerificationStatus;
+  verification_codes: string[];
+  warnings: string[];
+  created_by: string;
+  operator_note?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreatPublicationCommitResponseV1 {
+  schema: "dmb_threat_publication_commit_response_v1";
+  draft_id: string;
+  operation_id: string;
+  proposal_id: string | null;
+  commit_id: string;
+  result_label: ThreatPublicationCommitResultLabel;
+  /** Null means admission could not be determined from the durable ledger. */
+  commit_admitted: boolean | null;
+  commit?: ThreatPublicationCommitV1 | null;
+  retry_allowed: boolean;
   message?: string | null;
 }

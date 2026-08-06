@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -3677,6 +3677,7 @@ describe("StatblockWorkbenchModule", () => {
             contract: "dungeonmind.dungeonbuddy-statblocks",
             contract_version: "1.0.0",
             definition_digest: `sha256:${"d".repeat(64)}`,
+            accepted_from_draft_version: 1,
             accepted_at: "2026-01-01T00:00:00Z",
           },
         }),
@@ -4298,6 +4299,266 @@ describe("StatblockWorkbenchModule", () => {
       expect(stored?.request_id).not.toBe("not-the-attempt-id");
       expect(screen.queryByTestId("revise-start-new")).toBeNull();
       expect(screen.getByTestId("revise-resume-same")).toBeTruthy();
+    });
+  });
+
+  describe("Threat publication entry (MAGIC-D3)", () => {
+    const DRAFT_ID = "00000000-0000-4000-8000-000000000099";
+    const DRAFT_B_ID = "11111111-1111-4111-8111-111111111133";
+    const GRAPH_HEAD = "rev:5cadc9798562862cdde22350d8a3b56c";
+
+    function mechanicsSavedRef(): NonNullable<
+      import("../../api/types").ThreatDraftV1["accepted_mechanics_ref"]
+    > {
+      return {
+        provider: "dungeonmind",
+        statblock_id: "sb_test",
+        revision_id: "rev_test",
+        contract: "dungeonmind.dungeonbuddy-statblocks",
+        contract_version: "1.0.0",
+        definition_digest: `sha256:${"d".repeat(64)}`,
+        accepted_from_draft_version: 2,
+        accepted_at: "2026-01-01T00:00:00Z",
+      };
+    }
+
+    function threatDraftFixture(
+      overrides: Partial<import("../../api/types").ThreatDraftV1> = {},
+    ): import("../../api/types").ThreatDraftV1 {
+      return {
+        schema: "dmb_threat_draft_v1",
+        draft_id: DRAFT_ID,
+        version: 2,
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: null,
+        name: "Ironhide Brute",
+        description: "A brute.",
+        threat_kind: "creature",
+        intended_roles: [],
+        tags: [],
+        generation_intent: {
+          ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+          target_cr: "3",
+          complexity: null,
+          must_include: [],
+          must_avoid: [],
+        },
+        encounter_context: { party_level: 5, party_size: 4, terrain_notes: [] },
+        graph_context_snapshot: {
+          graph_revision_id: "rev:abc",
+          selected_node_ids: [],
+          admitted_source_anchor_ids: [],
+        },
+        candidate_refs: [
+          {
+            candidate_id: "cand_fixture1",
+            generated_from_draft_version: 1,
+            request_id: "gen-req-1",
+            created_at: "2026-01-01T00:00:00Z",
+            status: "active",
+            lineage: null,
+          },
+        ],
+        accepted_mechanics_ref: null,
+        workflow_state: "candidate_ready",
+        created_by: "gm",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+        ...overrides,
+      };
+    }
+
+    function mockBootstrapHead(head: string | null = GRAPH_HEAD) {
+      return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
+        schema: "dmb_world_graph_bootstrap_status_v1",
+        state: head ? "active" : "ready",
+        bundleValid: true,
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        currentHeadRevisionId: head,
+        initialHeadRevisionId: head,
+      });
+    }
+
+    function activeWithDraft(draftId = DRAFT_ID): ReadStatblockCandidateResponseV1 {
+      return {
+        ...activeResponse,
+        source_draft_id: draftId,
+        source_draft_version: 2,
+        source_draft_name: "Ironhide Brute",
+      };
+    }
+
+    async function loadMechanicsSavedDraft(
+      draftOverrides: Partial<import("../../api/types").ThreatDraftV1> = {},
+    ) {
+      mockBootstrapHead();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          workflow_state: "mechanics_saved",
+          accepted_mechanics_ref: mechanicsSavedRef(),
+          ...draftOverrides,
+        }),
+      );
+      const user = userEvent.setup();
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      await waitFor(() => expect(screen.getByTestId("threat-publication-panel")).toBeTruthy());
+      return user;
+    }
+
+    it("shows Publish Threat for mechanics_saved draft when bootstrap head resolves", async () => {
+      await loadMechanicsSavedDraft();
+      await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
+      const dock = screen.getByTestId("workbench-edit-dock");
+      expect(within(dock).getByTestId("publish")).toBeTruthy();
+      expect(within(dock).getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+    });
+
+    it("refreshes ThreatDraft after Accept mechanics_saved so Publish mounts in-session", async () => {
+      mockBootstrapHead();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      const getDraft = vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({ workflow_state: "candidate_ready" }),
+      );
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: DRAFT_ID,
+        operation_id: "op_publish_refresh",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_1",
+          revision_id: "rev_1",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      const user = userEvent.setup();
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      expect(screen.queryByTestId("workbench-publication-entry")).toBeNull();
+
+      getDraft.mockResolvedValue(
+        threatDraftFixture({
+          workflow_state: "mechanics_saved",
+          accepted_mechanics_ref: mechanicsSavedRef(),
+        }),
+      );
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("threat-publication-panel")).toBeTruthy();
+        expect(within(screen.getByTestId("workbench-edit-dock")).getByTestId("publish")).toBeTruthy();
+      });
+      expect(getDraft.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("does not show Publish Threat for non-mechanics_saved draft", async () => {
+      mockBootstrapHead();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
+      await loadId("cand_fixture1");
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      expect(screen.queryByTestId("workbench-publication-entry")).toBeNull();
+      expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
+      expect(screen.queryByTestId("publish")).toBeNull();
+    });
+
+    it("shows unavailable publication status without head and never begins publication", async () => {
+      mockBootstrapHead(null);
+      const beginSpy = vi.spyOn(liveApi, "beginThreatPublicationOperation");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          workflow_state: "mechanics_saved",
+          accepted_mechanics_ref: mechanicsSavedRef(),
+        }),
+      );
+      await loadId("cand_fixture1");
+      await waitFor(() => expect(screen.getByTestId("publication-head-unavailable")).toBeTruthy());
+      expect(screen.getByTestId("publication-head-unavailable").textContent).toMatch(
+        /Publication is disabled until the current World Graph head is readable/i,
+      );
+      expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
+      expect(screen.queryByTestId("publish")).toBeNull();
+      expect(beginSpy).not.toHaveBeenCalled();
+    });
+
+    it("keeps editor chrome and updates the floating dock after beginning publish", async () => {
+      vi.spyOn(liveApi, "beginThreatPublicationOperation").mockResolvedValue({
+        schema: "dmb_threat_publication_operation_response_v1",
+        draft_id: DRAFT_ID,
+        result_label: "publication_busy",
+        operation: null,
+        message: "Publication operation state unknown.",
+      });
+      const user = await loadMechanicsSavedDraft();
+      expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
+      expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
+      expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
+      await user.click(screen.getByTestId("publish"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("publish")).toBeNull();
+        expect(screen.getByTestId("publication-dock-status").textContent).toMatch(
+          /another publication is active/i,
+        );
+      });
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy();
+    });
+
+    it("removes publication panel when switching away from mechanics_saved draft", async () => {
+      const user = await loadMechanicsSavedDraft();
+      await waitFor(() => expect(screen.getByTestId("publish")).toBeTruthy());
+
+      const candB = "cand_draft_b";
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        ...activeResponse,
+        candidate_id: candB,
+        candidate: { ...candidate, candidate_id: candB },
+        source_draft_id: DRAFT_B_ID,
+        source_draft_version: 1,
+        source_draft_name: "Draft B Threat",
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          draft_id: DRAFT_B_ID,
+          version: 1,
+          name: "Draft B Threat",
+          workflow_state: "candidate_ready",
+          accepted_mechanics_ref: null,
+          candidate_refs: [
+            {
+              candidate_id: candB,
+              generated_from_draft_version: 1,
+              request_id: "gen-req-b",
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+          ],
+        }),
+      );
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), candB);
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.queryByTestId("publish")).toBeNull());
+      expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
+      expect(screen.queryByTestId("workbench-publication-entry")).toBeNull();
     });
   });
 });

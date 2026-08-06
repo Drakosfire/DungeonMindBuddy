@@ -295,6 +295,10 @@ def test_competing_begin_allows_one_active_operation(tmp_path: Path, monkeypatch
     )
     assert second.created is False
     assert second.response.result_label == "publication_busy"
+    assert second.response.operation == first.response.operation
+    assert second.response.operation.operation_id == svc._load_ledger_unlocked(
+        tmp_path, draft.draft_id
+    ).active_operation_id
 
     ledger = svc._load_ledger_unlocked(tmp_path, draft.draft_id)
     assert len(ledger.operations) == 1
@@ -698,6 +702,37 @@ def test_corrupt_ledger_bad_schema_fails_closed(tmp_path: Path, monkeypatch) -> 
 
     result = svc.read_publication_operation(tmp_path, draft.draft_id, str(uuid.uuid4()))
     assert result.response.result_label == "publication_integrity_failure"
+
+
+@pytest.mark.parametrize(
+    ("pointer_field", "pointer_value"),
+    [
+        ("active_operation_id", "00000000-0000-4000-8000-000000000099"),
+        ("active_operation_id", None),
+    ],
+    ids=["unknown-active-operation", "missing-active-operation"],
+)
+def test_busy_pointer_corruption_fails_closed_without_inventing_active_operation(
+    tmp_path: Path,
+    monkeypatch,
+    pointer_field: str,
+    pointer_value: str | None,
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch)
+    begin = svc.begin_publication_operation(
+        tmp_path, draft.draft_id, _begin_request(expected_draft_version=draft.version)
+    )
+    assert begin.response.operation is not None
+    ledger_path = svc._ledger_path(tmp_path, draft.draft_id)
+    payload = json.loads(ledger_path.read_text(encoding="utf-8"))
+    payload[pointer_field] = pointer_value
+    ledger_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = svc.begin_publication_operation(
+        tmp_path, draft.draft_id, _begin_request(expected_draft_version=draft.version)
+    )
+    assert result.response.result_label == "publication_integrity_failure"
+    assert result.response.operation is None
 
 
 # ---------------------------------------------------------------------------

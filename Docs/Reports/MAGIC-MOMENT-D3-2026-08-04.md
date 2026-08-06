@@ -226,3 +226,7 @@ Canonical backlog entry: `Backlog.md` → **MAGIC-D3: Threat glance/Hermes must 
 - Placement (`AOW03`/`AOW04`), exact embed (`SBW12`), Build insertion, combat activation
 - Worktree-safe shared `out/` / durable store (Ingest symlink guard)
 
+## Continuation — Latchling (2026-08-05)
+
+Preferred Mireward Latchling published through Workbench; Plan/Hermes rediscovery succeeded; presentation + Plan reload + agent-loop latency still fail GM feel. Full ledger and codes: `Docs/Reports/MAGIC-MOMENT-D3-2026-08-05.md`.
+

@@ -54,7 +54,10 @@ from apps.live_control_server.services.threat_publication_operations import (
     begin_publication_operation,
     refresh_publication_operation,
 )
-from graph_memory.projection.world_projection import WorldGraphProjectionNodeView
+from graph_memory.projection.world_projection import (
+    WorldGraphProjectionAttributeView,
+    WorldGraphProjectionNodeView,
+)
 from graph_memory.union_supergraph.load import DEFAULT_FIXTURE_PATH, load_union_supergraph_store
 from graph_memory.world_supergraph import publish_world_graph_revision
 
@@ -156,9 +159,13 @@ def _node(
 
 
 def _projection_for(
-    *nodes: WorldGraphProjectionNodeView, revision_id: str = PARENT
+    *nodes: WorldGraphProjectionNodeView,
+    revision_id: str = PARENT,
+    attributes: list[WorldGraphProjectionAttributeView] | None = None,
 ):
-    return identity_svc.build_projection_fixture(revision_id=revision_id, nodes=list(nodes))
+    return identity_svc.build_projection_fixture(
+        revision_id=revision_id, nodes=list(nodes), attributes=attributes
+    )
 
 
 def _prepare(tmp_path: Path, draft_id: str, operation_id: str, **overrides: Any):
@@ -323,6 +330,99 @@ def test_candidate_rank_never_selects_identity(tmp_path: Path, monkeypatch) -> N
     assert cs.candidates[0].node_id == "threat:a"
     assert cs.candidates[0].match_score >= cs.candidates[1].match_score
     assert outcome.response.resolution is None
+
+
+def test_identity_candidate_policy_hides_attribute_only_context_matches(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Mireward Latchling")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    projection = _projection_for(
+        _node("threat:context-only", label="Tripod Null-Calf"),
+        _node("threat:surface", label="Mireward Latchling"),
+        attributes=[
+            WorldGraphProjectionAttributeView(
+                assertion_id="assertion:context",
+                subject_node_id="threat:context-only",
+                predicate="location",
+                label="Mireward",
+                value={"text": "Mireward"},
+                text_value="Mireward",
+            )
+        ],
+    )
+
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        outcome = _prepare(tmp_path, draft.draft_id, op_id, query_text="Mireward Latchling")
+
+    candidate_set = outcome.response.candidate_set
+    assert candidate_set is not None
+    assert [candidate.node_id for candidate in candidate_set.candidates] == ["threat:surface"]
+    assert identity_svc.IDENTITY_CANDIDATE_POLICY == (
+        "identity decision candidates require identity-surface evidence"
+    )
+
+
+def test_identity_candidate_policy_keeps_mixed_surface_and_context_match(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Mireward Latchling")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    projection = _projection_for(
+        _node("threat:mixed", label="Mireward Watcher"),
+        attributes=[
+            WorldGraphProjectionAttributeView(
+                assertion_id="assertion:mixed",
+                subject_node_id="threat:mixed",
+                predicate="location",
+                label="Mireward",
+                value={"text": "Mireward"},
+                text_value="Mireward",
+            )
+        ],
+    )
+
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        outcome = _prepare(tmp_path, draft.draft_id, op_id, query_text="Mireward Latchling")
+
+    candidate_set = outcome.response.candidate_set
+    assert candidate_set is not None
+    assert [candidate.node_id for candidate in candidate_set.candidates] == ["threat:mixed"]
+    assert "token:mireward:label" in candidate_set.candidates[0].match_reasons
+    assert "token:mireward:attribute" in candidate_set.candidates[0].match_reasons
+
+
+def test_candidate_order_and_digest_are_deterministic_for_input_order(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Alpha Threat")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    nodes = [
+        _node("threat:z", label="Alpha Threat Z"),
+        _node("threat:a", label="Alpha Threat A"),
+    ]
+
+    with patch.object(
+        identity_svc,
+        "project_world_graph",
+        return_value=_projection_for(*nodes),
+    ):
+        first = _prepare(tmp_path, draft.draft_id, op_id, query_text="Alpha Threat")
+    with patch.object(
+        identity_svc,
+        "project_world_graph",
+        return_value=_projection_for(*reversed(nodes)),
+    ):
+        second = _prepare(tmp_path, draft.draft_id, op_id, query_text="Alpha Threat")
+
+    first_set = first.response.candidate_set
+    second_set = second.response.candidate_set
+    assert first_set is not None and second_set is not None
+    assert [candidate.node_id for candidate in first_set.candidates] == [
+        candidate.node_id for candidate in second_set.candidates
+    ]
+    assert first_set.candidate_set_digest == second_set.candidate_set_digest
+    assert first_set.candidates[0].node_id == "threat:a"
 
 
 def test_create_new_requires_explicit_rejection_of_every_exact_collision(
@@ -1327,6 +1427,80 @@ def test_candidate_composition_respects_advisory_bound_of_twelve(
     assert len(non_collisions) <= 12
     assert cs.truncated is True
     assert len(cs.candidates) <= 32
+
+
+def test_begin_busy_includes_active_operation_for_recovery(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """publication_busy must name the blocker so the Workbench can cancel it."""
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Unique Busy Recovery")
+    first_op, first = _begin_operation(tmp_path, draft)
+    assert first is not None
+    second = begin_publication_operation(
+        tmp_path,
+        draft.draft_id,
+        BeginThreatPublicationOperationRequestV1.model_validate(
+            {
+                "operation_id": str(uuid.uuid4()),
+                "expected_draft_version": draft.version,
+                "expected_parent_revision_id": PARENT,
+                "actor": "gm",
+            }
+        ),
+    )
+    assert second.response.result_label == "publication_busy"
+    assert second.response.operation is not None
+    assert second.response.operation.operation_id == first_op
+
+
+def test_advisory_candidates_ignore_attribute_only_place_token_matches(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Place tokens in a draft name must not surface unrelated attribute-linked threats.
+
+    Dogfood: "Mireward Latchling" previously ranked Tripod Null-Calf via
+    token:mireward:attribute even though labels/aliases share no Latchling identity.
+    """
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch, name="Mireward Latchling")
+    op_id, _op = _begin_operation(tmp_path, draft)
+    tripod = _node("threat:tripod-null-calf", label="Tripod Null-Calf")
+    latchling = _node(
+        "threat:mireward-latchling",
+        label="Mireward Latchling",
+        aliases=["Latchling"],
+    )
+    projection = identity_svc.build_projection_fixture(
+        revision_id=PARENT,
+        nodes=[tripod, latchling],
+        attributes=[
+            WorldGraphProjectionAttributeView(
+                assertion_id="attr:tripod-mireward",
+                subject_node_id=tripod.node_id,
+                predicate="located_in",
+                label="located in",
+                text_value="Mireward ditches",
+            )
+        ],
+    )
+    with patch.object(identity_svc, "project_world_graph", return_value=projection):
+        outcome = _prepare(
+            tmp_path,
+            draft.draft_id,
+            op_id,
+            query_text="Mireward Latchling",
+        )
+    cs = outcome.response.candidate_set
+    assert cs is not None
+    node_ids = {candidate.node_id for candidate in cs.candidates}
+    assert "threat:tripod-null-calf" not in node_ids
+    assert "threat:mireward-latchling" in node_ids
+    latchling_candidate = next(
+        candidate for candidate in cs.candidates if candidate.node_id == "threat:mireward-latchling"
+    )
+    assert any(
+        reason.endswith(":label") or reason.endswith(":alias") or reason == "exact_label"
+        for reason in latchling_candidate.match_reasons
+    )
 
 
 def test_read_missing_predecessor_operation_returns_not_found(

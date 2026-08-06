@@ -170,6 +170,18 @@ def _load_ledger_unlocked(root: Path, draft_id: str) -> ThreatPublicationLedgerV
         raise _integrity_failure("corrupt publication ledger") from None
     if ledger.draft_id != safe:
         raise _integrity_failure("publication ledger identity mismatch")
+    active_like = [op for op in ledger.operations if op.state in {"ready", "stale"}]
+    if ledger.active_operation_id is None:
+        if active_like:
+            raise _integrity_failure("publication ledger active operation pointer missing")
+    else:
+        active = _find_operation(ledger, ledger.active_operation_id)
+        if active is None:
+            raise _integrity_failure("publication ledger active operation pointer missing")
+        if active.state not in {"ready", "stale"}:
+            raise _integrity_failure("publication ledger active operation pointer is terminal")
+        if len(active_like) != 1:
+            raise _integrity_failure("publication ledger has multiple active operations")
     return ledger
 
 
@@ -338,10 +350,17 @@ def begin_publication_operation(
             )
 
         if ledger.active_operation_id is not None:
+            active = _find_operation(ledger, ledger.active_operation_id)
+            if active is None:
+                return _outcome_from_storage_error(
+                    safe_draft,
+                    _integrity_failure("publication ledger active operation pointer missing"),
+                )
             return PublicationOperationOutcome(
                 _response(
                     safe_draft,
                     "publication_busy",
+                    operation=active,
                     message="another publication operation is active for this draft",
                 ),
                 created=False,

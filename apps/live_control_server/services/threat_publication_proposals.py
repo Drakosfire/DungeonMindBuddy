@@ -52,6 +52,7 @@ from apps.live_control_server.models.threat_publication_proposal import (
     operation_verified_source_uri,
     prepare_request_digest,
     resolution_source_artifact_id,
+    resolution_verified_source_uri,
     validate_proposal_id,
 )
 from apps.live_control_server.services.threat_publication_commit_store import (
@@ -413,6 +414,7 @@ def _resource_payload(statblock_id: str) -> dict[str, object]:
     return {
         "kind": "external_resource",
         "role": "statblock",
+        "source_domains": ["statblock"],
         "external_resource": resource.model_dump(mode="json", by_alias=True),
     }
 
@@ -452,6 +454,7 @@ def _binding_payload(
     value = {
         "edge_id": edge_id,
         "direction": "outbound",
+        "source_domains": ["statblock"],
         "threat_statblock_binding": binding.model_dump(mode="json", by_alias=True),
     }
     return value, edge_id, binding.binding_id
@@ -484,6 +487,70 @@ def _assertion_common(
     }
 
 
+def _embed_assertion_provenance(
+    assertion: GraphContributionAssertion,
+    *,
+    operation: ThreatPublicationOperationV1,
+    resolution: ThreatPublicationIdentityResolutionV1,
+    source_domain: str,
+    artifact_scope: Literal["operation", "resolution"],
+) -> GraphContributionAssertion:
+    """Embed evidence + source-artifact payloads so merge can materialize them.
+
+    Reference-only ``evidence:tpub:…`` ids are not present in the World Graph
+    store; contribution merge requires embedded provenance (see ANything dogfood
+    packaging) or merge returns ``published=False`` / uncommitted.
+    """
+    evidence_ids = [
+        item.strip()
+        for item in (assertion.evidence_ref_ids or [])
+        if isinstance(item, str) and item.strip()
+    ]
+    snapshot = operation.source_snapshot
+    if artifact_scope == "operation":
+        artifact_id = operation_source_artifact_id(operation.operation_id)
+        uri = operation_verified_source_uri(
+            world_id=snapshot.world_id,
+            campaign_id=snapshot.campaign_id,
+            draft_id=snapshot.draft_id,
+            operation_id=operation.operation_id,
+        )
+    else:
+        artifact_id = resolution_source_artifact_id(resolution.resolution_id)
+        uri = resolution_verified_source_uri(
+            world_id=snapshot.world_id,
+            campaign_id=snapshot.campaign_id,
+            draft_id=snapshot.draft_id,
+            operation_id=operation.operation_id,
+            resolution_id=resolution.resolution_id,
+        )
+
+    value = dict(assertion.value or {})
+    value["source_domains"] = [source_domain]
+    if not evidence_ids:
+        return assertion.model_copy(update={"value": value})
+    value["evidence"] = [
+        {
+            "evidence_ref_id": evidence_id,
+            "locator": f"threat-publication/{evidence_id}",
+            "source_artifact_id": artifact_id,
+            "source_domain": source_domain,
+        }
+        for evidence_id in evidence_ids
+    ]
+    value["source_artifacts"] = [
+        {
+            "campaign_id": snapshot.campaign_id,
+            "source_artifact_id": artifact_id,
+            "source_domain": source_domain,
+            "uri": uri,
+        }
+    ]
+    return assertion.model_copy(
+        update={"value": value, "source_artifact_id": artifact_id}
+    )
+
+
 def _attribute_assertion(
     *,
     operation: ThreatPublicationOperationV1,
@@ -499,13 +566,20 @@ def _attribute_assertion(
         source_domain="worldbuilding",
         identity_outcome=identity_outcome,
     )
-    return kernel.build_assertion(
+    assertion = kernel.build_assertion(
         assertion_kind="attribute",
         subject_node_id=subject_node_id,
         predicate=predicate,
         label=text,
         value={"text": text, "source_domains": ["worldbuilding"]},
         **common,
+    )
+    return _embed_assertion_provenance(
+        assertion,
+        operation=operation,
+        resolution=resolution,
+        source_domain="worldbuilding",
+        artifact_scope="operation",
     )
 
 
@@ -530,17 +604,23 @@ def _build_create_new_assertions(
         identity_outcome=identity_outcome,
     )
     assertions.append(
-        kernel.build_assertion(
-            assertion_kind="node",
-            subject_node_id=threat_node_id,
-            label=source_name,
-            value={
-                "kind": "threat",
-                "role": role,
-                "aliases": [source_name],
-                "source_domains": ["worldbuilding"],
-            },
-            **common,
+        _embed_assertion_provenance(
+            kernel.build_assertion(
+                assertion_kind="node",
+                subject_node_id=threat_node_id,
+                label=source_name,
+                value={
+                    "kind": "threat",
+                    "role": role,
+                    "aliases": [source_name],
+                    "source_domains": ["worldbuilding"],
+                },
+                **common,
+            ),
+            operation=operation,
+            resolution=resolution,
+            source_domain="worldbuilding",
+            artifact_scope="operation",
         )
     )
 
@@ -594,26 +674,32 @@ def _build_create_new_assertions(
     accepted_ref = snapshot.accepted_mechanics_ref
     resource_node_id = external_statblock_node_id(accepted_ref.statblock_id)
     assertions.append(
-        kernel.build_assertion(
-            assertion_kind="node",
-            acceptance_state="accepted",
-            subject_node_id=resource_node_id,
-            label=f"External statblock {accepted_ref.statblock_id}",
-            value=_resource_payload(accepted_ref.statblock_id),
-            source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
-            evidence_ref_ids=[
-                deterministic_evidence_id(
-                    operation.operation_id,
-                    resolution.resolution_id,
-                    "statblock",
-                    "resource",
-                )
-            ],
-            source_revision_id=operation.source_digest,
-            campaign_scope=snapshot.campaign_id,
-            visibility="gm",
-            epistemic_kind="fact",
-            identity_resolution_outcome=identity_outcome,
+        _embed_assertion_provenance(
+            kernel.build_assertion(
+                assertion_kind="node",
+                acceptance_state="accepted",
+                subject_node_id=resource_node_id,
+                label=f"External statblock {accepted_ref.statblock_id}",
+                value=_resource_payload(accepted_ref.statblock_id),
+                source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
+                evidence_ref_ids=[
+                    deterministic_evidence_id(
+                        operation.operation_id,
+                        resolution.resolution_id,
+                        "statblock",
+                        "resource",
+                    )
+                ],
+                source_revision_id=operation.source_digest,
+                campaign_scope=snapshot.campaign_id,
+                visibility="gm",
+                epistemic_kind="fact",
+                identity_resolution_outcome=identity_outcome,
+            ),
+            operation=operation,
+            resolution=resolution,
+            source_domain="statblock",
+            artifact_scope="resolution",
         )
     )
 
@@ -622,28 +708,34 @@ def _build_create_new_assertions(
         accepted_ref=accepted_ref,
     )
     assertions.append(
-        kernel.build_assertion(
-            assertion_kind="edge",
-            acceptance_state="accepted",
-            subject_node_id=threat_node_id,
-            target_node_id=resource_node_id,
-            predicate="uses_statblock",
-            label="uses_statblock",
-            value=binding_value,
-            source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
-            evidence_ref_ids=[
-                deterministic_evidence_id(
-                    operation.operation_id,
-                    resolution.resolution_id,
-                    "statblock",
-                    "binding",
-                )
-            ],
-            source_revision_id=operation.source_digest,
-            campaign_scope=snapshot.campaign_id,
-            visibility="gm",
-            epistemic_kind="fact",
-            identity_resolution_outcome=identity_outcome,
+        _embed_assertion_provenance(
+            kernel.build_assertion(
+                assertion_kind="edge",
+                acceptance_state="accepted",
+                subject_node_id=threat_node_id,
+                target_node_id=resource_node_id,
+                predicate="uses_statblock",
+                label="uses_statblock",
+                value=binding_value,
+                source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
+                evidence_ref_ids=[
+                    deterministic_evidence_id(
+                        operation.operation_id,
+                        resolution.resolution_id,
+                        "statblock",
+                        "binding",
+                    )
+                ],
+                source_revision_id=operation.source_digest,
+                campaign_scope=snapshot.campaign_id,
+                visibility="gm",
+                epistemic_kind="fact",
+                identity_resolution_outcome=identity_outcome,
+            ),
+            operation=operation,
+            resolution=resolution,
+            source_domain="statblock",
+            artifact_scope="resolution",
         )
     )
     return assertions
@@ -662,26 +754,32 @@ def _build_connect_existing_assertions(
 
     assertions: list[GraphContributionAssertion] = []
     assertions.append(
-        kernel.build_assertion(
-            assertion_kind="node",
-            acceptance_state="accepted",
-            subject_node_id=resource_node_id,
-            label=f"External statblock {accepted_ref.statblock_id}",
-            value=_resource_payload(accepted_ref.statblock_id),
-            evidence_ref_ids=[
-                deterministic_evidence_id(
-                    operation.operation_id,
-                    resolution.resolution_id,
-                    "statblock",
-                    "resource",
-                )
-            ],
-            source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
-            source_revision_id=operation.source_digest,
-            campaign_scope=snapshot.campaign_id,
-            visibility="gm",
-            epistemic_kind="fact",
-            identity_resolution_outcome=identity_outcome,
+        _embed_assertion_provenance(
+            kernel.build_assertion(
+                assertion_kind="node",
+                acceptance_state="accepted",
+                subject_node_id=resource_node_id,
+                label=f"External statblock {accepted_ref.statblock_id}",
+                value=_resource_payload(accepted_ref.statblock_id),
+                evidence_ref_ids=[
+                    deterministic_evidence_id(
+                        operation.operation_id,
+                        resolution.resolution_id,
+                        "statblock",
+                        "resource",
+                    )
+                ],
+                source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
+                source_revision_id=operation.source_digest,
+                campaign_scope=snapshot.campaign_id,
+                visibility="gm",
+                epistemic_kind="fact",
+                identity_resolution_outcome=identity_outcome,
+            ),
+            operation=operation,
+            resolution=resolution,
+            source_domain="statblock",
+            artifact_scope="resolution",
         )
     )
 
@@ -690,28 +788,34 @@ def _build_connect_existing_assertions(
         accepted_ref=accepted_ref,
     )
     assertions.append(
-        kernel.build_assertion(
-            assertion_kind="edge",
-            acceptance_state="accepted",
-            subject_node_id=threat_node_id,
-            target_node_id=resource_node_id,
-            predicate="uses_statblock",
-            label="uses_statblock",
-            value=binding_value,
-            evidence_ref_ids=[
-                deterministic_evidence_id(
-                    operation.operation_id,
-                    resolution.resolution_id,
-                    "statblock",
-                    "binding",
-                )
-            ],
-            source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
-            source_revision_id=operation.source_digest,
-            campaign_scope=snapshot.campaign_id,
-            visibility="gm",
-            epistemic_kind="fact",
-            identity_resolution_outcome=identity_outcome,
+        _embed_assertion_provenance(
+            kernel.build_assertion(
+                assertion_kind="edge",
+                acceptance_state="accepted",
+                subject_node_id=threat_node_id,
+                target_node_id=resource_node_id,
+                predicate="uses_statblock",
+                label="uses_statblock",
+                value=binding_value,
+                evidence_ref_ids=[
+                    deterministic_evidence_id(
+                        operation.operation_id,
+                        resolution.resolution_id,
+                        "statblock",
+                        "binding",
+                    )
+                ],
+                source_artifact_id=resolution_source_artifact_id(resolution.resolution_id),
+                source_revision_id=operation.source_digest,
+                campaign_scope=snapshot.campaign_id,
+                visibility="gm",
+                epistemic_kind="fact",
+                identity_resolution_outcome=identity_outcome,
+            ),
+            operation=operation,
+            resolution=resolution,
+            source_domain="statblock",
+            artifact_scope="resolution",
         )
     )
     return assertions
