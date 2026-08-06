@@ -1020,6 +1020,178 @@ describe("BuildSurfacePage", () => {
     expect(after).toEqual(before);
   });
 
+  it("BLD-REF-02: Insert chip → dirty → shared Save → remount keeps scoped chip", async () => {
+    const user = userEvent.setup();
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Faction Notes", "# Faction Notes\n\nKeep this body intact.\n");
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionWithGlowkindle());
+
+    let committedMarkdown = "";
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockImplementation(async (payload) => {
+      committedMarkdown = payload.markdown;
+      return {
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_ID,
+        title: "Faction Notes",
+        target_relpath: snapshot.record.target_relpath,
+        target_display_path: snapshot.record.target_relpath,
+        registry_revision: 2,
+        file_exists: true,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token-bld-ref-02",
+        writer_diff: "+chip\n",
+        warnings: [],
+        diagnostics: [],
+      };
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "Faction Notes",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 3,
+      committed_revision: 3,
+      committed_record: {
+        ...snapshot.record,
+        revision: 3,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha-committed-bld-ref-02",
+      writer_ok: true,
+      bytes_written: 64,
+      file_fingerprint: "fp-committed-bld-ref-02",
+      diagnostics: [],
+    });
+
+    function ActiveGraphReferenceProbe() {
+      const { activeGraphReference } = useAgentInteraction();
+      return (
+        <p data-testid="active-graph-node-id">
+          {activeGraphReference?.kind === "resolved_graph" ? activeGraphReference.graphNodeId : "none"}
+        </p>
+      );
+    }
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    const { unmount } = render(
+      <AgentInteractionProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+        <ActiveGraphReferenceProbe />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
+        "data-markdown-editor-status",
+        "ready",
+      );
+    });
+    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+
+    const insertButton = await screen.findByRole("button", { name: "Insert chip" });
+    await waitFor(() => {
+      expect(insertButton).toBeEnabled();
+    });
+    await user.click(insertButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+
+    const editor = screen.getByTestId("build-markdown-editor");
+    await waitFor(() => {
+      expect(editor.querySelector('[data-md-ref-id="npc-glowkindle"]')).toBeTruthy();
+    });
+    const chip = editor.querySelector('[data-md-ref-id="npc-glowkindle"]') as HTMLElement;
+    expect(chip).toHaveAttribute("data-md-ref-type", "graph-node");
+
+    const storedBeforeSave = JSON.parse(
+      window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) || "{}",
+    ) as { dirty: boolean; exported_markdown: string };
+    expect(storedBeforeSave.dirty).toBe(true);
+    expect(storedBeforeSave.exported_markdown).toMatch(
+      /#dmb-ref:graph-node:npc-glowkindle\?world=eldyrwild&campaign=longmont-c1&scope=campaign&revision=rev-1/,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(screen.getByTestId("surface-edit-host")).getByRole("button", { name: /Save/i }),
+    );
+
+    await waitFor(() => {
+      expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+      expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    });
+    expect(committedMarkdown).toMatch(
+      /#dmb-ref:graph-node:npc-glowkindle\?world=eldyrwild&campaign=longmont-c1&scope=campaign&revision=rev-1/,
+    );
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...snapshot,
+      markdown: committedMarkdown,
+      content_sha256: "sha-committed-bld-ref-02",
+      loaded_revision: 3,
+      record: {
+        ...snapshot.record,
+        revision: 3,
+        content_status: "committed",
+      },
+    });
+
+    unmount();
+    render(
+      <AgentInteractionProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+        <ActiveGraphReferenceProbe />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+      expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
+        "data-markdown-editor-status",
+        "ready",
+      );
+    });
+
+    const reloadedEditor = screen.getByTestId("build-markdown-editor");
+    await waitFor(() => {
+      expect(reloadedEditor.querySelector('[data-md-ref-id="npc-glowkindle"]')).toBeTruthy();
+    });
+    const reloadedChip = reloadedEditor.querySelector('[data-md-ref-id="npc-glowkindle"]') as HTMLElement;
+    expect(reloadedChip).toHaveAttribute("data-md-ref-type", "graph-node");
+
+    const storedAfterReload = JSON.parse(
+      window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) || "{}",
+    ) as { exported_markdown: string };
+    expect(storedAfterReload.exported_markdown).toMatch(
+      /#dmb-ref:graph-node:npc-glowkindle\?world=eldyrwild&campaign=longmont-c1&scope=campaign&revision=rev-1/,
+    );
+
+    await user.click(reloadedChip);
+    await waitFor(() => {
+      expect(screen.getByTestId("active-graph-node-id")).toHaveTextContent("npc-glowkindle");
+    });
+    expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
+    ).toBeInTheDocument();
+  });
+
   it("E3: shared Edit Save commits dirty document via prepare/commit", async () => {
     const user = userEvent.setup();
     const dirtyMarkdown = "# Dirty faction draft\n";
