@@ -267,6 +267,18 @@ export function isResolvedThreat(resolution: GraphReferenceResolution): boolean 
   );
 }
 
+/** Chip-hover parchment card: authored Threat identity, not every creature/npc node. */
+export function isThreatHoverPresentation(input: {
+  nodeId: string;
+  kind?: string | null;
+  role?: string | null;
+}): boolean {
+  const kind = normalizeGraphObjectKind(input.kind);
+  const role = normalizeGraphObjectKind(input.role);
+  if (kind === "threat" || role === "threat") return true;
+  return String(input.nodeId ?? "").startsWith("threat:");
+}
+
 export function threatSelectionTupleFromResolution(
   resolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }>,
 ): ThreatSelectionTuple | null {
@@ -360,7 +372,7 @@ export function sortThreatSheetBindings(
   });
 }
 
-function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSheetBindingViewModel {
+export function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSheetBindingViewModel {
   const typedBinding = binding.binding;
   const completeRevision =
     binding.hydrationStatus === "available"

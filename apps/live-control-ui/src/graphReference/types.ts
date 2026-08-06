@@ -34,6 +34,8 @@ export interface GraphNodeChipRuntimeValue {
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
   deltaByNodeId?: Record<string, GraphNodeChipDeltaPresentation>;
+  /** Exact Plan World Graph snapshot scope for Threat hover mechanics hydration. */
+  exactGraphScope?: ExactGraphReferenceScope | null;
 }
 
 export type GraphReferenceProjectionState =

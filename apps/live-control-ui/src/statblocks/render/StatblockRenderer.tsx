@@ -13,16 +13,21 @@ import {
   type StatblockViewModel,
 } from "./statblockViewModel";
 
+export type StatblockRendererChrome = "default" | "campaign";
+
 export type StatblockRendererProps =
   | {
       candidate: GeneratedStatblockCandidateV1;
       revision?: never;
       mode?: StatblockRenderMode;
+      /** campaign = Threat expand / GM prep; hides revision-id chrome. */
+      chrome?: StatblockRendererChrome;
     }
   | {
       candidate?: never;
       revision: StatblockRevisionResourceV1;
       mode?: StatblockRenderMode;
+      chrome?: StatblockRendererChrome;
     };
 
 function RuleElementBlock({ element }: { element: FormattedRuleElement }) {
@@ -172,7 +177,12 @@ function LairSection({ view }: { view: StatblockViewModel }) {
   );
 }
 
-export function StatblockRenderer({ candidate, revision, mode = "review" }: StatblockRendererProps) {
+export function StatblockRenderer({
+  candidate,
+  revision,
+  mode = "review",
+  chrome = "default",
+}: StatblockRendererProps) {
   const source = candidate ?? revision;
   if (!source) {
     throw new Error("StatblockRenderer requires candidate or revision");
@@ -183,12 +193,14 @@ export function StatblockRenderer({ candidate, revision, mode = "review" }: Stat
 
   const view = buildStatblockViewModel(source, mode);
   const sections = groupRuleElementsBySection(view.ruleElements);
+  const campaignChrome = chrome === "campaign";
 
   return (
     <article
-      className="statblock-renderer"
+      className={`statblock-renderer${campaignChrome ? " statblock-renderer--campaign" : ""}`}
       data-statblock-renderer
       data-render-mode={mode}
+      data-chrome={chrome}
       data-candidate-id={view.candidateId}
       data-resource-kind={view.recordKind}
       aria-label={`Statblock ${view.recordKind} ${view.name}`}
@@ -196,10 +208,14 @@ export function StatblockRenderer({ candidate, revision, mode = "review" }: Stat
       <header className="statblock-renderer-header">
         <h3>{view.name}</h3>
         <p className="statblock-renderer-identity">{view.identityLine}</p>
-        <p className="statblock-renderer-meta">
-          {view.recordKind === "revision" ? "Revision" : "Candidate"}{" "}
-          <code>{view.candidateId}</code> · {view.challengeSummary}
-        </p>
+        {campaignChrome ? (
+          <p className="statblock-renderer-meta">{view.challengeSummary}</p>
+        ) : (
+          <p className="statblock-renderer-meta">
+            {view.recordKind === "revision" ? "Revision" : "Candidate"}{" "}
+            <code>{view.candidateId}</code> · {view.challengeSummary}
+          </p>
+        )}
         {view.flavorSummary ? <p className="statblock-renderer-flavor">{view.flavorSummary}</p> : null}
       </header>
 

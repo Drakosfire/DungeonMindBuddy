@@ -297,8 +297,9 @@ export function PlanSurfaceCanvas({
       onSelectNode: (nodeId) => {
         void openGraphNodeFromChip(nodeId);
       },
+      exactGraphScope: extractExactGraphReferenceScope(projection),
     };
-  }, [openGraphNodeFromChip, projection?.nodes]);
+  }, [openGraphNodeFromChip, projection]);
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
     pinnedActions: [
