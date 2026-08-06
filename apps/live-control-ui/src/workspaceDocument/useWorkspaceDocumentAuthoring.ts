@@ -166,6 +166,8 @@ export function useWorkspaceDocumentAuthoring(
   /** Monotonic generation of non-programmatic editor mutations (detects edits during prepare/commit). */
   const editorMutationGenerationRef = useRef(0);
   const localDirtyRef = useRef(false);
+  const snapshotRef = useRef<WorkspaceDocumentSnapshot | null>(null);
+  const localStateRef = useRef<WorkspaceDocumentLocalState | null>(null);
   const requireDirtyToSave = args.requireDirtyToSave !== false;
   const emptyMarkdownFallback = args.emptyMarkdownFallback;
   const canSave = args.canSave;
@@ -177,6 +179,14 @@ export function useWorkspaceDocumentAuthoring(
   useEffect(() => {
     localDirtyRef.current = localState?.dirty ?? false;
   }, [localState?.dirty]);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+
+  useEffect(() => {
+    localStateRef.current = localState;
+  }, [localState]);
 
   const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
@@ -231,7 +241,9 @@ export function useWorkspaceDocumentAuthoring(
 
       expectedRevisionRef.current = nextSnapshot.loaded_revision;
       setSnapshot(nextSnapshot);
+      snapshotRef.current = nextSnapshot;
       writeWorkspaceDocumentLocalState(storage, opened.localState);
+      localStateRef.current = opened.localState;
       setLocalState(opened.localState);
       setDocumentKey(
         `${args.documentId}:${nextSnapshot.loaded_revision}:${opened.localState.dirty ? "dirty" : "clean"}`,
@@ -269,23 +281,38 @@ export function useWorkspaceDocumentAuthoring(
   }, [dispatch, storage]);
 
   const persistEditorState = useCallback((nextEditor: Editor) => {
-    setLocalState((current) => {
-      if (!current) return current;
-      const now = new Date().toISOString();
-      const tiptapJson = nextEditor.getJSON();
-      const next: WorkspaceDocumentLocalState = {
-        ...current,
-        tiptap_json: tiptapJson,
-        exported_markdown: tiptapJsonToSemanticMarkdown(tiptapJson),
-        dirty: true,
-        updated_at: now,
-        last_local_save_at: now,
-      };
-      writeWorkspaceDocumentLocalState(storage, next);
-      localDirtyRef.current = true;
-      return next;
-    });
-    dispatch({ type: "EDIT" });
+    const current = localStateRef.current;
+    if (!current) return;
+    const tiptapJson = nextEditor.getJSON();
+    const exportedMarkdown = tiptapJsonToSemanticMarkdown(tiptapJson);
+    const snap = snapshotRef.current;
+    // TipTap may emit a non-programmatic update after clean open/reload even when
+    // Markdown is unchanged. Keep (or restore) clean when body matches the snapshot.
+    const matchesSnapshot =
+      snap != null
+      && exportedMarkdown === snap.markdown
+      && current.base_revision === snap.loaded_revision
+      && current.base_content_sha256 === snap.content_sha256;
+    const nextDirty = !matchesSnapshot;
+    const wasDirty = current.dirty;
+    const now = new Date().toISOString();
+    const next: WorkspaceDocumentLocalState = {
+      ...current,
+      tiptap_json: tiptapJson,
+      exported_markdown: exportedMarkdown,
+      dirty: nextDirty,
+      updated_at: now,
+      last_local_save_at: now,
+    };
+    writeWorkspaceDocumentLocalState(storage, next);
+    localDirtyRef.current = nextDirty;
+    localStateRef.current = next;
+    setLocalState(next);
+    if (nextDirty) {
+      dispatch({ type: "EDIT" });
+    } else if (wasDirty) {
+      dispatch({ type: "OPEN_READY", dirty: false });
+    }
   }, [dispatch, storage]);
 
   const handleSetEditor = useCallback((nextEditor: Editor | null) => {
@@ -407,7 +434,7 @@ export function useWorkspaceDocumentAuthoring(
 
       setSnapshot((current) => {
         if (!current) return current;
-        return {
+        const nextSnapshot: WorkspaceDocumentSnapshot = {
           ...current,
           record: committed.committed_record,
           // Snapshot reflects durable committed bytes, not post-save local edits.
@@ -417,6 +444,8 @@ export function useWorkspaceDocumentAuthoring(
           file_exists: true,
           loaded_revision: committed.committed_revision,
         };
+        snapshotRef.current = nextSnapshot;
+        return nextSnapshot;
       });
       if (!editedDuringSave) {
         setDocumentKey(`${args.documentId}:${committed.committed_revision}:committed`);

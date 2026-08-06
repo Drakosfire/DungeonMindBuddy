@@ -4,6 +4,7 @@ import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
+import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 
@@ -16,8 +17,11 @@ export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build aut
  */
 export function BuildSurfaceShell() {
   const session = useMarkdownCanvasSession();
-  const slots = useBuildMarkdownCanvasSlots();
-  const { rehydrateScope, publishSurfaceContext } = useAgentInteraction();
+  const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
+  const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
+    (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
+  );
+  const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave });
   const lastAcceptedCampaignRef = useRef<string>("build");
 
   useEffect(() => {

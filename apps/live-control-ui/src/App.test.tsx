@@ -7,6 +7,8 @@ import { App } from "./App";
 import * as liveApi from "./api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "./api/types";
 import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
+import { buildViewExactTestSeam } from "./buildSurface/reference/BuildReferenceCapability";
+import { resetBuildBareEntryAutoCreateForTests } from "./buildSurface/BuildSurfacePage";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
@@ -82,6 +84,7 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     getWorkspaceDocument: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     createWorkspaceDocument: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -115,6 +118,7 @@ function fixtureSnapshot(
 describe("App inspector integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetBuildBareEntryAutoCreateForTests();
     window.history.pushState({}, "", "/");
     localStorage.clear();
     vi.mocked(liveApi.getSurface).mockResolvedValue({
@@ -164,11 +168,43 @@ describe("App inspector integration", () => {
       if (payload.kind === "runbook") {
         return northGateRunbookRecord();
       }
+      if (payload.kind === "worldbuilding_source") {
+        const documentId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        return fixtureWorkspaceDocumentRecord({
+          document_id: documentId,
+          title: payload.title,
+          campaign_id: payload.campaign_id,
+          target_session: null,
+          kind: "worldbuilding_source",
+          target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+          source_domain: "worldbuilding",
+          document_class: payload.document_class ?? "lore",
+          authority_state: payload.authority_state ?? "draft",
+          visibility_state: payload.visibility_state ?? "internal",
+        });
+      }
       return fixtureWorkspaceDocumentRecord();
     });
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (documentId) => {
       if (documentId === FIXTURE_DOC_ID) {
         return fixtureSnapshot({ record: northGateRunbookRecord() });
+      }
+      if (documentId === "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb") {
+        return fixtureSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: documentId,
+            title: "Untitled worldbuilding source",
+            campaign_id: "longmont-c2",
+            target_session: null,
+            kind: "worldbuilding_source",
+            target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+            source_domain: "worldbuilding",
+            document_class: "lore",
+            authority_state: "draft",
+            visibility_state: "internal",
+          }),
+          markdown: "",
+        });
       }
       return fixtureSnapshot({ record: fixtureWorkspaceDocumentRecord({ document_id: documentId }) });
     });
@@ -258,6 +294,248 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlanView).toHaveBeenCalled();
     expect(liveApi.getGraphIngestRuns).toHaveBeenCalled();
     expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
+  });
+
+  it("E1 bare /build: real App auto-admits Canvas without metadata form", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/build");
+    render(<App />);
+
+    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId("build-campaign-pick-longmont-c2"));
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Untitled worldbuilding source" })).toBeInTheDocument();
+    expect(screen.queryByTestId("build-new-source-form")).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith({
+      title: "Untitled worldbuilding source",
+      campaign_id: "longmont-c2",
+      kind: "worldbuilding_source",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    });
+    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    );
+    expect(new URL(window.location.href).searchParams.get("campaign")).toBe("longmont-c2");
+  });
+
+  it("E1/E5: real App /build route renders composition and viewExact seam", async () => {
+    buildViewExactTestSeam.reset();
+    const buildDocId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const glowkindleNode = {
+      nodeId: "npc-glowkindle",
+      label: "Glowkindle",
+      kind: "npc",
+      role: "merchant",
+      aliases: ["Glow"],
+      sourceDomains: ["recap"],
+      evidenceBadges: [],
+      adjacency: [],
+      suggestedExpansions: [],
+      evidenceRefIds: [],
+      sourceArtifactIds: [],
+      anchoredToFocusSession: true,
+      summary: "A friendly merchant.",
+    };
+    const buildRecord = fixtureWorkspaceDocumentRecord({
+      document_id: buildDocId,
+      title: "Faction Notes",
+      campaign_id: "longmont-c1",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${buildDocId}.md`,
+      source_domain: "worldbuilding",
+      document_class: "faction",
+      authority_state: "draft",
+      visibility_state: "internal",
+      content_status: "committed",
+      revision: 2,
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: buildRecord,
+        markdown: "# Faction Notes\n",
+        content_sha256: "sha-build-e1",
+        loaded_revision: 2,
+        file_fingerprint: "present",
+        file_exists: true,
+      }),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c1",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [glowkindleNode],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
+    render(<App />);
+
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+    expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
+    expect(screen.getByTestId("agent-interaction-bar")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByTestId("surface-edit-host")).toBeInTheDocument();
+    expect(screen.getByTestId("surface-tool-host")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    await user.click(screen.getByRole("button", { name: "View" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
+    expect(
+      within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
+    ).toBeInTheDocument();
+    expect(buildViewExactTestSeam.lastGraphNodeId).toBe("npc-glowkindle");
+    expect(buildViewExactTestSeam.lastGraphScope).toEqual({
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign",
+      revisionId: "rev-1",
+    });
+
+    await waitFor(() => {
+      expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
+    });
+    expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+  });
+
+  it("E7: route remount keeps singular ToolHost, EditHost, and Agent chrome", async () => {
+    const buildDocId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const buildRecord = fixtureWorkspaceDocumentRecord({
+      document_id: buildDocId,
+      title: "Faction Notes",
+      campaign_id: "longmont-c1",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${buildDocId}.md`,
+      source_domain: "worldbuilding",
+      document_class: "faction",
+      authority_state: "draft",
+      visibility_state: "internal",
+      content_status: "committed",
+      revision: 2,
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: buildRecord,
+        markdown: "# Faction Notes\n",
+        content_sha256: "sha-build-e7",
+        loaded_revision: 2,
+        file_fingerprint: "present",
+        file_exists: true,
+      }),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c1",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
+    const { unmount: unmountBuild } = render(<App />);
+
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+    });
+
+    unmountBuild();
+
+    window.history.pushState({}, "", "/plan");
+    const { unmount: unmountPlan } = render(<App />);
+
+    expect(await screen.findByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="surface-edit-host"]').length).toBeLessThanOrEqual(1);
+    });
+
+    unmountPlan();
+
+    window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
+    render(<App />);
+
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
+      expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+    });
   });
 
   it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {

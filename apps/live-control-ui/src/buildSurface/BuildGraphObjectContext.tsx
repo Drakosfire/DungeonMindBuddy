@@ -38,7 +38,7 @@ export interface BuildGraphObjectContextProps {
   documentCampaignId?: string | null;
   /**
    * When true, refuse to load until document campaign admission succeeds.
-   * Use for document-backed Build shell; leave false on the new-source form.
+   * Use for document-backed Build shell; leave false when no admitted document campaign is available.
    */
   requireDocumentScope?: boolean;
 }

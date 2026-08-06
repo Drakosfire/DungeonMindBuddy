@@ -6,8 +6,9 @@ import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import {
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
 } from "../../graphReference/projectionBindings";
-import { resolveGraphReference } from "../../graphReference/resolveGraphReference";
+import { resolveGraphReference, extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import type {
+  ExactGraphReferenceScope,
   GraphReferenceProjectionState,
   GraphReferenceResolution,
   GraphReferenceSearchItem,
@@ -17,6 +18,7 @@ import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdap
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
 import type { WorkspaceDocumentAuthoringPhase } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
+import { writeBuildLastCampaignId } from "../buildBareEntryCampaign";
 import {
   buildBuildSurfaceInteractionPublication,
   type BuildReferenceContextBinding,
@@ -36,6 +38,19 @@ const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = n
   "load_error",
   "conflict",
 ]);
+
+/**
+ * Vitest-only seam: last successful viewExact identity/scope for App-route E5 proof.
+ * Idle outside Vitest; never read by production UI.
+ */
+export const buildViewExactTestSeam = {
+  lastGraphNodeId: null as string | null,
+  lastGraphScope: null as ExactGraphReferenceScope | null,
+  reset() {
+    this.lastGraphNodeId = null;
+    this.lastGraphScope = null;
+  },
+};
 
 function subscribeToLocationSearch(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") {
@@ -118,6 +133,17 @@ async function resolveBuildRelationshipTarget(input: {
   if (targetId && input.projection) {
     const exactNode = input.projection.nodes.find((node) => node.nodeId === targetId) ?? null;
     if (exactNode) {
+      const graphScope = extractExactGraphReferenceScope(input.projection);
+      if (!graphScope) {
+        return {
+          kind: "error",
+          locator,
+          reference,
+          projectionState: input.projectionState,
+          message:
+            "World Graph projection is missing an exact scope; relationship resolution unavailable.",
+        };
+      }
       const nodeView = adaptWorldGraphNodeView(exactNode);
       return {
         kind: "resolved_graph",
@@ -125,6 +151,7 @@ async function resolveBuildRelationshipTarget(input: {
         reference,
         graphNodeId: exactNode.nodeId,
         graphObject: buildGraphObjectCardFromNodeView(nodeView),
+        graphScope,
         projectionState: input.projectionState,
         message: `Resolved graph node ${exactNode.label}.`,
       };
@@ -227,8 +254,10 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
 
   const selectCampaign = useCallback((campaignId: string) => {
     if (typeof window === "undefined") return;
+    const trimmed = campaignId.trim();
     const url = new URL(window.location.href);
-    url.searchParams.set("campaign", campaignId.trim());
+    url.searchParams.set("campaign", trimmed);
+    writeBuildLastCampaignId(trimmed);
     window.history.pushState({}, "", url.toString());
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, []);
@@ -242,6 +271,13 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       if (projection.loadKey !== liveKey) return;
       const canonical = projection.items.find((entry) => entry.nodeId === item.nodeId);
       if (!canonical) return;
+      const graphScope = extractExactGraphReferenceScope(projection.projection);
+      if (!graphScope) return;
+
+      if (import.meta.env.VITEST) {
+        buildViewExactTestSeam.lastGraphNodeId = canonical.nodeId;
+        buildViewExactTestSeam.lastGraphScope = graphScope;
+      }
 
       openGraphReference({
         resolution: {
@@ -250,13 +286,14 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
           reference: canonical.reference,
           graphNodeId: canonical.nodeId,
           graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
+          graphScope,
           projectionState: projection.state,
           message: `Resolved graph node ${canonical.label}.`,
         },
         projectionState: projection.state,
       });
     },
-    [openGraphReference, projection.items, projection.loadKey, projection.state],
+    [openGraphReference, projection.items, projection.loadKey, projection.projection, projection.state],
   );
 
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
@@ -288,14 +325,61 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     viewExact,
   ]);
 
+  /**
+   * Build-local Save live lease. Effect cleanup marks the capability inactive;
+   * the next effect setup restores liveness (StrictMode rehearsal cleanup must
+   * not permanently kill Save). liveDocumentIdRef is committed only in the
+   * effect so document replacement is event-safe — never mutated during render.
+   * Retained document-A invokes no-op when unmounted or when the live document
+   * no longer matches the bound identity (Canvas mountedRef alone is checked
+   * only after prepare/commit begins).
+   */
+  const saveMountedRef = useRef(false);
+  const liveDocumentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    saveMountedRef.current = true;
+    liveDocumentIdRef.current = documentId;
+    return () => {
+      saveMountedRef.current = false;
+      liveDocumentIdRef.current = null;
+    };
+  }, [documentId]);
+
+  const saveDocument = useMemo(() => {
+    const boundDocumentId = documentId;
+    const boundSession = session;
+    return async () => {
+      if (!saveMountedRef.current) return;
+      if (liveDocumentIdRef.current !== boundDocumentId) return;
+      if (!boundDocumentId || !boundSession || boundSession.documentId !== boundDocumentId) return;
+      if (EMPTY_PUBLICATION_PHASES.has(boundSession.phase)) return;
+      if (!boundSession.record || boundSession.record.document_id !== boundDocumentId) return;
+      if (!saveMountedRef.current) return;
+      if (liveDocumentIdRef.current !== boundDocumentId) return;
+      await boundSession.saveMarkdown();
+    };
+  }, [documentId, session]);
+
+  const documentSave = useMemo(() => {
+    if (!acceptedDocument || !session) return null;
+    return {
+      saveDisabled: session.saveDisabled,
+      disabledReason: session.saveDisabled
+        ? (session.statusLabel || "Save is unavailable for this document.")
+        : undefined,
+      save: () => saveDocument(),
+    };
+  }, [acceptedDocument, saveDocument, session]);
+
   const publication = useMemo(
     () =>
       buildBuildSurfaceInteractionPublication({
         documentId,
         acceptedDocument,
         referenceContext,
+        documentSave,
       }),
-    [acceptedDocument, documentId, referenceContext],
+    [acceptedDocument, documentId, documentSave, referenceContext],
   );
 
   usePublishSurfaceInteraction(publication);

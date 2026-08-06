@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { GRAPH_REFERENCE_RESOLUTION_BINDING_ID } from "../../graphReference/projectionBindings";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
@@ -12,6 +12,7 @@ import {
   buildBuildSurfaceInteractionPublication,
   type BuildReferenceContextBinding,
 } from "./buildBuildSurfaceInteractionPublication";
+import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 
 const DOC_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -92,13 +93,24 @@ describe("buildBuildSurfaceInteractionPublication", () => {
   });
 
   it("publishes Find existing tool and projections for accepted document", () => {
+    const save = vi.fn();
     const publication = buildBuildSurfaceInteractionPublication({
       documentId: DOC_ID,
       acceptedDocument: { documentId: DOC_ID, campaignId: "longmont-c1" },
       referenceContext: sampleContext,
+      documentSave: { saveDisabled: false, save },
     });
 
-    expect(publication.editCommands).toEqual([]);
+    expect(publication.editCommands).toHaveLength(1);
+    expect(publication.editCommands[0]).toMatchObject({
+      id: BUILD_DOCUMENT_SAVE_COMMAND_ID,
+      label: "Save",
+      availability: { status: "enabled" },
+      target: { kind: "document", id: DOC_ID },
+    });
+    expect(typeof publication.editCommands[0]?.invoke).toBe("function");
+    publication.editCommands[0]?.invoke();
+    expect(save).toHaveBeenCalledTimes(1);
     expect(publication.canvas).toEqual({
       canvasId: "markdown-canvas",
       workObject: { kind: "document", id: DOC_ID },
