@@ -48,7 +48,7 @@ Document sync is separate from implementation review.
 | **Composition**            | The real `App` route tree and visible browser result, not a test harness that manually mounts selected providers or hosts.                                                    |
 | **Active lease**           | The exact Build `SurfaceInteractionPublication.identity` bound to the admitted document.                                                                                      |
 | **Singular host**          | Exactly one app-owned Tool Host, Edit Host, Agent chrome, and Projection Host. Build publishes into them; Build does not mount private copies.                                |
-| **Operator-visible proof** | A clean built application in which the GM can see and use the claimed behavior without manually constructing URLs beyond an exact workspace document selection.               |
+| **Operator-visible proof** | A clean built application in which the GM can click Build and immediately author in the Markdown Canvas, without constructing a `documentId` URL or filling a metadata setup form first. |
 
 ## Agent flow and nano-commit contract
 
@@ -66,7 +66,7 @@ The exact commit count may differ, but unrelated cleanup, style redesign, graph 
 
 ### Mission
 
-An operator can enter `/build`, create or open one admitted worldbuilding document, and receive one visible shared Build workspace so plain Markdown authoring and native exact World Graph search/inspection are usable without leaving Build.
+An operator can click Build (bare `/build`) and immediately receive one visible shared Build workspace with an editable Markdown Canvas; a draft worldbuilding document is established automatically with sensible defaults, and native exact World Graph search/inspection remains usable without leaving Build.
 
 ### Merge-ready invariant
 
@@ -132,7 +132,7 @@ If the base moves, inspect all changes touching `App`, `AppChrome`, `MarkdownCan
 
 | Path                                         | Current observed/claimed behavior                                                        | Required behavior                                                                                                                                                                                                      | Owning boundary                           |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `/build` with no `documentId`                | Source code presents a creation form; operator did not receive a usable shared workspace | Nav and Agent chrome are visible and identify Build truthfully; creation remains explicit; Tool/Edit are absent or disabled until a document is admitted; successful creation navigates once to the exact new document | `App` + `BuildSurfacePage`                |
+| `/build` with no `documentId`                | Source code presents a creation form; operator did not receive a usable shared workspace | Auto-create one draft worldbuilding source with defaults (title “Untitled worldbuilding source”); navigate once to its exact `documentId`; render the Markdown Canvas and shared hosts. Metadata is not the primary surface (defaults + Canvas/Agent presentation). Opening/error/retry states stay under Nav/Agent. | `App` + `BuildSurfacePage`                |
 | `/build?documentId=<valid>` initial load     | Source claims Canvas/session composition; operator found no usable Canvas/shared layer   | Visible loading state, then one Markdown Canvas, one Nav, one Agent bar, one native Tool launcher, one native Edit launcher/host, and one shared Projection Host                                                       | `App` route composition                   |
 | Admitted document, graph loading/unavailable | Build graph capability may be unavailable                                                | Canvas, Nav, Edit, and Agent remain usable; Find Existing is loading/disabled/absent truthfully; no fallback graph or arbitrary corpus search                                                                          | Build publication + shared hosts          |
 | Admitted document, graph ready               | PR #506 capability exists                                                                | Tools → Find existing object → search → exact View → shared projection works through real `App` route                                                                                                                  | Build publication + Tool/Projection hosts |
@@ -151,7 +151,7 @@ If the base moves, inspect all changes touching `App`, `AppChrome`, `MarkdownCan
 | Ready document A → open Find Existing and a graph object → replace URL with document B while graph request/relationship resolution is pending | A’s Tool/Edit/projection close or revoke; delayed A completion is a no-op; B remains clean until its own publication is ready             | E6           |
 | Ready dirty document A → graph endpoint fails/retries                                                                                         | Canvas remains visible and dirty; Save remains targeted to A; graph failure does not clear editor content or change document authority    | E4           |
 | Ready document A → retain Save callback → switch to document B → invoke retained A command                                                    | No save/prepare/commit occurs for either document through the stale command; current Edit Host re-resolves by command ID and exact target | E3/E6        |
-| Bare `/build` under React StrictMode → create action/response                                                                                 | At most one document is created and one navigation occurs; no duplicate workspace records                                                 | E2           |
+| Bare `/build` under React StrictMode → auto-create                                                                           | At most one document is created and one navigation occurs; no duplicate workspace records; Canvas becomes editable | E2           |
 | Build → Plan → Build repeatedly                                                                                                               | One Tool Host, one Edit Host, one Agent chrome, one Projection Host; no duplicate DOM or resurrected Build drawer state                   | E7           |
 | Save document → `npm run build` → serve `npm run preview` → hard reload exact URL                                                             | Saved body is present and host composition is still visible                                                                               | E8/E10       |
 
@@ -219,7 +219,7 @@ No production path qualifies under bounded discovery.
 | PR #497 bulk cherry-pick / old `BuildGraphReferenceShell`                           | Stale, 107 commits behind, and built on old Plan resolver/host ownership; use only as historical comparison.                            |
 | Graph-reference insertion / TipTap graph node persistence                           | Named immediate successor. This PR proves the workspace that insertion will target.                                                     |
 | Graph writes, Threat publication, statblock binding changes                         | Separate governed write/mechanics lanes. Read-only dogfood only.                                                                        |
-| Build document picker/library, recent documents, auto-open preference               | Separate product capability. Existing explicit create/exact URL entry is sufficient for this slice.                                     |
+| Build document picker/library, recent documents, auto-open preference               | Separate product capability. Bare `/build` auto-creates a draft; picker is not required for Canvas-first entry.                         |
 | Local “Save surface state” checkpoint                                               | Separate persisted UI-state contract bundled in PR #497; explicitly excluded.                                                           |
 | Navbar graph status/actions redesign                                                | Presentation/polish, not composition truth.                                                                                             |
 | Extraction inspector migration into Tool Host                                       | Separate Build tool capability. Keep current extraction behavior unchanged.                                                             |
@@ -240,8 +240,9 @@ Input:
   current Build World Graph lens/projection state
 
 Output:
-  no document:
-    truthful Build entry state under shared Nav and Agent chrome
+  no documentId:
+    auto-create one draft worldbuilding source with defaults; navigate once; opening/error/retry under Nav/Agent
+    (metadata setup form is not the primary Build experience)
   admitted document:
     one visible Markdown Canvas and one lease-bound Build publication consumed by
     app-owned Tool, Edit, Agent, and Projection hosts
@@ -283,7 +284,7 @@ This PR introduces no new durable commit model. The only durable operation exerc
 
 | Observable path | Loading / initializing                           | Exact success                           | Ordinary miss                       | Dependency unavailable                    | Integrity / contract failure           | Stale / superseded                           | Retry / replay                        |
 | --------------- | ------------------------------------------------ | --------------------------------------- | ----------------------------------- | ----------------------------------------- | -------------------------------------- | -------------------------------------------- | ------------------------------------- |
-| Bare `/build`   | Shared Nav/Agent + explicit opening/create state | Navigate once to exact created document | User remains on creation form       | Creation error shown; no fake Canvas      | Fail closed                            | Ignore late create result after route leaves | Explicit retry; no duplicate create   |
+| Bare `/build`   | Shared Nav/Agent + opening draft state           | Auto-create → navigate → Canvas         | N/A (no form miss)                  | Create error + Retry; no fake Canvas      | Fail closed                            | Ignore late create result after route leaves | Explicit retry; no duplicate create   |
 | Canvas          | Visible loading state                            | Exact admitted document/editor          | Not applicable for known exact ID   | Snapshot unavailable → load error         | Conflict/rejected kind shown           | Prior Canvas unmounted and authority cleared | Existing reload/discard controls only |
 | Edit Host       | Hidden until admitted Canvas/work object         | Exact document Save command             | No commands                         | Graph unavailability does not affect it   | Disabled with exact Canvas reason      | Old target command no-op                     | Recompute from current session        |
 | Tool Host       | Hidden/disabled until accepted lens publication  | Find Existing opens                     | Zero search results explicit        | Graph unavailable explicit                | Integrity error; no fallback           | Old tool/projection no-op                    | Retry current exact lens only         |
@@ -335,8 +336,8 @@ Every result must state provenance: author-local, independently rerun local, CI,
 | ID  | Guarantee                                                             | Owning boundary                        | Evidence class          | Required proof                                                                                                                                               | Merge-blocking result                                                                                                 |
 | --- | --------------------------------------------------------------------- | -------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | E0  | The defect exists on the implementation base, or the slice is invalid | Built app + browser                    | baseline/manual         | Clean checkout, build/serve, open exact `/build` paths, capture what is absent                                                                               | If all acceptance steps already pass, stop and report deployment/stale-bundle mismatch; do not create a code PR       |
-| E1  | Real `App` route renders one complete admitted Build composition      | `App`                                  | integration/adversarial | `App.test.tsx` renders `/build?documentId=...`; asserts Canvas, Nav, Tool, Edit, Agent and exactly one Projection Host owner                                 | Any host proven only by manually mounting it outside `App`                                                            |
-| E2  | No-document/create path is truthful and idempotent                    | `BuildSurfacePage`                     | regression              | StrictMode create success/error/route-away tests; one create and one navigation maximum                                                                      | Duplicate workspace creation, silent auto-create, or stale completion navigation                                      |
+| E1  | Real `App` route renders one complete admitted Build composition      | `App`                                  | integration/adversarial | `App.test.tsx` covers bare `/build` (auto-admit → Canvas) and `/build?documentId=...`; asserts Canvas, Nav, Tool, Edit, Agent and exactly one Projection Host owner | Any host proven only by manually mounting it outside `App`; bare `/build` that stays on a metadata form              |
+| E2  | Bare `/build` auto-create is truthful and idempotent                  | `BuildSurfacePage`                     | regression              | StrictMode auto-create success/error/retry/route-away tests; one create and one navigation maximum; no metadata setup form as the primary surface                    | Duplicate workspace creation, form-first entry, or stale completion navigation                                        |
 | E3  | Plain Markdown editing and Save use exact Canvas authority            | Canvas + Build publication + Edit Host | integration/adversarial | Edit current body → dirty; Save through Edit Host → existing prepare/commit once; stale retained command after document switch no-ops; reload preserves text | Footer-only Save, wrong-document save, duplicated save path, or independent readiness reconstruction                  |
 | E4  | Graph dependency cannot take down or mutate the workspace             | Build publication/App                  | failure injection       | Projection loading/unavailable/error while document admitted; Canvas/Nav/Edit/Agent remain and document snapshot is unchanged                                | Canvas hidden, dirty state reset, or fallback graph/corpus path invoked                                               |
 | E5  | Native search/inspect is usable through the real route                | App + Tool/Projection hosts            | integration             | Tools → Find Existing → search fixture/current Threat → exact View → shared projection; one host each                                                        | Leaf-only search test, label substitution, or private Build drawer/container                                          |
@@ -397,8 +398,8 @@ Run the live-control backend through the repository’s current canonical startu
 
 Smallest realistic scenario:
 
-1. Open `/build` from the command-board navigation.
-2. Create one disposable worldbuilding source through the visible product form, or open one known exact admitted document URL.
+1. Open `/build` from the command-board navigation (click Build — do not hand-construct a `documentId` URL).
+2. Confirm the Markdown Canvas appears for an auto-created “Untitled worldbuilding source” (brief opening state is allowed; a metadata setup form is not).
 3. Confirm visible Nav and bottom Agent chrome before and after admission.
 4. Confirm the Markdown Canvas/editor is visible and receives keyboard input.
 5. Type a unique marker, e.g. `Build composition proof <timestamp>`.
@@ -460,7 +461,7 @@ The code agent/reviewer handback must include:
 
 The reviewer accepts only when every item is true:
 
-* [ ] One operator-visible Build workspace capability was delivered, proved by E1 and E10.
+* [ ] One operator-visible Build workspace capability was delivered, proved by bare-/build E1 and E10 (click Build → Canvas).
 * [ ] The real `App` route—not a manually assembled provider harness—renders the complete workspace, proved by E1.
 * [ ] Exactly one Nav, Tool, Edit, Agent, and Projection host exists, proved by E1/E7.
 * [ ] One admitted document maps to one Canvas and exact work-object identity, proved by E1/E3/E6.
@@ -482,7 +483,7 @@ Stop and report rather than expanding if any of these occurs:
 
 1. **Current main already passes E0/E10 completely.** The defect is stale deployment, browser cache, wrong process, or wrong entry path. Propose a deployment/runbook/cache repair; do not write redundant composition code.
 2. **Repair requires production changes to ToolHost, EditHost, AgentInteractionProvider, AgentInteractionChrome, ProjectionHost, AppChrome, MarkdownCanvas, or Plan.** Name the shared invariant failure and split for architecture review.
-3. **A document library/picker or “last open document” persistence is required to reach the workspace.** That is a separate product/persistence capability; keep explicit create/exact URL entry here.
+3. **A document library/picker or “last open document” persistence is required beyond auto-create on bare `/build`.** Picker/recent-doc UX is a separate product capability; this slice uses auto-create with defaults for Canvas-first entry.
 4. **The implementation starts adding graph-reference insertion or TipTap graph-node serialization.** Stop; that is the named successor.
 5. **The implementation starts adding local surface-state checkpointing, navbar status/actions, extraction inspector migration, Threat presentation, or performance work.** Stop for capability split.
 6. **A backend, graph, statblock, or workspace schema change appears necessary.** This slice should compose existing contracts only.
