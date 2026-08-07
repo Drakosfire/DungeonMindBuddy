@@ -18,6 +18,15 @@ from apps.live_control_server.integrations.dungeonmind_kernel.config import (
 from apps.live_control_server.integrations.dungeonmind_kernel.threat_hydration_shadow import (
     run_dungeonmind_threat_hydration_shadow,
 )
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA,
+    WholeWorldConformanceError,
+    WholeWorldConformanceReport,
+    analyze_exact_buddy_world_revision,
+    build_exact_dungeonmind_adoption_revision,
+    inspect_dungeonmind_durable_adoption_seam,
+    snapshot_world_graph_tree_digest,
+)
 from apps.live_control_server.integrations.dungeonmind_kernel.world_object_conformance_bridge import (
     BridgedStatblockAttachment,
     DungeonMindThreatConformanceBridgeResult,
@@ -32,6 +41,13 @@ from apps.live_control_server.integrations.dungeonmind_kernel.world_object_confo
 )
 
 __all__ = [
+    "WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA",
+    "WholeWorldConformanceError",
+    "WholeWorldConformanceReport",
+    "analyze_exact_buddy_world_revision",
+    "build_exact_dungeonmind_adoption_revision",
+    "inspect_dungeonmind_durable_adoption_seam",
+    "snapshot_world_graph_tree_digest",
     "BridgedStatblockAttachment",
     "DungeonMindThreatConformanceBridgeResult",
     "DungeonMindWorldObjectConformanceBridgeResult",

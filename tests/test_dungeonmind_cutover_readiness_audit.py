@@ -34,6 +34,9 @@ from apps.live_control_server.integrations import dungeonmind_kernel as bridge_p
 from apps.live_control_server.integrations.dungeonmind_kernel.config import (
     dungeonmind_threat_shadow_enabled,
 )
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    inspect_dungeonmind_durable_adoption_seam,
+)
 from apps.live_control_server.integrations.dungeonmind_kernel.world_object_conformance_bridge import (
     ThreatConformanceBridgeError,
     bridge_exact_buddy_threat,
@@ -754,12 +757,22 @@ def test_cutover_disposition_is_not_ready() -> None:
         "REAL_DATA_INCOMPATIBILITY": (
             "No checked-in durable uses_statblock Threat/NPC dogfood object"
         ),
+        "WHOLE_WORLD_ADOPTION": (
+            "Whole-graph adoption analyzer reports WHOLE_GRAPH_ADOPTION_NOT_READY "
+            "for real Eldyrwild revision; durable adoption seam missing"
+        ),
     }
     closed_gates = {
         "BRIDGE_MAPPING": (
             "Generalized world-object bridge maps Threat/NPC mechanics and PC semantics "
             "synthetically (#520 follow-on)"
         ),
+    }
+    whole_world_gates = {
+        "WHOLE_WORLD_INVENTORY": "PASS — analyzer inventories exact revision with zero unaccounted elements",
+        "WHOLE_WORLD_SEMANTIC_GAPS": "FAIL — item/mystery/group/party/event and unmapped predicates",
+        "WHOLE_WORLD_DURABLE_SEAM": "FAIL — DURABLE_ADOPTION_BOUNDARY_MISSING on DM pin",
+        "WHOLE_WORLD_BUILD_REFUSAL": "PASS — build_exact_dungeonmind_adoption_revision refuses NOT_READY",
     }
     # HIDDEN_FALLBACK is explicitly NOT listed: current Buddy authority fails closed
     # without an alternate hydrator. Poisoned A-vs-B remains BLOCKED BY PRODUCT_PROJECTION.
@@ -768,9 +781,18 @@ def test_cutover_disposition_is_not_ready() -> None:
     assert set(blockers) == {
         "PRODUCT_PROJECTION",
         "REAL_DATA_INCOMPATIBILITY",
+        "WHOLE_WORLD_ADOPTION",
     }
     assert "BRIDGE_MAPPING" in closed_gates
     assert "BRIDGE_MAPPING" not in blockers
+    assert whole_world_gates["WHOLE_WORLD_BUILD_REFUSAL"].startswith("PASS")
+    assert whole_world_gates["WHOLE_WORLD_SEMANTIC_GAPS"].startswith("FAIL")
+    assert whole_world_gates["WHOLE_WORLD_DURABLE_SEAM"].startswith("FAIL")
+
+
+def test_whole_world_adoption_seam_missing_on_current_pin() -> None:
+    seam = inspect_dungeonmind_durable_adoption_seam()
+    assert seam.status == "DURABLE_ADOPTION_BOUNDARY_MISSING"
 
 
 def test_statblock_integration_error_categories_exist_for_fail_closed_authority() -> None:
