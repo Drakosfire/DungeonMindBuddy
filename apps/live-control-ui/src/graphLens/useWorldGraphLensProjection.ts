@@ -9,8 +9,9 @@ import {
 } from "react";
 
 import { LiveApiError, postWorldGraphProjection } from "../api/liveApi";
-import type { WorldGraphProjection } from "../api/types";
+import type { WorldGraphProjection, WorldGraphProjectionRequest } from "../api/types";
 import type { GraphReferenceProjectionState } from "../graphReference/types";
+import { worldGraphProjectionRequestKey } from "../worldGraph/worldGraphProjectionRequestKey";
 import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
 import { isFocusValidationBlocking } from "./planGraphFocusOptions";
 import { useOptionalWorldGraphLens } from "./WorldGraphLensContext";
@@ -23,6 +24,9 @@ import {
 export { WORLD_GRAPH_REVISION_COMMITTED_EVENT };
 
 export interface WorldGraphLensProjectionValue {
+  /** Exact request identity for the current shared load (null when lens cannot form a request). */
+  request: WorldGraphProjectionRequest | null;
+  requestKey: string | null;
   projection: WorldGraphProjection | null;
   projectionState: GraphReferenceProjectionState;
   projectionError: string | null;
@@ -122,6 +126,16 @@ export function WorldGraphLensProjectionProvider({
     return getWorldGraphContextFromLens(lensState, defaultCampaignId);
   }, [defaultCampaignId, lensState]);
 
+  const request = useMemo(() => {
+    if (!context) return null;
+    return buildWorldGraphLensProjectionRequest(context);
+  }, [context]);
+
+  const requestKey = useMemo(
+    () => (request ? worldGraphProjectionRequestKey(request) : null),
+    [request],
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onRevisionCommitted = () => {
@@ -148,7 +162,7 @@ export function WorldGraphLensProjectionProvider({
         return;
       }
 
-      if (!context) {
+      if (!context || !request) {
         setProjection(null);
         setProjectionState("unavailable");
         setProjectionError(null);
@@ -175,7 +189,6 @@ export function WorldGraphLensProjectionProvider({
       };
 
       try {
-        const request = buildWorldGraphLensProjectionRequest(context);
         const response = await postWorldGraphProjection(request);
         if (cancelled) return;
         const mismatch = verifyWorldGraphProjectionResponse({
@@ -214,10 +227,12 @@ export function WorldGraphLensProjectionProvider({
     return () => {
       cancelled = true;
     };
-  }, [context, focusValidationPending, projectionRefreshKey]);
+  }, [context, focusValidationPending, projectionRefreshKey, request]);
 
   const value = useMemo<WorldGraphLensProjectionValue>(
     () => ({
+      request,
+      requestKey,
       projection,
       projectionState,
       projectionError,
@@ -231,6 +246,8 @@ export function WorldGraphLensProjectionProvider({
       projection,
       projectionError,
       projectionState,
+      request,
+      requestKey,
     ],
   );
 

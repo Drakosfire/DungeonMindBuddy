@@ -95,4 +95,20 @@ describe("WorldGraphLensProjectionProvider", () => {
     expect(result.current.projection).toBeNull();
     expect(result.current.projectionError).toMatch(/head claim is inconsistent/);
   });
+
+  it("exposes exact request identity for consumers", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(headProjection());
+
+    const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
+
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    expect(result.current.request).toEqual(
+      expect.objectContaining({
+        campaignId: "longmont-c2",
+        scopeMode: "campaign",
+        admissibility: "gm",
+      }),
+    );
+    expect(result.current.requestKey).toEqual(expect.any(String));
+  });
 });

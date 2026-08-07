@@ -60,6 +60,11 @@ export {
   type PlanWorldGraphContext,
 } from "./worldGraphContextFromLens";
 
+export {
+  worldGraphProjectionRequestKey,
+  worldGraphProjectionRequestsMatch,
+} from "../worldGraph/worldGraphProjectionRequestKey";
+
 export { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
 
 export {

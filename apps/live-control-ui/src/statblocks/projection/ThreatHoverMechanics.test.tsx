@@ -130,4 +130,27 @@ describe("useThreatHoverMechanics", () => {
     rerender({ threatNodeId: "threat-2" });
     await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(2));
   });
+
+  it("retries after transient unavailable when service recovers on re-enter", async () => {
+    const postSpy = vi
+      .spyOn(liveApi, "postThreatQueryHydration")
+      .mockRejectedValueOnce(new Error("Connection refused"))
+      .mockResolvedValueOnce(okResponse as never);
+
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useThreatHoverMechanics(enabled, "threat-1", scope),
+      { initialProps: { enabled: true } },
+    );
+
+    await waitFor(() => expect(result.current.loadStatus).toBe("unavailable"));
+    expect(postSpy).toHaveBeenCalledTimes(1);
+
+    rerender({ enabled: false });
+    expect(result.current.loadStatus).toBe("idle");
+
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current.loadStatus).toBe("ready"));
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(result.current.compactBinding?.bindingId).toBe("bind-1");
+  });
 });

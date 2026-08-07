@@ -21,8 +21,8 @@ import type {
 import type { GraphProjectionNodeView } from "../../api/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
-import { deriveApiLens } from "../../graphLens/sessionCampaignContext";
 import { useOptionalWorldGraphLens } from "../../graphLens/WorldGraphLensContext";
+import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { insertMarkdownReference } from "../../graphReference/insertMarkdownReference";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
@@ -40,7 +40,7 @@ import {
 } from "./buildReferenceIds";
 import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
 import { BuildReferenceSearchProjection } from "./BuildReferenceSearchProjection";
-import { resolveBuildGraphLens } from "./resolveBuildGraphLens";
+import { resolveBuildFindGraphLens } from "./resolveBuildGraphLens";
 import { useBuildWorldGraphProjection } from "./useBuildWorldGraphProjection";
 
 const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = new Set([
@@ -84,35 +84,6 @@ function readBuildGraphLensParams(search: string): {
   return {
     requestedCampaignId: params.get("campaign")?.trim() || null,
     requestedRevisionId: params.get("graphRevision")?.trim() || null,
-  };
-}
-
-function resolveEffectiveBuildGraphLens(
-  lens: ReturnType<typeof resolveBuildGraphLens>,
-  sharedGraphLens: ReturnType<typeof useOptionalWorldGraphLens>,
-  defaultCampaignId: string | null,
-): ReturnType<typeof resolveBuildGraphLens> {
-  if (lens.status !== "selection_required" || !sharedGraphLens) {
-    return lens;
-  }
-  if (sharedGraphLens.lens.selectedCampaignIds.length === 0) {
-    return lens;
-  }
-  const derived = deriveApiLens(
-    sharedGraphLens.lens,
-    defaultCampaignId ?? sharedGraphLens.lens.selectedCampaignIds[0],
-  );
-  if (!derived) {
-    return lens;
-  }
-  return {
-    status: "ready",
-    documentId: lens.documentId,
-    documentCampaignId: lens.documentCampaignId,
-    campaignId: derived.campaignId,
-    worldId: lens.worldId,
-    availableCampaignIds: lens.availableCampaignIds,
-    revision: lens.revision,
   };
 }
 
@@ -248,8 +219,16 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     [locationSearch],
   );
   const sharedGraphLens = useOptionalWorldGraphLens();
-  const sharedCampaignSelectionKey =
-    sharedGraphLens?.lens.selectedCampaignIds.join(",") ?? "";
+  const sharedProjection = useOptionalWorldGraphLensProjection();
+  const sharedLensIdentityKey = useMemo(() => {
+    if (!sharedGraphLens) return "";
+    const { selectedCampaignIds, focus } = sharedGraphLens.lens;
+    return JSON.stringify([
+      selectedCampaignIds,
+      focus?.campaignId ?? null,
+      focus?.sessionNumber ?? null,
+    ]);
+  }, [sharedGraphLens]);
 
   const acceptedDocument = useMemo(() => {
     if (!documentId || !session || session.documentId !== documentId) return null;
@@ -267,32 +246,30 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     session?.record?.document_id,
   ]);
 
-  const rawLens = useMemo(() => {
+  const lens = useMemo(() => {
     if (!acceptedDocument) {
       return {
         status: "invalid" as const,
         reason: "Build graph lens requires an accepted document.",
       };
     }
-    return resolveBuildGraphLens({
+    return resolveBuildFindGraphLens({
       documentId: acceptedDocument.documentId,
       documentCampaignId: acceptedDocument.campaignId,
       requestedCampaignId: lensParams.requestedCampaignId,
       requestedRevisionId: lensParams.requestedRevisionId,
-    });
-  }, [acceptedDocument, lensParams.requestedCampaignId, lensParams.requestedRevisionId]);
-
-  const lens = useMemo(
-    () =>
-      resolveEffectiveBuildGraphLens(
-        rawLens,
-        sharedGraphLens,
+      sharedLens: sharedGraphLens?.lens ?? null,
+      defaultCampaignId:
         lensParams.requestedCampaignId ?? sharedGraphLens?.lens.selectedCampaignIds[0] ?? null,
-      ),
-    // sharedGraphLens context value churns on unrelated validation ticks; selection key is enough.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional sharedCampaignSelectionKey
-    [lensParams.requestedCampaignId, rawLens, sharedCampaignSelectionKey],
-  );
+    });
+    // sharedGraphLens object churns on validation ticks; identity key is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional sharedLensIdentityKey
+  }, [
+    acceptedDocument,
+    lensParams.requestedCampaignId,
+    lensParams.requestedRevisionId,
+    sharedLensIdentityKey,
+  ]);
 
   const documentIdentity = useMemo(
     () => ({
@@ -302,11 +279,11 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     [acceptedDocument?.campaignId, acceptedDocument?.documentId],
   );
 
-  // Exact Build request identity only — never consume the nav shared projection, which may
-  // differ in campaign/revision while Find still reports the Build URL lens.
+  // Reuse shared app projection iff exact request identity matches; else secondary exact load.
   const projection = useBuildWorldGraphProjection({
     lens,
     documentIdentity,
+    sharedProjection,
   });
 
   /** Live load key — updated every render so retained callbacks fail closed across lens transitions. */

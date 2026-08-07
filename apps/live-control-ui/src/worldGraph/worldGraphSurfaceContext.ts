@@ -62,16 +62,29 @@ export function buildWorldGraphRecapProjectionRequest(input: {
 export function buildBuildWorldGraphProjectionRequest(input: {
   campaignId: string;
   revisionPin?: string | null;
+  scopeMode?: "campaign" | "world";
+  focus?:
+    | { kind: "none"; sessionId: null }
+    | { kind: "session"; sessionId: string; focusCampaignId: string };
 }): WorldGraphProjectionRequest | null {
   const worldId = getWorldIdForCampaign(input.campaignId);
   if (!worldId) return null;
+
+  const focus: WorldGraphProjectionRequest["focus"] =
+    input.focus?.kind === "session"
+      ? {
+          kind: "session",
+          sessionId: input.focus.sessionId,
+          campaignId: input.focus.focusCampaignId,
+        }
+      : { kind: "none", sessionId: null };
 
   return {
     schema: "dmb_world_graph_projection_request_v1",
     worldId,
     campaignId: input.campaignId,
-    scopeMode: "campaign",
-    focus: { kind: "none", sessionId: null },
+    scopeMode: input.scopeMode ?? "campaign",
+    focus,
     admissibility: "gm",
     revisionPin: input.revisionPin ?? null,
   };

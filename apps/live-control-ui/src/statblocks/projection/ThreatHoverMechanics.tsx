@@ -87,13 +87,31 @@ function loadThreatHoverHydration(
       bindings: [],
     }))
     .then((result) => {
-      threatHoverHydrationCache.set(cacheKey, result);
+      // Keep in-flight coalescing, but do not sticky-cache transient unavailability
+      // (DMS down, timeout, rate limit). Successful / terminal immutable results persist.
+      if (shouldPersistThreatHoverResult(result)) {
+        threatHoverHydrationCache.set(cacheKey, result);
+      }
       threatHoverHydrationInflight.delete(cacheKey);
       return result;
     });
 
   threatHoverHydrationInflight.set(cacheKey, pending);
   return pending;
+}
+
+function shouldPersistThreatHoverResult(result: CachedThreatHoverHydration): boolean {
+  if (result.loadStatus === "unavailable") return false;
+  // HTTP ok with only unavailable bindings is still a transient DMS/integration miss.
+  if (
+    result.loadStatus === "ready"
+    && result.bindings.length > 0
+    && availableBindingCount(result.bindings) === 0
+    && result.bindings.every((binding) => binding.hydrationStatus === "unavailable")
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**

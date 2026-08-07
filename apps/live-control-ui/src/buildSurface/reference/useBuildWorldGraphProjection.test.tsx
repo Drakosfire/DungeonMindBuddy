@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
+import { worldGraphProjectionRequestKey } from "../../worldGraph/worldGraphProjectionRequestKey";
 import { resolveBuildGraphLens, type BuildGraphLensResolution } from "./resolveBuildGraphLens";
 import { useBuildWorldGraphProjection } from "./useBuildWorldGraphProjection";
+import type { WorldGraphLensProjectionValue } from "../../graphLens/useWorldGraphLensProjection";
 
 const glowkindleNode: WorldGraphProjectionNodeView = {
   nodeId: "npc-glowkindle",
@@ -63,6 +65,8 @@ function readyLens(
     worldId: "eldyrwild",
     availableCampaignIds: ["longmont-c1"],
     revision: { kind: "head" },
+    scopeMode: "campaign",
+    focus: { kind: "none", sessionId: null },
     ...overrides,
   };
 }
@@ -480,5 +484,76 @@ describe("useBuildWorldGraphProjection", () => {
     expect(result.current.loadedRevisionId).toBe("head");
     expect(result.current.loadedIsHead).toBe(false);
     expect(result.current.revisionMode).toBe("pinned");
+  });
+});
+
+describe("useBuildWorldGraphProjection shared exact-match reuse", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function sharedValue(
+    overrides: Partial<WorldGraphLensProjectionValue> = {},
+  ): WorldGraphLensProjectionValue {
+    const request = {
+      schema: "dmb_world_graph_projection_request_v1" as const,
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign" as const,
+      focus: { kind: "none" as const, sessionId: null },
+      admissibility: "gm" as const,
+      revisionPin: null,
+    };
+    return {
+      request,
+      requestKey: worldGraphProjectionRequestKey(request),
+      projection: headProjection(),
+      projectionState: "ready",
+      projectionError: null,
+      nodeCount: 1,
+      lastProjectionLoadMs: 1,
+      lastProjectionLoadOutcome: "ready",
+      ...overrides,
+    };
+  }
+
+  it("reuses shared projection when exact request keys match (no secondary POST)", async () => {
+    const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
+    const shared = sharedValue();
+
+    const { result } = renderHook(() =>
+      useBuildWorldGraphProjection({
+        lens: readyLens(),
+        documentIdentity: { documentId: "doc-1", campaignId: "longmont-c1" },
+        sharedProjection: shared,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(postSpy).not.toHaveBeenCalled();
+    expect(result.current.reusedSharedProjection).toBe(true);
+    expect(result.current.loadedRevisionId).toBe("rev-head");
+  });
+
+  it("secondary-loads when Build pins a revision that shared head cannot satisfy", async () => {
+    const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      headProjection("rev-pinned"),
+    );
+    const shared = sharedValue();
+
+    const { result } = renderHook(() =>
+      useBuildWorldGraphProjection({
+        lens: readyLens({ revision: { kind: "pinned", revisionId: "rev-pinned" } }),
+        documentIdentity: { documentId: "doc-1", campaignId: "longmont-c1" },
+        sharedProjection: shared,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(postSpy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ revisionPin: "rev-pinned" }),
+    );
+    expect(result.current.reusedSharedProjection).toBe(false);
   });
 });
