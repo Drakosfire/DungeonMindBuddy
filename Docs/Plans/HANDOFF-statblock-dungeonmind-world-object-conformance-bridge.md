@@ -17,6 +17,8 @@
 |--------|-----|
 | Buddy base (`main` at branch start) | `46d3677d9ade0b7a83ab2cb07d2b6c635fb50f40` |
 | Branch | `kernel/dungeonmind-threat-conformance-bridge` |
+| Head SHA | `064f0db8d19b959d31762dd6ec80bf440ef26758` |
+| PR | [#518](https://github.com/Drakosfire/DungeonMindBuddy/pull/518) |
 | DungeonMind dependency (PR #23 merge) | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 
 Open adjacent PRs inspected before shared-file edits: #517 (PWO01 docs — not absorbed), #516 (benchmark), #510 (Build refs), #497 (navbar), #442 (transfer). No shared-file collisions with this seam.
