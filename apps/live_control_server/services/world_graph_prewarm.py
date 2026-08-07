@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 import graph_memory.kernel as kernel
+from apps.live_control_server.services.world_graph_projection_recipes import (
+    warm_projection_recipes_for_ready_revision,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +232,22 @@ class WorldGraphPrewarmCoordinator:
         with self._lock:
             return run_generation == self._run_generation and not self._stop.is_set()
 
+    def _recipe_still_current(
+        self,
+        run_generation: int,
+        notification: kernel.WorldRevisionReadyNotification,
+    ) -> bool:
+        if not self._still_current(run_generation):
+            return False
+        try:
+            head = kernel.open_world_graph_head(
+                Path(notification.resolved_root),
+                notification.world_id,
+            )
+        except Exception:
+            return False
+        return head.head_revision_id == notification.revision_id
+
     def _cleanup_orphan_after_exit(self) -> None:
         """Release lease/mailbox when a timed-out worker finally terminates."""
         global _COORDINATOR, _LIFECYCLE_REFCOUNT
@@ -381,7 +400,22 @@ class WorldGraphPrewarmCoordinator:
                     error_message=error_message,
                 )
             )
+            # Drop request-IO before recipe replay so nested project_world_graph
+            # begin/reset cannot clear this prewarm request's ContextVar early.
             kernel.reset_request_io()
+            if status in {"resident_hit", "resident_miss", "coalesced"}:
+                try:
+                    warm_projection_recipes_for_ready_revision(
+                        root=Path(notification.resolved_root),
+                        world_id=notification.world_id,
+                        revision_id=notification.revision_id,
+                        still_current=lambda: self._recipe_still_current(
+                            run_generation,
+                            notification,
+                        ),
+                    )
+                except Exception:
+                    logger.exception("projection recipe warm failed")
 
 
 def start_world_graph_prewarm_coordinator(

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -25,10 +27,16 @@ from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionRequest,
 )
+from graph_memory import world_projection_cache as projection_cache_module
 from graph_memory.world_projection_cache import (
     clear_projection_cache,
     make_projection_cache_key,
     projection_cache_stats,
+    reset_projection_cache_single_flight_for_tests,
+)
+from apps.live_control_server.services.world_graph_projection_recipes import (
+    projection_recipe_registry_stats,
+    reset_projection_recipes_for_tests,
 )
 
 BUNDLE_PATH = Path(
@@ -55,9 +63,13 @@ ORDERED_CONTRIBUTION_IDS = [
 @pytest.fixture(autouse=True)
 def _clear_runtime_and_cache() -> None:
     clear_projection_cache()
+    reset_projection_cache_single_flight_for_tests()
+    reset_projection_recipes_for_tests()
     kernel.clear_world_read_runtime()
     yield
     clear_projection_cache()
+    reset_projection_cache_single_flight_for_tests()
+    reset_projection_recipes_for_tests()
     kernel.clear_world_read_runtime()
 
 
@@ -531,3 +543,261 @@ def test_deterministic_read_counts_across_focus_pin_and_clear(
     assert post_clear_obs.graph_payload_reads_this_request == 1
     assert post_clear_obs.revision_manifest_reads_this_request == 1
     assert post_clear_obs.contribution_reads_this_request > 0
+
+
+def test_e1_service_registers_eligible_recipe_not_pin_or_query(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    project_world_graph(_request(), root=tmp_path)
+    assert projection_recipe_registry_stats()["size"] == 1
+
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    pinned_revision = _historical_revision(tmp_path, head.head_revision_id)
+    project_world_graph(_request(revision_pin=pinned_revision), root=tmp_path)
+    assert projection_recipe_registry_stats()["size"] == 1
+
+    project_world_graph(_request(query_text="Glowkindle"), root=tmp_path)
+    assert projection_recipe_registry_stats()["size"] == 1
+
+
+def test_e3_concurrent_identical_miss_builds_once_and_coalesces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    build_started = threading.Event()
+    release_build = threading.Event()
+    build_count = {"n": 0}
+    original = kernel.project_world_graph_from_context
+
+    def _gated_build(*args, **kwargs):
+        build_count["n"] += 1
+        build_started.set()
+        assert release_build.wait(timeout=30.0)
+        return original(*args, **kwargs)
+
+    errors: list[BaseException] = []
+    results: list = []
+    waiter_observation: list[kernel.ProjectionRequestObservation] = []
+
+    def _call(*, record_observation: bool = False) -> None:
+        try:
+            results.append(project_world_graph(_request(), root=tmp_path))
+            if record_observation:
+                observation = kernel.get_last_projection_observation()
+                if observation is not None:
+                    waiter_observation.append(observation)
+        except BaseException as exc:
+            errors.append(exc)
+
+    with patch.object(kernel, "project_world_graph_from_context", side_effect=_gated_build):
+        first = threading.Thread(target=_call)
+        second = threading.Thread(target=_call, kwargs={"record_observation": True})
+        first.start()
+        assert build_started.wait(timeout=30.0)
+        second.start()
+        time.sleep(0.05)
+        release_build.set()
+        first.join(timeout=30.0)
+        second.join(timeout=30.0)
+
+    assert not errors
+    assert build_count["n"] == 1
+    assert len(results) == 2
+    assert results[0] is results[1]
+    assert len(waiter_observation) == 1
+    assert waiter_observation[0].projection_cache_status == "coalesced"
+
+
+def test_e3_builder_failure_propagates_without_cache_and_retry_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    build_started = threading.Event()
+    release_build = threading.Event()
+    attempts = {"n": 0}
+    original = kernel.project_world_graph_from_context
+
+    def _failing_then_ok(*args, **kwargs):
+        attempts["n"] += 1
+        build_started.set()
+        assert release_build.wait(timeout=30.0)
+        if attempts["n"] == 1:
+            raise kernel.WorldGraphProjectionError(
+                "simulated build failure",
+                code="projection_internal_error",
+                status_code=500,
+            )
+        return original(*args, **kwargs)
+
+    errors: list[BaseException] = []
+
+    def _call() -> None:
+        try:
+            project_world_graph(_request(), root=tmp_path)
+        except BaseException as exc:
+            errors.append(exc)
+
+    with patch.object(kernel, "project_world_graph_from_context", side_effect=_failing_then_ok):
+        first = threading.Thread(target=_call)
+        second = threading.Thread(target=_call)
+        first.start()
+        assert build_started.wait(timeout=30.0)
+        second.start()
+        time.sleep(0.05)
+        release_build.set()
+        first.join(timeout=30.0)
+        second.join(timeout=30.0)
+
+    assert len(errors) == 2
+    assert projection_cache_stats()["size"] == 0
+
+    project_world_graph(_request(), root=tmp_path)
+    assert projection_cache_stats()["size"] == 1
+
+
+def test_e7_cache_disabled_skips_recipes_and_single_flight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", "0")
+    _initialize(tmp_path)
+
+    first = project_world_graph(_request(), root=tmp_path)
+    second = project_world_graph(_request(), root=tmp_path)
+    observation = _observation()
+
+    assert first.snapshot.revision_id == second.snapshot.revision_id
+    assert first is not second
+    assert projection_recipe_registry_stats()["size"] == 0
+    assert projection_cache_stats()["size"] == 0
+    assert observation.projection_cache_status == "disabled"
+
+
+def test_e3_clear_during_build_does_not_repopulate_completed_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    build_started = threading.Event()
+    release_build = threading.Event()
+    original = kernel.project_world_graph_from_context
+    errors: list[BaseException] = []
+
+    def _gated_build(*args, **kwargs):
+        build_started.set()
+        assert release_build.wait(timeout=30.0)
+        return original(*args, **kwargs)
+
+    def _call() -> None:
+        try:
+            project_world_graph(_request(), root=tmp_path)
+        except BaseException as exc:
+            errors.append(exc)
+
+    with patch.object(kernel, "project_world_graph_from_context", side_effect=_gated_build):
+        builder = threading.Thread(target=_call)
+        builder.start()
+        assert build_started.wait(timeout=30.0)
+        clear_projection_cache()
+        release_build.set()
+        builder.join(timeout=30.0)
+
+    assert len(errors) == 1
+    # Service maps the single-flight reset into the stable internal-error envelope.
+    assert isinstance(errors[0], WorldGraphProjectionServiceError)
+    assert errors[0].code == "projection_internal_error"
+    assert projection_cache_stats()["size"] == 0
+
+
+def _run_builder_paused_after_build(
+    tmp_path: Path,
+) -> tuple[threading.Thread, threading.Event, threading.Event, list[BaseException]]:
+    after_build = threading.Event()
+    release_publish = threading.Event()
+    errors: list[BaseException] = []
+
+    def _after_builder_before_publish() -> None:
+        after_build.set()
+        assert release_publish.wait(timeout=30.0)
+
+    def _call() -> None:
+        try:
+            project_world_graph(_request(), root=tmp_path)
+        except BaseException as exc:
+            errors.append(exc)
+
+    projection_cache_module._after_builder_before_publish_hook = (
+        _after_builder_before_publish
+    )
+    builder = threading.Thread(target=_call)
+    builder.start()
+    assert after_build.wait(timeout=30.0)
+    return builder, after_build, release_publish, errors
+
+
+def test_e3_clear_after_builder_before_publish_leaves_cache_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Production clear invalidates builders paused after builder() returns."""
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    previous_hook = projection_cache_module._after_builder_before_publish_hook
+    release_publish: threading.Event | None = None
+    try:
+        builder, _after_build, release_publish, errors = _run_builder_paused_after_build(
+            tmp_path
+        )
+        clear_projection_cache()
+        release_publish.set()
+        builder.join(timeout=30.0)
+    finally:
+        projection_cache_module._after_builder_before_publish_hook = previous_hook
+        if release_publish is not None:
+            release_publish.set()
+
+    assert len(errors) == 1
+    assert isinstance(errors[0], WorldGraphProjectionServiceError)
+    assert errors[0].code == "projection_internal_error"
+    assert projection_cache_stats()["size"] == 0
+
+
+def test_e3_completed_clear_before_generation_bump_allows_republish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The unsafe ordering: empty completed cache, then let an old builder put.
+
+    Production ``clear_projection_cache`` must not separate these steps. This
+    test performs only the completed-cache clear so the paused builder can
+    still pass its generation check and republish — proving why bump+clear
+    must share the publish lock.
+    """
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    previous_hook = projection_cache_module._after_builder_before_publish_hook
+    release_publish: threading.Event | None = None
+    try:
+        builder, _after_build, release_publish, errors = _run_builder_paused_after_build(
+            tmp_path
+        )
+        # Deliberately omit the generation bump / in-flight invalidation.
+        projection_cache_module._PROJECTION_CACHE.clear()
+        release_publish.set()
+        builder.join(timeout=30.0)
+    finally:
+        projection_cache_module._after_builder_before_publish_hook = previous_hook
+        if release_publish is not None:
+            release_publish.set()
+
+    assert errors == []
+    assert projection_cache_stats()["size"] == 1
+    clear_projection_cache()
+    assert projection_cache_stats()["size"] == 0

@@ -11,12 +11,15 @@ disabled by the payload-cache env switch.
 
 from __future__ import annotations
 
+import os
 import re
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
@@ -27,6 +30,10 @@ _DEFAULT_MAX_ENTRIES = 16
 _DEFAULT_TTL_S = 120.0
 _WORLD_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 _REVISION_ID_RE = re.compile(r"^rev:[a-f0-9]{16,64}$")
+
+
+class ProjectionCacheSingleFlightResetError(RuntimeError):
+    """Raised when in-flight projection builds are cleared during test reset."""
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,15 @@ class CacheKey:
 class _CacheEntry:
     projection: WorldGraphProjection
     expires_at: float
+
+
+@dataclass
+class _InFlightBuild:
+    condition: threading.Condition
+    generation: int
+    result: WorldGraphProjection | None = None
+    error: BaseException | None = None
+    done: bool = False
 
 
 class WorldGraphProjectionCache:
@@ -107,14 +123,70 @@ class WorldGraphProjectionCache:
 
 
 _PROJECTION_CACHE = WorldGraphProjectionCache()
+_IN_FLIGHT: dict[CacheKey, _InFlightBuild] = {}
+_IN_FLIGHT_LOCK = threading.Lock()
+# Bumped on clear/reset so a builder that finishes after invalidation cannot
+# republish into the completed cache. Must move under the same lock that
+# gates publish, and before emptying the completed cache.
+_CACHE_GENERATION = 0
+# Test-only: runs after builder() returns and before the publish generation check.
+_after_builder_before_publish_hook: Callable[[], None] | None = None
+
+
+def projection_cache_enabled() -> bool:
+    """Return whether the completed projection payload cache is active."""
+    raw = (os.environ.get("DMB_WORLD_GRAPH_PROJECTION_CACHE") or "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
 
 
 def projection_cache_stats() -> dict[str, int]:
     return _PROJECTION_CACHE.stats()
 
 
+def _fail_in_flight_entries(
+    entries: list[_InFlightBuild],
+    *,
+    reason: str,
+) -> None:
+    for entry in entries:
+        with entry.condition:
+            if entry.done:
+                continue
+            entry.error = ProjectionCacheSingleFlightResetError(reason)
+            entry.done = True
+            entry.condition.notify_all()
+
+
+def _invalidate_in_flight(*, reason: str) -> None:
+    global _CACHE_GENERATION
+    with _IN_FLIGHT_LOCK:
+        _CACHE_GENERATION += 1
+        entries = list(_IN_FLIGHT.values())
+        _IN_FLIGHT.clear()
+    _fail_in_flight_entries(entries, reason=reason)
+
+
+def reset_projection_cache_single_flight_for_tests() -> None:
+    """Clear in-flight builds and fail any waiters (test helper)."""
+    global _after_builder_before_publish_hook
+    _after_builder_before_publish_hook = None
+    _invalidate_in_flight(reason="projection cache single-flight reset for tests")
+
+
 def clear_projection_cache() -> None:
-    _PROJECTION_CACHE.clear()
+    """Drop completed payloads and invalidate in-flight builders atomically.
+
+    Generation bump, in-flight map clear, and completed-cache clear share one
+    lock with the builder publish path so an old builder cannot observe a
+    cleared cache while still holding a pre-clear generation.
+    """
+    global _CACHE_GENERATION
+    with _IN_FLIGHT_LOCK:
+        _CACHE_GENERATION += 1
+        entries = list(_IN_FLIGHT.values())
+        _IN_FLIGHT.clear()
+        _PROJECTION_CACHE.clear()
+    _fail_in_flight_entries(entries, reason="projection cache cleared")
 
 
 def make_projection_cache_key(
@@ -161,11 +233,93 @@ def put_cached_projection(key: CacheKey, projection: WorldGraphProjection) -> No
     _PROJECTION_CACHE.put(key, projection)
 
 
+def get_or_build_cached_projection(
+    key: CacheKey,
+    builder: Callable[[], WorldGraphProjection],
+) -> tuple[WorldGraphProjection, Literal["hit", "miss", "coalesced"]]:
+    """Return a completed projection, coalescing concurrent builds for one key."""
+    cached = get_cached_projection(key)
+    if cached is not None:
+        return cached, "hit"
+
+    is_builder = False
+    wait_entry: _InFlightBuild | None = None
+    with _IN_FLIGHT_LOCK:
+        cached = get_cached_projection(key)
+        if cached is not None:
+            return cached, "hit"
+        existing = _IN_FLIGHT.get(key)
+        if existing is not None:
+            wait_entry = existing
+        else:
+            wait_entry = _InFlightBuild(
+                condition=threading.Condition(),
+                generation=_CACHE_GENERATION,
+            )
+            _IN_FLIGHT[key] = wait_entry
+            is_builder = True
+
+    assert wait_entry is not None
+    if is_builder:
+        try:
+            projection = builder()
+            hook = _after_builder_before_publish_hook
+            if hook is not None:
+                hook()
+            with _IN_FLIGHT_LOCK:
+                publish = (
+                    wait_entry.generation == _CACHE_GENERATION
+                    and _IN_FLIGHT.get(key) is wait_entry
+                )
+                if publish:
+                    put_cached_projection(key, projection)
+                if _IN_FLIGHT.get(key) is wait_entry:
+                    _IN_FLIGHT.pop(key, None)
+            with wait_entry.condition:
+                if wait_entry.done:
+                    # Cleared/reset while building; waiters already finalized.
+                    raise ProjectionCacheSingleFlightResetError(
+                        "projection cache invalidated during build"
+                    )
+                if not publish:
+                    wait_entry.error = ProjectionCacheSingleFlightResetError(
+                        "projection cache invalidated during build"
+                    )
+                    wait_entry.done = True
+                    wait_entry.condition.notify_all()
+                    raise wait_entry.error
+                wait_entry.result = projection
+                wait_entry.done = True
+                wait_entry.condition.notify_all()
+            return projection, "miss"
+        except BaseException as exc:
+            with _IN_FLIGHT_LOCK:
+                if _IN_FLIGHT.get(key) is wait_entry:
+                    _IN_FLIGHT.pop(key, None)
+            with wait_entry.condition:
+                if not wait_entry.done:
+                    wait_entry.error = exc
+                    wait_entry.done = True
+                    wait_entry.condition.notify_all()
+            raise
+    with wait_entry.condition:
+        while not wait_entry.done:
+            wait_entry.condition.wait()
+        if wait_entry.error is not None:
+            raise wait_entry.error
+        assert wait_entry.result is not None
+        return wait_entry.result, "coalesced"
+
+
 __all__ = [
     "CacheKey",
+    "ProjectionCacheSingleFlightResetError",
     "clear_projection_cache",
     "get_cached_projection",
+    "get_or_build_cached_projection",
     "make_projection_cache_key",
+    "projection_cache_enabled",
     "projection_cache_stats",
     "put_cached_projection",
+    "reset_projection_cache_single_flight_for_tests",
 ]
