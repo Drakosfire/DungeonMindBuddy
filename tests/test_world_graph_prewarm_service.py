@@ -14,6 +14,7 @@ from apps.live_control_server.services.world_graph_prewarm import (
     clear_prewarm_observations,
     get_prewarm_observations,
     get_world_graph_prewarm_coordinator,
+    get_world_graph_prewarm_lifecycle_refcount,
     start_world_graph_prewarm_coordinator,
     stop_world_graph_prewarm_coordinator,
 )
@@ -26,16 +27,16 @@ WORLD_ID = "eldyrwild"
 
 
 def _drain_coordinator(*, timeout_s: float = 10.0) -> None:
-    """Stop coordinator and wait out any orphaned worker from a prior timeout."""
-    stop_world_graph_prewarm_coordinator(timeout_s=timeout_s)
+    """Release all lifecycle owners and wait out any orphaned worker."""
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
         coordinator = get_world_graph_prewarm_coordinator()
-        if coordinator is None:
+        if coordinator is None and get_world_graph_prewarm_lifecycle_refcount() == 0:
             return
-        if not coordinator.is_orphaned and not coordinator.is_running:
-            stop_world_graph_prewarm_coordinator(timeout_s=timeout_s)
-            return
+        stop_world_graph_prewarm_coordinator(timeout_s=min(1.0, timeout_s))
+        if coordinator is not None and coordinator.is_orphaned:
+            time.sleep(0.01)
+            continue
         time.sleep(0.01)
 
 
@@ -577,6 +578,36 @@ def test_shutdown_timeout_orphans_worker_and_blocks_second_lifecycle(
         assert after == []
 
     assert stop_world_graph_prewarm_coordinator(timeout_s=5.0) is True
+
+
+def test_overlapping_lifecycles_keep_worker_until_last_owner_stops(
+    tmp_path: Path,
+) -> None:
+    first = start_world_graph_prewarm_coordinator()
+    assert first is not None
+    second = start_world_graph_prewarm_coordinator()
+    assert second is first
+    assert get_world_graph_prewarm_lifecycle_refcount() == 2
+
+    assert stop_world_graph_prewarm_coordinator(timeout_s=5.0) is True
+    still = get_world_graph_prewarm_coordinator()
+    assert still is first
+    assert still.is_running
+    assert not still.is_stopping
+    assert get_world_graph_prewarm_lifecycle_refcount() == 1
+
+    # First owner exited; shared worker must still admit a publish for the
+    # remaining lifecycle.
+    published = _publish(tmp_path, ["op:prewarm-overlap-owner"])
+    _wait_for_prewarm_observations(
+        still,
+        revision_id=published.revision.revision_id,
+        expected_count=1,
+    )
+
+    assert stop_world_graph_prewarm_coordinator(timeout_s=5.0) is True
+    assert get_world_graph_prewarm_coordinator() is None
+    assert get_world_graph_prewarm_lifecycle_refcount() == 0
 
 
 def test_start_during_stop_waits_and_returns_fresh_coordinator(tmp_path: Path) -> None:

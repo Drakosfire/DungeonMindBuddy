@@ -72,6 +72,8 @@ _OBSERVATIONS: list[PrewarmObservation] = []
 _OBS_LOCK = threading.Lock()
 _COORDINATOR: "WorldGraphPrewarmCoordinator | None" = None
 _COORDINATOR_COND = threading.Condition()
+# Overlapping app lifecycles share one worker; only the last release stops it.
+_LIFECYCLE_REFCOUNT = 0
 
 
 def get_prewarm_observations() -> list[PrewarmObservation]:
@@ -229,7 +231,7 @@ class WorldGraphPrewarmCoordinator:
 
     def _cleanup_orphan_after_exit(self) -> None:
         """Release lease/mailbox when a timed-out worker finally terminates."""
-        global _COORDINATOR
+        global _COORDINATOR, _LIFECYCLE_REFCOUNT
         with self._lock:
             if not self._orphaned:
                 return
@@ -247,6 +249,7 @@ class WorldGraphPrewarmCoordinator:
         with _COORDINATOR_COND:
             if _COORDINATOR is self:
                 _COORDINATOR = None
+                _LIFECYCLE_REFCOUNT = 0
             _COORDINATOR_COND.notify_all()
 
     def _run(self, *, run_generation: int) -> None:
@@ -385,12 +388,14 @@ def start_world_graph_prewarm_coordinator(
     *,
     wait_s: float = 30.0,
 ) -> WorldGraphPrewarmCoordinator | None:
-    """Start the process-local coordinator; wait out stopping/orphan priors.
+    """Acquire one lifecycle ownership of the process-local coordinator.
 
-    Concurrent callers never receive a coordinator that is mid-stop. ``wait_s=0``
-    refuses immediately while a prior lifecycle is stopping or orphaned.
+    Concurrent callers never receive a coordinator that is mid-stop. A second
+    active lifecycle increments the refcount and shares the same worker.
+    ``wait_s=0`` refuses immediately while a prior lifecycle is stopping or
+    orphaned.
     """
-    global _COORDINATOR
+    global _COORDINATOR, _LIFECYCLE_REFCOUNT
     deadline = time.monotonic() + max(0.0, wait_s)
     with _COORDINATOR_COND:
         while True:
@@ -410,13 +415,16 @@ def start_world_graph_prewarm_coordinator(
                 _COORDINATOR_COND.wait(timeout=remaining)
                 continue
             if coordinator is not None and coordinator.is_running:
+                _LIFECYCLE_REFCOUNT += 1
                 return coordinator
             if coordinator is not None and not coordinator.is_running:
                 _COORDINATOR = None
+                _LIFECYCLE_REFCOUNT = 0
             created = WorldGraphPrewarmCoordinator()
             if not created.start():
                 return None
             _COORDINATOR = created
+            _LIFECYCLE_REFCOUNT = 1
             _COORDINATOR_COND.notify_all()
             return created
 
@@ -425,11 +433,19 @@ def stop_world_graph_prewarm_coordinator(
     *,
     timeout_s: float = _DEFAULT_SHUTDOWN_TIMEOUT_S,
 ) -> bool:
-    global _COORDINATOR
+    """Release one lifecycle ownership; stop the worker only at refcount zero."""
+    global _COORDINATOR, _LIFECYCLE_REFCOUNT
     with _COORDINATOR_COND:
         coordinator = _COORDINATOR
         if coordinator is None:
+            _LIFECYCLE_REFCOUNT = 0
             return True
+        if _LIFECYCLE_REFCOUNT > 1:
+            _LIFECYCLE_REFCOUNT -= 1
+            _COORDINATOR_COND.notify_all()
+            return True
+        # Last owner (or refcount already zero during cleanup): real stop.
+        _LIFECYCLE_REFCOUNT = 0
         # Flip stopping under the global condition before join so concurrent
         # start() waits instead of returning this shutting-down instance.
         with coordinator._lock:
@@ -440,6 +456,7 @@ def stop_world_graph_prewarm_coordinator(
         if stopped:
             if _COORDINATOR is coordinator:
                 _COORDINATOR = None
+            _LIFECYCLE_REFCOUNT = 0
         # Orphaned coordinator remains registered until self-cleanup.
         _COORDINATOR_COND.notify_all()
     return stopped
@@ -448,3 +465,9 @@ def stop_world_graph_prewarm_coordinator(
 def get_world_graph_prewarm_coordinator() -> WorldGraphPrewarmCoordinator | None:
     with _COORDINATOR_COND:
         return _COORDINATOR
+
+
+def get_world_graph_prewarm_lifecycle_refcount() -> int:
+    """Test helper: active overlapping lifecycle owners."""
+    with _COORDINATOR_COND:
+        return _LIFECYCLE_REFCOUNT

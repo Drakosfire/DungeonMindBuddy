@@ -160,6 +160,79 @@ def test_late_older_offer_does_not_displace_newer_pending_revision(
     assert mailbox.enqueued_timing_count() <= 1
 
 
+def test_commit_seq_follows_durable_order_when_publisher_pauses_after_storage_unlock(
+    tmp_path: Path,
+) -> None:
+    """A can finish storage and pause before seq; B must not allocate first."""
+    import graph_memory.kernel.world_graph as world_graph_module
+
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    a_after_storage = threading.Event()
+    release_a = threading.Event()
+    b_finished = threading.Event()
+    hook_count = {"n": 0}
+
+    def _hook(_result: kernel.WorldGraphPublishResult) -> None:
+        hook_count["n"] += 1
+        if hook_count["n"] == 1:
+            a_after_storage.set()
+            assert release_a.wait(timeout=30.0)
+
+    publish_a_result: list[kernel.WorldGraphPublishResult] = []
+    publish_b_result: list[kernel.WorldGraphPublishResult] = []
+
+    def _publish_a() -> None:
+        publish_a_result.append(
+            kernel.publish_world_revision(
+                tmp_path,
+                WORLD_ID,
+                store,
+                operation_ids=["op:seq-order-a"],
+            )
+        )
+
+    def _publish_b() -> None:
+        head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+        publish_b_result.append(
+            kernel.publish_world_revision(
+                tmp_path,
+                WORLD_ID,
+                store,
+                operation_ids=["op:seq-order-b"],
+                expected_parent_revision_id=head.head_revision_id,
+            )
+        )
+        b_finished.set()
+
+    previous_hook = world_graph_module._after_durable_publish_hook
+    world_graph_module._after_durable_publish_hook = _hook
+    try:
+        thread_a = threading.Thread(target=_publish_a)
+        thread_a.start()
+        assert a_after_storage.wait(timeout=30.0)
+
+        thread_b = threading.Thread(target=_publish_b)
+        thread_b.start()
+        # B must be blocked on the publish-order lock until A allocates.
+        assert not b_finished.wait(timeout=0.2)
+        release_a.set()
+        thread_a.join(timeout=30.0)
+        thread_b.join(timeout=30.0)
+    finally:
+        world_graph_module._after_durable_publish_hook = previous_hook
+        release_a.set()
+
+    assert publish_a_result and publish_b_result
+    rows = {
+        str(row["revision_id"]): int(row["commit_seq"])
+        for row in kernel.get_revision_ready_offer_observations()
+    }
+    assert (
+        rows[publish_a_result[0].revision.revision_id]
+        < rows[publish_b_result[0].revision.revision_id]
+    )
+
+
 def test_equal_created_at_lower_commit_seq_does_not_win_via_revision_id_lexicographic_order(
     tmp_path: Path,
 ) -> None:
