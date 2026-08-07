@@ -34,7 +34,9 @@ POST /api/live/threats/query-hydration
         BackgroundTasks.add_task(run_dungeonmind_threat_hydration_shadow, ...)
   → JSONResponse(authoritative body, background=...)
   → after send: shadow loads exact response.revision_id once,
-                bridges each explicit kind=threat,
+                bridges each explicit kind=threat using
+                admitted relationship_edge_id set from the hit
+                (campaign_id=None — projection lens ≠ store identity),
                 replays available ExactRevisionResourceV1 via
                 AuthorityExactRevisionReplayResolver,
                 logs dungeonmind_threat_hydration_shadow
@@ -43,6 +45,21 @@ POST /api/live/threats/query-hydration
 Flag: `apps/live_control_server/integrations/dungeonmind_kernel/config.py`  
 Only exact value `1` enables. Default / typo / any other value → disabled.  
 Disable restores the pre-shadow path (one flag check, no graph read, no log).
+
+**Review fix (scoped selection):** shadow passes
+`admitted_uses_statblock_edge_ids` from the authoritative hit and does **not**
+pass `response.campaign_id` into `#518` as `store.campaign_id`. Raw-store
+out-of-scope `uses_statblock` edges are ignored. Regressions:
+`test_world_scope_campaign_lens_does_not_false_mismatch`,
+`test_admitted_edges_ignore_out_of_scope_raw_store_binding`.
+
+**Review fix (pre-response cost):** route schedules `request=body` /
+`authoritative_response=response` by reference — no synchronous deep-copy of
+mechanics payloads before send.
+
+**Review fix (bounded telemetry):** unexpected shadow failures use
+`logger.warning(... reason=unexpected_shadow_exception ...)` only; exception
+text/traceback are not logged.
 
 ---
 
@@ -116,7 +133,9 @@ PASS
 | K `kind=npc` compatibility hit | `not_eligible` |
 | L pinned R1 vs newer head R2 | shadows R1 only |
 | M several Threats | one exact graph load; independent observations |
-| N shadow crash | `shadow_error`; runner does not re-raise |
+| N shadow crash | `shadow_error`; bounded warning (no exception text); runner does not re-raise |
+| world scope + campaign lens ≠ store.campaign_id | `full_match` (no false `campaign_mismatch`) |
+| admitted edge only; raw store has out-of-scope 2nd binding | `full_match` (no cardinality mismatch) |
 
 ---
 

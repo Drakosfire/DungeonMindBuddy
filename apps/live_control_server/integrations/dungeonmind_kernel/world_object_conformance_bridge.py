@@ -98,6 +98,7 @@ BridgeFailureReason = Literal[
     "target_attachment_identity_mismatch",
     "alias_not_representable",
     "duplicate_target_attachment_identity",
+    "admitted_uses_statblock_edge_missing",
 ]
 
 
@@ -466,28 +467,61 @@ def _validate_source_binding_edge(
 def _collect_validated_bindings(
     store: UnionSupergraphStore,
     threat_node_id: str,
+    *,
+    admitted_uses_statblock_edge_ids: frozenset[str] | None = None,
 ) -> list[tuple[UnionSupergraphEdge, ThreatStatblockBindingV1]]:
     found: list[tuple[UnionSupergraphEdge, ThreatStatblockBindingV1]] = []
     seen_edge_ids: set[str] = set()
     seen_binding_ids: set[str] = set()
-    for edge in store.edges.values():
-        involves = (
-            edge.predicate == _USES_STATBLOCK
-            and (
-                edge.source_node_id == threat_node_id
-                or edge.target_node_id == threat_node_id
+
+    if admitted_uses_statblock_edge_ids is not None:
+        # Exact selection boundary from an upstream scoped projection: bridge
+        # only these edges; do not invent or omit relative to the admission set.
+        missing: list[str] = []
+        for edge_id in sorted(admitted_uses_statblock_edge_ids):
+            edge = store.edges.get(edge_id)
+            if edge is None:
+                missing.append(edge_id)
+                continue
+            if edge.predicate != _USES_STATBLOCK:
+                raise ThreatConformanceBridgeError(
+                    "malformed_uses_statblock_edge",
+                    f"admitted edge {edge_id!r} is not uses_statblock",
+                )
+            binding = _validate_source_binding_edge(
+                edge=edge,
+                threat_node_id=threat_node_id,
+                store=store,
+                seen_edge_ids=seen_edge_ids,
+                seen_binding_ids=seen_binding_ids,
             )
-        )
-        if not involves:
-            continue
-        binding = _validate_source_binding_edge(
-            edge=edge,
-            threat_node_id=threat_node_id,
-            store=store,
-            seen_edge_ids=seen_edge_ids,
-            seen_binding_ids=seen_binding_ids,
-        )
-        found.append((edge, binding))
+            found.append((edge, binding))
+        if missing:
+            raise ThreatConformanceBridgeError(
+                "admitted_uses_statblock_edge_missing",
+                "admitted uses_statblock edge id(s) absent from exact source "
+                f"revision: {missing!r}",
+            )
+    else:
+        for edge in store.edges.values():
+            involves = (
+                edge.predicate == _USES_STATBLOCK
+                and (
+                    edge.source_node_id == threat_node_id
+                    or edge.target_node_id == threat_node_id
+                )
+            )
+            if not involves:
+                continue
+            binding = _validate_source_binding_edge(
+                edge=edge,
+                threat_node_id=threat_node_id,
+                store=store,
+                seen_edge_ids=seen_edge_ids,
+                seen_binding_ids=seen_binding_ids,
+            )
+            found.append((edge, binding))
+
     found.sort(
         key=lambda item: (
             item[1].role,
@@ -505,6 +539,7 @@ def _bridge_buddy_threat_revision(
     source_store: UnionSupergraphStore,
     threat_node_id: str,
     campaign_id: str | None = None,
+    admitted_uses_statblock_edge_ids: frozenset[str] | None = None,
 ) -> DungeonMindThreatConformanceBridgeResult:
     """Private helper: bridge from an integrity-attested revision/store pair.
 
@@ -512,6 +547,10 @@ def _bridge_buddy_threat_revision(
     ``kernel.load_world_graph_revision_with_integrity`` (raw on-disk bytes).
     Do not rehash a post-parse ``model_dump`` — that can drift from immutable
     revision bytes when the store model gains defaults.
+
+    When ``admitted_uses_statblock_edge_ids`` is provided, it is the exact
+    selection boundary (e.g. edges already admitted by a scoped World Graph
+    projection). Other raw-store ``uses_statblock`` edges are ignored.
     """
     if source_revision.world_id != source_world_id:
         raise ThreatConformanceBridgeError(
@@ -552,7 +591,11 @@ def _bridge_buddy_threat_revision(
         )
 
     graph_reader = _v3_graph_reader()
-    source_bindings = _collect_validated_bindings(source_store, threat_node_id)
+    source_bindings = _collect_validated_bindings(
+        source_store,
+        threat_node_id,
+        admitted_uses_statblock_edge_ids=admitted_uses_statblock_edge_ids,
+    )
     binding_cache: dict[str, DndWorldObjectMechanicsBinding] = {}
     bridged: list[BridgedStatblockAttachment] = []
 

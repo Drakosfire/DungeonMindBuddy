@@ -154,7 +154,7 @@ def _binding_value(binding: dict[str, str | None]) -> dict[str, object]:
     }
 
 
-def _contribution(*assertions: Any):
+def _contribution(*assertions: Any, campaign_scope: str = CAMPAIGN_ID):
     global _CONTRIBUTION_SEQ
     _CONTRIBUTION_SEQ += 1
     return kernel.create_graph_contribution(
@@ -162,7 +162,7 @@ def _contribution(*assertions: Any):
         source_kind="manual_import",
         source_artifact_id="graph-native:shadow",
         source_revision_id=f"shadow-{_CONTRIBUTION_SEQ}-{len(assertions)}",
-        campaign_scope=CAMPAIGN_ID,
+        campaign_scope=campaign_scope,
         accepted_assertions=list(assertions),
     )
 
@@ -199,6 +199,7 @@ def _publish_bindings(
     bindings: list[dict[str, str | None]],
     *,
     threat_node_id: str = THREAT_ID,
+    campaign_scope: str = CAMPAIGN_ID,
 ) -> str:
     assertions = []
     seen_resources: set[str] = set()
@@ -211,7 +212,7 @@ def _publish_bindings(
                     acceptance_state="accepted",
                     subject_node_id=external_statblock_node_id(resource_id),
                     label=f"External {resource_id}",
-                    campaign_scope=CAMPAIGN_ID,
+                    campaign_scope=campaign_scope,
                     value=_resource_value(resource_id=resource_id),
                 )
             )
@@ -223,12 +224,14 @@ def _publish_bindings(
                 subject_node_id=threat_node_id,
                 target_node_id=external_statblock_node_id(resource_id),
                 predicate="uses_statblock",
-                campaign_scope=CAMPAIGN_ID,
+                campaign_scope=campaign_scope,
                 value=_binding_value(binding),
             )
         )
     result = kernel.merge_contribution_to_revision(
-        root, world_id=WORLD_ID, contribution=_contribution(*assertions)
+        root,
+        world_id=WORLD_ID,
+        contribution=_contribution(*assertions, campaign_scope=campaign_scope),
     )
     assert result.published and result.revision_id
     return result.revision_id
@@ -728,7 +731,7 @@ def test_matrix_n_shadow_runner_crash_contained(
     with (
         patch(
             "apps.live_control_server.integrations.dungeonmind_kernel.threat_hydration_shadow.shadow_threat_hit",
-            side_effect=RuntimeError("boom"),
+            side_effect=RuntimeError("boom-secret-payload"),
         ),
         caplog.at_level(logging.WARNING),
     ):
@@ -740,6 +743,96 @@ def test_matrix_n_shadow_runner_crash_contained(
     assert len(observations) == 1
     assert observations[0].verdict == "shadow_error"
     assert "unexpected_shadow_exception" in observations[0].reason_codes
+    joined = "\n".join(record.getMessage() for record in caplog.records)
+    assert "unexpected_shadow_exception" in joined
+    assert "boom-secret-payload" not in joined
+    assert "RuntimeError" not in joined
+    assert "Traceback" not in joined
+
+
+def test_world_scope_campaign_lens_does_not_false_mismatch(
+    seeded_root: Path,
+) -> None:
+    """Projection campaign lens != store.campaign_id must not false-mismatch."""
+    _publish_threat_node(seeded_root)
+    binding = _binding()
+    revision_id = _publish_bindings(seeded_root, [binding])
+    exact = _exact_revision()
+    source = _load_exact_buddy_revision_bridge_source(
+        root=seeded_root, world_id=WORLD_ID, revision_id=revision_id
+    )
+    assert source.store.campaign_id == CAMPAIGN_ID
+    assert CAMPAIGN_ID != "campaign_lens"
+
+    response = ThreatQueryHydrationResponseV1(
+        schema="dmb_threat_query_hydration_response_v1",
+        world_id=WORLD_ID,
+        campaign_id="campaign_lens",
+        scope_mode="world",
+        revision_id=revision_id,
+        query_text="Shadow Threat",
+        result_label="threat_query_hydration_ok",
+        hits=[_hit(bindings=[_auth_binding(binding, revision=exact)])],
+        diagnostics=[],
+    )
+    request = ThreatQueryHydrationRequestV1.model_validate(
+        {
+            "schema": "dmb_threat_query_hydration_request_v1",
+            "world_id": WORLD_ID,
+            "campaign_id": "campaign_lens",
+            "scope_mode": "world",
+            "revision_pin": revision_id,
+            "query_text": "Shadow Threat",
+            "include_mechanics": True,
+        }
+    )
+    observations = run_dungeonmind_threat_hydration_shadow(
+        request=request,
+        authoritative_response=response,
+        root=seeded_root,
+    )
+    assert len(observations) == 1
+    obs = observations[0]
+    assert obs.verdict == "full_match"
+    assert "bridge_failure" not in obs.reason_codes
+    assert obs.campaign_id == "campaign_lens"
+
+
+def test_admitted_edges_ignore_out_of_scope_raw_store_binding(
+    seeded_root: Path,
+) -> None:
+    """Authority-admitted edge set is the bridge selection boundary."""
+    _publish_threat_node(seeded_root)
+    admitted = _binding(role="primary", statblock_id="sb_000001")
+    foreign = _binding(
+        role="alternate",
+        statblock_id="sb_000002",
+        revision_id="rev_000003",
+    )
+    _publish_bindings(seeded_root, [admitted], campaign_scope=CAMPAIGN_ID)
+    revision_id = _publish_bindings(
+        seeded_root, [foreign], campaign_scope="campaign_other"
+    )
+    exact = _exact_revision()
+    # Authority only admitted the in-scope binding (projection filtered the other).
+    response = _response(
+        revision_id=revision_id,
+        hits=[_hit(bindings=[_auth_binding(admitted, revision=exact)])],
+    )
+    observations = run_dungeonmind_threat_hydration_shadow(
+        request=_request(),
+        authoritative_response=response,
+        root=seeded_root,
+    )
+    assert len(observations) == 1
+    obs = observations[0]
+    assert obs.verdict == "full_match"
+    assert obs.authority_binding_count == 1
+    assert obs.bridge_attachment_count == 1
+    assert "binding_cardinality_mismatch" not in obs.reason_codes
+    assert {br.source_binding_id for br in obs.binding_results} == {
+        admitted["binding_id"]
+    }
 
 
 def test_product_output_invariant_enabled_vs_disabled(

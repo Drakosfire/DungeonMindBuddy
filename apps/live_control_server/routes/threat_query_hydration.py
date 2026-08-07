@@ -45,10 +45,12 @@ def post_threat_query_hydration(body: ThreatQueryHydrationRequestV1) -> JSONResp
     background: BackgroundTasks | None = None
     if dungeonmind_threat_shadow_enabled():
         background = BackgroundTasks()
+        # No pre-response deep-copy: BackgroundTasks retains references, and
+        # neither request nor response is mutated after this point.
         background.add_task(
             run_dungeonmind_threat_hydration_shadow,
-            request=body.model_copy(deep=True),
-            authoritative_response=response.model_copy(deep=True),
+            request=body,
+            authoritative_response=response,
             root=root,
         )
 

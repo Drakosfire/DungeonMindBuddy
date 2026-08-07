@@ -322,13 +322,20 @@ def _shadow_eligible_threat(
     ]
     typed_authority = [b for b in authority_bindings if b.binding_id]
 
+    # Projection lens (response.campaign_id) is not store.campaign_id — the
+    # authoritative hit already selected the admitted edge set. Pass campaign_id
+    # as None so #518 does not false-mismatch on world-scope lenses.
+    admitted_edge_ids = frozenset(
+        binding.relationship_edge_id for binding in authority_bindings
+    )
     try:
         bridge_result = _bridge_buddy_threat_revision(
             source_world_id=response.world_id,
             source_revision=source.manifest,
             source_store=source.store,
             threat_node_id=threat_node_id,
-            campaign_id=response.campaign_id,
+            campaign_id=None,
+            admitted_uses_statblock_edge_ids=admitted_edge_ids,
         )
     except ThreatConformanceBridgeError as exc:
         mapped = {
@@ -830,8 +837,10 @@ def run_dungeonmind_threat_hydration_shadow(
             )
         )
     except Exception:  # noqa: BLE001
-        logger.exception(
-            "%s verdict=shadow_error reason=unexpected_shadow_exception world_id=%s revision_id=%s",
+        # Bounded telemetry only — do not log exception text/traceback.
+        logger.warning(
+            "%s verdict=shadow_error reason=unexpected_shadow_exception "
+            "world_id=%s revision_id=%s",
             _SHADOW_EVENT,
             authoritative_response.world_id,
             authoritative_response.revision_id,
@@ -889,10 +898,14 @@ def _run_shadow_contained(
                 source=source,
             )
         except Exception:  # noqa: BLE001
-            logger.exception(
-                "%s verdict=shadow_error threat_node_id=%s",
+            # Bounded telemetry only — do not log exception text/traceback.
+            logger.warning(
+                "%s verdict=shadow_error reason=unexpected_shadow_exception "
+                "threat_node_id=%s world_id=%s revision_id=%s",
                 _SHADOW_EVENT,
                 hit.threat.node_id,
+                authoritative_response.world_id,
+                authoritative_response.revision_id,
             )
             observation = _observation_shadow_error(
                 threat_node_id=hit.threat.node_id,
