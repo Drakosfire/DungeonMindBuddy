@@ -17,6 +17,8 @@
 |--------|-----------|
 | DungeonMindBuddy base (#521 merge) | `3a9bdaab30cf19450f0a0f753b3046e5443c45c4` |
 | Branch | `kernel/dungeonmind-whole-world-adoption` |
+| Implementation commit | `a93579587dddf1203a49deebcbf6ac6e815cd165` |
+| PR | [#522](https://github.com/Drakosfire/DungeonMindBuddy/pull/522) |
 | DungeonMind pin (unchanged) | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 | Real world | `out/graph_memory/worlds/eldyrwild` |
 | Pinned revision | `rev:3413bf6f5044cf2680233f5e37c90dcf` |
