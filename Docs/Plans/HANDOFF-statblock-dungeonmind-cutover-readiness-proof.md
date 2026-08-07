@@ -1,12 +1,12 @@
 # HANDOFF — DungeonBuddy → DungeonMind bridge cutover-readiness proof
 
-**Created:** 2026-08-07  
-**Status:** COMPLETE — adversarial disposition  
-**Repository:** `Drakosfire/DungeonMindBuddy` (+ contract evidence from `Drakosfire/DungeonMind`)  
-**Flow:** KERNEL / STATBLOCK  
+**Created:** 2026-08-07
+**Status:** COMPLETE — adversarial disposition
+**Repository:** `Drakosfire/DungeonMindBuddy` (+ contract evidence from `Drakosfire/DungeonMind`)
+**Flow:** KERNEL / STATBLOCK
 **Canonical path:** `Docs/Plans/HANDOFF-statblock-dungeonmind-cutover-readiness-proof.md`
 
-**Suggested branch:** `kernel/dungeonmind-cutover-readiness-proof`  
+**Suggested branch:** `kernel/dungeonmind-cutover-readiness-proof`
 **Suggested PR title:** `STATBLOCK: cutover-readiness proof (CUTOVER_NOT_READY)`
 
 ---
@@ -249,8 +249,7 @@ No DungeonMind code changes in this proof.
 ```text
 DungeonMind is not Buddy runtime mechanics authority
 Buddy _hydrate_binding still determines product Threat hydration
-NPC mechanics bridge is unimplemented
-PC world-object bridge is unimplemented
+NPC/PC synthetic bridge mapping is closed; real-domain dogfood not yet published
 PC mechanics authority cutover is OUT OF CLAIM (DM forbids PC on mechanics-eligible kinds)
 No durable real-domain uses_statblock dogfood in graph_data
 Dark-cutover / authority promotion not performed
@@ -260,42 +259,83 @@ Legacy Buddy hydrator not deleted
 
 ---
 
+---
+
+## §520 ledger delta (post generalized world-object conformance)
+
+**Updated:** 2026-08-07 — branch `kernel/dungeonmind-world-object-conformance`
+**Buddy base SHA:** `6fac8686c55a6cf9e513b7dbb47cfaa3baa964ae`
+
+### Gates flipped to PASS (synthetic)
+
+| Gate | Prior (#520) | Now |
+|------|--------------|-----|
+| Threat semantic mapping | PASS (synthetic) | PASS (synthetic) |
+| NPC semantic mapping | **FAIL** | **PASS (synthetic)** |
+| NPC exact mechanics mapping | **FAIL** | **PASS (synthetic)** |
+| PC world-object semantic mapping | **FAIL** | **PASS (synthetic, zero mechanics)** |
+| Exact graph/mechanics identity | PASS (Threat only) | PASS (Threat + NPC synthetic) |
+| Hostility independence | PASS (Threat only) | PASS (Threat + NPC synthetic) |
+| Zero / one / many attachments | PASS (Threat only) | PASS (Threat legacy + NPC generic five-role) |
+| No implicit winner | PASS | PASS (reverse insertion order) |
+| **BRIDGE_MAPPING** blocker | **OPEN** | **CLOSED** |
+
+### Gates unchanged FAIL / NOT YET PROVEN
+
+| Gate | Result |
+|------|--------|
+| Real Threat/NPC mechanics dogfood | **FAIL** — zero durable `uses_statblock` in `graph_data/` |
+| Shared product projection | **FAIL** |
+| Local Buddy authority kill | **FAIL** |
+| Dark cutover | **FAIL** |
+| Poisoned fallback | **NOT_EXERCISED** (blocked by `PRODUCT_PROJECTION`) |
+
+### Disposition
+
+```text
+DISPOSITION: CUTOVER_NOT_READY
+Remaining blockers: REAL_DATA_INCOMPATIBILITY, PRODUCT_PROJECTION
+Closed blockers: BRIDGE_MAPPING
+```
+
+Executable lock: `tests/test_dungeonmind_cutover_readiness_audit.py` (`test_cutover_disposition_is_not_ready`, NPC/PC bridge PASS probes).
+
+Proof handback: `Docs/Plans/HANDOFF-statblock-dungeonmind-world-object-conformance.md`
+
+---
+
 ## Blocking classification
 
 ```text
 DISPOSITION: CUTOVER_NOT_READY
 
-Blocking class: BRIDGE_MAPPING
-Failing proof: §7 B / §28 NPC semantic+mechanics mapping; §7 I / PC world-object semantic mapping
-Responsible layer: DungeonMindBuddy (bridge absent; DM already admits dnd5e:npc)
-Smallest durable fix: extend the #518 conformance boundary into a typed world-object
-  semantic mapper shared by Threat/NPC/(later) PC kind mapping, with statblock
-  attachment specialization remaining Threat/NPC-only. Do NOT clone a wholly
-  separate NPC architecture, convert NPC→Threat, or synthesize dnd5e:threatens.
-
 Blocking class: PRODUCT_PROJECTION
-Failing proof: §15–§16 / §19–§20 / §28 shared product projection + dark-cutover;
-  also blocks §13–§14 poisoned-fallback exercise
+Failing proof: shared product projection + dark-cutover;
+  also blocks poisoned-fallback exercise
 Responsible layer: DungeonMindBuddy (routes/services)
-Smallest durable fix: after Threat+NPC bridges prove synthetic+real dogfood,
+Smallest durable fix: after real Threat+NPC dogfood proves exact conformance,
   promote DM hydrate behind existing /api/live/threats/query-hydration (or shared
   projection seam) with kill-switch; then local-authority kill + dark-cutover +
   poisoned A-vs-B
 
 Blocking class: REAL_DATA_INCOMPATIBILITY
-Failing proof: §17 real Threat/NPC mechanics dogfood
+Failing proof: real Threat/NPC mechanics dogfood
 Responsible layer: campaign data / publication (not bridge invention)
 Smallest durable fix: publish/accept at least one durable kind=threat (and ideally
-  kind=npc) with uses_statblock + available exact revision; re-run shadow/full_match
-  before promotion
+  kind=npc) with uses_statblock + available exact revision; re-run generic bridge
+  + shadow/full_match on real data before promotion
+
+Closed in the generalized world-object conformance PR:
+  BRIDGE_MAPPING — synthetic Threat/NPC/PC identity + NPC mechanics + mixed
+  legacy/generic attachment proofs (see
+  HANDOFF-statblock-dungeonmind-world-object-conformance.md)
 
 Not a proven blocker in this ledger:
   HIDDEN_FALLBACK — current Buddy authority fails closed without an alternate
   hydrator; poisoned-fallback remains NOT_EXERCISED until PRODUCT_PROJECTION lands
 ```
 
-Do not repair missing Buddy NPC mapping by inventing semantics inside DungeonMind.
-Do not force green by converting NPCs to Threats.
+Do not force green by converting NPCs to Threats or synthesizing `dnd5e:threatens`.
 
 ---
 
@@ -307,24 +347,25 @@ Because disposition is `CUTOVER_NOT_READY`, do **not** dispatch:
 STATBLOCK: promote DungeonMind exact mechanics authority and demolish duplicate DungeonBuddy hydration
 ```
 
-Next handoff addresses the **smallest durable blocker**:
+Next handoff addresses the **smallest durable remaining blocker**:
 
 ```text
-STATBLOCK: bridge exact Buddy NPC identity into DungeonMind v3
+STATBLOCK: publish real Threat/NPC mechanics dogfood and prove exact DungeonMind conformance
 ```
 
-Prefer extending #518 into a **typed world-object semantic mapper** shared by Threat/NPC/(later) PC kind mapping, with statblock attachment specialization remaining Threat/NPC-only — not a wholly separate NPC-only architecture clone. Preserve `kind=npc`; never synthesize `dnd5e:threatens`.
+That successor should:
 
-In parallel / gated after NPC bridge:
+1. choose a real accepted campaign Threat;
+2. attach a real exact accepted statblock revision through the governed Buddy graph contract;
+3. choose a real NPC with mechanics (preferably Lysandra if corpus/authority supports her);
+4. attach her exact accepted statblock without changing her NPC identity or inventing hostility;
+5. run the generic bridge against both exact real graph revisions;
+6. exercise a real PC through semantic mapping only;
+7. update this cutover ledger with real-domain results.
 
-```text
-publish real durable Threat (+ ideally NPC) uses_statblock dogfood
-→ re-enable shadow full_match on real data
-→ only then authority promotion behind existing Buddy API
-→ then poisoned-fallback + local-authority kill become exercisable
-```
+Only after that real-domain proof should the program dispatch authority promotion / dark cutover.
 
-PC semantic mapping can ride the shared mapper later; PC mechanics stay OUT OF CLAIM until DM eligibility changes by explicit ADR.
+PC mechanics stay OUT OF CLAIM until DM eligibility changes by explicit ADR.
 
 ---
 
@@ -333,11 +374,11 @@ PC semantic mapping can ride the shared mapper later; PC mechanics stay OUT OF C
 ```text
 DISPOSITION: CUTOVER_NOT_READY
 
-Blocking class: BRIDGE_MAPPING (+ PRODUCT_PROJECTION, REAL_DATA_INCOMPATIBILITY)
-Failing proof: mandatory NPC/PC/product/dark-cutover/real-domain gates
-Responsible layer: DungeonMindBuddy adapter + product authority path (DM Threat+NPC contract is present)
-Smallest durable fix: shared typed world-object mapper with NPC mechanics next;
-  then real dogfood; then authority promotion — not a soft “mostly ready”
+Remaining blockers: REAL_DATA_INCOMPATIBILITY, PRODUCT_PROJECTION
+Closed blockers: BRIDGE_MAPPING
+
+Responsible layer: campaign publication + product projection wiring
+  (synthetic Threat/NPC/PC bridge mapping is closed)
 
 HIDDEN_FALLBACK: not a proven defect (NOT_EXERCISED / blocked by PRODUCT_PROJECTION)
 ```

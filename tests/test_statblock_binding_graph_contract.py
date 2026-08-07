@@ -26,11 +26,14 @@ from graph_memory.union_supergraph.statblock_binding import (
     PROVIDER,
     ExternalResourceV1,
     ThreatStatblockBindingV1,
+    WorldObjectStatblockBindingV1,
     compute_binding_id,
+    compute_world_object_statblock_binding_id,
     edge_id_from_binding_id,
     external_statblock_node_id,
     parse_external_resource_assertion,
     parse_threat_statblock_binding_assertion,
+    parse_uses_statblock_binding_assertion,
 )
 from graph_memory.union_supergraph.validate import (
     UnionSupergraphValidationError,
@@ -40,9 +43,11 @@ from graph_memory.union_supergraph.validate import (
 WORLD_ID = "sbw08-test-world"
 CAMPAIGN_ID = "longmont-c2"
 THREAT_ID = "threat:sbw08-synthetic"
+NPC_ID = "npc:sbw08-synthetic"
 STATBLOCK_ID = "sb_w08"
 REVISION_ID = "rev_1"
 DIGEST = f"sha256:{'a' * 64}"
+_CONTRIBUTION_SEQ = 0
 
 
 @pytest.fixture
@@ -114,11 +119,13 @@ def _binding_value(binding: dict[str, str | None]) -> dict[str, object]:
 
 
 def _contribution(*assertions):
+    global _CONTRIBUTION_SEQ
+    _CONTRIBUTION_SEQ += 1
     return kernel.create_graph_contribution(
         world_id=WORLD_ID,
         source_kind="manual_import",
         source_artifact_id="graph-native:sbw08",
-        source_revision_id=f"sbw08-{len(assertions)}",
+        source_revision_id=f"sbw08-{_CONTRIBUTION_SEQ}-{len(assertions)}",
         campaign_scope=CAMPAIGN_ID,
         accepted_assertions=list(assertions),
     )
@@ -366,7 +373,7 @@ def test_kernel_value_predicate_fallback_rejects_malformed_binding(
                     if edge.get("predicate") == "uses_statblock"
                 )
             ].pop("threat_statblock_binding"),
-            "requires typed threat_statblock_binding",
+            "exactly one of threat_statblock_binding or statblock_binding",
         ),
         (
             _mutate_binding_id_with_matching_edge_id,
@@ -374,7 +381,7 @@ def test_kernel_value_predicate_fallback_rejects_malformed_binding(
         ),
         (
             lambda payload: payload["nodes"][THREAT_ID].update({"kind": "npc"}),
-            "statblock binding source must be a Threat node",
+            "legacy threat_statblock_binding source must be a Threat node",
         ),
         (
             lambda payload: payload["nodes"][
@@ -675,6 +682,407 @@ def test_untyped_node_assertion_cannot_reuse_typed_external_resource_id(
     edge_id = edge_id_from_binding_id(str(binding["binding_id"]))
     binding_view = next(item for item in projection.relationships if item.edge_id == edge_id)
     assert binding_view.threat_statblock_binding is not None
+
+
+def _generic_binding(
+    *,
+    world_object_node_id: str,
+    world_object_kind: str,
+    role: str = "primary",
+    phase_key: str | None = None,
+    variant_label: str | None = None,
+) -> dict[str, str | None]:
+    return {
+        "schema": "dmb_world_object_statblock_binding_v1",
+        "binding_id": compute_world_object_statblock_binding_id(
+            world_object_node_id=world_object_node_id,
+            world_object_kind=world_object_kind,
+            provider=PROVIDER,
+            statblock_id=STATBLOCK_ID,
+            revision_id=REVISION_ID,
+            contract=CONTRACT,
+            contract_version=CONTRACT_VERSION,
+            definition_digest=DIGEST,
+            role=role,
+            phase_key=phase_key,
+            variant_label=variant_label,
+        ),
+        "world_object_kind": world_object_kind,
+        "provider": PROVIDER,
+        "statblock_id": STATBLOCK_ID,
+        "revision_id": REVISION_ID,
+        "contract": CONTRACT,
+        "contract_version": CONTRACT_VERSION,
+        "definition_digest": DIGEST,
+        "role": role,
+        "phase_key": phase_key,
+        "variant_label": variant_label,
+    }
+
+
+def _generic_binding_value(binding: dict[str, str | None]) -> dict[str, object]:
+    return {
+        "edge_id": edge_id_from_binding_id(str(binding["binding_id"])),
+        "direction": "outbound",
+        "statblock_binding": binding,
+    }
+
+
+def _publish_generic_npc_contract(root: Path) -> tuple[dict[str, str | None], str]:
+    npc = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=NPC_ID,
+        label="Synthetic NPC",
+        campaign_scope=CAMPAIGN_ID,
+        value={"kind": "npc", "role": "ally", "source_domains": ["manual_seed"]},
+    )
+    assert kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=_contribution(npc)
+    ).published
+
+    binding = _generic_binding(
+        world_object_node_id=NPC_ID,
+        world_object_kind="npc",
+    )
+    resource = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=external_statblock_node_id(STATBLOCK_ID),
+        label="External statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_resource_value(),
+    )
+    edge = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=NPC_ID,
+        target_node_id=external_statblock_node_id(STATBLOCK_ID),
+        predicate="uses_statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_generic_binding_value(binding),
+    )
+    result = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=_contribution(resource, edge)
+    )
+    assert result.published and result.revision_id
+    return binding, result.revision_id
+
+
+def _mutate_generic_binding_id_with_matching_edge_id(payload: dict[str, object]) -> None:
+    edges = payload["edges"]
+    edge_id = next(
+        edge_id
+        for edge_id, edge in edges.items()
+        if edge.get("predicate") == "uses_statblock" and edge.get("statblock_binding")
+    )
+    edge = edges.pop(edge_id)
+    binding = edge["statblock_binding"]
+    binding["binding_id"] = "world-object-statblock-binding:arbitrary"
+    replacement_edge_id = edge_id_from_binding_id(str(binding["binding_id"]))
+    edge["edge_id"] = replacement_edge_id
+    edges[replacement_edge_id] = edge
+
+    for items in payload["adjacency"].values():
+        for item in items:
+            if item.get("edge_id") == edge_id:
+                item["edge_id"] = replacement_edge_id
+    for support in payload["assertion_support"].values():
+        if support.get("graph_object_id") == edge_id:
+            support["graph_object_id"] = replacement_edge_id
+
+
+def test_parse_uses_statblock_rejects_both_legacy_and_generic_payloads() -> None:
+    legacy = _binding()
+    generic = _generic_binding(
+        world_object_node_id=THREAT_ID,
+        world_object_kind="threat",
+    )
+    with pytest.raises(ValueError, match="must not carry both"):
+        parse_uses_statblock_binding_assertion(
+            subject_node_id=THREAT_ID,
+            target_node_id=external_statblock_node_id(STATBLOCK_ID),
+            predicate="uses_statblock",
+            value={
+                "edge_id": edge_id_from_binding_id(str(legacy["binding_id"])),
+                "direction": "outbound",
+                "threat_statblock_binding": legacy,
+                "statblock_binding": generic,
+            },
+        )
+
+
+def test_parse_uses_statblock_rejects_neither_payload() -> None:
+    with pytest.raises(ValueError, match="exactly one of"):
+        parse_uses_statblock_binding_assertion(
+            subject_node_id=THREAT_ID,
+            target_node_id=external_statblock_node_id(STATBLOCK_ID),
+            predicate="uses_statblock",
+            value={
+                "edge_id": "edge:missing-binding",
+                "direction": "outbound",
+            },
+        )
+
+
+def test_kernel_merge_rejects_legacy_binding_on_npc(seeded_root: Path) -> None:
+    npc = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=NPC_ID,
+        label="Synthetic NPC",
+        campaign_scope=CAMPAIGN_ID,
+        value={"kind": "npc", "role": "ally", "source_domains": ["manual_seed"]},
+    )
+    assert kernel.merge_contribution_to_revision(
+        seeded_root, world_id=WORLD_ID, contribution=_contribution(npc)
+    ).published
+    legacy = {
+        **_binding(),
+        "binding_id": compute_binding_id(
+            threat_node_id=NPC_ID,
+            provider=PROVIDER,
+            statblock_id=STATBLOCK_ID,
+            revision_id=REVISION_ID,
+            contract=CONTRACT,
+            contract_version=CONTRACT_VERSION,
+            definition_digest=DIGEST,
+            role="primary",
+            phase_key=None,
+            variant_label=None,
+        ),
+    }
+    resource = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=external_statblock_node_id(STATBLOCK_ID),
+        label="External statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_resource_value(),
+    )
+    edge = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=NPC_ID,
+        target_node_id=external_statblock_node_id(STATBLOCK_ID),
+        predicate="uses_statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_binding_value(legacy),
+    )
+    result = kernel.merge_contribution_to_revision(
+        seeded_root, world_id=WORLD_ID, contribution=_contribution(resource, edge)
+    )
+    assert result.published is False
+    assert any("merge_failed" in item for item in result.diagnostics)
+
+
+@pytest.mark.parametrize("world_object_kind", ["creature", "monster"])
+def test_world_object_statblock_binding_rejects_ineligible_kind(
+    world_object_kind: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        WorldObjectStatblockBindingV1.model_validate(
+            {
+                **_generic_binding(
+                    world_object_node_id=f"{world_object_kind}:sbw08",
+                    world_object_kind="npc",
+                ),
+                "world_object_kind": world_object_kind,
+            }
+        )
+
+
+def test_parse_uses_statblock_rejects_generic_pc_kind_via_model() -> None:
+    with pytest.raises(ValidationError):
+        WorldObjectStatblockBindingV1.model_validate(
+            {
+                **_generic_binding(
+                    world_object_node_id="pc:sbw08",
+                    world_object_kind="npc",
+                ),
+                "world_object_kind": "pc",
+            }
+        )
+
+
+def test_parse_uses_statblock_rejects_generic_kind_mismatch_with_source() -> None:
+    binding = _generic_binding(
+        world_object_node_id=NPC_ID,
+        world_object_kind="npc",
+    )
+    with pytest.raises(ValueError, match="binding_id"):
+        parse_uses_statblock_binding_assertion(
+            subject_node_id=THREAT_ID,
+            target_node_id=external_statblock_node_id(STATBLOCK_ID),
+            predicate="uses_statblock",
+            value=_generic_binding_value(binding),
+        )
+
+
+def test_generic_binding_identity_is_deterministic_and_semantic() -> None:
+    original = _generic_binding(
+        world_object_node_id=NPC_ID,
+        world_object_kind="npc",
+    )
+    assert _generic_binding(
+        world_object_node_id=NPC_ID,
+        world_object_kind="npc",
+    ) == original
+    changed_revision = _generic_binding(
+        world_object_node_id=NPC_ID,
+        world_object_kind="npc",
+        role="alternate",
+    )
+    assert original["binding_id"] != changed_revision["binding_id"]
+
+    tampered = {**original, "revision_id": "rev_2"}
+    with pytest.raises(ValueError, match="binding_id"):
+        parse_uses_statblock_binding_assertion(
+            subject_node_id=NPC_ID,
+            target_node_id=external_statblock_node_id(STATBLOCK_ID),
+            predicate="uses_statblock",
+            value=_generic_binding_value(tampered),
+        )
+
+
+def test_publish_reload_generic_threat_binding(seeded_root: Path) -> None:
+    threat = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=THREAT_ID,
+        label="Synthetic Threat",
+        campaign_scope=CAMPAIGN_ID,
+        value={"kind": "threat", "role": "threat", "source_domains": ["manual_seed"]},
+    )
+    assert kernel.merge_contribution_to_revision(
+        seeded_root, world_id=WORLD_ID, contribution=_contribution(threat)
+    ).published
+    binding = _generic_binding(
+        world_object_node_id=THREAT_ID,
+        world_object_kind="threat",
+    )
+    resource = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=external_statblock_node_id(STATBLOCK_ID),
+        label="External statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_resource_value(),
+    )
+    edge = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=THREAT_ID,
+        target_node_id=external_statblock_node_id(STATBLOCK_ID),
+        predicate="uses_statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_generic_binding_value(binding),
+    )
+    contribution = _contribution(resource, edge)
+    result = kernel.merge_contribution_to_revision(
+        seeded_root, world_id=WORLD_ID, contribution=contribution
+    )
+    assert result.published and result.revision_id
+    _head, _revision, store = kernel.open_current_world_graph(seeded_root, WORLD_ID)
+    edge_id = edge_id_from_binding_id(str(binding["binding_id"]))
+    stored_edge = store.edges[edge_id]
+    assert stored_edge.statblock_binding is not None
+    assert stored_edge.threat_statblock_binding is None
+
+
+def test_publish_reload_generic_npc_binding(seeded_root: Path) -> None:
+    binding, revision_id = _publish_generic_npc_contract(seeded_root)
+    _head, _revision, store = kernel.open_current_world_graph(seeded_root, WORLD_ID)
+    edge_id = edge_id_from_binding_id(str(binding["binding_id"]))
+    stored_edge = store.edges[edge_id]
+    assert stored_edge.statblock_binding is not None
+    assert stored_edge.statblock_binding.model_dump(mode="json", by_alias=True) == binding
+    assert revision_id is not None
+
+
+@pytest.mark.parametrize(
+    ("mutator", "pattern"),
+    [
+        (
+            lambda payload: payload["edges"][
+                next(
+                    edge_id
+                    for edge_id, edge in payload["edges"].items()
+                    if edge.get("statblock_binding")
+                )
+            ].pop("statblock_binding"),
+            "exactly one of threat_statblock_binding or statblock_binding",
+        ),
+        (
+            _mutate_generic_binding_id_with_matching_edge_id,
+            "binding_id does not match immutable semantic identity",
+        ),
+        (
+            lambda payload: payload["nodes"][NPC_ID].update({"kind": "threat"}),
+            "binding.world_object_kind must match source node kind",
+        ),
+        (
+            lambda payload: payload["edges"][
+                next(
+                    edge_id
+                    for edge_id, edge in payload["edges"].items()
+                    if edge.get("statblock_binding")
+                )
+            ]["statblock_binding"].update({"world_object_kind": "threat"}),
+            "binding.world_object_kind must match source node kind",
+        ),
+    ],
+)
+def test_persisted_store_rejects_generic_adversarial_mutations(
+    seeded_root: Path,
+    mutator,
+    pattern: str,
+) -> None:
+    _publish_generic_npc_contract(seeded_root)
+    payload = copy.deepcopy(_valid_store_payload(seeded_root))
+    mutator(payload)
+    with pytest.raises(UnionSupergraphValidationError, match=pattern):
+        validate_union_supergraph_store_payload(payload)
+
+
+def test_kernel_merge_rejects_generic_binding_on_pc(seeded_root: Path) -> None:
+    pc = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="pc:sbw08",
+        label="Synthetic PC",
+        campaign_scope=CAMPAIGN_ID,
+        value={"kind": "pc", "role": "player_character", "source_domains": ["manual_seed"]},
+    )
+    assert kernel.merge_contribution_to_revision(
+        seeded_root, world_id=WORLD_ID, contribution=_contribution(pc)
+    ).published
+    binding = _generic_binding(
+        world_object_node_id="pc:sbw08",
+        world_object_kind="npc",
+    )
+    resource = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=external_statblock_node_id(STATBLOCK_ID),
+        label="External statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_resource_value(),
+    )
+    edge = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id="pc:sbw08",
+        target_node_id=external_statblock_node_id(STATBLOCK_ID),
+        predicate="uses_statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_generic_binding_value(binding),
+    )
+    result = kernel.merge_contribution_to_revision(
+        seeded_root, world_id=WORLD_ID, contribution=_contribution(resource, edge)
+    )
+    assert result.published is False
+    assert any("merge_failed" in item for item in result.diagnostics)
 
 
 def test_untyped_edge_assertion_cannot_reuse_typed_statblock_binding_id(

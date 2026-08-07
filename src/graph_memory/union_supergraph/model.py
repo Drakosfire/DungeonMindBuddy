@@ -9,6 +9,7 @@ from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.union_supergraph.statblock_binding import (
     ExternalResourceV1,
     ThreatStatblockBindingV1,
+    WorldObjectStatblockBindingV1,
 )
 
 
@@ -58,6 +59,7 @@ class UnionSupergraphEdge(_UnionSupergraphModel):
     evidence_ref_ids: list[str]
     state: dict[str, Any]
     threat_statblock_binding: ThreatStatblockBindingV1 | None = None
+    statblock_binding: WorldObjectStatblockBindingV1 | None = None
 
 
 class UnionSupergraphEvidence(GraphMemoryEvidenceRef):
