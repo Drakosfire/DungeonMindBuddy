@@ -13,8 +13,6 @@ installed ``dungeonmind`` / ``dungeonmind_dnd`` packages.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -77,7 +75,6 @@ _BRIDGE_EVIDENCE_DOMAIN = "other"
 BridgeFailureReason = Literal[
     "exact_revision_missing",
     "source_revision_integrity_failure",
-    "source_revision_store_mismatch",
     "world_mismatch",
     "campaign_mismatch",
     "source_threat_missing",
@@ -185,32 +182,6 @@ def convert_buddy_definition_digest(definition_digest: str) -> str:
             "definition_digest must be exactly sha256:<64 lowercase hex>",
         )
     return match.group(1)
-
-
-def _buddy_store_payload_sha256(store: UnionSupergraphStore) -> str:
-    """Hash a Buddy store using the same canonical bytes as World Graph publish.
-
-    Mirrors ``graph_memory.world_supergraph.storage.canonicalize_graph_payload``
-    + ``sha256_hex`` without importing storage internals (kernel boundary).
-    """
-    payload = store.model_dump(mode="json", by_alias=True)
-    canonical = (
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-        + "\n"
-    )
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
-def _require_revision_store_binding(
-    source_revision: BuddyWorldGraphRevision,
-    source_store: UnionSupergraphStore,
-) -> None:
-    store_digest = _buddy_store_payload_sha256(source_store)
-    if store_digest != source_revision.graph_payload_sha256:
-        raise ThreatConformanceBridgeError(
-            "source_revision_store_mismatch",
-            "source_store payload digest does not match source_revision.graph_payload_sha256",
-        )
 
 
 def _v3_graph_reader() -> UnionGraphV3SnapshotReader:
@@ -535,11 +506,12 @@ def _bridge_buddy_threat_revision(
     threat_node_id: str,
     campaign_id: str | None = None,
 ) -> DungeonMindThreatConformanceBridgeResult:
-    """Private helper: bridge from a revision/store pair already proven to match.
+    """Private helper: bridge from an integrity-attested revision/store pair.
 
-    Not a public entrypoint. Callers must ensure ``source_store`` is the payload
-    attested by ``source_revision.graph_payload_sha256``; this helper re-checks
-    that binding and refuses mismatched pairs.
+    Not a public entrypoint. Provenance must already be established by
+    ``kernel.load_world_graph_revision_with_integrity`` (raw on-disk bytes).
+    Do not rehash a post-parse ``model_dump`` — that can drift from immutable
+    revision bytes when the store model gains defaults.
     """
     if source_revision.world_id != source_world_id:
         raise ThreatConformanceBridgeError(
@@ -551,7 +523,6 @@ def _bridge_buddy_threat_revision(
             "campaign_mismatch",
             "requested campaign_id does not match source store campaign_id",
         )
-    _require_revision_store_binding(source_revision, source_store)
 
     node = source_store.nodes.get(threat_node_id)
     if node is None:

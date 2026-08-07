@@ -17,7 +17,7 @@
 |--------|-----|
 | Buddy base (`main` at branch start) | `46d3677d9ade0b7a83ab2cb07d2b6c635fb50f40` |
 | Branch | `kernel/dungeonmind-threat-conformance-bridge` |
-| Head SHA | `064f0db8d19b959d31762dd6ec80bf440ef26758` |
+| Implementation commit | `3a4b2039d00d1b5396db6e5bb38268f781d2c1bf` |
 | PR | [#518](https://github.com/Drakosfire/DungeonMindBuddy/pull/518) |
 | DungeonMind dependency (PR #23 merge) | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 
@@ -25,7 +25,8 @@ Open adjacent PRs inspected before shared-file edits: #517 (PWO01 docs — not a
 
 **Review follow-ups (post #518 REQUEST CHANGES):**
 
-- Public surface is only `bridge_exact_buddy_threat` (owns integrity-attested load). Raw store/manifest pairing is private `_bridge_buddy_threat_revision` and refuses digest mismatch (`source_revision_store_mismatch`).
+- Public surface is only `bridge_exact_buddy_threat` (owns integrity-attested load via `kernel.load_world_graph_revision_with_integrity`). Raw store/manifest pairing is private `_bridge_buddy_threat_revision` and is not exported — there is no public API that accepts an arbitrary manifest+store pair.
+- Provenance is established by Kernel raw-byte integrity only. The bridge does **not** rehash a post-parse `model_dump` of `UnionSupergraphStore` (that can drift from immutable `graph.json` when the model gains defaults).
 - All World Graph I/O goes through `graph_memory.kernel` (no `world_supergraph.storage` / `.model` / `.paths` imports in the bridge or its tests).
 - Malformed `revision.json` classifies as `source_revision_integrity_failure`, not `exact_revision_missing`.
 

@@ -28,7 +28,6 @@ from apps.live_control_server.integrations import dungeonmind_kernel as bridge_p
 from apps.live_control_server.integrations.dungeonmind_kernel.world_object_conformance_bridge import (
     ThreatConformanceBridgeError,
     _bridge_buddy_threat_revision,
-    _buddy_store_payload_sha256,
     bridge_exact_buddy_threat,
     convert_buddy_definition_digest,
     map_buddy_provider_to_dungeonmind_provider_id,
@@ -259,13 +258,6 @@ def _load_verified_pair(root: Path, revision_id: str):
     store = kernel.load_world_graph_revision_with_integrity(root, WORLD_ID, revision_id)
     manifest = kernel.load_world_graph_revision_manifest(root, WORLD_ID, revision_id)
     return manifest, store
-
-
-def _rebind_manifest_to_store(manifest, store):
-    """Keep private-helper tests on binding validation after intentional mutation."""
-    return manifest.model_copy(
-        update={"graph_payload_sha256": _buddy_store_payload_sha256(store)}
-    )
 
 
 def _hydrate_first(result: Any) -> tuple[_CountingResolver, Any]:
@@ -658,7 +650,7 @@ def test_fail_forged_binding_and_edge_ids(seeded_root: Path) -> None:
     with pytest.raises(ThreatConformanceBridgeError) as exc:
         _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=_rebind_manifest_to_store(manifest, mutated),
+            source_revision=manifest,
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -671,7 +663,7 @@ def test_fail_forged_binding_and_edge_ids(seeded_root: Path) -> None:
     with pytest.raises(ThreatConformanceBridgeError) as exc2:
         _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=_rebind_manifest_to_store(manifest, mutated2),
+            source_revision=manifest,
             source_store=mutated2,
             threat_node_id=THREAT_ID,
         )
@@ -693,7 +685,7 @@ def test_fail_inbound_uses_statblock(seeded_root: Path) -> None:
     with pytest.raises(ThreatConformanceBridgeError) as exc:
         _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=_rebind_manifest_to_store(manifest, mutated),
+            source_revision=manifest,
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -709,7 +701,7 @@ def test_fail_missing_binding_payload(seeded_root: Path) -> None:
     with pytest.raises(ThreatConformanceBridgeError) as exc:
         _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=_rebind_manifest_to_store(manifest, mutated),
+            source_revision=manifest,
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -725,7 +717,7 @@ def test_fail_missing_external_resource_node(seeded_root: Path) -> None:
     with pytest.raises(ThreatConformanceBridgeError) as exc:
         _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=_rebind_manifest_to_store(manifest, mutated),
+            source_revision=manifest,
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -743,7 +735,7 @@ def test_fail_wrong_resource_target(seeded_root: Path) -> None:
     with pytest.raises(ThreatConformanceBridgeError) as exc:
         _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=_rebind_manifest_to_store(manifest, mutated),
+            source_revision=manifest,
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -825,42 +817,19 @@ def test_fail_malformed_revision_manifest(seeded_root: Path) -> None:
     assert exc.value.reason == "source_revision_integrity_failure"
 
 
-def test_r1_manifest_with_r2_store_cannot_bridge(seeded_root: Path) -> None:
-    _publish_threat_node(seeded_root)
-    binding_a = _binding(role="primary", variant_label="rev-a")
-    revision_a = _publish_bindings(seeded_root, [binding_a])
-    binding_b = _binding(role="alternate", variant_label="rev-b")
-    edge_only = kernel.build_assertion(
-        assertion_kind="edge",
-        acceptance_state="accepted",
-        subject_node_id=THREAT_ID,
-        target_node_id=external_statblock_node_id(STATBLOCK_ID),
-        predicate="uses_statblock",
-        campaign_scope=CAMPAIGN_ID,
-        value=_binding_value(binding_b),
-    )
-    result_b = kernel.merge_contribution_to_revision(
-        seeded_root, world_id=WORLD_ID, contribution=_contribution(edge_only)
-    )
-    assert result_b.published and result_b.revision_id
-    revision_b = result_b.revision_id
+def test_public_bridge_accepts_only_exact_revision_identity() -> None:
+    """Provenance hole is closed at the public boundary — no manifest+store API."""
+    import inspect
 
-    manifest_r1, _store_r1 = _load_verified_pair(seeded_root, revision_a)
-    _manifest_r2, store_r2 = _load_verified_pair(seeded_root, revision_b)
-    with pytest.raises(ThreatConformanceBridgeError) as exc:
-        _bridge_buddy_threat_revision(
-            source_world_id=WORLD_ID,
-            source_revision=manifest_r1,
-            source_store=store_r2,
-            threat_node_id=THREAT_ID,
-        )
-    assert exc.value.reason == "source_revision_store_mismatch"
-
-
-def test_mismatched_store_entrypoint_is_not_public() -> None:
     assert "bridge_buddy_threat_revision" not in bridge_pkg.__all__
     assert not hasattr(bridge_pkg, "bridge_buddy_threat_revision")
     assert hasattr(bridge_pkg, "bridge_exact_buddy_threat")
+
+    params = set(inspect.signature(bridge_exact_buddy_threat).parameters)
+    assert {"root", "world_id", "revision_id", "threat_node_id"}.issubset(params)
+    assert "source_revision" not in params
+    assert "source_store" not in params
+    assert "manifest" not in params
 
 
 def test_fail_resolver_wrong_resource_identity(seeded_root: Path) -> None:
