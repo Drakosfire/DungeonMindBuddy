@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -48,6 +49,7 @@ from graph_memory.kernel.world_initialization_models import (  # noqa: E402
 )
 from graph_memory.projection.world_projection import (  # noqa: E402
     PROJECTION_REQUEST_SCHEMA,
+    WorldGraphProjection,
     WorldGraphProjectionFocus,
     WorldGraphProjectionRequest,
 )
@@ -98,9 +100,24 @@ class ProjectionRun:
     selected_revision_id: str
     head_revision_id: str
     resident_status: str
+    snapshot_revision_id: str
+    snapshot_head_revision_id: str
+    snapshot_is_head: bool
+    payload_digest: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def projection_payload_digest(projection: WorldGraphProjection) -> str:
+    """Stable digest of the returned projection payload (not observation metadata)."""
+    canonical = json.dumps(
+        projection.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def build_plan_projection_request() -> WorldGraphProjectionRequest:
@@ -272,7 +289,7 @@ def admit_current_head_resident(root: Path) -> None:
 
 def measure_projection_run(root: Path, request: WorldGraphProjectionRequest) -> ProjectionRun:
     started = time.perf_counter()
-    project_world_graph(request, root=root)
+    projection = project_world_graph(request, root=root)
     e2e_ms = (time.perf_counter() - started) * 1000.0
     observation = kernel.get_last_projection_observation()
     if observation is None:
@@ -288,12 +305,16 @@ def measure_projection_run(root: Path, request: WorldGraphProjectionRequest) -> 
         revision_manifest_reads_this_request=observation.revision_manifest_reads_this_request,
         contribution_reads_this_request=observation.contribution_reads_this_request,
         source_index_reads_this_request=observation.source_index_reads_this_request,
-        nodes_returned=observation.nodes_returned,
-        relationships_returned=observation.relationships_returned,
-        attributes_returned=observation.attributes_returned,
+        nodes_returned=len(projection.nodes),
+        relationships_returned=len(projection.relationships),
+        attributes_returned=len(projection.attributes),
         selected_revision_id=observation.selected_revision_id,
         head_revision_id=observation.head_revision_id,
         resident_status=observation.resident_status,
+        snapshot_revision_id=projection.snapshot.revision_id,
+        snapshot_head_revision_id=projection.snapshot.head_revision_id,
+        snapshot_is_head=bool(projection.snapshot.is_head),
+        payload_digest=projection_payload_digest(projection),
     )
 
 
@@ -301,12 +322,50 @@ def validate_scenario_semantics(
     runs: list[ProjectionRun],
     *,
     scenario: ScenarioKey,
+    expected_revision_id: str | None = None,
 ) -> list[str]:
     if not runs:
         return [f"{scenario}: no runs recorded"]
     errors: list[str] = []
     first = runs[0]
-    for index, run in enumerate(runs[1:], start=2):
+    for index, run in enumerate(runs, start=1):
+        if run.snapshot_revision_id != run.selected_revision_id:
+            errors.append(
+                f"{scenario} iteration {index}: snapshot.revision_id "
+                f"{run.snapshot_revision_id!r} != observation selected "
+                f"{run.selected_revision_id!r}"
+            )
+        if run.snapshot_head_revision_id != run.head_revision_id:
+            errors.append(
+                f"{scenario} iteration {index}: snapshot.head_revision_id "
+                f"{run.snapshot_head_revision_id!r} != observation head "
+                f"{run.head_revision_id!r}"
+            )
+        if run.snapshot_revision_id != run.snapshot_head_revision_id:
+            errors.append(
+                f"{scenario} iteration {index}: head-following snapshot selected "
+                f"{run.snapshot_revision_id!r} != head {run.snapshot_head_revision_id!r}"
+            )
+        if not run.snapshot_is_head:
+            errors.append(
+                f"{scenario} iteration {index}: snapshot.is_head is false for "
+                "head-following request"
+            )
+        if expected_revision_id is not None:
+            if run.snapshot_revision_id != expected_revision_id:
+                errors.append(
+                    f"{scenario} iteration {index}: snapshot.revision_id "
+                    f"{run.snapshot_revision_id!r} != expected published "
+                    f"{expected_revision_id!r}"
+                )
+            if run.snapshot_head_revision_id != expected_revision_id:
+                errors.append(
+                    f"{scenario} iteration {index}: snapshot.head_revision_id "
+                    f"{run.snapshot_head_revision_id!r} != expected published "
+                    f"{expected_revision_id!r}"
+                )
+        if index == 1:
+            continue
         if run.nodes_returned != first.nodes_returned:
             errors.append(
                 f"{scenario} iteration {index}: nodes_returned "
@@ -326,6 +385,16 @@ def validate_scenario_semantics(
             errors.append(
                 f"{scenario} iteration {index}: selected_revision_id "
                 f"{run.selected_revision_id} != {first.selected_revision_id}"
+            )
+        if run.payload_digest != first.payload_digest:
+            errors.append(
+                f"{scenario} iteration {index}: payload_digest "
+                f"{run.payload_digest} != {first.payload_digest}"
+            )
+        if run.snapshot_revision_id != first.snapshot_revision_id:
+            errors.append(
+                f"{scenario} iteration {index}: snapshot_revision_id "
+                f"{run.snapshot_revision_id} != {first.snapshot_revision_id}"
             )
     return errors
 
@@ -380,6 +449,11 @@ def summarize_runs(runs: list[ProjectionRun]) -> dict[str, Any]:
         "typical_resident_status": typical_mode([run.resident_status for run in runs]),
         "head_revision_id": runs[0].head_revision_id if runs else None,
         "selected_revision_id": runs[0].selected_revision_id if runs else None,
+        "snapshot_revision_id": runs[0].snapshot_revision_id if runs else None,
+        "snapshot_head_revision_id": (
+            runs[0].snapshot_head_revision_id if runs else None
+        ),
+        "payload_digest": runs[0].payload_digest if runs else None,
         "nodes_returned": runs[0].nodes_returned if runs else None,
         "relationships_returned": runs[0].relationships_returned if runs else None,
         "attributes_returned": runs[0].attributes_returned if runs else None,
@@ -423,10 +497,15 @@ def run_scenario_fully_cold(
     request = build_plan_projection_request()
     runs: list[ProjectionRun] = []
     initialize_bench_world(root)
+    expected_revision_id = current_head_revision_id(root)
     for _ in range(iterations):
         reset_all_state(include_recipes=True)
         runs.append(measure_projection_run(root, request))
-    return runs, validate_scenario_semantics(runs, scenario="fully_cold")
+    return runs, validate_scenario_semantics(
+        runs,
+        scenario="fully_cold",
+        expected_revision_id=expected_revision_id,
+    )
 
 
 def run_scenario_resident_revision(
@@ -436,13 +515,18 @@ def run_scenario_resident_revision(
 ) -> tuple[list[ProjectionRun], list[str]]:
     reset_all_state(include_recipes=True)
     initialize_bench_world(root)
+    expected_revision_id = current_head_revision_id(root)
     admit_current_head_resident(root)
     request = build_plan_projection_request()
     runs: list[ProjectionRun] = []
     for _ in range(iterations):
         clear_projection_cache_only()
         runs.append(measure_projection_run(root, request))
-    return runs, validate_scenario_semantics(runs, scenario="resident_revision")
+    return runs, validate_scenario_semantics(
+        runs,
+        scenario="resident_revision",
+        expected_revision_id=expected_revision_id,
+    )
 
 
 def run_scenario_opt02_post_publish(
@@ -462,7 +546,11 @@ def run_scenario_opt02_post_publish(
     for _ in range(iterations):
         clear_projection_cache_only()
         runs.append(measure_projection_run(root, request))
-    return runs, validate_scenario_semantics(runs, scenario="opt02_post_publish")
+    return runs, validate_scenario_semantics(
+        runs,
+        scenario="opt02_post_publish",
+        expected_revision_id=revision_id,
+    )
 
 
 def run_scenario_opt03_surface_warm(
@@ -484,7 +572,11 @@ def run_scenario_opt03_surface_warm(
     runs: list[ProjectionRun] = []
     for _ in range(iterations):
         runs.append(measure_projection_run(root, request))
-    return runs, validate_scenario_semantics(runs, scenario="opt03_surface_warm")
+    return runs, validate_scenario_semantics(
+        runs,
+        scenario="opt03_surface_warm",
+        expected_revision_id=revision_id,
+    )
 
 
 def git_code_revision() -> str:
@@ -500,7 +592,7 @@ def git_code_revision() -> str:
 
 def format_table(scenarios: dict[str, dict[str, Any]]) -> str:
     lines = [
-        "| Scenario | p50 e2e (ms) | p95 e2e (ms) | build p50 (ms) | cache | graph reads | resident |",
+        "| Scenario | p50 service e2e (ms) | p95 service e2e (ms) | build p50 (ms) | cache | graph reads | resident |",
         "| --- | ---: | ---: | ---: | --- | ---: | --- |",
     ]
     labels = {
@@ -544,13 +636,14 @@ def render_markdown_report(
 
 **Measured code SHA:** `{code_revision}`  
 **Fixture:** `{BUNDLE_PATH}` (`world_id={WORLD_ID}`, `campaign_id={CAMPAIGN_ID}`)  
-**Request:** Plan-like head-following projection — `scope_mode=campaign`, `focus.kind=session`, `focus.session_id={FOCUS_SESSION_ID}`, `revision_pin=null`, `query_text=null`
+**Request:** Plan-like head-following projection — `scope_mode=campaign`, `focus.kind=session`, `focus.session_id={FOCUS_SESSION_ID}`, `revision_pin=null`, `query_text=null`  
+**Latency scope:** `e2e_ms` is **service-level** wall time around `project_world_graph()` (not HTTP, browser, or Plan UI latency).
 
 ## Results ({payload["iterations"]} iterations per scenario)
 
 {table}
 
-## Relative improvements (p50 e2e)
+## Relative improvements (p50 service-level e2e)
 
 | Comparison | Improvement |
 | --- | ---: |
@@ -558,6 +651,15 @@ def render_markdown_report(
 | C OPT02 vs A cold | {rel["opt02_post_publish_vs_fully_cold_p50_pct"]:.1f}% |
 | D OPT03 vs A cold | {rel["opt03_surface_warm_vs_fully_cold_p50_pct"]:.1f}% |
 | D OPT03 vs C OPT02 | {rel["opt03_surface_warm_vs_opt02_post_publish_p50_pct"]:.1f}% |
+
+## Correctness checks
+
+Each timed run keeps the returned `WorldGraphProjection` and requires:
+
+- `snapshot.revision_id` / `snapshot.head_revision_id` match the request observation;
+- head-following runs have `snapshot.is_head` and selected == head;
+- scenarios C/D match the exact published revision id (not merely equal cardinalities);
+- a deterministic SHA-256 `payload_digest` of `projection.model_dump(mode="json")` is stable across iterations in a scenario.
 
 ## Live Plan dogfood
 
@@ -573,11 +675,11 @@ Live Plan surface dogfood was **not run** in this automated bench environment (n
 
 **What did OPT01 buy?** Scenario B (resident admitted, cache cold) vs A shows resident hits with zero graph payload reads on the warm path, but projection still builds each iteration because the completed cache is cleared. OPT01 removes repeated durable revision load cost.
 
-**What did OPT02 buy?** Scenario C adds post-publish coordinator prewarm so the first read after publish already has the new head resident; e2e p50 improves vs fully cold even when the projection payload must still be built.
+**What did OPT02 buy?** Scenario C adds post-publish coordinator prewarm so the first read after publish already has the new head resident; service-level e2e p50 improves vs fully cold even when the projection payload must still be built.
 
 **What did OPT03 buy?** Scenario D replays the learned Plan recipe after publish and fills the completed projection cache, yielding cache hits with `graph_payload_reads==0` and near-zero build time — closest to "graph is simply there" within this harness.
 
-**How close to "graph is simply there"?** OPT03 scenario D median e2e is {opt03["e2e_ms"]["median"]:.2f} ms with typical cache status `{opt03["typical_projection_cache_status"]}` and graph payload reads `{opt03["typical_graph_payload_reads"]}`. Fully cold A median e2e is {cold["e2e_ms"]["median"]:.2f} ms.
+**How close to "graph is simply there"?** OPT03 scenario D median **service-level** e2e is {opt03["e2e_ms"]["median"]:.2f} ms with typical cache status `{opt03["typical_projection_cache_status"]}` and graph payload reads `{opt03["typical_graph_payload_reads"]}`. Fully cold A median service-level e2e is {cold["e2e_ms"]["median"]:.2f} ms. This is not Plan/browser latency.
 """
 
 
@@ -651,7 +753,7 @@ def main(argv: list[str] | None = None) -> int:
     print(format_table(payload["scenarios"]))
     rel = payload["relative_improvements"]
     print()
-    print("Relative improvements (p50 e2e):")
+    print("Relative improvements (p50 service-level e2e):")
     print(f"  B vs A cold: {rel['resident_revision_vs_fully_cold_p50_pct']:.1f}%")
     print(f"  C vs A cold: {rel['opt02_post_publish_vs_fully_cold_p50_pct']:.1f}%")
     print(f"  D vs A cold: {rel['opt03_surface_warm_vs_fully_cold_p50_pct']:.1f}%")
