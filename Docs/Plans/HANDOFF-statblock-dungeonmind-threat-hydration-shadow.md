@@ -17,7 +17,7 @@
 |--------|-----|
 | Buddy base (`main` = #518 merge) | `32d1c7ba0fb4e2cbc26a71ad449d404507926c58` |
 | Branch | `kernel/dungeonmind-threat-hydration-shadow` |
-| Implementation commit | *(set at PR open)* |
+| Implementation commit | `b69a424b805b68a7ca345f374eb822862868cc59` |
 | DungeonMind dependency (PR #23 merge) | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 
 Open adjacent PRs inspected before shared-file edits: #517 (PWO01 docs), #516 (benchmark), #510 (Build refs), #497 (navbar / docs only for threat roadmap), #442 (transfer). No shared-file collisions with `threat_query_hydration` or `dungeonmind_kernel`.
