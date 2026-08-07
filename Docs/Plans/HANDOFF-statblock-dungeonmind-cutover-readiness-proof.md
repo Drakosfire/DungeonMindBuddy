@@ -13,24 +13,14 @@
 
 ## Repository state
 
-```text
-DungeonMind main / bridge-contract head:
-  8095321ed011b8a38640615a90cbc9efaf385e8c
-  (PR #23 merge — world-object + exact mechanics; local cutover worktree tip 073ca149 includes follow-up grammar/lossless fixes already on that line)
-
-DungeonMindBuddy main:
-  f79940e8e3f005a2500fca3b780d3327b6bf9a41
-  (PR #519 merge; includes #518 Threat conformance bridge)
-
-bridge branch:
-  kernel/dungeonmind-cutover-readiness-proof
-
-PR:
-  (opened with this handback)
-
-DungeonMind dependency pin in Buddy:
-  8095321ed011b8a38640615a90cbc9efaf385e8c
-```
+| Anchor | SHA / ref |
+|--------|-----------|
+| DungeonMind main / PR #23 merge | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
+| DungeonMindBuddy main (#519 merge; includes #518) | `f79940e8e3f005a2500fca3b780d3327b6bf9a41` |
+| Branch | `kernel/dungeonmind-cutover-readiness-proof` |
+| Implementation commit | `c53e4569017f007cc77aa598b60955917b8df60e` |
+| PR | [#520](https://github.com/Drakosfire/DungeonMindBuddy/pull/520) |
+| Buddy `dungeonmind` dependency pin | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 
 Open adjacent Buddy PRs inspected: #517 (PWO01 docs), #516 (benchmark), #510 (Build refs), #497 (navbar), #442 (transfer). No shared-file collisions with this audit.
 
