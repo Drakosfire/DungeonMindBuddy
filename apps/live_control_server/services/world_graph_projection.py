@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from pathlib import Path
 
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.services.world_graph_projection_recipes import (
+    register_projection_recipe,
+)
 from graph_memory.projection.world_projection import (
     PROJECTION_ERROR_SCHEMA,
     WorldGraphProjection,
@@ -18,8 +20,9 @@ from graph_memory.projection.world_projection import (
 )
 from graph_memory.world_projection_cache import (
     get_cached_projection,
+    get_or_build_cached_projection,
     make_projection_cache_key,
-    put_cached_projection,
+    projection_cache_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,17 +65,6 @@ def _map_kernel_error(exc: kernel.WorldGraphProjectionError) -> WorldGraphProjec
         status_code=exc.status_code,
         diagnostics=exc.diagnostics,
     )
-
-
-def _service_cache_enabled() -> bool:
-    """Completed projection payload cache for live UI warm loads.
-
-    Default on. Disabling via ``DMB_WORLD_GRAPH_PROJECTION_CACHE=0`` turns off
-    only this secondary payload cache; resident revision verification remains
-    active.
-    """
-    raw = (os.environ.get("DMB_WORLD_GRAPH_PROJECTION_CACHE") or "1").strip().lower()
-    return raw not in {"0", "false", "no", "off"}
 
 
 def _emit_observation(observation: kernel.ProjectionRequestObservation) -> None:
@@ -120,6 +112,17 @@ def _sync_observation_from_counters(
     observation.source_index_reads_this_request = counters.source_index_reads
 
 
+def _register_recipe_best_effort(
+    request: WorldGraphProjectionRequest,
+    *,
+    graph_root: Path,
+) -> None:
+    try:
+        register_projection_recipe(request, root=graph_root)
+    except Exception:
+        logger.exception("projection recipe registration failed")
+
+
 def project_world_graph(
     request: WorldGraphProjectionRequest,
     *,
@@ -147,8 +150,9 @@ def project_world_graph(
         observation.backing_health = context.selected.backing_health
         _sync_observation_from_counters(observation, counters)
 
-        cache_enabled = _service_cache_enabled()
+        cache_enabled = projection_cache_enabled()
         cache_key = None
+        projection: WorldGraphProjection | None = None
         if cache_enabled:
             cache_key = make_projection_cache_key(
                 graph_root,
@@ -166,23 +170,37 @@ def project_world_graph(
                 observation.attributes_returned = len(cached.attributes)
                 kernel.set_last_projection_observation(observation)
                 _emit_observation(observation)
+                _register_recipe_best_effort(request, graph_root=graph_root)
                 return cached
-            observation.projection_cache_status = "miss"
+
+            def _builder() -> WorldGraphProjection:
+                return kernel.project_world_graph_from_context(
+                    graph_root,
+                    request,
+                    context,
+                )
+
+            build_started = time.perf_counter()
+            projection, cache_status = get_or_build_cached_projection(cache_key, _builder)
+            observation.projection_build_ms = (time.perf_counter() - build_started) * 1000.0
+            observation.projection_cache_status = cache_status  # type: ignore[assignment]
         else:
             observation.projection_cache_status = "disabled"
+            build_started = time.perf_counter()
+            projection = kernel.project_world_graph_from_context(
+                graph_root,
+                request,
+                context,
+            )
+            observation.projection_build_ms = (time.perf_counter() - build_started) * 1000.0
 
-        build_started = time.perf_counter()
-        projection = kernel.project_world_graph_from_context(graph_root, request, context)
-        observation.projection_build_ms = (time.perf_counter() - build_started) * 1000.0
         observation.nodes_returned = len(projection.nodes)
         observation.relationships_returned = len(projection.relationships)
         observation.attributes_returned = len(projection.attributes)
 
-        if cache_key is not None:
-            put_cached_projection(cache_key, projection)
-
         kernel.set_last_projection_observation(observation)
         _emit_observation(observation)
+        _register_recipe_best_effort(request, graph_root=graph_root)
         return projection
     except kernel.WorldGraphProjectionError as exc:
         _sync_observation_from_counters(observation, counters)
