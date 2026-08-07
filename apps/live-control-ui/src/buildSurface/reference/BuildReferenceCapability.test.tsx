@@ -1739,4 +1739,205 @@ describe("BuildReferenceCapability", () => {
     expect(screen.getByTestId("active-graph-message").textContent).toMatch(/rev-pinned/);
     expect(screen.getByTestId("active-graph-kind")).not.toHaveTextContent("resolved_graph");
   });
+
+  it("route-away to a failing projection does not publish a stale pin failure", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshotFixture());
+
+    let resolvePinned!: (value: ReturnType<typeof graphProjectionFixture>) => void;
+    const pinnedDeferred = new Promise<ReturnType<typeof graphProjectionFixture>>((resolve) => {
+      resolvePinned = resolve;
+    });
+    vi.mocked(liveApi.postWorldGraphProjection)
+      .mockResolvedValueOnce(graphProjectionFixture())
+      .mockImplementationOnce(() => pinnedDeferred)
+      .mockRejectedValueOnce(new Error("destination lens unavailable"));
+
+    let latestRuntime: ReturnType<typeof useGraphNodeChipRuntime> | null = null;
+    let latestContext: BuildReferenceContextBinding | null = null;
+
+    function ActiveGraphReferenceProbe() {
+      const { activeGraphReference } = useAgentInteraction();
+      if (!activeGraphReference) {
+        return <p data-testid="active-graph-kind">none</p>;
+      }
+      return (
+        <>
+          <p data-testid="active-graph-kind">{activeGraphReference.kind}</p>
+          <p data-testid="active-graph-message">{activeGraphReference.message ?? ""}</p>
+        </>
+      );
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChipRuntimeProbe onRuntime={(runtime) => { latestRuntime = runtime; }} />
+          <ActiveGraphReferenceProbe />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => expect(latestRuntime?.onSelectReference).toBeTypeOf("function"));
+
+    const storedScope = {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign" as const,
+      revisionId: "rev-pinned",
+    };
+    const scopedAttrs = referenceAttrsWithExactScope(
+      referenceFromGraphNode(searchItemFromApiNode(innNode).nodeView),
+      storedScope,
+    );
+
+    act(() => {
+      latestRuntime!.onSelectReference?.(scopedAttrs);
+    });
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("graphRevision")).toBe("rev-pinned");
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c2`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    await waitFor(() => {
+      expect(latestContext?.projectionState).toBe("error");
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("active-graph-kind")).toHaveTextContent("none");
+
+    await act(async () => {
+      resolvePinned({
+        ...graphProjectionFixture(),
+        snapshot: {
+          ...graphProjectionFixture().snapshot,
+          revisionId: "rev-pinned",
+          headRevisionId: "rev-1",
+          isHead: false,
+        },
+        nodes: [innNode],
+      });
+      await pinnedDeferred;
+    });
+    expect(screen.getByTestId("active-graph-kind")).toHaveTextContent("none");
+  });
+
+  it("Back to head with matching revisionId revokes pending pin without opening", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshotFixture());
+
+    let resolvePinned!: (value: ReturnType<typeof graphProjectionFixture>) => void;
+    const pinnedDeferred = new Promise<ReturnType<typeof graphProjectionFixture>>((resolve) => {
+      resolvePinned = resolve;
+    });
+    vi.mocked(liveApi.postWorldGraphProjection)
+      .mockResolvedValueOnce({
+        ...graphProjectionFixture(),
+        snapshot: {
+          ...graphProjectionFixture().snapshot,
+          revisionId: "rev-head-a",
+          headRevisionId: "rev-head-a",
+        },
+      })
+      .mockImplementationOnce(() => pinnedDeferred)
+      .mockResolvedValueOnce({
+        ...graphProjectionFixture(),
+        snapshot: {
+          ...graphProjectionFixture().snapshot,
+          // Head after Back reports the same revision id the chip stored as a pin.
+          revisionId: "rev-1",
+          headRevisionId: "rev-1",
+        },
+        nodes: [innNode],
+      });
+
+    let latestRuntime: ReturnType<typeof useGraphNodeChipRuntime> | null = null;
+    let latestContext: BuildReferenceContextBinding | null = null;
+
+    function ActiveGraphReferenceProbe() {
+      const { activeGraphReference } = useAgentInteraction();
+      if (!activeGraphReference) {
+        return <p data-testid="active-graph-kind">none</p>;
+      }
+      return <p data-testid="active-graph-kind">{activeGraphReference.kind}</p>;
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID} />
+          <ReferenceContextProbe onContext={(context) => { latestContext = context; }} />
+          <ChipRuntimeProbe onRuntime={(runtime) => { latestRuntime = runtime; }} />
+          <ActiveGraphReferenceProbe />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => expect(latestRuntime?.onSelectReference).toBeTypeOf("function"));
+    await waitFor(() => expect(latestContext?.loadedRevisionId).toBe("rev-head-a"));
+
+    const storedScope = {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign" as const,
+      revisionId: "rev-1",
+    };
+    const scopedAttrs = referenceAttrsWithExactScope(
+      referenceFromGraphNode(searchItemFromApiNode(innNode).nodeView),
+      storedScope,
+    );
+
+    act(() => {
+      latestRuntime!.onSelectReference?.(scopedAttrs);
+    });
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("graphRevision")).toBe("rev-1");
+    });
+
+    // Browser Back restores the prior head lens (no graphRevision).
+    window.history.back();
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("graphRevision")).toBeNull();
+      expect(latestContext?.projectionState).toBe("ready");
+      expect(latestContext?.loadedRevisionId).toBe("rev-1");
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("active-graph-kind")).toHaveTextContent("none");
+
+    await act(async () => {
+      resolvePinned({
+        ...graphProjectionFixture(),
+        snapshot: {
+          ...graphProjectionFixture().snapshot,
+          revisionId: "rev-1",
+          headRevisionId: "rev-head-a",
+          isHead: false,
+        },
+        nodes: [innNode],
+      });
+      await pinnedDeferred;
+    });
+    expect(screen.getByTestId("active-graph-kind")).toHaveTextContent("none");
+  });
 });

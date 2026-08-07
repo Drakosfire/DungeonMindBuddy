@@ -557,6 +557,28 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       return;
     }
 
+    // Route must still own this click as an explicit pin before any failure or open.
+    // Head lenses never adopt a pending pin — even when head revisionId equals the store.
+    const routeStillOwnsPending =
+      lens.status === "ready"
+      && lens.campaignId === pending.scope.campaignId
+      && lens.revision.kind === "pinned"
+      && lens.revision.revisionId === pending.scope.revisionId;
+
+    if (!routeStillOwnsPending) {
+      setPendingActivation(null);
+      return;
+    }
+
+    const routeStillOwnsPendingSnapshot = (scope: ExactGraphReferenceScope): boolean => {
+      if (typeof window === "undefined") return false;
+      const params = new URLSearchParams(window.location.search);
+      return (
+        params.get("campaign") === scope.campaignId
+        && params.get("graphRevision") === scope.revisionId
+      );
+    };
+
     const publishPendingFailure = (
       kind: "error" | "unresolved",
       message: string,
@@ -567,6 +589,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       // which clears leased graph content synchronously in the same effect flush.
       queueMicrotask(() => {
         if (liveDocumentIdRef.current !== pendingSnapshot.documentId) return;
+        if (!routeStillOwnsPendingSnapshot(pendingSnapshot.scope)) return;
         openGraphReference({
           resolution: {
             kind,
@@ -593,20 +616,6 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     if (projection.state !== "ready") return;
 
     const loadedScope = extractExactGraphReferenceScope(projection.projection);
-    const lensMatchesPending =
-      lens.status === "ready"
-      && lens.campaignId === pending.scope.campaignId
-      && (
-        lens.revision.kind === "pinned"
-          ? lens.revision.revisionId === pending.scope.revisionId
-          : pending.scope.revisionId === projection.loadedRevisionId
-      );
-
-    // Operator navigated to a different valid lens — revoke without opening.
-    if (!lensMatchesPending) {
-      setPendingActivation(null);
-      return;
-    }
 
     // Pin lens is live but response scope mismatches stored chip scope.
     if (!loadedScope || !exactScopesEqual(loadedScope, pending.scope)) {
@@ -630,6 +639,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     const pendingSnapshot = pending;
     queueMicrotask(() => {
       if (liveDocumentIdRef.current !== pendingSnapshot.documentId) return;
+      if (!routeStillOwnsPendingSnapshot(pendingSnapshot.scope)) return;
       openGraphReference({
         resolution: {
           kind: "resolved_graph",
@@ -654,7 +664,6 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     pendingActivation,
     projection.error,
     projection.items,
-    projection.loadedRevisionId,
     projection.projection,
     projection.state,
   ]);
