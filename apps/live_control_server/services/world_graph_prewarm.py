@@ -400,6 +400,9 @@ class WorldGraphPrewarmCoordinator:
                     error_message=error_message,
                 )
             )
+            # Drop request-IO before recipe replay so nested project_world_graph
+            # begin/reset cannot clear this prewarm request's ContextVar early.
+            kernel.reset_request_io()
             if status in {"resident_hit", "resident_miss", "coalesced"}:
                 try:
                     warm_projection_recipes_for_ready_revision(
@@ -413,7 +416,6 @@ class WorldGraphPrewarmCoordinator:
                     )
                 except Exception:
                     logger.exception("projection recipe warm failed")
-            kernel.reset_request_io()
 
 
 def start_world_graph_prewarm_coordinator(

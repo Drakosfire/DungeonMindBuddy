@@ -214,6 +214,7 @@ def _snapshot_recipes(*, root: Path, world_id: str) -> list[_RecipeEntry]:
     now = _now()
     with _REGISTRY_LOCK:
         _prune_expired(now)
+        # OrderedDict end is most-recently used; replay MRU-first.
         selected: list[_RecipeEntry] = []
         for entry in reversed(_REGISTRY.values()):
             if entry.key.resolved_root != resolved:
@@ -223,7 +224,7 @@ def _snapshot_recipes(*, root: Path, world_id: str) -> list[_RecipeEntry]:
             selected.append(entry)
             if len(selected) >= _WARM_BATCH:
                 break
-        return list(reversed(selected))
+        return selected
 
 
 def warm_projection_recipes_for_ready_revision(
