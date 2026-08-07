@@ -288,6 +288,11 @@
   font-size: 0.76rem;
 }
 
+.graph-reference-search__denied {
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.72rem;
+}
+
 .graph-reference-search__actions {
   display: flex;
   flex-wrap: wrap;

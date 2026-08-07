@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveBuildGraphLens } from "./resolveBuildGraphLens";
+import { resolveBuildFindGraphLens, resolveBuildGraphLens } from "./resolveBuildGraphLens";
 
 describe("resolveBuildGraphLens", () => {
   describe("revision policy", () => {
@@ -56,6 +56,8 @@ describe("resolveBuildGraphLens", () => {
         worldId: "eldyrwild",
         availableCampaignIds: ["longmont-c2"],
         revision: { kind: "head" },
+        scopeMode: "campaign",
+        focus: { kind: "none", sessionId: null },
       });
     });
 
@@ -106,6 +108,8 @@ describe("resolveBuildGraphLens", () => {
         worldId: "eldyrwild",
         availableCampaignIds: ["longmont-c1", "longmont-c2"],
         revision: { kind: "head" },
+        scopeMode: "campaign",
+        focus: { kind: "none", sessionId: null },
         reason: "World-scoped document (eldyrwild) requires an explicit campaign selection.",
       });
     });
@@ -180,6 +184,149 @@ describe("resolveBuildGraphLens", () => {
         status: "invalid",
         reason: "Unknown Build document scope: unknown-scope.",
       });
+    });
+  });
+});
+
+describe("resolveBuildFindGraphLens", () => {
+  it("rejects unknown document scopes even when shared nav is present", () => {
+    const resolution = resolveBuildFindGraphLens({
+      documentId: "doc-1",
+      documentCampaignId: "unknown-scope",
+      requestedCampaignId: null,
+      requestedRevisionId: null,
+      sharedLens: {
+        selectedCampaignIds: ["longmont-c2"],
+        focus: null,
+      },
+      sharedRequest: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        scopeMode: "campaign",
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+      },
+      defaultCampaignId: "longmont-c2",
+    });
+
+    expect(resolution).toEqual({
+      status: "invalid",
+      reason: "Unknown Build document scope: unknown-scope.",
+    });
+  });
+
+  it("allows same-world cross-campaign browse without lens-level insert authority", () => {
+    const resolution = resolveBuildFindGraphLens({
+      documentId: "doc-1",
+      documentCampaignId: "longmont-c1",
+      requestedCampaignId: "longmont-c1",
+      requestedRevisionId: null,
+      sharedLens: {
+        selectedCampaignIds: ["longmont-c2"],
+        focus: { campaignId: "longmont-c2", sessionNumber: 23 },
+      },
+      sharedRequest: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        scopeMode: "campaign",
+        focus: {
+          kind: "session",
+          sessionId: "session-23",
+          campaignId: "longmont-c2",
+        },
+        admissibility: "gm",
+      },
+      defaultCampaignId: "longmont-c2",
+    });
+
+    expect(resolution).toMatchObject({
+      status: "ready",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      focus: {
+        kind: "session",
+        sessionId: "session-23",
+        focusCampaignId: "longmont-c2",
+      },
+      revision: { kind: "head" },
+      documentCampaignId: "longmont-c1",
+    });
+  });
+
+  it("adopts shared request campaignId for world-union (no Build URL re-derivation)", () => {
+    const resolution = resolveBuildFindGraphLens({
+      documentId: "doc-1",
+      documentCampaignId: "longmont-c1",
+      requestedCampaignId: "longmont-c1",
+      requestedRevisionId: null,
+      sharedLens: {
+        selectedCampaignIds: ["longmont-c1", "longmont-c2"],
+        focus: null,
+      },
+      sharedRequest: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        scopeMode: "world",
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+      },
+      defaultCampaignId: "longmont-c2",
+    });
+
+    expect(resolution).toMatchObject({
+      status: "ready",
+      campaignId: "longmont-c2",
+      scopeMode: "world",
+    });
+  });
+
+  it("keeps Build URL revision pin while adopting shared nav focus", () => {
+    const resolution = resolveBuildFindGraphLens({
+      documentId: "doc-1",
+      documentCampaignId: "longmont-c1",
+      requestedCampaignId: "longmont-c1",
+      requestedRevisionId: "rev-old",
+      sharedLens: {
+        selectedCampaignIds: ["longmont-c1", "longmont-c2"],
+        focus: null,
+      },
+      sharedRequest: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        scopeMode: "world",
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+      },
+      defaultCampaignId: "longmont-c2",
+    });
+
+    expect(resolution).toMatchObject({
+      status: "ready",
+      scopeMode: "world",
+      revision: { kind: "pinned", revisionId: "rev-old" },
+      focus: { kind: "none", sessionId: null },
+    });
+  });
+
+  it("falls back to document-local lens when shared nav has no selection", () => {
+    const resolution = resolveBuildFindGraphLens({
+      documentId: "doc-1",
+      documentCampaignId: "longmont-c1",
+      requestedCampaignId: null,
+      requestedRevisionId: null,
+      sharedLens: { selectedCampaignIds: [], focus: null },
+      defaultCampaignId: null,
+    });
+
+    expect(resolution).toMatchObject({
+      status: "ready",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign",
+      focus: { kind: "none", sessionId: null },
     });
   });
 });

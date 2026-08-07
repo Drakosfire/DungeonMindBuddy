@@ -256,6 +256,20 @@ export function isExactResolvedThreat(resolution: GraphReferenceResolution): boo
   );
 }
 
+/**
+ * Campaign Threat sheet gate: authored Threat identity + exact scope.
+ * Broader creature/npc kinds stay on GraphObjectProjectionCard (isExactResolvedThreat).
+ */
+export function shouldRenderThreatCampaignSheet(resolution: GraphReferenceResolution): boolean {
+  if (resolution.kind !== "resolved_graph") return false;
+  if (!validateExactGraphReferenceScope(resolution.graphScope)) return false;
+  return isThreatHoverPresentation({
+    nodeId: resolution.graphNodeId,
+    kind: resolution.graphObject.kind,
+    role: resolution.graphObject.role,
+  });
+}
+
 export function isResolvedThreat(resolution: GraphReferenceResolution): boolean {
   if (resolution.kind !== "resolved_graph") return false;
   const kind = normalizeGraphObjectKind(resolution.graphObject.kind);
@@ -265,6 +279,18 @@ export function isResolvedThreat(resolution: GraphReferenceResolution): boolean 
     || THREAT_NODE_ROLES.has(role)
     || (kind === "entity" && ENTITY_THREAT_ROLES.has(role))
   );
+}
+
+/** Chip-hover parchment card: authored Threat identity, not every creature/npc node. */
+export function isThreatHoverPresentation(input: {
+  nodeId: string;
+  kind?: string | null;
+  role?: string | null;
+}): boolean {
+  const kind = normalizeGraphObjectKind(input.kind);
+  const role = normalizeGraphObjectKind(input.role);
+  if (kind === "threat" || role === "threat") return true;
+  return String(input.nodeId ?? "").startsWith("threat:");
 }
 
 export function threatSelectionTupleFromResolution(
@@ -360,7 +386,7 @@ export function sortThreatSheetBindings(
   });
 }
 
-function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSheetBindingViewModel {
+export function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSheetBindingViewModel {
   const typedBinding = binding.binding;
   const completeRevision =
     binding.hydrationStatus === "available"

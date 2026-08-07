@@ -36,6 +36,11 @@ export {
 } from "./resolveGraphReference";
 export { insertMarkdownReference } from "./insertMarkdownReference";
 export { useOpenGraphReference, type UseOpenGraphReferenceOptions } from "./useOpenGraphReference";
+export { glanceOnlyForGraphReference } from "./openGraphReferencePolicy";
+export {
+  ResolvedGraphObjectProjection,
+  type ResolvedGraphObjectProjectionProps,
+} from "./ResolvedGraphObjectProjection";
 export {
   GRAPH_REFERENCE_BINDING_ID,
   GRAPH_REFERENCE_PROJECTION_STATE_BINDING_ID,

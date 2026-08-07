@@ -28,6 +28,8 @@ const sampleContext: BuildReferenceContextBinding = {
     worldId: "eldyrwild",
     availableCampaignIds: ["longmont-c1"],
     revision: { kind: "head" },
+    scopeMode: "campaign",
+    focus: { kind: "none", sessionId: null },
   },
   items: [],
   projectionState: "ready",
@@ -37,6 +39,8 @@ const sampleContext: BuildReferenceContextBinding = {
   loadedIsHead: true,
   selectCampaign: () => undefined,
   viewExact: () => undefined,
+  insertChip: () => undefined,
+  insertDisabled: false,
 };
 
 describe("buildBuildSurfaceInteractionPublication", () => {
@@ -191,6 +195,8 @@ describe("buildBuildSurfaceInteractionPublication", () => {
         worldId: "eldyrwild",
         availableCampaignIds: ["longmont-c1", "longmont-c2"],
         revision: { kind: "head" },
+        scopeMode: "campaign",
+        focus: { kind: "none", sessionId: null },
         reason: "World-scoped document requires an explicit campaign selection.",
       },
       projectionState: "unavailable",

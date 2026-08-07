@@ -49,6 +49,15 @@ export interface BuildReferenceContextBinding {
   items: readonly GraphReferenceSearchItem[];
   selectCampaign: (campaignId: string) => void;
   viewExact: (item: GraphReferenceSearchItem) => void;
+  /**
+   * Insert a graph-node chip into the Build markdown canvas.
+   * Pass a node id only; the capability resolves the canonical projection item,
+   * verifies the live load key, and applies object-level campaign admission
+   * before inserting.
+   */
+  insertChip: (nodeId: string) => void;
+  /** Global editor-lock disable only; View stays available. Per-object tenancy is separate. */
+  insertDisabled: boolean;
 }
 
 export interface BuildDocumentSavePublication {

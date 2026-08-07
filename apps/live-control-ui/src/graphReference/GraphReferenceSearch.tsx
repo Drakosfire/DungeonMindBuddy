@@ -2,15 +2,19 @@ import { useMemo, useState } from "react";
 
 import type { GraphReferenceProjectionState, GraphReferenceSearchItem } from "./types";
 import { searchGraphReferences, sortGraphReferenceItems } from "./searchGraphReferences";
-import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
 
 export interface GraphReferenceSearchProps {
   items: readonly GraphReferenceSearchItem[];
   projectionState: GraphReferenceProjectionState;
   projectionError?: string | null;
-  /** Disables chip insert only. Search and view stay available while editing is locked. */
+  /**
+   * Global editor-lock disable (unlock editing). Per-object campaign tenancy is
+   * separate via {@link insertDeniedReason}.
+   */
   insertDisabled?: boolean;
-  onInsert?: (attrs: RunbookReferenceAttrs) => void;
+  /** When set, returns a denial reason for rows that fail object-level insert policy. */
+  insertDeniedReason?: (item: GraphReferenceSearchItem) => string | null;
+  onInsert?: (item: GraphReferenceSearchItem) => void;
   onView?: (item: GraphReferenceSearchItem) => void;
 }
 
@@ -19,6 +23,7 @@ export function GraphReferenceSearch({
   projectionState,
   projectionError = null,
   insertDisabled = false,
+  insertDeniedReason,
   onInsert,
   onView,
 }: GraphReferenceSearchProps) {
@@ -77,39 +82,55 @@ export function GraphReferenceSearch({
             <p className="graph-reference-search__empty">No objects match “{query.trim()}”.</p>
           ) : (
             <ul className="graph-reference-search__results" data-testid="graph-reference-search-results">
-              {results.map((item) => (
-                <li key={item.nodeId} className="graph-reference-search__row">
-                  <div className="graph-reference-search__copy">
-                    <strong>{item.label}</strong>
-                    <span className="graph-reference-search__meta">
-                      {item.kind}
-                      {item.role ? ` · ${item.role}` : ""}
-                      {` · ${item.scopeLabel}`}
-                    </span>
-                  </div>
-                  <div className="graph-reference-search__actions">
-                    {onView ? (
-                      <button
-                        type="button"
-                        className="graph-reference-search__button"
-                        onClick={() => onView(item)}
-                      >
-                        View
-                      </button>
-                    ) : null}
-                    {onInsert ? (
-                      <button
-                        type="button"
-                        className="graph-reference-search__button graph-reference-search__button--primary"
-                        disabled={insertDisabled}
-                        onClick={() => onInsert(item.reference)}
-                      >
-                        Insert chip
-                      </button>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
+              {results.map((item) => {
+                const policyReason = insertDeniedReason?.(item) ?? null;
+                const rowInsertDisabled = insertDisabled || Boolean(policyReason);
+                const insertTitle = insertDisabled
+                  ? "Unlock editing to insert chips into the board"
+                  : (policyReason ?? "Insert chip");
+                return (
+                  <li key={item.nodeId} className="graph-reference-search__row">
+                    <div className="graph-reference-search__copy">
+                      <strong>{item.label}</strong>
+                      <span className="graph-reference-search__meta">
+                        {item.kind}
+                        {item.role ? ` · ${item.role}` : ""}
+                        {` · ${item.scopeLabel}`}
+                      </span>
+                      {policyReason && !insertDisabled ? (
+                        <span
+                          className="graph-reference-search__denied"
+                          data-testid={`graph-reference-insert-denied-${item.nodeId}`}
+                        >
+                          {policyReason}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="graph-reference-search__actions">
+                      {onView ? (
+                        <button
+                          type="button"
+                          className="graph-reference-search__button"
+                          onClick={() => onView(item)}
+                        >
+                          View
+                        </button>
+                      ) : null}
+                      {onInsert ? (
+                        <button
+                          type="button"
+                          className="graph-reference-search__button graph-reference-search__button--primary"
+                          disabled={rowInsertDisabled}
+                          title={insertTitle}
+                          onClick={() => onInsert(item)}
+                        >
+                          Insert chip
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>

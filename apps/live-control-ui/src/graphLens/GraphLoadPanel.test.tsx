@@ -4,8 +4,8 @@ import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { IngestionSourceBundle, SourceUnit } from "../../api/types";
-import { PlanGraphLensProvider } from "../PlanGraphLensContext";
-import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
+import { PlanGraphLoadPanel } from "./GraphLoadPanel";
+import { PlanGraphLensProvider } from "./WorldGraphLensContext";
 
 function wrapper(
   loadBundle?: (scope: string, campaignId?: string) => Promise<IngestionSourceBundle>,

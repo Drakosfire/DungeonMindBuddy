@@ -1,11 +1,20 @@
 import {
+  admitBuildWorldGraphBrowse,
   classifyBuildDocumentScope,
   getCampaignIdsForWorld,
 } from "../../worldGraph/worldGraphSurfaceContext";
+import type { WorldGraphProjectionRequest } from "../../api/types";
+import {
+  getWorldGraphContextFromLens,
+  type PlanWorldGraphContext,
+} from "../../graphLens/worldGraphContextFromLens";
+import type { PlanGraphLens } from "../../graphLens/sessionCampaignContext";
 
 export type BuildGraphRevisionPolicy =
   | { kind: "head" }
   | { kind: "pinned"; revisionId: string };
+
+export type BuildGraphLensFocus = PlanWorldGraphContext["focus"];
 
 export type BuildGraphLensResolution =
   | {
@@ -16,6 +25,8 @@ export type BuildGraphLensResolution =
       worldId: string;
       availableCampaignIds: readonly string[];
       revision: BuildGraphRevisionPolicy;
+      scopeMode: "campaign" | "world";
+      focus: BuildGraphLensFocus;
     }
   | {
       status: "selection_required";
@@ -24,12 +35,16 @@ export type BuildGraphLensResolution =
       worldId: string;
       availableCampaignIds: readonly string[];
       revision: BuildGraphRevisionPolicy;
+      scopeMode: "campaign" | "world";
+      focus: BuildGraphLensFocus;
       reason: string;
     }
   | {
       status: "invalid";
       reason: string;
     };
+
+const DEFAULT_FOCUS: BuildGraphLensFocus = { kind: "none", sessionId: null };
 
 function resolveRevisionPolicy(
   requestedRevisionId: string | null,
@@ -41,6 +56,25 @@ function resolveRevisionPolicy(
   return { kind: "pinned", revisionId: trimmed };
 }
 
+function focusFromProjectionRequest(
+  focus: WorldGraphProjectionRequest["focus"],
+  fallbackCampaignId: string,
+): BuildGraphLensFocus {
+  if (focus?.kind === "session" && focus.sessionId) {
+    return {
+      kind: "session",
+      sessionId: focus.sessionId,
+      focusCampaignId: focus.campaignId?.trim() || fallbackCampaignId,
+    };
+  }
+  return DEFAULT_FOCUS;
+}
+
+/**
+ * Document-local Build graph lens (campaign/none defaults).
+ * Prefer {@link resolveBuildFindGraphLens} when the shared nav lens is available.
+ * Insert write policy is object-level (admitBuildObjectInsert), not lens-level.
+ */
 export function resolveBuildGraphLens(input: {
   documentId: string;
   documentCampaignId: string;
@@ -85,6 +119,8 @@ export function resolveBuildGraphLens(input: {
       worldId: scope.worldId,
       availableCampaignIds,
       revision,
+      scopeMode: "campaign",
+      focus: DEFAULT_FOCUS,
     };
   }
 
@@ -99,6 +135,8 @@ export function resolveBuildGraphLens(input: {
       worldId,
       availableCampaignIds,
       revision,
+      scopeMode: "campaign",
+      focus: DEFAULT_FOCUS,
       reason: `World-scoped document (${documentCampaignId}) requires an explicit campaign selection.`,
     };
   }
@@ -118,5 +156,103 @@ export function resolveBuildGraphLens(input: {
     worldId,
     availableCampaignIds,
     revision,
+    scopeMode: "campaign",
+    focus: DEFAULT_FOCUS,
   };
+}
+
+/**
+ * Build Find lens:
+ * - Shared nav controls browse identity (campaign/scope/focus) when its world is
+ *   admitted by the document.
+ * - Document scope classification always runs first (unknown fails closed).
+ * - Revision pin stays Build-URL-owned.
+ * - Prefer the shared provider's exact request when present so Build cannot
+ *   re-derive a divergent campaignId default in world-union mode.
+ */
+export function resolveBuildFindGraphLens(input: {
+  documentId: string;
+  documentCampaignId: string;
+  requestedCampaignId: string | null;
+  requestedRevisionId: string | null;
+  sharedLens: PlanGraphLens | null;
+  /** Canonical shared projection request — preferred over re-deriving from the lens. */
+  sharedRequest?: WorldGraphProjectionRequest | null;
+  defaultCampaignId: string | null;
+}): BuildGraphLensResolution {
+  const documentId = input.documentId.trim();
+  const documentCampaignId = input.documentCampaignId.trim();
+  const revision = resolveRevisionPolicy(input.requestedRevisionId);
+
+  if (!documentId || !documentCampaignId) {
+    return {
+      status: "invalid",
+      reason: "Build graph lens requires a document id and campaign/world scope.",
+    };
+  }
+
+  const documentScope = classifyBuildDocumentScope(documentCampaignId);
+  if (documentScope.kind === "unknown") {
+    return {
+      status: "invalid",
+      reason: `Unknown Build document scope: ${documentCampaignId}.`,
+    };
+  }
+
+  const sharedRequest = input.sharedRequest ?? null;
+  if (sharedRequest) {
+    const browse = admitBuildWorldGraphBrowse({
+      documentCampaignId,
+      projectionWorldId: sharedRequest.worldId,
+    });
+    if (browse.ok) {
+      return {
+        status: "ready",
+        documentId,
+        documentCampaignId,
+        campaignId: sharedRequest.campaignId,
+        worldId: sharedRequest.worldId,
+        availableCampaignIds: getCampaignIdsForWorld(sharedRequest.worldId),
+        revision,
+        scopeMode: sharedRequest.scopeMode ?? "campaign",
+        focus: focusFromProjectionRequest(sharedRequest.focus, sharedRequest.campaignId),
+      };
+    }
+  }
+
+  const sharedLens = input.sharedLens;
+  if (sharedLens && sharedLens.selectedCampaignIds.length > 0) {
+    // Prefer provider default (shared defaultCampaignId), never Build URL campaign,
+    // so world-union campaignId matches the resident shared request.
+    const context = getWorldGraphContextFromLens(
+      sharedLens,
+      input.defaultCampaignId ?? sharedLens.selectedCampaignIds[0],
+    );
+    if (context) {
+      const browse = admitBuildWorldGraphBrowse({
+        documentCampaignId,
+        projectionWorldId: context.worldId,
+      });
+      if (browse.ok) {
+        return {
+          status: "ready",
+          documentId,
+          documentCampaignId,
+          campaignId: context.campaignId,
+          worldId: context.worldId,
+          availableCampaignIds: getCampaignIdsForWorld(context.worldId),
+          revision,
+          scopeMode: context.scopeMode,
+          focus: context.focus,
+        };
+      }
+    }
+  }
+
+  return resolveBuildGraphLens({
+    documentId,
+    documentCampaignId,
+    requestedCampaignId: input.requestedCampaignId,
+    requestedRevisionId: input.requestedRevisionId,
+  });
 }

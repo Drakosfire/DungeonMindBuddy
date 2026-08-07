@@ -112,7 +112,7 @@ describe("ThreatSheetProjection", () => {
     render(<ThreatSheetProjection resolution={threatResolution()} glanceOnly />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("threat-sheet-binding-summary")).toHaveTextContent("1 available");
+      expect(screen.getByLabelText("Compact mechanics summary")).toBeInTheDocument();
     });
 
     expect(postThreatQueryHydration).toHaveBeenCalledWith({
@@ -126,7 +126,104 @@ describe("ThreatSheetProjection", () => {
       maxHits: 64,
       includeMechanics: true,
     });
-    expect(screen.getByLabelText("Compact mechanics summary")).toBeInTheDocument();
+
+    const projection = screen.getByTestId("threat-sheet-projection");
+    expect(projection).toHaveAttribute("data-glance", "true");
+    expect(screen.getByRole("heading", { level: 3, name: "Tripod Null-Calf" })).toBeInTheDocument();
+    expect(projection).toHaveTextContent("A three-legged aberration.");
+    expect(projection).not.toHaveTextContent(/^Threat$/m);
+    expect(screen.queryByText("Threat · Creature")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Compact mechanics summary")).toHaveTextContent(/AC|HP|CR|Speed/i);
+
+    const advanced = screen.getByText("Advanced Details").closest("details");
+    expect(advanced).toBeInstanceOf(HTMLDetailsElement);
+    expect(advanced).not.toHaveAttribute("open");
+    expect(advanced).toContainElement(screen.getByTestId("threat-sheet-binding-summary"));
+    expect(screen.getByTestId("threat-sheet-binding-summary")).toHaveTextContent("1 available");
+    expect(screen.getByTestId("threat-sheet-binding-summary")).toHaveTextContent("disposition");
+
+    // Campaign glance must not lead with ledger disposition / digests outside Advanced Details.
+    const visibleCue = projection.textContent ?? "";
+    const advancedText = advanced?.textContent ?? "";
+    const outsideAdvanced = visibleCue.replace(advancedText, "");
+    expect(outsideAdvanced).not.toMatch(/disposition/i);
+    expect(outsideAdvanced).not.toMatch(/sha256:/i);
+    expect(outsideAdvanced).not.toMatch(/Mechanics bindings:/i);
+  });
+
+  it("keeps multi-binding glance honest without choosing a first winner", async () => {
+    vi.mocked(postThreatQueryHydration).mockResolvedValue({
+      schema: "dmb_threat_query_hydration_response_v1",
+      worldId: scope.worldId,
+      campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
+      revisionId: scope.revisionId,
+      queryText: "threat:tripod-null-calf",
+      resultLabel: "threat_query_hydration_ok",
+      hits: [
+        {
+          threat: {
+            nodeId: "threat:tripod-null-calf",
+            label: "Tripod Null-Calf",
+            kind: "threat",
+            role: "creature",
+            aliases: [],
+            sourceDomains: [],
+            evidenceBadges: [],
+            adjacency: [],
+            suggestedExpansions: [],
+            evidenceRefIds: [],
+            sourceArtifactIds: [],
+            anchoredToFocusSession: true,
+            summary: "A three-legged aberration.",
+          },
+          matchReasons: ["exact_node_id"],
+          relationships: [],
+          bindings: [
+            {
+              relationshipEdgeId: "edge-1",
+              bindingId: "bind-1",
+              bindingRole: "primary",
+              threatNodeId: "threat:tripod-null-calf",
+              resourceNodeId: "sb_000001",
+              provider: "dungeonmind",
+              statblockId: "sb_000001",
+              revisionId: revision.revision_id,
+              definitionDigest: revision.definition_digest,
+              hydrationStatus: "available",
+              binding: null,
+              revision,
+              message: null,
+            },
+            {
+              relationshipEdgeId: "edge-2",
+              bindingId: "bind-2",
+              bindingRole: "phase",
+              threatNodeId: "threat:tripod-null-calf",
+              resourceNodeId: "sb_000002",
+              provider: "dungeonmind",
+              statblockId: "sb_000002",
+              revisionId: revision.revision_id,
+              definitionDigest: revision.definition_digest,
+              hydrationStatus: "available",
+              binding: null,
+              revision,
+              message: null,
+            },
+          ],
+          mechanicsDisposition: "partial",
+        },
+      ],
+      diagnostics: [],
+      message: null,
+    });
+
+    render(<ThreatSheetProjection resolution={threatResolution()} glanceOnly />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 exact bindings/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText("Compact mechanics summary")).not.toBeInTheDocument();
   });
 
   it("does not commit a stale response after the selection tuple changes", async () => {
@@ -412,6 +509,85 @@ describe("ThreatSheetProjection", () => {
       await deferredRelationship;
     });
     expect(openResolvedReference).not.toHaveBeenCalled();
+  });
+
+  it("renders campaign full statblock chrome when expanded", async () => {
+    vi.mocked(postThreatQueryHydration).mockResolvedValue({
+      schema: "dmb_threat_query_hydration_response_v1",
+      worldId: scope.worldId,
+      campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
+      revisionId: scope.revisionId,
+      queryText: "threat:tripod-null-calf",
+      resultLabel: "threat_query_hydration_ok",
+      hits: [
+        {
+          threat: {
+            nodeId: "threat:tripod-null-calf",
+            label: "Tripod Null-Calf",
+            kind: "threat",
+            role: "creature",
+            aliases: [],
+            sourceDomains: [],
+            evidenceBadges: [],
+            adjacency: [],
+            suggestedExpansions: [],
+            evidenceRefIds: [],
+            sourceArtifactIds: [],
+            anchoredToFocusSession: true,
+            summary: "A three-legged aberration.",
+          },
+          matchReasons: ["exact_node_id"],
+          relationships: [],
+          bindings: [
+            {
+              relationshipEdgeId: "edge-1",
+              bindingId: "bind-1",
+              bindingRole: "primary",
+              threatNodeId: "threat:tripod-null-calf",
+              resourceNodeId: "sb_000001",
+              provider: "dungeonmind",
+              statblockId: "sb_000001",
+              revisionId: revision.revision_id,
+              definitionDigest: revision.definition_digest,
+              hydrationStatus: "available",
+              binding: null,
+              revision,
+              message: null,
+            },
+          ],
+          mechanicsDisposition: "hydrated",
+        },
+      ],
+      diagnostics: [],
+      message: null,
+    });
+
+    render(<ThreatSheetProjection resolution={threatResolution()} glanceOnly={false} />);
+
+    await waitFor(() => {
+      expect(document.querySelector("[data-statblock-renderer]")).toHaveAttribute(
+        "data-chrome",
+        "campaign",
+      );
+    });
+    expect(screen.getByTestId("threat-sheet-projection")).toHaveAttribute("data-glance", "false");
+    expect(screen.queryByText("Threat · full statblock")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("threat-campaign-glance")).not.toBeInTheDocument();
+    const renderer = document.querySelector("[data-statblock-renderer]");
+    expect(renderer).toBeTruthy();
+    expect(renderer?.textContent).toMatch(/Ironhide Brute/i);
+    expect(renderer?.textContent).not.toMatch(/Revision\s+rev_/i);
+    expect(renderer?.textContent).not.toMatch(/Validation/i);
+    expect(renderer?.textContent).not.toMatch(/Provenance and receipts/i);
+
+    const advanced = screen.getByText("Advanced Details").closest("details");
+    expect(advanced).toBeInstanceOf(HTMLDetailsElement);
+    expect(advanced).not.toHaveAttribute("open");
+    expect(advanced).toContainElement(screen.getByTestId("statblock-advanced-ledger"));
+    expect(advanced).toHaveTextContent(/Validation/i);
+    expect(advanced).toHaveTextContent(/Provenance and receipts/i);
+    expect(advanced).toContainElement(screen.getByTestId("threat-sheet-binding-summary"));
   });
 
   it("fails closed when exact graph scope is missing", () => {

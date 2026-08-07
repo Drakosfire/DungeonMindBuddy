@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   effectiveFocusValidationStatus,
   planGraphLensValidationKey,
-} from "./PlanGraphLensContext";
+} from "./WorldGraphLensContext";
 import type { PlanGraphLens } from "./sessionCampaignContext";
 
 describe("planGraphLensValidationKey", () => {

@@ -1,23 +1,35 @@
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import {
+  GraphNodeChipRuntimeProvider,
+} from "../../graphReference/GraphNodeChipRuntime";
+import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import {
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
 } from "../../graphReference/projectionBindings";
 import { resolveGraphReference, extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
 import type {
   ExactGraphReferenceScope,
+  GraphNodeChipRuntimeValue,
   GraphReferenceProjectionState,
   GraphReferenceResolution,
   GraphReferenceSearchItem,
 } from "../../graphReference/types";
+import type { GraphProjectionNodeView } from "../../api/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
+import { useOptionalWorldGraphLens } from "../../graphLens/WorldGraphLensContext";
+import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
+import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "../../chrome/appChromeConfig";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
+import { insertMarkdownReference } from "../../graphReference/insertMarkdownReference";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
 import type { WorkspaceDocumentAuthoringPhase } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
+import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
+import { admitBuildObjectInsert } from "../../worldGraph/worldGraphSurfaceContext";
 import { writeBuildLastCampaignId } from "../buildBareEntryCampaign";
 import {
   buildBuildSurfaceInteractionPublication,
@@ -29,7 +41,7 @@ import {
 } from "./buildReferenceIds";
 import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
 import { BuildReferenceSearchProjection } from "./BuildReferenceSearchProjection";
-import { resolveBuildGraphLens } from "./resolveBuildGraphLens";
+import { resolveBuildFindGraphLens } from "./resolveBuildGraphLens";
 import { useBuildWorldGraphProjection } from "./useBuildWorldGraphProjection";
 
 const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = new Set([
@@ -187,9 +199,10 @@ async function resolveBuildRelationshipTarget(input: {
 
 export interface BuildReferenceCapabilityProps {
   documentId: string | null;
+  children?: ReactNode;
 }
 
-export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilityProps) {
+export function BuildReferenceCapability({ documentId, children }: BuildReferenceCapabilityProps) {
   const session = useOptionalMarkdownCanvasSession();
   const {
     openGraphReference,
@@ -206,6 +219,17 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     () => readBuildGraphLensParams(locationSearch),
     [locationSearch],
   );
+  const sharedGraphLens = useOptionalWorldGraphLens();
+  const sharedProjection = useOptionalWorldGraphLensProjection();
+  const sharedLensIdentityKey = useMemo(() => {
+    if (!sharedGraphLens) return "";
+    const { selectedCampaignIds, focus } = sharedGraphLens.lens;
+    return JSON.stringify([
+      selectedCampaignIds,
+      focus?.campaignId ?? null,
+      focus?.sessionNumber ?? null,
+    ]);
+  }, [sharedGraphLens]);
 
   const acceptedDocument = useMemo(() => {
     if (!documentId || !session || session.documentId !== documentId) return null;
@@ -215,7 +239,13 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       documentId: session.record.document_id,
       campaignId: session.record.campaign_id,
     };
-  }, [documentId, session]);
+  }, [
+    documentId,
+    session?.documentId,
+    session?.phase,
+    session?.record?.campaign_id,
+    session?.record?.document_id,
+  ]);
 
   const lens = useMemo(() => {
     if (!acceptedDocument) {
@@ -224,20 +254,39 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
         reason: "Build graph lens requires an accepted document.",
       };
     }
-    return resolveBuildGraphLens({
+    return resolveBuildFindGraphLens({
       documentId: acceptedDocument.documentId,
       documentCampaignId: acceptedDocument.campaignId,
       requestedCampaignId: lensParams.requestedCampaignId,
       requestedRevisionId: lensParams.requestedRevisionId,
+      sharedLens: sharedGraphLens?.lens ?? null,
+      sharedRequest: sharedProjection?.request ?? null,
+      // Match the app provider default so world-union anchors do not drift.
+      defaultCampaignId: WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID,
     });
-  }, [acceptedDocument, lensParams.requestedCampaignId, lensParams.requestedRevisionId]);
+    // sharedGraphLens / sharedProjection.request churn on validation ticks; keys are enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional shared identity keys
+  }, [
+    acceptedDocument,
+    lensParams.requestedCampaignId,
+    lensParams.requestedRevisionId,
+    sharedLensIdentityKey,
+    sharedProjection?.requestKey,
+  ]);
 
-  const projection = useBuildWorldGraphProjection({
-    lens,
-    documentIdentity: {
+  const documentIdentity = useMemo(
+    () => ({
       documentId: acceptedDocument?.documentId ?? "",
       campaignId: acceptedDocument?.campaignId ?? "",
-    },
+    }),
+    [acceptedDocument?.campaignId, acceptedDocument?.documentId],
+  );
+
+  // Reuse shared app projection iff exact request identity matches; else secondary exact load.
+  const projection = useBuildWorldGraphProjection({
+    lens,
+    documentIdentity,
+    sharedProjection,
   });
 
   /** Live load key — updated every render so retained callbacks fail closed across lens transitions. */
@@ -279,22 +328,83 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
         buildViewExactTestSeam.lastGraphScope = graphScope;
       }
 
-      openGraphReference({
-        resolution: {
-          kind: "resolved_graph",
-          locator: `dmb-node:${canonical.nodeId}`,
-          reference: canonical.reference,
-          graphNodeId: canonical.nodeId,
-          graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
-          graphScope,
-          projectionState: projection.state,
-          message: `Resolved graph node ${canonical.label}.`,
-        },
+      const resolution: GraphReferenceResolution = {
+        kind: "resolved_graph",
+        locator: `dmb-node:${canonical.nodeId}`,
+        reference: canonical.reference,
+        graphNodeId: canonical.nodeId,
+        graphObject: buildGraphObjectCardFromNodeView(canonical.nodeView),
+        graphScope,
         projectionState: projection.state,
+        message: `Resolved graph node ${canonical.label}.`,
+      };
+
+      openGraphReference({
+        resolution,
+        projectionState: projection.state,
+        glanceOnly: glanceOnlyForGraphReference(resolution),
       });
     },
     [openGraphReference, projection.items, projection.loadKey, projection.projection, projection.state],
   );
+
+  const openGraphNodeFromChip = useCallback(
+    (nodeId: string) => {
+      const item = projection.items.find((entry) => entry.nodeId === nodeId);
+      if (!item) return;
+      viewExact(item);
+    },
+    [projection.items, viewExact],
+  );
+
+  const insertChip = useCallback(
+    (nodeId: string) => {
+      if (!session) return;
+      if (!isEditorInteractive(session.phase)) return;
+      if (lens.status !== "ready") return;
+      const authorizedKey = authorizedLoadKeyRef.current;
+      const liveKey = liveLoadKeyRef.current;
+      if (!authorizedKey || authorizedKey !== liveKey) return;
+      if (projection.state !== "ready") return;
+      if (projection.loadKey !== liveKey) return;
+      const trimmedNodeId = nodeId.trim();
+      if (!trimmedNodeId) return;
+      const canonical = projection.items.find((entry) => entry.nodeId === trimmedNodeId);
+      if (!canonical) return;
+      const admission = admitBuildObjectInsert({
+        documentCampaignId: acceptedDocument?.campaignId,
+        objectCampaignScope: canonical.nodeView.campaign_scope,
+      });
+      if (!admission.ok) return;
+      insertMarkdownReference(session.editor, canonical.reference);
+    },
+    [
+      acceptedDocument?.campaignId,
+      lens.status,
+      projection.items,
+      projection.loadKey,
+      projection.state,
+      session,
+    ],
+  );
+
+  const insertDisabled =
+    !session?.editor
+    || !isEditorInteractive(session.phase)
+    || lens.status !== "ready";
+
+  const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
+    const nodeViews: Record<string, GraphProjectionNodeView> = {};
+    for (const item of projection.items) {
+      nodeViews[item.nodeId] = item.nodeView;
+    }
+    return {
+      nodeViews,
+      activeNodeId: null,
+      onSelectNode: openGraphNodeFromChip,
+      exactGraphScope: extractExactGraphReferenceScope(projection.projection),
+    };
+  }, [openGraphNodeFromChip, projection.items, projection.projection]);
 
   const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
     if (!acceptedDocument) return null;
@@ -311,9 +421,13 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
       items: projection.items,
       selectCampaign,
       viewExact,
+      insertChip,
+      insertDisabled,
     };
   }, [
     acceptedDocument,
+    insertChip,
+    insertDisabled,
     lens,
     projection.error,
     projection.items,
@@ -450,6 +564,7 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
         openGraphReference({
           resolution,
           projectionState: state ?? projection.state,
+          glanceOnly: glanceOnlyForGraphReference(resolution),
         });
       },
       openTool,
@@ -463,5 +578,9 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
     registerGraphReferenceBinding,
   ]);
 
-  return null;
+  return (
+    <GraphNodeChipRuntimeProvider value={chipRuntime}>
+      {children ?? null}
+    </GraphNodeChipRuntimeProvider>
+  );
 }

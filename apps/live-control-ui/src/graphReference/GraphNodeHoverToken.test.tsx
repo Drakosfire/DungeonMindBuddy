@@ -75,6 +75,37 @@ describe("GraphNodeHoverToken", () => {
     expect(glance).not.toHaveTextContent("should not appear in glance");
   });
 
+  it("renders parchment Threat campaign glance for authored Threat chips", () => {
+    render(
+      <GraphNodeHoverToken
+        presentation={{
+          nodeId: "threat:authored:latchling",
+          label: "Mireward Latchling",
+          kind: "threat",
+          role: "creature",
+          summary: "A latching siege threat beneath Mireward.",
+          whyNow: null,
+          knownBefore: null,
+          planningChips: [],
+          threadHints: [],
+        }}
+        label="Mireward Latchling"
+        pinned={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const glance = document.querySelector(".recap-node-hover-card");
+    expect(glance).toHaveAttribute("data-threat-hover", "true");
+    expect(screen.getByTestId("threat-campaign-glance")).toBeInTheDocument();
+    expect(glance).toHaveTextContent("Mireward Latchling");
+    expect(glance).toHaveTextContent("A latching siege threat beneath Mireward.");
+    expect(glance).toHaveTextContent("Creature");
+    expect(glance).not.toHaveTextContent("Threat · Creature");
+    expect(glance?.textContent ?? "").not.toMatch(/\bTHREAT\b/);
+    expect(glance).not.toHaveTextContent("participated in");
+  });
+
   it("shows distinct role · kind only when they differ", () => {
     render(
       <GraphNodeHoverToken

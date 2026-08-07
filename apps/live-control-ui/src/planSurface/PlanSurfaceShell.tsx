@@ -11,7 +11,6 @@ import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { resolvePlanningDocument } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
-import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "./types";
@@ -122,36 +121,34 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   return (
     <EditCapabilityProvider>
-      <PlanGraphLensProvider planCampaignId={config.sessionDescriptor.campaignId}>
-        <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
-          <PlanReferenceProjectionBinding />
-          <div
-            className="plan-surface-root"
-            data-surface={config.id}
-            data-md-theme={config.theme.themeId}
-            style={themeStyle(config)}
-          >
-            {dogfoodMode ? (
-              <PlanDogfoodPanel
+      <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
+        <PlanReferenceProjectionBinding />
+        <div
+          className="plan-surface-root"
+          data-surface={config.id}
+          data-md-theme={config.theme.themeId}
+          style={themeStyle(config)}
+        >
+          {dogfoodMode ? (
+            <PlanDogfoodPanel
+              sessionDescriptor={config.sessionDescriptor}
+              saveStatusLabel={saveStatusLabel}
+            />
+          ) : null}
+          <div className="plan-surface-layout">
+            <div className="plan-surface-main">
+              <PlanSurfaceCanvas
                 sessionDescriptor={config.sessionDescriptor}
-                saveStatusLabel={saveStatusLabel}
+                theme={config.theme}
+                onEditorToolsChange={onEditorToolsChange}
+                onSaveStatusChange={setSaveStatusLabel}
+                onPlanningDocumentCommitted={setPlanningDocument}
               />
-            ) : null}
-            <div className="plan-surface-layout">
-              <div className="plan-surface-main">
-                <PlanSurfaceCanvas
-                  sessionDescriptor={config.sessionDescriptor}
-                  theme={config.theme}
-                  onEditorToolsChange={onEditorToolsChange}
-                  onSaveStatusChange={setSaveStatusLabel}
-                  onPlanningDocumentCommitted={setPlanningDocument}
-                />
-              </div>
             </div>
-            <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
           </div>
-        </PlanGraphReferenceResolverProvider>
-      </PlanGraphLensProvider>
+          <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
+        </div>
+      </PlanGraphReferenceResolverProvider>
     </EditCapabilityProvider>
   );
 }

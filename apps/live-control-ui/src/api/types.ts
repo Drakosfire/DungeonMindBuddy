@@ -2294,6 +2294,8 @@ export interface WorldGraphProjectionRequest {
   admissibility: "gm" | "player";
   revisionPin?: string | null;
   scopeMode?: "campaign" | "world";
+  /** Optional query-scoped projection filter (matches server WorldGraphProjectionRequest.query_text). */
+  queryText?: string | null;
 }
 
 export interface WorldGraphProjectionSnapshot {

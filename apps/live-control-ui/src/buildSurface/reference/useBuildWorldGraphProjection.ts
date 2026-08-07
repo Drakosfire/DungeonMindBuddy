@@ -10,13 +10,20 @@ import type {
   GraphReferenceProjectionState,
   GraphReferenceSearchItem,
 } from "../../graphReference/types";
+import type { WorldGraphLensProjectionValue } from "../../graphLens/useWorldGraphLensProjection";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { buildBuildWorldGraphProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
+import { worldGraphProjectionRequestKey } from "../../worldGraph/worldGraphProjectionRequestKey";
+import { verifyWorldGraphProjectionResponse } from "../../worldGraph/verifyWorldGraphProjectionResponse";
 import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
+
+export { verifyWorldGraphProjectionResponse } from "../../worldGraph/verifyWorldGraphProjectionResponse";
 
 export interface UseBuildWorldGraphProjectionInput {
   lens: BuildGraphLensResolution;
   documentIdentity: { documentId: string; campaignId: string };
+  /** App-level shared projection — reused only when exact request keys match. */
+  sharedProjection?: WorldGraphLensProjectionValue | null;
 }
 
 export interface UseBuildWorldGraphProjectionResult {
@@ -32,6 +39,11 @@ export interface UseBuildWorldGraphProjectionResult {
   /** Current lens/document load key — use for synchronous auth (not generation alone). */
   loadKey: string;
   items: readonly GraphReferenceSearchItem[];
+  /** Exact request for the current Build Find lens (null when lens cannot form a request). */
+  request: WorldGraphProjectionRequest | null;
+  requestKey: string | null;
+  /** True when bytes came from the shared app projection (no secondary POST). */
+  reusedSharedProjection: boolean;
 }
 
 type StoredProjectionLoad = {
@@ -41,6 +53,7 @@ type StoredProjectionLoad = {
   error: string | null;
   loadedRevisionId: string | null;
   loadedIsHead: boolean;
+  reusedSharedProjection: boolean;
 };
 
 function resolveRevisionFields(lens: BuildGraphLensResolution): {
@@ -56,9 +69,19 @@ function resolveRevisionFields(lens: BuildGraphLensResolution): {
   return { revisionMode: "head", requestedRevisionId: null };
 }
 
+/**
+ * Display label for object campaign tenancy.
+ * `campaign_scope: null` means world-universal — never collapse to the projection anchor.
+ */
+export function formatProjectionSearchScopeLabel(
+  campaignScope: string | null | undefined,
+): string {
+  const trimmed = campaignScope?.trim();
+  return trimmed || "World";
+}
+
 function adaptProjectionSearchItems(
   projection: WorldGraphProjection,
-  scopeCampaignId: string,
 ): GraphReferenceSearchItem[] {
   return projection.nodes.map((node) => {
     const nodeView = adaptWorldGraphNodeView(node);
@@ -69,7 +92,7 @@ function adaptProjectionSearchItems(
       role: nodeView.role,
       summary: nodeView.summary ?? null,
       aliases: nodeView.aliases ?? [],
-      scopeLabel: nodeView.campaign_scope ?? scopeCampaignId,
+      scopeLabel: formatProjectionSearchScopeLabel(nodeView.campaign_scope),
       reference: referenceFromGraphNode(nodeView),
       nodeView,
     };
@@ -83,74 +106,6 @@ function formatProjectionLoadError(error: unknown): string {
   return error instanceof Error ? error.message : "Failed to load World Graph projection.";
 }
 
-function focusMatchesRequest(
-  responseFocus: WorldGraphProjection["snapshot"]["focus"],
-  requestFocus: WorldGraphProjectionRequest["focus"],
-): boolean {
-  const responseKind = responseFocus?.kind ?? "none";
-  const requestKind = requestFocus.kind;
-  if (responseKind !== requestKind) return false;
-  const responseSessionId = responseFocus?.sessionId ?? null;
-  const requestSessionId = requestFocus.sessionId ?? null;
-  if (responseSessionId !== requestSessionId) return false;
-  // Exact: a response campaignId is not tolerated when the request omitted one.
-  const responseCampaignId = responseFocus?.campaignId ?? null;
-  const requestCampaignId = requestFocus.campaignId ?? null;
-  return responseCampaignId === requestCampaignId;
-}
-
-/**
- * Verify the projection response matches the exact request lens.
- * Pinned: revisionId must equal the pin.
- * Head: snapshot must report isHead and revisionId === headRevisionId.
- */
-export function verifyWorldGraphProjectionResponse(input: {
-  request: WorldGraphProjectionRequest;
-  response: WorldGraphProjection;
-  revisionKind: "head" | "pinned";
-  pinnedRevisionId?: string | null;
-}): string | null {
-  const { request, response, revisionKind, pinnedRevisionId } = input;
-  const snapshot = response.snapshot;
-
-  if (snapshot.worldId !== request.worldId) {
-    return `Projection world ${snapshot.worldId} does not match requested world ${request.worldId}.`;
-  }
-  if (snapshot.campaignId !== request.campaignId) {
-    return `Projection campaign ${snapshot.campaignId} does not match requested campaign ${request.campaignId}.`;
-  }
-  if (snapshot.admissibility !== request.admissibility) {
-    return `Projection admissibility ${snapshot.admissibility} does not match requested ${request.admissibility}.`;
-  }
-  const requestScope = request.scopeMode ?? null;
-  const responseScope = snapshot.scopeMode ?? null;
-  if (responseScope !== requestScope) {
-    return `Projection scopeMode ${responseScope ?? "∅"} does not match requested ${requestScope ?? "∅"}.`;
-  }
-  if (!focusMatchesRequest(snapshot.focus, request.focus)) {
-    return "Projection focus does not match the requested lens focus.";
-  }
-
-  if (revisionKind === "pinned") {
-    const pin = pinnedRevisionId?.trim() || null;
-    if (!pin) {
-      return "Pinned revision request is missing a revision id.";
-    }
-    if (snapshot.revisionId !== pin) {
-      return `Pinned revision ${pin} does not match loaded revision ${snapshot.revisionId}.`;
-    }
-    return null;
-  }
-
-  if (!snapshot.isHead) {
-    return `Requested current head but projection reports non-head revision ${snapshot.revisionId}.`;
-  }
-  if (snapshot.revisionId !== snapshot.headRevisionId) {
-    return `Projection head claim is inconsistent (revision ${snapshot.revisionId} ≠ head ${snapshot.headRevisionId}).`;
-  }
-  return null;
-}
-
 function pendingLoadForKey(loadKey: string): StoredProjectionLoad {
   return {
     loadKey,
@@ -159,13 +114,29 @@ function pendingLoadForKey(loadKey: string): StoredProjectionLoad {
     error: null,
     loadedRevisionId: null,
     loadedIsHead: false,
+    reusedSharedProjection: false,
   };
 }
 
+const EMPTY_SEARCH_ITEMS: readonly GraphReferenceSearchItem[] = [];
+
+export function buildBuildWorldGraphRequestFromLens(
+  lens: Extract<BuildGraphLensResolution, { status: "ready" }>,
+): WorldGraphProjectionRequest | null {
+  const revisionPin =
+    lens.revision.kind === "pinned" ? lens.revision.revisionId : null;
+  return buildBuildWorldGraphProjectionRequest({
+    campaignId: lens.campaignId,
+    revisionPin,
+    scopeMode: lens.scopeMode,
+    focus: lens.focus,
+  });
+}
+
 /**
- * Structured load identity. Revision mode and opaque revision id are separate
- * fields so current-head mode never collides with a pinned revision whose id is
- * literally "head".
+ * Structured load identity. Includes scope/focus so Find auth cannot cross lenses.
+ * Revision mode and opaque revision id are separate fields so current-head mode
+ * never collides with a pinned revision whose id is literally "head".
  */
 export function buildBuildGraphProjectionLoadKey(input: {
   documentIdentity: { documentId: string; campaignId: string };
@@ -181,6 +152,8 @@ export function buildBuildGraphProjectionLoadKey(input: {
       null,
       null,
       null,
+      null,
+      null,
       lens.reason,
     ]);
   }
@@ -193,6 +166,8 @@ export function buildBuildGraphProjectionLoadKey(input: {
       null,
       lens.revision.kind,
       lens.revision.kind === "pinned" ? lens.revision.revisionId : null,
+      lens.scopeMode,
+      lens.focus.kind === "session" ? lens.focus.sessionId : null,
       lens.reason,
     ]);
   }
@@ -204,14 +179,17 @@ export function buildBuildGraphProjectionLoadKey(input: {
     lens.campaignId,
     lens.revision.kind,
     lens.revision.kind === "pinned" ? lens.revision.revisionId : null,
-    null,
+    lens.scopeMode,
+    lens.focus.kind === "session"
+      ? `${lens.focus.sessionId}@${lens.focus.focusCampaignId}`
+      : null,
   ]);
 }
 
 export function useBuildWorldGraphProjection(
   input: UseBuildWorldGraphProjectionInput,
 ): UseBuildWorldGraphProjectionResult {
-  const { lens, documentIdentity } = input;
+  const { lens, documentIdentity, sharedProjection = null } = input;
   const revisionFields = useMemo(() => resolveRevisionFields(lens), [lens]);
 
   const [stored, setStored] = useState<StoredProjectionLoad>(() =>
@@ -225,8 +203,41 @@ export function useBuildWorldGraphProjection(
     [documentIdentity, lens],
   );
 
-  // Depend on loadKey only (not lens identity). Equivalent lens objects recreated
-  // each render must not retrigger loads / setGeneration loops.
+  // When following the shared nav, use the resident request as canonical (head)
+  // or clone it with the Build revision pin — never re-derive a divergent union anchor.
+  const request = useMemo(() => {
+    if (lens.status !== "ready") return null;
+    const sharedRequest = sharedProjection?.request ?? null;
+    if (sharedRequest && sharedRequest.worldId === lens.worldId) {
+      if (lens.revision.kind === "pinned") {
+        return {
+          ...sharedRequest,
+          revisionPin: lens.revision.revisionId,
+        };
+      }
+      return {
+        ...sharedRequest,
+        revisionPin: sharedRequest.revisionPin ?? null,
+      };
+    }
+    return buildBuildWorldGraphRequestFromLens(lens);
+  }, [lens, sharedProjection?.request]);
+
+  const requestKey = useMemo(
+    () => (request ? worldGraphProjectionRequestKey(request) : null),
+    [request],
+  );
+
+  const sharedMatches =
+    Boolean(requestKey)
+    && sharedProjection?.requestKey != null
+    && sharedProjection.requestKey === requestKey;
+
+  const sharedState = sharedProjection?.projectionState ?? null;
+  const sharedProjectionRef = sharedProjection?.projection ?? null;
+  const sharedError = sharedProjection?.projectionError ?? null;
+
+  // Depend on loadKey + shared exact-match signals (not lens object identity).
   useEffect(() => {
     const currentGeneration = ++requestGenerationRef.current;
     setGeneration(currentGeneration);
@@ -240,6 +251,7 @@ export function useBuildWorldGraphProjection(
         error: lens.reason,
         loadedRevisionId: null,
         loadedIsHead: false,
+        reusedSharedProjection: false,
       });
       return () => {
         requestGenerationRef.current += 1;
@@ -254,6 +266,22 @@ export function useBuildWorldGraphProjection(
         error: lens.reason,
         loadedRevisionId: null,
         loadedIsHead: false,
+        reusedSharedProjection: false,
+      });
+      return () => {
+        requestGenerationRef.current += 1;
+      };
+    }
+
+    if (!request) {
+      setStored({
+        loadKey,
+        projection: null,
+        state: "error",
+        error: `Unknown campaign mapping for ${lens.campaignId}.`,
+        loadedRevisionId: null,
+        loadedIsHead: false,
+        reusedSharedProjection: false,
       });
       return () => {
         requestGenerationRef.current += 1;
@@ -263,26 +291,85 @@ export function useBuildWorldGraphProjection(
     const revisionPin =
       lens.revision.kind === "pinned" ? lens.revision.revisionId : null;
     const revisionKind = lens.revision.kind === "pinned" ? "pinned" : "head";
-    const campaignId = lens.campaignId;
-    const request = buildBuildWorldGraphProjectionRequest({
-      campaignId,
-      revisionPin,
-    });
 
-    if (!request) {
-      setStored({
-        loadKey,
-        projection: null,
-        state: "error",
-        error: `Unknown campaign mapping for ${campaignId}.`,
-        loadedRevisionId: null,
-        loadedIsHead: false,
-      });
-      return () => {
-        requestGenerationRef.current += 1;
-      };
+    // Exact match: wait on / adopt the shared provider — no duplicate POST.
+    if (sharedMatches && sharedProjection) {
+      if (sharedState === "loading") {
+        setStored(pendingLoadForKey(loadKey));
+        return () => {
+          requestGenerationRef.current += 1;
+        };
+      }
+
+      if (sharedState === "ready" && sharedProjectionRef) {
+        const mismatch = verifyWorldGraphProjectionResponse({
+          request,
+          response: sharedProjectionRef,
+          revisionKind,
+          pinnedRevisionId: revisionPin,
+        });
+        if (mismatch) {
+          setStored({
+            loadKey,
+            projection: null,
+            state: "error",
+            error: mismatch,
+            loadedRevisionId: null,
+            loadedIsHead: false,
+            reusedSharedProjection: false,
+          });
+          return () => {
+            requestGenerationRef.current += 1;
+          };
+        }
+        setStored({
+          loadKey,
+          projection: sharedProjectionRef,
+          state: "ready",
+          error: null,
+          loadedRevisionId: sharedProjectionRef.snapshot.revisionId,
+          loadedIsHead: revisionKind === "head"
+            ? sharedProjectionRef.snapshot.isHead === true
+            : false,
+          reusedSharedProjection: true,
+        });
+        return () => {
+          requestGenerationRef.current += 1;
+        };
+      }
+
+      if (sharedState === "unavailable") {
+        setStored({
+          loadKey,
+          projection: null,
+          state: "unavailable",
+          error: null,
+          loadedRevisionId: null,
+          loadedIsHead: false,
+          reusedSharedProjection: true,
+        });
+        return () => {
+          requestGenerationRef.current += 1;
+        };
+      }
+
+      if (sharedState === "error") {
+        setStored({
+          loadKey,
+          projection: null,
+          state: "error",
+          error: sharedError ?? "Shared World Graph projection failed.",
+          loadedRevisionId: null,
+          loadedIsHead: false,
+          reusedSharedProjection: true,
+        });
+        return () => {
+          requestGenerationRef.current += 1;
+        };
+      }
     }
 
+    // Secondary exact load — pinned revision or lens that differs from shared nav.
     setStored(pendingLoadForKey(loadKey));
 
     void (async () => {
@@ -304,6 +391,7 @@ export function useBuildWorldGraphProjection(
             error: mismatch,
             loadedRevisionId: null,
             loadedIsHead: false,
+            reusedSharedProjection: false,
           });
           return;
         }
@@ -315,6 +403,7 @@ export function useBuildWorldGraphProjection(
           error: null,
           loadedRevisionId: response.snapshot.revisionId,
           loadedIsHead: revisionKind === "head" ? response.snapshot.isHead === true : false,
+          reusedSharedProjection: false,
         });
       } catch (loadError) {
         if (!isCurrent()) return;
@@ -325,6 +414,7 @@ export function useBuildWorldGraphProjection(
           error: formatProjectionLoadError(loadError),
           loadedRevisionId: null,
           loadedIsHead: false,
+          reusedSharedProjection: false,
         });
       }
     })();
@@ -332,9 +422,16 @@ export function useBuildWorldGraphProjection(
     return () => {
       requestGenerationRef.current += 1;
     };
-    // loadKey encodes document + lens status/campaign/revision/reason.
+    // loadKey encodes document + lens; shared* gates exact-match reuse.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid lens-identity loops
-  }, [loadKey]);
+  }, [
+    loadKey,
+    requestKey,
+    sharedMatches,
+    sharedState,
+    sharedProjectionRef,
+    sharedError,
+  ]);
 
   // Fail closed across the transition render: never expose lens B with projection A.
   const coherent =
@@ -348,6 +445,7 @@ export function useBuildWorldGraphProjection(
             error: lens.reason,
             loadedRevisionId: null,
             loadedIsHead: false,
+            reusedSharedProjection: false,
           }
         : lens.status === "invalid"
           ? {
@@ -357,26 +455,47 @@ export function useBuildWorldGraphProjection(
               error: lens.reason,
               loadedRevisionId: null,
               loadedIsHead: false,
+              reusedSharedProjection: false,
             }
           : pendingLoadForKey(loadKey);
 
   const items = useMemo(() => {
     if (coherent.state !== "ready" || !coherent.projection || lens.status !== "ready") {
-      return [];
+      return EMPTY_SEARCH_ITEMS;
     }
-    return adaptProjectionSearchItems(coherent.projection, lens.campaignId);
+    return adaptProjectionSearchItems(coherent.projection);
   }, [coherent.projection, coherent.state, lens]);
 
-  return {
-    projection: coherent.projection,
-    state: coherent.state,
-    error: coherent.error,
-    requestedRevisionId: revisionFields.requestedRevisionId,
-    loadedRevisionId: coherent.loadedRevisionId,
-    revisionMode: revisionFields.revisionMode,
-    loadedIsHead: coherent.loadedIsHead,
-    generation,
-    loadKey,
-    items,
-  };
+  return useMemo(
+    () => ({
+      projection: coherent.projection,
+      state: coherent.state,
+      error: coherent.error,
+      requestedRevisionId: revisionFields.requestedRevisionId,
+      loadedRevisionId: coherent.loadedRevisionId,
+      revisionMode: revisionFields.revisionMode,
+      loadedIsHead: coherent.loadedIsHead,
+      generation,
+      loadKey,
+      items,
+      request,
+      requestKey,
+      reusedSharedProjection: coherent.reusedSharedProjection,
+    }),
+    [
+      coherent.error,
+      coherent.loadedIsHead,
+      coherent.loadedRevisionId,
+      coherent.projection,
+      coherent.reusedSharedProjection,
+      coherent.state,
+      generation,
+      items,
+      loadKey,
+      request,
+      requestKey,
+      revisionFields.requestedRevisionId,
+      revisionFields.revisionMode,
+    ],
+  );
 }

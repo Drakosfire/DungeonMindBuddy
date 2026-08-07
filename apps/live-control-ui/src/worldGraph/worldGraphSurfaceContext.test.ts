@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import {
   admitBuildDocumentScope,
+  admitBuildObjectInsert,
+  admitBuildWorldGraphBrowse,
   buildBuildWorldGraphProjectionRequest,
   buildGraphReviewCommittedProjectionRequest,
   buildWorldGraphRecapProjectionRequest,
@@ -130,5 +132,102 @@ describe("worldGraphSurfaceContext", () => {
         incomingCampaignId: "longmont-c2",
       }).ok,
     ).toBe(false);
+  });
+
+  it("admitBuildWorldGraphBrowse admits same-world cross-campaign browse", () => {
+    expect(
+      admitBuildWorldGraphBrowse({
+        documentCampaignId: "longmont-c1",
+        projectionWorldId: "eldyrwild",
+      }),
+    ).toEqual({ ok: true, documentWorldId: "eldyrwild" });
+    expect(
+      admitBuildWorldGraphBrowse({
+        documentCampaignId: "unknown-scope",
+        projectionWorldId: "eldyrwild",
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("admitBuildObjectInsert is object tenancy, not projection-anchor campaignId", () => {
+    // C1 document: C1 + universal admitted; C2 denied
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c1",
+        objectCampaignScope: "longmont-c1",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c1",
+        objectCampaignScope: null,
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c1",
+        objectCampaignScope: "longmont-c2",
+      }),
+    ).toEqual({ ok: false, reason: "C2 object · C1 document" });
+
+    // C2 document: inverse
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c2",
+        objectCampaignScope: "longmont-c2",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c2",
+        objectCampaignScope: null,
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c2",
+        objectCampaignScope: "longmont-c1",
+      }),
+    ).toEqual({ ok: false, reason: "C1 object · C2 document" });
+
+    // World-scoped document admits all same-world objects
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "eldyrwild",
+        objectCampaignScope: "longmont-c1",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "eldyrwild",
+        objectCampaignScope: "longmont-c2",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "eldyrwild",
+        objectCampaignScope: null,
+      }),
+    ).toEqual({ ok: true });
+
+    // Blank tenancy is malformed — fail closed (do not treat as universal).
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c1",
+        objectCampaignScope: "",
+      }),
+    ).toEqual({
+      ok: false,
+      reason: "Object campaign scope is blank; world-universal requires null.",
+    });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c1",
+        objectCampaignScope: "   ",
+      }),
+    ).toEqual({
+      ok: false,
+      reason: "Object campaign scope is blank; world-universal requires null.",
+    });
   });
 });

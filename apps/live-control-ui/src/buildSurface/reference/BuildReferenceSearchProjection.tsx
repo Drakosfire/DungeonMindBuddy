@@ -1,7 +1,9 @@
 import { GraphReferenceSearch } from "../../graphReference/GraphReferenceSearch";
+import { admitBuildObjectInsert } from "../../worldGraph/worldGraphSurfaceContext";
 import type { BuildReferenceContextBinding } from "./buildBuildSurfaceInteractionPublication";
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./buildReferenceIds";
 import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
+import type { GraphReferenceSearchItem } from "../../graphReference/types";
 
 export interface BuildReferenceSearchProjectionProps {
   bindings: Readonly<Record<string, unknown>>;
@@ -18,6 +20,8 @@ function isBuildReferenceContextBinding(value: unknown): value is BuildReference
     && typeof candidate.loadedIsHead === "boolean"
     && typeof candidate.selectCampaign === "function"
     && typeof candidate.viewExact === "function"
+    && typeof candidate.insertChip === "function"
+    && typeof candidate.insertDisabled === "boolean"
   );
 }
 
@@ -67,6 +71,17 @@ function lensRevisionMode(lens: BuildGraphLensResolution): "head" | "pinned" {
   return lens.revision.kind === "pinned" ? "pinned" : "head";
 }
 
+function insertDeniedReasonForDocument(
+  documentCampaignId: string,
+  item: GraphReferenceSearchItem,
+): string | null {
+  const admission = admitBuildObjectInsert({
+    documentCampaignId,
+    objectCampaignScope: item.nodeView.campaign_scope,
+  });
+  return admission.ok ? null : admission.reason;
+}
+
 export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearchProjectionProps) {
   const context = readBuildReferenceContextBinding(bindings);
   const { lens } = context;
@@ -92,31 +107,9 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         aria-label="World Graph search"
         data-testid="build-reference-search-projection"
       >
-        <p className="build-reference-search-projection__status">{lens.reason}</p>
-        <label className="build-reference-search-projection__label" htmlFor="build-reference-campaign-select">
-          Campaign
-        </label>
-        <select
-          id="build-reference-campaign-select"
-          className="build-reference-search-projection__select"
-          data-testid="build-reference-campaign-select"
-          defaultValue=""
-          onChange={(event) => {
-            const campaignId = event.target.value.trim();
-            if (campaignId) {
-              context.selectCampaign(campaignId);
-            }
-          }}
-        >
-          <option value="" disabled>
-            Select campaign…
-          </option>
-          {lens.availableCampaignIds.map((campaignId) => (
-            <option key={campaignId} value={campaignId}>
-              {campaignId}
-            </option>
-          ))}
-        </select>
+        <p className="build-reference-search-projection__status" role="status">
+          {lens.reason} Select a campaign in the World Graph lens in the site navigation.
+        </p>
       </section>
     );
   }
@@ -177,6 +170,11 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         items={context.items}
         projectionState={context.projectionState}
         projectionError={context.projectionError}
+        insertDisabled={context.insertDisabled}
+        insertDeniedReason={(item) =>
+          insertDeniedReasonForDocument(context.documentCampaignId, item)
+        }
+        onInsert={(item) => context.insertChip(item.nodeId)}
         onView={context.viewExact}
       />
     </section>

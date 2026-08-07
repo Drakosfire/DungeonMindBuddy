@@ -61,6 +61,8 @@ function baseContext(
       worldId: "eldyrwild",
       availableCampaignIds: ["longmont-c1"],
       revision: { kind: "head" },
+      scopeMode: "campaign",
+      focus: { kind: "none", sessionId: null },
     },
     projectionState: "ready",
     projectionError: null,
@@ -70,6 +72,8 @@ function baseContext(
     items: [searchItem(glowkindleNode)],
     selectCampaign: vi.fn(),
     viewExact: vi.fn(),
+    insertChip: vi.fn(),
+    insertDisabled: false,
     ...overrides,
   };
 }
@@ -90,8 +94,7 @@ describe("BuildReferenceSearchProjection", () => {
     );
   });
 
-  it("shows campaign selector for selection_required without preselect", () => {
-    const selectCampaign = vi.fn();
+  it("shows nav-lens status for selection_required without campaign select", () => {
     renderWithContext(
       baseContext({
         lens: {
@@ -101,32 +104,157 @@ describe("BuildReferenceSearchProjection", () => {
           worldId: "eldyrwild",
           availableCampaignIds: ["longmont-c1", "longmont-c2"],
           revision: { kind: "head" },
+          scopeMode: "campaign",
+          focus: { kind: "none", sessionId: null },
           reason: "World-scoped document (eldyrwild) requires an explicit campaign selection.",
         },
-        selectCampaign,
       }),
     );
 
-    const select = screen.getByTestId("build-reference-campaign-select") as HTMLSelectElement;
-    expect(select.value).toBe("");
-    expect(within(select).getByRole("option", { name: "longmont-c1" })).toBeInTheDocument();
-    expect(within(select).getByRole("option", { name: "longmont-c2" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /World-scoped document \(eldyrwild\) requires an explicit campaign selection/i,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/site navigation/i);
+    expect(screen.queryByTestId("build-reference-campaign-select")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-reference-search")).not.toBeInTheDocument();
   });
 
-  it("ready state shows View without Insert and lens summary", async () => {
+  it("ready state shows View and Insert chip actions", async () => {
     const user = userEvent.setup();
     const viewExact = vi.fn();
+    const insertChip = vi.fn();
 
-    renderWithContext(baseContext({ viewExact }));
+    renderWithContext(baseContext({ viewExact, insertChip, insertDisabled: false }));
 
     expect(screen.getByTestId("build-reference-lens-summary")).toHaveTextContent(
       "longmont-c1 · Current head · loaded rev-head",
     );
     await user.type(screen.getByLabelText("Find objects"), "glow");
-    expect(screen.queryByRole("button", { name: "Insert chip" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Insert chip" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(viewExact).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-glowkindle" }));
+    await user.click(screen.getByRole("button", { name: "Insert chip" }));
+    expect(insertChip).toHaveBeenCalledWith("npc-glowkindle");
+  });
+
+  it("disables Insert chip when insertDisabled while View stays available", async () => {
+    const user = userEvent.setup();
+    const insertChip = vi.fn();
+
+    renderWithContext(baseContext({ insertChip, insertDisabled: true }));
+
+    expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
+    expect(screen.getByText(/Unlock editing to insert chips/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(insertChip).not.toHaveBeenCalled();
+  });
+
+  it("enables Insert per object campaign for C1 vs C2 documents against a world union", async () => {
+    const user = userEvent.setup();
+    const c1Node: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-c1",
+      label: "C1 NPC",
+      campaign_scope: "longmont-c1",
+    };
+    const c2Node: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-c2",
+      label: "C2 NPC",
+      campaign_scope: "longmont-c2",
+    };
+    const universalNode: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-universal",
+      label: "Universal NPC",
+      campaign_scope: null,
+    };
+    const unionItems = [searchItem(c1Node), searchItem(c2Node), searchItem(universalNode)].map(
+      (item, index) => ({
+        ...item,
+        scopeLabel: [c1Node, c2Node, universalNode][index].campaign_scope ?? "World",
+        nodeView: [c1Node, c2Node, universalNode][index],
+      }),
+    );
+
+    const insertChipC1 = vi.fn();
+    const { unmount } = renderWithContext(
+      baseContext({
+        documentCampaignId: "longmont-c1",
+        items: unionItems,
+        insertChip: insertChipC1,
+        insertDisabled: false,
+      }),
+    );
+
+    expect(
+      within(screen.getByText("C1 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(screen.getByText("C2 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("graph-reference-insert-denied-npc-c2")).toHaveTextContent(
+      "C2 object · C1 document",
+    );
+    expect(
+      within(screen.getByText("Universal NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
+    expect(screen.queryByText(/Unlock editing to insert chips/i)).not.toBeInTheDocument();
+
+    await user.click(
+      within(screen.getByText("C1 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    );
+    expect(insertChipC1).toHaveBeenCalledWith("npc-c1");
+    unmount();
+
+    const insertChipC2 = vi.fn();
+    renderWithContext(
+      baseContext({
+        documentCampaignId: "longmont-c2",
+        documentId: DOC_ID,
+        lens: {
+          status: "ready",
+          documentId: DOC_ID,
+          documentCampaignId: "longmont-c2",
+          campaignId: "longmont-c2",
+          worldId: "eldyrwild",
+          availableCampaignIds: ["longmont-c1", "longmont-c2"],
+          revision: { kind: "head" },
+          scopeMode: "world",
+          focus: { kind: "none", sessionId: null },
+        },
+        items: unionItems,
+        insertChip: insertChipC2,
+        insertDisabled: false,
+      }),
+    );
+
+    expect(
+      within(screen.getByText("C1 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("graph-reference-insert-denied-npc-c1")).toHaveTextContent(
+      "C1 object · C2 document",
+    );
+    expect(
+      within(screen.getByText("C2 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(screen.getByText("Universal NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
   });
 
   it("does not label a non-head snapshot as Current head", () => {

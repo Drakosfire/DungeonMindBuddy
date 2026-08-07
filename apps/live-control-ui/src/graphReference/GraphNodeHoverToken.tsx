@@ -1,13 +1,18 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
+import { ThreatCampaignGlance } from "../statblocks/projection/ThreatCampaignGlance";
+import { useThreatHoverMechanics } from "../statblocks/projection/ThreatHoverMechanics";
+import { isThreatHoverPresentation } from "../statblocks/projection/threatSheetViewModel";
 import {
   readBottomObstacleTop,
   resolveGlancePlacement,
   type GlancePlacement,
 } from "./glancePlacement";
+import { useGraphNodeChipRuntime } from "./GraphNodeChipRuntime";
 import { presentationForNodeId, roleClass } from "./presentation";
 import type { GraphNodeGlancePresentation } from "./types";
 import "./graphReference.css";
+import "../statblocks/projection/threatSheetProjection.css";
 
 /** Tiny CSS glance: keep thread list short so hover stays scannable. */
 const MAX_GLANCE_THREADS = 2;
@@ -120,6 +125,13 @@ export function GraphNodeHoverToken({
     && normalizedDeltaStatus !== "unclassified";
   const glanceType = typeLabel(presentation.role, presentation.kind);
   const glanceThreads = presentation.threadHints.slice(0, MAX_GLANCE_THREADS);
+  const threatHover = isThreatHoverPresentation(presentation);
+  const { exactGraphScope } = useGraphNodeChipRuntime();
+  const threatMechanics = useThreatHoverMechanics(
+    open && threatHover,
+    presentation.nodeId,
+    exactGraphScope,
+  );
 
   const activate = () => {
     const wrap = wrapRef.current;
@@ -203,35 +215,56 @@ export function GraphNodeHoverToken({
       </button>
       <span
         ref={cardRef}
-        className="recap-node-hover-card recap-planning-card"
+        className={`recap-node-hover-card recap-planning-card${
+          threatHover ? " recap-node-hover-card--threat" : ""
+        }`}
         role="tooltip"
         data-placement={placement}
+        data-threat-hover={threatHover ? "true" : "false"}
       >
-        {glanceType ? <span className="recap-node-kind">{glanceType}</span> : null}
-        {presentation.summary ? (
-          <small className="recap-planning-summary">{presentation.summary}</small>
-        ) : null}
-        {presentation.whyNow ? (
-          <PlanningScanSection title="Why now">
-            <small>{presentation.whyNow}</small>
-          </PlanningScanSection>
-        ) : null}
-        {deltaStatus && showDeltaBadge ? (
-          <PlanningScanSection title="Graph review delta">
-            <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>
-          </PlanningScanSection>
-        ) : null}
-        {glanceThreads.length ? (
-          <PlanningScanSection title="Threads">
-            <ul className="recap-planning-thread-list">
-              {glanceThreads.map((hint) => (
-                <li key={`${presentation.nodeId}:${hint.nodeId}`}>
-                  {truncateThreadLabel(hint.edgeLabel)}
-                </li>
-              ))}
-            </ul>
-          </PlanningScanSection>
-        ) : null}
+        {threatHover ? (
+          <div className="plan-reference-object-card plan-reference-object-card--threat-sheet threat-sheet-hover-shell">
+            <ThreatCampaignGlance
+              label={presentation.label || label}
+              threatKind={presentation.kind}
+              intendedRole={presentation.role}
+              summary={presentation.summary}
+              loadStatus={threatMechanics.loadStatus}
+              compactBinding={threatMechanics.compactBinding}
+              availableCount={threatMechanics.availableCount}
+              bindingCount={threatMechanics.bindingCount}
+              variant="hover"
+            />
+          </div>
+        ) : (
+          <>
+            {glanceType ? <span className="recap-node-kind">{glanceType}</span> : null}
+            {presentation.summary ? (
+              <small className="recap-planning-summary">{presentation.summary}</small>
+            ) : null}
+            {presentation.whyNow ? (
+              <PlanningScanSection title="Why now">
+                <small>{presentation.whyNow}</small>
+              </PlanningScanSection>
+            ) : null}
+            {deltaStatus && showDeltaBadge ? (
+              <PlanningScanSection title="Graph review delta">
+                <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>
+              </PlanningScanSection>
+            ) : null}
+            {glanceThreads.length ? (
+              <PlanningScanSection title="Threads">
+                <ul className="recap-planning-thread-list">
+                  {glanceThreads.map((hint) => (
+                    <li key={`${presentation.nodeId}:${hint.nodeId}`}>
+                      {truncateThreadLabel(hint.edgeLabel)}
+                    </li>
+                  ))}
+                </ul>
+              </PlanningScanSection>
+            ) : null}
+          </>
+        )}
       </span>
     </span>
   );

@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
 import { LiveApiError, postThreatQueryHydration } from "../../api/liveApi";
 import type { ThreatQueryHydrationHitV1, ThreatQueryHydrationResponseV1 } from "../../api/types";
-import { GraphObjectCard } from "../../graphObjectCard";
-import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import type {
+  GraphObjectActionViewModel,
+  GraphObjectCardViewModel,
+  GraphObjectRelationshipViewModel,
+} from "../../graphObjectCard";
 import {
   relationshipRowPrimaryCopy,
   selectDefaultRelationshipRows,
@@ -15,8 +25,8 @@ import type {
 } from "../../graphReference/types";
 import { buildPlanGraphObjectActions } from "../../planSurface/reference/buildPlanGraphObjectActions";
 import type { PlanSessionDescriptor } from "../../planSurface/types";
-import { StatblockRenderer } from "../render/StatblockRenderer";
-import { buildStatblockViewModel } from "../render/statblockViewModel";
+import { StatblockAdvancedLedger, StatblockRenderer } from "../render/StatblockRenderer";
+import { ThreatCampaignGlance } from "./ThreatCampaignGlance";
 import "./threatSheetProjection.css";
 import {
   availableBindingCount,
@@ -25,11 +35,30 @@ import {
   isExactResolvedThreat,
   mapHydrationResultLabelToLoadStatus,
   selectExactThreatHit,
+  shouldRenderThreatCampaignSheet,
   threatSelectionTupleFromResolution,
   threatSelectionTupleKey,
   type ThreatSheetBindingViewModel,
   type ThreatSheetViewModel,
 } from "./threatSheetViewModel";
+
+function resolveThreatActionHandler(
+  action: GraphObjectActionViewModel,
+  rootRef: RefObject<HTMLElement | null>,
+): (() => void) | undefined {
+  if (action.onClick) return action.onClick;
+  if (action.kind === "open-source") {
+    return () => {
+      const details = rootRef.current?.querySelector(".threat-sheet-projection__inspect");
+      if (!(details instanceof HTMLDetailsElement)) return;
+      details.open = true;
+      if (typeof details.scrollIntoView === "function") {
+        details.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    };
+  }
+  return undefined;
+}
 
 export interface ThreatSheetProjectionProps {
   resolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }>;
@@ -78,31 +107,6 @@ function BindingStatusPanel({ binding }: { binding: ThreatSheetBindingViewModel 
   );
 }
 
-function CompactCoreStats({ binding }: { binding: ThreatSheetBindingViewModel }) {
-  if (!binding.revision) return null;
-  const view = buildStatblockViewModel(binding.revision, "summary");
-  return (
-    <dl className="threat-sheet-projection__core-stats" aria-label="Compact mechanics summary">
-      <div>
-        <dt>Armor Class</dt>
-        <dd>{view.armorClassSummary}</dd>
-      </div>
-      <div>
-        <dt>Hit Points</dt>
-        <dd>{view.hitPointsSummary}</dd>
-      </div>
-      <div>
-        <dt>Speed</dt>
-        <dd>{view.speedSummary}</dd>
-      </div>
-      <div>
-        <dt>Challenge</dt>
-        <dd>{view.challengeSummary}</dd>
-      </div>
-    </dl>
-  );
-}
-
 function ThreatRelationshipsSection({
   model,
   glanceOnly,
@@ -124,7 +128,10 @@ function ThreatRelationshipsSection({
   if (!rows.length) return null;
 
   return (
-    <section aria-label="Connected graph objects">
+    <section
+      className="threat-sheet-projection__relationships"
+      aria-label="Connected graph objects"
+    >
       <h4>Connected objects</h4>
       <ul className="graph-object-card__relationship-list">
         {rows.map((relationship) => (
@@ -154,103 +161,84 @@ function ThreatRelationshipsSection({
   );
 }
 
-function ThreatSheetBody({
+function ThreatSheetAdvancedDetails({
   model,
-  glanceOnly,
-  onSelectRelationship,
-  selectedRelationshipId,
-  relationshipsDisabled,
+  availableCount,
+  graphObject,
+  actions,
+  rootRef,
+  includeStatblockLedger,
 }: {
   model: ThreatSheetViewModel;
-  glanceOnly: boolean;
-  onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
-  selectedRelationshipId?: string | null;
-  relationshipsDisabled?: boolean;
+  availableCount: number;
+  graphObject: GraphObjectCardViewModel;
+  actions: readonly GraphObjectActionViewModel[];
+  rootRef: RefObject<HTMLElement | null>;
+  /** Full Reference: fold validation/provenance into this same disclosure. */
+  includeStatblockLedger: boolean;
 }) {
-  const availableCount = availableBindingCount(model.bindings);
-  const compactBinding =
-    availableCount === 1
-      ? model.bindings.find((binding) => binding.hydrationStatus === "available") ?? null
-      : null;
+  const evidenceCount = graphObject.details?.evidenceCount ?? graphObject.evidence?.length ?? 0;
+  const sourceDomains = graphObject.details?.sourceDomains ?? graphObject.sourceDomains ?? [];
+  const hasEvidence = evidenceCount > 0 || sourceDomains.length > 0
+    || Boolean(graphObject.details?.sourceAnchorText);
+  const ledgerBindings = includeStatblockLedger
+    ? model.bindings.filter(
+        (binding) => binding.hydrationStatus === "available" && binding.revision != null,
+      )
+    : [];
 
   return (
-    <div className="threat-sheet-projection" data-testid="threat-sheet-projection">
-      <header className="threat-sheet-projection__header">
-        <p className="plan-surface-kicker">Threat sheet</p>
-        <h3>{model.label}</h3>
-        <p className="threat-sheet-projection__meta">
-          {model.threatKind ?? "threat"}
-          {model.intendedRole ? ` · ${model.intendedRole}` : ""}
-        </p>
-        {model.summary ? <p>{model.summary}</p> : null}
-      </header>
+    <details className="threat-sheet-projection__inspect">
+      <summary>Advanced Details</summary>
 
-      {model.loadStatus === "loading" ? (
-        <p className="threat-sheet-projection__status threat-sheet-projection__status--loading" role="status">
-          Loading exact mechanics…
-        </p>
-      ) : null}
-
-      {model.loadStatus !== "loading" && model.loadStatus !== "ready" ? (
-        <p
-          className="threat-sheet-projection__status threat-sheet-projection__status--error"
-          role="status"
-          data-testid="threat-sheet-load-status"
-          data-load-status={model.loadStatus}
+      {ledgerBindings.map((binding) => (
+        <section
+          key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}:ledger`}
+          aria-label="Statblock validation and provenance"
         >
-          {model.message ?? `Exact mechanics ${model.loadStatus.replace(/_/g, " ")}.`}
-        </p>
-      ) : null}
+          {ledgerBindings.length > 1 ? (
+            <h5>
+              {binding.role ?? "Binding"}
+              {binding.phaseKey ? ` · ${binding.phaseKey}` : ""}
+              {binding.variantLabel ? ` · ${binding.variantLabel}` : ""}
+            </h5>
+          ) : null}
+          {binding.revision ? (
+            <StatblockAdvancedLedger revision={binding.revision} mode="full" />
+          ) : null}
+        </section>
+      ))}
 
-      <p className="threat-sheet-projection__binding-summary" data-testid="threat-sheet-binding-summary">
+      <p
+        className="threat-sheet-projection__binding-summary"
+        data-testid="threat-sheet-binding-summary"
+      >
         Mechanics bindings: {model.bindings.length} total · {availableCount} available · disposition{" "}
         {model.mechanicsDisposition}
       </p>
 
-      {glanceOnly && compactBinding ? <CompactCoreStats binding={compactBinding} /> : null}
-
-      {glanceOnly && !compactBinding ? (
-        <p className="module-muted">
-          {availableCount === 0
-            ? "No trusted mechanics binding for compact display."
-            : `${availableCount} available bindings — expand to view each separately.`}
-        </p>
+      {hasEvidence ? (
+        <section aria-label="Evidence and source">
+          <h5>Evidence and source</h5>
+          <p className="threat-sheet-projection__muted">
+            {evidenceCount} evidence badge{evidenceCount === 1 ? "" : "s"}
+            {sourceDomains.length
+              ? `; source domains: ${sourceDomains.join(", ")}`
+              : "; no source domains"}
+            .
+          </p>
+          {graphObject.details?.sourceAnchorText ? (
+            <p>
+              <strong>Source phrase:</strong> {graphObject.details.sourceAnchorText}
+            </p>
+          ) : null}
+        </section>
       ) : null}
-
-      {!glanceOnly ? (
-        <div className="threat-sheet-projection__bindings">
-          {model.bindings.map((binding) =>
-            binding.hydrationStatus === "available" && binding.revision ? (
-              <section key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}`}>
-                <h4>
-                  {binding.role ?? "Binding"}
-                  {binding.phaseKey ? ` · ${binding.phaseKey}` : ""}
-                  {binding.variantLabel ? ` · ${binding.variantLabel}` : ""}
-                </h4>
-                <StatblockRenderer revision={binding.revision} mode="full" />
-              </section>
-            ) : (
-              <BindingStatusPanel
-                key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}`}
-                binding={binding}
-              />
-            ),
-          )}
-        </div>
-      ) : null}
-
-      <ThreatRelationshipsSection
-        model={model}
-        glanceOnly={glanceOnly}
-        onSelectRelationship={onSelectRelationship}
-        selectedRelationshipId={selectedRelationshipId}
-        disabled={relationshipsDisabled}
-      />
 
       {model.scope ? (
-        <details className="threat-sheet-projection__technical-details">
-          <summary>Exact scope and identifiers</summary>
-          <dl>
+        <section aria-label="Exact scope and identifiers">
+          <h5>Exact scope and identifiers</h5>
+          <dl className="threat-sheet-projection__id-grid">
             <div>
               <dt>World</dt>
               <dd>
@@ -276,8 +264,150 @@ function ThreatSheetBody({
               </dd>
             </div>
           </dl>
-        </details>
+        </section>
       ) : null}
+
+      {actions.length ? (
+        <div className="threat-sheet-projection__actions">
+          {actions.map((action) =>
+            action.href ? (
+              <a key={action.id} href={action.href} title={action.helpText}>
+                {action.label}
+              </a>
+            ) : (
+              <button
+                key={action.id}
+                type="button"
+                disabled={action.disabled}
+                title={action.helpText}
+                onClick={resolveThreatActionHandler(action, rootRef)}
+              >
+                {action.label}
+              </button>
+            ),
+          )}
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
+function ThreatSheetBody({
+  model,
+  glanceOnly,
+  graphObject,
+  actions,
+  rootRef,
+  onSelectRelationship,
+  selectedRelationshipId,
+  relationshipsDisabled,
+}: {
+  model: ThreatSheetViewModel;
+  glanceOnly: boolean;
+  graphObject: GraphObjectCardViewModel;
+  actions: readonly GraphObjectActionViewModel[];
+  rootRef: RefObject<HTMLElement | null>;
+  onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
+  selectedRelationshipId?: string | null;
+  relationshipsDisabled?: boolean;
+}) {
+  const availableCount = availableBindingCount(model.bindings);
+  const compactBinding =
+    availableCount === 1
+      ? model.bindings.find((binding) => binding.hydrationStatus === "available") ?? null
+      : null;
+
+  return (
+    <div
+      className={`threat-sheet-projection${glanceOnly ? " threat-sheet-projection--glance" : " threat-sheet-projection--full"}`}
+      data-testid="threat-sheet-projection"
+      data-glance={glanceOnly ? "true" : "false"}
+    >
+      {glanceOnly ? (
+        <ThreatCampaignGlance
+          label={model.label}
+          threatKind={model.threatKind}
+          intendedRole={model.intendedRole}
+          summary={model.summary}
+          loadStatus={model.loadStatus}
+          compactBinding={compactBinding}
+          availableCount={availableCount}
+          bindingCount={model.bindings.length}
+          variant="sheet"
+        />
+      ) : (
+        <>
+          {model.loadStatus === "loading" ? (
+            <p className="threat-sheet-projection__status threat-sheet-projection__status--loading" role="status">
+              Loading exact mechanics…
+            </p>
+          ) : null}
+
+          {model.loadStatus !== "loading" && model.loadStatus !== "ready" ? (
+            <p
+              className="threat-sheet-projection__status threat-sheet-projection__status--error"
+              role="status"
+              data-testid="threat-sheet-load-status"
+              data-load-status={model.loadStatus}
+            >
+              {model.message ?? `Exact mechanics ${model.loadStatus.replace(/_/g, " ")}.`}
+            </p>
+          ) : null}
+
+          <div className="threat-sheet-projection__bindings">
+            {model.bindings.map((binding) =>
+              binding.hydrationStatus === "available" && binding.revision ? (
+                <section
+                  key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}`}
+                  className="threat-sheet-projection__full-statblock"
+                >
+                  {model.bindings.length > 1 ? (
+                    <h4>
+                      {binding.role ?? "Binding"}
+                      {binding.phaseKey ? ` · ${binding.phaseKey}` : ""}
+                      {binding.variantLabel ? ` · ${binding.variantLabel}` : ""}
+                    </h4>
+                  ) : null}
+                  <StatblockRenderer revision={binding.revision} mode="full" chrome="campaign" />
+                </section>
+              ) : (
+                <BindingStatusPanel
+                  key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}`}
+                  binding={binding}
+                />
+              ),
+            )}
+          </div>
+        </>
+      )}
+
+      {model.loadStatus !== "loading" && model.loadStatus !== "ready" && glanceOnly ? (
+        <p
+          className="threat-sheet-projection__status threat-sheet-projection__status--error"
+          role="status"
+          data-testid="threat-sheet-load-status"
+          data-load-status={model.loadStatus}
+        >
+          {model.message ?? `Exact mechanics ${model.loadStatus.replace(/_/g, " ")}.`}
+        </p>
+      ) : null}
+
+      <ThreatRelationshipsSection
+        model={model}
+        glanceOnly={glanceOnly}
+        onSelectRelationship={onSelectRelationship}
+        selectedRelationshipId={selectedRelationshipId}
+        disabled={relationshipsDisabled}
+      />
+
+      <ThreatSheetAdvancedDetails
+        model={model}
+        availableCount={availableCount}
+        graphObject={graphObject}
+        actions={actions}
+        rootRef={rootRef}
+        includeStatblockLedger={!glanceOnly}
+      />
     </div>
   );
 }
@@ -289,6 +419,7 @@ export function ThreatSheetProjection({
   graphReferenceBinding = null,
   glanceOnly = false,
 }: ThreatSheetProjectionProps) {
+  const articleRef = useRef<HTMLElement | null>(null);
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
   const graphReferenceBindingRef = useRef(graphReferenceBinding);
   graphReferenceBindingRef.current = graphReferenceBinding;
@@ -480,44 +611,48 @@ export function ThreatSheetProjection({
   if (!selectionTuple) {
     return (
       <article
+        ref={articleRef}
         className="plan-reference-object-card plan-reference-object-card--threat-sheet"
         aria-label={`${resolution.graphObject.label} threat sheet`}
         data-testid="plan-reference-threat-sheet"
       >
-        <header className="threat-sheet-projection__header">
-          <p className="plan-surface-kicker">Threat sheet</p>
-          <h3>{resolution.graphObject.label}</h3>
-          {resolution.graphObject.summary ? <p>{resolution.graphObject.summary}</p> : null}
-        </header>
-        <p
-          className="threat-sheet-projection__status threat-sheet-projection__status--error"
-          role="status"
-          data-testid="threat-sheet-load-status"
-          data-load-status="integrity_failure"
-        >
-          Exact graph scope is required for Threat Sheet projection.
-        </p>
+        <div className="threat-sheet-projection threat-sheet-projection--glance">
+          <header className="threat-sheet-projection__header">
+            <h3 className="threat-sheet-projection__title">{resolution.graphObject.label}</h3>
+            {resolution.graphObject.summary ? (
+              <p className="threat-sheet-projection__summary">{resolution.graphObject.summary}</p>
+            ) : null}
+          </header>
+          <p
+            className="threat-sheet-projection__status threat-sheet-projection__status--error"
+            role="status"
+            data-testid="threat-sheet-load-status"
+            data-load-status="integrity_failure"
+          >
+            Exact graph scope is required for Threat Sheet projection.
+          </p>
+        </div>
       </article>
     );
   }
 
   return (
     <article
-      className="plan-reference-object-card plan-reference-object-card--threat-sheet"
+      ref={articleRef}
+      className={
+        glanceOnly
+          ? "plan-reference-object-card plan-reference-object-card--threat-sheet"
+          : "plan-reference-object-card plan-reference-object-card--threat-sheet plan-reference-object-card--threat-sheet-full"
+      }
       aria-label={`${model.label} threat sheet`}
       data-testid="plan-reference-threat-sheet"
     >
-      <GraphObjectCard
-        mode="plan"
-        model={cardModel}
-        aria-label={`${model.label} threat actions`}
-        showRelationshipProvenance={false}
-        relationshipsSlot={<></>}
-        actionsSlot={<></>}
-      />
       <ThreatSheetBody
         model={model}
         glanceOnly={glanceOnly}
+        graphObject={cardModel}
+        actions={cardModel.actions ?? []}
+        rootRef={articleRef}
         onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
         relationshipsDisabled={relationshipsDisabled}
@@ -527,5 +662,5 @@ export function ThreatSheetProjection({
 }
 
 export function shouldRenderThreatSheetProjection(resolution: GraphReferenceResolution): boolean {
-  return isExactResolvedThreat(resolution);
+  return shouldRenderThreatCampaignSheet(resolution);
 }

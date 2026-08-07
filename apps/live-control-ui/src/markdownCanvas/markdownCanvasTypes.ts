@@ -110,6 +110,8 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   saveDisabled: boolean;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   activeCommand: ActiveDocumentCommand | null;
+  /** Live TipTap instance once MarkdownCanvas mounts; null while unloaded or between swaps. */
+  editor: Editor | null;
   setEditor: (editor: Editor | null) => void;
   handleEditorUpdate: (
     json: JSONContent,

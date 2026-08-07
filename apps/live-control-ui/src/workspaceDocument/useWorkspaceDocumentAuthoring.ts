@@ -74,6 +74,7 @@ export interface WorkspaceDocumentAuthoringValue {
   statusLabel: string;
   saveDisabled: boolean;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
+  editor: Editor | null;
   setEditor: (editor: Editor | null) => void;
   handleEditorUpdate: (
     json: JSONContent,
@@ -560,6 +561,7 @@ export function useWorkspaceDocumentAuthoring(
       || (requireDirtyToSave && !dirty)
       || (canSave ? !canSave() : false),
     lastCommitReceipt,
+    editor,
     setEditor: handleSetEditor,
     handleEditorUpdate,
     markDirty,

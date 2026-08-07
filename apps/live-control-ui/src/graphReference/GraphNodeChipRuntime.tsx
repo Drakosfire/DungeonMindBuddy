@@ -15,6 +15,7 @@ const defaultRuntime: GraphNodeChipRuntimeValue = {
   activeNodeId: null,
   onSelectNode: () => undefined,
   deltaByNodeId: {},
+  exactGraphScope: null,
 };
 
 type RuntimeStackEntry = {
@@ -48,6 +49,7 @@ function publishRuntime(next: GraphNodeChipRuntimeValue) {
     activeNodeId: next.activeNodeId,
     onSelectNode: next.onSelectNode,
     deltaByNodeId: next.deltaByNodeId ?? {},
+    exactGraphScope: next.exactGraphScope ?? null,
   };
   emit();
 }
@@ -82,8 +84,15 @@ export function GraphNodeChipRuntimeProvider({
       activeNodeId: value.activeNodeId,
       onSelectNode: value.onSelectNode,
       deltaByNodeId: value.deltaByNodeId ?? {},
+      exactGraphScope: value.exactGraphScope ?? null,
     }),
-    [value.activeNodeId, value.deltaByNodeId, value.nodeViews, value.onSelectNode],
+    [
+      value.activeNodeId,
+      value.deltaByNodeId,
+      value.exactGraphScope,
+      value.nodeViews,
+      value.onSelectNode,
+    ],
   );
 
   useEffect(() => {

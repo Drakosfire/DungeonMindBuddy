@@ -15,6 +15,7 @@ import type {
   GraphReferenceResolution,
 } from "../../graphReference/types";
 import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
+import { useGraphNodeChipRuntime } from "../../graphReference/GraphNodeChipRuntime";
 import { MarkdownCanvasSessionProvider } from "../../markdownCanvas/MarkdownCanvasSession";
 import { LegacyProjectionHostAdapter } from "../../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../../surfaceInteraction/toolHost/ToolHost";
@@ -136,6 +137,22 @@ const innNode = {
   summary: "Meeting place.",
 };
 
+const latchHarrowNode = {
+  nodeId: "threat:latch-harrow",
+  label: "Latch-Harrow",
+  kind: "threat",
+  role: "creature",
+  aliases: [] as string[],
+  sourceDomains: ["prep"],
+  evidenceBadges: [],
+  adjacency: [],
+  suggestedExpansions: [],
+  evidenceRefIds: [],
+  sourceArtifactIds: [],
+  anchoredToFocusSession: true,
+  summary: "A siege horror.",
+};
+
 function graphScopeFromProjectionFixture() {
   const { snapshot } = graphProjectionFixture();
   return {
@@ -146,7 +163,8 @@ function graphScopeFromProjectionFixture() {
   };
 }
 
-function graphProjectionFixture() {
+function graphProjectionFixture(extraNodes: typeof glowkindleNode[] = []) {
+  const nodes = [glowkindleNode, innNode, ...extraNodes];
   return {
     schema: "dmb_world_graph_projection_v1" as const,
     snapshot: {
@@ -160,14 +178,14 @@ function graphProjectionFixture() {
       scopeMode: "campaign" as const,
     },
     summary: {
-      nodeCount: 2,
+      nodeCount: nodes.length,
       relationshipCount: 0,
       attributeCount: 0,
       evidenceCount: 0,
       sourceArtifactCount: 0,
       projectionTruncated: false,
     },
-    nodes: [glowkindleNode, innNode],
+    nodes,
     relationships: [],
     attributes: [],
     evidence: [],
@@ -264,6 +282,8 @@ describe("BuildReferenceCapability", () => {
     );
 
     await waitFor(() => expect(latestContext).not.toBeNull());
+    expect(typeof latestContext!.insertChip).toBe("function");
+    expect(latestContext!.insertDisabled).toBe(true);
     latestContext!.selectCampaign("longmont-c1");
 
     await waitFor(() => {
@@ -337,6 +357,68 @@ describe("BuildReferenceCapability", () => {
     });
     await waitFor(() => {
       expect(document.querySelector('[data-testid="active-graph-node-id"]')).toHaveTextContent("location-inn");
+    });
+  });
+
+  it("chip runtime opens Threat references as full campaign sheet (glanceOnly false)", async () => {
+    window.history.replaceState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFixture(DOC_ID, "longmont-c1"),
+    );
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(
+      graphProjectionFixture([latchHarrowNode]),
+    );
+
+    let chipRuntime: ReturnType<typeof useGraphNodeChipRuntime> | null = null;
+
+    function ChipRuntimeProbe() {
+      chipRuntime = useGraphNodeChipRuntime();
+      return null;
+    }
+
+    function ActiveGlanceProbe() {
+      const { active, activeGraphReference } = useAgentInteraction();
+      const glance =
+        active?.kind === "content" ? String(active.glanceOnly === true) : "n/a";
+      const nodeId =
+        activeGraphReference?.kind === "resolved_graph"
+          ? activeGraphReference.graphNodeId
+          : "none";
+      return (
+        <>
+          <p data-testid="active-glance-only">{glance}</p>
+          <p data-testid="active-graph-node-id">{nodeId}</p>
+        </>
+      );
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <MarkdownCanvasSessionProvider
+          documentId={DOC_ID}
+          surface={BUILD_MARKDOWN_CANVAS.surface}
+          kind={BUILD_MARKDOWN_CANVAS.kind}
+          saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        >
+          <BuildReferenceCapability documentId={DOC_ID}>
+            <ChipRuntimeProbe />
+          </BuildReferenceCapability>
+          <ActiveGlanceProbe />
+        </MarkdownCanvasSessionProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(chipRuntime?.nodeViews["threat:latch-harrow"]).toBeTruthy();
+    });
+
+    act(() => {
+      chipRuntime!.onSelectNode("threat:latch-harrow");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("active-graph-node-id")).toHaveTextContent("threat:latch-harrow");
+      expect(screen.getByTestId("active-glance-only")).toHaveTextContent("false");
     });
   });
 

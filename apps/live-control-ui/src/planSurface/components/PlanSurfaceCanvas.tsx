@@ -39,8 +39,8 @@ import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import { formatReviewCampaignLabel } from "../sessionCampaignContext";
+import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
-import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
 import "../../graphReference/graphReference.css";
@@ -55,7 +55,7 @@ interface PlanSurfaceCanvasProps {
 
 function nodeScopeLabel(node: GraphProjectionNodeView): string {
   const scope = node.campaign_scope?.trim();
-  if (!scope) return "world";
+  if (!scope) return "World";
   return formatReviewCampaignLabel(scope);
 }
 
@@ -222,7 +222,7 @@ export function PlanSurfaceCanvas({
         projectionState={projectionState}
         projectionError={projectionError}
         insertDisabled={!editor || isLocked || !editorInteractive}
-        onInsert={insertRunbookReference}
+        onInsert={(item) => insertRunbookReference(item.reference)}
         onView={handleViewGraphReference}
       />
     ),
@@ -256,11 +256,12 @@ export function PlanSurfaceCanvas({
       const ref = readReferenceFromElement(chip);
       if (!ref) return;
       const resolution = await resolvePlanReference(ref);
+      // Hover owns the parchment glance; Threat Reference opens as full StatblockRenderer.
       openGraphReference({
         reference: ref,
         resolution,
         projectionState,
-        glanceOnly: true,
+        glanceOnly: glanceOnlyForGraphReference(resolution),
       });
     },
     [openGraphReference, projectionState, resolvePlanReference],
@@ -280,7 +281,7 @@ export function PlanSurfaceCanvas({
         reference: ref,
         resolution,
         projectionState,
-        glanceOnly: true,
+        glanceOnly: glanceOnlyForGraphReference(resolution),
       });
     },
     [openGraphReference, projection, projectionState, resolvePlanReference],
@@ -297,8 +298,9 @@ export function PlanSurfaceCanvas({
       onSelectNode: (nodeId) => {
         void openGraphNodeFromChip(nodeId);
       },
+      exactGraphScope: extractExactGraphReferenceScope(projection),
     };
-  }, [openGraphNodeFromChip, projection?.nodes]);
+  }, [openGraphNodeFromChip, projection]);
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
     pinnedActions: [
@@ -464,13 +466,6 @@ export function PlanSurfaceCanvas({
           <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
             {authoring.statusLabel}
           </p>
-        </div>
-        <div className="plan-canvas-heading__graph">
-          <PlanGraphLoadPanel
-            projectionState={projectionState}
-            projectionError={projectionError}
-            nodeCount={projectionNodes.length}
-          />
         </div>
       </header>
 
