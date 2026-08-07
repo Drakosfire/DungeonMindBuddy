@@ -11,6 +11,7 @@ import {
   type GraphNodeChipRuntimeValue,
   type GraphReferenceSearchItem,
 } from "../../graphReference";
+import { SurfaceLatencyBenchChipHost } from "../../worldGraph/SurfaceLatencyBenchChipHost";
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
 import {
@@ -449,6 +450,7 @@ export function PlanSurfaceCanvas({
         {(ed) => (
           <GraphNodeChipRuntimeProvider value={chipRuntime}>
             <EditorContent editor={ed} />
+            <SurfaceLatencyBenchChipHost />
           </GraphNodeChipRuntimeProvider>
         )}
       </MarkdownEditorCore>

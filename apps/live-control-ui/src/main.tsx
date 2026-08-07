@@ -6,6 +6,7 @@ import { clearProjectionRequestCache } from "./planSurface/reference/projectionR
 import { installSurfaceLatencyDogfoodHooks } from "./worldGraph/surfaceLatencyMarks";
 import "./styles.css";
 
+// No-op unless VITE_DMB_BENCH_SURFACE / sessionStorage / window flag enables bench mode.
 installSurfaceLatencyDogfoodHooks({
   clearProjectionCache: clearProjectionRequestCache,
 });

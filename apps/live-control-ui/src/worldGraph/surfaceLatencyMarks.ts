@@ -1,8 +1,14 @@
 /**
  * OPT-BENCH02: client-side World Graph surface experience marks.
  *
- * Dogfood / Playwright only — no product UI. Records a ring buffer on
- * `window.__DMB_WG_SURFACE_LATENCY__` and mirrors stages via performance.mark.
+ * Opt-in only. When disabled (default production), every public entry point is a
+ * no-op: no performance.mark, no window globals, no sessionStorage writes.
+ *
+ * Enable via any of:
+ *   - `VITE_DMB_BENCH_SURFACE=1` (Vite build/dev)
+ *   - `sessionStorage['dmb:bench-surface'] = '1'` (Playwright addInitScript)
+ *   - `window.__DMB_BENCH_SURFACE__ = true`
+ *   - `enableSurfaceLatencyInstrumentationForTests()` (unit tests)
  */
 
 export type SurfaceLatencyStage =
@@ -22,21 +28,69 @@ export type SurfaceLatencyStage =
 
 export type SurfaceLatencyRecord = {
   stage: SurfaceLatencyStage;
-  /** `performance.now()` at record time. */
+  /** `performance.now()` in the recording document (not comparable across full reloads). */
   t: number;
+  /**
+   * Absolute wall clock: `performance.timeOrigin + performance.now()` (or Date.now()).
+   * Comparable across full-document Plan↔Build navigations.
+   */
+  epochMs: number;
   durationMs?: number;
   meta?: Record<string, unknown>;
+};
+
+type SurfaceSwitchStartPersisted = {
+  switchId: string;
+  epochMs: number;
+  from?: string;
+  to?: string;
+  href?: string;
 };
 
 const RING_MAX = 256;
 const MARK_PREFIX = "dmb:wg-surface:";
 /** Survives full-document Plan↔Build `<a href>` navigations (OPT-BENCH02). */
 const SESSION_STORAGE_KEY = "dmb:wg-surface-latency-ring";
+const ENABLE_SESSION_KEY = "dmb:bench-surface";
+const SWITCH_START_SESSION_KEY = "dmb:wg-surface-switch-start";
 
 let ring: SurfaceLatencyRecord[] = [];
 let firstChipPainted = false;
 let dogfoodInstalled = false;
 let hydratedFromSession = false;
+/** Unit-test force enable (does not affect production). */
+let forceEnabledForTests = false;
+
+function readViteBenchFlag(): boolean {
+  try {
+    return import.meta.env?.VITE_DMB_BENCH_SURFACE === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** True only when an explicit bench/dev enablement signal is present. */
+export function isSurfaceLatencyInstrumentationEnabled(): boolean {
+  if (forceEnabledForTests) return true;
+  if (readViteBenchFlag()) return true;
+  if (typeof window !== "undefined") {
+    const w = window as Window & { __DMB_BENCH_SURFACE__?: boolean };
+    if (w.__DMB_BENCH_SURFACE__ === true) return true;
+  }
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      if (sessionStorage.getItem(ENABLE_SESSION_KEY) === "1") return true;
+    } catch {
+      // private mode
+    }
+  }
+  return false;
+}
+
+/** Vitest helper — enable recording without Vite/session flags. */
+export function enableSurfaceLatencyInstrumentationForTests(): void {
+  forceEnabledForTests = true;
+}
 
 function nowMs(): number {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -45,7 +99,20 @@ function nowMs(): number {
   return Date.now();
 }
 
+/** Cross-document absolute clock (survives performance time-origin reset). */
+export function surfaceLatencyWallEpochMs(): number {
+  if (
+    typeof performance !== "undefined"
+    && typeof performance.now === "function"
+    && typeof performance.timeOrigin === "number"
+  ) {
+    return performance.timeOrigin + performance.now();
+  }
+  return Date.now();
+}
+
 function syncWindowMirror(): void {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return;
   const g = globalThis as typeof globalThis & {
     __DMB_WG_SURFACE_LATENCY__?: SurfaceLatencyRecord[];
   };
@@ -55,6 +122,7 @@ function syncWindowMirror(): void {
 }
 
 function persistRing(): void {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return;
   if (typeof sessionStorage === "undefined") return;
   try {
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(ring));
@@ -64,6 +132,7 @@ function persistRing(): void {
 }
 
 function hydrateRingFromSession(): void {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return;
   if (hydratedFromSession || typeof sessionStorage === "undefined") return;
   hydratedFromSession = true;
   try {
@@ -82,7 +151,45 @@ function hydrateRingFromSession(): void {
   syncWindowMirror();
 }
 
+function persistSwitchStart(start: SurfaceSwitchStartPersisted): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(SWITCH_START_SESSION_KEY, JSON.stringify(start));
+  } catch {
+    // ignore
+  }
+}
+
+function readPersistedSwitchStart(): SurfaceSwitchStartPersisted | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SWITCH_START_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SurfaceSwitchStartPersisted;
+    if (
+      parsed
+      && typeof parsed.switchId === "string"
+      && typeof parsed.epochMs === "number"
+    ) {
+      return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function clearPersistedSwitchStart(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(SWITCH_START_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function pushRecord(record: SurfaceLatencyRecord): void {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return;
   hydrateRingFromSession();
   ring.push(record);
   if (ring.length > RING_MAX) {
@@ -102,11 +209,60 @@ export function recordSurfaceLatencyStage(
   meta?: Record<string, unknown>,
   durationMs?: number,
 ): void {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return;
+
+  const epochMs = surfaceLatencyWallEpochMs();
+  const t = nowMs();
+  let nextMeta = meta;
+  let nextDuration = durationMs;
+
+  if (stage === "surface_switch_start") {
+    const switchId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `switch-${epochMs}`;
+    const start: SurfaceSwitchStartPersisted = {
+      switchId,
+      epochMs,
+      from: typeof meta?.from === "string" ? meta.from : undefined,
+      to: typeof meta?.to === "string" ? meta.to : undefined,
+      href: typeof meta?.href === "string" ? meta.href : undefined,
+    };
+    persistSwitchStart(start);
+    nextMeta = { ...meta, switchId, epochMs };
+  }
+
+  if (stage === "surface_switch_end") {
+    const start = readPersistedSwitchStart();
+    if (start) {
+      nextDuration = Math.round(epochMs - start.epochMs);
+      nextMeta = {
+        ...meta,
+        switchId: start.switchId,
+        startEpochMs: start.epochMs,
+        endEpochMs: epochMs,
+        clock: "wall_epoch",
+        from: start.from,
+        to: start.to,
+        href: start.href,
+      };
+      clearPersistedSwitchStart();
+    } else {
+      nextMeta = {
+        ...meta,
+        clock: "wall_epoch",
+        endEpochMs: epochMs,
+        missingSwitchStart: true,
+      };
+      nextDuration = undefined;
+    }
+  }
+
   const markName = surfaceLatencyMarkName(stage);
   if (typeof performance !== "undefined" && typeof performance.mark === "function") {
     try {
       performance.mark(markName, {
-        detail: meta ?? null,
+        detail: nextMeta ?? null,
       } as PerformanceMarkOptions);
     } catch {
       performance.mark(markName);
@@ -114,15 +270,16 @@ export function recordSurfaceLatencyStage(
   }
   pushRecord({
     stage,
-    t: nowMs(),
-    durationMs,
-    meta,
+    t,
+    epochMs,
+    durationMs: nextDuration,
+    meta: nextMeta,
   });
 }
 
 /**
  * Measure duration between two previously recorded mark names and emit a stage row.
- * Returns rounded duration ms, or null if measurement fails.
+ * Returns rounded duration ms, or null if measurement fails / instrumentation off.
  */
 export function measureSurfaceLatencyStage(
   stage: SurfaceLatencyStage,
@@ -130,6 +287,7 @@ export function measureSurfaceLatencyStage(
   endMark: string,
   meta?: Record<string, unknown>,
 ): number | null {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return null;
   let durationMs: number | null = null;
   if (
     typeof performance !== "undefined"
@@ -155,6 +313,7 @@ export function measureSurfaceLatencyStage(
 
 /** First graph chip paint after cold/reset (once until `resetSurfaceLatencySession`). */
 export function noteFirstChipPaint(meta?: Record<string, unknown>): boolean {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return false;
   if (firstChipPainted) return false;
   firstChipPainted = true;
   // Defer to next frame so layout/paint has a chance to commit.
@@ -175,14 +334,18 @@ export function resetSurfaceLatencySession(): void {
   if (typeof sessionStorage !== "undefined") {
     try {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(SWITCH_START_SESSION_KEY);
     } catch {
       // ignore
     }
   }
-  syncWindowMirror();
+  if (isSurfaceLatencyInstrumentationEnabled()) {
+    syncWindowMirror();
+  }
 }
 
 export function getSurfaceLatencyRecords(): readonly SurfaceLatencyRecord[] {
+  if (!isSurfaceLatencyInstrumentationEnabled()) return [];
   hydrateRingFromSession();
   return ring;
 }
@@ -195,13 +358,13 @@ export type SurfaceLatencyDogfoodApi = {
 
 /**
  * Install Playwright/dogfood hooks on `window`. Idempotent.
- * `clearProjectionCache` is injected to avoid a hard import cycle with the cache module.
+ * No-ops (does not touch window) when instrumentation is disabled.
  */
 export function installSurfaceLatencyDogfoodHooks(options: {
   clearProjectionCache: () => void;
-}): SurfaceLatencyDogfoodApi {
+}): SurfaceLatencyDogfoodApi | null {
   const api: SurfaceLatencyDogfoodApi = {
-    getRecords: () => [...ring],
+    getRecords: () => (isSurfaceLatencyInstrumentationEnabled() ? [...ring] : []),
     reset: () => {
       resetSurfaceLatencySession();
     },
@@ -209,6 +372,10 @@ export function installSurfaceLatencyDogfoodHooks(options: {
       options.clearProjectionCache();
     },
   };
+
+  if (!isSurfaceLatencyInstrumentationEnabled()) {
+    return null;
+  }
 
   if (dogfoodInstalled || typeof window === "undefined") {
     hydrateRingFromSession();
@@ -231,6 +398,17 @@ export function installSurfaceLatencyDogfoodHooks(options: {
 export function resetSurfaceLatencyDogfoodInstallForTests(): void {
   dogfoodInstalled = false;
   hydratedFromSession = false;
+  forceEnabledForTests = false;
+  if (typeof window !== "undefined") {
+    const w = window as Window & {
+      __DMB_WG_SURFACE_LATENCY__?: SurfaceLatencyRecord[];
+      __DMB_WG_SURFACE_LATENCY_API__?: SurfaceLatencyDogfoodApi;
+      __DMB_BENCH_SURFACE__?: boolean;
+    };
+    delete w.__DMB_WG_SURFACE_LATENCY__;
+    delete w.__DMB_WG_SURFACE_LATENCY_API__;
+    delete w.__DMB_BENCH_SURFACE__;
+  }
   resetSurfaceLatencySession();
   hydratedFromSession = false;
 }

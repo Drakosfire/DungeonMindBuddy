@@ -350,11 +350,13 @@ export function useBuildWorldGraphProjection(
           },
           durationMs,
         );
+        // Cross-document Plan→Build switch: duration is wall-epoch delta from
+        // surface_switch_start (not this Build projection fetch duration).
         recordSurfaceLatencyStage("surface_switch_end", {
           surface: "build",
           outcome: "ready",
           revisionId: response.snapshot.revisionId,
-        }, durationMs);
+        });
       } catch (loadError) {
         if (!isCurrent()) return;
         setStored({
