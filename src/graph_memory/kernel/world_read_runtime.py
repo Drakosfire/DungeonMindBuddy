@@ -630,7 +630,7 @@ class ProjectionRequestObservation:
     head_resolution_ms: float = 0.0
     resident_wait_ms: float = 0.0
     cold_load_ms: float | None = None
-    projection_cache_status: Literal["disabled", "hit", "miss"] = "disabled"
+    projection_cache_status: Literal["disabled", "hit", "miss", "coalesced"] = "disabled"
     projection_build_ms: float = 0.0
     resident_revision_count: int = 0
     graph_payload_reads_this_request: int = 0

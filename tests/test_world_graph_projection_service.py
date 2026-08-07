@@ -676,3 +676,40 @@ def test_e7_cache_disabled_skips_recipes_and_single_flight(
     assert projection_recipe_registry_stats()["size"] == 0
     assert projection_cache_stats()["size"] == 0
     assert observation.projection_cache_status == "disabled"
+
+
+def test_e3_clear_during_build_does_not_repopulate_completed_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    build_started = threading.Event()
+    release_build = threading.Event()
+    original = kernel.project_world_graph_from_context
+    errors: list[BaseException] = []
+
+    def _gated_build(*args, **kwargs):
+        build_started.set()
+        assert release_build.wait(timeout=30.0)
+        return original(*args, **kwargs)
+
+    def _call() -> None:
+        try:
+            project_world_graph(_request(), root=tmp_path)
+        except BaseException as exc:
+            errors.append(exc)
+
+    with patch.object(kernel, "project_world_graph_from_context", side_effect=_gated_build):
+        builder = threading.Thread(target=_call)
+        builder.start()
+        assert build_started.wait(timeout=30.0)
+        clear_projection_cache()
+        release_build.set()
+        builder.join(timeout=30.0)
+
+    assert len(errors) == 1
+    # Service maps the single-flight reset into the stable internal-error envelope.
+    assert isinstance(errors[0], WorldGraphProjectionServiceError)
+    assert errors[0].code == "projection_internal_error"
+    assert projection_cache_stats()["size"] == 0

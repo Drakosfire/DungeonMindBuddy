@@ -305,11 +305,7 @@ def warm_projection_recipes_for_ready_revision(
                         warm_ms=warm_ms,
                     )
                 )
-                with _REGISTRY_LOCK:
-                    stored = _REGISTRY.get(entry.key)
-                    if stored is not None:
-                        stored.last_used_at = _now()
-                        _REGISTRY.move_to_end(entry.key)
+                # Replay must not mutate demand recency (TTL / MRU).
             except Exception as exc:
                 _emit_observation(
                     RecipeObservation(

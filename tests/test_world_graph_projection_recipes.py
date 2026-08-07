@@ -217,3 +217,46 @@ def test_e2_warm_batch_cap_and_root_world_filter(tmp_path: Path) -> None:
             still_current=lambda: True,
         )
     assert mocked.call_count == 2
+
+
+def test_e2_warm_does_not_refresh_recipe_ttl_or_mru(tmp_path: Path) -> None:
+    """Background replay must not treat publication as fresh user demand."""
+    _initialize(tmp_path)
+    clock = {"now": 1000.0}
+    reset_projection_recipes_for_tests(
+        max_entries=4,
+        ttl_s=60.0,
+        warm_batch=4,
+        clock=lambda: clock["now"],
+    )
+    register_projection_recipe(_request(campaign_id="older"), root=tmp_path)
+    register_projection_recipe(_request(campaign_id="newer"), root=tmp_path)
+    before = list_projection_recipe_keys_for_tests()
+    assert [key.campaign_id for key in before] == ["older", "newer"]
+
+    revision_id = kernel.open_world_graph_head(tmp_path, WORLD_ID).head_revision_id
+    clock["now"] = 1040.0
+    with patch(
+        "apps.live_control_server.services.world_graph_projection.project_world_graph",
+        side_effect=lambda *_args, **_kwargs: None,
+    ):
+        warm_projection_recipes_for_ready_revision(
+            root=tmp_path,
+            world_id=WORLD_ID,
+            revision_id=revision_id,
+            still_current=lambda: True,
+        )
+
+    after_warm = list_projection_recipe_keys_for_tests()
+    assert [key.campaign_id for key in after_warm] == ["older", "newer"]
+
+    # Original last_used_at was 1000; TTL 60s means expiry at 1060 even though
+    # warm ran at 1040. If warm had refreshed recency, the recipe would survive.
+    clock["now"] = 1061.0
+    warm_projection_recipes_for_ready_revision(
+        root=tmp_path,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+        still_current=lambda: True,
+    )
+    assert projection_recipe_registry_stats()["size"] == 0

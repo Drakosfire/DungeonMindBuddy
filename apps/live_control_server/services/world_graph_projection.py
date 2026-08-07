@@ -183,7 +183,7 @@ def project_world_graph(
             build_started = time.perf_counter()
             projection, cache_status = get_or_build_cached_projection(cache_key, _builder)
             observation.projection_build_ms = (time.perf_counter() - build_started) * 1000.0
-            observation.projection_cache_status = cache_status  # type: ignore[assignment]
+            observation.projection_cache_status = cache_status
         else:
             observation.projection_cache_status = "disabled"
             build_started = time.perf_counter()
