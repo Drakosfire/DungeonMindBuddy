@@ -875,6 +875,7 @@ remaining cutover seam without changing either system.
 - Reconnaissance PR: [Drakosfire/DungeonMindBuddy#515](https://github.com/Drakosfire/DungeonMindBuddy/pull/515)
 - PR base SHA: `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`
 - PR handoff head at dispatch: `3f5a328d8326c8695e7a17be72a5a8bc22a24bae`
+- Implementation/report commit: `ad8d5f11909f4805c044a83f6056e719ae3f4b73`
 - DungeonMind inspected `main`: `7c311ae0d0d59d7379dee38780be509970fb3a8c`
 - DungeonMindBuddy inspected `main`: `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`
 - Execution branch: `docs/statblock-dungeonmind-cutover-reconnaissance`
