@@ -873,24 +873,26 @@ remaining cutover seam without changing either system.
 ### Re-anchor
 
 - Reconnaissance PR: [Drakosfire/DungeonMindBuddy#515](https://github.com/Drakosfire/DungeonMindBuddy/pull/515)
-- PR base SHA: `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`
-- PR handoff head at dispatch: `3f5a328d8326c8695e7a17be72a5a8bc22a24bae`
-- Implementation/report commit: `ad8d5f11909f4805c044a83f6056e719ae3f4b73`
+- Original PR base SHA: `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`
+- Current Buddy `main` (normalization anchor): `8d2a35019f64fa80b716a7d621903908e14d95b1`
 - DungeonMind inspected `main`: `7c311ae0d0d59d7379dee38780be509970fb3a8c`
-- DungeonMindBuddy inspected `main`: `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`
 - Execution branch: `docs/statblock-dungeonmind-cutover-reconnaissance`
+- Successor: [Drakosfire/DungeonMind#22](https://github.com/Drakosfire/DungeonMind/pull/22)
 
 ### Adjacent PR state
 
-- #510 — [BUILD: insert exact World Graph reference into Canvas](https://github.com/Drakosfire/DungeonMindBuddy/pull/510): OPEN, CLEAN, MERGEABLE; base `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`; head `9ea88533686eb257beec14591451aabe6462b294`.
-- #512 — [STATBLOCK: Threat parchment sheets + shared World Graph lens](https://github.com/Drakosfire/DungeonMindBuddy/pull/512): OPEN, CLEAN, MERGEABLE; base `d50d0c3a45761376185d36fb39ae3a098a5b8cfc`; head `5ec7da4341bdd2697c9c0cad4a46a693aa3f01cd`.
+- #510 — [BUILD: insert exact World Graph reference into Canvas](https://github.com/Drakosfire/DungeonMindBuddy/pull/510): OPEN; Build Canvas exact-reference insert remains branch-only.
+- #512 — [STATBLOCK: Threat parchment sheets + shared World Graph lens](https://github.com/Drakosfire/DungeonMindBuddy/pull/512): MERGED (`c06ae8a4a0d0eada718fa011ab9444458116b721`); shared Plan/Build Threat presentation is on Buddy `main`.
 - #508 — [STATBLOCK: publish accepted Threat from Workbench](https://github.com/Drakosfire/DungeonMindBuddy/pull/508): merged `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`; source of the selected Latchling proof.
 - #511 — [OPTIMIZATION: prewarm committed World Graph revision](https://github.com/Drakosfire/DungeonMindBuddy/pull/511): merged `fd05c7f20ccae22f2f43ec24642bf70290b0d9c7`.
-- #513 — [OPTIMIZATION: warm bounded surface projection recipes](https://github.com/Drakosfire/DungeonMindBuddy/pull/513): merged at Buddy `main` `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`.
+- #513 — [OPTIMIZATION: warm bounded surface projection recipes](https://github.com/Drakosfire/DungeonMindBuddy/pull/513): merged as `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`.
+- Play roadmap — merged at `e0dc0a098d1306694e0cfbaccf80ef97879ca884`.
+- Play PR tracker — merged at Buddy `main` `8d2a35019f64fa80b716a7d621903908e14d95b1`.
+- DungeonMind #22 — successor dispatch handoff for the semantic/mechanics re-anchor.
 
-The older #510/#512 snapshot heads in this handoff were stale, but the
-current open heads preserve the same exact-reference/shared-projection
-topology. No branch-only symbol is claimed as current merged behavior.
+Current Buddy `main` for this normalization:
+`8d2a35019f64fa80b716a7d621903908e14d95b1`. No branch-only #512 symbol is
+claimed as current merged behavior; #512 is merged.
 
 ### Delivered report and paths
 
@@ -1002,21 +1004,23 @@ DungeonMind:
 
 ### Material conflicts and disposition
 
-1. The handoff's #512 head was stale. GitHub reports current open head
-   `5ec7da4341bdd2697c9c0cad4a46a693aa3f01cd`; the current head was
-   inspected and remains branch-only.
-2. The handoff's #510 head was stale. GitHub reports current open head
-   `9ea88533686eb257beec14591451aabe6462b294`; the current head was
-   inspected and remains branch-only.
-3. The supplemental Latchling publication report is runtime/operator evidence,
+1. The earlier handoff snapshot treated #512 as open/branch-only. #512 has
+   since merged (`c06ae8a4…`); Plan/Build share the Threat presentation seam
+   on Buddy `main` `8d2a3501…`.
+2. #510 remains open (Build Canvas exact World Graph insert) and does not
+   change the identity conclusion.
+3. Play roadmap (`e0dc0a09…`) and Play PR tracker (`8d2a3501…`) are both on
+   Buddy `main`; KERNEL-0 gates durable Play Combat/object contracts on the
+   DungeonMind re-anchor.
+4. The supplemental Latchling publication report is runtime/operator evidence,
    not a committed graph/provider fixture; it is `committed_unverified` with
    failed verification codes.
-4. The checked-in exact provider fixture is Ironhide Brute, not Tripod or
+5. The checked-in exact provider fixture is Ironhide Brute, not Tripod or
    Latchling. Its digest proves provider vocabulary and canonical-definition
    shape, not either target's byte equivalence.
-5. Committed Tripod has no `uses_statblock` edge or accepted mechanics record,
-   so it is an explicit `NOT_READY` fixture fallback rather than a complete
-   hydration target.
+6. Committed Tripod has no `uses_statblock` edge or accepted mechanics record
+   (`no_binding` on the mechanics axis). That is not equivalent to DungeonMind
+   `object_not_threatening` and must not be treated as a parity case.
 
 No scope stop condition was encountered. These are the explicit not-ready
 blocking facts, not waived failures.
@@ -1033,6 +1037,12 @@ kinds and gate durable Combat/Play contracts on DungeonMind kernel cutover
 re-anchor. Fixture gaps (Tripod `no_binding`, Latchling operator-only evidence)
 remain secondary and must not drive an intermediate fixture-manufacturing PR.
 
+**Canonical report normalization (2026-08-07):** the report body now matches
+the corrected conclusion: `uses_statblock` is mechanics attachment, not
+`dnd5e:threatens`; `no_binding` is not parity with `object_not_threatening`;
+#512 / Play tracker / current Buddy `main` are re-anchored; successor is
+DungeonMind #22.
+
 **Smallest successor decision/proof (DungeonMind-owned):**
 
 ```text
@@ -1046,7 +1056,8 @@ That slice must answer and freeze:
 2. How contextual `dnd5e:threatens` remains independent from persistent Threat
    identity.
 3. What exact generic/profile-owned contract attaches an external mechanics
-   resource to an eligible world object without requiring contextual hostility.
+   resource to an eligible world object without requiring contextual hostility
+   while preserving graph/profile/resource pinning integrity.
 4. How Statblock-backed Threat/NPC mechanics specialize that attachment.
 5. How a future PC mechanics authority plugs into the same world-object
    projection/capability model without pretending it is a StatblockRevision.
@@ -1054,13 +1065,17 @@ That slice must answer and freeze:
    in place.
 7. How existing `obj:*`, graph revision, and exact external-resource identities
    map losslessly from current Buddy state.
+8. What cardinality/role semantics mechanics attachments have (zero/one/many;
+   no first-winner; who selects an attachment for Combat activation).
+9. How `dnd5e:creature` relates to the new peer kinds (retain as peer,
+   invent no ontology hierarchy by accident).
 
 Required immediate successor chain:
 
 ```text
 #515 corrected reconnaissance
         ↓
-DungeonMind semantic/mechanics contract re-anchor
+DungeonMind semantic/mechanics contract re-anchor (#22)
         ↓
 Buddy → DungeonMind exact conformance bridge
         ↓

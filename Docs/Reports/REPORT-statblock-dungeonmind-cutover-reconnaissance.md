@@ -1,9 +1,9 @@
 # STATBLOCK — DungeonMind authority cutover reconnaissance
 
-**Date:** 2026-08-06
+**Date:** 2026-08-06 (normalized 2026-08-07 against current Buddy `main` / Play landing)
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **PR:** [#515 — STATBLOCK: define DungeonMind authority cutover reconnaissance](https://github.com/Drakosfire/DungeonMindBuddy/pull/515)
-**Scope:** docs-only reconnaissance; no production behavior changed
+**Scope:** docs-only reconnaissance; complete as `NOT_READY_FOR_BRIDGE`; no production behavior changed
 
 ## Executive disposition
 
@@ -16,11 +16,15 @@ DungeonMind's accepted D&D profile currently conflates the narrow Threat
 proving domain with the reusable world-object/mechanics boundary that
 DungeonBuddy Play now requires.
 
-Play authority landed on Buddy `main` (`ROADMAP-play-world-object-combat-projection.md`,
-`PR-TRACKER-play-world-object-combat-projection.md`) freezes Threat, NPC, and
+Play authority on Buddy `main` (`ROADMAP-play-world-object-combat-projection.md`
+at `e0dc0a098d1306694e0cfbaccf80ef97879ca884`, companion
+`PR-TRACKER-play-world-object-combat-projection.md` at
+`8d2a35019f64fa80b716a7d621903908e14d95b1`) freezes Threat, NPC, and
 PlayerCharacter as distinct first-class world objects and places DungeonMind
 kernel cutover re-anchor (`KERNEL-0` / Phase K) before durable
 `CombatSourceLocator`, NPC/PC projection, or Combat identity contracts.
+Successor ownership for that re-anchor is DungeonMind PR
+[#22](https://github.com/Drakosfire/DungeonMind/pull/22).
 
 The reconnaissance still correctly traced Buddy Threat hydration through
 `uses_statblock` / `ThreatStatblockBindingV1` and DungeonMind hydration through
@@ -57,31 +61,27 @@ bridge begin. A product shadow call and authority promotion remain later.
 | Artifact | Exact state | Classification |
 |---|---|---|
 | DungeonMind `main` | `7c311ae0d0d59d7379dee38780be509970fb3a8c` | MATCH; current B.3a, PR #20 transport, and PR #21 resolver are present |
-| DungeonMindBuddy `main` | `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd` | MATCH |
-| Buddy PR #515 | base `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`; head `3f5a328d8326c8695e7a17be72a5a8bc22a24bae`; OPEN, CLEAN, MERGEABLE; no reviews/comments | MATCH |
-| Buddy PR #510 | base `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`; head `9ea88533686eb257beec14591451aabe6462b294`; OPEN, CLEAN, MERGEABLE | ADVANCED_SAME_CONTRACT; branch-only Build seam |
-| Buddy PR #512 | base `d50d0c3a45761376185d36fb39ae3a098a5b8cfc`; head `5ec7da4341bdd2697c9c0cad4a46a693aa3f01cd`; OPEN, CLEAN, MERGEABLE | ADVANCED_SAME_CONTRACT; branch-only shared Threat presentation seam |
+| DungeonMindBuddy `main` | `8d2a35019f64fa80b716a7d621903908e14d95b1` | MATCH; includes merged #512, Play roadmap, and Play PR tracker |
+| Buddy PR #515 | docs-only reconnaissance; OPEN, draft; disposition `NOT_READY_FOR_BRIDGE` | MATCH; this report |
+| DungeonMind PR #22 | handoff for D&D world-object/mechanics re-anchor; OPEN | SUCCESSOR; not yet implementation |
+| Buddy PR #510 | OPEN, CLEAN, MERGEABLE; Build Canvas exact World Graph insert | ADVANCED_SAME_CONTRACT; still branch-only Build insert seam |
+| Buddy PR #512 | MERGED (`c06ae8a4…`); shared Plan/Build Threat presentation + World Graph lens | MATCH; product-side shared seam now on `main` |
 | Buddy PR #508 | merged as `9d4f5a3005f87d07147c03d8eee499af3bd57aa3` | MATCH; source of the real Latchling publication |
 | Buddy PR #511 | merged as `fd05c7f20ccae22f2f43ec24642bf70290b0d9c7` | MATCH; OPT02 post-commit resident prewarm |
 | Buddy PR #513 | merged as `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd` | MATCH; OPT03 bounded projection recipes |
+| Play roadmap | `Docs/Roadmaps/ROADMAP-play-world-object-combat-projection.md` at `e0dc0a09…` | MATCH |
+| Play PR tracker | `Docs/Plans/PR-TRACKER-play-world-object-combat-projection.md` at `8d2a3501…` | MATCH; landed after the roadmap |
 
-PR #510 and #512 are still open. Their heads supersede the handoff's older
-snapshot SHAs, but neither changes the identity conclusion: both preserve an
-exact graph reference and route Threat mechanics through the shared
-Threat/projection path. The recommendation does not require either PR to merge
-first, but any implementation PR must re-anchor against whichever current
-mainline state results.
+#512 is merged. Plan and Build now share one World Graph projection /
+Threat presentation seam on `main`. #510 remains open for Build Canvas
+exact-reference insert behavior and does not change the identity conclusion.
+Play is expected to join the same product-side mechanics seam after the
+DungeonMind re-anchor + bridge/promotion chain settles; it must not harden
+durable Combat/object identities against the pre-re-anchor Buddy model.
 
-At dispatch, PR #515's cumulative diff against its base was one file, the
-checked-in handoff:
-
-```text
- ...dungeonmind-authority-cutover-reconnaissance.md | 865 +++++++++++++++++++++
- 1 file changed, 865 insertions(+)
-```
-
-This execution adds the report and handback changes; the final two-file scope
-and stat are recorded in the authoritative handoff §13.
+This reconnaissance is complete. The remaining work is the DungeonMind
+contract re-anchor (#22), then the Buddy conformance bridge — not another
+investigation slice.
 
 ## 2. Exact target trace
 
@@ -291,15 +291,30 @@ operator dogfood report. The committed-main Tripod fallback has no binding or
 mechanics fields to map. No row asserts that either target is already a
 DungeonMind identity.
 
-| Datum | Buddy current owner and shape | DungeonMind required shape | Same identity now? | Adaptation/proof |
+**Invariant for this matrix:** world-object identity / contextual graph
+semantics and exact mechanics attachment are independent axes. Buddy
+`uses_statblock` is a mechanics-attachment edge. DungeonMind
+`dnd5e:threatens` is a contextual fictional relationship. They are not the
+same assertion, and the bridge must not rename one into the other.
+
+### 4.1 World-object identity and contextual semantics
+
+| Datum | Buddy current owner and shape | DungeonMind required shape (today / after re-anchor) | Same identity now? | Adaptation/proof |
 |---|---|---|---|---|
-| World | `eldyrwild` in the Latchling publication/projection scope | `DndThreatMechanicsBinding.world_id` opaque token | No proof of shared repository identity | Governed world mapping required; may not be inferred |
+| World | `eldyrwild` in the Latchling publication/projection scope | Binding `world_id` opaque token | No proof of shared repository identity | Governed world mapping required; may not be inferred |
 | Campaign | `longmont-c2` in Buddy lens/reference | Not a binding field; may exist only in a DungeonMind graph payload/consumer context | No | Decide whether campaign scope is represented in the bridge graph contract |
 | Exact graph revision | `rev:3413bf6f5044cf2680233f5e37c90dcf` | `rev:<32 lowercase hex>` with content-addressed DMS revision payload | Lexically compatible, semantically unproven | Reuse is not allowed until the revision payload/provenance is proven equivalent |
 | Threat object ID | `threat:authored:d16d43d376833e38caf46dd19b1dd17f` | `obj:<opaque>` | No | New governed identity/profile bridge required; label mapping is forbidden |
-| Threat kind | Buddy projection uses `threat`/creature-compatible roles | Exact `dnd5e:creature` | No exact contract mapping | Explicit semantic mapping and profile proof required |
-| Threat relationship | Outbound `uses_statblock` edge | Subject `dnd5e:threatens` relationship ID(s) | No | A bridge must define what relationship is being asserted; it cannot rename silently |
+| Persistent Threat kind | Buddy projection uses `threat` / creature-compatible roles | Today: exact `dnd5e:creature` only. After re-anchor (#22): persistent Threat world-object kind distinct from NPC / PlayerCharacter | No exact contract mapping | Explicit semantic mapping and profile proof required; do not collapse to “mere creature” |
+| Contextual hostility relationship | Buddy may assert encounter/threat narrative edges separately from mechanics | `dnd5e:threatens` subject→object relationship IDs | Not interchangeable with mechanics attachment | Retain as optional contextual fiction after re-anchor; never required to prove Threat identity or to attach mechanics |
+
+### 4.2 Mechanics attachment (independent axis)
+
+| Datum | Buddy current owner and shape | DungeonMind required shape (today / after re-anchor) | Same identity now? | Adaptation/proof |
+|---|---|---|---|---|
+| Mechanics attachment edge / binding | Outbound `uses_statblock` edge carrying `ThreatStatblockBindingV1` (roles: `primary` / `alternate` / `phase` / `encounter_variant` / `template`) | Today: `DndThreatMechanicsBinding` wrongly gates on `dnd5e:threatens`. After re-anchor: profile-owned exact mechanics attachment **without** hostility prerequisite | No | Bridge maps `uses_statblock` → mechanics attachment, **never** → `dnd5e:threatens` |
 | Mechanics binding ID | `threat-statblock-binding:07ab38b331085b426bb69474` | `mechbind:<32 lowercase hex>` derived from graph and resource fields | No | Algorithms and input material differ; recomputation is required under the DMS contract |
+| Attachment cardinality / roles | Zero, one, or many exact bindings; enumerated; never first-wins | Today: one binding embeds plural Threat relationship IDs but one `resource_ref`. After re-anchor: must preserve zero/one/many exact attachments and role/phase/variant semantics without first-winner selection | No | Freeze in #22; CombatantSeed selection is an explicit later capability choice |
 | Statblock ID | `sb_7727dfeeb8074214a6a9cebf257691ff` | `resource_ref.resource_id`, `sb_*` grammar | Shape likely compatible | Target provider response must prove byte-for-byte locator identity |
 | Statblock revision | `rev_60b7bf03dd8d4a75a0a164ad73ce83b1` | `resource_ref.resource_revision`, `rev_*` grammar | Shape likely compatible | Target provider response must be captured and checked |
 | Definition digest | `sha256:4c843b9e8672c20d94e2594a70a62b0496f009481ac69af64dee071171e2d722` | bare lowercase hex in `payload_sha256` | Representation can be adapted | Strip only the exact `sha256:` prefix; target canonical bytes are not yet proven |
@@ -342,11 +357,28 @@ behavior to preserve.
 
 ## 5. Current-vs-DungeonMind failure parity
 
+After the Play reframe, failures on different axes are not treated as parity
+pairs. In particular:
+
+```text
+Buddy no_binding
+  = this world object has no mechanics attachment
+
+DungeonMind object_not_threatening
+  = this creature lacks a particular contextual fictional relationship
+    (dnd5e:threatens)
+```
+
+Those are not the same failure, must not be shadow-compared as equivalents,
+and must not remain linked after the DungeonMind re-anchor. Mechanics
+attachment eligibility must become independent of `dnd5e:threatens`.
+
 | Case | Buddy current observable behavior | DungeonMind behavior | Shadow parity state |
 |---|---|---|---|
 | Exact success | `available` binding and `threat_query_hydration_ok`; exact revision is returned after identity and digest checks | 200 hydration with `Cache-Control: no-store` | Shape compatible; identity/profile bridge missing |
-| Zero binding | `no_binding`; query can still return the Threat | No `dnd5e:threatens` relationship produces `object_not_threatening` / binding-invalid if binding is attempted | Mismatch in graph admission; bridge must define zero-binding behavior |
-| Multiple bindings | Enumerates every valid edge; returns plural results and partial/unavailable disposition; never first-wins | Binding contains plural sorted Threat relationship IDs, but one `resource_ref`; separate resource bindings would be separate DMS bindings | Requires explicit plural mapping; no first-winner allowed |
+| Zero mechanics attachment | `no_binding`; query can still return the Threat world object | Today: attempting Threat mechanics binding without `dnd5e:threatens` yields `object_not_threatening` — **not a parity case for `no_binding`**. After re-anchor: absent mechanics attachment must be expressible without manufacturing hostility | Different axes; #22 must separate them |
+| Multiple mechanics attachments | Enumerates every valid `uses_statblock` edge; returns plural results and partial/unavailable disposition; never first-wins | Today: one binding embeds plural Threat relationship IDs but one `resource_ref`. After re-anchor: plural exact resource attachments + roles must survive without first-winner selection | Requires explicit plural mapping in #22 / bridge; no first-winner allowed |
+| Contextual hostility absent while mechanics present | Allowed today (allied NPC / published Threat with binding and no separate hostility edge) | Today: rejected by `object_not_threatening` if binding is attempted without `dnd5e:threatens` | Contract collision; primary #22 blocker |
 | Provider 404 | Client maps downstream 404; service returns `exact_revision_missing` | Resolver returns `None`; B.3a maps to `mechanics_resource_not_found`; host returns 404 | Stable miss categories are compatible, messages/contracts differ |
 | Provider 410 | Client maps downstream 410/expired; service returns `exact_revision_missing` | Resolver treats 410 as exact miss and host returns 404 | Compatible miss semantics; needs cross-service result mapping |
 | Provider unavailable/timeout | Client maps timeout/unavailable; binding becomes `unavailable` and aggregate may be partial | Resolver raises sanitized failure; host returns 503 `mechanics_resource_unavailable` | Compatible category; Buddy has no DMS-host client yet |
@@ -423,25 +455,40 @@ representation does not exist.
 
 ## 7. Surface integration map
 
-The product-side convergence point is the shared Threat hydration service,
-not a separate Plan or Build mechanics implementation. On committed Buddy
-`main`, Plan renders the Threat sheet, while Build still renders the generic
-graph object projection. The shared Plan/Build Threat sheet is open PR #512
-behavior, not merged-main evidence.
+The product-side convergence point is the shared Threat hydration /
+presentation path over one World Graph projection, not separate Plan or Build
+mechanics authorities.
 
+```text
+Plan ─┐
+      ├─ shared World Graph projection / Threat presentation  (#512 merged on main)
+Build ┘
+          ↓
+one product-side mechanics seam
+  (ThreatStatblockBindingV1 / uses_statblock / query-hydration)
+
+Play
+          ↓
+should join that same seam after KERNEL-0 + bridge/promotion
+(must not invent a second durable source-identity model first)
+```
+
+- On current Buddy `main` (`8d2a3501…`), Plan and Build share the Threat
+  parchment / World Graph lens path introduced by merged #512
+  (`ThreatCampaignGlance`, `ThreatHoverMechanics`, shared projection
+  identity). That is merged-main evidence, not branch-only speculation.
 - `ThreatSheetProjection.tsx` builds the request from the exact selection
   tuple and calls `postThreatQueryHydration`.
 - `threatSheetViewModel.ts` verifies response world, campaign, scope, and
   revision; selects the exact Threat node ID; maps every binding; and turns
   incomplete “available” payloads into integrity failure rather than rendering
   them.
-- The open #512 head adds `ThreatCampaignGlance` and `ThreatHoverMechanics`
-  over the same binding/view-model path and makes that path shared with Build.
-  It does not establish a second mechanics authority, but it remains
-  branch-only until merged.
-- The open #510 head carries the exact graph reference through Build Canvas
-  save/reload/open behavior. Its exact scope examples and required Latchling
-  dogfood remain branch-only/pending.
+- Open #510 still carries exact graph reference through Build Canvas
+  save/reload/open behavior. It remains branch-only for Canvas insert, but it
+  does not create a second mechanics authority.
+- Play roadmap/tracker require the app-scoped projection infrastructure to be
+  reused Plan → Build → Play. Durable Play Combat/object contracts remain
+  gated on DungeonMind #22 + the bridge/promotion chain.
 
 Plan and Build therefore have one reasonable future shadow insertion point:
 the Buddy server-side mechanics orchestration after the exact graph selection
@@ -597,17 +644,26 @@ stop before a semantic re-anchor):
 Conflicting contracts/paths:
 - Buddy: threat:* + uses_statblock + ThreatStatblockBindingV1
   (`src/graph_memory/union_supergraph/statblock_binding.py`)
-- DungeonMind: obj:* + dnd5e:creature + dnd5e:threatens +
+  — mechanics attachment axis; supports zero/one/many roles
+- DungeonMind today: obj:* + dnd5e:creature + required dnd5e:threatens +
   DndThreatMechanicsBinding
   (`src/dungeonmind_dnd/contracts/mechanics_resources.py`,
    `src/dungeonmind_dnd/application/threat_mechanics.py`)
+  — conflates identity, hostility context, and mechanics eligibility
+- Required after re-anchor: persistent Threat/NPC/PC kinds; contextual
+  dnd5e:threatens retained independently; exact mechanics attachment without
+  hostility; no silent uses_statblock → dnd5e:threatens rename
 - Play product freeze: Threat / NPC / PlayerCharacter distinct first-class
   kinds; KERNEL-0 before CombatSourceLocator / durable Play contracts
-  (`Docs/Roadmaps/ROADMAP-play-world-object-combat-projection.md`)
+  (`Docs/Roadmaps/ROADMAP-play-world-object-combat-projection.md`,
+   `Docs/Plans/PR-TRACKER-play-world-object-combat-projection.md` on Buddy
+   `main` `8d2a3501…`)
 - Buddy current hydration:
   `apps/live_control_server/services/threat_query_hydration.py`
 - DungeonMind exact transport:
   `src/dungeonmind_dnd/application/threat_mechanics_transport.py`
+- Successor dispatch: DungeonMind PR #22
+  `Docs/Handoffs/HANDOFF-dnd-world-object-mechanics-reanchor.md`
 
 Smallest decision or proof required before implementation:
 DungeonMind must reopen/extend the accepted D&D semantic contract in an
@@ -617,12 +673,14 @@ additive/versioned slice:
   DungeonBuddy cutover
 
 That slice freezes Threat/NPC/PlayerCharacter world identity, keeps
-contextual dnd5e:threatens independent, defines mechanics attachment without
-hostility, specializes Threat/NPC statblock attachment, documents the PC
-mechanics plug-in, supersedes rather than edits current profile/vocabulary
-revisions, and names lossless Buddy→obj:* / external-resource mapping
-requirements. Do not manufacture a Latchling fixture PR first. Do not harden
-Play CombatSourceLocator / NPC / PC durable contracts against the old Buddy
+contextual dnd5e:threatens independent, defines exact mechanics attachment
+without hostility (preserving graph/profile/resource pinning and
+zero/one/many role semantics), specializes Threat/NPC statblock attachment,
+documents the PC mechanics plug-in, settles dnd5e:creature vs peer kinds,
+supersedes rather than edits current profile/vocabulary revisions, and names
+lossless Buddy→obj:* / external-resource mapping requirements. Do not
+manufacture a Latchling fixture PR first. Do not harden Play
+CombatSourceLocator / NPC / PC durable contracts against the old Buddy
 identity model. Do not add a live shadow call or change product authority
 until the re-anchored contract exists.
 ```
@@ -631,23 +689,22 @@ until the re-anchored contract exists.
 
 ### Repository commands
 
-These baseline commands were run before writing the report and appending the
-handback; the final changed-path set is recorded in the PR handback.
+These baseline commands were run for the original reconnaissance; the
+2026-08-07 normalization re-anchored Buddy `main` / #512 / Play docs against
+GitHub `origin/main` `8d2a35019f64fa80b716a7d621903908e14d95b1`.
 
-Buddy PR #515 worktree:
+Buddy PR #515 worktree (post-normalization tip advances with this cleanup):
 
 ```text
-git rev-parse HEAD
-3f5a328d8326c8695e7a17be72a5a8bc22a24bae
+git rev-parse origin/main
+8d2a35019f64fa80b716a7d621903908e14d95b1
 
-git status --short
-<empty>
+#512 merge is an ancestor of Buddy main
+git merge-base --is-ancestor c06ae8a4a0d0eada718fa011ab9444458116b721 origin/main
 
-git diff --check
-<no output>
-
-git diff --name-only 9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd...HEAD
-Docs/Plans/HANDOFF-statblock-dungeonmind-authority-cutover-reconnaissance.md
+# Play authority paths exist on main
+Docs/Roadmaps/ROADMAP-play-world-object-combat-projection.md
+Docs/Plans/PR-TRACKER-play-world-object-combat-projection.md
 ```
 
 DungeonMind main worktree:
@@ -655,9 +712,6 @@ DungeonMind main worktree:
 ```text
 git rev-parse HEAD
 7c311ae0d0d59d7379dee38780be509970fb3a8c
-
-git status --short
-<empty>
 ```
 
 GitHub PR metadata was queried with:
@@ -666,10 +720,12 @@ GitHub PR metadata was queried with:
 gh api repos/Drakosfire/DungeonMindBuddy/pulls/510
 gh api repos/Drakosfire/DungeonMindBuddy/pulls/512
 gh api repos/Drakosfire/DungeonMindBuddy/pulls/515
+gh api repos/Drakosfire/DungeonMind/pulls/22
 ```
 
-The exact results are recorded in §1. PR #515 had no reviews or comments at
-the time of reconnaissance.
+#512 is MERGED. #510 remains OPEN. #515 remains the completed
+`NOT_READY_FOR_BRIDGE` reconnaissance. #22 is the DungeonMind successor
+dispatch handoff.
 
 ### Focused test commands
 
