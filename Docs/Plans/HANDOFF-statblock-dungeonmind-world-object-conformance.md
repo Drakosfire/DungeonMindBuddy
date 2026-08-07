@@ -17,7 +17,8 @@
 |--------|-----------|
 | Buddy base (`main` at branch start) | `6fac8686c55a6cf9e513b7dbb47cfaa3baa964ae` |
 | Branch | `kernel/dungeonmind-world-object-conformance` |
-| PR | TBD |
+| Implementation commit | `09b47de44078199b8ab5affa93f6a390cf2eb7e3` |
+| PR | [#521](https://github.com/Drakosfire/DungeonMindBuddy/pull/521) |
 | DungeonMind dependency pin | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 | Predecessor handoffs | #518 Threat bridge, #519 shadow, #520 cutover audit |
 
