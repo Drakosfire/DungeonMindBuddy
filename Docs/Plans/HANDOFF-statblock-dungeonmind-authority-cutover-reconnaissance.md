@@ -911,7 +911,7 @@ Focused cumulative diff against PR #515 base
 `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`:
 
 ```text
-2 files changed, 1666 insertions(+)
+2 files changed, 1728 insertions(+)
 ```
 
 No production source, tests, fixture, tracker, roadmap, runtime, deployment,
@@ -919,27 +919,31 @@ secret, graph, mechanics record, or UI path changed.
 
 ### Selected exact proof target
 
-The report uses the real published **Mireward Latchling** because it is the
-target named by the open Build #510 dogfood flow and the open Statblock #512
-presentation work. The exact values are:
+The committed-main fallback is **Tripod Null-Calf**. Its exact graph evidence
+is:
 
 ```text
 world/campaign: eldyrwild / longmont-c2
-graph revision: rev:3413bf6f5044cf2680233f5e37c90dcf
-Threat node: threat:authored:d16d43d376833e38caf46dd19b1dd17f
-binding: threat-statblock-binding:07ab38b331085b426bb69474
-statblock: sb_7727dfeeb8074214a6a9cebf257691ff
-statblock revision: rev_60b7bf03dd8d4a75a0a164ad73ce83b1
-definition digest: sha256:4c843b9e8672c20d94e2594a70a62b0496f009481ac69af64dee071171e2d722
-publication commit: 523e293c-02c8-41db-97bc-58db9e00891b
-commit state: committed_unverified
-verification: failed
+graph revision: rev:031c50b108af3c2523ee04accbf6ea4d
+Threat node: threat:tripod-null-calf
+committed relationship: edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle
+uses_statblock edge: absent
+accepted statblock ID: absent
+accepted statblock revision: absent
+definition digest: absent
+binding ID: absent
 ```
 
-The exact target comes from the author/operator MAGIC-D3 dogfood report at
-`Docs/Reports/MAGIC-MOMENT-D3-2026-08-05.md`, committed before this PR's
-reconnaissance. The report does not claim that the `committed_unverified`
-revision is eligible for DungeonMind binding.
+The committed Tripod graph is therefore a truthful fixture fallback with
+expected Buddy disposition `no_binding`; it cannot yet be passed to DungeonMind
+as a complete mechanics target.
+
+The report separately records Mireward Latchling as supplemental
+author/operator dogfood evidence from
+`Docs/Reports/MAGIC-MOMENT-D3-2026-08-05.md`. That report supplies runtime
+publication values, including a `committed_unverified` revision, but no
+committed graph/provider fixture. It is not treated as a committed-main exact
+target and its eligibility for DungeonMind binding remains undecided.
 
 ### Verification performed
 
@@ -978,6 +982,8 @@ Repository checks:
 
 ```text
 Buddy:
+  git rev-parse origin/main
+  9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd
   git rev-parse HEAD
   3f5a328d8326c8695e7a17be72a5a8bc22a24bae
   git status --short
@@ -986,6 +992,8 @@ Buddy:
   <no output>
 
 DungeonMind:
+  git rev-parse origin/main
+  7c311ae0d0d59d7379dee38780be509970fb3a8c
   git rev-parse HEAD
   7c311ae0d0d59d7379dee38780be509970fb3a8c
   git status --short
@@ -1000,12 +1008,15 @@ DungeonMind:
 2. The handoff's #510 head was stale. GitHub reports current open head
    `9ea88533686eb257beec14591451aabe6462b294`; the current head was
    inspected and remains branch-only.
-3. The real Latchling publication is durable but `committed_unverified` with
-   failed verification codes. No implementation inferred eligibility from
-   that state.
-4. The checked-in exact provider fixture is Ironhide Brute, not Latchling.
-   Its digest proves provider vocabulary and canonical-definition shape, not
-   the selected target's byte equivalence.
+3. The supplemental Latchling publication report is runtime/operator evidence,
+   not a committed graph/provider fixture; it is `committed_unverified` with
+   failed verification codes.
+4. The checked-in exact provider fixture is Ironhide Brute, not Tripod or
+   Latchling. Its digest proves provider vocabulary and canonical-definition
+   shape, not either target's byte equivalence.
+5. Committed Tripod has no `uses_statblock` edge or accepted mechanics record,
+   so it is an explicit `NOT_READY` fixture fallback rather than a complete
+   hydration target.
 
 No scope stop condition was encountered. These are the explicit not-ready
 blocking facts, not waived failures.
@@ -1014,13 +1025,17 @@ blocking facts, not waived failures.
 
 **Final disposition:** `NOT_READY_FOR_BRIDGE`
 
-**Smallest successor decision/proof:** define
+**Smallest successor decision/proof:** first produce one complete,
+fixture-backed predecessor target: an accepted Buddy statblock response, its
+graph `uses_statblock` binding, and the exact graph scope/object/revision that
+owns it. Then define
 `STATBLOCK: define Buddy Threat → DungeonMind D&D identity/profile bridge
-contract` as a fixture-backed, conformance-only slice. It must own the
+contract` as the conformance-only slice. Latchling may be used only after its
+operator evidence is made reproducible; Tripod cannot serve as the mechanics
+target until its missing accepted binding exists. The bridge must own the
 `threat:*` → `obj:*` mapping, `uses_statblock` → `dnd5e:threatens` semantics,
-provider/schema/media/digest representation, exact Latchling response bytes,
-and `committed_unverified` eligibility decision before a shadow consumer is
-implemented.
+provider/schema/media/digest representation, and `committed_unverified`
+eligibility decision before a shadow consumer is implemented.
 
 This handback claims no identity bridge, shadow consumer, authority
 promotion, cutover, or demolition capability as delivered.

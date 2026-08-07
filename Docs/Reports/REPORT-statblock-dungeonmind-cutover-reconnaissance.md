@@ -11,29 +11,32 @@
 Disposition: NOT_READY_FOR_BRIDGE
 ```
 
-The current Buddy path can be traced exactly for one real published Threat,
-Mireward Latchling, through its graph publication, `uses_statblock` binding,
-accepted statblock locator, exact-revision query, and shared Threat projection.
-The current DungeonMind path can also consume an exact D&D-profile graph
-revision, derive a content-addressed `DndThreatMechanicsBinding`, and hydrate
-one exact `DndMechanicsResourceRef`.
+The current Buddy implementation path can be traced exactly from a Threat
+projection through `uses_statblock`, accepted statblock locators, exact-revision
+query, and Threat presentation. The only real Latchling publication evidence
+is an author/operator dogfood report, not a reproducible committed-main graph
+fixture. The strongest committed-main target is Tripod Null-Calf, whose graph
+identity and provenance stop before mechanics binding. The current DungeonMind
+path can consume an exact D&D-profile graph revision, derive a content-addressed
+`DndThreatMechanicsBinding`, and hydrate one exact `DndMechanicsResourceRef`.
 
-The cutover seam is not yet lossless or governed. Buddy's durable identity is
-`threat:authored:d16d43d376833e38caf46dd19b1dd17f` and its mechanics edge is
-`uses_statblock`; DungeonMind requires an `obj:*` identity whose exact graph
+The cutover seam is not yet lossless or governed. Buddy's committed-main
+Tripod identity is `threat:tripod-null-calf` and its committed neighborhood has
+only an `appeared_in` edge; it has no `uses_statblock` edge, accepted statblock
+locator, or binding. The supplemental Latchling dogfood report records a
+runtime publication, but no committed fixture proves its graph binding or
+provider response. DungeonMind requires an `obj:*` identity whose exact graph
 revision satisfies the `dungeonmind.dnd5e` profile and has one or more
-`dnd5e:threatens` relationships. No current contract proves that these are the
-same graph object, revision, relationship set, or binding identity. The
-Latchling dogfood report records the digest, but no checked-in Latchling
-provider response proves that its canonical mechanics bytes reproduce that
-digest under DungeonMind's canonical hashing.
+`dnd5e:threatens` relationships. No current contract proves shared graph
+identity, revision, relationship set, binding identity, or target digest
+equivalence.
 
-The smallest next action is a conformance-only bridge contract and fixture:
-capture the exact Latchling provider response bytes, decide the governed
-Buddy-graph-to-DungeonMind-profile mapping, explicitly decide whether
-`committed_unverified` graph revisions are eligible, and prove one deterministic
-mapping without adding a live consumer. A product shadow call must wait for
-that proof. Direct authority cutover is not safe.
+The smallest next action is a conformance-only target fixture and bridge
+decision: make one accepted Buddy statblock response and its graph binding
+reproducible, decide the governed Buddy-graph-to-DungeonMind-profile mapping,
+explicitly decide whether `committed_unverified` graph revisions are eligible,
+and prove one deterministic mapping without adding a live consumer. A product
+shadow call must wait for that proof. Direct authority cutover is not safe.
 
 ## 1. Re-anchor ledger
 
@@ -57,18 +60,48 @@ Threat/projection path. The recommendation does not require either PR to merge
 first, but any implementation PR must re-anchor against whichever current
 mainline state results.
 
-The PR #515 cumulative diff against its base is one file, the checked-in
-handoff:
+At dispatch, PR #515's cumulative diff against its base was one file, the
+checked-in handoff:
 
 ```text
  ...dungeonmind-authority-cutover-reconnaissance.md | 865 +++++++++++++++++++++
  1 file changed, 865 insertions(+)
 ```
 
-## 2. Exact real Threat trace
+This execution adds the report and handback changes; the final two-file scope
+and stat are recorded in the authoritative handoff §13.
 
-The selected proof target is the real published Mireward Latchling, not a label
-alone.
+## 2. Exact target trace
+
+The committed-main fallback target is Tripod Null-Calf. Mireward Latchling is
+recorded separately as supplemental author/operator dogfood evidence; it is not
+treated as a committed-main exact target.
+
+### 2.1 Committed-main fallback — Tripod Null-Calf
+
+| Datum | Exact value | Provenance |
+|---|---|---|
+| World | `eldyrwild` | `tests/fixtures/world_graph_retrieval/api-contract-v1.json` |
+| Campaign | `longmont-c2` | retrieval fixture and contribution bundle |
+| Graph revision | `rev:031c50b108af3c2523ee04accbf6ea4d` | committed retrieval fixture |
+| Durable Threat node | `threat:tripod-null-calf` | committed graph contribution/retrieval fixture |
+| Kind / role | `threat` / `encounter-threat` | committed retrieval fixture |
+| Committed relationship | `edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle` | contribution bundle and retrieval fixture |
+| `uses_statblock` edge | absent | committed graph search and retrieval fixture |
+| Accepted statblock ID | absent | no Tripod-linked accepted mechanics record |
+| Accepted revision / digest | absent | no Tripod-linked accepted mechanics record |
+| Binding ID / external resource node | absent | no Tripod-linked publication binding |
+
+This target proves the committed graph identity and the blocking absence of
+mechanics hydration. Its expected current Buddy query disposition is
+`no_binding`; it cannot be passed to DungeonMind as a complete mechanics
+target.
+
+### 2.2 Supplemental author/operator evidence — Mireward Latchling
+
+The MAGIC-D3 report records a real publication attempt and exact runtime
+values, but the graph publication output and provider response are not checked
+into the committed graph/fixture set used by this reconnaissance:
 
 | Datum | Exact value | Provenance |
 |---|---|---|
@@ -89,11 +122,12 @@ alone.
 | Commit state | `committed_unverified` | MAGIC-D3 report |
 | Verification | `failed` | `rebuild_unavailable`, `projection_threat_source_domains_mismatch`, `projection_external_resource_source_domain_mismatch` |
 
-The publication and rediscovery proof is real: the durable revision advanced,
-the binding was stored, Plan rediscovered the Threat, and Hermes found it. The
-report also correctly records that the publication was not fully verified.
-That status cannot be silently promoted to a verified DungeonMind graph
-revision during a bridge.
+The publication and rediscovery proof is real as author/operator observation:
+the reported runtime revision advanced, a binding was reported, Plan
+rediscovered the Threat, and Hermes found it. It is not a committed-main
+fixture or target-specific provider response. The report also correctly records
+that the publication was not fully verified. That status cannot be silently
+promoted to a verified DungeonMind graph revision during a bridge.
 
 ### Current Buddy call and ownership trace
 
@@ -240,6 +274,11 @@ observed envelope.
 
 ## 4. Exact identity and ownership matrix
 
+The Latchling rows below are supplemental field-shape evidence from the
+operator dogfood report. The committed-main Tripod fallback has no binding or
+mechanics fields to map. No row asserts that either target is already a
+DungeonMind identity.
+
 | Datum | Buddy current owner and shape | DungeonMind required shape | Same identity now? | Adaptation/proof |
 |---|---|---|---|---|
 | World | `eldyrwild` in the Latchling publication/projection scope | `DndThreatMechanicsBinding.world_id` opaque token | No proof of shared repository identity | Governed world mapping required; may not be inferred |
@@ -255,7 +294,7 @@ observed envelope.
 | Provider | `dungeonmind` in Buddy external resource/binding | `dungeonmind.statblocks` in DMS resource ref | No | Provider namespace mapping must be explicit |
 | Resource schema | Buddy stores `contract` + `contract_version` separately | DMS stores `resource_schema = contract + "." + version` | Deterministic composition possible | No current bridge contract governs it |
 | Media type | Not carried by `ThreatStatblockBindingV1`/`ExternalResourceV1` | `application/json` required by `DndMechanicsResourceRef` | Missing on Buddy binding | Provider adapter can supply a fixed value only after contract ownership is accepted |
-| Mechanics bytes | Provider response has `canonical_definition` JSON text plus a separate `definition` object | Resolver parses observed `canonical_definition`; B.3a hashes the parsed object | Not demonstrated for Latchling | Capture exact Latchling response and reproduce its digest under DungeonMind canonical JSON |
+| Mechanics bytes | Provider response has `canonical_definition` JSON text plus a separate `definition` object | Resolver parses observed `canonical_definition`; B.3a hashes the parsed object | Not demonstrated for either target | Capture the exact target response and reproduce its digest under DungeonMind canonical JSON |
 | Current-head behavior | Buddy accepts a pinned `revision_pin`, though context/cache resolution also reads head | DungeonMind transport reads only requested exact revision | Semantic pin exists; read topology differs | Shadow proof must assert no head fallback and preserve the pin |
 
 ### Digest and canonicalization conclusion
@@ -373,7 +412,10 @@ representation does not exist.
 ## 7. Surface integration map
 
 The product-side convergence point is the shared Threat hydration service,
-not a separate Plan or Build mechanics implementation.
+not a separate Plan or Build mechanics implementation. On committed Buddy
+`main`, Plan renders the Threat sheet, while Build still renders the generic
+graph object projection. The shared Plan/Build Threat sheet is open PR #512
+behavior, not merged-main evidence.
 
 - `ThreatSheetProjection.tsx` builds the request from the exact selection
   tuple and calls `postThreatQueryHydration`.
@@ -382,11 +424,12 @@ not a separate Plan or Build mechanics implementation.
   incomplete “available” payloads into integrity failure rather than rendering
   them.
 - The open #512 head adds `ThreatCampaignGlance` and `ThreatHoverMechanics`
-  over the same binding/view-model path. It does not establish a second
-  mechanics authority.
+  over the same binding/view-model path and makes that path shared with Build.
+  It does not establish a second mechanics authority, but it remains
+  branch-only until merged.
 - The open #510 head carries the exact graph reference through Build Canvas
-  save/reload/open behavior. Its required real Latchling dogfood remains
-  pending.
+  save/reload/open behavior. Its exact scope examples and required Latchling
+  dogfood remain branch-only/pending.
 
 Plan and Build therefore have one reasonable future shadow insertion point:
 the Buddy server-side mechanics orchestration after the exact graph selection
@@ -472,8 +515,9 @@ User-visible behavior: none.
 Failure-parity risk: low and directly testable.
 Rollback boundary: delete/revert the adapter fixture; current Buddy path is untouched.
 Duplicate path retained: yes, current Buddy path remains sole authority.
-Promotion evidence: exact Latchling response bytes, profile/object/relationship
-  mapping, canonical digest equality, and adversarial disagreement tests.
+Promotion evidence: exact target response bytes, profile/object/relationship
+mapping, canonical digest equality, and adversarial disagreement tests. Use
+Latchling only if its supplemental publication evidence becomes reproducible.
 ```
 
 This is the smallest useful next shape, but its input facts are not yet
@@ -520,13 +564,16 @@ authority can move safely.
 Disposition: NOT_READY_FOR_BRIDGE
 
 Blocking fact(s):
-1. Buddy's exact Threat graph identity and binding are not a DungeonMind
-   D&D-profile object/binding by any current governed contract.
-2. Buddy's Latchling graph revision is recorded as committed_unverified with
+1. Committed Buddy main has a Tripod graph node and provenance but no
+   `uses_statblock` edge, accepted statblock locator, binding ID, or target
+   digest; its current query disposition is `no_binding`.
+2. The Latchling graph/binding values exist only in supplemental operator
+   dogfood evidence, not a reproducible committed-main graph/response fixture.
+3. The Latchling graph revision is recorded as `committed_unverified` with
    failed verification codes; no rule says it is eligible for DMS binding.
-3. The real Latchling provider response bytes are not checked in, so digest
+4. No target-specific provider response bytes are checked in, so digest
    equivalence under DungeonMind canonical hashing is unproven.
-4. Provider namespace, resource schema, media type, and digest-prefix
+5. Provider namespace, resource schema, media type, and digest-prefix
    adaptation are compatible-looking but not governed by a bridge contract.
 
 Conflicting contracts/paths:
@@ -542,16 +589,16 @@ Conflicting contracts/paths:
   `src/dungeonmind_dnd/application/threat_mechanics_transport.py`
 
 Smallest decision or proof required before implementation:
-Create one conformance-only, fixture-backed bridge specification for the exact
-Latchling publication. Its owner must be jointly agreed by Buddy graph/
-publication authority and DungeonMind profile authority. The fixture must
-include the exact provider response bytes, the Buddy graph scope/object/
-binding, the proposed DungeonMind graph/profile/object/relationship
-representation, the provider/schema/media/digest mapping, and an explicit
-eligibility decision for `committed_unverified`. The proof must recompute the
-target digest without repairing or substituting any observed field. Until that
-fixture passes, do not add a live shadow call or change the current product
-authority.
+First produce one complete, exact predecessor fixture: an accepted Buddy
+statblock response, its graph `uses_statblock` binding, and the exact graph
+scope/object/revision that owns it. Latchling may be used only after its
+operator evidence is made reproducible; Tripod cannot serve as the mechanics
+target until its missing accepted binding exists. The jointly owned fixture
+must then specify the Buddy-graph-to-DungeonMind-profile mapping, provider/
+schema/media/digest representation, and `committed_unverified` eligibility.
+The proof must recompute the target digest without repairing or substituting
+any observed field. Until that fixture passes, do not add a live shadow call
+or change the current product authority.
 ```
 
 ## 12. Evidence and command record
