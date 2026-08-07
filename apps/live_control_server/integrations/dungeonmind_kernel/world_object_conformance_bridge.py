@@ -649,19 +649,28 @@ def _bridge_buddy_threat_revision(
     )
 
 
-def bridge_exact_buddy_threat(
+@dataclass(frozen=True)
+class _ExactBuddyRevisionBridgeSource:
+    """Integrity-attested Buddy revision pair for private package-internal reuse.
+
+    Constructed only by ``_load_exact_buddy_revision_bridge_source``. Not a public
+    API and must never be assembled from an arbitrary manifest + store.
+    """
+
+    manifest: BuddyWorldGraphRevision
+    store: UnionSupergraphStore
+
+
+def _load_exact_buddy_revision_bridge_source(
     *,
     root: Path,
     world_id: str,
     revision_id: str,
-    threat_node_id: str,
-    campaign_id: str | None = None,
-) -> DungeonMindThreatConformanceBridgeResult:
-    """Load one exact Buddy revision and bridge an explicit Threat node.
+) -> _ExactBuddyRevisionBridgeSource:
+    """Integrity-load one exact Buddy revision once (raw on-disk bytes).
 
-    Never consults World Graph head. The supplied ``revision_id`` is authority.
-    Owns integrity-attested loading so revision identity and store payload cannot
-    be supplied independently at the public boundary.
+    Never consults World Graph head. Never reconstructs payload digests from a
+    post-parse ``model_dump``.
     """
     try:
         store = kernel.load_world_graph_revision_with_integrity(
@@ -700,10 +709,32 @@ def bridge_exact_buddy_threat(
             "requested world_id does not match revision manifest world_id",
         )
 
+    return _ExactBuddyRevisionBridgeSource(manifest=manifest, store=store)
+
+
+def bridge_exact_buddy_threat(
+    *,
+    root: Path,
+    world_id: str,
+    revision_id: str,
+    threat_node_id: str,
+    campaign_id: str | None = None,
+) -> DungeonMindThreatConformanceBridgeResult:
+    """Load one exact Buddy revision and bridge an explicit Threat node.
+
+    Never consults World Graph head. The supplied ``revision_id`` is authority.
+    Owns integrity-attested loading so revision identity and store payload cannot
+    be supplied independently at the public boundary.
+    """
+    source = _load_exact_buddy_revision_bridge_source(
+        root=root,
+        world_id=world_id,
+        revision_id=revision_id,
+    )
     return _bridge_buddy_threat_revision(
         source_world_id=world_id,
-        source_revision=manifest,
-        source_store=store,
+        source_revision=source.manifest,
+        source_store=source.store,
         threat_node_id=threat_node_id,
         campaign_id=campaign_id,
     )
