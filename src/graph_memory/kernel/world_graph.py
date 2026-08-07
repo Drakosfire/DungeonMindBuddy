@@ -9,6 +9,8 @@ identity — they remain temporary until PR006–PR008.
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from graph_memory.union_supergraph.model import UnionSupergraphStore
@@ -71,6 +73,26 @@ def open_current_world_graph(
     return load_current_world_graph(root, world_id)
 
 
+# Per-world process lock spanning durable storage return → commit_seq allocation.
+# Storage releases its file lock before returning; without this, a paused publisher
+# can allocate a later seq than a subsequent durable commit.
+_PUBLISH_ORDER_LOCKS: dict[tuple[str, str], threading.Lock] = {}
+_PUBLISH_ORDER_LOCKS_GUARD = threading.Lock()
+# Test-only hook invoked after durable storage publish returns and before
+# commit_seq allocation, while the publish-order lock is still held.
+_after_durable_publish_hook: Callable[[WorldGraphPublishResult], None] | None = None
+
+
+def _publish_order_lock_for(root: Path, world_id: str) -> threading.Lock:
+    key = (str(root.resolve()), world_id)
+    with _PUBLISH_ORDER_LOCKS_GUARD:
+        lock = _PUBLISH_ORDER_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _PUBLISH_ORDER_LOCKS[key] = lock
+        return lock
+
+
 def publish_world_graph_revision(
     root: Path,
     world_id: str,
@@ -79,15 +101,42 @@ def publish_world_graph_revision(
     expected_parent_revision_id: str | None = None,
 ) -> WorldGraphPublishResult:
     """Publish an immutable revision, advance head, and sync identity-decision ledger."""
-    result = _publish_world_graph_revision_storage(
-        root,
-        world_id,
-        graph,
-        operation_ids=operation_ids,
-        expected_parent_revision_id=expected_parent_revision_id,
+    from graph_memory.kernel.world_revision_ready import (
+        allocate_revision_ready_commit_seq,
+        offer_revision_ready_from_publish,
     )
+
+    with _publish_order_lock_for(root, world_id):
+        result = _publish_world_graph_revision_storage(
+            root,
+            world_id,
+            graph,
+            operation_ids=operation_ids,
+            expected_parent_revision_id=expected_parent_revision_id,
+        )
+        # Still holding the process-local publish-order lock: storage has already
+        # released its file lock, so this is the barrier that keeps commit_seq
+        # aligned with durable per-world commit order. Sync/offer run after the
+        # lock so a stalled notification cannot block a later durable publish.
+        hook = _after_durable_publish_hook
+        if hook is not None:
+            hook(result)
+        commit_seq = allocate_revision_ready_commit_seq()
     # Durable replay source for rebuild — independent of the current head.
     sync_identity_decisions_from_store(root, world_id, graph)
+    # OPT02: best-effort process-local revision-ready signal after successful
+    # durable publish + Kernel post-publish work. Never changes the result.
+    try:
+        offer_revision_ready_from_publish(
+            root,
+            world_id,
+            result,
+            commit_seq=commit_seq,
+        )
+    except Exception:
+        # Final containment: head is already committed; notification must not
+        # convert a successful publish into an exception.
+        pass
     return result
 
 

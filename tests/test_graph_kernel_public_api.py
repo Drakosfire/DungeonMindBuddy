@@ -80,3 +80,31 @@ def test_reserved_kernel_apis_are_not_claimed_complete() -> None:
     ):
         assert name in public_names
         assert callable(getattr(kernel, name)) or name == "WorldGraphRetrievalError"
+
+
+def test_opt02_revision_ready_exports_and_no_storage_import() -> None:
+    import ast
+    import importlib.util
+    from pathlib import Path
+
+    public_names = set(kernel.__all__)
+    for name in (
+        "WorldRevisionReadyNotification",
+        "allocate_revision_ready_commit_seq",
+        "offer_revision_ready",
+        "offer_revision_ready_from_publish",
+        "get_revision_ready_mailbox",
+        "reset_revision_ready_mailbox",
+    ):
+        assert name in public_names
+        assert hasattr(kernel, name)
+
+    spec = importlib.util.find_spec("graph_memory.kernel.world_revision_ready")
+    assert spec is not None and spec.origin
+    tree = ast.parse(Path(spec.origin).read_text(encoding="utf-8"))
+    imported_modules = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert "graph_memory.world_supergraph.storage" not in imported_modules
