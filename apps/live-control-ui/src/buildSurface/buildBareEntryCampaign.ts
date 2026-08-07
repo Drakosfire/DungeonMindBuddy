@@ -1,3 +1,7 @@
+import {
+  requestedCampaignsFromLocation,
+} from "../graphLens/sessionCampaignContext";
+
 /** Known Build campaign ids for context-free entry (not a dogfood-specific silent default). */
 export const BUILD_KNOWN_CAMPAIGN_IDS = ["longmont-c1", "longmont-c2"] as const;
 export type BuildKnownCampaignId = (typeof BUILD_KNOWN_CAMPAIGN_IDS)[number];
@@ -31,7 +35,7 @@ export function writeBuildLastCampaignId(campaignId: string): void {
 
 /**
  * Resolve the campaign for bare `/build` auto-create.
- * Priority: known route `?campaign=` → last Build campaign.
+ * Priority: known route `?campaign=` → first known shared-lens `?campaigns=` → last Build campaign.
  * Unknown or blank route `?campaign=` fail closed (null → picker / no write),
  * including when a remembered campaign exists — explicit malformed context
  * must not fall through to last.
@@ -51,6 +55,11 @@ export function resolveBareBuildCampaignId(input?: {
         return null;
       }
       return fromRoute;
+    }
+    const sharedCampaigns = requestedCampaignsFromLocation(search) ?? [];
+    const fromSharedLens = sharedCampaigns.find(isBuildKnownCampaignId);
+    if (fromSharedLens) {
+      return fromSharedLens;
     }
   }
 

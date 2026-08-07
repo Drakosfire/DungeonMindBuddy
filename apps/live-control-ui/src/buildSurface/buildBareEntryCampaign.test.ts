@@ -41,6 +41,20 @@ describe("buildBareEntryCampaign", () => {
     expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBeNull();
   });
 
+  it("uses shared-lens campaigns when Build campaign param is absent", () => {
+    writeBuildLastCampaignId("longmont-c1");
+    expect(resolveBareBuildCampaignId({ search: "?campaigns=longmont-c2" })).toBe("longmont-c2");
+    expect(
+      resolveBareBuildCampaignId({ search: "?campaigns=longmont-c1,longmont-c2" }),
+    ).toBe("longmont-c1");
+  });
+
+  it("prefers explicit Build campaign over shared-lens campaigns", () => {
+    expect(
+      resolveBareBuildCampaignId({ search: "?campaign=longmont-c2&campaigns=longmont-c1" }),
+    ).toBe("longmont-c2");
+  });
+
   it("keys auto-create latch by campaign identity", () => {
     expect(bareBuildAutoCreateKey("longmont-c1")).not.toBe(bareBuildAutoCreateKey("longmont-c2"));
   });

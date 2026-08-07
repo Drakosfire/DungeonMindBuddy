@@ -10,6 +10,7 @@ import type {
   SurfaceInteractionEditCommandContribution,
   SurfaceInteractionPublication,
 } from "../../surfaceInteraction/types";
+import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 import { BUILD_SURFACE_LABEL } from "../buildSurfaceConfig";
 import {
@@ -49,6 +50,10 @@ export interface BuildReferenceContextBinding {
   items: readonly GraphReferenceSearchItem[];
   selectCampaign: (campaignId: string) => void;
   viewExact: (item: GraphReferenceSearchItem) => void;
+  /** Insert a graph-node chip into the Build markdown canvas. */
+  insertChip: (attrs: RunbookReferenceAttrs) => void;
+  /** Disables Insert chip only; View stays available while the editor is locked/unavailable. */
+  insertDisabled: boolean;
 }
 
 export interface BuildDocumentSavePublication {

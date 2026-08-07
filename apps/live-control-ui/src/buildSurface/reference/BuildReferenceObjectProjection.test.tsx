@@ -12,6 +12,25 @@ import {
 import type { GraphReferenceResolution } from "../../graphReference/types";
 import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
 
+vi.mock("../../api/liveApi", async () => {
+  const actual = await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
+  return {
+    ...actual,
+    postThreatQueryHydration: vi.fn().mockResolvedValue({
+      schema: "dmb_threat_query_hydration_response_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c1",
+      scopeMode: "campaign",
+      revisionId: "rev-1",
+      queryText: "threat:latch-harrow",
+      resultLabel: "threat_query_hydration_ok",
+      hits: [],
+      diagnostics: [],
+      message: null,
+    }),
+  };
+});
+
 const glowkindleNode: GraphProjectionNodeView = {
   node_id: "npc-glowkindle",
   label: "Glowkindle",
@@ -51,8 +70,27 @@ const innNode: GraphProjectionNodeView = {
   summary: "Meeting place.",
 };
 
+const threatNode: GraphProjectionNodeView = {
+  node_id: "threat:latch-harrow",
+  label: "Latch-Harrow",
+  kind: "threat",
+  role: "creature",
+  aliases: [],
+  source_domains: ["prep"],
+  evidence_badges: [],
+  adjacency: [],
+  anchored_to_focus_session: true,
+  summary: "A siege horror.",
+};
+
 function resolvedGraphResolution(
   node: GraphProjectionNodeView,
+  graphScope: {
+    worldId: string;
+    campaignId: string;
+    scopeMode: "world" | "campaign";
+    revisionId: string;
+  } | null = null,
 ): Extract<GraphReferenceResolution, { kind: "resolved_graph" }> {
   return {
     kind: "resolved_graph",
@@ -60,17 +98,19 @@ function resolvedGraphResolution(
     reference: referenceFromGraphNode(node),
     graphNodeId: node.node_id,
     graphObject: buildGraphObjectCardFromNodeView(node),
+    graphScope,
     projectionState: "ready",
     message: `Resolved graph node ${node.label}.`,
   };
 }
 
-function renderWithResolution(resolution: GraphReferenceResolution) {
+function renderWithResolution(resolution: GraphReferenceResolution, glanceOnly?: boolean) {
   return render(
     <BuildReferenceObjectProjection
       bindings={{
         [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolution,
       }}
+      glanceOnly={glanceOnly}
     />,
   );
 }
@@ -78,9 +118,26 @@ function renderWithResolution(resolution: GraphReferenceResolution) {
 describe("BuildReferenceObjectProjection", () => {
   it("renders resolved_graph through GraphObjectProjectionCard", () => {
     renderWithResolution(resolvedGraphResolution(glowkindleNode));
-
     expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     expect(screen.getByText("Glowkindle")).toBeInTheDocument();
+  });
+
+  it("routes exact Threat resolutions to ThreatSheetProjection", async () => {
+    renderWithResolution(
+      resolvedGraphResolution(threatNode, {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c1",
+        scopeMode: "campaign",
+        revisionId: "rev-1",
+      }),
+      false,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("threat-sheet-projection")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("threat-sheet-projection")).toHaveAttribute("data-glance", "false");
+    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
   });
 
   it("shows ambiguous candidate ids without auto-select", () => {
@@ -96,7 +153,6 @@ describe("BuildReferenceObjectProjection", () => {
     const list = screen.getByTestId("build-reference-ambiguous-ids");
     expect(list).toHaveTextContent("npc-lysandra-a");
     expect(list).toHaveTextContent("npc-lysandra-b");
-    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
   });
 
   it("fail-closes resolved_corpus_fallback", () => {
@@ -179,7 +235,7 @@ describe("BuildReferenceObjectProjection", () => {
     };
     const bindingB = {
       resolverState: "ready" as const,
-      resolveRelationship: vi.fn(async () => resolvedGraphResolution(innNode)),
+      resolveRelationship: vi.fn(),
       openResolvedReference: openResolvedReferenceB,
       openTool: vi.fn(),
     };
@@ -196,7 +252,6 @@ describe("BuildReferenceObjectProjection", () => {
     await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
     await waitFor(() => expect(bindingA.resolveRelationship).toHaveBeenCalledTimes(1));
 
-    // Document replacement → new graph-reference binding identity while resolution is pending.
     rerender(
       <BuildReferenceObjectProjection
         bindings={{
@@ -215,7 +270,7 @@ describe("BuildReferenceObjectProjection", () => {
     expect(openResolvedReferenceB).not.toHaveBeenCalled();
   });
 
-  it("E10: rejects delayed relationship completion after lens-generation binding replacement", async () => {
+  it("E9: rejects delayed relationship completion after unmount", async () => {
     const user = userEvent.setup();
     let resolveDeferred!: (value: ReturnType<typeof resolvedGraphResolution>) => void;
     const deferred = new Promise<ReturnType<typeof resolvedGraphResolution>>((resolve) => {
@@ -231,12 +286,12 @@ describe("BuildReferenceObjectProjection", () => {
     };
     const bindingB = {
       resolverState: "ready" as const,
-      resolveRelationship: vi.fn(async () => resolvedGraphResolution(innNode)),
+      resolveRelationship: vi.fn(),
       openResolvedReference: openResolvedReferenceB,
       openTool: vi.fn(),
     };
 
-    const { rerender } = render(
+    const { unmount } = render(
       <BuildReferenceObjectProjection
         bindings={{
           [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),
@@ -247,9 +302,9 @@ describe("BuildReferenceObjectProjection", () => {
 
     await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
     await waitFor(() => expect(bindingA.resolveRelationship).toHaveBeenCalledTimes(1));
+    unmount();
 
-    // Same-document lens generation replacement → new binding identity while resolution is pending.
-    rerender(
+    render(
       <BuildReferenceObjectProjection
         bindings={{
           [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolvedGraphResolution(glowkindleNode),

@@ -256,6 +256,20 @@ export function isExactResolvedThreat(resolution: GraphReferenceResolution): boo
   );
 }
 
+/**
+ * Campaign Threat sheet gate: authored Threat identity + exact scope.
+ * Broader creature/npc kinds stay on GraphObjectProjectionCard (isExactResolvedThreat).
+ */
+export function shouldRenderThreatCampaignSheet(resolution: GraphReferenceResolution): boolean {
+  if (resolution.kind !== "resolved_graph") return false;
+  if (!validateExactGraphReferenceScope(resolution.graphScope)) return false;
+  return isThreatHoverPresentation({
+    nodeId: resolution.graphNodeId,
+    kind: resolution.graphObject.kind,
+    role: resolution.graphObject.role,
+  });
+}
+
 export function isResolvedThreat(resolution: GraphReferenceResolution): boolean {
   if (resolution.kind !== "resolved_graph") return false;
   const kind = normalizeGraphObjectKind(resolution.graphObject.kind);

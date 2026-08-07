@@ -1,11 +1,11 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { GraphObjectProjectionCard } from "../../graphObjectCard/GraphObjectProjectionCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import {
   readGraphReferenceBinding,
   readGraphReferenceResolutionBinding,
 } from "../../graphReference/projectionBindings";
+import { ResolvedGraphObjectProjection } from "../../graphReference/ResolvedGraphObjectProjection";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceResolution,
@@ -78,6 +78,14 @@ export function BuildReferenceObjectProjection({
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
   const graphReferenceBindingRef = useRef<GraphReferenceProjectionBinding | null>(graphReferenceBinding);
   graphReferenceBindingRef.current = graphReferenceBinding;
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const resolverProjectionState = graphReferenceBinding?.resolverState ?? null;
   const showRelationshipProvenance = glanceOnly !== true;
@@ -92,13 +100,15 @@ export function BuildReferenceObjectProjection({
       try {
         const nextResolution = await bindingAtStart.resolveRelationship(relationship);
         const current = graphReferenceBindingRef.current;
-        if (!current || current !== bindingAtStart) return;
+        if (!mountedRef.current || !current || current !== bindingAtStart) return;
         current.openResolvedReference(
           nextResolution,
           nextResolution.projectionState ?? resolverProjectionState,
         );
       } finally {
-        setNavigatingRelationshipId(null);
+        if (mountedRef.current) {
+          setNavigatingRelationshipId(null);
+        }
       }
     },
     [graphReferenceBinding, navigatingRelationshipId, resolverProjectionState],
@@ -111,13 +121,16 @@ export function BuildReferenceObjectProjection({
 
   if (resolution.kind === "resolved_graph") {
     return (
-      <GraphObjectProjectionCard
-        model={resolution.graphObject}
-        aria-label={`${resolution.graphObject.label} graph object`}
+      <ResolvedGraphObjectProjection
+        resolution={resolution}
+        glanceOnly={glanceOnly}
+        graphReferenceBinding={graphReferenceBinding}
+        projectionState={resolverProjectionState}
         showRelationshipProvenance={showRelationshipProvenance}
         onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
-        disabled={relationshipsDisabled}
+        relationshipsDisabled={relationshipsDisabled}
+        aria-label={`${resolution.graphObject.label} graph object`}
       />
     );
   }

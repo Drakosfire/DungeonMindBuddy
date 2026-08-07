@@ -9,6 +9,7 @@ import {
   requestedLensFocusFromLocation,
   requestedSessionNumberFromLocation,
   resolvePlanGraphLens,
+  syncPlanGraphLensUrl,
   type PlanGraphLens,
 } from "./sessionCampaignContext";
 
@@ -64,6 +65,17 @@ describe("sessionCampaignContext", () => {
       .toEqual(["longmont-c1", "longmont-c2"]);
   });
 
+  it("treats bare ?campaign= as world union on Plan and single campaign on Build", () => {
+    expect(
+      resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1", { surfacePath: "/plan" })
+        .selectedCampaignIds,
+    ).toEqual(["longmont-c1", "longmont-c2"]);
+    expect(
+      resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1", { surfacePath: "/build" })
+        .selectedCampaignIds,
+    ).toEqual(["longmont-c1"]);
+  });
+
   it("deriveApiLens maps one/both/empty", () => {
     expect(deriveApiLens({ selectedCampaignIds: [], focus: null }, "longmont-c2")).toBeNull();
     expect(deriveApiLens({ selectedCampaignIds: ["longmont-c1"], focus: null }, "longmont-c2")).toEqual({
@@ -107,5 +119,21 @@ describe("sessionCampaignContext", () => {
         "longmont-c2",
       ),
     ).toBe("C2 only · C2 · Session 23");
+  });
+
+  it("preserves /build path and documentId when syncing lens URL", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/build?documentId=11111111-1111-4111-8111-111111111111&campaign=longmont-c2",
+    );
+    syncPlanGraphLensUrl({
+      selectedCampaignIds: ["longmont-c2"],
+      focus: null,
+    });
+    expect(window.location.pathname).toBe("/build");
+    expect(window.location.search).toContain("documentId=11111111-1111-4111-8111-111111111111");
+    expect(window.location.search).toContain("campaign=longmont-c2");
+    expect(window.location.search).toContain("campaigns=longmont-c2");
   });
 });

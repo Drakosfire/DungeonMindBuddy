@@ -2,14 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { GraphObjectCard } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import { ResolvedGraphObjectProjection } from "../../graphReference/ResolvedGraphObjectProjection";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
   GraphReferenceResolution,
 } from "../../graphReference/types";
-import { GraphObjectProjectionCard } from "../../graphObjectCard/GraphObjectProjectionCard";
-import { ThreatSheetProjection } from "../../statblocks/projection/ThreatSheetProjection";
-import { isExactResolvedThreat } from "../../statblocks/projection/threatSheetViewModel";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
@@ -222,18 +220,6 @@ export function PlanReferenceObjectCard({
     || resolverProjectionState === "error";
 
   if (resolution.kind === "resolved_graph") {
-    if (isExactResolvedThreat(resolution)) {
-      return (
-        <ThreatSheetProjection
-          resolution={resolution}
-          sessionDescriptor={sessionDescriptor}
-          projectionState={effectiveProjectionState}
-          graphReferenceBinding={graphReferenceBinding}
-          glanceOnly={glanceOnly}
-        />
-      );
-    }
-
     const model = {
       ...resolution.graphObject,
       actions: buildPlanGraphObjectActions({
@@ -244,14 +230,19 @@ export function PlanReferenceObjectCard({
     };
 
     return (
-      <GraphObjectProjectionCard
+      <ResolvedGraphObjectProjection
+        resolution={resolution}
+        glanceOnly={glanceOnly}
+        graphReferenceBinding={graphReferenceBinding}
+        projectionState={effectiveProjectionState}
+        sessionDescriptor={sessionDescriptor}
         model={model}
         mode="plan"
-        aria-label={`${model.label} graph object`}
         showRelationshipProvenance={showRelationshipProvenance}
         onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
-        disabled={relationshipsDisabled}
+        relationshipsDisabled={relationshipsDisabled}
+        aria-label={`${model.label} graph object`}
       />
     );
   }

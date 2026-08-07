@@ -22,6 +22,11 @@ import {
 import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "./surfaceInteraction/toolHost/ToolHost";
 import { AppChrome, type AppChromeToolsGeneration } from "./chrome/AppChrome";
+import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./chrome/appChromeConfig";
+import {
+  WorldGraphLensProvider,
+  WorldGraphLensProjectionProvider,
+} from "./graphLens";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
@@ -285,10 +290,14 @@ export function App() {
   return (
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
-        {content}
-        <ToolHost />
-        <LegacyProjectionHostAdapter />
-        <AgentInteractionChrome />
+        <WorldGraphLensProvider planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
+          <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
+            {content}
+            <ToolHost />
+            <LegacyProjectionHostAdapter />
+            <AgentInteractionChrome />
+          </WorldGraphLensProjectionProvider>
+        </WorldGraphLensProvider>
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
   );

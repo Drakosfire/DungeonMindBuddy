@@ -25,7 +25,7 @@ import type {
 } from "../../graphReference/types";
 import { buildPlanGraphObjectActions } from "../../planSurface/reference/buildPlanGraphObjectActions";
 import type { PlanSessionDescriptor } from "../../planSurface/types";
-import { StatblockRenderer } from "../render/StatblockRenderer";
+import { StatblockAdvancedLedger, StatblockRenderer } from "../render/StatblockRenderer";
 import { ThreatCampaignGlance } from "./ThreatCampaignGlance";
 import "./threatSheetProjection.css";
 import {
@@ -35,6 +35,7 @@ import {
   isExactResolvedThreat,
   mapHydrationResultLabelToLoadStatus,
   selectExactThreatHit,
+  shouldRenderThreatCampaignSheet,
   threatSelectionTupleFromResolution,
   threatSelectionTupleKey,
   type ThreatSheetBindingViewModel,
@@ -160,27 +161,53 @@ function ThreatRelationshipsSection({
   );
 }
 
-function ThreatSheetInspectDetails({
+function ThreatSheetAdvancedDetails({
   model,
   availableCount,
   graphObject,
   actions,
   rootRef,
+  includeStatblockLedger,
 }: {
   model: ThreatSheetViewModel;
   availableCount: number;
   graphObject: GraphObjectCardViewModel;
   actions: readonly GraphObjectActionViewModel[];
   rootRef: RefObject<HTMLElement | null>;
+  /** Full Reference: fold validation/provenance into this same disclosure. */
+  includeStatblockLedger: boolean;
 }) {
   const evidenceCount = graphObject.details?.evidenceCount ?? graphObject.evidence?.length ?? 0;
   const sourceDomains = graphObject.details?.sourceDomains ?? graphObject.sourceDomains ?? [];
   const hasEvidence = evidenceCount > 0 || sourceDomains.length > 0
     || Boolean(graphObject.details?.sourceAnchorText);
+  const ledgerBindings = includeStatblockLedger
+    ? model.bindings.filter(
+        (binding) => binding.hydrationStatus === "available" && binding.revision != null,
+      )
+    : [];
 
   return (
     <details className="threat-sheet-projection__inspect">
-      <summary>Inspect proof and tools</summary>
+      <summary>Advanced Details</summary>
+
+      {ledgerBindings.map((binding) => (
+        <section
+          key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}:ledger`}
+          aria-label="Statblock validation and provenance"
+        >
+          {ledgerBindings.length > 1 ? (
+            <h5>
+              {binding.role ?? "Binding"}
+              {binding.phaseKey ? ` · ${binding.phaseKey}` : ""}
+              {binding.variantLabel ? ` · ${binding.variantLabel}` : ""}
+            </h5>
+          ) : null}
+          {binding.revision ? (
+            <StatblockAdvancedLedger revision={binding.revision} mode="full" />
+          ) : null}
+        </section>
+      ))}
 
       <p
         className="threat-sheet-projection__binding-summary"
@@ -310,13 +337,6 @@ function ThreatSheetBody({
         />
       ) : (
         <>
-          <header className="threat-sheet-projection__header threat-sheet-projection__header--full">
-            <p className="threat-sheet-projection__kicker">Threat · full statblock</p>
-            {model.summary ? (
-              <p className="threat-sheet-projection__summary">{model.summary}</p>
-            ) : null}
-          </header>
-
           {model.loadStatus === "loading" ? (
             <p className="threat-sheet-projection__status threat-sheet-projection__status--loading" role="status">
               Loading exact mechanics…
@@ -380,12 +400,13 @@ function ThreatSheetBody({
         disabled={relationshipsDisabled}
       />
 
-      <ThreatSheetInspectDetails
+      <ThreatSheetAdvancedDetails
         model={model}
         availableCount={availableCount}
         graphObject={graphObject}
         actions={actions}
         rootRef={rootRef}
+        includeStatblockLedger={!glanceOnly}
       />
     </div>
   );
@@ -618,7 +639,11 @@ export function ThreatSheetProjection({
   return (
     <article
       ref={articleRef}
-      className="plan-reference-object-card plan-reference-object-card--threat-sheet"
+      className={
+        glanceOnly
+          ? "plan-reference-object-card plan-reference-object-card--threat-sheet"
+          : "plan-reference-object-card plan-reference-object-card--threat-sheet plan-reference-object-card--threat-sheet-full"
+      }
       aria-label={`${model.label} threat sheet`}
       data-testid="plan-reference-threat-sheet"
     >
@@ -637,5 +662,5 @@ export function ThreatSheetProjection({
 }
 
 export function shouldRenderThreatSheetProjection(resolution: GraphReferenceResolution): boolean {
-  return isExactResolvedThreat(resolution);
+  return shouldRenderThreatCampaignSheet(resolution);
 }

@@ -162,6 +162,8 @@ function pendingLoadForKey(loadKey: string): StoredProjectionLoad {
   };
 }
 
+const EMPTY_SEARCH_ITEMS: readonly GraphReferenceSearchItem[] = [];
+
 /**
  * Structured load identity. Revision mode and opaque revision id are separate
  * fields so current-head mode never collides with a pinned revision whose id is
@@ -362,21 +364,35 @@ export function useBuildWorldGraphProjection(
 
   const items = useMemo(() => {
     if (coherent.state !== "ready" || !coherent.projection || lens.status !== "ready") {
-      return [];
+      return EMPTY_SEARCH_ITEMS;
     }
     return adaptProjectionSearchItems(coherent.projection, lens.campaignId);
   }, [coherent.projection, coherent.state, lens]);
 
-  return {
-    projection: coherent.projection,
-    state: coherent.state,
-    error: coherent.error,
-    requestedRevisionId: revisionFields.requestedRevisionId,
-    loadedRevisionId: coherent.loadedRevisionId,
-    revisionMode: revisionFields.revisionMode,
-    loadedIsHead: coherent.loadedIsHead,
-    generation,
-    loadKey,
-    items,
-  };
+  return useMemo(
+    () => ({
+      projection: coherent.projection,
+      state: coherent.state,
+      error: coherent.error,
+      requestedRevisionId: revisionFields.requestedRevisionId,
+      loadedRevisionId: coherent.loadedRevisionId,
+      revisionMode: revisionFields.revisionMode,
+      loadedIsHead: coherent.loadedIsHead,
+      generation,
+      loadKey,
+      items,
+    }),
+    [
+      coherent.error,
+      coherent.loadedIsHead,
+      coherent.loadedRevisionId,
+      coherent.projection,
+      coherent.state,
+      generation,
+      items,
+      loadKey,
+      revisionFields.requestedRevisionId,
+      revisionFields.revisionMode,
+    ],
+  );
 }

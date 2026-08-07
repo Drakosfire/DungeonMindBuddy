@@ -16,6 +16,7 @@ import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookRefer
 import type { PlanSessionDescriptor } from "../types";
 import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
 import { isFocusValidationBlocking } from "../planGraphFocusOptions";
+import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import {
   extractExactGraphReferenceScope,
 } from "../../graphReference/resolveGraphReference";
@@ -266,6 +267,7 @@ function usePlanGraphReferenceResolverLoad(
   sessionDescriptor: PlanSessionDescriptor | null | undefined,
   revisionRefreshToken?: string | number | null,
 ): UsePlanGraphReferenceResolverResult {
+  const sharedProjection = useOptionalWorldGraphLensProjection();
   const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
   const [projectionState, setProjectionState] = useState<GraphReferenceProjectionState>("loading");
   const [projectionError, setProjectionError] = useState<string | null>(null);
@@ -275,6 +277,7 @@ function usePlanGraphReferenceResolverLoad(
   const graphLens = useOptionalPlanGraphLens();
   const focusValidationStatus = graphLens?.focusValidationStatus ?? "none";
   const focusValidationPending = isFocusValidationBlocking(focusValidationStatus);
+  const skipLocalProjectionLoad = sharedProjection != null;
 
   const context = useMemo(
     () =>
@@ -286,7 +289,7 @@ function usePlanGraphReferenceResolverLoad(
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (skipLocalProjectionLoad || typeof window === "undefined") return;
     const onRevisionCommitted = () => {
       setRevisionEventBump((previous) => previous + 1);
     };
@@ -294,11 +297,13 @@ function usePlanGraphReferenceResolverLoad(
     return () => {
       window.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onRevisionCommitted);
     };
-  }, []);
+  }, [skipLocalProjectionLoad]);
 
   const projectionRefreshKey = `${revisionRefreshToken ?? ""}:${revisionEventBump}`;
 
   useEffect(() => {
+    if (skipLocalProjectionLoad) return;
+
     let cancelled = false;
 
     async function loadProjection() {
@@ -366,16 +371,23 @@ function usePlanGraphReferenceResolverLoad(
     return () => {
       cancelled = true;
     };
-  }, [context, focusValidationPending, projectionRefreshKey]);
+  }, [context, focusValidationPending, projectionRefreshKey, skipLocalProjectionLoad]);
+
+  const effectiveProjection = sharedProjection?.projection ?? projection;
+  const effectiveProjectionState = sharedProjection?.projectionState ?? projectionState;
+  const effectiveProjectionError = sharedProjection?.projectionError ?? projectionError;
+  const effectiveLastProjectionLoadMs = sharedProjection?.lastProjectionLoadMs ?? lastProjectionLoadMs;
+  const effectiveLastProjectionLoadOutcome =
+    sharedProjection?.lastProjectionLoadOutcome ?? lastProjectionLoadOutcome;
 
   const resolvePlanReference = useCallback(
     async (ref: RunbookReferenceAttrs) =>
       resolvePlanReferenceWithFallback(ref, {
-        projection,
-        projectionState,
+        projection: effectiveProjection,
+        projectionState: effectiveProjectionState,
         lensSummary: graphLens?.summaryLabel ?? null,
       }),
-    [graphLens?.summaryLabel, projection, projectionState],
+    [effectiveProjection, effectiveProjectionState, graphLens?.summaryLabel],
   );
 
   const resolvePlanRelationship = useCallback(
@@ -383,8 +395,8 @@ function usePlanGraphReferenceResolverLoad(
       relationship: GraphObjectRelationshipViewModel,
       originatingScope?: ExactGraphReferenceScope,
     ) => {
-      let relationshipProjection = projection;
-      let relationshipProjectionState = projectionState;
+      let relationshipProjection = effectiveProjection;
+      let relationshipProjectionState = effectiveProjectionState;
 
       if (
         originatingScope
@@ -422,15 +434,15 @@ function usePlanGraphReferenceResolverLoad(
         projectionState: relationshipProjectionState,
       });
     },
-    [projection, projectionState],
+    [effectiveProjection, effectiveProjectionState],
   );
 
   return {
-    projection,
-    projectionState,
-    projectionError,
-    lastProjectionLoadMs,
-    lastProjectionLoadOutcome,
+    projection: effectiveProjection,
+    projectionState: effectiveProjectionState,
+    projectionError: effectiveProjectionError,
+    lastProjectionLoadMs: effectiveLastProjectionLoadMs,
+    lastProjectionLoadOutcome: effectiveLastProjectionLoadOutcome,
     resolvePlanReference,
     resolvePlanRelationship,
   };

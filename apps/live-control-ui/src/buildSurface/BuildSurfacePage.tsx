@@ -220,9 +220,10 @@ export function BuildSurfacePage() {
         kind={BUILD_MARKDOWN_CANVAS.kind}
         saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
       >
-        <BuildReferenceCapability documentId={documentId} />
-        <BuildIngestToolbar documentId={documentId} />
-        <BuildSurfaceShell />
+        <BuildReferenceCapability documentId={documentId}>
+          <BuildIngestToolbar documentId={documentId} />
+          <BuildSurfaceShell />
+        </BuildReferenceCapability>
       </MarkdownCanvasSessionProvider>
     </AppChrome>
   );

@@ -314,4 +314,26 @@ describe("StatblockRenderer", () => {
     expect(screen.getByText("Armor Class")).toBeTruthy();
     expect(screen.getByText("15 (natural armor)")).toBeTruthy();
   });
+
+  it("hides validation and provenance ledger under campaign chrome", () => {
+    render(<StatblockRenderer revision={revision} mode="full" chrome="campaign" />);
+    const renderer = document.querySelector("[data-statblock-renderer]");
+    expect(renderer).toHaveAttribute("data-chrome", "campaign");
+    expect(renderer?.textContent).not.toMatch(/Validation/i);
+    expect(renderer?.textContent).not.toMatch(/Provenance and receipts/i);
+    expect(screen.queryByText(/Revision/)).toBeNull();
+  });
+
+  it("renders Classic MM campaign layout with portrait placeholder", () => {
+    render(<StatblockRenderer revision={revision} mode="full" chrome="campaign" />);
+    expect(screen.getByTestId("statblock-campaign-portrait")).toBeInTheDocument();
+    const img = screen.getByRole("img", { name: /Portrait placeholder/i });
+    expect(img).toHaveAttribute(
+      "src",
+      "https://imagedelivery.net/SahcvrNe_-ej4lTB6vsAZA/1778cee9-f500-4476-7f30-ac7fd991f700/public",
+    );
+    expect(document.querySelector(".statblock-campaign-grid")).toBeTruthy();
+    expect(screen.getByLabelText("Core combat statistics")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ability scores")).toBeInTheDocument();
+  });
 });

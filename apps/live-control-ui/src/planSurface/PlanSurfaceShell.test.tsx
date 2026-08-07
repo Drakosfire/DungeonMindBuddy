@@ -60,6 +60,10 @@ import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
+import {
+  WorldGraphLensProjectionProvider,
+  WorldGraphLensProvider,
+} from "../graphLens";
 import { AgentInteractionProjectionTestHost } from "./projection/projectionTestHost";
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
@@ -137,12 +141,16 @@ function PlanSurfaceTestHarness() {
   return (
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
-        <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-          <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-        </AppChrome>
-        <ToolHost />
-        <LegacyProjectionHostAdapter />
-        <AgentInteractionChrome />
+        <WorldGraphLensProvider planCampaignId="longmont-c2">
+          <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
+            <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+              <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+            </AppChrome>
+            <ToolHost />
+            <LegacyProjectionHostAdapter />
+            <AgentInteractionChrome />
+          </WorldGraphLensProjectionProvider>
+        </WorldGraphLensProvider>
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
   );
@@ -225,7 +233,10 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByRole("complementary", { name: "Plan toolbox" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
     expect(screen.getByText("Plan Board")).toBeInTheDocument();
-    expect(screen.getByTestId("plan-graph-load-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("app-chrome-graph-lens")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("app-chrome-graph-lens")).getByTestId("plan-graph-load-panel"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
     expect(screen.queryByRole("navigation", { name: "Plan surface navigation" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-memory-source")).not.toBeInTheDocument();

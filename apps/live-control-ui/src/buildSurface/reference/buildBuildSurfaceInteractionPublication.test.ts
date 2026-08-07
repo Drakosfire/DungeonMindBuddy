@@ -37,6 +37,8 @@ const sampleContext: BuildReferenceContextBinding = {
   loadedIsHead: true,
   selectCampaign: () => undefined,
   viewExact: () => undefined,
+  insertChip: () => undefined,
+  insertDisabled: false,
 };
 
 describe("buildBuildSurfaceInteractionPublication", () => {

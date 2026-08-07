@@ -135,20 +135,20 @@ describe("ThreatSheetProjection", () => {
     expect(screen.queryByText("Threat · Creature")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Compact mechanics summary")).toHaveTextContent(/AC|HP|CR|Speed/i);
 
-    const inspect = screen.getByText("Inspect proof and tools").closest("details");
-    expect(inspect).toBeInstanceOf(HTMLDetailsElement);
-    expect(inspect).not.toHaveAttribute("open");
-    expect(inspect).toContainElement(screen.getByTestId("threat-sheet-binding-summary"));
+    const advanced = screen.getByText("Advanced Details").closest("details");
+    expect(advanced).toBeInstanceOf(HTMLDetailsElement);
+    expect(advanced).not.toHaveAttribute("open");
+    expect(advanced).toContainElement(screen.getByTestId("threat-sheet-binding-summary"));
     expect(screen.getByTestId("threat-sheet-binding-summary")).toHaveTextContent("1 available");
     expect(screen.getByTestId("threat-sheet-binding-summary")).toHaveTextContent("disposition");
 
-    // Campaign glance must not lead with ledger disposition / digests outside inspect.
+    // Campaign glance must not lead with ledger disposition / digests outside Advanced Details.
     const visibleCue = projection.textContent ?? "";
-    const inspectText = inspect?.textContent ?? "";
-    const outsideInspect = visibleCue.replace(inspectText, "");
-    expect(outsideInspect).not.toMatch(/disposition/i);
-    expect(outsideInspect).not.toMatch(/sha256:/i);
-    expect(outsideInspect).not.toMatch(/Mechanics bindings:/i);
+    const advancedText = advanced?.textContent ?? "";
+    const outsideAdvanced = visibleCue.replace(advancedText, "");
+    expect(outsideAdvanced).not.toMatch(/disposition/i);
+    expect(outsideAdvanced).not.toMatch(/sha256:/i);
+    expect(outsideAdvanced).not.toMatch(/Mechanics bindings:/i);
   });
 
   it("keeps multi-binding glance honest without choosing a first winner", async () => {
@@ -572,9 +572,22 @@ describe("ThreatSheetProjection", () => {
       );
     });
     expect(screen.getByTestId("threat-sheet-projection")).toHaveAttribute("data-glance", "false");
-    expect(screen.getByText("Threat · full statblock")).toBeInTheDocument();
+    expect(screen.queryByText("Threat · full statblock")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("threat-campaign-glance")).not.toBeInTheDocument();
     const renderer = document.querySelector("[data-statblock-renderer]");
+    expect(renderer).toBeTruthy();
+    expect(renderer?.textContent).toMatch(/Ironhide Brute/i);
     expect(renderer?.textContent).not.toMatch(/Revision\s+rev_/i);
+    expect(renderer?.textContent).not.toMatch(/Validation/i);
+    expect(renderer?.textContent).not.toMatch(/Provenance and receipts/i);
+
+    const advanced = screen.getByText("Advanced Details").closest("details");
+    expect(advanced).toBeInstanceOf(HTMLDetailsElement);
+    expect(advanced).not.toHaveAttribute("open");
+    expect(advanced).toContainElement(screen.getByTestId("statblock-advanced-ledger"));
+    expect(advanced).toHaveTextContent(/Validation/i);
+    expect(advanced).toHaveTextContent(/Provenance and receipts/i);
+    expect(advanced).toContainElement(screen.getByTestId("threat-sheet-binding-summary"));
   });
 
   it("fails closed when exact graph scope is missing", () => {

@@ -18,6 +18,8 @@ function isBuildReferenceContextBinding(value: unknown): value is BuildReference
     && typeof candidate.loadedIsHead === "boolean"
     && typeof candidate.selectCampaign === "function"
     && typeof candidate.viewExact === "function"
+    && typeof candidate.insertChip === "function"
+    && typeof candidate.insertDisabled === "boolean"
   );
 }
 
@@ -92,31 +94,9 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         aria-label="World Graph search"
         data-testid="build-reference-search-projection"
       >
-        <p className="build-reference-search-projection__status">{lens.reason}</p>
-        <label className="build-reference-search-projection__label" htmlFor="build-reference-campaign-select">
-          Campaign
-        </label>
-        <select
-          id="build-reference-campaign-select"
-          className="build-reference-search-projection__select"
-          data-testid="build-reference-campaign-select"
-          defaultValue=""
-          onChange={(event) => {
-            const campaignId = event.target.value.trim();
-            if (campaignId) {
-              context.selectCampaign(campaignId);
-            }
-          }}
-        >
-          <option value="" disabled>
-            Select campaign…
-          </option>
-          {lens.availableCampaignIds.map((campaignId) => (
-            <option key={campaignId} value={campaignId}>
-              {campaignId}
-            </option>
-          ))}
-        </select>
+        <p className="build-reference-search-projection__status" role="status">
+          {lens.reason} Select a campaign in the World Graph lens in the site navigation.
+        </p>
       </section>
     );
   }
@@ -177,6 +157,8 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         items={context.items}
         projectionState={context.projectionState}
         projectionError={context.projectionError}
+        insertDisabled={context.insertDisabled}
+        onInsert={context.insertChip}
         onView={context.viewExact}
       />
     </section>

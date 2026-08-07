@@ -70,6 +70,8 @@ function baseContext(
     items: [searchItem(glowkindleNode)],
     selectCampaign: vi.fn(),
     viewExact: vi.fn(),
+    insertChip: vi.fn(),
+    insertDisabled: false,
     ...overrides,
   };
 }
@@ -90,8 +92,7 @@ describe("BuildReferenceSearchProjection", () => {
     );
   });
 
-  it("shows campaign selector for selection_required without preselect", () => {
-    const selectCampaign = vi.fn();
+  it("shows nav-lens status for selection_required without campaign select", () => {
     renderWithContext(
       baseContext({
         lens: {
@@ -103,30 +104,52 @@ describe("BuildReferenceSearchProjection", () => {
           revision: { kind: "head" },
           reason: "World-scoped document (eldyrwild) requires an explicit campaign selection.",
         },
-        selectCampaign,
       }),
     );
 
-    const select = screen.getByTestId("build-reference-campaign-select") as HTMLSelectElement;
-    expect(select.value).toBe("");
-    expect(within(select).getByRole("option", { name: "longmont-c1" })).toBeInTheDocument();
-    expect(within(select).getByRole("option", { name: "longmont-c2" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /World-scoped document \(eldyrwild\) requires an explicit campaign selection/i,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/site navigation/i);
+    expect(screen.queryByTestId("build-reference-campaign-select")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-reference-search")).not.toBeInTheDocument();
   });
 
-  it("ready state shows View without Insert and lens summary", async () => {
+  it("ready state shows View and Insert chip actions", async () => {
     const user = userEvent.setup();
     const viewExact = vi.fn();
+    const insertChip = vi.fn();
 
-    renderWithContext(baseContext({ viewExact }));
+    renderWithContext(baseContext({ viewExact, insertChip, insertDisabled: false }));
 
     expect(screen.getByTestId("build-reference-lens-summary")).toHaveTextContent(
       "longmont-c1 · Current head · loaded rev-head",
     );
     await user.type(screen.getByLabelText("Find objects"), "glow");
-    expect(screen.queryByRole("button", { name: "Insert chip" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Insert chip" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(viewExact).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-glowkindle" }));
+    await user.click(screen.getByRole("button", { name: "Insert chip" }));
+    expect(insertChip).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "ref",
+        refType: "graph-node",
+        refId: "npc-glowkindle",
+        label: "Glowkindle",
+      }),
+    );
+  });
+
+  it("disables Insert chip when insertDisabled while View stays available", async () => {
+    const user = userEvent.setup();
+    const insertChip = vi.fn();
+
+    renderWithContext(baseContext({ insertChip, insertDisabled: true }));
+
+    expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
+    expect(screen.getByText(/Unlock editing to insert chips/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(insertChip).not.toHaveBeenCalled();
   });
 
   it("does not label a non-head snapshot as Current head", () => {

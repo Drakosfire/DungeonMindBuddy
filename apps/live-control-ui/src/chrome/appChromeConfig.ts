@@ -52,3 +52,6 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   build: "Build",
   "tiptap-callout-spike": "Tiptap callout bridge",
 };
+
+/** Default campaign for shared World Graph lens when URL has no campaigns yet. */
+export const WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID = "longmont-c2" as const;

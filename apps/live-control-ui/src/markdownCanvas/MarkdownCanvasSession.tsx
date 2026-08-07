@@ -241,6 +241,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       saveDisabled: authoring.saveDisabled || saveBlockedByCommand,
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
+      editor: authoring.editor,
       setEditor: authoring.setEditor,
       handleEditorUpdate: authoring.handleEditorUpdate,
       markDirty: authoring.markDirty,

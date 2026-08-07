@@ -11,6 +11,7 @@ import {
 } from "../surfaceInteraction/editHost/EditHost";
 import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction/types";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
+import { AppChromeGraphLens } from "./AppChromeGraphLens";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
 let nextCallbackIdentityKey = 1;
@@ -230,8 +231,11 @@ export function AppChrome({
         editCommandTarget: publishEditInventory ? currentTarget : null,
       }),
     );
+    // Intentionally omit `basePublication` object identity: every lease
+    // bind/update allocates a new publication reference; depending on it
+    // re-fires this effect → chrome unregister/register → Maximum update depth
+    // when a surface also updates publication every render (Build).
   }, [
-    basePublication,
     basePublicationSyncKey,
     hasEffectivePublication,
     agentInteraction.publishAppChromeCompatibility,
@@ -262,6 +266,7 @@ export function AppChrome({
           </a>
         ))}
       </nav>
+      <AppChromeGraphLens activeRoute={activeRoute} />
 
       {children}
     </div>

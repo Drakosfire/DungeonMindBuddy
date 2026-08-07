@@ -197,6 +197,7 @@
 
 .threat-sheet-projection__relationships h4,
 .threat-sheet-projection__bindings h4,
+.threat-sheet-projection__inspect h4,
 .threat-sheet-projection__inspect h5 {
   margin: 0 0 0.4rem;
   color: var(--threat-sheet-heading);
@@ -204,6 +205,12 @@
   padding-bottom: 0.15rem;
   font-size: 0.98rem;
   letter-spacing: 0.02em;
+}
+
+.threat-sheet-projection__inspect .statblock-advanced-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .threat-sheet-projection__bindings {
@@ -309,45 +316,23 @@
   cursor: not-allowed;
 }
 
-.threat-sheet-projection--full .threat-sheet-projection__header--full {
-  margin-bottom: 0.15rem;
+/* Full Reference: let campaign StatblockRenderer own parchment; avoid double sheet. */
+.plan-reference-object-card--threat-sheet-full {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.threat-sheet-projection--full {
+  gap: 0.75rem;
+}
+
+.threat-sheet-projection--full .threat-sheet-projection__full-statblock {
+  margin: 0;
 }
 
 .threat-sheet-projection--full .statblock-renderer--campaign {
-  --threat-sheet-ink: #2b1d0f;
-  --threat-sheet-heading: #58180d;
-  --threat-sheet-accent: #a11d18;
-  --threat-sheet-border: #c0ad6a;
-  color: var(--threat-sheet-ink);
-  gap: 0.85rem;
-  padding: 0.35rem 0 0;
-  font-family: "Bookinsanity", "Book Antiqua", Georgia, "Times New Roman", serif;
-}
-
-.threat-sheet-projection--full .statblock-renderer--campaign .statblock-renderer-header h3 {
-  color: var(--threat-sheet-heading);
-  font-size: 1.55rem;
-  border-bottom: 2px solid var(--threat-sheet-accent);
-  padding-bottom: 0.2rem;
-}
-
-.threat-sheet-projection--full .statblock-renderer--campaign .statblock-renderer-identity,
-.threat-sheet-projection--full .statblock-renderer--campaign .statblock-renderer-meta {
-  color: color-mix(in srgb, var(--threat-sheet-ink) 70%, transparent);
-}
-
-.threat-sheet-projection--full .statblock-renderer--campaign .statblock-renderer-section h4 {
-  color: var(--threat-sheet-heading);
-  border-bottom: 2px solid var(--threat-sheet-accent);
-  padding-bottom: 0.12rem;
-}
-
-.threat-sheet-projection--full .statblock-renderer--campaign .statblock-ability-table th,
-.threat-sheet-projection--full .statblock-renderer--campaign .statblock-ability-table td {
-  border-bottom-color: color-mix(in srgb, var(--threat-sheet-border) 80%, transparent);
-}
-
-.threat-sheet-projection--full .statblock-renderer--campaign .statblock-rule-element-name {
-  color: var(--threat-sheet-heading);
+  margin: 0;
 }
 
