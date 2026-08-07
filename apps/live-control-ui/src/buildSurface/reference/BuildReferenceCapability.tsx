@@ -21,11 +21,8 @@ import type {
 import type { GraphProjectionNodeView } from "../../api/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
-import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
 import { deriveApiLens } from "../../graphLens/sessionCampaignContext";
 import { useOptionalWorldGraphLens } from "../../graphLens/WorldGraphLensContext";
-import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
-import type { WorldGraphProjection } from "../../api/types";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { insertMarkdownReference } from "../../graphReference/insertMarkdownReference";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
@@ -43,7 +40,7 @@ import {
 } from "./buildReferenceIds";
 import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
 import { BuildReferenceSearchProjection } from "./BuildReferenceSearchProjection";
-import { resolveBuildGraphLens, type BuildGraphLensResolution } from "./resolveBuildGraphLens";
+import { resolveBuildGraphLens } from "./resolveBuildGraphLens";
 import { useBuildWorldGraphProjection } from "./useBuildWorldGraphProjection";
 
 const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = new Set([
@@ -52,14 +49,6 @@ const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = n
   "load_error",
   "conflict",
 ]);
-
-const EMPTY_SEARCH_ITEMS: readonly GraphReferenceSearchItem[] = [];
-
-/** Stable stub so shared-nav projection does not recreate lens identity every render. */
-const SHARED_NAV_PROJECTION_DISABLED_LENS: BuildGraphLensResolution = {
-  status: "invalid",
-  reason: "Using shared nav World Graph projection.",
-};
 
 /**
  * Vitest-only seam: last successful viewExact identity/scope for App-route E5 proof.
@@ -96,26 +85,6 @@ function readBuildGraphLensParams(search: string): {
     requestedCampaignId: params.get("campaign")?.trim() || null,
     requestedRevisionId: params.get("graphRevision")?.trim() || null,
   };
-}
-
-function adaptSharedProjectionSearchItems(
-  projection: WorldGraphProjection,
-  scopeCampaignId: string,
-): GraphReferenceSearchItem[] {
-  return projection.nodes.map((node) => {
-    const nodeView = adaptWorldGraphNodeView(node);
-    return {
-      nodeId: nodeView.node_id,
-      label: nodeView.label,
-      kind: nodeView.kind,
-      role: nodeView.role,
-      summary: nodeView.summary ?? null,
-      aliases: nodeView.aliases ?? [],
-      scopeLabel: nodeView.campaign_scope ?? scopeCampaignId,
-      reference: referenceFromGraphNode(nodeView),
-      nodeView,
-    };
-  });
 }
 
 function resolveEffectiveBuildGraphLens(
@@ -279,7 +248,6 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     [locationSearch],
   );
   const sharedGraphLens = useOptionalWorldGraphLens();
-  const sharedProjection = useOptionalWorldGraphLensProjection();
   const sharedCampaignSelectionKey =
     sharedGraphLens?.lens.selectedCampaignIds.join(",") ?? "";
 
@@ -326,13 +294,6 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     [lensParams.requestedCampaignId, rawLens, sharedCampaignSelectionKey],
   );
 
-  const useSharedProjection = Boolean(
-    sharedProjection
-    && sharedGraphLens
-    && sharedGraphLens.lens.selectedCampaignIds.length > 0
-    && lens.status === "ready",
-  );
-
   const documentIdentity = useMemo(
     () => ({
       documentId: acceptedDocument?.documentId ?? "",
@@ -341,47 +302,12 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     [acceptedDocument?.campaignId, acceptedDocument?.documentId],
   );
 
-  const localProjection = useBuildWorldGraphProjection({
-    lens: useSharedProjection ? SHARED_NAV_PROJECTION_DISABLED_LENS : lens,
+  // Exact Build request identity only — never consume the nav shared projection, which may
+  // differ in campaign/revision while Find still reports the Build URL lens.
+  const projection = useBuildWorldGraphProjection({
+    lens,
     documentIdentity,
   });
-
-  const projection = useMemo(() => {
-    if (!useSharedProjection || !sharedProjection) {
-      return localProjection;
-    }
-    const derived = deriveApiLens(
-      sharedGraphLens!.lens,
-      lensParams.requestedCampaignId ?? sharedGraphLens!.lens.selectedCampaignIds[0],
-    );
-    const scopeCampaignId = derived?.campaignId ?? sharedGraphLens!.lens.selectedCampaignIds[0];
-    const snapshot = sharedProjection.projection?.snapshot;
-    const revisionMode = lens.status === "ready" && lens.revision.kind === "pinned" ? "pinned" : "head";
-    const requestedRevisionId =
-      lens.status === "ready" && lens.revision.kind === "pinned" ? lens.revision.revisionId : null;
-    return {
-      projection: sharedProjection.projection,
-      state: sharedProjection.projectionState,
-      error: sharedProjection.projectionError,
-      requestedRevisionId,
-      loadedRevisionId: snapshot?.revisionId ?? null,
-      revisionMode,
-      loadedIsHead: snapshot?.isHead === true,
-      generation: localProjection.generation,
-      loadKey: `shared:${scopeCampaignId}:${snapshot?.revisionId ?? "none"}`,
-      items:
-        sharedProjection.projectionState === "ready" && sharedProjection.projection
-          ? adaptSharedProjectionSearchItems(sharedProjection.projection, scopeCampaignId)
-          : EMPTY_SEARCH_ITEMS,
-    };
-  }, [
-    lens,
-    lensParams.requestedCampaignId,
-    localProjection,
-    sharedGraphLens,
-    sharedProjection,
-    useSharedProjection,
-  ]);
 
   /** Live load key — updated every render so retained callbacks fail closed across lens transitions. */
   const liveLoadKeyRef = useRef(projection.loadKey);

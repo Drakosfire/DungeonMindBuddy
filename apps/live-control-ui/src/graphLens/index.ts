@@ -60,6 +60,8 @@ export {
   type PlanWorldGraphContext,
 } from "./worldGraphContextFromLens";
 
+export { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
+
 export {
   WORLD_GRAPH_REVISION_COMMITTED_EVENT,
   WorldGraphLensProjectionProvider,

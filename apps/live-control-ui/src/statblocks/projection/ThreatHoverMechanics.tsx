@@ -9,6 +9,7 @@ import {
   mapHydrationResultLabelToLoadStatus,
   selectExactThreatHit,
   sortThreatSheetBindings,
+  threatSelectionTupleKey,
   type ThreatSheetBindingViewModel,
   type ThreatSheetLoadStatus,
 } from "./threatSheetViewModel";
@@ -20,9 +21,86 @@ export interface ThreatHoverMechanicsState {
   bindingCount: number;
 }
 
+type CachedThreatHoverHydration = {
+  loadStatus: ThreatSheetLoadStatus;
+  bindings: ThreatSheetBindingViewModel[];
+};
+
+/** Exact world/campaign/scope/revision/Threat → last successful (or terminal) hydration. */
+const threatHoverHydrationCache = new Map<string, CachedThreatHoverHydration>();
+/** In-flight POSTs coalesced by the same exact tuple. */
+const threatHoverHydrationInflight = new Map<string, Promise<CachedThreatHoverHydration>>();
+
+/** Vitest seam — clears module cache between cases. */
+export function resetThreatHoverHydrationCacheForTests(): void {
+  threatHoverHydrationCache.clear();
+  threatHoverHydrationInflight.clear();
+}
+
+function loadThreatHoverHydration(
+  scope: ExactGraphReferenceScope,
+  threatNodeId: string,
+): Promise<CachedThreatHoverHydration> {
+  const cacheKey = threatSelectionTupleKey({
+    worldId: scope.worldId,
+    campaignId: scope.campaignId,
+    scopeMode: scope.scopeMode,
+    revisionId: scope.revisionId,
+    threatNodeId,
+  });
+
+  const cached = threatHoverHydrationCache.get(cacheKey);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+
+  const existing = threatHoverHydrationInflight.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
+  const request = buildThreatQueryHydrationRequest(scope, threatNodeId);
+  const pending = postThreatQueryHydration(request)
+    .then((response): CachedThreatHoverHydration => {
+      const selection = selectExactThreatHit(
+        response,
+        {
+          worldId: scope.worldId,
+          campaignId: scope.campaignId,
+          scopeMode: scope.scopeMode,
+          revisionId: scope.revisionId,
+          threatNodeId,
+        },
+        threatNodeId,
+      );
+      const status = mapHydrationResultLabelToLoadStatus(response.resultLabel, selection);
+      if (selection.status !== "ready") {
+        return { loadStatus: status, bindings: [] };
+      }
+      return {
+        loadStatus: status,
+        bindings: sortThreatSheetBindings(selection.hit.bindings.map(mapBindingHydration)),
+      };
+    })
+    .catch((): CachedThreatHoverHydration => ({
+      loadStatus: "unavailable",
+      bindings: [],
+    }))
+    .then((result) => {
+      threatHoverHydrationCache.set(cacheKey, result);
+      threatHoverHydrationInflight.delete(cacheKey);
+      return result;
+    });
+
+  threatHoverHydrationInflight.set(cacheKey, pending);
+  return pending;
+}
+
 /**
  * Hydrates exact Threat mechanics for chip hover when the Plan graph scope is known.
  * No-op without an exact scope; never invents latest-revision fallbacks.
+ * Coalesces and caches by the exact world/campaign/scope/revision/Threat tuple so
+ * leave/re-enter does not re-POST identical DungeonMind requests.
  */
 export function useThreatHoverMechanics(
   enabled: boolean,
@@ -44,39 +122,31 @@ export function useThreatHoverMechanics(
     }
 
     let cancelled = false;
+    const cacheKey = threatSelectionTupleKey({
+      worldId: scope.worldId,
+      campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
+      revisionId: scope.revisionId,
+      threatNodeId,
+    });
+    const cached = threatHoverHydrationCache.get(cacheKey);
+    if (cached) {
+      setLoadStatus(cached.loadStatus);
+      setBindings(cached.bindings);
+      return;
+    }
+
     setLoadStatus("loading");
     setBindings([]);
 
-    const request = buildThreatQueryHydrationRequest(scope, threatNodeId);
-    void postThreatQueryHydration(request)
-      .then((response) => {
-        if (cancelled) return;
-        const selection = selectExactThreatHit(
-          response,
-          {
-            worldId: scope.worldId,
-            campaignId: scope.campaignId,
-            scopeMode: scope.scopeMode,
-            revisionId: scope.revisionId,
-            threatNodeId,
-          },
-          threatNodeId,
-        );
-        const status = mapHydrationResultLabelToLoadStatus(response.resultLabel, selection);
-        setLoadStatus(status);
-        if (selection.status !== "ready") {
-          setBindings([]);
-          return;
-        }
-        setBindings(sortThreatSheetBindings(selection.hit.bindings.map(mapBindingHydration)));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLoadStatus("unavailable");
-        setBindings([]);
-      });
+    void loadThreatHoverHydration(scope, threatNodeId).then((result) => {
+      if (cancelled) return;
+      setLoadStatus(result.loadStatus);
+      setBindings(result.bindings);
+    });
 
     return () => {
+      // Ignore outstanding UI updates only — do not abort the shared inflight POST.
       cancelled = true;
     };
   }, [enabled, scope, scopeKey, threatNodeId]);

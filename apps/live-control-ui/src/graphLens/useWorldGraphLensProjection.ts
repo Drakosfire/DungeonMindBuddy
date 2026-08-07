@@ -11,6 +11,7 @@ import {
 import { LiveApiError, postWorldGraphProjection } from "../api/liveApi";
 import type { WorldGraphProjection } from "../api/types";
 import type { GraphReferenceProjectionState } from "../graphReference/types";
+import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
 import { isFocusValidationBlocking } from "./planGraphFocusOptions";
 import { useOptionalWorldGraphLens } from "./WorldGraphLensContext";
 import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../planSurface/reference/planGraphContextRequest";
@@ -174,10 +175,22 @@ export function WorldGraphLensProjectionProvider({
       };
 
       try {
-        const response = await postWorldGraphProjection(
-          buildWorldGraphLensProjectionRequest(context),
-        );
+        const request = buildWorldGraphLensProjectionRequest(context);
+        const response = await postWorldGraphProjection(request);
         if (cancelled) return;
+        const mismatch = verifyWorldGraphProjectionResponse({
+          request,
+          response,
+          revisionKind: "head",
+          pinnedRevisionId: request.revisionPin ?? null,
+        });
+        if (mismatch) {
+          setProjection(null);
+          setProjectionState("error");
+          setProjectionError(mismatch);
+          finish("error");
+          return;
+        }
         setProjection(response);
         setProjectionState("ready");
         finish("ready");
