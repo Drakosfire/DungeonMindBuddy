@@ -16,7 +16,6 @@ def _isolated_bench_state() -> None:
     bench.reset_all_state(include_recipes=True)
 
 
-@pytest.mark.slow
 def test_scenario_a_fully_cold_observes_miss_and_durable_reads(tmp_path: Path) -> None:
     runs, errors = bench.run_scenario_fully_cold(tmp_path, iterations=1)
     assert not errors
@@ -25,7 +24,6 @@ def test_scenario_a_fully_cold_observes_miss_and_durable_reads(tmp_path: Path) -
     assert run.graph_payload_reads_this_request > 0 or run.resident_status == "miss"
 
 
-@pytest.mark.slow
 def test_scenario_b_resident_hit_cache_miss_builds(tmp_path: Path) -> None:
     runs, errors = bench.run_scenario_resident_revision(tmp_path, iterations=2)
     assert not errors
@@ -36,7 +34,6 @@ def test_scenario_b_resident_hit_cache_miss_builds(tmp_path: Path) -> None:
         assert run.projection_build_ms > 0
 
 
-@pytest.mark.slow
 def test_scenario_c_opt02_prewarm_resident_hit_cache_miss(tmp_path: Path) -> None:
     runs, errors = bench.run_scenario_opt02_post_publish(tmp_path, iterations=2)
     assert not errors
@@ -46,7 +43,6 @@ def test_scenario_c_opt02_prewarm_resident_hit_cache_miss(tmp_path: Path) -> Non
         assert run.graph_payload_reads_this_request == 0
 
 
-@pytest.mark.slow
 def test_scenario_d_opt03_surface_warm_cache_hit_zero_graph_reads(
     tmp_path: Path,
 ) -> None:
@@ -57,7 +53,6 @@ def test_scenario_d_opt03_surface_warm_cache_hit_zero_graph_reads(
         assert run.graph_payload_reads_this_request == 0
 
 
-@pytest.mark.slow
 def test_scenario_semantic_counts_stable_within_scenario(tmp_path: Path) -> None:
     for runner in (
         bench.run_scenario_fully_cold,
@@ -74,7 +69,6 @@ def test_scenario_semantic_counts_stable_within_scenario(tmp_path: Path) -> None
         assert runs[0].selected_revision_id == runs[1].selected_revision_id
 
 
-@pytest.mark.slow
 def test_scenarios_a_and_b_share_head_shape_counts(tmp_path: Path) -> None:
     cold_runs, cold_errors = bench.run_scenario_fully_cold(tmp_path, iterations=1)
     assert not cold_errors
