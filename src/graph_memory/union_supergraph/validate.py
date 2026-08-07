@@ -20,8 +20,11 @@ from graph_memory.union_supergraph.redirects import (
 )
 from graph_memory.union_supergraph.statblock_binding import (
     ExternalResourceV1,
+    MECHANICS_ELIGIBLE_WORLD_OBJECT_KINDS,
     ThreatStatblockBindingV1,
+    WorldObjectStatblockBindingV1,
     compute_binding_id,
+    compute_world_object_statblock_binding_id,
     edge_id_from_binding_id,
     external_statblock_node_id,
     reject_mechanics_keys,
@@ -281,17 +284,26 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                 errors,
                 f"edge {edge_id} evidence_ref_id {ref} does not resolve",
             )
-        raw_binding = edge.get("threat_statblock_binding")
+        raw_legacy_binding = edge.get("threat_statblock_binding")
+        raw_generic_binding = edge.get("statblock_binding")
         predicate = edge.get("predicate")
         direction = edge.get("direction")
-        is_statblock_binding_edge = predicate == "uses_statblock" or raw_binding is not None
+        has_legacy = raw_legacy_binding is not None
+        has_generic = raw_generic_binding is not None
+        is_statblock_binding_edge = (
+            predicate == "uses_statblock" or has_legacy or has_generic
+        )
         if is_statblock_binding_edge:
-            _require(
-                raw_binding is not None,
-                errors,
-                f"edge {edge_id} recognized statblock binding requires typed "
-                "threat_statblock_binding",
-            )
+            if has_legacy and has_generic:
+                errors.append(
+                    f"edge {edge_id} must not carry both threat_statblock_binding "
+                    "and statblock_binding"
+                )
+            elif not has_legacy and not has_generic:
+                errors.append(
+                    f"edge {edge_id} recognized statblock binding requires exactly one "
+                    "of threat_statblock_binding or statblock_binding"
+                )
             if predicate == "uses_statblock":
                 _require(
                     direction == "outbound",
@@ -299,29 +311,116 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                     f"edge {edge_id} uses_statblock requires outbound direction",
                 )
             source_node = nodes.get(edge.get("source_node_id"))
-            _require(
-                isinstance(source_node, dict) and source_node.get("kind") == "threat",
-                errors,
-                f"edge {edge_id} statblock binding source must be a Threat node",
-            )
             _reject_mechanics_fields(
                 errors,
                 edge,
                 context=f"edge {edge_id} statblock binding",
             )
-        if raw_binding is not None:
+            if has_legacy and not has_generic:
+                _require(
+                    isinstance(source_node, dict) and source_node.get("kind") == "threat",
+                    errors,
+                    f"edge {edge_id} legacy threat_statblock_binding source must be a Threat node",
+                )
+            if has_generic and not has_legacy:
+                source_kind = (
+                    source_node.get("kind") if isinstance(source_node, dict) else None
+                )
+                _require(
+                    source_kind in MECHANICS_ELIGIBLE_WORLD_OBJECT_KINDS,
+                    errors,
+                    f"edge {edge_id} generic statblock_binding source must be threat or npc",
+                )
+        if has_legacy and not has_generic:
             try:
-                binding = ThreatStatblockBindingV1.model_validate(raw_binding)
+                binding = ThreatStatblockBindingV1.model_validate(raw_legacy_binding)
             except ValidationError as exc:
                 errors.append(f"edge {edge_id} threat_statblock_binding is invalid: {exc}")
             else:
                 _reject_mechanics_fields(
                     errors,
-                    raw_binding,
+                    raw_legacy_binding,
                     context=f"edge {edge_id} threat_statblock_binding payload",
                 )
                 expected_binding_id = compute_binding_id(
                     threat_node_id=str(edge.get("source_node_id")),
+                    provider=binding.provider,
+                    statblock_id=binding.statblock_id,
+                    revision_id=binding.revision_id,
+                    contract=binding.contract,
+                    contract_version=binding.contract_version,
+                    definition_digest=binding.definition_digest,
+                    role=binding.role,
+                    phase_key=binding.phase_key,
+                    variant_label=binding.variant_label,
+                )
+                _require(
+                    binding.binding_id == expected_binding_id,
+                    errors,
+                    f"edge {edge_id} binding_id does not match immutable semantic identity",
+                )
+                _require(
+                    edge_id == edge_id_from_binding_id(binding.binding_id),
+                    errors,
+                    f"edge {edge_id} does not match deterministic binding_id",
+                )
+                _require(
+                    predicate == "uses_statblock"
+                    and direction == "outbound",
+                    errors,
+                    f"edge {edge_id} binding requires uses_statblock outbound contract",
+                )
+                _require(
+                    edge.get("target_node_id")
+                    == external_statblock_node_id(binding.statblock_id),
+                    errors,
+                    f"edge {edge_id} binding target does not match statblock_id",
+                )
+                target = nodes.get(edge.get("target_node_id"))
+                target_resource = (
+                    target.get("external_resource") if isinstance(target, dict) else None
+                )
+                _require(
+                    isinstance(target_resource, dict)
+                    and target_resource.get("resource_id") == binding.statblock_id,
+                    errors,
+                    f"edge {edge_id} binding target lacks matching external_resource",
+                )
+                if isinstance(target, dict):
+                    _require(
+                        target.get("kind") == "external_resource"
+                        and target.get("role") == "statblock",
+                        errors,
+                        f"edge {edge_id} binding target must be external_resource/statblock",
+                    )
+        if has_generic and not has_legacy:
+            try:
+                binding = WorldObjectStatblockBindingV1.model_validate(raw_generic_binding)
+            except ValidationError as exc:
+                errors.append(f"edge {edge_id} statblock_binding is invalid: {exc}")
+            else:
+                _reject_mechanics_fields(
+                    errors,
+                    raw_generic_binding,
+                    context=f"edge {edge_id} statblock_binding payload",
+                )
+                source_node = nodes.get(edge.get("source_node_id"))
+                source_kind = (
+                    source_node.get("kind") if isinstance(source_node, dict) else None
+                )
+                _require(
+                    binding.world_object_kind in MECHANICS_ELIGIBLE_WORLD_OBJECT_KINDS,
+                    errors,
+                    f"edge {edge_id} world_object_kind must be threat or npc",
+                )
+                _require(
+                    source_kind == binding.world_object_kind,
+                    errors,
+                    f"edge {edge_id} binding.world_object_kind must match source node kind",
+                )
+                expected_binding_id = compute_world_object_statblock_binding_id(
+                    world_object_node_id=str(edge.get("source_node_id")),
+                    world_object_kind=binding.world_object_kind,
                     provider=binding.provider,
                     statblock_id=binding.statblock_id,
                     revision_id=binding.revision_id,

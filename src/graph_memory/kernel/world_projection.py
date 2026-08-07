@@ -76,8 +76,9 @@ from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSuperg
 from graph_memory.union_supergraph.statblock_binding import (
     ExternalResourceV1,
     ThreatStatblockBindingV1,
+    WorldObjectStatblockBindingV1,
     parse_external_resource_assertion,
-    parse_threat_statblock_binding_assertion,
+    parse_uses_statblock_binding_assertion,
 )
 from graph_memory.union_supergraph.projection_identity import (
     UnionProjectionIdentityContext,
@@ -1209,15 +1210,20 @@ def _assert_materialized_threat_binding_agrees(
     edge = store.edges.get(graph_object_id)
     if edge is None:
         return
-    threat_statblock_binding = parse_threat_statblock_binding_assertion(
-        subject_node_id=representative.subject_node_id,
-        target_node_id=representative.target_node_id,
-        predicate=representative.predicate,
-        value=dict(representative.value),
+    threat_statblock_binding, world_object_statblock_binding = (
+        parse_uses_statblock_binding_assertion(
+            subject_node_id=representative.subject_node_id,
+            target_node_id=representative.target_node_id,
+            predicate=representative.predicate,
+            value=dict(representative.value),
+        )
     )
     if (
         threat_statblock_binding is not None
         and edge.threat_statblock_binding != threat_statblock_binding
+    ) or (
+        world_object_statblock_binding is not None
+        and edge.statblock_binding != world_object_statblock_binding
     ):
         raise _integrity_error(
             "Stored statblock binding disagrees with active assertion authority.",
@@ -1752,6 +1758,7 @@ def _build_relationship_views(
         campaign_scope = _edge_state_field(edge.state or {}, "campaign_scope")
         epistemic_kind = _edge_state_field(edge.state or {}, "epistemic_kind")
         threat_statblock_binding: ThreatStatblockBindingV1 | None = None
+        world_object_statblock_binding: WorldObjectStatblockBindingV1 | None = None
         if active_supports:
             (
                 active_contribution_ids,
@@ -1792,15 +1799,20 @@ def _build_relationship_views(
                         label_override = nested_label
                 if label_override is not None:
                     relationship_label = label_override
-                threat_statblock_binding = parse_threat_statblock_binding_assertion(
-                    subject_node_id=representative_assertion.subject_node_id,
-                    target_node_id=representative_assertion.target_node_id,
-                    predicate=representative_assertion.predicate,
-                    value=assertion_value,
+                threat_statblock_binding, world_object_statblock_binding = (
+                    parse_uses_statblock_binding_assertion(
+                        subject_node_id=representative_assertion.subject_node_id,
+                        target_node_id=representative_assertion.target_node_id,
+                        predicate=representative_assertion.predicate,
+                        value=assertion_value,
+                    )
                 )
                 if (
                     threat_statblock_binding is not None
                     and edge.threat_statblock_binding != threat_statblock_binding
+                ) or (
+                    world_object_statblock_binding is not None
+                    and edge.statblock_binding != world_object_statblock_binding
                 ):
                     raise _integrity_error(
                         "Stored statblock binding disagrees with active assertion authority.",
@@ -1811,6 +1823,7 @@ def _build_relationship_views(
             source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)
         if not active_supports:
             threat_statblock_binding = edge.threat_statblock_binding
+            world_object_statblock_binding = edge.statblock_binding
         if not _campaign_scope_is_visible(
             campaign_scope,
             request_campaign_id=request_campaign_id,
@@ -1852,6 +1865,7 @@ def _build_relationship_views(
                 source_artifact_ids=source_artifact_ids,
                 active_contribution_ids=active_contribution_ids,
                 threat_statblock_binding=threat_statblock_binding,
+                statblock_binding=world_object_statblock_binding,
             )
         )
     return relationships

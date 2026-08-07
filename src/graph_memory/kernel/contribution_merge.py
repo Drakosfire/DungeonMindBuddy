@@ -40,8 +40,9 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphStore,
 )
 from graph_memory.union_supergraph.statblock_binding import (
+    MECHANICS_ELIGIBLE_WORLD_OBJECT_KINDS,
     parse_external_resource_assertion,
-    parse_threat_statblock_binding_assertion,
+    parse_uses_statblock_binding_assertion,
 )
 from graph_memory.world_supergraph.contribution_store import (
     load_contribution_index,
@@ -881,19 +882,22 @@ def _apply_edge_assertion(
     predicate = str(effective_predicate or "related_to")
     if not source_id or not target_id:
         raise ValueError(f"edge assertion {assertion.assertion_id} missing endpoints")
-    threat_statblock_binding = parse_threat_statblock_binding_assertion(
-        subject_node_id=source_id,
-        target_node_id=target_id,
-        predicate=str(effective_predicate) if effective_predicate else None,
-        value=value,
+    threat_statblock_binding, world_object_statblock_binding = (
+        parse_uses_statblock_binding_assertion(
+            subject_node_id=source_id,
+            target_node_id=target_id,
+            predicate=str(effective_predicate) if effective_predicate else None,
+            value=value,
+        )
     )
     if source_id not in store.nodes or target_id not in store.nodes:
         raise ValueError(
             f"edge assertion {assertion.assertion_id} endpoints must exist before merge"
         )
+    active_binding = threat_statblock_binding or world_object_statblock_binding
     if threat_statblock_binding is not None:
         if store.nodes[source_id].kind != "threat":
-            raise ValueError("statblock binding source node must be a Threat")
+            raise ValueError("legacy threat_statblock_binding source node must be a Threat")
         target_resource = store.nodes[target_id].external_resource
         if (
             target_resource is None
@@ -902,11 +906,34 @@ def _apply_edge_assertion(
             raise ValueError(
                 "statblock binding target must be the matching external resource node"
             )
+    if world_object_statblock_binding is not None:
+        source_kind = store.nodes[source_id].kind
+        if source_kind not in MECHANICS_ELIGIBLE_WORLD_OBJECT_KINDS:
+            raise ValueError("generic statblock_binding source must be threat or npc")
+        if source_kind != world_object_statblock_binding.world_object_kind:
+            raise ValueError(
+                "generic statblock_binding.world_object_kind must match source node kind"
+            )
+        target_resource = store.nodes[target_id].external_resource
+        if (
+            target_resource is None
+            or target_resource.resource_id != world_object_statblock_binding.statblock_id
+        ):
+            raise ValueError(
+                "statblock binding target must be the matching external resource node"
+            )
 
     edge_id = str(value.get("edge_id") or f"edge:{source_id}:{predicate}:{target_id}")
     existing = store.edges.get(edge_id)
-    if existing is not None and existing.threat_statblock_binding is not None:
-        if threat_statblock_binding is None:
+    existing_typed = (
+        existing is not None
+        and (
+            existing.threat_statblock_binding is not None
+            or existing.statblock_binding is not None
+        )
+    )
+    if existing_typed:
+        if active_binding is None:
             raise ValueError(
                 f"untyped edge assertion cannot reuse typed statblock binding edge {edge_id!r}"
             )
@@ -916,6 +943,7 @@ def _apply_edge_assertion(
             or existing.predicate != predicate
             or existing.edge_id != edge_id
             or existing.threat_statblock_binding != threat_statblock_binding
+            or existing.statblock_binding != world_object_statblock_binding
         ):
             raise ValueError(
                 f"typed statblock binding edge {edge_id!r} disagrees with existing edge"
@@ -969,6 +997,7 @@ def _apply_edge_assertion(
                 "introduced_by_contribution_id": contribution.contribution_id,
             },
             threat_statblock_binding=threat_statblock_binding,
+            statblock_binding=world_object_statblock_binding,
         )
     else:
         if (
@@ -978,6 +1007,28 @@ def _apply_edge_assertion(
         ):
             raise ValueError(
                 f"statblock binding edge {edge_id!r} conflicts with existing binding"
+            )
+        if (
+            world_object_statblock_binding is not None
+            and existing.statblock_binding is not None
+            and existing.statblock_binding != world_object_statblock_binding
+        ):
+            raise ValueError(
+                f"statblock binding edge {edge_id!r} conflicts with existing binding"
+            )
+        # Refuse schema-form switches on the same edge id (legacy <-> generic).
+        if (
+            (
+                threat_statblock_binding is not None
+                and existing.statblock_binding is not None
+            )
+            or (
+                world_object_statblock_binding is not None
+                and existing.threat_statblock_binding is not None
+            )
+        ):
+            raise ValueError(
+                f"statblock binding edge {edge_id!r} cannot switch binding schema form"
             )
         merged_evidence = list(existing.evidence_ref_ids)
         for ref in evidence_ids:
@@ -1005,6 +1056,9 @@ def _apply_edge_assertion(
                 },
                 "threat_statblock_binding": (
                     threat_statblock_binding or existing.threat_statblock_binding
+                ),
+                "statblock_binding": (
+                    world_object_statblock_binding or existing.statblock_binding
                 ),
             }
         )

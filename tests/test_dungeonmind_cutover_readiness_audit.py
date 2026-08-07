@@ -37,6 +37,8 @@ from apps.live_control_server.integrations.dungeonmind_kernel.config import (
 from apps.live_control_server.integrations.dungeonmind_kernel.world_object_conformance_bridge import (
     ThreatConformanceBridgeError,
     bridge_exact_buddy_threat,
+    bridge_exact_buddy_world_object,
+    map_buddy_world_object_id,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
@@ -53,6 +55,7 @@ from graph_memory.union_supergraph.statblock_binding import (
     CONTRACT_VERSION,
     PROVIDER,
     compute_binding_id,
+    compute_world_object_statblock_binding_id,
     edge_id_from_binding_id,
     external_statblock_node_id,
 )
@@ -77,6 +80,8 @@ AUTHORITY_PATH = (
 WORLD_ID = "cutover-audit-world"
 CAMPAIGN_ID = "longmont-c2"
 THREAT_ID = "threat:cutover-cardinality"
+NPC_ID = "npc:cutover-lysandra-standin"
+PC_ID = "pc:cutover-bonogo-standin"
 STATBLOCK_ID = "sb_cutover01"
 STATBLOCK_REV = "rev_cutover01"
 MECHANICS_PAYLOAD = {
@@ -133,6 +138,108 @@ def _contribution(*assertions: Any):
         campaign_scope=CAMPAIGN_ID,
         accepted_assertions=list(assertions),
     )
+
+
+def _generic_binding(
+    *,
+    world_object_node_id: str,
+    world_object_kind: str,
+    role: str,
+    phase_key: str | None = None,
+    variant_label: str | None = None,
+) -> dict[str, str | None]:
+    return {
+        "schema": "dmb_world_object_statblock_binding_v1",
+        "binding_id": compute_world_object_statblock_binding_id(
+            world_object_node_id=world_object_node_id,
+            world_object_kind=world_object_kind,
+            provider=PROVIDER,
+            statblock_id=STATBLOCK_ID,
+            revision_id=STATBLOCK_REV,
+            contract=CONTRACT,
+            contract_version=CONTRACT_VERSION,
+            definition_digest=BUDDY_DIGEST,
+            role=role,
+            phase_key=phase_key,
+            variant_label=variant_label,
+        ),
+        "world_object_kind": world_object_kind,
+        "provider": PROVIDER,
+        "statblock_id": STATBLOCK_ID,
+        "revision_id": STATBLOCK_REV,
+        "contract": CONTRACT,
+        "contract_version": CONTRACT_VERSION,
+        "definition_digest": BUDDY_DIGEST,
+        "role": role,
+        "phase_key": phase_key,
+        "variant_label": variant_label,
+    }
+
+
+def _generic_binding_value(binding: dict[str, str | None]) -> dict[str, object]:
+    return {
+        "edge_id": edge_id_from_binding_id(str(binding["binding_id"])),
+        "direction": "outbound",
+        "statblock_binding": binding,
+    }
+
+
+def _five_role_generic_bindings(
+    *,
+    world_object_node_id: str,
+    world_object_kind: str,
+) -> list[dict[str, str | None]]:
+    return [
+        _generic_binding(
+            world_object_node_id=world_object_node_id,
+            world_object_kind=world_object_kind,
+            role=role,
+            phase_key=phase_key,
+            variant_label=variant_label,
+        )
+        for role, phase_key, variant_label in (
+            ("primary", None, None),
+            ("alternate", None, None),
+            ("phase", "bloodied", None),
+            ("encounter_variant", None, "night raid"),
+            ("template", None, "elite"),
+        )
+    ]
+
+
+def _publish_generic_bindings(
+    root: Path,
+    *,
+    source_node_id: str,
+    bindings: list[dict[str, str | None]],
+) -> str:
+    assertions: list[Any] = [
+        kernel.build_assertion(
+            assertion_kind="node",
+            acceptance_state="accepted",
+            subject_node_id=external_statblock_node_id(STATBLOCK_ID),
+            label=f"External {STATBLOCK_ID}",
+            campaign_scope=CAMPAIGN_ID,
+            value=_resource_value(),
+        )
+    ]
+    for binding in bindings:
+        assertions.append(
+            kernel.build_assertion(
+                assertion_kind="edge",
+                acceptance_state="accepted",
+                subject_node_id=source_node_id,
+                target_node_id=external_statblock_node_id(STATBLOCK_ID),
+                predicate="uses_statblock",
+                campaign_scope=CAMPAIGN_ID,
+                value=_generic_binding_value(binding),
+            )
+        )
+    result = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=_contribution(*assertions)
+    )
+    assert result.published and result.revision_id
+    return result.revision_id
 
 
 def _binding(
@@ -321,13 +428,63 @@ def test_dungeonmind_contract_admits_threat_and_npc_not_pc() -> None:
     assert "dnd5e:player_character" not in WORLD_OBJECT_MECHANICS_ELIGIBLE_KINDS
 
 
-def test_canonical_public_bridge_entrypoint_rejects_npc(seeded_root: Path) -> None:
-    """NPC mechanics gate: FAIL — only public exact bridge rejects kind=npc."""
-    assert bridge_pkg.__all__  # package exports are the public surface
-    assert "bridge_exact_buddy_threat" in bridge_pkg.__all__
+def test_canonical_public_bridge_entrypoint_maps_npc_semantics(
+    seeded_root: Path,
+) -> None:
+    """NPC semantic mapping gate: PASS (synthetic) via bridge_exact_buddy_world_object."""
+    assert "bridge_exact_buddy_world_object" in bridge_pkg.__all__
+    _publish_kind(
+        seeded_root,
+        node_id=NPC_ID,
+        kind="npc",
+        role="ally",
+    )
+    bindings = _five_role_generic_bindings(
+        world_object_node_id=NPC_ID,
+        world_object_kind="npc",
+    )[:1]
+    revision_id = _publish_generic_bindings(
+        seeded_root,
+        source_node_id=NPC_ID,
+        bindings=bindings,
+    )
+    result = bridge_exact_buddy_world_object(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+        node_id=NPC_ID,
+    )
+    assert result.target_object_kind == "dnd5e:npc"
+    assert result.target_object_id == map_buddy_world_object_id(NPC_ID)
+    assert len(result.attachments) == 1
+    assert _hydrate_all(result) == 1
+
+
+def test_canonical_public_bridge_entrypoint_maps_pc_semantics_only(
+    seeded_root: Path,
+) -> None:
+    """PC world-object semantic mapping gate: PASS (synthetic, zero mechanics)."""
     revision_id = _publish_kind(
         seeded_root,
-        node_id="npc:cutover-lysandra-standin",
+        node_id=PC_ID,
+        kind="pc",
+        role="player_character",
+    )
+    result = bridge_exact_buddy_world_object(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+        node_id=PC_ID,
+    )
+    assert result.target_object_kind == "dnd5e:player_character"
+    assert result.attachments == ()
+
+
+def test_threat_compat_entrypoint_still_rejects_npc(seeded_root: Path) -> None:
+    """Threat-only wrapper remains kind=threat scoped."""
+    revision_id = _publish_kind(
+        seeded_root,
+        node_id=NPC_ID,
         kind="npc",
         role="ally",
     )
@@ -336,25 +493,7 @@ def test_canonical_public_bridge_entrypoint_rejects_npc(seeded_root: Path) -> No
             root=seeded_root,
             world_id=WORLD_ID,
             revision_id=revision_id,
-            threat_node_id="npc:cutover-lysandra-standin",
-        )
-    assert exc.value.reason == "source_object_kind_not_bridgeable"
-
-
-def test_canonical_public_bridge_entrypoint_rejects_pc(seeded_root: Path) -> None:
-    """PC semantic mapping gate: FAIL — only public exact bridge rejects kind=pc."""
-    revision_id = _publish_kind(
-        seeded_root,
-        node_id="pc:cutover-bonogo-standin",
-        kind="pc",
-        role="player_character",
-    )
-    with pytest.raises(ThreatConformanceBridgeError) as exc:
-        bridge_exact_buddy_threat(
-            root=seeded_root,
-            world_id=WORLD_ID,
-            revision_id=revision_id,
-            threat_node_id="pc:cutover-bonogo-standin",
+            threat_node_id=NPC_ID,
         )
     assert exc.value.reason == "source_object_kind_not_bridgeable"
 
@@ -448,6 +587,55 @@ def test_no_durable_graph_data_uses_statblock_bindings() -> None:
     )
 
 
+def test_npc_five_role_cardinality_enumerate_hydrate_and_reverse_order(
+    seeded_root: Path,
+) -> None:
+    """NPC five-role synthetic proof via generalized bridge entrypoint."""
+    forward = _five_role_generic_bindings(
+        world_object_node_id=NPC_ID,
+        world_object_kind="npc",
+    )
+    reverse = list(reversed(forward))
+
+    _publish_kind(seeded_root, node_id=NPC_ID, kind="npc", role="ally")
+    revision_forward = _publish_generic_bindings(
+        seeded_root,
+        source_node_id=NPC_ID,
+        bindings=forward,
+    )
+    result_forward = bridge_exact_buddy_world_object(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_forward,
+        node_id=NPC_ID,
+    )
+    assert len(result_forward.attachments) == 5
+    assert _hydrate_all(result_forward) == 5
+    forward_set = _semantic_set(result_forward)
+
+    root_b = seeded_root.parent / "npc-reverse-order"
+    root_b.mkdir()
+    kernel.publish_world_revision(
+        root_b,
+        WORLD_ID,
+        load_union_supergraph_store(DEFAULT_FIXTURE_PATH),
+        operation_ids=["op:cutover-audit-npc-reverse"],
+    )
+    _publish_kind(root_b, node_id=NPC_ID, kind="npc", role="ally")
+    revision_reverse = _publish_generic_bindings(
+        root_b,
+        source_node_id=NPC_ID,
+        bindings=reverse,
+    )
+    result_reverse = bridge_exact_buddy_world_object(
+        root=root_b,
+        world_id=WORLD_ID,
+        revision_id=revision_reverse,
+        node_id=NPC_ID,
+    )
+    assert _semantic_set(result_reverse) == forward_set
+
+
 def test_five_role_cardinality_enumerate_hydrate_and_reverse_order(
     seeded_root: Path,
 ) -> None:
@@ -502,24 +690,55 @@ def test_five_role_cardinality_enumerate_hydrate_and_reverse_order(
 
 def test_bridge_execution_is_read_only_against_source_graph(seeded_root: Path) -> None:
     """§21 executed snapshot: bridge does not mutate the source World Graph tree."""
-    _publish_threat(seeded_root)
-    bindings = _five_role_bindings()[:1]
-    revision_id = _publish_bindings(seeded_root, bindings)
+    _publish_kind(seeded_root, node_id=THREAT_ID, kind="threat", role="threat")
+    threat_bindings = _five_role_bindings()[:1]
+    threat_revision = _publish_bindings(seeded_root, threat_bindings)
+
+    _publish_kind(seeded_root, node_id=NPC_ID, kind="npc", role="ally")
+    npc_revision = _publish_generic_bindings(
+        seeded_root,
+        source_node_id=NPC_ID,
+        bindings=_five_role_generic_bindings(
+            world_object_node_id=NPC_ID,
+            world_object_kind="npc",
+        ),
+    )
+
+    pc_revision = _publish_kind(
+        seeded_root,
+        node_id=PC_ID,
+        kind="pc",
+        role="player_character",
+    )
+
     before = _tree_digest(seeded_root)
-    result = bridge_exact_buddy_threat(
+
+    bridge_exact_buddy_threat(
         root=seeded_root,
         world_id=WORLD_ID,
-        revision_id=revision_id,
+        revision_id=threat_revision,
         threat_node_id=THREAT_ID,
     )
-    assert len(result.attachments) == 1
+    bridge_exact_buddy_world_object(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=npc_revision,
+        node_id=NPC_ID,
+    )
+    bridge_exact_buddy_world_object(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=pc_revision,
+        node_id=PC_ID,
+    )
     with pytest.raises(ThreatConformanceBridgeError):
-        bridge_exact_buddy_threat(
+        bridge_exact_buddy_world_object(
             root=seeded_root,
             world_id=WORLD_ID,
-            revision_id=revision_id,
-            threat_node_id="threat:missing",
+            revision_id=pc_revision,
+            node_id="pc:missing",
         )
+
     after = _tree_digest(seeded_root)
     assert before == after
 
@@ -528,7 +747,6 @@ def test_cutover_disposition_is_not_ready() -> None:
     """Binary gate lock: flip only when §28 mandatory gates all PASS."""
     disposition = "CUTOVER_NOT_READY"
     blockers = {
-        "BRIDGE_MAPPING": "NPC (and PC semantic) bridge absent; Threat-only #518",
         "PRODUCT_PROJECTION": (
             "Canonical Plan/world projection and Threat product authority do not "
             "consume dungeonmind_kernel; dark-cutover / poisoned-fallback not exercisable"
@@ -537,15 +755,22 @@ def test_cutover_disposition_is_not_ready() -> None:
             "No checked-in durable uses_statblock Threat/NPC dogfood object"
         ),
     }
+    closed_gates = {
+        "BRIDGE_MAPPING": (
+            "Generalized world-object bridge maps Threat/NPC mechanics and PC semantics "
+            "synthetically (#520 follow-on)"
+        ),
+    }
     # HIDDEN_FALLBACK is explicitly NOT listed: current Buddy authority fails closed
     # without an alternate hydrator. Poisoned A-vs-B remains BLOCKED BY PRODUCT_PROJECTION.
     assert disposition == "CUTOVER_NOT_READY"
     assert "HIDDEN_FALLBACK" not in blockers
     assert set(blockers) == {
-        "BRIDGE_MAPPING",
         "PRODUCT_PROJECTION",
         "REAL_DATA_INCOMPATIBILITY",
     }
+    assert "BRIDGE_MAPPING" in closed_gates
+    assert "BRIDGE_MAPPING" not in blockers
 
 
 def test_statblock_integration_error_categories_exist_for_fail_closed_authority() -> None:

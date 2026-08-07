@@ -10,6 +10,7 @@ from pydantic.alias_generators import to_camel
 from graph_memory.union_supergraph.statblock_binding import (
     ExternalResourceV1,
     ThreatStatblockBindingV1,
+    WorldObjectStatblockBindingV1,
 )
 
 PROJECTION_REQUEST_SCHEMA = "dmb_world_graph_projection_request_v1"
@@ -253,6 +254,7 @@ class WorldGraphProjectionRelationshipView(_ProjectionModel):
     source_artifact_ids: list[str] = Field(default_factory=list)
     active_contribution_ids: list[str] = Field(default_factory=list)
     threat_statblock_binding: ThreatStatblockBindingV1 | None = None
+    statblock_binding: WorldObjectStatblockBindingV1 | None = None
 
 
 class WorldGraphProjectionEvidenceView(_ProjectionModel):

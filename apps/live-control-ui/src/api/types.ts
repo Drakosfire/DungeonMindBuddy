@@ -3678,6 +3678,21 @@ export interface ThreatStatblockBindingV1 {
   variantLabel: string | null;
 }
 
+export interface WorldObjectStatblockBindingV1 {
+  schema: "dmb_world_object_statblock_binding_v1";
+  bindingId: string;
+  worldObjectKind: "threat" | "npc";
+  provider: "dungeonmind";
+  statblockId: string;
+  revisionId: string;
+  contract: "dungeonmind.dungeonbuddy-statblocks";
+  contractVersion: "1.0.0";
+  definitionDigest: string;
+  role: "primary" | "alternate" | "phase" | "encounter_variant" | "template";
+  phaseKey: string | null;
+  variantLabel: string | null;
+}
+
 export interface WorldGraphProjectionRelationshipView {
   edgeId: string;
   sourceNodeId: string;
@@ -3694,6 +3709,7 @@ export interface WorldGraphProjectionRelationshipView {
   sourceArtifactIds: string[];
   activeContributionIds: string[];
   threatStatblockBinding?: Record<string, unknown> | null;
+  statblockBinding?: Record<string, unknown> | null;
 }
 
 export interface ThreatBindingHydrationV1 {
