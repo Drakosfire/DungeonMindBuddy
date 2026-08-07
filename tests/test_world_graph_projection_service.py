@@ -27,6 +27,7 @@ from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionRequest,
 )
+from graph_memory import world_projection_cache as projection_cache_module
 from graph_memory.world_projection_cache import (
     clear_projection_cache,
     make_projection_cache_key,
@@ -712,4 +713,91 @@ def test_e3_clear_during_build_does_not_repopulate_completed_cache(
     # Service maps the single-flight reset into the stable internal-error envelope.
     assert isinstance(errors[0], WorldGraphProjectionServiceError)
     assert errors[0].code == "projection_internal_error"
+    assert projection_cache_stats()["size"] == 0
+
+
+def _run_builder_paused_after_build(
+    tmp_path: Path,
+) -> tuple[threading.Thread, threading.Event, threading.Event, list[BaseException]]:
+    after_build = threading.Event()
+    release_publish = threading.Event()
+    errors: list[BaseException] = []
+
+    def _after_builder_before_publish() -> None:
+        after_build.set()
+        assert release_publish.wait(timeout=30.0)
+
+    def _call() -> None:
+        try:
+            project_world_graph(_request(), root=tmp_path)
+        except BaseException as exc:
+            errors.append(exc)
+
+    projection_cache_module._after_builder_before_publish_hook = (
+        _after_builder_before_publish
+    )
+    builder = threading.Thread(target=_call)
+    builder.start()
+    assert after_build.wait(timeout=30.0)
+    return builder, after_build, release_publish, errors
+
+
+def test_e3_clear_after_builder_before_publish_leaves_cache_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Production clear invalidates builders paused after builder() returns."""
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    previous_hook = projection_cache_module._after_builder_before_publish_hook
+    release_publish: threading.Event | None = None
+    try:
+        builder, _after_build, release_publish, errors = _run_builder_paused_after_build(
+            tmp_path
+        )
+        clear_projection_cache()
+        release_publish.set()
+        builder.join(timeout=30.0)
+    finally:
+        projection_cache_module._after_builder_before_publish_hook = previous_hook
+        if release_publish is not None:
+            release_publish.set()
+
+    assert len(errors) == 1
+    assert isinstance(errors[0], WorldGraphProjectionServiceError)
+    assert errors[0].code == "projection_internal_error"
+    assert projection_cache_stats()["size"] == 0
+
+
+def test_e3_completed_clear_before_generation_bump_allows_republish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The unsafe ordering: empty completed cache, then let an old builder put.
+
+    Production ``clear_projection_cache`` must not separate these steps. This
+    test performs only the completed-cache clear so the paused builder can
+    still pass its generation check and republish — proving why bump+clear
+    must share the publish lock.
+    """
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    previous_hook = projection_cache_module._after_builder_before_publish_hook
+    release_publish: threading.Event | None = None
+    try:
+        builder, _after_build, release_publish, errors = _run_builder_paused_after_build(
+            tmp_path
+        )
+        # Deliberately omit the generation bump / in-flight invalidation.
+        projection_cache_module._PROJECTION_CACHE.clear()
+        release_publish.set()
+        builder.join(timeout=30.0)
+    finally:
+        projection_cache_module._after_builder_before_publish_hook = previous_hook
+        if release_publish is not None:
+            release_publish.set()
+
+    assert errors == []
+    assert projection_cache_stats()["size"] == 1
+    clear_projection_cache()
     assert projection_cache_stats()["size"] == 0

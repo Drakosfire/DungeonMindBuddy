@@ -126,8 +126,11 @@ _PROJECTION_CACHE = WorldGraphProjectionCache()
 _IN_FLIGHT: dict[CacheKey, _InFlightBuild] = {}
 _IN_FLIGHT_LOCK = threading.Lock()
 # Bumped on clear/reset so a builder that finishes after invalidation cannot
-# republish into the completed cache.
+# republish into the completed cache. Must move under the same lock that
+# gates publish, and before emptying the completed cache.
 _CACHE_GENERATION = 0
+# Test-only: runs after builder() returns and before the publish generation check.
+_after_builder_before_publish_hook: Callable[[], None] | None = None
 
 
 def projection_cache_enabled() -> bool:
@@ -140,27 +143,50 @@ def projection_cache_stats() -> dict[str, int]:
     return _PROJECTION_CACHE.stats()
 
 
+def _fail_in_flight_entries(
+    entries: list[_InFlightBuild],
+    *,
+    reason: str,
+) -> None:
+    for entry in entries:
+        with entry.condition:
+            if entry.done:
+                continue
+            entry.error = ProjectionCacheSingleFlightResetError(reason)
+            entry.done = True
+            entry.condition.notify_all()
+
+
 def _invalidate_in_flight(*, reason: str) -> None:
     global _CACHE_GENERATION
     with _IN_FLIGHT_LOCK:
         _CACHE_GENERATION += 1
         entries = list(_IN_FLIGHT.values())
         _IN_FLIGHT.clear()
-    for entry in entries:
-        with entry.condition:
-            entry.error = ProjectionCacheSingleFlightResetError(reason)
-            entry.done = True
-            entry.condition.notify_all()
+    _fail_in_flight_entries(entries, reason=reason)
 
 
 def reset_projection_cache_single_flight_for_tests() -> None:
     """Clear in-flight builds and fail any waiters (test helper)."""
+    global _after_builder_before_publish_hook
+    _after_builder_before_publish_hook = None
     _invalidate_in_flight(reason="projection cache single-flight reset for tests")
 
 
 def clear_projection_cache() -> None:
-    _PROJECTION_CACHE.clear()
-    _invalidate_in_flight(reason="projection cache cleared")
+    """Drop completed payloads and invalidate in-flight builders atomically.
+
+    Generation bump, in-flight map clear, and completed-cache clear share one
+    lock with the builder publish path so an old builder cannot observe a
+    cleared cache while still holding a pre-clear generation.
+    """
+    global _CACHE_GENERATION
+    with _IN_FLIGHT_LOCK:
+        _CACHE_GENERATION += 1
+        entries = list(_IN_FLIGHT.values())
+        _IN_FLIGHT.clear()
+        _PROJECTION_CACHE.clear()
+    _fail_in_flight_entries(entries, reason="projection cache cleared")
 
 
 def make_projection_cache_key(
@@ -237,6 +263,9 @@ def get_or_build_cached_projection(
     if is_builder:
         try:
             projection = builder()
+            hook = _after_builder_before_publish_hook
+            if hook is not None:
+                hook()
             with _IN_FLIGHT_LOCK:
                 publish = (
                     wait_entry.generation == _CACHE_GENERATION
