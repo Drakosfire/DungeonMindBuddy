@@ -863,3 +863,163 @@ current Plan/Build mechanics presentation, map the exact same pinned identity
 against DungeonMind PR #17/#20/#21 requirements, and report the smallest
 remaining cutover seam without changing either system.
 ```
+
+---
+
+## §13 Implementation handback — reconnaissance execution
+
+**Execution status:** COMPLETE — `NOT_READY_FOR_BRIDGE`
+
+### Re-anchor
+
+- Reconnaissance PR: [Drakosfire/DungeonMindBuddy#515](https://github.com/Drakosfire/DungeonMindBuddy/pull/515)
+- PR base SHA: `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`
+- PR handoff head at dispatch: `3f5a328d8326c8695e7a17be72a5a8bc22a24bae`
+- DungeonMind inspected `main`: `7c311ae0d0d59d7379dee38780be509970fb3a8c`
+- DungeonMindBuddy inspected `main`: `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`
+- Execution branch: `docs/statblock-dungeonmind-cutover-reconnaissance`
+
+### Adjacent PR state
+
+- #510 — [BUILD: insert exact World Graph reference into Canvas](https://github.com/Drakosfire/DungeonMindBuddy/pull/510): OPEN, CLEAN, MERGEABLE; base `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`; head `9ea88533686eb257beec14591451aabe6462b294`.
+- #512 — [STATBLOCK: Threat parchment sheets + shared World Graph lens](https://github.com/Drakosfire/DungeonMindBuddy/pull/512): OPEN, CLEAN, MERGEABLE; base `d50d0c3a45761376185d36fb39ae3a098a5b8cfc`; head `5ec7da4341bdd2697c9c0cad4a46a693aa3f01cd`.
+- #508 — [STATBLOCK: publish accepted Threat from Workbench](https://github.com/Drakosfire/DungeonMindBuddy/pull/508): merged `9d4f5a3005f87d07147c03d8eee499af3bd57aa3`; source of the selected Latchling proof.
+- #511 — [OPTIMIZATION: prewarm committed World Graph revision](https://github.com/Drakosfire/DungeonMindBuddy/pull/511): merged `fd05c7f20ccae22f2f43ec24642bf70290b0d9c7`.
+- #513 — [OPTIMIZATION: warm bounded surface projection recipes](https://github.com/Drakosfire/DungeonMindBuddy/pull/513): merged at Buddy `main` `9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`.
+
+The older #510/#512 snapshot heads in this handoff were stale, but the
+current open heads preserve the same exact-reference/shared-projection
+topology. No branch-only symbol is claimed as current merged behavior.
+
+### Delivered report and paths
+
+Canonical report:
+
+```text
+Docs/Reports/REPORT-statblock-dungeonmind-cutover-reconnaissance.md
+```
+
+Changed paths for this execution:
+
+```text
+Docs/Plans/HANDOFF-statblock-dungeonmind-authority-cutover-reconnaissance.md
+Docs/Reports/REPORT-statblock-dungeonmind-cutover-reconnaissance.md
+```
+
+Focused cumulative diff against PR #515 base
+`9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd`:
+
+```text
+2 files changed, 800 insertions(+)
+```
+
+No production source, tests, fixture, tracker, roadmap, runtime, deployment,
+secret, graph, mechanics record, or UI path changed.
+
+### Selected exact proof target
+
+The report uses the real published **Mireward Latchling** because it is the
+target named by the open Build #510 dogfood flow and the open Statblock #512
+presentation work. The exact values are:
+
+```text
+world/campaign: eldyrwild / longmont-c2
+graph revision: rev:3413bf6f5044cf2680233f5e37c90dcf
+Threat node: threat:authored:d16d43d376833e38caf46dd19b1dd17f
+binding: threat-statblock-binding:07ab38b331085b426bb69474
+statblock: sb_7727dfeeb8074214a6a9cebf257691ff
+statblock revision: rev_60b7bf03dd8d4a75a0a164ad73ce83b1
+definition digest: sha256:4c843b9e8672c20d94e2594a70a62b0496f009481ac69af64dee071171e2d722
+publication commit: 523e293c-02c8-41db-97bc-58db9e00891b
+commit state: committed_unverified
+verification: failed
+```
+
+The exact target comes from the author/operator MAGIC-D3 dogfood report at
+`Docs/Reports/MAGIC-MOMENT-D3-2026-08-05.md`, committed before this PR's
+reconnaissance. The report does not claim that the `committed_unverified`
+revision is eligible for DungeonMind binding.
+
+### Verification performed
+
+Provenance labels:
+
+- current merged main code/docs: repository inspection at the SHAs above;
+- open PR state: GitHub PR metadata and cumulative file lists;
+- author/operator manual observation: MAGIC-D3 report;
+- author-local focused tests: commands below;
+- no CI or live shadow dogfood was claimed.
+
+Buddy focused tests, run at the PR #515 worktree:
+
+```text
+uv run pytest -q tests/test_statblock_binding_graph_contract.py tests/test_threat_query_hydration.py tests/test_dungeonmind_statblocks_client.py
+........................................................................ [ 62%]
+...........................................                              [100%]
+115 passed in 4.25s
+```
+
+DungeonMind focused tests, run at inspected `main`:
+
+```text
+uv run pytest -q tests/unit/test_dnd_threat_mechanics.py tests/unit/test_dnd_threat_mechanics_transport_service.py tests/unit/test_dnd_threat_mechanics_api.py tests/unit/test_import_boundaries.py
+....................................................                     [100%]
+52 passed, 1 skipped
+```
+
+The skipped module is `tests/unit/test_dnd_threat_mechanics_api.py`, skipped
+because `fastapi` is not installed in the no-extra environment. The
+non-optional B.3a, transport, and import-boundary tests passed. The focused
+tests do not prove the missing Buddy-to-DungeonMind identity mapping or the
+missing Latchling canonical payload.
+
+Repository checks:
+
+```text
+Buddy:
+  git rev-parse HEAD
+  3f5a328d8326c8695e7a17be72a5a8bc22a24bae
+  git status --short
+  <empty>
+  git diff --check
+  <no output>
+
+DungeonMind:
+  git rev-parse HEAD
+  7c311ae0d0d59d7379dee38780be509970fb3a8c
+  git status --short
+  <empty>
+```
+
+### Material conflicts and disposition
+
+1. The handoff's #512 head was stale. GitHub reports current open head
+   `5ec7da4341bdd2697c9c0cad4a46a693aa3f01cd`; the current head was
+   inspected and remains branch-only.
+2. The handoff's #510 head was stale. GitHub reports current open head
+   `9ea88533686eb257beec14591451aabe6462b294`; the current head was
+   inspected and remains branch-only.
+3. The real Latchling publication is durable but `committed_unverified` with
+   failed verification codes. No implementation inferred eligibility from
+   that state.
+4. The checked-in exact provider fixture is Ironhide Brute, not Latchling.
+   Its digest proves provider vocabulary and canonical-definition shape, not
+   the selected target's byte equivalence.
+
+No scope stop condition was encountered. These are the explicit not-ready
+blocking facts, not waived failures.
+
+**Operator waivers:** none.
+
+**Final disposition:** `NOT_READY_FOR_BRIDGE`
+
+**Smallest successor decision/proof:** define
+`STATBLOCK: define Buddy Threat → DungeonMind D&D identity/profile bridge
+contract` as a fixture-backed, conformance-only slice. It must own the
+`threat:*` → `obj:*` mapping, `uses_statblock` → `dnd5e:threatens` semantics,
+provider/schema/media/digest representation, exact Latchling response bytes,
+and `committed_unverified` eligibility decision before a shadow consumer is
+implemented.
+
+This handback claims no identity bridge, shadow consumer, authority
+promotion, cutover, or demolition capability as delivered.
