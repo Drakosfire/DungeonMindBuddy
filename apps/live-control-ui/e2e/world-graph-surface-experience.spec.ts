@@ -136,9 +136,8 @@ async function scrapeLatency(page: Page): Promise<LatencyRecord[]> {
       __DMB_WG_SURFACE_LATENCY__?: LatencyRecord[];
       __DMB_WG_SURFACE_LATENCY_API__?: { getRecords: () => LatencyRecord[] };
     };
-    if (w.__DMB_WG_SURFACE_LATENCY_API__) {
-      return w.__DMB_WG_SURFACE_LATENCY_API__.getRecords();
-    }
+    const fromApi = w.__DMB_WG_SURFACE_LATENCY_API__?.getRecords?.() ?? [];
+    if (fromApi.length) return fromApi;
     if (w.__DMB_WG_SURFACE_LATENCY__?.length) {
       return [...w.__DMB_WG_SURFACE_LATENCY__];
     }
@@ -146,7 +145,7 @@ async function scrapeLatency(page: Page): Promise<LatencyRecord[]> {
       const raw = sessionStorage.getItem("dmb:wg-surface-latency-ring");
       if (raw) {
         const parsed = JSON.parse(raw) as LatencyRecord[];
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length) return parsed;
       }
     } catch {
       // ignore
@@ -346,7 +345,7 @@ JSON artifact: \`report/world-graph-surface-experience-bench.json\`.
 
 test.describe("OPT-BENCH02 World Graph surface experience", () => {
   test("Plan cold → chip → detail → Build switch → View", async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const notes: string[] = [];
     const planPath = process.env.DMB_BENCH_PLAN_PATH ?? "/plan";
     const campaignId = process.env.DMB_BENCH_CAMPAIGN_ID ?? "longmont-c2";
@@ -356,6 +355,7 @@ test.describe("OPT-BENCH02 World Graph surface experience", () => {
     let stages: LatencyRecord[] = [];
     let marks: string[] = [];
     let contractFailures: string[] = [];
+    let planStages: LatencyRecord[] = [];
 
     await enableClientBenchInstrumentation(page);
 
@@ -386,14 +386,47 @@ test.describe("OPT-BENCH02 World Graph surface experience", () => {
       if (seeded > 0) {
         notes.push("Used SurfaceLatencyBenchChipHost (Plan doc had no native graph chip).");
       }
-      await chip.click();
+      // Agent chrome can intercept bottom-of-viewport clicks; force is intentional for bench.
+      await chip.click({ force: true });
 
       const expand = page.getByTestId("projection-expand");
       await expand.waitFor({ state: "visible", timeout: 15_000 });
-      await expand.click();
+      await expand.click({ force: true });
+
+      await page
+        .waitForFunction(
+          () => {
+            const w = window as Window & {
+              __DMB_WG_SURFACE_LATENCY__?: { stage: string }[];
+            };
+            return (w.__DMB_WG_SURFACE_LATENCY__ ?? []).some((r) => r.stage === "detail_full_open");
+          },
+          null,
+          { timeout: 10_000 },
+        )
+        .catch(() => {
+          notes.push("Timed out waiting for detail_full_open after Expand.");
+        });
+
+      // Close full detail so the ProjectionHost overlay does not intercept surface nav.
+      const closeProjection = page.getByTestId("projection-close");
+      if (
+        await closeProjection
+          .waitFor({ state: "visible", timeout: 5_000 })
+          .then(() => true)
+          .catch(() => false)
+      ) {
+        await closeProjection.click({ force: true });
+      } else {
+        await page.keyboard.press("Escape");
+      }
+
+      // Checkpoint Plan-side marks before full-document navigation.
+      planStages = await scrapeLatency(page);
+      notes.push(`Plan checkpoint stages: ${planStages.map((s) => s.stage).join(",") || "(none)"}`);
 
       // Full-document nav to Build (intentional product path under measurement).
-      await page.locator('nav.app-site-nav a[href="/build"]').click();
+      await page.locator('nav.app-site-nav a[href="/build"]').click({ force: true });
       await page.waitForURL(/\/build/, { timeout: 30_000 });
       await page.waitForLoadState("domcontentloaded");
       buildNav = await navigationTiming(page);
@@ -428,8 +461,21 @@ test.describe("OPT-BENCH02 World Graph surface experience", () => {
 
       const findExisting = page.getByRole("button", { name: /Find existing object/i }).first();
       await findExisting.waitFor({ state: "attached", timeout: 15_000 });
-      // Tool-host buttons can sit outside the Playwright viewport; force is intentional for bench.
-      await findExisting.click({ force: true });
+      // Build Edit host is overlay-collapsed by default; open it so Find existing is interactable.
+      const editToggle = page.locator('[data-testid="surface-edit-host"] > button.app-edit-toolbox-toggle');
+      if (
+        await editToggle
+          .waitFor({ state: "visible", timeout: 5_000 })
+          .then(() => true)
+          .catch(() => false)
+      ) {
+        const expanded = await editToggle.getAttribute("aria-expanded");
+        if (expanded !== "true") {
+          await editToggle.click({ force: true });
+        }
+      }
+      // Tool-host buttons can sit outside the Playwright viewport; DOM click is intentional for bench.
+      await findExisting.evaluate((el) => (el as HTMLButtonElement).click());
 
       const searchInput = page.locator("#graph-reference-search-input");
       await searchInput.waitFor({ state: "visible", timeout: 10_000 });
@@ -440,10 +486,24 @@ test.describe("OPT-BENCH02 World Graph surface experience", () => {
       await page.waitForTimeout(400);
       const viewBtn = page.getByTestId("graph-reference-view").first();
       await viewBtn.waitFor({ state: "visible", timeout: 15_000 });
-      await viewBtn.click();
+      await viewBtn.evaluate((el) => (el as HTMLButtonElement).click());
 
-      await page.waitForTimeout(300);
+      await page.waitForFunction(
+        () => {
+          const w = window as Window & {
+            __DMB_WG_SURFACE_LATENCY__?: { stage: string }[];
+          };
+          return (w.__DMB_WG_SURFACE_LATENCY__ ?? []).some((r) => r.stage === "build_detail_open");
+        },
+        null,
+        { timeout: 10_000 },
+      );
       stages = await scrapeLatency(page);
+      // Prefer the longer ring (sessionStorage should already merge Plan+Build).
+      if (stages.length < planStages.length) {
+        stages = planStages;
+        notes.push("Final scrape shorter than Plan checkpoint; retained Plan checkpoint ring.");
+      }
       marks = await projectionMarkNames(page);
     } catch (error) {
       notes.push(

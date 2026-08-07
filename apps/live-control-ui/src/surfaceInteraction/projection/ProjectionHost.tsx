@@ -118,6 +118,7 @@ export function ProjectionHost({
             <button
               type="button"
               ref={closeButtonRef}
+              data-testid="projection-close"
               onClick={onClose}
               aria-label={labels.closeLabel}
             >

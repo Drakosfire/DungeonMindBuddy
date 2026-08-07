@@ -38,14 +38,16 @@ function SurfaceLatencyBenchChipHostInner(): ReactNode {
     <div
       className="surface-latency-bench-chip-host"
       data-testid="surface-latency-bench-chip-host"
-      // Visually unobtrusive; Playwright targets data-testid="graph-node-chip".
+      // Keep above the Ask-DungeonBuddy chrome (bottom dock intercepts bottom-right clicks).
       style={{
         position: "fixed",
-        right: 12,
-        bottom: 12,
-        zIndex: 40,
-        padding: 4,
-        opacity: 0.92,
+        top: 72,
+        right: 16,
+        zIndex: 80,
+        padding: 6,
+        background: "rgba(20, 24, 32, 0.92)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        borderRadius: 6,
       }}
       title="OPT-BENCH02 seeded chip (instrumentation only)"
     >
