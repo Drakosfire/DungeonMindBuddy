@@ -134,17 +134,7 @@ describe("BuildReferenceSearchProjection", () => {
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(viewExact).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-glowkindle" }));
     await user.click(screen.getByRole("button", { name: "Insert chip" }));
-    expect(insertChip).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nodeId: "npc-glowkindle",
-        reference: expect.objectContaining({
-          kind: "ref",
-          refType: "graph-node",
-          refId: "npc-glowkindle",
-          label: "Glowkindle",
-        }),
-      }),
-    );
+    expect(insertChip).toHaveBeenCalledWith("npc-glowkindle");
   });
 
   it("disables Insert chip when insertDisabled while View stays available", async () => {
@@ -222,7 +212,7 @@ describe("BuildReferenceSearchProjection", () => {
         name: "Insert chip",
       }),
     );
-    expect(insertChipC1).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-c1" }));
+    expect(insertChipC1).toHaveBeenCalledWith("npc-c1");
     unmount();
 
     const insertChipC2 = vi.fn();

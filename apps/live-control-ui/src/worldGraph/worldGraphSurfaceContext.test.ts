@@ -209,5 +209,25 @@ describe("worldGraphSurfaceContext", () => {
         objectCampaignScope: null,
       }),
     ).toEqual({ ok: true });
+
+    // Blank tenancy is malformed — fail closed (do not treat as universal).
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c1",
+        objectCampaignScope: "",
+      }),
+    ).toEqual({
+      ok: false,
+      reason: "Object campaign scope is blank; world-universal requires null.",
+    });
+    expect(
+      admitBuildObjectInsert({
+        documentCampaignId: "longmont-c1",
+        objectCampaignScope: "   ",
+      }),
+    ).toEqual({
+      ok: false,
+      reason: "Object campaign scope is blank; world-universal requires null.",
+    });
   });
 });

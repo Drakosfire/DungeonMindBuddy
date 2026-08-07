@@ -358,7 +358,7 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
   );
 
   const insertChip = useCallback(
-    (item: GraphReferenceSearchItem) => {
+    (nodeId: string) => {
       if (!session) return;
       if (!isEditorInteractive(session.phase)) return;
       if (lens.status !== "ready") return;
@@ -367,7 +367,9 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
       if (!authorizedKey || authorizedKey !== liveKey) return;
       if (projection.state !== "ready") return;
       if (projection.loadKey !== liveKey) return;
-      const canonical = projection.items.find((entry) => entry.nodeId === item.nodeId);
+      const trimmedNodeId = nodeId.trim();
+      if (!trimmedNodeId) return;
+      const canonical = projection.items.find((entry) => entry.nodeId === trimmedNodeId);
       if (!canonical) return;
       const admission = admitBuildObjectInsert({
         documentCampaignId: acceptedDocument?.campaignId,

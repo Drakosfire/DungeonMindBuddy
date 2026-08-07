@@ -236,7 +236,22 @@ export function admitBuildObjectInsert(input: {
     };
   }
 
-  const objectCampaignScope = input.objectCampaignScope?.trim() || null;
+  const rawObjectScope = input.objectCampaignScope;
+  let objectCampaignScope: string | null;
+  if (rawObjectScope == null) {
+    objectCampaignScope = null;
+  } else {
+    const trimmed = rawObjectScope.trim();
+    if (!trimmed) {
+      // Backend projection integrity rejects blank campaign scopes; do not treat
+      // malformed blank tenancy as world-universal.
+      return {
+        ok: false,
+        reason: "Object campaign scope is blank; world-universal requires null.",
+      };
+    }
+    objectCampaignScope = trimmed;
+  }
 
   if (documentScope.kind === "world") {
     if (objectCampaignScope) {

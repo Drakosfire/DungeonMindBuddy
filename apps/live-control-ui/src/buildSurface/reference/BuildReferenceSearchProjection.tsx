@@ -174,7 +174,7 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         insertDeniedReason={(item) =>
           insertDeniedReasonForDocument(context.documentCampaignId, item)
         }
-        onInsert={context.insertChip}
+        onInsert={(item) => context.insertChip(item.nodeId)}
         onView={context.viewExact}
       />
     </section>
