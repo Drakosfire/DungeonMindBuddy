@@ -11,32 +11,44 @@
 Disposition: NOT_READY_FOR_BRIDGE
 ```
 
-The current Buddy implementation path can be traced exactly from a Threat
-projection through `uses_statblock`, accepted statblock locators, exact-revision
-query, and Threat presentation. The only real Latchling publication evidence
-is an author/operator dogfood report, not a reproducible committed-main graph
-fixture. The strongest committed-main target is Tripod Null-Calf, whose graph
-identity and provenance stop before mechanics binding. The current DungeonMind
-path can consume an exact D&D-profile graph revision, derive a content-addressed
-`DndThreatMechanicsBinding`, and hydrate one exact `DndMechanicsResourceRef`.
+**Primary blocker (reframed 2026-08-07 after Play cutover pressure):**
+DungeonMind's accepted D&D profile currently conflates the narrow Threat
+proving domain with the reusable world-object/mechanics boundary that
+DungeonBuddy Play now requires.
 
-The cutover seam is not yet lossless or governed. Buddy's committed-main
-Tripod identity is `threat:tripod-null-calf` and its committed neighborhood has
-only an `appeared_in` edge; it has no `uses_statblock` edge, accepted statblock
-locator, or binding. The supplemental Latchling dogfood report records a
-runtime publication, but no committed fixture proves its graph binding or
-provider response. DungeonMind requires an `obj:*` identity whose exact graph
-revision satisfies the `dungeonmind.dnd5e` profile and has one or more
-`dnd5e:threatens` relationships. No current contract proves shared graph
-identity, revision, relationship set, binding identity, or target digest
-equivalence.
+Play authority landed on Buddy `main` (`ROADMAP-play-world-object-combat-projection.md`,
+`PR-TRACKER-play-world-object-combat-projection.md`) freezes Threat, NPC, and
+PlayerCharacter as distinct first-class world objects and places DungeonMind
+kernel cutover re-anchor (`KERNEL-0` / Phase K) before durable
+`CombatSourceLocator`, NPC/PC projection, or Combat identity contracts.
 
-The smallest next action is a conformance-only target fixture and bridge
-decision: make one accepted Buddy statblock response and its graph binding
-reproducible, decide the governed Buddy-graph-to-DungeonMind-profile mapping,
-explicitly decide whether `committed_unverified` graph revisions are eligible,
-and prove one deterministic mapping without adding a live consumer. A product
-shadow call must wait for that proof. Direct authority cutover is not safe.
+The reconnaissance still correctly traced Buddy Threat hydration through
+`uses_statblock` / `ThreatStatblockBindingV1` and DungeonMind hydration through
+`dnd5e:creature` + required `dnd5e:threatens` + `DndThreatMechanicsBinding`.
+Those paths expose two contract collisions that a fixture cannot repair:
+
+1. **Threat identity vs `threatens`.** ADR-0005 defines Threat only as
+   contextual `dnd5e:threatens` and rejects a Threat object kind. Buddy and
+   Play require persistent Threat world-object identity independent from
+   contextual hostility relationships. The bridge must not map
+   `threat:* → merely dnd5e:creature` or `uses_statblock → dnd5e:threatens`.
+2. **Mechanics availability vs Threat context.** `DndThreatMechanicsBinding`
+   requires one or more `dnd5e:threatens` relationships before mechanics can
+   bind. Allied NPCs (e.g. Lysandra), other NPCs, and Player Characters need
+   exact mechanics without manufacturing fictional hostility.
+
+**Fixture conclusion (corrected):** do not add an intermediate PR merely to
+manufacture a better Mireward Latchling fixture. Existing synthetic Buddy
+graph-binding/provider fixtures and DungeonMind Tripod conformance fixtures
+are sufficient for a later conformance-level mechanics proof after the
+semantic contract is re-anchored. Latchling, Lysandra, and a PC become later
+real-domain acceptance/dogfood cases once the contract is correct.
+
+**Smallest next action:** a DungeonMind-owned additive/versioned semantic and
+mechanics-attachment re-anchor that freezes Threat/NPC/PlayerCharacter world
+identity, keeps `dnd5e:threatens` contextual, and attaches external mechanics
+without requiring hostility. Only then may a Buddy→DungeonMind conformance
+bridge begin. A product shadow call and authority promotion remain later.
 
 ## 1. Re-anchor ledger
 
@@ -563,18 +575,24 @@ authority can move safely.
 ```text
 Disposition: NOT_READY_FOR_BRIDGE
 
-Blocking fact(s):
-1. Committed Buddy main has a Tripod graph node and provenance but no
-   `uses_statblock` edge, accepted statblock locator, binding ID, or target
-   digest; its current query disposition is `no_binding`.
-2. The Latchling graph/binding values exist only in supplemental operator
-   dogfood evidence, not a reproducible committed-main graph/response fixture.
-3. The Latchling graph revision is recorded as `committed_unverified` with
-   failed verification codes; no rule says it is eligible for DMS binding.
-4. No target-specific provider response bytes are checked in, so digest
-   equivalence under DungeonMind canonical hashing is unproven.
-5. Provider namespace, resource schema, media type, and digest-prefix
-   adaptation are compatible-looking but not governed by a bridge contract.
+Primary blocking fact(s):
+1. DungeonMind ADR-0005 / threat-v1 / DndThreatMechanicsBinding encode the
+   narrow Threat proving domain as if it were the durable
+   world-object/mechanics substrate. Play now requires distinct first-class
+   Threat, NPC, and PlayerCharacter world identities plus mechanics
+   attachment that does not require contextual hostility.
+2. Persistent Threat identity and contextual dnd5e:threatens are currently
+   conflated; Buddy uses_statblock cannot be renamed into threatens.
+3. Mechanics binding currently fails closed with object_not_threatening when
+   no dnd5e:threatens edge exists, which falsifies allied-NPC and PC mechanics.
+
+Secondary facts retained as later bridge/parity concerns (not the reason to
+stop before a semantic re-anchor):
+- Committed Tripod has no uses_statblock / accepted binding (no_binding).
+- Latchling values are operator dogfood, committed_unverified, not a
+  committed-main fixture.
+- Target-specific provider digest equivalence and provider/schema/media
+  mapping remain ungoverned until the post-re-anchor conformance bridge.
 
 Conflicting contracts/paths:
 - Buddy: threat:* + uses_statblock + ThreatStatblockBindingV1
@@ -583,22 +601,30 @@ Conflicting contracts/paths:
   DndThreatMechanicsBinding
   (`src/dungeonmind_dnd/contracts/mechanics_resources.py`,
    `src/dungeonmind_dnd/application/threat_mechanics.py`)
+- Play product freeze: Threat / NPC / PlayerCharacter distinct first-class
+  kinds; KERNEL-0 before CombatSourceLocator / durable Play contracts
+  (`Docs/Roadmaps/ROADMAP-play-world-object-combat-projection.md`)
 - Buddy current hydration:
   `apps/live_control_server/services/threat_query_hydration.py`
 - DungeonMind exact transport:
   `src/dungeonmind_dnd/application/threat_mechanics_transport.py`
 
 Smallest decision or proof required before implementation:
-First produce one complete, exact predecessor fixture: an accepted Buddy
-statblock response, its graph `uses_statblock` binding, and the exact graph
-scope/object/revision that owns it. Latchling may be used only after its
-operator evidence is made reproducible; Tripod cannot serve as the mechanics
-target until its missing accepted binding exists. The jointly owned fixture
-must then specify the Buddy-graph-to-DungeonMind-profile mapping, provider/
-schema/media/digest representation, and `committed_unverified` eligibility.
-The proof must recompute the target digest without repairing or substituting
-any observed field. Until that fixture passes, do not add a live shadow call
-or change the current product authority.
+DungeonMind must reopen/extend the accepted D&D semantic contract in an
+additive/versioned slice:
+
+  DND: re-anchor world-object kinds and mechanics attachment for
+  DungeonBuddy cutover
+
+That slice freezes Threat/NPC/PlayerCharacter world identity, keeps
+contextual dnd5e:threatens independent, defines mechanics attachment without
+hostility, specializes Threat/NPC statblock attachment, documents the PC
+mechanics plug-in, supersedes rather than edits current profile/vocabulary
+revisions, and names lossless Buddy→obj:* / external-resource mapping
+requirements. Do not manufacture a Latchling fixture PR first. Do not harden
+Play CombatSourceLocator / NPC / PC durable contracts against the old Buddy
+identity model. Do not add a live shadow call or change product authority
+until the re-anchored contract exists.
 ```
 
 ## 12. Evidence and command record
@@ -676,12 +702,14 @@ failure is being treated as green or waived by this report.
   cache, prewarm, deployment, secret provisioning, UI, or duplicate-path
   deletion was added.
 - No path outside the PR #515 docs allowlist is required.
-- The named successor remains false:
-  `STATBLOCK: adapt published Buddy Threat identity into DungeonMind D&D profile`.
+- The named successor remains false and is reframed to DungeonMind ownership:
+  `DND: re-anchor world-object kinds and mechanics attachment for DungeonBuddy cutover`.
+- The later Buddy conformance bridge remains false:
+  `STATBLOCK: adapt published Buddy world-object/mechanics identity into re-anchored DungeonMind D&D profile`.
 - The later shadow consumer remains false:
   `STATBLOCK: shadow verify Buddy Threat hydration through DungeonMind`.
 
-The reconnaissance is complete as a truthful not-ready result. The missing
-mapping, target-byte digest proof, and verification-state decision are named
-with their owning boundaries rather than being deferred as generic
-“additional investigation.”
+The reconnaissance is complete as a truthful not-ready result. The primary
+blocker is the accepted D&D semantic/mechanics contract shape under Play
+pressure, not the absence of a target-specific Mireward fixture. Secondary
+mapping and digest concerns remain named for the post-re-anchor bridge.

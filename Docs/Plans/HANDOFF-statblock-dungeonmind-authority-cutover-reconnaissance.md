@@ -1025,17 +1025,53 @@ blocking facts, not waived failures.
 
 **Final disposition:** `NOT_READY_FOR_BRIDGE`
 
-**Smallest successor decision/proof:** first produce one complete,
-fixture-backed predecessor target: an accepted Buddy statblock response, its
-graph `uses_statblock` binding, and the exact graph scope/object/revision that
-owns it. Then define
-`STATBLOCK: define Buddy Threat → DungeonMind D&D identity/profile bridge
-contract` as the conformance-only slice. Latchling may be used only after its
-operator evidence is made reproducible; Tripod cannot serve as the mechanics
-target until its missing accepted binding exists. The bridge must own the
-`threat:*` → `obj:*` mapping, `uses_statblock` → `dnd5e:threatens` semantics,
-provider/schema/media/digest representation, and `committed_unverified`
-eligibility decision before a shadow consumer is implemented.
+**Primary reason (corrected 2026-08-07):** DungeonMind's accepted D&D profile
+currently conflates the narrow Threat proving domain with the reusable
+world-object/mechanics boundary that Play now requires. Play roadmap/tracker
+on Buddy `main` freeze Threat / NPC / PlayerCharacter as distinct first-class
+kinds and gate durable Combat/Play contracts on DungeonMind kernel cutover
+re-anchor. Fixture gaps (Tripod `no_binding`, Latchling operator-only evidence)
+remain secondary and must not drive an intermediate fixture-manufacturing PR.
+
+**Smallest successor decision/proof (DungeonMind-owned):**
+
+```text
+DND: re-anchor world-object kinds and mechanics attachment for DungeonBuddy cutover
+```
+
+That slice must answer and freeze:
+
+1. How persistent Threat, NPC, and PlayerCharacter world identities are
+   represented under the D&D semantic profile.
+2. How contextual `dnd5e:threatens` remains independent from persistent Threat
+   identity.
+3. What exact generic/profile-owned contract attaches an external mechanics
+   resource to an eligible world object without requiring contextual hostility.
+4. How Statblock-backed Threat/NPC mechanics specialize that attachment.
+5. How a future PC mechanics authority plugs into the same world-object
+   projection/capability model without pretending it is a StatblockRevision.
+6. Which current profile/vocabulary revision is superseded rather than edited
+   in place.
+7. How existing `obj:*`, graph revision, and exact external-resource identities
+   map losslessly from current Buddy state.
+
+Required immediate successor chain:
+
+```text
+#515 corrected reconnaissance
+        ↓
+DungeonMind semantic/mechanics contract re-anchor
+        ↓
+Buddy → DungeonMind exact conformance bridge
+        ↓
+Buddy shadow hydration through DungeonMind
+        ↓
+bounded parity proof
+        ↓
+DungeonMind authority promotion + duplicate hydration demolition
+        ↓
+Play Phase W / C1 builds on the promoted identity/mechanics substrate
+```
 
 This handback claims no identity bridge, shadow consumer, authority
 promotion, cutover, or demolition capability as delivered.
