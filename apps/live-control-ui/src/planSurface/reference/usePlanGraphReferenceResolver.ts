@@ -32,6 +32,10 @@ import {
 import { resolveReference } from "./referenceResolver";
 import { resolvePlanRelationshipTarget } from "./resolvePlanRelationshipTarget";
 import {
+  recordSurfaceLatencyStage,
+  surfaceLatencyMarkName,
+} from "../../worldGraph/surfaceLatencyMarks";
+import {
   buildPlanWorldGraphProjectionRequest,
   getPlanWorldGraphContext,
   WORLD_GRAPH_REVISION_COMMITTED_EVENT,
@@ -64,6 +68,10 @@ function markProjectionLoadStart(): string {
   if (typeof performance !== "undefined" && typeof performance.mark === "function") {
     performance.mark(markName);
   }
+  recordSurfaceLatencyStage("projection_fetch", {
+    surface: "plan",
+    generation: projectionLoadGeneration,
+  });
   return markName;
 }
 
@@ -101,6 +109,18 @@ function measureProjectionLoad(
     outcome,
     durationMs,
   });
+  recordSurfaceLatencyStage(
+    "projection_ready",
+    {
+      surface: "plan",
+      campaignId: meta.campaignId,
+      scopeMode: meta.scopeMode,
+      focusSessionId: meta.focusSessionId,
+      outcome,
+      mark: surfaceLatencyMarkName("projection_ready"),
+    },
+    durationMs ?? undefined,
+  );
   return durationMs;
 }
 

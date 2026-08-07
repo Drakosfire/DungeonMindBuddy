@@ -15,6 +15,7 @@ import type {
 } from "../../graphReference/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
+import { recordSurfaceLatencyStage } from "../../worldGraph/surfaceLatencyMarks";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
 import type { WorkspaceDocumentAuthoringPhase } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
@@ -291,6 +292,11 @@ export function BuildReferenceCapability({ documentId }: BuildReferenceCapabilit
           message: `Resolved graph node ${canonical.label}.`,
         },
         projectionState: projection.state,
+      });
+      recordSurfaceLatencyStage("build_detail_open", {
+        surface: "build",
+        nodeId: canonical.nodeId,
+        label: canonical.label,
       });
     },
     [openGraphReference, projection.items, projection.loadKey, projection.projection, projection.state],

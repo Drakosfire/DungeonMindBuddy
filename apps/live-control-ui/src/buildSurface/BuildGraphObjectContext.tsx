@@ -10,6 +10,7 @@ import {
   admitBuildDocumentScope,
   buildBuildWorldGraphProjectionRequest,
 } from "../worldGraph/worldGraphSurfaceContext";
+import { recordSurfaceLatencyStage } from "../worldGraph/surfaceLatencyMarks";
 import { adaptWorldGraphNodeView } from "../worldGraph/worldGraphNodeViewAdapter";
 
 export interface BuildGraphPointer {
@@ -110,6 +111,12 @@ export function BuildGraphObjectContext({
       setStatus("loading");
       setError(null);
     }
+    const fetchStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    recordSurfaceLatencyStage("build_projection_fetch", {
+      surface: "build_url_context",
+      campaignId: pointer.campaignId,
+      graphNodeId: pointer.graphNodeId,
+    });
     try {
       const projection = await postWorldGraphProjection(request);
       if (!isCurrent()) return;
@@ -123,6 +130,19 @@ export function BuildGraphObjectContext({
         return;
       }
       setStatus("ready");
+      recordSurfaceLatencyStage(
+        "build_projection_ready",
+        {
+          surface: "build_url_context",
+          outcome: "ready",
+          campaignId: pointer.campaignId,
+          graphNodeId: pointer.graphNodeId,
+          revisionId: projection.snapshot.revisionId,
+        },
+        Math.round(
+          (typeof performance !== "undefined" ? performance.now() : Date.now()) - fetchStartedAt,
+        ),
+      );
     } catch (loadError) {
       if (!isCurrent()) return;
       setNodeViews({});

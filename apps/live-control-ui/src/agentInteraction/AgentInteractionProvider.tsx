@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type { AgentInteractionThread, LiveQueryBackend } from "../api/types";
+import { recordSurfaceLatencyStage } from "../worldGraph/surfaceLatencyMarks";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -731,6 +732,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setLeasedActive(next);
       setLeasedGraphReference({ surfaceToken: activeToken, resolution });
       setLeasedGraphProjectionState({ surfaceToken: activeToken, state: projectionState });
+      recordSurfaceLatencyStage(glanceOnly ? "detail_glance_open" : "detail_full_open", {
+        glanceOnly,
+        key: next.projection.key,
+        title,
+      });
     },
     [currentSurfaceToken],
   );
@@ -754,6 +760,11 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         projection: { ...current.projection, size: "wide", glanceOnly: false },
       };
       leasedActiveRef.current = next;
+      recordSurfaceLatencyStage("detail_full_open", {
+        via: "expandContent",
+        key: next.projection.key,
+        title: next.projection.title,
+      });
       return next;
     });
   }, [currentSurfaceToken]);

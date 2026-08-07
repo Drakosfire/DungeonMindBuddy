@@ -11,6 +11,7 @@ import type {
   GraphReferenceSearchItem,
 } from "../../graphReference/types";
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
+import { recordSurfaceLatencyStage } from "../../worldGraph/surfaceLatencyMarks";
 import { buildBuildWorldGraphProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
 import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
 
@@ -284,6 +285,13 @@ export function useBuildWorldGraphProjection(
     }
 
     setStored(pendingLoadForKey(loadKey));
+    const fetchStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    recordSurfaceLatencyStage("build_projection_fetch", {
+      surface: "build",
+      campaignId,
+      revisionKind,
+      revisionPin,
+    });
 
     void (async () => {
       try {
@@ -305,6 +313,18 @@ export function useBuildWorldGraphProjection(
             loadedRevisionId: null,
             loadedIsHead: false,
           });
+          recordSurfaceLatencyStage(
+            "build_projection_ready",
+            {
+              surface: "build",
+              outcome: "error",
+              campaignId,
+              revisionKind,
+            },
+            Math.round(
+              (typeof performance !== "undefined" ? performance.now() : Date.now()) - fetchStartedAt,
+            ),
+          );
           return;
         }
 
@@ -316,6 +336,25 @@ export function useBuildWorldGraphProjection(
           loadedRevisionId: response.snapshot.revisionId,
           loadedIsHead: revisionKind === "head" ? response.snapshot.isHead === true : false,
         });
+        const durationMs = Math.round(
+          (typeof performance !== "undefined" ? performance.now() : Date.now()) - fetchStartedAt,
+        );
+        recordSurfaceLatencyStage(
+          "build_projection_ready",
+          {
+            surface: "build",
+            outcome: "ready",
+            campaignId,
+            revisionKind,
+            revisionId: response.snapshot.revisionId,
+          },
+          durationMs,
+        );
+        recordSurfaceLatencyStage("surface_switch_end", {
+          surface: "build",
+          outcome: "ready",
+          revisionId: response.snapshot.revisionId,
+        }, durationMs);
       } catch (loadError) {
         if (!isCurrent()) return;
         setStored({
@@ -326,6 +365,18 @@ export function useBuildWorldGraphProjection(
           loadedRevisionId: null,
           loadedIsHead: false,
         });
+        recordSurfaceLatencyStage(
+          "build_projection_ready",
+          {
+            surface: "build",
+            outcome: "error",
+            campaignId,
+            revisionKind,
+          },
+          Math.round(
+            (typeof performance !== "undefined" ? performance.now() : Date.now()) - fetchStartedAt,
+          ),
+        );
       }
     })();
 

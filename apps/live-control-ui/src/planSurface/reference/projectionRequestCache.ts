@@ -6,6 +6,7 @@
  * warm-up feels warm without inventing per-hook caches.
  */
 
+import { recordSurfaceLatencyStage } from "../../worldGraph/surfaceLatencyMarks";
 import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "./planGraphContextRequest";
 
 export type ProjectionCacheEndpoint = "projection" | "recap-projection";
@@ -110,13 +111,17 @@ export async function withProjectionRequestCache<T>(
     // Refresh LRU order.
     settled.delete(key);
     settled.set(key, hit);
+    recordSurfaceLatencyStage("client_cache_hit", { endpoint });
     return hit.value;
   }
 
   const pending = inFlight.get(key) as InFlightEntry<T> | undefined;
   if (pending) {
+    recordSurfaceLatencyStage("client_cache_coalesced", { endpoint });
     return pending.promise;
   }
+
+  recordSurfaceLatencyStage("client_cache_miss", { endpoint });
 
   const generation = cacheGeneration;
   const promise = loader()

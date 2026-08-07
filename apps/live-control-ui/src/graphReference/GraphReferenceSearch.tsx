@@ -92,6 +92,7 @@ export function GraphReferenceSearch({
                       <button
                         type="button"
                         className="graph-reference-search__button"
+                        data-testid="graph-reference-view"
                         onClick={() => onView(item)}
                       >
                         View

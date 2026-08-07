@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
+import { noteFirstChipPaint } from "../worldGraph/surfaceLatencyMarks";
 import {
   readBottomObstacleTop,
   resolveGlancePlacement,
@@ -135,6 +136,13 @@ export function GraphNodeHoverToken({
   };
 
   useLayoutEffect(() => {
+    noteFirstChipPaint({
+      nodeId: presentation.nodeId,
+      surface: "chip",
+    });
+  }, [presentation.nodeId]);
+
+  useLayoutEffect(() => {
     if (!open) {
       return;
     }
@@ -190,6 +198,7 @@ export function GraphNodeHoverToken({
         data-delta-status={normalizedDeltaStatus}
         data-counterpart-highlighted={counterpartHighlighted ? "true" : undefined}
         {...buttonProps}
+        data-testid="graph-node-chip"
         contentEditable={false}
         onClick={(event) => {
           event.stopPropagation();

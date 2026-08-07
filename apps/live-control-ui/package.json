@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bench:surface": "DMB_BENCH_SURFACE=1 playwright test -c playwright.config.ts",
+    "bench:surface:check": "node -e \"if(process.env.DMB_BENCH_SURFACE!=='1'){console.log('surface bench skipped (set DMB_BENCH_SURFACE=1)'); process.exit(0)} process.exit(require('child_process').spawnSync('npx',['playwright','test','-c','playwright.config.ts'],{stdio:'inherit',shell:true,env:process.env}).status||0)\""
   },
   "dependencies": {
     "@tiptap/core": "^2.11.5",
@@ -19,6 +21,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

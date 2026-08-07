@@ -111,7 +111,7 @@ export function ProjectionHost({
           </div>
           <div className="surface-projection-header-actions">
             {active?.kind === "content" && active.glanceOnly ? (
-              <button type="button" onClick={onExpand}>
+              <button type="button" data-testid="projection-expand" onClick={onExpand}>
                 Expand
               </button>
             ) : null}

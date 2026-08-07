@@ -1,0 +1,113 @@
+{
+  "measuredAt": "2026-08-07T03:34:53.015Z",
+  "baseURL": "http://127.0.0.1:5174",
+  "gitHead": "9ac6d3aa4ab3b532571db1fa7c9eb08409cc75fd",
+  "navigation": {
+    "plan": {
+      "domContentLoadedMs": 314,
+      "loadEventMs": 317
+    },
+    "build": {
+      "domContentLoadedMs": 238,
+      "loadEventMs": 241
+    }
+  },
+  "stages": [
+    {
+      "stage": "projection_fetch",
+      "t": 435.89999997615814,
+      "meta": {
+        "surface": "plan",
+        "generation": 1
+      }
+    },
+    {
+      "stage": "client_cache_miss",
+      "t": 436.30000001192093,
+      "meta": {
+        "endpoint": "projection"
+      }
+    },
+    {
+      "stage": "projection_fetch",
+      "t": 442.19999998807907,
+      "meta": {
+        "surface": "plan",
+        "generation": 2
+      }
+    },
+    {
+      "stage": "client_cache_coalesced",
+      "t": 442.30000001192093,
+      "meta": {
+        "endpoint": "projection"
+      }
+    },
+    {
+      "stage": "projection_ready",
+      "t": 507.89999997615814,
+      "durationMs": 65,
+      "meta": {
+        "surface": "plan",
+        "campaignId": "longmont-c2",
+        "scopeMode": "campaign",
+        "focusSessionId": null,
+        "outcome": "unavailable",
+        "mark": "dmb:wg-surface:projection_ready"
+      }
+    },
+    {
+      "stage": "surface_switch_start",
+      "t": 8550.099999964237,
+      "meta": {
+        "from": "plan",
+        "to": "build",
+        "href": "/build",
+        "navigation": "full_document_anchor"
+      }
+    },
+    {
+      "stage": "build_projection_fetch",
+      "t": 367.80000001192093,
+      "meta": {
+        "surface": "build",
+        "campaignId": "longmont-c2",
+        "revisionKind": "head",
+        "revisionPin": null
+      }
+    },
+    {
+      "stage": "client_cache_miss",
+      "t": 367.9000000357628,
+      "meta": {
+        "endpoint": "projection"
+      }
+    },
+    {
+      "stage": "build_projection_ready",
+      "t": 394.69999998807907,
+      "durationMs": 27,
+      "meta": {
+        "surface": "build",
+        "outcome": "error",
+        "campaignId": "longmont-c2",
+        "revisionKind": "head"
+      }
+    }
+  ],
+  "projectionMarks": [
+    "dmb:wg-surface:build_projection_fetch",
+    "dmb:wg-surface:client_cache_miss",
+    "dmb:wg-surface:build_projection_ready"
+  ],
+  "notes": [
+    "No graph-node-chip on Plan; glance/expand stages omitted for this session doc.",
+    "Build required campaign pick (longmont-c2) after surface switch."
+  ],
+  "cleanupCandidates": [
+    "Plan↔Build uses full-document `<a href>` navigation (`navigation: full_document_anchor`); SPA routing would retain the client projection TTL cache across surfaces.",
+    "Cold path observed client_cache_miss with no client_cache_hit in this run — warm client TTL and/or OPT03 server completed-cache should be re-measured on a second pass without clear.",
+    "No first_chip_paint — Plan document in this session may lack graph-native TipTap chips; seed a chip or use a session with refs before attributing chip-path latency.",
+    "Surface switch → build_projection_ready includes full reload + Build campaign/document admission; split admission UI cost from projection fetch in a follow-up mark if needed."
+  ]
+}

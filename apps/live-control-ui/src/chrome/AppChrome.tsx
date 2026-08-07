@@ -10,6 +10,7 @@ import {
   type LegacyEditPanelAttachment,
 } from "../surfaceInteraction/editHost/EditHost";
 import type { SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction/types";
+import { recordSurfaceLatencyStage } from "../worldGraph/surfaceLatencyMarks";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
@@ -257,7 +258,20 @@ export function AppChrome({
     <div className="app-wrap">
       <nav className="app-site-nav" aria-label="Command board navigation">
         {APP_NAV_ITEMS.map((item) => (
-          <a key={item.href} href={item.href} className={item.route === activeRoute ? "active" : undefined}>
+          <a
+            key={item.href}
+            href={item.href}
+            className={item.route === activeRoute ? "active" : undefined}
+            onClick={() => {
+              if (item.route === activeRoute) return;
+              recordSurfaceLatencyStage("surface_switch_start", {
+                from: activeRoute,
+                to: item.route,
+                href: item.href,
+                navigation: "full_document_anchor",
+              });
+            }}
+          >
             {item.label}
           </a>
         ))}

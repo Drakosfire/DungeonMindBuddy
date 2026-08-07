@@ -2,7 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { clearProjectionRequestCache } from "./planSurface/reference/projectionRequestCache";
+import { installSurfaceLatencyDogfoodHooks } from "./worldGraph/surfaceLatencyMarks";
 import "./styles.css";
+
+installSurfaceLatencyDogfoodHooks({
+  clearProjectionCache: clearProjectionRequestCache,
+});
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
