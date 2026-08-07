@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -29,6 +31,11 @@ from graph_memory.world_projection_cache import (
     clear_projection_cache,
     make_projection_cache_key,
     projection_cache_stats,
+    reset_projection_cache_single_flight_for_tests,
+)
+from apps.live_control_server.services.world_graph_projection_recipes import (
+    projection_recipe_registry_stats,
+    reset_projection_recipes_for_tests,
 )
 
 BUNDLE_PATH = Path(
@@ -55,9 +62,13 @@ ORDERED_CONTRIBUTION_IDS = [
 @pytest.fixture(autouse=True)
 def _clear_runtime_and_cache() -> None:
     clear_projection_cache()
+    reset_projection_cache_single_flight_for_tests()
+    reset_projection_recipes_for_tests()
     kernel.clear_world_read_runtime()
     yield
     clear_projection_cache()
+    reset_projection_cache_single_flight_for_tests()
+    reset_projection_recipes_for_tests()
     kernel.clear_world_read_runtime()
 
 
@@ -531,3 +542,137 @@ def test_deterministic_read_counts_across_focus_pin_and_clear(
     assert post_clear_obs.graph_payload_reads_this_request == 1
     assert post_clear_obs.revision_manifest_reads_this_request == 1
     assert post_clear_obs.contribution_reads_this_request > 0
+
+
+def test_e1_service_registers_eligible_recipe_not_pin_or_query(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    project_world_graph(_request(), root=tmp_path)
+    assert projection_recipe_registry_stats()["size"] == 1
+
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    pinned_revision = _historical_revision(tmp_path, head.head_revision_id)
+    project_world_graph(_request(revision_pin=pinned_revision), root=tmp_path)
+    assert projection_recipe_registry_stats()["size"] == 1
+
+    project_world_graph(_request(query_text="Glowkindle"), root=tmp_path)
+    assert projection_recipe_registry_stats()["size"] == 1
+
+
+def test_e3_concurrent_identical_miss_builds_once_and_coalesces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    build_started = threading.Event()
+    release_build = threading.Event()
+    build_count = {"n": 0}
+    original = kernel.project_world_graph_from_context
+
+    def _gated_build(*args, **kwargs):
+        build_count["n"] += 1
+        build_started.set()
+        assert release_build.wait(timeout=30.0)
+        return original(*args, **kwargs)
+
+    errors: list[BaseException] = []
+    results: list = []
+    waiter_observation: list[kernel.ProjectionRequestObservation] = []
+
+    def _call(*, record_observation: bool = False) -> None:
+        try:
+            results.append(project_world_graph(_request(), root=tmp_path))
+            if record_observation:
+                observation = kernel.get_last_projection_observation()
+                if observation is not None:
+                    waiter_observation.append(observation)
+        except BaseException as exc:
+            errors.append(exc)
+
+    with patch.object(kernel, "project_world_graph_from_context", side_effect=_gated_build):
+        first = threading.Thread(target=_call)
+        second = threading.Thread(target=_call, kwargs={"record_observation": True})
+        first.start()
+        assert build_started.wait(timeout=30.0)
+        second.start()
+        time.sleep(0.05)
+        release_build.set()
+        first.join(timeout=30.0)
+        second.join(timeout=30.0)
+
+    assert not errors
+    assert build_count["n"] == 1
+    assert len(results) == 2
+    assert results[0] is results[1]
+    assert len(waiter_observation) == 1
+    assert waiter_observation[0].projection_cache_status == "coalesced"
+
+
+def test_e3_builder_failure_propagates_without_cache_and_retry_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize(tmp_path)
+
+    build_started = threading.Event()
+    release_build = threading.Event()
+    attempts = {"n": 0}
+    original = kernel.project_world_graph_from_context
+
+    def _failing_then_ok(*args, **kwargs):
+        attempts["n"] += 1
+        build_started.set()
+        assert release_build.wait(timeout=30.0)
+        if attempts["n"] == 1:
+            raise kernel.WorldGraphProjectionError(
+                "simulated build failure",
+                code="projection_internal_error",
+                status_code=500,
+            )
+        return original(*args, **kwargs)
+
+    errors: list[BaseException] = []
+
+    def _call() -> None:
+        try:
+            project_world_graph(_request(), root=tmp_path)
+        except BaseException as exc:
+            errors.append(exc)
+
+    with patch.object(kernel, "project_world_graph_from_context", side_effect=_failing_then_ok):
+        first = threading.Thread(target=_call)
+        second = threading.Thread(target=_call)
+        first.start()
+        assert build_started.wait(timeout=30.0)
+        second.start()
+        time.sleep(0.05)
+        release_build.set()
+        first.join(timeout=30.0)
+        second.join(timeout=30.0)
+
+    assert len(errors) == 2
+    assert projection_cache_stats()["size"] == 0
+
+    project_world_graph(_request(), root=tmp_path)
+    assert projection_cache_stats()["size"] == 1
+
+
+def test_e7_cache_disabled_skips_recipes_and_single_flight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", "0")
+    _initialize(tmp_path)
+
+    first = project_world_graph(_request(), root=tmp_path)
+    second = project_world_graph(_request(), root=tmp_path)
+    observation = _observation()
+
+    assert first.snapshot.revision_id == second.snapshot.revision_id
+    assert first is not second
+    assert projection_recipe_registry_stats()["size"] == 0
+    assert projection_cache_stats()["size"] == 0
+    assert observation.projection_cache_status == "disabled"

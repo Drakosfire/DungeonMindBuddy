@@ -10,6 +10,13 @@ from unittest.mock import patch
 import pytest
 
 import graph_memory.kernel as kernel
+from apps.live_control_server.services.world_graph_projection import project_world_graph
+from apps.live_control_server.services.world_graph_projection_recipes import (
+    clear_recipe_observations,
+    get_recipe_observations,
+    projection_recipe_registry_stats,
+    reset_projection_recipes_for_tests,
+)
 from apps.live_control_server.services.world_graph_prewarm import (
     clear_prewarm_observations,
     get_prewarm_observations,
@@ -22,8 +29,38 @@ from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_store,
 )
+from graph_memory.contribution_bundles import load_contribution_bundle
+from graph_memory.kernel.world_initialization import initialize_world_from_contributions
+from graph_memory.kernel.world_initialization_models import (
+    PLAN_SCHEMA,
+    WorldInitializationApprovalAttestation,
+    WorldInitializationContribution,
+    WorldInitializationPlan,
+)
+from graph_memory.projection.world_projection import (
+    PROJECTION_REQUEST_SCHEMA,
+    WorldGraphProjectionRequest,
+)
+from graph_memory.world_projection_cache import clear_projection_cache
 
 WORLD_ID = "eldyrwild"
+CAMPAIGN_ID = "longmont-c2"
+FOCUS_SESSION_ID = "session-23"
+BUNDLE_PATH = Path(
+    "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
+)
+BUNDLE_DIGEST = (
+    "5f8288d3052a9e59192884f2c35a13d51f665095d84cca2081a56638108d3fa5"
+)
+APPROVED_MERGE_SHA = "65ae001e0852d827ecd680200a965a576c705b1d"
+ORDERED_CONTRIBUTION_IDS = [
+    "contribution:82f23934d8eaca8a",
+    "contribution:43782369bd717d32",
+    "contribution:33d7cdb0ff623f28",
+    "contribution:c086a0b72324ff16",
+    "contribution:1227841724520c18",
+    "contribution:022187fdefdf4557",
+]
 
 
 def _drain_coordinator(*, timeout_s: float = 10.0) -> None:
@@ -46,12 +83,18 @@ def _isolated_prewarm_state() -> None:
     kernel.reset_revision_ready_mailbox()
     kernel.clear_revision_ready_offer_observations()
     clear_prewarm_observations()
+    clear_recipe_observations()
+    reset_projection_recipes_for_tests()
+    clear_projection_cache()
     kernel.clear_world_read_runtime()
     yield
     _drain_coordinator()
     kernel.reset_revision_ready_mailbox()
     kernel.clear_revision_ready_offer_observations()
     clear_prewarm_observations()
+    clear_recipe_observations()
+    reset_projection_recipes_for_tests()
+    clear_projection_cache()
     kernel.clear_world_read_runtime()
 
 
@@ -113,6 +156,70 @@ def _wait_for_prewarm_observations(
             ]
         time.sleep(0.01)
     pytest.fail("timed out waiting for prewarm observations")
+
+
+def _initialize_world(root: Path) -> None:
+    bundle = load_contribution_bundle(BUNDLE_PATH)
+    by_id = {item.contribution_id: item for item in bundle.contributions}
+    plan = WorldInitializationPlan(
+        schema=PLAN_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        focus_session_id=FOCUS_SESSION_ID,
+        ordered_contributions=[
+            WorldInitializationContribution(
+                contribution_id=contribution_id,
+                payload_sha256=kernel.compute_contribution_payload_sha256(
+                    by_id[contribution_id]
+                ),
+            )
+            for contribution_id in ORDERED_CONTRIBUTION_IDS
+        ],
+        approval_attestation=WorldInitializationApprovalAttestation(
+            bundle_id="eldyrwild-longmont-c2-initial-v1",
+            bundle_digest=BUNDLE_DIGEST,
+            approved_bundle_merge_sha=APPROVED_MERGE_SHA,
+        ),
+    )
+    initialize_world_from_contributions(
+        root,
+        plan=plan,
+        contributions=list(bundle.contributions),
+        actor="gm",
+    )
+
+
+def _projection_request() -> WorldGraphProjectionRequest:
+    return WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+    )
+
+
+def _wait_for_recipe_observations(
+    *,
+    revision_id: str | None = None,
+    status: str | None = None,
+    timeout_s: float = 30.0,
+) -> list:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        observations = get_recipe_observations()
+        if revision_id is not None:
+            observations = [
+                observation
+                for observation in observations
+                if observation.revision_id == revision_id
+            ]
+        if status is not None:
+            observations = [
+                observation for observation in observations if observation.status == status
+            ]
+        if observations:
+            return observations
+        time.sleep(0.01)
+    pytest.fail("timed out waiting for recipe observations")
 
 
 def test_publish_with_coordinator_prewarms_resident_and_second_load_is_hit(
@@ -608,6 +715,164 @@ def test_overlapping_lifecycles_keep_worker_until_last_owner_stops(
     assert stop_world_graph_prewarm_coordinator(timeout_s=5.0) is True
     assert get_world_graph_prewarm_coordinator() is None
     assert get_world_graph_prewarm_lifecycle_refcount() == 0
+
+
+def test_e4_recipe_replay_after_publish_yields_projection_cache_hit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize_world(tmp_path)
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+
+    project_world_graph(_projection_request(), root=tmp_path)
+    assert projection_recipe_registry_stats()["size"] == 1
+    clear_projection_cache()
+
+    head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    published = kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:opt03-recipe-replay"],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    revision_b = published.revision.revision_id
+    _wait_for_prewarm_observations(
+        coordinator,
+        revision_id=revision_b,
+        expected_count=1,
+    )
+    _wait_for_recipe_observations(
+        revision_id=revision_b,
+        status="warm_built",
+    )
+
+    project_world_graph(_projection_request(), root=tmp_path)
+    observation = kernel.get_last_projection_observation()
+    assert observation is not None
+    assert observation.projection_cache_status == "hit"
+    assert observation.graph_payload_reads_this_request == 0
+
+
+def test_e5_blocked_recipe_warm_for_a_does_not_satisfy_head_b(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize_world(tmp_path)
+    project_world_graph(_projection_request(), root=tmp_path)
+    clear_projection_cache()
+
+    warm_entered = threading.Event()
+    warm_release = threading.Event()
+    original_project = project_world_graph
+
+    def _gated_project(*args, **kwargs):
+        warm_entered.set()
+        assert warm_release.wait(timeout=30.0)
+        return original_project(*args, **kwargs)
+
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+
+    head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    pub_a = kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:opt03-recipe-a"],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    revision_a = pub_a.revision.revision_id
+
+    with patch(
+        "apps.live_control_server.services.world_graph_projection.project_world_graph",
+        side_effect=_gated_project,
+    ):
+        _wait_for_prewarm_observations(
+            coordinator,
+            revision_id=revision_a,
+            expected_count=1,
+        )
+        assert warm_entered.wait(timeout=30.0)
+
+        _head, _rev, store_b = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+        pub_b = kernel.publish_world_revision(
+            tmp_path,
+            WORLD_ID,
+            store_b,
+            operation_ids=["op:opt03-recipe-b"],
+            expected_parent_revision_id=revision_a,
+        )
+        revision_b = pub_b.revision.revision_id
+        warm_release.set()
+        _wait_for_prewarm_observations(
+            coordinator,
+            revision_id=revision_b,
+            expected_count=1,
+        )
+
+    warm_for_b = _wait_for_recipe_observations(revision_id=revision_b)
+    assert any(obs.status in {"warm_built", "warm_hit"} for obs in warm_for_b)
+
+    clear_projection_cache()
+    project_world_graph(_projection_request(), root=tmp_path)
+    observation = kernel.get_last_projection_observation()
+    assert observation is not None
+    assert observation.selected_revision_id == revision_b
+    assert observation.projection_cache_status in {"hit", "miss"}
+
+
+def test_e6_broken_recipe_warm_does_not_fail_prewarm_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    _initialize_world(tmp_path)
+    project_world_graph(_projection_request(), root=tmp_path)
+    clear_projection_cache()
+
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+
+    with patch(
+        "apps.live_control_server.services.world_graph_projection.project_world_graph",
+        side_effect=RuntimeError("recipe warm exploded"),
+    ):
+        published = _publish(tmp_path, ["op:opt03-recipe-broken"])
+        observations = _wait_for_prewarm_observations(
+            coordinator,
+            revision_id=published.revision.revision_id,
+            expected_count=1,
+        )
+
+    assert observations[0].status in {"resident_miss", "resident_hit", "coalesced"}
+    failed = [
+        obs
+        for obs in get_recipe_observations()
+        if obs.status == "failed" and obs.revision_id == published.revision.revision_id
+    ]
+    assert len(failed) == 1
+
+
+def test_e7_cache_disabled_skips_recipe_warm_on_publish(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", "0")
+    coordinator = start_world_graph_prewarm_coordinator()
+    assert coordinator is not None
+
+    published = _publish(tmp_path, ["op:opt03-recipe-cache-off"])
+    _wait_for_prewarm_observations(
+        coordinator,
+        revision_id=published.revision.revision_id,
+        expected_count=1,
+    )
+    assert get_recipe_observations() == []
+    assert projection_recipe_registry_stats()["size"] == 0
 
 
 def test_start_during_stop_waits_and_returns_fresh_coordinator(tmp_path: Path) -> None:
