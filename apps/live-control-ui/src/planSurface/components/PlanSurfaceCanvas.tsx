@@ -55,7 +55,7 @@ interface PlanSurfaceCanvasProps {
 
 function nodeScopeLabel(node: GraphProjectionNodeView): string {
   const scope = node.campaign_scope?.trim();
-  if (!scope) return "world";
+  if (!scope) return "World";
   return formatReviewCampaignLabel(scope);
 }
 
@@ -222,7 +222,7 @@ export function PlanSurfaceCanvas({
         projectionState={projectionState}
         projectionError={projectionError}
         insertDisabled={!editor || isLocked || !editorInteractive}
-        onInsert={insertRunbookReference}
+        onInsert={(item) => insertRunbookReference(item.reference)}
         onView={handleViewGraphReference}
       />
     ),

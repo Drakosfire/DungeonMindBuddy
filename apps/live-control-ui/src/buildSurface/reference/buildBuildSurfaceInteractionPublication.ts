@@ -10,7 +10,6 @@ import type {
   SurfaceInteractionEditCommandContribution,
   SurfaceInteractionPublication,
 } from "../../surfaceInteraction/types";
-import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "../buildDocumentCommands";
 import { BUILD_SURFACE_LABEL } from "../buildSurfaceConfig";
 import {
@@ -50,9 +49,14 @@ export interface BuildReferenceContextBinding {
   items: readonly GraphReferenceSearchItem[];
   selectCampaign: (campaignId: string) => void;
   viewExact: (item: GraphReferenceSearchItem) => void;
-  /** Insert a graph-node chip into the Build markdown canvas. */
-  insertChip: (attrs: RunbookReferenceAttrs) => void;
-  /** Disables Insert chip only; View stays available while the editor is locked/unavailable. */
+  /**
+   * Insert a graph-node chip into the Build markdown canvas.
+   * Callers pass a search item/node id; the capability resolves the canonical
+   * projection item, verifies the live load key, and applies object-level
+   * campaign admission before inserting.
+   */
+  insertChip: (item: GraphReferenceSearchItem) => void;
+  /** Global editor-lock disable only; View stays available. Per-object tenancy is separate. */
   insertDisabled: boolean;
 }
 

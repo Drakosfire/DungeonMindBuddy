@@ -27,9 +27,9 @@ import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "../../chrome/appChromeConf
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { insertMarkdownReference } from "../../graphReference/insertMarkdownReference";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
-import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { WorkspaceDocumentAuthoringPhase } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
 import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
+import { admitBuildObjectInsert } from "../../worldGraph/worldGraphSurfaceContext";
 import { writeBuildLastCampaignId } from "../buildBareEntryCampaign";
 import {
   buildBuildSurfaceInteractionPublication,
@@ -358,20 +358,38 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
   );
 
   const insertChip = useCallback(
-    (attrs: RunbookReferenceAttrs) => {
+    (item: GraphReferenceSearchItem) => {
       if (!session) return;
       if (!isEditorInteractive(session.phase)) return;
-      if (lens.status !== "ready" || !lens.insertAdmitted) return;
-      insertMarkdownReference(session.editor, attrs);
+      if (lens.status !== "ready") return;
+      const authorizedKey = authorizedLoadKeyRef.current;
+      const liveKey = liveLoadKeyRef.current;
+      if (!authorizedKey || authorizedKey !== liveKey) return;
+      if (projection.state !== "ready") return;
+      if (projection.loadKey !== liveKey) return;
+      const canonical = projection.items.find((entry) => entry.nodeId === item.nodeId);
+      if (!canonical) return;
+      const admission = admitBuildObjectInsert({
+        documentCampaignId: acceptedDocument?.campaignId,
+        objectCampaignScope: canonical.nodeView.campaign_scope,
+      });
+      if (!admission.ok) return;
+      insertMarkdownReference(session.editor, canonical.reference);
     },
-    [lens, session],
+    [
+      acceptedDocument?.campaignId,
+      lens.status,
+      projection.items,
+      projection.loadKey,
+      projection.state,
+      session,
+    ],
   );
 
   const insertDisabled =
     !session?.editor
     || !isEditorInteractive(session.phase)
-    || lens.status !== "ready"
-    || !lens.insertAdmitted;
+    || lens.status !== "ready";
 
   const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
     const nodeViews: Record<string, GraphProjectionNodeView> = {};

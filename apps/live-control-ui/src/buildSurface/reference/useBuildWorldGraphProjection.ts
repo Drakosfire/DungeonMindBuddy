@@ -69,9 +69,19 @@ function resolveRevisionFields(lens: BuildGraphLensResolution): {
   return { revisionMode: "head", requestedRevisionId: null };
 }
 
+/**
+ * Display label for object campaign tenancy.
+ * `campaign_scope: null` means world-universal — never collapse to the projection anchor.
+ */
+export function formatProjectionSearchScopeLabel(
+  campaignScope: string | null | undefined,
+): string {
+  const trimmed = campaignScope?.trim();
+  return trimmed || "World";
+}
+
 function adaptProjectionSearchItems(
   projection: WorldGraphProjection,
-  scopeCampaignId: string,
 ): GraphReferenceSearchItem[] {
   return projection.nodes.map((node) => {
     const nodeView = adaptWorldGraphNodeView(node);
@@ -82,7 +92,7 @@ function adaptProjectionSearchItems(
       role: nodeView.role,
       summary: nodeView.summary ?? null,
       aliases: nodeView.aliases ?? [],
-      scopeLabel: nodeView.campaign_scope ?? scopeCampaignId,
+      scopeLabel: formatProjectionSearchScopeLabel(nodeView.campaign_scope),
       reference: referenceFromGraphNode(nodeView),
       nodeView,
     };
@@ -453,7 +463,7 @@ export function useBuildWorldGraphProjection(
     if (coherent.state !== "ready" || !coherent.projection || lens.status !== "ready") {
       return EMPTY_SEARCH_ITEMS;
     }
-    return adaptProjectionSearchItems(coherent.projection, lens.campaignId);
+    return adaptProjectionSearchItems(coherent.projection);
   }, [coherent.projection, coherent.state, lens]);
 
   return useMemo(

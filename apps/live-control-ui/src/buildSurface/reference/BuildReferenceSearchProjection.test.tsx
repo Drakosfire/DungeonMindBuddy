@@ -63,7 +63,6 @@ function baseContext(
       revision: { kind: "head" },
       scopeMode: "campaign",
       focus: { kind: "none", sessionId: null },
-      insertAdmitted: true,
     },
     projectionState: "ready",
     projectionError: null,
@@ -107,7 +106,6 @@ describe("BuildReferenceSearchProjection", () => {
           revision: { kind: "head" },
           scopeMode: "campaign",
           focus: { kind: "none", sessionId: null },
-          insertAdmitted: false,
           reason: "World-scoped document (eldyrwild) requires an explicit campaign selection.",
         },
       }),
@@ -138,10 +136,13 @@ describe("BuildReferenceSearchProjection", () => {
     await user.click(screen.getByRole("button", { name: "Insert chip" }));
     expect(insertChip).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: "ref",
-        refType: "graph-node",
-        refId: "npc-glowkindle",
-        label: "Glowkindle",
+        nodeId: "npc-glowkindle",
+        reference: expect.objectContaining({
+          kind: "ref",
+          refType: "graph-node",
+          refId: "npc-glowkindle",
+          label: "Glowkindle",
+        }),
       }),
     );
   });
@@ -156,6 +157,114 @@ describe("BuildReferenceSearchProjection", () => {
     expect(screen.getByText(/Unlock editing to insert chips/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(insertChip).not.toHaveBeenCalled();
+  });
+
+  it("enables Insert per object campaign for C1 vs C2 documents against a world union", async () => {
+    const user = userEvent.setup();
+    const c1Node: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-c1",
+      label: "C1 NPC",
+      campaign_scope: "longmont-c1",
+    };
+    const c2Node: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-c2",
+      label: "C2 NPC",
+      campaign_scope: "longmont-c2",
+    };
+    const universalNode: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      node_id: "npc-universal",
+      label: "Universal NPC",
+      campaign_scope: null,
+    };
+    const unionItems = [searchItem(c1Node), searchItem(c2Node), searchItem(universalNode)].map(
+      (item, index) => ({
+        ...item,
+        scopeLabel: [c1Node, c2Node, universalNode][index].campaign_scope ?? "World",
+        nodeView: [c1Node, c2Node, universalNode][index],
+      }),
+    );
+
+    const insertChipC1 = vi.fn();
+    const { unmount } = renderWithContext(
+      baseContext({
+        documentCampaignId: "longmont-c1",
+        items: unionItems,
+        insertChip: insertChipC1,
+        insertDisabled: false,
+      }),
+    );
+
+    expect(
+      within(screen.getByText("C1 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(screen.getByText("C2 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("graph-reference-insert-denied-npc-c2")).toHaveTextContent(
+      "C2 object · C1 document",
+    );
+    expect(
+      within(screen.getByText("Universal NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
+    expect(screen.queryByText(/Unlock editing to insert chips/i)).not.toBeInTheDocument();
+
+    await user.click(
+      within(screen.getByText("C1 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    );
+    expect(insertChipC1).toHaveBeenCalledWith(expect.objectContaining({ nodeId: "npc-c1" }));
+    unmount();
+
+    const insertChipC2 = vi.fn();
+    renderWithContext(
+      baseContext({
+        documentCampaignId: "longmont-c2",
+        documentId: DOC_ID,
+        lens: {
+          status: "ready",
+          documentId: DOC_ID,
+          documentCampaignId: "longmont-c2",
+          campaignId: "longmont-c2",
+          worldId: "eldyrwild",
+          availableCampaignIds: ["longmont-c1", "longmont-c2"],
+          revision: { kind: "head" },
+          scopeMode: "world",
+          focus: { kind: "none", sessionId: null },
+        },
+        items: unionItems,
+        insertChip: insertChipC2,
+        insertDisabled: false,
+      }),
+    );
+
+    expect(
+      within(screen.getByText("C1 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("graph-reference-insert-denied-npc-c1")).toHaveTextContent(
+      "C1 object · C2 document",
+    );
+    expect(
+      within(screen.getByText("C2 NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(screen.getByText("Universal NPC").closest("li") as HTMLElement).getByRole("button", {
+        name: "Insert chip",
+      }),
+    ).toBeEnabled();
   });
 
   it("does not label a non-head snapshot as Current head", () => {

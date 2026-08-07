@@ -160,7 +160,8 @@ export function admitBuildDocumentScope(input: {
 /**
  * Browse admission: shared World Graph Find may cross campaigns within the
  * document's admitted world. Unknown document scopes fail closed.
- * Write/insert remains gated by {@link admitBuildDocumentScope}.
+ * Write/insert is object-level via {@link admitBuildObjectInsert} — projection
+ * campaignId is a narrative/anchor, not write authority for every node.
  */
 export function admitBuildWorldGraphBrowse(input: {
   documentCampaignId: string | null | undefined;
@@ -195,4 +196,81 @@ export function admitBuildWorldGraphBrowse(input: {
   }
 
   return { ok: true, documentWorldId: scope.worldId };
+}
+
+/** Compact campaign stamp for insert-denial copy (`longmont-c1` → `C1`). */
+function compactCampaignStamp(campaignId: string): string {
+  const trimmed = campaignId.trim();
+  const longmont = trimmed.match(/^longmont-c(\d+)$/i);
+  if (longmont) return `C${longmont[1]}`;
+  const bare = trimmed.match(/^c(\d+)$/i);
+  if (bare) return `C${bare[1]}`;
+  return trimmed;
+}
+
+/**
+ * Object-level insert admission for Build Find.
+ * Campaign-scoped documents admit matching campaign objects plus null/world-universal
+ * objects; other campaign-scoped objects are denied. World-scoped documents admit
+ * all objects already present in the admitted world projection.
+ */
+export function admitBuildObjectInsert(input: {
+  documentCampaignId: string | null | undefined;
+  objectCampaignScope: string | null | undefined;
+}):
+  | { ok: true }
+  | { ok: false; reason: string } {
+  const documentCampaignId = input.documentCampaignId?.trim() ?? "";
+  if (!documentCampaignId) {
+    return {
+      ok: false,
+      reason: "Select a Build source with a known campaign or world scope before inserting chips.",
+    };
+  }
+
+  const documentScope = classifyBuildDocumentScope(documentCampaignId);
+  if (documentScope.kind === "unknown") {
+    return {
+      ok: false,
+      reason: `Unknown Build document scope: ${documentCampaignId}.`,
+    };
+  }
+
+  const objectCampaignScope = input.objectCampaignScope?.trim() || null;
+
+  if (documentScope.kind === "world") {
+    if (objectCampaignScope) {
+      const objectWorldId = getWorldIdForCampaign(objectCampaignScope);
+      if (!objectWorldId) {
+        return {
+          ok: false,
+          reason: `Unknown campaign scope on object (${objectCampaignScope}).`,
+        };
+      }
+      if (objectWorldId !== documentScope.worldId) {
+        return {
+          ok: false,
+          reason:
+            `${compactCampaignStamp(objectCampaignScope)} object · `
+            + `${documentScope.worldId} document`,
+        };
+      }
+    }
+    return { ok: true };
+  }
+
+  // Campaign-scoped document: matching campaign + world-universal (null) only.
+  if (!objectCampaignScope) {
+    return { ok: true };
+  }
+  if (objectCampaignScope === documentScope.campaignId) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    reason:
+      `${compactCampaignStamp(objectCampaignScope)} object · `
+      + `${compactCampaignStamp(documentScope.campaignId)} document`,
+  };
 }

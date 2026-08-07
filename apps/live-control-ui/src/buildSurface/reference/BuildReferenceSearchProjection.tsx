@@ -1,7 +1,9 @@
 import { GraphReferenceSearch } from "../../graphReference/GraphReferenceSearch";
+import { admitBuildObjectInsert } from "../../worldGraph/worldGraphSurfaceContext";
 import type { BuildReferenceContextBinding } from "./buildBuildSurfaceInteractionPublication";
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./buildReferenceIds";
 import type { BuildGraphLensResolution } from "./resolveBuildGraphLens";
+import type { GraphReferenceSearchItem } from "../../graphReference/types";
 
 export interface BuildReferenceSearchProjectionProps {
   bindings: Readonly<Record<string, unknown>>;
@@ -67,6 +69,17 @@ function lensCampaignLabel(lens: BuildGraphLensResolution): string | null {
 function lensRevisionMode(lens: BuildGraphLensResolution): "head" | "pinned" {
   if (lens.status === "invalid") return "head";
   return lens.revision.kind === "pinned" ? "pinned" : "head";
+}
+
+function insertDeniedReasonForDocument(
+  documentCampaignId: string,
+  item: GraphReferenceSearchItem,
+): string | null {
+  const admission = admitBuildObjectInsert({
+    documentCampaignId,
+    objectCampaignScope: item.nodeView.campaign_scope,
+  });
+  return admission.ok ? null : admission.reason;
 }
 
 export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearchProjectionProps) {
@@ -158,6 +171,9 @@ export function BuildReferenceSearchProjection({ bindings }: BuildReferenceSearc
         projectionState={context.projectionState}
         projectionError={context.projectionError}
         insertDisabled={context.insertDisabled}
+        insertDeniedReason={(item) =>
+          insertDeniedReasonForDocument(context.documentCampaignId, item)
+        }
         onInsert={context.insertChip}
         onView={context.viewExact}
       />

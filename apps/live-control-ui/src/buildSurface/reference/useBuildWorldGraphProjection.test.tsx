@@ -67,7 +67,6 @@ function readyLens(
     revision: { kind: "head" },
     scopeMode: "campaign",
     focus: { kind: "none", sessionId: null },
-    insertAdmitted: true,
     ...overrides,
   };
 }
@@ -155,6 +154,47 @@ describe("useBuildWorldGraphProjection", () => {
     expect(result.current.loadedRevisionId).toBe("rev-head");
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0]?.nodeId).toBe("npc-glowkindle");
+    // Nodes without campaignScope are world-universal — never labeled as the anchor campaign.
+    expect(result.current.items[0]?.scopeLabel).toBe("World");
+  });
+
+  it("labels campaign-scoped nodes with their own campaign_scope, not the projection anchor", async () => {
+    const c2Node: WorldGraphProjectionNodeView = {
+      ...glowkindleNode,
+      nodeId: "npc-c2",
+      label: "C2 NPC",
+      campaignScope: "longmont-c2",
+    };
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      ...headProjection(),
+      snapshot: {
+        ...headProjection().snapshot,
+        campaignId: "longmont-c2",
+        scopeMode: "world",
+      },
+      nodes: [c2Node, glowkindleNode],
+      summary: {
+        ...headProjection().summary,
+        nodeCount: 2,
+      },
+    });
+    const lens = readyLens({
+      campaignId: "longmont-c2",
+      scopeMode: "world",
+    });
+
+    const { result } = renderHook(() =>
+      useBuildWorldGraphProjection({
+        lens,
+        documentIdentity: { documentId: "doc-1", campaignId: "longmont-c1" },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(result.current.items.map((item) => [item.nodeId, item.scopeLabel])).toEqual([
+      ["npc-c2", "longmont-c2"],
+      ["npc-glowkindle", "World"],
+    ]);
   });
 
   it("requests pinned projection with exact revision id", async () => {

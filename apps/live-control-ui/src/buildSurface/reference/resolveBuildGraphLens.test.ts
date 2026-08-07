@@ -58,7 +58,6 @@ describe("resolveBuildGraphLens", () => {
         revision: { kind: "head" },
         scopeMode: "campaign",
         focus: { kind: "none", sessionId: null },
-        insertAdmitted: true,
       });
     });
 
@@ -111,7 +110,6 @@ describe("resolveBuildGraphLens", () => {
         revision: { kind: "head" },
         scopeMode: "campaign",
         focus: { kind: "none", sessionId: null },
-        insertAdmitted: false,
         reason: "World-scoped document (eldyrwild) requires an explicit campaign selection.",
       });
     });
@@ -218,7 +216,7 @@ describe("resolveBuildFindGraphLens", () => {
     });
   });
 
-  it("allows same-world cross-campaign browse while marking insert not admitted", () => {
+  it("allows same-world cross-campaign browse without lens-level insert authority", () => {
     const resolution = resolveBuildFindGraphLens({
       documentId: "doc-1",
       documentCampaignId: "longmont-c1",
@@ -254,7 +252,6 @@ describe("resolveBuildFindGraphLens", () => {
       },
       revision: { kind: "head" },
       documentCampaignId: "longmont-c1",
-      insertAdmitted: false,
     });
   });
 
@@ -283,7 +280,6 @@ describe("resolveBuildFindGraphLens", () => {
       status: "ready",
       campaignId: "longmont-c2",
       scopeMode: "world",
-      insertAdmitted: false,
     });
   });
 
@@ -331,7 +327,6 @@ describe("resolveBuildFindGraphLens", () => {
       campaignId: "longmont-c1",
       scopeMode: "campaign",
       focus: { kind: "none", sessionId: null },
-      insertAdmitted: true,
     });
   });
 });

@@ -1,5 +1,4 @@
 import {
-  admitBuildDocumentScope,
   admitBuildWorldGraphBrowse,
   classifyBuildDocumentScope,
   getCampaignIdsForWorld,
@@ -28,12 +27,6 @@ export type BuildGraphLensResolution =
       revision: BuildGraphRevisionPolicy;
       scopeMode: "campaign" | "world";
       focus: BuildGraphLensFocus;
-      /**
-       * True when the Find lens campaign is admitted for writes into this
-       * document. Cross-campaign browse within the world may still be ready
-       * with insertAdmitted=false.
-       */
-      insertAdmitted: boolean;
     }
   | {
       status: "selection_required";
@@ -44,7 +37,6 @@ export type BuildGraphLensResolution =
       revision: BuildGraphRevisionPolicy;
       scopeMode: "campaign" | "world";
       focus: BuildGraphLensFocus;
-      insertAdmitted: false;
       reason: string;
     }
   | {
@@ -78,19 +70,10 @@ function focusFromProjectionRequest(
   return DEFAULT_FOCUS;
 }
 
-function insertAdmittedForDocument(
-  documentCampaignId: string,
-  lensCampaignId: string,
-): boolean {
-  return admitBuildDocumentScope({
-    documentCampaignId,
-    incomingCampaignId: lensCampaignId,
-  }).ok;
-}
-
 /**
  * Document-local Build graph lens (campaign/none defaults).
  * Prefer {@link resolveBuildFindGraphLens} when the shared nav lens is available.
+ * Insert write policy is object-level (admitBuildObjectInsert), not lens-level.
  */
 export function resolveBuildGraphLens(input: {
   documentId: string;
@@ -138,7 +121,6 @@ export function resolveBuildGraphLens(input: {
       revision,
       scopeMode: "campaign",
       focus: DEFAULT_FOCUS,
-      insertAdmitted: true,
     };
   }
 
@@ -155,7 +137,6 @@ export function resolveBuildGraphLens(input: {
       revision,
       scopeMode: "campaign",
       focus: DEFAULT_FOCUS,
-      insertAdmitted: false,
       reason: `World-scoped document (${documentCampaignId}) requires an explicit campaign selection.`,
     };
   }
@@ -177,7 +158,6 @@ export function resolveBuildGraphLens(input: {
     revision,
     scopeMode: "campaign",
     focus: DEFAULT_FOCUS,
-    insertAdmitted: true,
   };
 }
 
@@ -236,7 +216,6 @@ export function resolveBuildFindGraphLens(input: {
         revision,
         scopeMode: sharedRequest.scopeMode ?? "campaign",
         focus: focusFromProjectionRequest(sharedRequest.focus, sharedRequest.campaignId),
-        insertAdmitted: insertAdmittedForDocument(documentCampaignId, sharedRequest.campaignId),
       };
     }
   }
@@ -265,7 +244,6 @@ export function resolveBuildFindGraphLens(input: {
           revision,
           scopeMode: context.scopeMode,
           focus: context.focus,
-          insertAdmitted: insertAdmittedForDocument(documentCampaignId, context.campaignId),
         };
       }
     }
