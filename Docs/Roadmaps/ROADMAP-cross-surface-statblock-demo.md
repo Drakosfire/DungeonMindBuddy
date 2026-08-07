@@ -130,6 +130,8 @@ Complete semantic candidate rendering, exact-definition editing, validation, dig
 
 The World Graph stores a typed external statblock locator and exact selected revision/digest, not a copied statblock body. Saved mechanics plus an exact Threat produce a reviewed binding proposal and an explicit confirmed graph revision.
 
+Per-object Threat/NPC/PC conformance bridging (#521) is closed synthetically; **whole-graph DungeonMind adoption** is a separate readiness track (`HANDOFF-kernel-dungeonmind-whole-world-adoption.md`). Publishing real dogfood mechanics remains a precondition, not the immediate critical path to mechanics-authority cutover — that cutover waits on whole-graph READY + product projection gates.
+
 ### DEMO-07/08 — Plan and Play
 
 Plan stores the Threat pointer and resolves the exact bound mechanics revision. Play consumes the same Threat and mechanics, then may create Play-owned runtime HP/initiative/condition state without mutating canonical mechanics.

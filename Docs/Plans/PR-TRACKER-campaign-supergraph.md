@@ -48,6 +48,7 @@ This tracker records only current sequence, dependencies, and exit proofs. Compl
 | PR011B Hermes governed writes | BLOCKED | accepted human reference path | Hermes prepares/proposes through the same protocol; GM remains confirmation authority |
 | PR009 Play projection migration | READY | PR007A + surface lessons | Play consumes revision-pinned graph and admissibility contracts |
 | PR012 leftover cleanup | BLOCKED | replacement slices | Delete only leftovers with a documented remaining consumer |
+| dungeonmind-whole-world-adoption | DOING | #521 | Prove whole Buddy World Graph → DM adoption readiness without weakening Campaign Supergraph invariants; blocks DM product authority cutover and Play mechanics authority cutover until READY |
 
 ## Immediate dispatch order
 
