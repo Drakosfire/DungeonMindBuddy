@@ -84,34 +84,34 @@ Buddy kind=pc
 | Case | Result | Evidence |
 |------|--------|----------|
 | §7 A Threat + primary + zero hostility | PASS (synthetic) | #518/#519 matrix A |
-| §7 B NPC + mechanics + zero hostility | FAIL | `test_npc_world_object_is_not_bridgeable`; no NPC bridge |
-| §7 C Threat + threatens + zero mechanics | PASS (DM + Threat bridge zero-binding) | #518 matrix B / shadow B; hostility not synthesized |
+| §7 B NPC + mechanics + zero hostility | FAIL | `test_canonical_public_bridge_entrypoint_rejects_npc` |
+| §7 C Threat + threatens + zero mechanics | PASS (synthetic Threat) | #518 matrix B / shadow B; hostility not synthesized |
 | §7 D NPC + contextual threatens | FAIL (Buddy bridge) | no NPC semantic bridge; DM vocabulary allows NPC+threatens independently |
 | §7 E primary+alternate | PASS (synthetic Threat) | #518/#519 matrix C |
 | §7 F primary+phase | PASS (synthetic Threat) | #518/#519 matrix D |
-| §7 G encounter_variant+template | PASS (synthetic Threat roles) | #518 role grammar + attachment IDs |
+| §7 G encounter_variant + template (+ full five-role set) | PASS (synthetic Threat) | `test_five_role_cardinality_enumerate_hydrate_and_reverse_order` |
 | §7 H zero attachments | PASS (synthetic Threat) | #518/#519 matrix B |
-| §7 I PlayerCharacter | FAIL | `test_pc_world_object_is_not_bridgeable` |
-| §7 J historical B.3a | PASS | DM retains B.3a; Buddy pin @ #23; no catalog rewrite |
+| §7 I PlayerCharacter | FAIL | `test_canonical_public_bridge_entrypoint_rejects_pc` |
+| §7 J historical B.3a | PASS (executed on DM pin line) | `uv run pytest tests/unit/test_dnd_threat_mechanics.py tests/unit/test_dnd_world_object_mechanics.py` @ `DungeonMind-wt-main-cutover` `073ca149` (55 passed) |
 | §8 Losslessness (Threat synthetic) | PASS | #518 field mapping + digest proof |
 | §8 Losslessness (NPC/PC) | FAIL / NOT_APPLICABLE | no bridge |
-| §9 Cardinality / no implicit winner (Threat synthetic) | PASS | #518/#519 multiplicity; no `attachments[0]` authority |
+| §9 Cardinality / no implicit winner | PASS (synthetic Threat) | five-role enumerate + hydrate-each + reverse insertion order → same semantic set |
 | §10 Hostility Cartesian (Threat) | PASS (synthetic) | bridge builds zero relationships; DM binding has no threat_relationship_ids |
 | §10 Hostility Cartesian (NPC) | FAIL | no NPC bridge |
 | §11 Exactness adversarial (Threat bridge) | PASS | #518 fail-closed matrix |
 | §12 Exact revision beats latest | PASS (synthetic Threat) | #518/#519 matrix L |
-| §13 Poisoned-fallback | FAIL | product path never uses DM as authority; cannot prove A-over-B on product |
-| §14 Dependency-failure no Buddy fallback | FAIL | product authority IS Buddy client |
-| §15 Local-authority kill | FAIL | `_hydrate_binding` still calls `get_exact_revision` |
-| §16 Dark-cutover rehearsal | FAIL | not implemented; shadow is non-authoritative |
-| §17 Real Threat + uses_statblock | FAIL / NOT_APPLICABLE | `graph_data` has Threat nodes (e.g. `threat:tripod-null-calf`) but **zero** durable `uses_statblock` |
-| §17 Real NPC mechanics (Lysandra) | FAIL / NOT_APPLICABLE | no durable Lysandra/`uses_statblock` mechanics object in repo |
+| §13 Poisoned-fallback (A vs B) | NOT_EXERCISED | blocked by `PRODUCT_PROJECTION` — no authoritative DM product path yet; cannot claim hidden Buddy recovery |
+| §14 Dependency-failure no Buddy fallback | NOT_EXERCISED / BLOCKED | same as §13; current Buddy `_hydrate_binding` fails closed to typed statuses without a second hydrator (`test_product_authority_has_no_alternate_hydration_fallback`) |
+| §15 Local-authority kill | FAIL | product authority still requires Buddy `get_exact_revision`; dark-cutover not wired |
+| §16 Dark-cutover rehearsal | FAIL | not implemented; #519 shadow is non-authoritative |
+| §17 Real Threat + uses_statblock | FAIL / NOT_APPLICABLE | Threat nodes exist; **zero** durable `uses_statblock` in `graph_data/` |
+| §17 Real NPC mechanics (Lysandra) | FAIL / NOT_APPLICABLE | no durable Lysandra/`uses_statblock` mechanics object |
 | §17 Real PC semantic | FAIL | kind=`pc` objects exist; no bridge |
 | §18 Real multiplicity | NOT_APPLICABLE | “No current real-domain plural attachment fixture found. Multiplicity proven synthetically only.” |
-| §19 Projection identity | FAIL | shared product projection does not consume bridge |
-| §20 Surface parity Plan/Build | FAIL | `dungeonmind_kernel` imported only by Threat query route shadow |
-| §21 Read-only | PASS (Threat bridge/shadow synthetic) | #518/#519 no writes; audit does not mutate governed state |
-| §22 Historical compatibility | PASS | DM B.3a + Buddy pin; no published profile mutation in this PR |
+| §19 Projection identity | FAIL | canonical Plan/world projection entrypoints do not consume bridge |
+| §20 Surface parity Plan/Build | FAIL | `test_canonical_plan_and_world_projection_entrypoints_do_not_consume_bridge` |
+| §21 Read-only | PASS (executed snapshot) | `test_bridge_execution_is_read_only_against_source_graph` |
+| §22 Historical compatibility | PASS (executed) | DM unit suites above; not an inherited assumption-only row |
 | §23 Import boundaries | PASS (direction) | Buddy depends on public `dungeonmind`/`dungeonmind_dnd`; DM does not import Buddy |
 | §24 Performance sanity | PASS / N/A | Threat shadow loads exact graph once per response; not pathological |
 
@@ -128,21 +128,21 @@ Buddy kind=pc
 | Exact mechanics identity retained | PASS (Threat synthetic) |
 | Mechanics independent of hostility | PASS (Threat synthetic / DM contract) |
 | Zero attachments represented correctly | PASS (Threat synthetic) |
-| Multiple attachments preserved | PASS (Threat synthetic) |
-| Role/phase/variant semantics preserved | PASS (Threat synthetic) |
-| No implicit winner | PASS (Threat synthetic) |
+| Multiple attachments preserved | PASS (five-role synthetic + reverse order) |
+| Role/phase/variant semantics preserved | PASS (five-role includes template) |
+| No implicit winner | PASS (semantic set independent of insertion order) |
 | Exact revision beats latest/current | PASS (Threat synthetic) |
 | Digest mismatch fails closed | PASS (Threat synthetic) |
 | Cross-world/revision mismatch fails closed | PASS (Threat synthetic) |
-| DungeonMind failure does not fall back locally | **FAIL** (product path) |
+| DungeonMind failure does not fall back locally | NOT_EXERCISED (blocked by PRODUCT_PROJECTION) |
 | Buddy local authority kill test | **FAIL** |
 | Real Threat bridge proof | **FAIL** (no durable uses_statblock dogfood) |
 | Real NPC mechanics bridge proof | **FAIL** |
 | Real PC semantic proof | **FAIL** |
 | Shared product projection consumes bridge | **FAIL** |
 | Dark-cutover rehearsal | **FAIL** |
-| No governed writes | PASS (this audit) |
-| Historical B.3a remains valid | PASS |
+| No governed writes | PASS (executed tree digest snapshot) |
+| Historical B.3a remains valid | PASS (executed DM unit suites) |
 | No published profile/catalog mutation | PASS |
 | Dependency boundaries remain valid | PASS |
 
@@ -182,11 +182,12 @@ No accepted durable NPC + uses_statblock mechanics object found in repository gr
 
 | Probe | Observed |
 |-------|----------|
-| Bridge `kind=npc` | `source_object_kind_not_bridgeable` |
-| Bridge `kind=pc` | `source_object_kind_not_bridgeable` |
-| Product `_hydrate_binding` | still `client.get_exact_revision` — no DM hydrate |
-| Plan/Build services | zero `dungeonmind_kernel` imports |
+| Public bridge + `kind=npc` | `source_object_kind_not_bridgeable` |
+| Public bridge + `kind=pc` | `source_object_kind_not_bridgeable` |
+| Product `_hydrate_binding` | still `client.get_exact_revision` — no DM hydrate; failures → typed statuses only |
+| Canonical Plan / world projection modules | no `dungeonmind_kernel` / bridge exports |
 | Durable `uses_statblock` in `graph_data/` | zero hits |
+| Five-role reverse-order semantic set | PASS (primary/alternate/phase/encounter_variant/template) |
 
 Executable lock: `tests/test_dungeonmind_cutover_readiness_audit.py`
 
@@ -207,33 +208,39 @@ Product Threat hydration still depends on `DungeonMindStatblockV1Client.get_exac
 
 ```text
 When DungeonMind failed, did any claimed bridge path recover via Buddy-local mechanics authority?
-YES (by architecture — product never left Buddy authority)
+NOT_EXERCISED / BLOCKED BY PRODUCT_PROJECTION
 ```
 
-Required cutover-ready answer is `NO`. This fails.
+There is currently **no authoritative DungeonMind product path** against which to run poisoned A-vs-B. The existing Buddy `_hydrate_binding` path does **not** implement an alternate hydrator: `get_exact_revision` failures become `exact_revision_missing`, `unavailable`, or `integrity_failure` (`test_product_authority_has_no_alternate_hydration_fallback`).
 
-(Shadow path correctly does **not** call the provider a second time, but shadow is not the claimed product authority.)
+`HIDDEN_FALLBACK` is therefore **not** a proven defect in this ledger. Revisit only after an authoritative bridge path exists.
 
 ---
 
 ## Verification commands/results
 
 ```bash
+# Buddy audit + predecessor Threat suites
 cd DungeonMindBuddy-wt-cutover-proof
 uv sync --locked
-uv run ruff check \
-  tests/test_dungeonmind_cutover_readiness_audit.py
+uv run ruff check tests/test_dungeonmind_cutover_readiness_audit.py
 uv run pytest \
   tests/test_dungeonmind_cutover_readiness_audit.py \
   tests/test_dungeonmind_world_object_conformance_bridge.py \
   tests/test_dungeonmind_threat_hydration_shadow.py \
   -q
 git diff --check
+
+# DungeonMind historical B.3a + world-object mechanics (executed for §22)
+cd DungeonMind-wt-main-cutover  # tip 073ca149 on #23 line
+uv run pytest \
+  tests/unit/test_dnd_threat_mechanics.py \
+  tests/unit/test_dnd_world_object_mechanics.py \
+  -q
+# → 55 passed
 ```
 
-(Results recorded in PR / CI after commit.)
-
-No DungeonMind code changes in this proof (expected: predecessor already bridge-ready at contract layer for Threat+NPC).
+No DungeonMind code changes in this proof.
 
 ---
 
@@ -261,20 +268,19 @@ DISPOSITION: CUTOVER_NOT_READY
 Blocking class: BRIDGE_MAPPING
 Failing proof: §7 B / §28 NPC semantic+mechanics mapping; §7 I / PC world-object semantic mapping
 Responsible layer: DungeonMindBuddy (bridge absent; DM already admits dnd5e:npc)
-Smallest durable fix: implement exact Buddy kind=npc → dnd5e:npc conformance bridge
-  reusing #518 patterns; do NOT convert NPC→Threat or synthesize dnd5e:threatens
+Smallest durable fix: extend the #518 conformance boundary into a typed world-object
+  semantic mapper shared by Threat/NPC/(later) PC kind mapping, with statblock
+  attachment specialization remaining Threat/NPC-only. Do NOT clone a wholly
+  separate NPC architecture, convert NPC→Threat, or synthesize dnd5e:threatens.
 
 Blocking class: PRODUCT_PROJECTION
-Failing proof: §16 / §19 / §20 / §28 shared product projection + dark-cutover
+Failing proof: §15–§16 / §19–§20 / §28 shared product projection + dark-cutover;
+  also blocks §13–§14 poisoned-fallback exercise
 Responsible layer: DungeonMindBuddy (routes/services)
-Smallest durable fix: after NPC+Threat bridges prove synthetic+real dogfood,
+Smallest durable fix: after Threat+NPC bridges prove synthetic+real dogfood,
   promote DM hydrate behind existing /api/live/threats/query-hydration (or shared
-  projection seam) with kill-switch; then local-authority kill + dark-cutover
-
-Blocking class: HIDDEN_FALLBACK
-Failing proof: §13–§15 product path still Buddy client
-Responsible layer: DungeonMindBuddy threat_query_hydration authority
-Smallest durable fix: same as PRODUCT_PROJECTION — authority switch slice
+  projection seam) with kill-switch; then local-authority kill + dark-cutover +
+  poisoned A-vs-B
 
 Blocking class: REAL_DATA_INCOMPATIBILITY
 Failing proof: §17 real Threat/NPC mechanics dogfood
@@ -282,6 +288,10 @@ Responsible layer: campaign data / publication (not bridge invention)
 Smallest durable fix: publish/accept at least one durable kind=threat (and ideally
   kind=npc) with uses_statblock + available exact revision; re-run shadow/full_match
   before promotion
+
+Not a proven blocker in this ledger:
+  HIDDEN_FALLBACK — current Buddy authority fails closed without an alternate
+  hydrator; poisoned-fallback remains NOT_EXERCISED until PRODUCT_PROJECTION lands
 ```
 
 Do not repair missing Buddy NPC mapping by inventing semantics inside DungeonMind.
@@ -301,9 +311,9 @@ Next handoff addresses the **smallest durable blocker**:
 
 ```text
 STATBLOCK: bridge exact Buddy NPC identity into DungeonMind v3
-  (Threat-equivalent lossless uses_statblock → mechbind/mechattach;
-   preserve kind=npc; never synthesize dnd5e:threatens)
 ```
+
+Prefer extending #518 into a **typed world-object semantic mapper** shared by Threat/NPC/(later) PC kind mapping, with statblock attachment specialization remaining Threat/NPC-only — not a wholly separate NPC-only architecture clone. Preserve `kind=npc`; never synthesize `dnd5e:threatens`.
 
 In parallel / gated after NPC bridge:
 
@@ -311,9 +321,10 @@ In parallel / gated after NPC bridge:
 publish real durable Threat (+ ideally NPC) uses_statblock dogfood
 → re-enable shadow full_match on real data
 → only then authority promotion behind existing Buddy API
+→ then poisoned-fallback + local-authority kill become exercisable
 ```
 
-PC remains a separate semantic-mapping slice; PC mechanics stay OUT OF CLAIM until DM eligibility changes by explicit ADR.
+PC semantic mapping can ride the shared mapper later; PC mechanics stay OUT OF CLAIM until DM eligibility changes by explicit ADR.
 
 ---
 
@@ -322,8 +333,11 @@ PC remains a separate semantic-mapping slice; PC mechanics stay OUT OF CLAIM unt
 ```text
 DISPOSITION: CUTOVER_NOT_READY
 
-Blocking class: BRIDGE_MAPPING (+ PRODUCT_PROJECTION, HIDDEN_FALLBACK, REAL_DATA_INCOMPATIBILITY)
-Failing proof: mandatory NPC/PC/product/dark-cutover/real-domain gates (§7 B/I, §13–§17, §20, §28)
+Blocking class: BRIDGE_MAPPING (+ PRODUCT_PROJECTION, REAL_DATA_INCOMPATIBILITY)
+Failing proof: mandatory NPC/PC/product/dark-cutover/real-domain gates
 Responsible layer: DungeonMindBuddy adapter + product authority path (DM Threat+NPC contract is present)
-Smallest durable fix: NPC exact bridge next; then real dogfood; then authority promotion — not a soft “mostly ready”
+Smallest durable fix: shared typed world-object mapper with NPC mechanics next;
+  then real dogfood; then authority promotion — not a soft “mostly ready”
+
+HIDDEN_FALLBACK: not a proven defect (NOT_EXERCISED / blocked by PRODUCT_PROJECTION)
 ```
