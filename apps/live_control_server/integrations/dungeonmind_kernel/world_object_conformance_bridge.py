@@ -13,6 +13,8 @@ installed ``dungeonmind`` / ``dungeonmind_dnd`` packages.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -59,8 +61,8 @@ from graph_memory.union_supergraph.statblock_binding import (
     edge_id_from_binding_id,
     external_statblock_node_id,
 )
-from graph_memory.world_supergraph.model import WorldGraphRevision as BuddyWorldGraphRevision
-from graph_memory.world_supergraph.storage import load_world_graph_revision_manifest
+
+BuddyWorldGraphRevision = kernel.WorldGraphRevision
 
 _USES_STATBLOCK = "uses_statblock"
 _BUDDY_THREAT_KIND = "threat"
@@ -75,6 +77,7 @@ _BRIDGE_EVIDENCE_DOMAIN = "other"
 BridgeFailureReason = Literal[
     "exact_revision_missing",
     "source_revision_integrity_failure",
+    "source_revision_store_mismatch",
     "world_mismatch",
     "campaign_mismatch",
     "source_threat_missing",
@@ -182,6 +185,32 @@ def convert_buddy_definition_digest(definition_digest: str) -> str:
             "definition_digest must be exactly sha256:<64 lowercase hex>",
         )
     return match.group(1)
+
+
+def _buddy_store_payload_sha256(store: UnionSupergraphStore) -> str:
+    """Hash a Buddy store using the same canonical bytes as World Graph publish.
+
+    Mirrors ``graph_memory.world_supergraph.storage.canonicalize_graph_payload``
+    + ``sha256_hex`` without importing storage internals (kernel boundary).
+    """
+    payload = store.model_dump(mode="json", by_alias=True)
+    canonical = (
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        + "\n"
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _require_revision_store_binding(
+    source_revision: BuddyWorldGraphRevision,
+    source_store: UnionSupergraphStore,
+) -> None:
+    store_digest = _buddy_store_payload_sha256(source_store)
+    if store_digest != source_revision.graph_payload_sha256:
+        raise ThreatConformanceBridgeError(
+            "source_revision_store_mismatch",
+            "source_store payload digest does not match source_revision.graph_payload_sha256",
+        )
 
 
 def _v3_graph_reader() -> UnionGraphV3SnapshotReader:
@@ -498,7 +527,7 @@ def _collect_validated_bindings(
     return found
 
 
-def bridge_buddy_threat_revision(
+def _bridge_buddy_threat_revision(
     *,
     source_world_id: str,
     source_revision: BuddyWorldGraphRevision,
@@ -506,10 +535,11 @@ def bridge_buddy_threat_revision(
     threat_node_id: str,
     campaign_id: str | None = None,
 ) -> DungeonMindThreatConformanceBridgeResult:
-    """Bridge one exact Buddy Threat from an already-loaded revision store.
+    """Private helper: bridge from a revision/store pair already proven to match.
 
-    The caller must supply an integrity-verified store for product use. Tests
-    may inject in-memory stores for adversarial proofs.
+    Not a public entrypoint. Callers must ensure ``source_store`` is the payload
+    attested by ``source_revision.graph_payload_sha256``; this helper re-checks
+    that binding and refuses mismatched pairs.
     """
     if source_revision.world_id != source_world_id:
         raise ThreatConformanceBridgeError(
@@ -521,6 +551,7 @@ def bridge_buddy_threat_revision(
             "campaign_mismatch",
             "requested campaign_id does not match source store campaign_id",
         )
+    _require_revision_store_binding(source_revision, source_store)
 
     node = source_store.nodes.get(threat_node_id)
     if node is None:
@@ -658,21 +689,9 @@ def bridge_exact_buddy_threat(
     """Load one exact Buddy revision and bridge an explicit Threat node.
 
     Never consults World Graph head. The supplied ``revision_id`` is authority.
+    Owns integrity-attested loading so revision identity and store payload cannot
+    be supplied independently at the public boundary.
     """
-    try:
-        manifest = load_world_graph_revision_manifest(root, world_id, revision_id)
-    except Exception as exc:  # noqa: BLE001
-        raise ThreatConformanceBridgeError(
-            "exact_revision_missing",
-            f"exact Buddy revision could not be loaded: {revision_id!r}",
-        ) from exc
-
-    if manifest.world_id != world_id:
-        raise ThreatConformanceBridgeError(
-            "world_mismatch",
-            "requested world_id does not match revision manifest world_id",
-        )
-
     try:
         store = kernel.load_world_graph_revision_with_integrity(
             root, world_id, revision_id
@@ -694,7 +713,23 @@ def bridge_exact_buddy_threat(
             f"source revision failed integrity validation: {exc}",
         ) from exc
 
-    return bridge_buddy_threat_revision(
+    try:
+        manifest = kernel.load_world_graph_revision_manifest(root, world_id, revision_id)
+    except Exception as exc:  # noqa: BLE001
+        # Integrity already succeeded; a subsequent manifest load failure is an
+        # integrity/consistency problem, not "revision missing".
+        raise ThreatConformanceBridgeError(
+            "source_revision_integrity_failure",
+            f"revision manifest could not be loaded after integrity attestation: {exc}",
+        ) from exc
+
+    if manifest.world_id != world_id:
+        raise ThreatConformanceBridgeError(
+            "world_mismatch",
+            "requested world_id does not match revision manifest world_id",
+        )
+
+    return _bridge_buddy_threat_revision(
         source_world_id=world_id,
         source_revision=manifest,
         source_store=store,

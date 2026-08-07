@@ -24,9 +24,11 @@ from dungeonmind_dnd.contracts.world_object_mechanics import (
 )
 
 import graph_memory.kernel as kernel
+from apps.live_control_server.integrations import dungeonmind_kernel as bridge_pkg
 from apps.live_control_server.integrations.dungeonmind_kernel.world_object_conformance_bridge import (
     ThreatConformanceBridgeError,
-    bridge_buddy_threat_revision,
+    _bridge_buddy_threat_revision,
+    _buddy_store_payload_sha256,
     bridge_exact_buddy_threat,
     convert_buddy_definition_digest,
     map_buddy_provider_to_dungeonmind_provider_id,
@@ -44,10 +46,6 @@ from graph_memory.union_supergraph.statblock_binding import (
     compute_binding_id,
     edge_id_from_binding_id,
     external_statblock_node_id,
-)
-from graph_memory.world_supergraph.storage import (
-    load_world_graph_revision,
-    load_world_graph_revision_manifest,
 )
 
 WORLD_ID = "bridge-test-world"
@@ -255,6 +253,19 @@ def _publish_one(
     binding = _binding(role=role, phase_key=phase_key, variant_label=variant_label)
     revision_id = _publish_bindings(root, [binding])
     return revision_id, binding
+
+
+def _load_verified_pair(root: Path, revision_id: str):
+    store = kernel.load_world_graph_revision_with_integrity(root, WORLD_ID, revision_id)
+    manifest = kernel.load_world_graph_revision_manifest(root, WORLD_ID, revision_id)
+    return manifest, store
+
+
+def _rebind_manifest_to_store(manifest, store):
+    """Keep private-helper tests on binding validation after intentional mutation."""
+    return manifest.model_copy(
+        update={"graph_payload_sha256": _buddy_store_payload_sha256(store)}
+    )
 
 
 def _hydrate_first(result: Any) -> tuple[_CountingResolver, Any]:
@@ -545,11 +556,12 @@ def test_bridge_pins_old_revision_and_ignores_newer_head(seeded_root: Path) -> N
 
 
 def test_fail_exact_revision_missing(seeded_root: Path) -> None:
+    missing = "rev:" + ("0" * 32)
     with pytest.raises(ThreatConformanceBridgeError) as exc:
         bridge_exact_buddy_threat(
             root=seeded_root,
             world_id=WORLD_ID,
-            revision_id="rev_does_not_exist",
+            revision_id=missing,
             threat_node_id=THREAT_ID,
         )
     assert exc.value.reason == "exact_revision_missing"
@@ -557,10 +569,9 @@ def test_fail_exact_revision_missing(seeded_root: Path) -> None:
 
 def test_fail_world_mismatch(seeded_root: Path) -> None:
     revision_id, _ = _publish_one(seeded_root)
-    manifest = load_world_graph_revision_manifest(seeded_root, WORLD_ID, revision_id)
-    store = load_world_graph_revision(seeded_root, WORLD_ID, revision_id)
+    manifest, store = _load_verified_pair(seeded_root, revision_id)
     with pytest.raises(ThreatConformanceBridgeError) as exc:
-        bridge_buddy_threat_revision(
+        _bridge_buddy_threat_revision(
             source_world_id="other-world",
             source_revision=manifest,
             source_store=store,
@@ -635,8 +646,7 @@ def test_fail_role_inferred_entity_is_not_threat(seeded_root: Path) -> None:
 
 def test_fail_forged_binding_and_edge_ids(seeded_root: Path) -> None:
     revision_id, _ = _publish_one(seeded_root)
-    manifest = load_world_graph_revision_manifest(seeded_root, WORLD_ID, revision_id)
-    store = load_world_graph_revision(seeded_root, WORLD_ID, revision_id)
+    manifest, store = _load_verified_pair(seeded_root, revision_id)
     mutated = store.model_copy(deep=True)
     edge = next(e for e in mutated.edges.values() if e.predicate == "uses_statblock")
     forged = edge.threat_statblock_binding.model_copy(
@@ -646,9 +656,9 @@ def test_fail_forged_binding_and_edge_ids(seeded_root: Path) -> None:
         update={"threat_statblock_binding": forged}
     )
     with pytest.raises(ThreatConformanceBridgeError) as exc:
-        bridge_buddy_threat_revision(
+        _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=manifest,
+            source_revision=_rebind_manifest_to_store(manifest, mutated),
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -656,14 +666,12 @@ def test_fail_forged_binding_and_edge_ids(seeded_root: Path) -> None:
 
     mutated2 = store.model_copy(deep=True)
     edge2 = next(e for e in mutated2.edges.values() if e.predicate == "uses_statblock")
-    mutated2.edges[edge2.edge_id] = edge2.model_copy(update={"edge_id": "edge:forged"})
-    # Edge dict key still old; re-key for realism
     mutated2.edges.pop(edge2.edge_id)
     mutated2.edges["edge:forged"] = edge2.model_copy(update={"edge_id": "edge:forged"})
     with pytest.raises(ThreatConformanceBridgeError) as exc2:
-        bridge_buddy_threat_revision(
+        _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=manifest,
+            source_revision=_rebind_manifest_to_store(manifest, mutated2),
             source_store=mutated2,
             threat_node_id=THREAT_ID,
         )
@@ -672,8 +680,7 @@ def test_fail_forged_binding_and_edge_ids(seeded_root: Path) -> None:
 
 def test_fail_inbound_uses_statblock(seeded_root: Path) -> None:
     revision_id, _ = _publish_one(seeded_root)
-    manifest = load_world_graph_revision_manifest(seeded_root, WORLD_ID, revision_id)
-    store = load_world_graph_revision(seeded_root, WORLD_ID, revision_id)
+    manifest, store = _load_verified_pair(seeded_root, revision_id)
     mutated = store.model_copy(deep=True)
     edge = next(e for e in mutated.edges.values() if e.predicate == "uses_statblock")
     swapped = edge.model_copy(
@@ -684,9 +691,9 @@ def test_fail_inbound_uses_statblock(seeded_root: Path) -> None:
     )
     mutated.edges[edge.edge_id] = swapped
     with pytest.raises(ThreatConformanceBridgeError) as exc:
-        bridge_buddy_threat_revision(
+        _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=manifest,
+            source_revision=_rebind_manifest_to_store(manifest, mutated),
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -695,15 +702,14 @@ def test_fail_inbound_uses_statblock(seeded_root: Path) -> None:
 
 def test_fail_missing_binding_payload(seeded_root: Path) -> None:
     revision_id, _ = _publish_one(seeded_root)
-    manifest = load_world_graph_revision_manifest(seeded_root, WORLD_ID, revision_id)
-    store = load_world_graph_revision(seeded_root, WORLD_ID, revision_id)
+    manifest, store = _load_verified_pair(seeded_root, revision_id)
     mutated = store.model_copy(deep=True)
     edge = next(e for e in mutated.edges.values() if e.predicate == "uses_statblock")
     mutated.edges[edge.edge_id] = edge.model_copy(update={"threat_statblock_binding": None})
     with pytest.raises(ThreatConformanceBridgeError) as exc:
-        bridge_buddy_threat_revision(
+        _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=manifest,
+            source_revision=_rebind_manifest_to_store(manifest, mutated),
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -712,15 +718,14 @@ def test_fail_missing_binding_payload(seeded_root: Path) -> None:
 
 def test_fail_missing_external_resource_node(seeded_root: Path) -> None:
     revision_id, _ = _publish_one(seeded_root)
-    manifest = load_world_graph_revision_manifest(seeded_root, WORLD_ID, revision_id)
-    store = load_world_graph_revision(seeded_root, WORLD_ID, revision_id)
+    manifest, store = _load_verified_pair(seeded_root, revision_id)
     mutated = store.model_copy(deep=True)
     resource_id = external_statblock_node_id(STATBLOCK_ID)
     mutated.nodes.pop(resource_id)
     with pytest.raises(ThreatConformanceBridgeError) as exc:
-        bridge_buddy_threat_revision(
+        _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=manifest,
+            source_revision=_rebind_manifest_to_store(manifest, mutated),
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -729,17 +734,16 @@ def test_fail_missing_external_resource_node(seeded_root: Path) -> None:
 
 def test_fail_wrong_resource_target(seeded_root: Path) -> None:
     revision_id, _ = _publish_one(seeded_root)
-    manifest = load_world_graph_revision_manifest(seeded_root, WORLD_ID, revision_id)
-    store = load_world_graph_revision(seeded_root, WORLD_ID, revision_id)
+    manifest, store = _load_verified_pair(seeded_root, revision_id)
     mutated = store.model_copy(deep=True)
     edge = next(e for e in mutated.edges.values() if e.predicate == "uses_statblock")
     mutated.edges[edge.edge_id] = edge.model_copy(
         update={"target_node_id": "external:dungeonmind:statblock:sb_other"}
     )
     with pytest.raises(ThreatConformanceBridgeError) as exc:
-        bridge_buddy_threat_revision(
+        _bridge_buddy_threat_revision(
             source_world_id=WORLD_ID,
-            source_revision=manifest,
+            source_revision=_rebind_manifest_to_store(manifest, mutated),
             source_store=mutated,
             threat_node_id=THREAT_ID,
         )
@@ -778,9 +782,14 @@ def test_fail_non_phase_role_with_phase_key() -> None:
 
 def test_fail_integrity_corruption(seeded_root: Path) -> None:
     revision_id, _ = _publish_one(seeded_root)
-    from graph_memory.world_supergraph import paths as world_paths
-
-    graph_path = world_paths.graph_payload_path(seeded_root, WORLD_ID, revision_id)
+    manifest, _store = _load_verified_pair(seeded_root, revision_id)
+    graph_path = (
+        seeded_root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / manifest.graph_payload_path
+    )
     graph_path.write_text(graph_path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
     with pytest.raises(ThreatConformanceBridgeError) as exc:
         bridge_exact_buddy_threat(
@@ -790,6 +799,68 @@ def test_fail_integrity_corruption(seeded_root: Path) -> None:
             threat_node_id=THREAT_ID,
         )
     assert exc.value.reason == "source_revision_integrity_failure"
+
+
+def test_fail_malformed_revision_manifest(seeded_root: Path) -> None:
+    revision_id, _ = _publish_one(seeded_root)
+    manifest, _store = _load_verified_pair(seeded_root, revision_id)
+    manifest_path = (
+        seeded_root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "revision.json"
+    )
+    assert manifest.revision_id == revision_id
+    manifest_path.write_text("{not-valid-json", encoding="utf-8")
+    with pytest.raises(ThreatConformanceBridgeError) as exc:
+        bridge_exact_buddy_threat(
+            root=seeded_root,
+            world_id=WORLD_ID,
+            revision_id=revision_id,
+            threat_node_id=THREAT_ID,
+        )
+    assert exc.value.reason == "source_revision_integrity_failure"
+
+
+def test_r1_manifest_with_r2_store_cannot_bridge(seeded_root: Path) -> None:
+    _publish_threat_node(seeded_root)
+    binding_a = _binding(role="primary", variant_label="rev-a")
+    revision_a = _publish_bindings(seeded_root, [binding_a])
+    binding_b = _binding(role="alternate", variant_label="rev-b")
+    edge_only = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=THREAT_ID,
+        target_node_id=external_statblock_node_id(STATBLOCK_ID),
+        predicate="uses_statblock",
+        campaign_scope=CAMPAIGN_ID,
+        value=_binding_value(binding_b),
+    )
+    result_b = kernel.merge_contribution_to_revision(
+        seeded_root, world_id=WORLD_ID, contribution=_contribution(edge_only)
+    )
+    assert result_b.published and result_b.revision_id
+    revision_b = result_b.revision_id
+
+    manifest_r1, _store_r1 = _load_verified_pair(seeded_root, revision_a)
+    _manifest_r2, store_r2 = _load_verified_pair(seeded_root, revision_b)
+    with pytest.raises(ThreatConformanceBridgeError) as exc:
+        _bridge_buddy_threat_revision(
+            source_world_id=WORLD_ID,
+            source_revision=manifest_r1,
+            source_store=store_r2,
+            threat_node_id=THREAT_ID,
+        )
+    assert exc.value.reason == "source_revision_store_mismatch"
+
+
+def test_mismatched_store_entrypoint_is_not_public() -> None:
+    assert "bridge_buddy_threat_revision" not in bridge_pkg.__all__
+    assert not hasattr(bridge_pkg, "bridge_buddy_threat_revision")
+    assert hasattr(bridge_pkg, "bridge_exact_buddy_threat")
 
 
 def test_fail_resolver_wrong_resource_identity(seeded_root: Path) -> None:

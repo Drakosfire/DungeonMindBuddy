@@ -23,6 +23,12 @@
 
 Open adjacent PRs inspected before shared-file edits: #517 (PWO01 docs — not absorbed), #516 (benchmark), #510 (Build refs), #497 (navbar), #442 (transfer). No shared-file collisions with this seam.
 
+**Review follow-ups (post #518 REQUEST CHANGES):**
+
+- Public surface is only `bridge_exact_buddy_threat` (owns integrity-attested load). Raw store/manifest pairing is private `_bridge_buddy_threat_revision` and refuses digest mismatch (`source_revision_store_mismatch`).
+- All World Graph I/O goes through `graph_memory.kernel` (no `world_supergraph.storage` / `.model` / `.paths` imports in the bridge or its tests).
+- Malformed `revision.json` classifies as `source_revision_integrity_failure`, not `exact_revision_missing`.
+
 **Dependency proof:**
 
 - `uv.lock` pins `dungeonmind @ git+…@8095321ed011b8a38640615a90cbc9efaf385e8c`
