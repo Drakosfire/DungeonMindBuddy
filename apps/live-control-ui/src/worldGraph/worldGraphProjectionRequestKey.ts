@@ -3,6 +3,7 @@ import type { WorldGraphProjectionRequest } from "../api/types";
 /**
  * Stable exact-request identity for World Graph projections.
  * Surfaces reuse a shared verified projection only when keys match.
+ * Includes every projection-shaping field (including queryText).
  */
 export function worldGraphProjectionRequestKey(
   request: WorldGraphProjectionRequest,
@@ -19,6 +20,7 @@ export function worldGraphProjectionRequestKey(
     },
     admissibility: request.admissibility,
     revisionPin: request.revisionPin ?? null,
+    queryText: request.queryText ?? null,
   });
 }
 

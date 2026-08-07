@@ -67,6 +67,7 @@ function readyLens(
     revision: { kind: "head" },
     scopeMode: "campaign",
     focus: { kind: "none", sessionId: null },
+    insertAdmitted: true,
     ...overrides,
   };
 }

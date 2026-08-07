@@ -102,13 +102,8 @@ function loadThreatHoverHydration(
 
 function shouldPersistThreatHoverResult(result: CachedThreatHoverHydration): boolean {
   if (result.loadStatus === "unavailable") return false;
-  // HTTP ok with only unavailable bindings is still a transient DMS/integration miss.
-  if (
-    result.loadStatus === "ready"
-    && result.bindings.length > 0
-    && availableBindingCount(result.bindings) === 0
-    && result.bindings.every((binding) => binding.hydrationStatus === "unavailable")
-  ) {
+  // Any unavailable binding may recover later (partial DMS/integration outage).
+  if (result.bindings.some((binding) => binding.hydrationStatus === "unavailable")) {
     return false;
   }
   return true;

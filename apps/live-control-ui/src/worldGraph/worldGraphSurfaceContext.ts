@@ -156,3 +156,43 @@ export function admitBuildDocumentScope(input: {
     reason: `Build source scope (${documentCampaignId}) does not admit graph context for campaign ${input.incomingCampaignId} (world ${worldId}).`,
   };
 }
+
+/**
+ * Browse admission: shared World Graph Find may cross campaigns within the
+ * document's admitted world. Unknown document scopes fail closed.
+ * Write/insert remains gated by {@link admitBuildDocumentScope}.
+ */
+export function admitBuildWorldGraphBrowse(input: {
+  documentCampaignId: string | null | undefined;
+  projectionWorldId: string;
+}):
+  | { ok: true; documentWorldId: string }
+  | { ok: false; reason: string } {
+  const documentCampaignId = input.documentCampaignId?.trim() ?? "";
+  if (!documentCampaignId) {
+    return {
+      ok: false,
+      reason: "Select a Build source with a known campaign or world scope before opening graph context.",
+    };
+  }
+
+  const scope = classifyBuildDocumentScope(documentCampaignId);
+  if (scope.kind === "unknown") {
+    return {
+      ok: false,
+      reason: `Unknown Build document scope: ${documentCampaignId}.`,
+    };
+  }
+
+  const projectionWorldId = input.projectionWorldId.trim();
+  if (!projectionWorldId || scope.worldId !== projectionWorldId) {
+    return {
+      ok: false,
+      reason:
+        `Build source scope (${documentCampaignId}) does not admit World Graph browse for world ${projectionWorldId || "∅"} `
+        + `(document world ${scope.worldId}).`,
+    };
+  }
+
+  return { ok: true, documentWorldId: scope.worldId };
+}

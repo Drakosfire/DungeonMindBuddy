@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type ReactNode } from "vitest";
 import { createElement } from "react";
 
@@ -110,5 +110,49 @@ describe("WorldGraphLensProjectionProvider", () => {
       }),
     );
     expect(result.current.requestKey).toEqual(expect.any(String));
+  });
+
+  it("clears ready bytes synchronously when revision refresh generation changes", async () => {
+    let resolveSecond!: (value: WorldGraphProjection) => void;
+    const secondDeferred = new Promise<WorldGraphProjection>((resolve) => {
+      resolveSecond = resolve;
+    });
+    vi.spyOn(liveApi, "postWorldGraphProjection")
+      .mockResolvedValueOnce(headProjection({ revisionId: "rev-1", headRevisionId: "rev-1" }))
+      .mockReturnValueOnce(secondDeferred);
+
+    let refreshToken = "r0";
+    const { result, rerender } = renderHook(() => useWorldGraphLensProjection(), {
+      wrapper: ({ children }: { children: ReactNode }) =>
+        createElement(
+          WorldGraphLensProvider,
+          { planCampaignId: "longmont-c2" },
+          createElement(
+            WorldGraphLensProjectionProvider,
+            {
+              defaultCampaignId: "longmont-c2",
+              revisionRefreshToken: refreshToken,
+            },
+            children,
+          ),
+        ),
+    });
+
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    expect(result.current.projection?.snapshot.revisionId).toBe("rev-1");
+    const requestKey = result.current.requestKey;
+
+    refreshToken = "r1";
+    rerender();
+    // Same request key, new refresh generation → fail-closed loading with null bytes.
+    expect(result.current.requestKey).toBe(requestKey);
+    expect(result.current.projectionState).toBe("loading");
+    expect(result.current.projection).toBeNull();
+
+    await act(async () => {
+      resolveSecond(headProjection({ revisionId: "rev-2", headRevisionId: "rev-2" }));
+    });
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    expect(result.current.projection?.snapshot.revisionId).toBe("rev-2");
   });
 });

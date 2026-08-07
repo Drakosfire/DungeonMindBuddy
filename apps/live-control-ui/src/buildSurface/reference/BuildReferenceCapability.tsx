@@ -23,6 +23,7 @@ import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projecti
 import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { useOptionalWorldGraphLens } from "../../graphLens/WorldGraphLensContext";
 import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
+import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "../../chrome/appChromeConfig";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { insertMarkdownReference } from "../../graphReference/insertMarkdownReference";
 import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
@@ -259,16 +260,18 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
       requestedCampaignId: lensParams.requestedCampaignId,
       requestedRevisionId: lensParams.requestedRevisionId,
       sharedLens: sharedGraphLens?.lens ?? null,
-      defaultCampaignId:
-        lensParams.requestedCampaignId ?? sharedGraphLens?.lens.selectedCampaignIds[0] ?? null,
+      sharedRequest: sharedProjection?.request ?? null,
+      // Match the app provider default so world-union anchors do not drift.
+      defaultCampaignId: WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID,
     });
-    // sharedGraphLens object churns on validation ticks; identity key is enough.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional sharedLensIdentityKey
+    // sharedGraphLens / sharedProjection.request churn on validation ticks; keys are enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional shared identity keys
   }, [
     acceptedDocument,
     lensParams.requestedCampaignId,
     lensParams.requestedRevisionId,
     sharedLensIdentityKey,
+    sharedProjection?.requestKey,
   ]);
 
   const documentIdentity = useMemo(
@@ -358,12 +361,17 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
     (attrs: RunbookReferenceAttrs) => {
       if (!session) return;
       if (!isEditorInteractive(session.phase)) return;
+      if (lens.status !== "ready" || !lens.insertAdmitted) return;
       insertMarkdownReference(session.editor, attrs);
     },
-    [session],
+    [lens, session],
   );
 
-  const insertDisabled = !session?.editor || !isEditorInteractive(session.phase);
+  const insertDisabled =
+    !session?.editor
+    || !isEditorInteractive(session.phase)
+    || lens.status !== "ready"
+    || !lens.insertAdmitted;
 
   const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
     const nodeViews: Record<string, GraphProjectionNodeView> = {};

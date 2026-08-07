@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import {
   admitBuildDocumentScope,
+  admitBuildWorldGraphBrowse,
   buildBuildWorldGraphProjectionRequest,
   buildGraphReviewCommittedProjectionRequest,
   buildWorldGraphRecapProjectionRequest,
@@ -128,6 +129,21 @@ describe("worldGraphSurfaceContext", () => {
       admitBuildDocumentScope({
         documentCampaignId: "longmont-c1",
         incomingCampaignId: "longmont-c2",
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("admitBuildWorldGraphBrowse admits same-world cross-campaign browse", () => {
+    expect(
+      admitBuildWorldGraphBrowse({
+        documentCampaignId: "longmont-c1",
+        projectionWorldId: "eldyrwild",
+      }),
+    ).toEqual({ ok: true, documentWorldId: "eldyrwild" });
+    expect(
+      admitBuildWorldGraphBrowse({
+        documentCampaignId: "unknown-scope",
+        projectionWorldId: "eldyrwild",
       }).ok,
     ).toBe(false);
   });

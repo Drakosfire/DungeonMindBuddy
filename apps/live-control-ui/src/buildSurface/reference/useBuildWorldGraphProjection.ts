@@ -193,10 +193,25 @@ export function useBuildWorldGraphProjection(
     [documentIdentity, lens],
   );
 
+  // When following the shared nav, use the resident request as canonical (head)
+  // or clone it with the Build revision pin — never re-derive a divergent union anchor.
   const request = useMemo(() => {
     if (lens.status !== "ready") return null;
+    const sharedRequest = sharedProjection?.request ?? null;
+    if (sharedRequest && sharedRequest.worldId === lens.worldId) {
+      if (lens.revision.kind === "pinned") {
+        return {
+          ...sharedRequest,
+          revisionPin: lens.revision.revisionId,
+        };
+      }
+      return {
+        ...sharedRequest,
+        revisionPin: sharedRequest.revisionPin ?? null,
+      };
+    }
     return buildBuildWorldGraphRequestFromLens(lens);
-  }, [lens]);
+  }, [lens, sharedProjection?.request]);
 
   const requestKey = useMemo(
     () => (request ? worldGraphProjectionRequestKey(request) : null),

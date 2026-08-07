@@ -24,9 +24,13 @@ import {
 export { WORLD_GRAPH_REVISION_COMMITTED_EVENT };
 
 export interface WorldGraphLensProjectionValue {
-  /** Exact request identity for the current shared load (null when lens cannot form a request). */
+  /** Desired exact request identity (may precede loaded bytes during transitions). */
   request: WorldGraphProjectionRequest | null;
   requestKey: string | null;
+  /**
+   * Loaded projection bytes — null unless stored load identity matches the
+   * current desired requestKey + revision refresh generation.
+   */
   projection: WorldGraphProjection | null;
   projectionState: GraphReferenceProjectionState;
   projectionError: string | null;
@@ -34,6 +38,17 @@ export interface WorldGraphLensProjectionValue {
   lastProjectionLoadMs: number | null;
   lastProjectionLoadOutcome: GraphReferenceProjectionState | null;
 }
+
+type StoredProjectionLoad = {
+  requestKey: string;
+  refreshKey: string;
+  request: WorldGraphProjectionRequest;
+  projection: WorldGraphProjection | null;
+  projectionState: GraphReferenceProjectionState;
+  projectionError: string | null;
+  lastProjectionLoadMs: number | null;
+  lastProjectionLoadOutcome: GraphReferenceProjectionState | null;
+};
 
 const WorldGraphLensProjectionContext = createContext<WorldGraphLensProjectionValue | null>(null);
 
@@ -109,12 +124,7 @@ export function WorldGraphLensProjectionProvider({
   children: ReactNode;
 }) {
   const graphLens = useOptionalWorldGraphLens();
-  const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
-  const [projectionState, setProjectionState] = useState<GraphReferenceProjectionState>("loading");
-  const [projectionError, setProjectionError] = useState<string | null>(null);
-  const [lastProjectionLoadMs, setLastProjectionLoadMs] = useState<number | null>(null);
-  const [lastProjectionLoadOutcome, setLastProjectionLoadOutcome] =
-    useState<GraphReferenceProjectionState | null>(null);
+  const [stored, setStored] = useState<StoredProjectionLoad | null>(null);
   const [revisionEventBump, setRevisionEventBump] = useState(0);
 
   const focusValidationStatus = graphLens?.focusValidationStatus ?? "none";
@@ -126,14 +136,14 @@ export function WorldGraphLensProjectionProvider({
     return getWorldGraphContextFromLens(lensState, defaultCampaignId);
   }, [defaultCampaignId, lensState]);
 
-  const request = useMemo(() => {
+  const desiredRequest = useMemo(() => {
     if (!context) return null;
     return buildWorldGraphLensProjectionRequest(context);
   }, [context]);
 
-  const requestKey = useMemo(
-    () => (request ? worldGraphProjectionRequestKey(request) : null),
-    [request],
+  const desiredRequestKey = useMemo(
+    () => (desiredRequest ? worldGraphProjectionRequestKey(desiredRequest) : null),
+    [desiredRequest],
   );
 
   useEffect(() => {
@@ -154,71 +164,86 @@ export function WorldGraphLensProjectionProvider({
 
     async function loadProjection() {
       if (focusValidationPending) {
-        setProjection(null);
-        setProjectionState("loading");
-        setProjectionError(null);
-        setLastProjectionLoadMs(null);
-        setLastProjectionLoadOutcome(null);
+        // Desired key still published; stored bytes become incoherent → loading.
         return;
       }
 
-      if (!context || !request) {
-        setProjection(null);
-        setProjectionState("unavailable");
-        setProjectionError(null);
-        setLastProjectionLoadMs(null);
-        setLastProjectionLoadOutcome("unavailable");
+      if (!context || !desiredRequest || !desiredRequestKey) {
+        setStored(null);
         return;
       }
 
-      setProjection(null);
-      setProjectionState("loading");
-      setProjectionError(null);
+      const loadRequest = desiredRequest;
+      const loadRequestKey = desiredRequestKey;
+      const loadRefreshKey = projectionRefreshKey;
       const startMark = markProjectionLoadStart();
       const focusSessionId =
         context.focus.kind === "session" ? context.focus.sessionId : null;
 
-      const finish = (outcome: GraphReferenceProjectionState) => {
-        const durationMs = measureProjectionLoad(startMark, outcome, {
+      const finish = (outcome: GraphReferenceProjectionState): number | null =>
+        measureProjectionLoad(startMark, outcome, {
           campaignId: context.campaignId,
           scopeMode: context.scopeMode,
           focusSessionId,
         });
-        setLastProjectionLoadMs(durationMs);
-        setLastProjectionLoadOutcome(outcome);
-      };
 
       try {
-        const response = await postWorldGraphProjection(request);
+        const response = await postWorldGraphProjection(loadRequest);
         if (cancelled) return;
         const mismatch = verifyWorldGraphProjectionResponse({
-          request,
+          request: loadRequest,
           response,
           revisionKind: "head",
-          pinnedRevisionId: request.revisionPin ?? null,
+          pinnedRevisionId: loadRequest.revisionPin ?? null,
         });
         if (mismatch) {
-          setProjection(null);
-          setProjectionState("error");
-          setProjectionError(mismatch);
-          finish("error");
+          setStored({
+            requestKey: loadRequestKey,
+            refreshKey: loadRefreshKey,
+            request: loadRequest,
+            projection: null,
+            projectionState: "error",
+            projectionError: mismatch,
+            lastProjectionLoadMs: finish("error"),
+            lastProjectionLoadOutcome: "error",
+          });
           return;
         }
-        setProjection(response);
-        setProjectionState("ready");
-        finish("ready");
+        setStored({
+          requestKey: loadRequestKey,
+          refreshKey: loadRefreshKey,
+          request: loadRequest,
+          projection: response,
+          projectionState: "ready",
+          projectionError: null,
+          lastProjectionLoadMs: finish("ready"),
+          lastProjectionLoadOutcome: "ready",
+        });
       } catch (error) {
         if (cancelled) return;
-        setProjection(null);
         if (isWorldGraphUnavailable(error)) {
-          setProjectionState("unavailable");
-          setProjectionError(null);
-          finish("unavailable");
+          setStored({
+            requestKey: loadRequestKey,
+            refreshKey: loadRefreshKey,
+            request: loadRequest,
+            projection: null,
+            projectionState: "unavailable",
+            projectionError: null,
+            lastProjectionLoadMs: finish("unavailable"),
+            lastProjectionLoadOutcome: "unavailable",
+          });
           return;
         }
-        setProjectionState("error");
-        setProjectionError(formatProjectionLoadError(error));
-        finish("error");
+        setStored({
+          requestKey: loadRequestKey,
+          refreshKey: loadRefreshKey,
+          request: loadRequest,
+          projection: null,
+          projectionState: "error",
+          projectionError: formatProjectionLoadError(error),
+          lastProjectionLoadMs: finish("error"),
+          lastProjectionLoadOutcome: "error",
+        });
       }
     }
 
@@ -227,29 +252,65 @@ export function WorldGraphLensProjectionProvider({
     return () => {
       cancelled = true;
     };
-  }, [context, focusValidationPending, projectionRefreshKey, request]);
+  }, [
+    context,
+    desiredRequest,
+    desiredRequestKey,
+    focusValidationPending,
+    projectionRefreshKey,
+  ]);
 
-  const value = useMemo<WorldGraphLensProjectionValue>(
-    () => ({
-      request,
-      requestKey,
-      projection,
-      projectionState,
-      projectionError,
-      nodeCount: projection?.nodes.length ?? 0,
-      lastProjectionLoadMs,
-      lastProjectionLoadOutcome,
-    }),
-    [
-      lastProjectionLoadMs,
-      lastProjectionLoadOutcome,
-      projection,
-      projectionError,
-      projectionState,
-      request,
-      requestKey,
-    ],
-  );
+  const value = useMemo<WorldGraphLensProjectionValue>(() => {
+    const coherent =
+      stored != null
+      && desiredRequestKey != null
+      && stored.requestKey === desiredRequestKey
+      && stored.refreshKey === projectionRefreshKey
+      && !focusValidationPending;
+
+    if (!desiredRequest || !desiredRequestKey) {
+      return {
+        request: null,
+        requestKey: null,
+        projection: null,
+        projectionState: "unavailable",
+        projectionError: null,
+        nodeCount: 0,
+        lastProjectionLoadMs: null,
+        lastProjectionLoadOutcome: "unavailable",
+      };
+    }
+
+    if (!coherent) {
+      return {
+        request: desiredRequest,
+        requestKey: desiredRequestKey,
+        projection: null,
+        projectionState: "loading",
+        projectionError: null,
+        nodeCount: 0,
+        lastProjectionLoadMs: null,
+        lastProjectionLoadOutcome: null,
+      };
+    }
+
+    return {
+      request: desiredRequest,
+      requestKey: desiredRequestKey,
+      projection: stored.projection,
+      projectionState: stored.projectionState,
+      projectionError: stored.projectionError,
+      nodeCount: stored.projection?.nodes.length ?? 0,
+      lastProjectionLoadMs: stored.lastProjectionLoadMs,
+      lastProjectionLoadOutcome: stored.lastProjectionLoadOutcome,
+    };
+  }, [
+    desiredRequest,
+    desiredRequestKey,
+    focusValidationPending,
+    projectionRefreshKey,
+    stored,
+  ]);
 
   return createElement(
     WorldGraphLensProjectionContext.Provider,

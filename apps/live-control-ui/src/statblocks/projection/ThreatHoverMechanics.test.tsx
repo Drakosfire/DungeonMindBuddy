@@ -153,4 +153,44 @@ describe("useThreatHoverMechanics", () => {
     expect(postSpy).toHaveBeenCalledTimes(2);
     expect(result.current.compactBinding?.bindingId).toBe("bind-1");
   });
+
+  it("retries when a partial result includes any unavailable binding", async () => {
+    const partial = {
+      ...okResponse,
+      hits: [
+        {
+          ...okResponse.hits[0],
+          bindings: [
+            okResponse.hits[0].bindings[0],
+            {
+              ...okResponse.hits[0].bindings[0],
+              bindingId: "bind-2",
+              hydrationStatus: "unavailable" as const,
+              revision: null,
+              message: "downstream unavailable",
+            },
+          ],
+        },
+      ],
+    };
+    const recovered = okResponse;
+    const postSpy = vi
+      .spyOn(liveApi, "postThreatQueryHydration")
+      .mockResolvedValueOnce(partial as never)
+      .mockResolvedValueOnce(recovered as never);
+
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useThreatHoverMechanics(enabled, "threat-1", scope),
+      { initialProps: { enabled: true } },
+    );
+
+    await waitFor(() => expect(result.current.loadStatus).toBe("ready"));
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.bindingCount).toBe(2);
+
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.bindingCount).toBe(1));
+  });
 });
