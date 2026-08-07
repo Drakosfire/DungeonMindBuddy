@@ -7,6 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Statblock mechanics identity is campaign-agnostic — captured 2026-08-06
+**Context:** Dogfood Threat sheet hydration: operator could search the Threat but not load mechanics while DMS was down; separately asserted “statblocks should not be defined by the campaign they were created for or in.”
+**Insight:** Exact mechanics identity is `(statblock_id, revision_id, definition_digest)` in DungeonMind. Campaign belongs to World Graph Threat/scope and to presentation chrome (`chrome="campaign"` parchment), not to ownership of the revision. Naming and Advanced Details that put “Campaign” next to mechanics locators make the wrong boundary feel like product truth.
+**Action:** Audit Threat sheet / Workbench copy and models so campaign appears only as graph/query scope or presentation mode; never as a field that defines or partitions `sb_`/`rev_` identity. Prefer renaming “campaign chrome” to “parchment / Threat presentation” in UI code comments and operator-facing strings. Falsify: same exact revision hydrates from C1 or C2 Threat bindings without implying two campaign-owned statblocks.
+**Surfaces when:** ThreatSheetProjection, StatblockRenderer chrome=campaign, campaign-facing, definition_digest, uses_statblock binding, MAGIC-D3, hydration unavailable, campaign scope
+**Refs:** `apps/live-control-ui/src/statblocks/projection/ThreatSheetProjection.tsx`; `apps/live-control-ui/src/statblocks/render/StatblockRenderer.tsx`; `apps/live_control_server/services/threat_query_hydration.py`
+
 ## [READY] Threat campaign Statblock is a composed projection, not Plan chrome — captured 2026-08-06
 **Context:** STATBLOCK UX dogfood: Plan now opens Threat chips to campaign parchment `StatblockRenderer` + Advanced Details. Operator clarified the target standard: surfaces are composed; Statblock is a tool/projection in the toolbox and must compose on any surface (Build markdown canvas chip click must match Plan).
 **Insight:** Campaign Threat render (`ThreatSheetProjection` / campaign `StatblockRenderer`) is already shared module code, but open + route seams are Plan-local (`PlanSurfaceCanvas` chip runtime, `PlanReferenceObjectCard` Threat branch). Build still uses generic `GraphObjectProjectionCard` and has no `GraphNodeChipRuntimeProvider`, so chip click cannot reach the same render. Workbench/statblock tool ≠ Threat world-object projection — both must be registrable into Interaction Layer hosts without Plan ownership.
