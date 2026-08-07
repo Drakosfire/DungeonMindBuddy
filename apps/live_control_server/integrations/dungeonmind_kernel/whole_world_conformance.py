@@ -1005,9 +1005,11 @@ def _classify_artifact_field(
         if value is None:
             return SemanticClassification.BUDDY_OPERATIONAL_ONLY, None, "absent authority_state"
         return (
-            SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER,
-            None,
-            "Buddy authority_state → DM SourceArtifact.authority (string) adapter",
+            SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP,
+            BlockerClass.EVIDENCE_PROVENANCE,
+            "Buddy authority_state (draft/reviewed/canonical) is review/canonization; "
+            "DM SourceArtifact.authority (primary/derived/reference) is evidentiary role — "
+            "not the same axis; no silent rename",
         )
     if field == "visibility_state":
         if value is None:
@@ -1632,11 +1634,10 @@ def analyze_exact_buddy_world_revision(
             )
         )
 
-    blocking = any(
-        item.classification in _BLOCKING_CLASSIFICATIONS for item in classified
-    ) or seam.status == "DURABLE_ADOPTION_BOUNDARY_MISSING" or unaccounted > 0
+    # Binary readiness is the blocker list — not a parallel condition that can drift
+    # from CONTRIBUTION_HISTORY / SOURCE_INTEGRITY / seam appends.
     disposition: WholeWorldDisposition = (
-        "WHOLE_GRAPH_ADOPTION_NOT_READY" if blocking else "WHOLE_GRAPH_ADOPTION_READY"
+        "WHOLE_GRAPH_ADOPTION_NOT_READY" if blockers else "WHOLE_GRAPH_ADOPTION_READY"
     )
 
     uses_statblock_count = sum(

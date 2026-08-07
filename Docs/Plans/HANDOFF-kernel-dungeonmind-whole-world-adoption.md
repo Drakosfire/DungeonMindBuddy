@@ -197,9 +197,13 @@ world_graph_repository_methods (introspected):
   get_head, get_revision, publish_revision, rollback_head
 ```
 
-Status is derived from introspected public callables on pinned `WorldGraphRepository` (no hardcoded method list / hardcoded MISSING). No public governed adopt-existing-world / bootstrap-complete-revision service for pre-existing Buddy worlds.
+Pinned `WorldGraphRepository` public callables are introspected (no hardcoded method list / hardcoded MISSING). No public governed adopt-existing-world / bootstrap-complete-revision service for pre-existing Buddy worlds.
 
 Postgres adoption: `BLOCKED` (seam missing; no postgres import).
+
+**Readiness contract:** `disposition` is derived solely from the unresolved `blockers` list (including `CONTRIBUTION_HISTORY` when any `SOURCE_MIGRATION_HISTORY` remains). Schema/seam work alone cannot yield `WHOLE_GRAPH_ADOPTION_READY` while genesis policy A/B/C is undecided.
+
+**Source-artifact axis note:** non-null Buddy `authority_state` (`draft`/`reviewed`/`canonical`) is a SEMANTIC_CONTRACT_GAP — not an adapter onto DM `SourceArtifact.authority` (`primary`/`derived`/`reference`).
 
 ---
 

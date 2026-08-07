@@ -431,3 +431,92 @@ def test_durable_adoption_seam_missing_on_current_pin() -> None:
         "rollback_head",
     ]
     assert "adopt" not in " ".join(seam.world_graph_repository_methods).lower()
+
+
+def test_contribution_history_alone_keeps_disposition_not_ready(
+    seeded_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Migration history must block READY even when seam is present and other gaps cleared."""
+    revision_id = _publish_node(seeded_root, node_id="threat:history", kind="threat", role="threat")
+
+    monkeypatch.setattr(
+        wwc,
+        "inspect_dungeonmind_durable_adoption_seam",
+        lambda: wwc.DurableAdoptionSeamStatusReport(
+            status="DURABLE_ADOPTION_BOUNDARY_PRESENT",
+            rationale="test double: seam present for history-isolation",
+            world_graph_repository_methods=["adopt_existing_world"],
+            missing_public_adoption_service=False,
+        ),
+    )
+
+    original_append = wwc._append_classification
+
+    def _append_clearing_semantic_gaps(**kwargs: Any) -> None:
+        classification = kwargs["classification"]
+        if classification in wwc._BLOCKING_CLASSIFICATIONS:
+            kwargs["classification"] = wwc.SemanticClassification.EXACTLY_REPRESENTABLE
+            kwargs["blocker_class"] = None
+            kwargs["note"] = "cleared for migration-history isolation"
+        original_append(**kwargs)
+
+    monkeypatch.setattr(wwc, "_append_classification", _append_clearing_semantic_gaps)
+
+    report = analyze_exact_buddy_world_revision(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+    )
+    blocker_classes = {blocker.blocker_class.value for blocker in report.blockers}
+    assert "CONTRIBUTION_HISTORY" in blocker_classes
+    assert "DURABLE_ADOPTION_BOUNDARY" not in blocker_classes
+    assert report.disposition == "WHOLE_GRAPH_ADOPTION_NOT_READY"
+    # Only history should remain as the readiness gate once other gaps are cleared.
+    assert all(
+        blocker.blocker_class.value == "CONTRIBUTION_HISTORY" for blocker in report.blockers
+    )
+
+
+def test_authority_state_canonical_is_semantic_gap_not_authority_adapter(
+    seeded_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Buddy authority_state ≠ DM SourceArtifact.authority (different semantic axes)."""
+    revision_id = _publish_node(seeded_root, node_id="npc:authority", kind="npc", role="ally")
+    original_load = wwc._load_exact_buddy_revision
+
+    def _load_with_authority(*, root: Path, world_id: str, revision_id: str):
+        manifest, store = original_load(root=root, world_id=world_id, revision_id=revision_id)
+        payload = store.model_dump(mode="python", by_alias=True)
+        if not payload["source_artifacts"]:
+            payload["source_artifacts"]["artifact:authority"] = {
+                "schema_version": "dmb_source_artifact_v1",
+                "source_artifact_id": "artifact:authority",
+                "source_domain": "manual_seed",
+                "campaign_id": CAMPAIGN_ID,
+                "uri": "file://authority",
+                "status": "active",
+                "authority_state": "canonical",
+            }
+        else:
+            first_id = next(iter(payload["source_artifacts"]))
+            payload["source_artifacts"][first_id]["authority_state"] = "canonical"
+        return manifest, UnionSupergraphStore.model_validate(payload)
+
+    monkeypatch.setattr(wwc, "_load_exact_buddy_revision", _load_with_authority)
+    report = analyze_exact_buddy_world_revision(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+    )
+    authority_gaps = [
+        bucket
+        for bucket in report.mapping_buckets
+        if bucket.element_family == "source_artifact_field"
+        and bucket.classification.value == "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
+        and any("authority_state" in note for note in bucket.notes)
+    ]
+    assert authority_gaps
+    assert any("evidentiary role" in note for bucket in authority_gaps for note in bucket.notes)
+    assert report.disposition == "WHOLE_GRAPH_ADOPTION_NOT_READY"
