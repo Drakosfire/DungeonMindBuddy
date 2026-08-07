@@ -1,12 +1,209 @@
 {
-  "measuredAt": null,
-  "contractOk": false,
-  "contractFailures": [
-    "Prior dogfood invalidated: Plan projection unavailable, no chip/glance/detail path, Build projection error, and surface_switch_end was not wall-epoch Plan→Build latency. Re-run with DMB_BENCH_SURFACE=1 after review fixes."
+  "measuredAt": "2026-08-07T14:52:16.009Z",
+  "baseURL": "http://127.0.0.1:5173",
+  "gitHead": "63a216e2b1b5bb24230142ea8aa02439b0c740e6",
+  "gitDirty": false,
+  "contractOk": true,
+  "contractFailures": [],
+  "navigation": {
+    "plan": {
+      "domContentLoadedMs": 231,
+      "loadEventMs": 234
+    },
+    "build": {
+      "domContentLoadedMs": 415,
+      "loadEventMs": 418
+    }
+  },
+  "stages": [
+    {
+      "stage": "projection_fetch",
+      "t": 344.0999999642372,
+      "epochMs": 1786114334468.4001,
+      "meta": {
+        "surface": "plan",
+        "generation": 1
+      }
+    },
+    {
+      "stage": "client_cache_miss",
+      "t": 344.69999998807907,
+      "epochMs": 1786114334469,
+      "meta": {
+        "endpoint": "projection"
+      }
+    },
+    {
+      "stage": "projection_fetch",
+      "t": 351.0999999642372,
+      "epochMs": 1786114334475.3,
+      "meta": {
+        "surface": "plan",
+        "generation": 2
+      }
+    },
+    {
+      "stage": "client_cache_coalesced",
+      "t": 351.19999998807907,
+      "epochMs": 1786114334475.5,
+      "meta": {
+        "endpoint": "projection"
+      }
+    },
+    {
+      "stage": "projection_ready",
+      "t": 411.30000001192093,
+      "epochMs": 1786114334535.6,
+      "durationMs": 60,
+      "meta": {
+        "surface": "plan",
+        "campaignId": "longmont-c2",
+        "scopeMode": "campaign",
+        "focusSessionId": null,
+        "outcome": "ready",
+        "mark": "dmb:wg-surface:projection_ready"
+      }
+    },
+    {
+      "stage": "first_chip_paint",
+      "t": 454.69999998807907,
+      "epochMs": 1786114334579,
+      "meta": {
+        "nodeId": "event:longmont-c2:session-22:mireward-road",
+        "surface": "chip"
+      }
+    },
+    {
+      "stage": "detail_glance_open",
+      "t": 617.6999999880791,
+      "epochMs": 1786114334742,
+      "meta": {
+        "glanceOnly": true,
+        "key": "graph-node",
+        "title": "Mireward Road"
+      }
+    },
+    {
+      "stage": "detail_full_open",
+      "t": 669.3000000119209,
+      "epochMs": 1786114334793.6,
+      "meta": {
+        "via": "expandContent",
+        "key": "graph-node",
+        "title": "Mireward Road"
+      }
+    },
+    {
+      "stage": "detail_full_open",
+      "t": 669.5999999642372,
+      "epochMs": 1786114334793.9001,
+      "meta": {
+        "via": "expandContent",
+        "key": "graph-node",
+        "title": "Mireward Road"
+      }
+    },
+    {
+      "stage": "surface_switch_start",
+      "t": 750,
+      "epochMs": 1786114334874.3,
+      "meta": {
+        "from": "plan",
+        "to": "build",
+        "href": "/build",
+        "navigation": "full_document_anchor",
+        "switchId": "759ab3ab-bf1e-475a-a580-91ea1ec0164a",
+        "epochMs": 1786114334874.3
+      }
+    },
+    {
+      "stage": "build_projection_fetch",
+      "t": 559.4000000357628,
+      "epochMs": 1786114335434.0999,
+      "meta": {
+        "surface": "build",
+        "campaignId": "longmont-c2",
+        "revisionKind": "head",
+        "revisionPin": null
+      }
+    },
+    {
+      "stage": "client_cache_miss",
+      "t": 559.6000000238419,
+      "epochMs": 1786114335434.3,
+      "meta": {
+        "endpoint": "projection"
+      }
+    },
+    {
+      "stage": "build_projection_ready",
+      "t": 587.3000000119209,
+      "epochMs": 1786114335462,
+      "durationMs": 28,
+      "meta": {
+        "surface": "build",
+        "outcome": "ready",
+        "campaignId": "longmont-c2",
+        "revisionKind": "head",
+        "revisionId": "rev:3413bf6f5044cf2680233f5e37c90dcf"
+      }
+    },
+    {
+      "stage": "surface_switch_end",
+      "t": 587.4000000357628,
+      "epochMs": 1786114335462.0999,
+      "durationMs": 588,
+      "meta": {
+        "surface": "build",
+        "outcome": "ready",
+        "revisionId": "rev:3413bf6f5044cf2680233f5e37c90dcf",
+        "switchId": "759ab3ab-bf1e-475a-a580-91ea1ec0164a",
+        "startEpochMs": 1786114334874.3,
+        "endEpochMs": 1786114335462.0999,
+        "clock": "wall_epoch",
+        "from": "plan",
+        "to": "build",
+        "href": "/build"
+      }
+    },
+    {
+      "stage": "detail_full_open",
+      "t": 1110.199999988079,
+      "epochMs": 1786114335984.9,
+      "meta": {
+        "glanceOnly": false,
+        "key": "graph-node",
+        "title": "Commanding Shout"
+      }
+    },
+    {
+      "stage": "build_detail_open",
+      "t": 1110.300000011921,
+      "epochMs": 1786114335985,
+      "meta": {
+        "surface": "build",
+        "nodeId": "item-006",
+        "label": "Commanding Shout"
+      }
+    }
   ],
-  "gitHead": null,
-  "stages": [],
+  "projectionMarks": [
+    "dmb:wg-surface:build_projection_fetch",
+    "dmb:wg-surface:client_cache_miss",
+    "dmb:wg-surface:build_projection_ready",
+    "dmb:wg-surface:surface_switch_end",
+    "dmb:wg-surface:detail_full_open",
+    "dmb:wg-surface:build_detail_open"
+  ],
   "notes": [
-    "Placeholder after review 4879816651 blockers; do not treat as a successful benchmark."
+    "Used SurfaceLatencyBenchChipHost (Plan doc had no native graph chip).",
+    "Plan checkpoint stages: projection_fetch,client_cache_miss,projection_fetch,client_cache_coalesced,projection_ready,first_chip_paint,detail_glance_open,detail_full_open,detail_full_open",
+    "Build required campaign pick (longmont-c2) after surface switch."
+  ],
+  "cleanupCandidates": [
+    "Plan↔Build uses full-document `<a href>` navigation (`navigation: full_document_anchor`); SPA routing would retain the client projection TTL cache across surfaces.",
+    "Cold path observed client_cache_miss with no client_cache_hit in this run — warm client TTL and/or OPT03 server completed-cache should be re-measured on a second pass without clear.",
+    "Chip glance → Expand path is instrumented; compare detail_glance_open vs detail_full_open wall deltas vs projection re-fetch marks to see if Expand re-resolves unnecessarily.",
+    "Surface switch wall time (588ms) dwarfs Build projection fetch (28ms) — admission UI / full reload dominate over projection build."
   ]
 }
