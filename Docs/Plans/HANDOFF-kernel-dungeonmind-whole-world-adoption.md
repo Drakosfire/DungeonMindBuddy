@@ -152,7 +152,17 @@ party 11, pc 6, creature 4, threat 3, encounter 2, event 2, external_resource 2
 | uses_statblock edges | 2 |
 | located_in gaps | 48 |
 
-Completeness invariant: `unaccounted_durable_elements = 0` (`classified_elements_count = 8988`).
+Completeness invariant: `unaccounted_durable_elements = 0` (`classified_elements_count = 18106` durable serialized paths). Accounting derives from `enumerate_durable_element_ids(store)` over the serialized payload — not from classifier-loop self-counts. Unknown Pydantic extras remain unaccounted (adversarial test covers this).
+
+**Source domain inventory (25 artifacts / 185 evidence)**
+
+| Domain | Artifacts | Evidence | Disposition |
+|--------|----------:|---------:|-------------|
+| recap | 16 | 158 | EXPLICIT_ADAPTER → DM `session_recap` |
+| worldbuilding | 4 | 4 | EXACTLY_REPRESENTABLE |
+| statblock | 3 | 9 | SEMANTIC_CONTRACT_GAP |
+| manual_seed | 1 | 13 | EXPLICIT_ADAPTER → DM `manual` |
+| party_registry | 1 | 1 | SEMANTIC_CONTRACT_GAP |
 
 ---
 
@@ -164,9 +174,11 @@ Completeness invariant: `unaccounted_durable_elements = 0` (`classified_elements
 | canon_state canonical/provisional/retracted | EXACTLY_REPRESENTABLE |
 | epistemic_kind fact / source_derived_candidate | SEMANTIC_CONTRACT_GAP (EPISTEMIC_STATE) |
 | campaign_scope | SEMANTIC_CONTRACT_GAP (CAMPAIGN_SCOPE) |
+| node.role | SEMANTIC_CONTRACT_GAP (ATTRIBUTE_ASSERTION) |
 | approval/memory/support/identity/introduced_by_contribution_id | SOURCE_MIGRATION_HISTORY (CONTRIBUTION_HISTORY) |
-| aliases label→node_id | DURABILITY gap (EVIDENCE_PROVENANCE) |
-| evidence contribution_support | adapter note; Buddy-only span/session fields → durability gap |
+| aliases label→node_id + node.aliases | DURABILITY gap (EVIDENCE_PROVENANCE) |
+| evidence fields (incl. `source_domain`) | field-for-field; role adapter + Buddy-only span/session durability gaps + domain gaps |
+| source_artifact fields (incl. `source_domain`, `content_sha256`→SourceRevision) | field-for-field; not wholesale adapter |
 | assertion_support | SOURCE_MIGRATION_HISTORY |
 | contribution_replay + source payload digests | SOURCE_MIGRATION_HISTORY |
 | edge.session_ids | FICTIONAL_TIME gap |
@@ -181,9 +193,11 @@ Completeness invariant: `unaccounted_durable_elements = 0` (`classified_elements
 ```text
 inspect_dungeonmind_durable_adoption_seam()
 → DURABLE_ADOPTION_BOUNDARY_MISSING
+world_graph_repository_methods (introspected):
+  get_head, get_revision, publish_revision, rollback_head
 ```
 
-Pinned `WorldGraphRepository` exposes `get_head`, `get_revision`, `publish_revision`, `rollback_head` only. No public governed adopt-existing-world / bootstrap-complete-revision service for pre-existing Buddy worlds.
+Status is derived from introspected public callables on pinned `WorldGraphRepository` (no hardcoded method list / hardcoded MISSING). No public governed adopt-existing-world / bootstrap-complete-revision service for pre-existing Buddy worlds.
 
 Postgres adoption: `BLOCKED` (seam missing; no postgres import).
 
@@ -205,10 +219,11 @@ DISPOSITION: WHOLE_GRAPH_ADOPTION_NOT_READY
 
 | Blocker class | Count | Responsible | Smallest next change |
 |---------------|------:|---------------|----------------------|
-| CONTRIBUTION_HISTORY | 4085 | DungeonMind | Adopt-existing-world seam + genesis policy A/B/C |
-| CAMPAIGN_SCOPE | 786 | DungeonMind | DM campaign/scope field for Buddy `campaign_scope` |
+| CONTRIBUTION_HISTORY | 4090 | DungeonMind | Adopt-existing-world seam + genesis policy A/B/C |
+| EVIDENCE_PROVENANCE | 1209 | DungeonMind | Preserve Buddy evidence/alias/source_domain/artifact field peers |
+| CAMPAIGN_SCOPE | 787 | DungeonMind | DM campaign/scope field for Buddy `campaign_scope` |
 | EPISTEMIC_STATE | 786 | DungeonMind | Buddy epistemic vocabulary mapping (no coercion) |
-| EVIDENCE_PROVENANCE | 583 | DungeonMind | Preserve Buddy evidence/alias provenance fields |
+| ATTRIBUTE_ASSERTION | 438 | DungeonMindBuddy | Document or map Buddy `node.role` (and similar) |
 | RELATIONSHIP_PREDICATE | 336 | DungeonMind | Predicate contracts / adapters (incl. `located_in`) |
 | FICTIONAL_TIME | 333 | DungeonMind | Transport durable `edge.session_ids` |
 | WORLD_OBJECT_KIND | 260 | DungeonMind | Extend world-object-v1 for item/mystery/group/party/event |
@@ -217,7 +232,7 @@ DISPOSITION: WHOLE_GRAPH_ADOPTION_NOT_READY
 
 Source tree digest before/after analyze: `b79f956141424f7ed332d86f3249666c9353e048f2776364bcb09e65edff6a77` (equal).
 
-Classification bucket totals @ pin: EXACTLY_REPRESENTABLE 1572, REPRESENTABLE_BY_EXPLICIT_ADAPTER 241, SEMANTIC_CONTRACT_GAP 2501, DURABILITY_CONTRACT_GAP 583, SOURCE_MIGRATION_HISTORY 4085, BUDDY_OPERATIONAL_ONLY 6.
+Classification bucket totals @ pin: EXACTLY_REPRESENTABLE 3227, REPRESENTABLE_BY_EXPLICIT_ADAPTER 3995, SEMANTIC_CONTRACT_GAP 2969, DURABILITY_CONTRACT_GAP 1180, SOURCE_MIGRATION_HISTORY 4090, BUDDY_OPERATIONAL_ONLY 2645.
 
 ---
 
@@ -227,7 +242,7 @@ Policies A/B/C were evaluated for reporting only; none was executed.
 
 - Historical Buddy contribution chains cannot be silently discarded.
 - Option B (versioned one-time adoption record + new DM contribution chain) is the likely future policy **only if** semantics + durability gaps close and the public adoption seam lands.
-- Today: blocked by semantic gaps, alias/evidence durability gaps, contribution history, and missing DM adoption seam.
+- Today: blocked by semantic gaps (including source_domain vocabulary + artifact field peers), alias/evidence durability gaps, contribution history, and missing DM adoption seam.
 
 ---
 
@@ -236,13 +251,15 @@ Policies A/B/C were evaluated for reporting only; none was executed.
 | Gate | Result |
 |------|--------|
 | WHOLE_WORLD_INVENTORY exact pin | **PASS** |
-| Completeness invariant (=0 unaccounted) | **PASS** |
+| Completeness invariant (=0 unaccounted; payload-derived) | **PASS** |
+| Unknown durable extras force unaccounted > 0 | **PASS** (adversarial test) |
+| Source/evidence field+domain classification | **PASS** |
 | BRIDGE_MAPPING closed (#521) | **PASS** (per-object bridge unchanged) |
 | Mapped kinds inventory | **PASS** (threat/npc/pc/location/faction/encounter/creature/external_resource) |
 | Semantic gap kinds surfaced | **PASS** (item/mystery/group/party/event) |
 | uses_statblock mechanics retained | **PASS** |
 | located_in not mapped to located_at | **PASS** (gap) |
-| Durable adoption seam | **FAIL** |
+| Durable adoption seam (introspected) | **FAIL** |
 | build refuses NOT_READY | **PASS** |
 | Source tree digest unchanged by analyze | **PASS** |
 
@@ -322,7 +339,7 @@ DungeonMind:
 WORLD: add the exact missing whole-graph semantic contracts required by Eldyrwild adoption
 ```
 
-Scope only observed missing families: item/mystery/group/party/event kinds; unmapped predicates (starting with `located_in` + high-count gaps); campaign_scope; Buddy epistemic vocabulary; fictional-time/`session_ids`; evidence span fields; alias evidence attachment.
+Scope only observed missing families: item/mystery/group/party/event kinds; unmapped predicates (starting with `located_in` + high-count gaps); campaign_scope; Buddy epistemic vocabulary; fictional-time/`session_ids`; evidence span fields; alias evidence attachment; Buddy `source_domain` values without DM peers (`statblock`, `party_registry`, and other note domains); Buddy artifact fields without DM peers (`workspace_document_*`, `updated_at`, `lineage` when populated, visibility_state vocab); Buddy `node.role`.
 
 Then (**Outcome B**, already confirmed missing):
 

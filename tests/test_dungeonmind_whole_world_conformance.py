@@ -22,6 +22,8 @@ from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_store,
 )
+from graph_memory.union_supergraph.model import UnionSupergraphStore
+import apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance as wwc
 
 WORLD_ID = "whole-world-conformance"
 CAMPAIGN_ID = "longmont-c2"
@@ -153,7 +155,7 @@ def test_unsupported_predicate_fixture_is_not_ready(seeded_root: Path) -> None:
     assert report.located_in_gap_count == 1
     assert any(
         bucket.classification.value == "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
-        and bucket.element_family == "edge"
+        and bucket.element_family == "edge_field"
         for bucket in report.mapping_buckets
     )
 
@@ -168,6 +170,83 @@ def test_completeness_invariant_accounts_every_durable_element(seeded_root: Path
     assert report.unaccounted_durable_elements == 0
     assert report.classified_elements_count > 0
     assert report.disposition == "WHOLE_GRAPH_ADOPTION_NOT_READY"
+
+
+def test_unknown_durable_extra_field_cannot_report_zero_unaccounted(
+    seeded_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adversarial: extras allowed by Pydantic must not silently vanish from accounting."""
+    revision_id = _publish_node(seeded_root, node_id="threat:extra", kind="threat", role="threat")
+    original_load = wwc._load_exact_buddy_revision
+
+    def _load_with_unknown_extras(*, root: Path, world_id: str, revision_id: str):
+        manifest, store = original_load(root=root, world_id=world_id, revision_id=revision_id)
+        payload = store.model_dump(mode="python", by_alias=True)
+        first_node_id = next(iter(payload["nodes"]))
+        first_edge_id = next(iter(payload["edges"])) if payload["edges"] else None
+        first_artifact_id = (
+            next(iter(payload["source_artifacts"])) if payload["source_artifacts"] else None
+        )
+        payload["nodes"][first_node_id]["unexpected_durable_node_field"] = "must-block"
+        if first_edge_id is not None:
+            payload["edges"][first_edge_id]["unexpected_durable_edge_field"] = "must-block"
+        if first_artifact_id is not None:
+            payload["source_artifacts"][first_artifact_id][
+                "unexpected_durable_artifact_field"
+            ] = "must-block"
+        else:
+            # Fixture worlds always have at least the graph-native artifact after publish.
+            payload["source_artifacts"]["artifact:adversarial"] = {
+                "schema_version": "dmb_source_artifact_v1",
+                "source_artifact_id": "artifact:adversarial",
+                "source_domain": "manual_seed",
+                "campaign_id": CAMPAIGN_ID,
+                "session_id": None,
+                "uri": "file://adversarial",
+                "content_sha256": "abc",
+                "status": "active",
+                "unexpected_durable_artifact_field": "must-block",
+            }
+        mutated = UnionSupergraphStore.model_validate(payload)
+        return manifest, mutated
+
+    monkeypatch.setattr(wwc, "_load_exact_buddy_revision", _load_with_unknown_extras)
+    report = analyze_exact_buddy_world_revision(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+    )
+    assert report.unaccounted_durable_elements > 0
+    assert report.disposition == "WHOLE_GRAPH_ADOPTION_NOT_READY"
+    assert any(
+        blocker.blocker_class.value == "SOURCE_INTEGRITY" for blocker in report.blockers
+    )
+    assert any(
+        "unexpected_durable_node_field" in example
+        for blocker in report.blockers
+        if blocker.blocker_class.value == "SOURCE_INTEGRITY"
+        for example in blocker.examples
+    )
+
+
+def test_source_domain_fields_are_classified_not_wholesale_adapters(
+    seeded_root: Path,
+) -> None:
+    revision_id = _publish_node(seeded_root, node_id="npc:domain", kind="npc", role="ally")
+    report = analyze_exact_buddy_world_revision(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+    )
+    artifact_field_buckets = [
+        bucket
+        for bucket in report.mapping_buckets
+        if bucket.element_family == "source_artifact_field"
+    ]
+    assert artifact_field_buckets
+    # Wholesale "source_artifact" family must not be the only accounting unit.
+    assert not any(bucket.element_family == "source_artifact" for bucket in report.mapping_buckets)
 
 
 def test_exact_revision_pin_does_not_read_head_after_pin(
@@ -278,7 +357,7 @@ def test_eldyrwild_whole_world_integration_when_present() -> None:
     mechanics_buckets = [
         bucket
         for bucket in report.mapping_buckets
-        if bucket.element_family == "edge"
+        if bucket.element_family == "edge_field"
         and any("uses_statblock" in note for note in bucket.notes)
     ]
     assert mechanics_buckets
@@ -291,8 +370,44 @@ def test_eldyrwild_whole_world_integration_when_present() -> None:
         "RELATIONSHIP_PREDICATE",
         "DURABLE_ADOPTION_BOUNDARY",
         "CONTRIBUTION_HISTORY",
+        "EVIDENCE_PROVENANCE",
     ):
         assert expected in blocker_classes
+
+    artifact_domains = {
+        row.key: row.count for row in report.artifact_source_domain_inventory
+    }
+    assert artifact_domains.get("recap") == 16
+    assert artifact_domains.get("worldbuilding") == 4
+    assert artifact_domains.get("statblock") == 3
+    assert artifact_domains.get("party_registry") == 1
+    assert artifact_domains.get("manual_seed") == 1
+
+    evidence_domains = {
+        row.key: row.count for row in report.evidence_source_domain_inventory
+    }
+    assert evidence_domains.get("recap") == 158
+    assert evidence_domains.get("statblock") == 9
+    assert evidence_domains.get("manual_seed") == 13
+
+    # Field-level source/evidence accounting (not wholesale artifact rows).
+    assert any(
+        bucket.element_family == "source_artifact_field"
+        and "session_recap" in " ".join(bucket.notes)
+        for bucket in report.mapping_buckets
+    )
+    assert any(
+        bucket.element_family == "source_artifact_field"
+        and bucket.classification.value == "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
+        and any("statblock" in note for note in bucket.notes)
+        for bucket in report.mapping_buckets
+    )
+    assert any(
+        bucket.element_family == "evidence_field"
+        and bucket.classification.value == "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
+        and any("statblock" in note or "party_registry" in note for note in bucket.notes)
+        for bucket in report.mapping_buckets
+    )
 
 
 def test_bridge_exports_still_public() -> None:
@@ -308,3 +423,11 @@ def test_durable_adoption_seam_missing_on_current_pin() -> None:
     seam = inspect_dungeonmind_durable_adoption_seam()
     assert seam.status == "DURABLE_ADOPTION_BOUNDARY_MISSING"
     assert seam.missing_public_adoption_service is True
+    # Methods must be introspected from WorldGraphRepository, not a hardcoded set.
+    assert seam.world_graph_repository_methods == [
+        "get_head",
+        "get_revision",
+        "publish_revision",
+        "rollback_head",
+    ]
+    assert "adopt" not in " ".join(seam.world_graph_repository_methods).lower()

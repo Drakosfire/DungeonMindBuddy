@@ -387,7 +387,7 @@ HIDDEN_FALLBACK: not a proven defect (NOT_EXERCISED / blocked by PRODUCT_PROJECT
 
 ## §521 / whole-world ledger delta (post whole-graph adoption readiness)
 
-**Updated:** 2026-08-07 — branch `kernel/dungeonmind-whole-world-adoption`  
+**Updated:** 2026-08-07 — branch `kernel/dungeonmind-whole-world-adoption` (review-response accounting/provenance tighten)  
 **Buddy base SHA:** `3a9bdaab30cf19450f0a0f753b3046e5443c45c4` (#521 merge)
 
 ### Whole-world gates (§26 extension)
@@ -395,10 +395,11 @@ HIDDEN_FALLBACK: not a proven defect (NOT_EXERCISED / blocked by PRODUCT_PROJECT
 | Gate | Result |
 |------|--------|
 | Exact Eldyrwild revision inventory | **PASS** — `rev:3413bf6f5044cf2680233f5e37c90dcf` / sha256 `346c1f…ab0fa` |
-| Completeness invariant | **PASS** — `unaccounted_durable_elements = 0` |
+| Completeness invariant | **PASS** — payload-derived paths; `unaccounted_durable_elements = 0` (18106 classified); unknown extras force unaccounted > 0 |
+| Source/evidence field+domain classification | **PASS** — 25 artifacts / 185 evidence field-for-field; `statblock`/`party_registry` domains are gaps |
 | BRIDGE_MAPPING (#521 per-object) | **PASS** — closed; bridge behavior unchanged |
-| Whole-graph semantic mapping | **FAIL** — item/mystery/group/party/event + unmapped predicates |
-| Durable adoption seam | **FAIL** — `DURABLE_ADOPTION_BOUNDARY_MISSING` |
+| Whole-graph semantic mapping | **FAIL** — item/mystery/group/party/event + unmapped predicates + source_domain/role gaps |
+| Durable adoption seam | **FAIL** — introspected `WorldGraphRepository` methods lack adopt/bootstrap; `DURABLE_ADOPTION_BOUNDARY_MISSING` |
 | Whole-graph build refusal | **PASS** — `build_exact_dungeonmind_adoption_revision` raises on NOT_READY |
 | Read-only analyze | **PASS** — source tree digest unchanged |
 
