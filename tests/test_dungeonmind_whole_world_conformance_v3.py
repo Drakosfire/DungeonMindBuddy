@@ -105,13 +105,18 @@ def _publish_node(
     role: str,
     campaign_scope: str | None = CAMPAIGN_ID,
     epistemic_kind: str | None = None,
+    aliases: list[str] | None = None,
+    label: str | None = None,
 ) -> str:
     value: dict[str, Any] = {"kind": kind, "role": role, "source_domains": ["manual_seed"]}
+    if aliases is not None:
+        value["aliases"] = aliases
+    node_label = label or f"Whole world v3 {kind}"
     assertion = kernel.build_assertion(
         assertion_kind="node",
         acceptance_state="accepted",
         subject_node_id=node_id,
-        label=f"Whole world v3 {kind}",
+        label=node_label,
         campaign_scope=campaign_scope,
         epistemic_kind=epistemic_kind,
         value=value,
@@ -576,6 +581,166 @@ def test_v3_build_refuses_not_ready(seeded_root: Path) -> None:
         )
 
 
+def test_v3_label_only_materialized_aliases_are_not_evidence_provenance(
+    tmp_path: Path,
+) -> None:
+    """No authored aliases → materialization inserts [label]; must not invent EP blockers."""
+    world_id = "whole-world-alias-label-only"
+    kernel.publish_world_revision(
+        tmp_path,
+        world_id,
+        kernel.build_empty_technical_baseline_store(
+            campaign_id=CAMPAIGN_ID,
+            focus_session_id="session-alias-label-only",
+        ),
+        operation_ids=["op:alias-label-only-baseline"],
+    )
+
+    value: dict[str, Any] = {
+        "kind": "npc",
+        "role": "captain",
+        "source_domains": ["manual_seed"],
+    }
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc:alias-label-only",
+        label="Captain Label Only",
+        campaign_scope=CAMPAIGN_ID,
+        value=value,
+    )
+    result = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=world_id,
+        contribution=kernel.create_graph_contribution(
+            world_id=world_id,
+            source_kind="manual_import",
+            source_artifact_id="graph-native:alias-label-only",
+            source_revision_id="alias-label-only-1",
+            campaign_scope=CAMPAIGN_ID,
+            accepted_assertions=[assertion],
+        ),
+    )
+    assert result.published and result.revision_id
+    revision_id = result.revision_id
+
+    store = kernel.load_world_graph_revision_with_integrity(
+        tmp_path, world_id, revision_id
+    )
+    node = store.nodes["npc:alias-label-only"]
+    assert node.aliases == ["Captain Label Only"]
+    assert store.aliases["captain label only"] == "npc:alias-label-only"
+
+    field_class, field_blocker, field_note = wwc_v3._classify_node_aliases_field_v3(node)
+    assert field_class.value == "BUDDY_OPERATIONAL_ONLY"
+    assert field_blocker is None
+    assert "canonical label" in field_note.lower()
+
+    alias_class, alias_blocker, alias_note = wwc_v3._classify_alias_v3(
+        "captain label only", "npc:alias-label-only", store
+    )
+    assert alias_class.value == "BUDDY_OPERATIONAL_ONLY"
+    assert alias_blocker is None
+    assert "lookup index" in alias_note.lower()
+
+    report = analyze_exact_buddy_world_revision_v3(
+        root=tmp_path,
+        world_id=world_id,
+        revision_id=revision_id,
+    )
+    evidence_blockers = [
+        b for b in report.blockers if b.blocker_class.value == "EVIDENCE_PROVENANCE"
+    ]
+    assert evidence_blockers == []
+
+
+def test_v3_substantive_alias_without_assertion_grain_evidence_is_durability_gap(
+    tmp_path: Path,
+) -> None:
+    world_id = "whole-world-alias-substantive"
+    kernel.publish_world_revision(
+        tmp_path,
+        world_id,
+        kernel.build_empty_technical_baseline_store(
+            campaign_id=CAMPAIGN_ID,
+            focus_session_id="session-alias-substantive",
+        ),
+        operation_ids=["op:alias-substantive-baseline"],
+    )
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc:alias-substantive",
+        label="Captain Substantive",
+        campaign_scope=CAMPAIGN_ID,
+        value={
+            "kind": "npc",
+            "role": "captain",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Captain Substantive", "Ironveil"],
+        },
+    )
+    result = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=world_id,
+        contribution=kernel.create_graph_contribution(
+            world_id=world_id,
+            source_kind="manual_import",
+            source_artifact_id="graph-native:alias-substantive",
+            source_revision_id="alias-substantive-1",
+            campaign_scope=CAMPAIGN_ID,
+            accepted_assertions=[assertion],
+        ),
+    )
+    assert result.published and result.revision_id
+
+    report = analyze_exact_buddy_world_revision_v3(
+        root=tmp_path,
+        world_id=world_id,
+        revision_id=result.revision_id,
+    )
+    evidence = next(
+        b for b in report.blockers if b.blocker_class.value == "EVIDENCE_PROVENANCE"
+    )
+    assert evidence.count == 1
+    assert evidence.responsible_repo == "DungeonMindBuddy"
+    assert "AliasAssertionRecord" in evidence.smallest_next_change
+    assert "Canonical-label materialization" in evidence.smallest_next_change
+    assert evidence.examples == ["node:npc:alias-substantive:field:aliases"]
+
+    store = kernel.load_world_graph_revision_with_integrity(
+        tmp_path, world_id, result.revision_id
+    )
+    ironveil_class, ironveil_blocker, _note = wwc_v3._classify_alias_v3(
+        "ironveil", "npc:alias-substantive", store
+    )
+    assert ironveil_class.value == "BUDDY_OPERATIONAL_ONLY"
+    assert ironveil_blocker is None
+
+
+def test_v3_non_derivable_store_alias_remains_visible_durability_gap() -> None:
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    node_id = next(iter(store.nodes))
+    node = store.nodes[node_id]
+    # Inject a non-derivable lookup key that is not the label and not in node.aliases.
+    ghost_key = "ghost-index-key-not-on-node"
+    assert ghost_key not in {(node.label or "").casefold()}
+    assert ghost_key not in {alias.casefold() for alias in (node.aliases or [])}
+    mutated = store.model_copy(
+        update={"aliases": {**dict(store.aliases), ghost_key: node_id}}
+    )
+
+    classification, blocker, note = wwc_v3._classify_alias_v3(ghost_key, node_id, mutated)
+    assert classification.value == "DUNGEONMIND_DURABILITY_CONTRACT_GAP"
+    assert blocker is not None and blocker.value == "EVIDENCE_PROVENANCE"
+    assert "non-derivable" in note
+
+    label_key = (node.label or "").casefold()
+    classification, blocker, note = wwc_v3._classify_alias_v3(label_key, node_id, mutated)
+    assert classification.value == "BUDDY_OPERATIONAL_ONLY"
+    assert blocker is None
+
+
 def test_v3_analyze_is_read_only_for_tmp_world(seeded_root: Path) -> None:
     revision_id = _publish_node(seeded_root, node_id="threat:ro", kind="threat", role="threat")
     before = snapshot_world_graph_tree_digest(seeded_root, WORLD_ID)
@@ -628,18 +793,18 @@ def test_committed_eldyrwild_v3_fixture_is_durable_regression_contract() -> None
 
     classification_map = {row["key"]: row["count"] for row in fixture["classification_inventory"]}
     assert classification_map == {
-        "BUDDY_OPERATIONAL_ONLY": 2648,
-        "DUNGEONMIND_DURABILITY_CONTRACT_GAP": 862,
+        "BUDDY_OPERATIONAL_ONLY": 3510,
         "DUNGEONMIND_SEMANTIC_CONTRACT_GAP": 59,
         "EXACTLY_REPRESENTABLE": 4333,
         "REPRESENTABLE_BY_EXPLICIT_ADAPTER": 6114,
         "SOURCE_MIGRATION_HISTORY": 4090,
     }
+    assert "DUNGEONMIND_DURABILITY_CONTRACT_GAP" not in classification_map
     assert sum(classification_map.values()) == fixture["classified_elements_count"] == 18106
 
     blocker_map = {row["blocker_class"]: row["count"] for row in fixture["blockers"]}
     assert blocker_map["RELATIONSHIP_PREDICATE"] == 59
-    assert blocker_map["EVIDENCE_PROVENANCE"] == 862
+    assert "EVIDENCE_PROVENANCE" not in blocker_map
     assert blocker_map["CONTRIBUTION_HISTORY"] == 4090
     assert blocker_map["DURABLE_ADOPTION_BOUNDARY"] == 1
     assert blocker_map["POSTGRES_ADOPTION"] == 1
@@ -649,6 +814,7 @@ def test_committed_eldyrwild_v3_fixture_is_durable_regression_contract() -> None
         "EPISTEMIC_STATE",
         "FICTIONAL_TIME",
         "CAMPAIGN_SCOPE",
+        "EVIDENCE_PROVENANCE",
     ):
         assert absent not in blocker_map
 
@@ -705,8 +871,7 @@ def test_eldyrwild_v3_integration_when_present() -> None:
 
     classification_map = {row.key: row.count for row in report.classification_inventory}
     assert classification_map == {
-        "BUDDY_OPERATIONAL_ONLY": 2648,
-        "DUNGEONMIND_DURABILITY_CONTRACT_GAP": 862,
+        "BUDDY_OPERATIONAL_ONLY": 3510,
         "DUNGEONMIND_SEMANTIC_CONTRACT_GAP": 59,
         "EXACTLY_REPRESENTABLE": 4333,
         "REPRESENTABLE_BY_EXPLICIT_ADAPTER": 6114,
@@ -719,6 +884,7 @@ def test_eldyrwild_v3_integration_when_present() -> None:
     assert "EPISTEMIC_STATE" not in blocker_classes
     assert "FICTIONAL_TIME" not in blocker_classes
     assert "CAMPAIGN_SCOPE" not in blocker_classes
+    assert "EVIDENCE_PROVENANCE" not in blocker_classes
     assert "RELATIONSHIP_PREDICATE" in blocker_classes
 
     fixture = json.loads(FIXTURE_PATH.read_text())

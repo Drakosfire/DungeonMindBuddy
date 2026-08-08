@@ -1,5 +1,5 @@
 {
-  "adoption_genesis_policy_note": "Genesis policies A/B/C remain undecided for execution. Post-v28 world-object-v3 and world-property-v1 close relationship/role adapter surface vs v2, but adoption remains blocked by residual relationship adjudication, alias durability, contribution/identity history, and the missing DungeonMind durable adoption seam.",
+  "adoption_genesis_policy_note": "Genesis policies A/B/C remain undecided for execution. Post-v28 world-object-v3 and world-property-v1 close relationship/role adapter surface vs v2. Canonical label\u2192alias index materialization is operational, not an evidence-contract gap. Adoption remains blocked by residual relationship adjudication, contribution/identity history, the missing durable adoption seam, and any remaining substantive-alias assertion-grain residuals.",
   "artifact_source_domain_inventory": [
     {
       "count": 1,
@@ -47,19 +47,6 @@
       "smallest_next_change": "Add public governed adopt-existing-world / bootstrap-complete-revision service."
     },
     {
-      "blocker_class": "EVIDENCE_PROVENANCE",
-      "count": 862,
-      "examples": [
-        "node:combat_glowkindle_rat_fight:field:aliases",
-        "node:combat_shatter_mages_tower_spider:field:aliases",
-        "node:event:longmont-c2:session-22:mireward-road:field:aliases",
-        "node:event:longmont-c2:session-23:mireward-gate-battle:field:aliases",
-        "node:external:dungeonmind:statblock:sb_2b18b746b47c46599809fa69d1a075ce:field:aliases"
-      ],
-      "responsible_repo": "DungeonMind",
-      "smallest_next_change": "Preserve Buddy evidence_ref/source span/domain fields in DM evidence contracts."
-    },
-    {
       "blocker_class": "POSTGRES_ADOPTION",
       "count": 1,
       "examples": [
@@ -84,12 +71,8 @@
   ],
   "classification_inventory": [
     {
-      "count": 2648,
+      "count": 3510,
       "key": "BUDDY_OPERATIONAL_ONLY"
-    },
-    {
-      "count": 862,
-      "key": "DUNGEONMIND_DURABILITY_CONTRACT_GAP"
     },
     {
       "count": 59,

@@ -764,11 +764,7 @@ def _classify_node_field_v3(
     if field == "role":
         return _classify_node_role_v3(node)
     if field == "aliases":
-        return (
-            SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP,
-            BlockerClass.EVIDENCE_PROVENANCE,
-            "node.aliases list is not DM alias_assertions-with-evidence",
-        )
+        return _classify_node_aliases_field_v3(node)
     if field == "source_domains":
         if not value:
             return SemanticClassification.BUDDY_OPERATIONAL_ONLY, None, "empty node.source_domains"
@@ -1068,17 +1064,105 @@ def _classify_store_scalar_v3(
     )
 
 
-def _classify_alias_v3(
-    alias_label: str,
-    node_id: str,
+def _node_alias_strings(node: UnionSupergraphNode) -> list[str]:
+    return [
+        str(alias)
+        for alias in (node.aliases or [])
+        if isinstance(alias, str) and alias.strip()
+    ]
+
+
+def _substantive_node_aliases(node: UnionSupergraphNode) -> list[str]:
+    """Aliases that are not canonical-label materialization duplicates."""
+    label_key = (node.label or "").strip().casefold()
+    return [
+        alias
+        for alias in _node_alias_strings(node)
+        if alias.strip().casefold() != label_key
+    ]
+
+
+def _classify_node_aliases_field_v3(
+    node: UnionSupergraphNode,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
-    if not alias_label.strip() or not node_id.strip():
-        return SemanticClassification.INVALID_SOURCE, BlockerClass.EVIDENCE_PROVENANCE, "empty alias entry"
+    """Classify node.aliases without treating label materialization as unsupported.
+
+    Contribution merge defaults missing aliases to ``[label]`` and mirrors that into
+    ``store.aliases``. Those are lookup material, not authored AliasAssertionRecords.
+    """
+    aliases = _node_alias_strings(node)
+    if not aliases:
+        return (
+            SemanticClassification.BUDDY_OPERATIONAL_ONLY,
+            None,
+            "empty node.aliases",
+        )
+    substantive = _substantive_node_aliases(node)
+    if not substantive:
+        return (
+            SemanticClassification.BUDDY_OPERATIONAL_ONLY,
+            None,
+            "node.aliases duplicates canonical label via contribution materialization; "
+            "not an authored AliasAssertionRecord",
+        )
     return (
         SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP,
         BlockerClass.EVIDENCE_PROVENANCE,
-        "Buddy label→node_id aliases lack per-object alias_assertions with evidence_ref_ids",
+        "substantive node.aliases lack recoverable assertion-grain evidence_ref_ids "
+        "for DM AliasAssertionRecord "
+        f"(aliases={substantive!r})",
     )
+
+
+def _classify_alias_v3(
+    alias_label: str,
+    node_id: str,
+    store: UnionSupergraphStore,
+) -> tuple[SemanticClassification, BlockerClass | None, str]:
+    """Classify store.aliases entries without double-counting derivable index keys."""
+    if not alias_label.strip() or not node_id.strip():
+        return (
+            SemanticClassification.INVALID_SOURCE,
+            BlockerClass.EVIDENCE_PROVENANCE,
+            "empty alias entry",
+        )
+    node = store.nodes.get(node_id)
+    if node is None:
+        return (
+            SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP,
+            BlockerClass.EVIDENCE_PROVENANCE,
+            f"store.aliases entry {alias_label!r} targets missing node {node_id!r}",
+        )
+    key = alias_label.casefold()
+    label_key = (node.label or "").strip().casefold()
+    node_alias_keys = {alias.casefold() for alias in _node_alias_strings(node)}
+    if key == label_key or key in node_alias_keys:
+        return (
+            SemanticClassification.BUDDY_OPERATIONAL_ONLY,
+            None,
+            "store.aliases lookup index entry derived from node label/aliases; "
+            "not an independent authored assertion",
+        )
+    return (
+        SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP,
+        BlockerClass.EVIDENCE_PROVENANCE,
+        f"non-derivable store.aliases entry {alias_label!r}; not reconstructable from "
+        "node label/aliases as AliasAssertionRecord",
+    )
+
+
+def _rewrite_evidence_provenance_blocker_v3(blockers: list[AdoptionBlocker]) -> None:
+    """Replace stale v1 evidence-contract text with the real alias residual diagnosis."""
+    for blocker in blockers:
+        if blocker.blocker_class != BlockerClass.EVIDENCE_PROVENANCE:
+            continue
+        blocker.responsible_repo = "DungeonMindBuddy"  # type: ignore[assignment]
+        blocker.smallest_next_change = (
+            "Reconstruct assertion-grain AliasAssertionRecord evidence only for "
+            "substantive Buddy aliases (and non-derivable store.aliases entries). "
+            "Canonical-label materialization and derivable lookup-index keys are not "
+            "DM evidence-contract gaps; DungeonMind already admits alias_assertions."
+        )
 
 
 def _build_relationship_predicate_inventory_v3(
@@ -1449,7 +1533,9 @@ def analyze_exact_buddy_world_revision_v3(
                 )
 
     for alias_label, target_node_id in store.aliases.items():
-        classification, blocker, note = _classify_alias_v3(alias_label, target_node_id)
+        classification, blocker, note = _classify_alias_v3(
+            alias_label, target_node_id, store
+        )
         _append_classification(
             classified=classified,
             buckets=buckets,
@@ -1609,6 +1695,7 @@ def analyze_exact_buddy_world_revision_v3(
     ) = _role_summary_counts(store)
 
     blockers = _build_blockers(classified)
+    _rewrite_evidence_provenance_blocker_v3(blockers)
     history_count = sum(
         1
         for item in classified
@@ -1739,9 +1826,11 @@ def analyze_exact_buddy_world_revision_v3(
         mechanics_specialization_retained=True,
         adoption_genesis_policy_note=(
             "Genesis policies A/B/C remain undecided for execution. Post-v28 world-object-v3 "
-            "and world-property-v1 close relationship/role adapter surface vs v2, but adoption "
-            "remains blocked by residual relationship adjudication, alias durability, "
-            "contribution/identity history, and the missing DungeonMind durable adoption seam."
+            "and world-property-v1 close relationship/role adapter surface vs v2. Canonical "
+            "label→alias index materialization is operational, not an evidence-contract gap. "
+            "Adoption remains blocked by residual relationship adjudication, contribution/"
+            "identity history, the missing durable adoption seam, and any remaining "
+            "substantive-alias assertion-grain residuals."
         ),
         unaccounted_durable_elements=unaccounted,
         classified_elements_count=len(classified),
