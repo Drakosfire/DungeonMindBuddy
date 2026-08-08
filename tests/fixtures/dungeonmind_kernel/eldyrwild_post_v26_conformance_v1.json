@@ -22,6 +22,7 @@
       "key": "worldbuilding"
     }
   ],
+  "assertion_metadata_schema": "dm_knowledge_assertion_metadata_v1",
   "blockers": [
     {
       "blocker_class": "ATTRIBUTE_ASSERTION",
@@ -101,6 +102,32 @@
       ],
       "responsible_repo": "DungeonMind",
       "smallest_next_change": "Add governed predicate contracts or explicit rename adapters."
+    }
+  ],
+  "classification_inventory": [
+    {
+      "count": 2645,
+      "key": "BUDDY_OPERATIONAL_ONLY"
+    },
+    {
+      "count": 862,
+      "key": "DUNGEONMIND_DURABILITY_CONTRACT_GAP"
+    },
+    {
+      "count": 775,
+      "key": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
+    },
+    {
+      "count": 4333,
+      "key": "EXACTLY_REPRESENTABLE"
+    },
+    {
+      "count": 5401,
+      "key": "REPRESENTABLE_BY_EXPLICIT_ADAPTER"
+    },
+    {
+      "count": 4090,
+      "key": "SOURCE_MIGRATION_HISTORY"
     }
   ],
   "classified_elements_count": 18106,

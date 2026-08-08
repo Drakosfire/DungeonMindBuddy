@@ -26,6 +26,7 @@ from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_confor
     WholeWorldConformanceError,
     analyze_exact_buddy_world_revision_v2,
     build_exact_dungeonmind_adoption_revision_v2,
+    compact_whole_world_conformance_report_v2,
 )
 
 WORLD_ID = "whole-world-conformance-v2"
@@ -128,6 +129,7 @@ def _publish_edge(
 def test_v2_contract_pins_and_target_schema() -> None:
     from dungeonmind.application.graph_snapshot import GRAPH_SCHEMA_V5
     from dungeonmind.contracts.evidence import EVIDENCE_REF_V2_SCHEMA, SOURCE_ARTIFACT_V2_SCHEMA
+    from dungeonmind.contracts.knowledge_assertion import KNOWLEDGE_ASSERTION_METADATA_SCHEMA
     from dungeonmind_dnd.application.world_object_vocabulary import (
         builtin_world_object_v2_vocabulary_ref,
         load_builtin_world_object_v2_vocabulary,
@@ -141,6 +143,7 @@ def test_v2_contract_pins_and_target_schema() -> None:
     assert GRAPH_SCHEMA_V5 == "dm_union_graph_v5"
     assert SOURCE_ARTIFACT_V2_SCHEMA == "dm_source_artifact_v2"
     assert EVIDENCE_REF_V2_SCHEMA == "dm_evidence_ref_v2"
+    assert KNOWLEDGE_ASSERTION_METADATA_SCHEMA == "dm_knowledge_assertion_metadata_v1"
     assert WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA_V2 == (
         "dmb_dungeonmind_whole_world_conformance_report_v2"
     )
@@ -473,8 +476,18 @@ def test_v2_adversarial_forbidden_predicate_mappings(seeded_root: Path) -> None:
         world_id=WORLD_ID,
         revision_id=revision_id,
     )
+    # Forbidden behavior is generic prefix fallback, not identical spelling from
+    # the explicit adapter table (member_of → dnd5e:member_of is legitimate).
+    explicit_adapters = {
+        "member_of": "dnd5e:member_of",
+        "participates_in": "dnd5e:participates_in",
+        "threatens": "dnd5e:threatens",
+    }
     for row in report.relationship_predicate_inventory:
-        if row.mapped_dungeonmind_term is not None:
+        if row.buddy_predicate in explicit_adapters:
+            assert row.mapped_dungeonmind_term == explicit_adapters[row.buddy_predicate]
+        else:
+            assert row.mapped_dungeonmind_term is None
             assert row.mapped_dungeonmind_term != f"dnd5e:{row.buddy_predicate}"
         assert row.mapped_dungeonmind_term != "dnd5e:located_in"
         assert row.mapped_dungeonmind_term != "dnd5e:attacks"
@@ -533,6 +546,76 @@ def test_v2_build_refuses_not_ready(seeded_root: Path) -> None:
         )
 
 
+def test_committed_eldyrwild_fixture_is_durable_regression_contract() -> None:
+    """CI-stable: golden compact report protects residual ledger without out/."""
+    assert FIXTURE_PATH.is_file(), "checked-in Eldyrwild v2 fixture must exist"
+    fixture = json.loads(FIXTURE_PATH.read_text())
+
+    assert "mapping_buckets" not in fixture
+    assert fixture["schema_version"] == WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA_V2
+    assert fixture["dungeonmind_dependency_ref"] == (
+        "da7c32576c319d1030410eabe5c589ef7e990a9f"
+    )
+    assert fixture["target_graph_schema"] == "dm_union_graph_v5"
+    assert fixture["source_artifact_schema"] == "dm_source_artifact_v2"
+    assert fixture["evidence_schema"] == "dm_evidence_ref_v2"
+    assert fixture["assertion_metadata_schema"] == "dm_knowledge_assertion_metadata_v1"
+    assert fixture["world_object_vocabulary_revision"] == "world-object-v2"
+    assert fixture["world_object_vocabulary_sha256"] == (
+        "a53e2d0ec45878288800ff3d30006d54803db70a17e6680b359a0fa88f2a9922"
+    )
+    assert fixture["semantic_profile_descriptor_sha256"] == (
+        "2199e8fb96e917c22718e6aec59cbbf55a37ee81575e1bcf16ce13fae0393496"
+    )
+    assert fixture["source_revision_id"] == ELDYRWILD_REVISION_ID
+    assert fixture["source_graph_payload_sha256"] == ELDYRWILD_PAYLOAD_SHA256
+    assert fixture["disposition"] == "WHOLE_GRAPH_ADOPTION_NOT_READY"
+    assert fixture["unaccounted_durable_elements"] == 0
+    assert fixture["inventory"] == {
+        "nodes": 438,
+        "edges": 348,
+        "evidence": 185,
+        "source_artifacts": 25,
+        "aliases": 424,
+        "assertion_support": 968,
+        "contribution_replay_manifest": 34,
+        "durable_element_paths": 18106,
+    }
+
+    classification_map = {row["key"]: row["count"] for row in fixture["classification_inventory"]}
+    assert classification_map
+    assert sum(classification_map.values()) == fixture["classified_elements_count"]
+
+    blocker_map = {
+        row["blocker_class"]: row["count"] for row in fixture["blockers"]
+    }
+    assert "WORLD_OBJECT_KIND" not in blocker_map
+    assert "FICTIONAL_TIME" not in blocker_map
+    assert "EPISTEMIC_STATE" not in blocker_map
+    assert blocker_map["RELATIONSHIP_PREDICATE"] == 336
+    assert blocker_map["ATTRIBUTE_ASSERTION"] == 438
+    assert blocker_map["EVIDENCE_PROVENANCE"] == 862
+    assert blocker_map["CONTRIBUTION_HISTORY"] == 4090
+    assert blocker_map["CAMPAIGN_SCOPE"] == 1
+    assert blocker_map["DURABLE_ADOPTION_BOUNDARY"] == 1
+    assert blocker_map["POSTGRES_ADOPTION"] == 1
+
+    pred_rows = fixture["relationship_predicate_inventory"]
+    assert sum(row["count"] for row in pred_rows) == 348
+    for row in pred_rows:
+        assert sum(pair["count"] for pair in row["endpoint_pairs"]) == row["count"]
+
+    uses = next(row for row in pred_rows if row["buddy_predicate"] == "uses_statblock")
+    assert uses["disposition"] == "MECHANICS_SPECIALIZATION"
+    assert uses["count"] == 2
+
+    role_gap = next(
+        row for row in fixture["property_gap_inventory"] if row["field_name"] == "node.role"
+    )
+    assert sum(item["count"] for item in role_gap["value_counts"]) <= 438
+    assert any(item["count"] == 125 and item["value"] == "item" for item in role_gap["value_counts"])
+
+
 def test_eldyrwild_v2_integration_when_present() -> None:
     root = world_graph_root()
     world_root = (root / "graph_memory" / "worlds" / ELDYRWILD_WORLD_ID).resolve()
@@ -543,7 +626,8 @@ def test_eldyrwild_v2_integration_when_present() -> None:
 
     head = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID)
     assert head is not None
-    assert head.head_revision_id == ELDYRWILD_REVISION_ID
+    # Current head may advance; the analyzer still integrity-loads the exact pin.
+    assert head.head_revision_id is not None
 
     before = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
     report = analyze_exact_buddy_world_revision_v2(
@@ -553,56 +637,20 @@ def test_eldyrwild_v2_integration_when_present() -> None:
     )
     after = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
     assert before == after
-    assert before == ELDYRWILD_TREE_DIGEST
 
+    assert report.assertion_metadata_schema == "dm_knowledge_assertion_metadata_v1"
     assert report.schema_version == WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA_V2
     assert report.dungeonmind_dependency_ref == "da7c32576c319d1030410eabe5c589ef7e990a9f"
     assert report.target_graph_schema == "dm_union_graph_v5"
     assert report.world_object_vocabulary_revision == "world-object-v2"
-    assert report.world_object_vocabulary_sha256 == (
-        "a53e2d0ec45878288800ff3d30006d54803db70a17e6680b359a0fa88f2a9922"
-    )
-    assert report.semantic_profile_descriptor_sha256 == (
-        "2199e8fb96e917c22718e6aec59cbbf55a37ee81575e1bcf16ce13fae0393496"
-    )
     assert report.source_revision_id == ELDYRWILD_REVISION_ID
     assert report.source_graph_payload_sha256 == ELDYRWILD_PAYLOAD_SHA256
-    assert report.inventory["nodes"] == 438
-    assert report.inventory["edges"] == 348
-    assert report.inventory["evidence"] == 185
-    assert report.inventory["source_artifacts"] == 25
     assert report.disposition == "WHOLE_GRAPH_ADOPTION_NOT_READY"
     assert report.unaccounted_durable_elements == 0
 
-    world_object_kind = [
-        blocker for blocker in report.blockers if blocker.blocker_class.value == "WORLD_OBJECT_KIND"
-    ]
-    assert world_object_kind == []
-
-    assert sum(row.count for row in report.relationship_predicate_inventory) == 348
-    for row in report.relationship_predicate_inventory:
-        pair_sum = sum(pair.count for pair in row.endpoint_pairs)
-        assert pair_sum == row.count
-
-    assert report.uses_statblock_mechanics_count >= 1
-    uses_rows = [
-        row
-        for row in report.relationship_predicate_inventory
-        if row.buddy_predicate == "uses_statblock"
-    ]
-    assert uses_rows
-    assert uses_rows[0].disposition == PredicateDisposition.MECHANICS_SPECIALIZATION
-
-    if FIXTURE_PATH.is_file():
-        fixture = json.loads(FIXTURE_PATH.read_text())
-        for key in (
-            "disposition",
-            "unaccounted_durable_elements",
-            "target_graph_schema",
-            "dungeonmind_dependency_ref",
-            "inventory",
-        ):
-            assert fixture[key] == report.model_dump(mode="json")[key]
+    fixture = json.loads(FIXTURE_PATH.read_text())
+    compact = compact_whole_world_conformance_report_v2(report)
+    assert json.dumps(compact, sort_keys=True) == json.dumps(fixture, sort_keys=True)
 
     blocker_classes = {blocker.blocker_class.value for blocker in report.blockers}
     assert "WORLD_OBJECT_KIND" not in blocker_classes

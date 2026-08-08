@@ -21,7 +21,10 @@ from dungeonmind.contracts.evidence import (
     SOURCE_ARTIFACT_V2_SCHEMA,
     SourceReviewState,
 )
-from dungeonmind.contracts.knowledge_assertion import EpistemicKindV2
+from dungeonmind.contracts.knowledge_assertion import (
+    KNOWLEDGE_ASSERTION_METADATA_SCHEMA,
+    EpistemicKindV2,
+)
 from dungeonmind.contracts.vocabulary import CanonState, Visibility
 from dungeonmind_dnd.application.world_object_vocabulary import (
     builtin_world_object_v2_vocabulary_ref,
@@ -191,6 +194,7 @@ class WholeWorldConformanceReportV2(BaseModel):
     target_graph_schema: str
     source_artifact_schema: str
     evidence_schema: str
+    assertion_metadata_schema: str
     semantic_profile_id: str
     semantic_profile_revision: str
     semantic_profile_descriptor_sha256: str
@@ -205,7 +209,8 @@ class WholeWorldConformanceReportV2(BaseModel):
     artifact_source_domain_inventory: list[InventoryCountRow] = Field(default_factory=list)
     evidence_source_domain_inventory: list[InventoryCountRow] = Field(default_factory=list)
     property_gap_inventory: list[PropertyGapInventoryRowV1] = Field(default_factory=list)
-    mapping_buckets: list[MappingBucket]
+    classification_inventory: list[InventoryCountRow] = Field(default_factory=list)
+    mapping_buckets: list[MappingBucket] = Field(default_factory=list)
     blockers: list[AdoptionBlocker]
     disposition: WholeWorldDispositionV2
     durable_adoption_seam: DurableAdoptionSeamStatusReport
@@ -216,6 +221,31 @@ class WholeWorldConformanceReportV2(BaseModel):
     classified_elements_count: int
     uses_statblock_mechanics_count: int
     located_in_gap_count: int
+
+
+def compact_whole_world_conformance_report_v2(
+    report: WholeWorldConformanceReportV2,
+) -> dict[str, Any]:
+    """Durable diagnostic JSON: full residual ledger without mapping_buckets.
+
+    ``mapping_buckets`` remain on the live report for interactive debugging, but
+    the checked-in Eldyrwild fixture is the compact form so CI can regress
+    classification counts, blockers, and relationship inventories without the
+    large per-family bucket payload.
+    """
+    payload = report.model_dump(mode="json")
+    payload.pop("mapping_buckets", None)
+    return payload
+
+
+def _classification_inventory(
+    classified: list[ClassifiedElement],
+) -> list[InventoryCountRow]:
+    counter = Counter(item.classification.value for item in classified)
+    return [
+        InventoryCountRow(key=key, count=count)
+        for key, count in sorted(counter.items())
+    ]
 
 
 def _dm_kind_for_buddy_kind_v2(buddy_kind: str) -> str | None:
@@ -1360,6 +1390,7 @@ def analyze_exact_buddy_world_revision_v2(
         target_graph_schema=GRAPH_SCHEMA_V5,
         source_artifact_schema=SOURCE_ARTIFACT_V2_SCHEMA,
         evidence_schema=EVIDENCE_REF_V2_SCHEMA,
+        assertion_metadata_schema=KNOWLEDGE_ASSERTION_METADATA_SCHEMA,
         semantic_profile_id=profile.profile_id,
         semantic_profile_revision=profile.profile_revision,
         semantic_profile_descriptor_sha256=descriptor_sha256(profile),
@@ -1398,6 +1429,7 @@ def analyze_exact_buddy_world_revision_v2(
             for domain, count in sorted(evidence_domain_counter.items())
         ],
         property_gap_inventory=property_gap_inventory,
+        classification_inventory=_classification_inventory(classified),
         mapping_buckets=sorted(
             buckets.values(),
             key=lambda bucket: (bucket.classification.value, bucket.element_family),

@@ -7,8 +7,11 @@
 **Canonical path:** `Docs/Plans/HANDOFF-kernel-dungeonmind-whole-world-repin-post-v26.md`
 
 **Suggested branch:** `kernel/dungeonmind-whole-world-repin-post-v26`  
-**Suggested PR title:** `KERNEL: whole World Graph v5 conformance analyzer (post-v26 repin)`  
-**PR number:** TBD
+**Suggested PR title:** `KERNEL: re-pin Eldyrwild whole-world conformance after DungeonMind v5`  
+**PR:** [#523](https://github.com/Drakosfire/DungeonMindBuddy/pull/523)
+
+**Cursor conversation (recorded at Review Cycle 1; not claimed as pre-dispatch):**  
+[Eldyrwild conformance re-pin](e3ce4fe4-e3c5-44d0-8c43-4775e4b9f91f)
 
 ---
 
@@ -16,11 +19,13 @@
 
 | Anchor | SHA / ref |
 |--------|-----------|
-| DungeonMindBuddy base | `d30f94f1bfd3eac78f345689fbe44e9dc2a85328` (#522 merge) |
+| DungeonMindBuddy base (PR branch merge-base / `origin/main` at open) | `825ad33bb4df1a2d3b34117b1eda7e5748da0911` |
+| Historical #522 merge (pre-rebase handoff start) | `d30f94f1bfd3eac78f345689fbe44e9dc2a85328` |
 | Branch | `kernel/dungeonmind-whole-world-repin-post-v26` |
-| Implementation commit | TBD (pre-commit) |
-| PR | TBD |
-| review cycles | 0 |
+| Implementation commit (initial PR head) | `3e95f31ec5d33d1e167d090ea13fc6c7fdf300e3` |
+| Review Cycle 1 fix commit | TBD (this cycle) |
+| PR | [#523](https://github.com/Drakosfire/DungeonMindBuddy/pull/523) |
+| review cycles | **1** |
 | **DungeonMind pin (this workstream)** | `da7c32576c319d1030410eabe5c589ef7e990a9f` |
 | Historical v1 pin (#522) | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 | Real world | `out/graph_memory/worlds/eldyrwild` |
@@ -31,6 +36,15 @@
 Head was read once during test setup to confirm the pin; v2 analyzer entrypoints never consult head after `revision_id` is supplied.
 
 ---
+
+## §1b Review Cycle 1 (acceptance-contract fixes)
+
+Requested before merge (no semantic redesign):
+
+1. Pin `assertion_metadata_schema = dm_knowledge_assertion_metadata_v1` on the v2 report.
+2. Make the checked-in compact fixture a durable CI regression contract: add `classification_inventory`, CI-stable fixture test, and full compact-report equality when Eldyrwild `out/` is present.
+3. Record exact Cursor conversation + PR/#523/base/head provenance (this section).
+4. Fix adversarial mapping test: forbid generic `dnd5e:` prefix fallback, not identical spelling from the explicit adapter table.
 
 ## §2 Contract pins (v2 identity)
 
@@ -43,6 +57,7 @@ Head was read once during test setup to confirm the pin; v2 analyzer entrypoints
 | World-object vocabulary | `dungeonmind.dnd5e.world_object` / `world-object-v2` / catalog_sha256 `a53e2d0ec45878288800ff3d30006d54803db70a17e6680b359a0fa88f2a9922` |
 | Source artifact schema | `dm_source_artifact_v2` |
 | Evidence schema | `dm_evidence_ref_v2` |
+| Assertion metadata schema | `dm_knowledge_assertion_metadata_v1` |
 | Vocabulary loader | `load_builtin_world_object_v2_vocabulary()` — never `latest` |
 
 v1 analyzer (`whole_world_conformance.py`) remains on historical pin semantics; `WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA` unchanged.
@@ -210,7 +225,9 @@ uv run pytest tests/test_dungeonmind_world_object_conformance_bridge.py \
 
 Result: **72 passed**, ruff clean.
 
-Fixture: `tests/fixtures/dungeonmind_kernel/eldyrwild_post_v26_conformance_v1.json` (compact v2 report; `mapping_buckets` stripped).
+Fixture: `tests/fixtures/dungeonmind_kernel/eldyrwild_post_v26_conformance_v1.json`  
+(compact v2 report via `compact_whole_world_conformance_report_v2`; `mapping_buckets` stripped; includes `classification_inventory` + full relationship/blocker residual ledger).  
+CI protects the fixture via `test_committed_eldyrwild_fixture_is_durable_regression_contract` without requiring `out/`.
 
 ---
 
@@ -268,4 +285,4 @@ Immediate next DungeonMind PR: **DND: publish adjudicated Eldyrwild relationship
 
 ## §13 Review cycles
 
-**0**
+**1** — acceptance-contract / provenance fixes (assertion metadata pin, durable fixture regression, handoff anchors).
