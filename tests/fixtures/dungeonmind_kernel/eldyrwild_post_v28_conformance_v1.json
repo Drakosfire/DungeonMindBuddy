@@ -1,0 +1,3433 @@
+{
+  "adoption_genesis_policy_note": "Genesis policies A/B/C remain undecided for execution. Post-v28 world-object-v3 and world-property-v1 close relationship/role adapter surface vs v2, but adoption remains blocked by residual relationship adjudication, alias durability, contribution/identity history, and the missing DungeonMind durable adoption seam.",
+  "artifact_source_domain_inventory": [
+    {
+      "count": 1,
+      "key": "manual_seed"
+    },
+    {
+      "count": 1,
+      "key": "party_registry"
+    },
+    {
+      "count": 16,
+      "key": "recap"
+    },
+    {
+      "count": 3,
+      "key": "statblock"
+    },
+    {
+      "count": 4,
+      "key": "worldbuilding"
+    }
+  ],
+  "assertion_metadata_schema": "dm_knowledge_assertion_metadata_v1",
+  "blockers": [
+    {
+      "blocker_class": "CONTRIBUTION_HISTORY",
+      "count": 4090,
+      "examples": [
+        "node:combat_glowkindle_rat_fight:state:approval_state",
+        "node:combat_glowkindle_rat_fight:state:identity_canon_state",
+        "node:combat_glowkindle_rat_fight:state:introduced_by_contribution_id",
+        "node:combat_glowkindle_rat_fight:state:memory_state",
+        "node:combat_shatter_mages_tower_spider:state:approval_state"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Decide genesis policy A/B/C and add a durable adoption seam that preserves Buddy contribution/assertion reconstruction history."
+    },
+    {
+      "blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+      "count": 1,
+      "examples": [
+        "WorldGraphRepository methods: get_head, get_revision, publish_revision, rollback_head"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Add public governed adopt-existing-world / bootstrap-complete-revision service."
+    },
+    {
+      "blocker_class": "EVIDENCE_PROVENANCE",
+      "count": 862,
+      "examples": [
+        "node:combat_glowkindle_rat_fight:field:aliases",
+        "node:combat_shatter_mages_tower_spider:field:aliases",
+        "node:event:longmont-c2:session-22:mireward-road:field:aliases",
+        "node:event:longmont-c2:session-23:mireward-gate-battle:field:aliases",
+        "node:external:dungeonmind:statblock:sb_2b18b746b47c46599809fa69d1a075ce:field:aliases"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Preserve Buddy evidence_ref/source span/domain fields in DM evidence contracts."
+    },
+    {
+      "blocker_class": "POSTGRES_ADOPTION",
+      "count": 1,
+      "examples": [
+        "Postgres adoption not exercised"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Exercise Postgres adoption only after public seam exists."
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "count": 59,
+      "examples": [
+        "edge:edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower:field:predicate",
+        "edge:edge:group_session24_refugees_of_edge:part_of:loc_3:field:predicate",
+        "edge:edge:group_session24_refugees_of_edge:part_of_group:mystery_7:field:predicate",
+        "edge:edge:group_the_group:participates_in:location_007:field:predicate",
+        "edge:edge:item-001:located_in:pc:karsemine:field:predicate"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Add governed predicate contracts or explicit rename adapters."
+    }
+  ],
+  "classification_inventory": [
+    {
+      "count": 2648,
+      "key": "BUDDY_OPERATIONAL_ONLY"
+    },
+    {
+      "count": 862,
+      "key": "DUNGEONMIND_DURABILITY_CONTRACT_GAP"
+    },
+    {
+      "count": 59,
+      "key": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
+    },
+    {
+      "count": 4333,
+      "key": "EXACTLY_REPRESENTABLE"
+    },
+    {
+      "count": 6114,
+      "key": "REPRESENTABLE_BY_EXPLICIT_ADAPTER"
+    },
+    {
+      "count": 4090,
+      "key": "SOURCE_MIGRATION_HISTORY"
+    }
+  ],
+  "classified_elements_count": 18106,
+  "disposition": "WHOLE_GRAPH_ADOPTION_NOT_READY",
+  "dungeonmind_dependency_ref": "03ec801db99959153283312b72c13fafe56c54d1",
+  "durable_adoption_seam": {
+    "missing_public_adoption_service": true,
+    "rationale": "Pinned DungeonMind WorldGraphRepository public callables are ['get_head', 'get_revision', 'publish_revision', 'rollback_head']; none match adopt/bootstrap_complete/import_existing. There is no public governed adopt-existing-world service for pre-existing Buddy worlds.",
+    "status": "DURABLE_ADOPTION_BOUNDARY_MISSING",
+    "world_graph_repository_methods": [
+      "get_head",
+      "get_revision",
+      "publish_revision",
+      "rollback_head"
+    ]
+  },
+  "evidence_schema": "dm_evidence_ref_v2",
+  "evidence_source_domain_inventory": [
+    {
+      "count": 13,
+      "key": "manual_seed"
+    },
+    {
+      "count": 1,
+      "key": "party_registry"
+    },
+    {
+      "count": 158,
+      "key": "recap"
+    },
+    {
+      "count": 9,
+      "key": "statblock"
+    },
+    {
+      "count": 4,
+      "key": "worldbuilding"
+    }
+  ],
+  "inventory": {
+    "aliases": 424,
+    "assertion_support": 968,
+    "contribution_replay_manifest": 34,
+    "durable_element_paths": 18106,
+    "edges": 348,
+    "evidence": 185,
+    "nodes": 438,
+    "source_artifacts": 25
+  },
+  "kind_inventory": [
+    {
+      "count": 4,
+      "key": "creature"
+    },
+    {
+      "count": 2,
+      "key": "encounter"
+    },
+    {
+      "count": 2,
+      "key": "event"
+    },
+    {
+      "count": 2,
+      "key": "external_resource"
+    },
+    {
+      "count": 13,
+      "key": "faction"
+    },
+    {
+      "count": 29,
+      "key": "group"
+    },
+    {
+      "count": 125,
+      "key": "item"
+    },
+    {
+      "count": 103,
+      "key": "location"
+    },
+    {
+      "count": 93,
+      "key": "mystery"
+    },
+    {
+      "count": 45,
+      "key": "npc"
+    },
+    {
+      "count": 11,
+      "key": "party"
+    },
+    {
+      "count": 6,
+      "key": "pc"
+    },
+    {
+      "count": 3,
+      "key": "threat"
+    }
+  ],
+  "mechanics_specialization_retained": true,
+  "postgres_status": "BLOCKED",
+  "predicate_inventory": [
+    {
+      "count": 1,
+      "key": "allied_with"
+    },
+    {
+      "count": 1,
+      "key": "appeared_in"
+    },
+    {
+      "count": 8,
+      "key": "associated_with"
+    },
+    {
+      "count": 26,
+      "key": "attacks"
+    },
+    {
+      "count": 4,
+      "key": "aware_of"
+    },
+    {
+      "count": 1,
+      "key": "belongs_to"
+    },
+    {
+      "count": 16,
+      "key": "carries"
+    },
+    {
+      "count": 1,
+      "key": "carries_report_to"
+    },
+    {
+      "count": 4,
+      "key": "causes"
+    },
+    {
+      "count": 5,
+      "key": "commands"
+    },
+    {
+      "count": 17,
+      "key": "contains"
+    },
+    {
+      "count": 3,
+      "key": "controls_comms_with"
+    },
+    {
+      "count": 1,
+      "key": "cooperates_with"
+    },
+    {
+      "count": 1,
+      "key": "defends_weakened_location"
+    },
+    {
+      "count": 2,
+      "key": "displaced_from"
+    },
+    {
+      "count": 12,
+      "key": "holds"
+    },
+    {
+      "count": 4,
+      "key": "identified_as"
+    },
+    {
+      "count": 8,
+      "key": "knows_about"
+    },
+    {
+      "count": 11,
+      "key": "leads"
+    },
+    {
+      "count": 11,
+      "key": "leads_to"
+    },
+    {
+      "count": 1,
+      "key": "linked_to"
+    },
+    {
+      "count": 48,
+      "key": "located_in"
+    },
+    {
+      "count": 24,
+      "key": "member_of"
+    },
+    {
+      "count": 1,
+      "key": "mission_targets"
+    },
+    {
+      "count": 2,
+      "key": "near"
+    },
+    {
+      "count": 2,
+      "key": "objective_of"
+    },
+    {
+      "count": 2,
+      "key": "occurred_at"
+    },
+    {
+      "count": 5,
+      "key": "owns"
+    },
+    {
+      "count": 1,
+      "key": "parent_of"
+    },
+    {
+      "count": 11,
+      "key": "part_of"
+    },
+    {
+      "count": 1,
+      "key": "part_of_group"
+    },
+    {
+      "count": 2,
+      "key": "participated_in"
+    },
+    {
+      "count": 9,
+      "key": "participates_in"
+    },
+    {
+      "count": 2,
+      "key": "path_to"
+    },
+    {
+      "count": 4,
+      "key": "possesses"
+    },
+    {
+      "count": 16,
+      "key": "present_at"
+    },
+    {
+      "count": 3,
+      "key": "pursues"
+    },
+    {
+      "count": 3,
+      "key": "recruits_for"
+    },
+    {
+      "count": 1,
+      "key": "reports_threat_in"
+    },
+    {
+      "count": 5,
+      "key": "results_in"
+    },
+    {
+      "count": 1,
+      "key": "rivals"
+    },
+    {
+      "count": 2,
+      "key": "routes_to"
+    },
+    {
+      "count": 5,
+      "key": "same_as"
+    },
+    {
+      "count": 7,
+      "key": "serves"
+    },
+    {
+      "count": 1,
+      "key": "south_of"
+    },
+    {
+      "count": 1,
+      "key": "sublocation_of"
+    },
+    {
+      "count": 1,
+      "key": "suspects"
+    },
+    {
+      "count": 6,
+      "key": "threatens"
+    },
+    {
+      "count": 16,
+      "key": "travels_to"
+    },
+    {
+      "count": 1,
+      "key": "trusts"
+    },
+    {
+      "count": 2,
+      "key": "uses_statblock"
+    },
+    {
+      "count": 15,
+      "key": "within"
+    },
+    {
+      "count": 10,
+      "key": "works_with"
+    }
+  ],
+  "property_gap_inventory": [],
+  "relationship_predicate_inventory": [
+    {
+      "buddy_predicate": "allied_with",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:allied_with:pc:bonogo"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:allied_with"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "appeared_in",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "threat",
+          "target_buddy_kind": "event",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "associated_with",
+      "count": 8,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session12:giant_chandelier:associated_with:node:guard"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:associated_with"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:grit_and_grime:associated_with:npc_grobnok"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:associated_with"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc:riciberga:associated_with:item:guardian"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:associated_with"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:node:morwin:associated_with:loc:morwins:associated-with-shop",
+            "edge:node:rurik_stonehammer:associated_with:loc:the-council",
+            "edge:node:saladin:associated_with:loc:saladins_emporium:associated-with-his-emporium"
+          ],
+          "represented_count": 3,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:associated_with"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:wolf:associated_with:node:commander_thalia_ashenvale"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:associated_with"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:bartender_copper_quartz:associated_with:loc:copper-and-quartz-inn"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:associated_with"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 8,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "attacks",
+      "count": 26,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:the_troops:attacks:node:the_crowd:sent-to-disperse-crowd"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:attacks:node:captain_lysandra_guardhouse_security:hold-lysandra-and-her-guards-captive"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thraxx:attacks:node:abhorrent_meat_wings"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:root_like_beetles:attacks:node:hempholm_townsfolk"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:hempholm_townsfolk:attacks:item:grotesque-arcane-moving-tree"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thraxx:attacks:pc:karsemine"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:session10:item:oil_and_torch:attacks:node:abhorrent_meat_wings"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:grotesque-arcane-moving-tree:attacks:pc:karsemine"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:idris:attacks:item:session17:centipede_meat_creature"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:wolf:attacks:pc:bonogo",
+            "edge:npc:guardian_tree_heart:attacks:pc:baergrom"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:attacks:node:cultists_of_longmont",
+            "edge:pc:karsemine:attacks:node:cultists_of_longmont",
+            "edge:pc:stafl:attacks:node:cultists_of_longmont"
+          ],
+          "represented_count": 3,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:attacks:item:grotesque-arcane-moving-tree",
+            "edge:pc:ephanna:attacks:item:grotesque-arcane-moving-tree",
+            "edge:pc:stafl:attacks:item:session17:seed"
+          ],
+          "represented_count": 3,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 7,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:attacks:node:guard",
+            "edge:pc:bonogo:attacks:node:wolf",
+            "edge:pc:caelynn:attacks:node:guard",
+            "edge:pc:ephanna:attacks:node:elite_guard",
+            "edge:pc:karsemine:attacks:node:guard"
+          ],
+          "represented_count": 7,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:attacks:pc:caelynn",
+            "edge:pc:karsemine:attacks:pc:bonogo"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:attacks"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 26,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "aware_of",
+      "count": 4,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:aware_of:node:guardhouse:coordinates-investigation-of-the-guardhouse"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:aware_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:aware_of:node:bubbles"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "creature",
+          "target_dungeonmind_term": "dnd5e:aware_of"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:aware_of:item:session12:amulet",
+            "edge:pc:caelynn:aware_of:item:session17:storm"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:aware_of"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 4,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "belongs_to",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session12:armor:belongs_to:node:wolf"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": true,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:owns"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "carries",
+      "count": 16,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_session24_monster_horde:carries:item-009"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:carries"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thraxx:carries:node:session10:item:portable_battering_ram"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:carries"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:oil:carries:obj:session9:meat_rack:applied-to"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:carries"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session12:invisibility_potion:carries:node:wolf"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:carries"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:torch:carries:pc:baergrom:passed-to",
+            "edge:item:torch:carries:pc:karsemine:passed-to"
+          ],
+          "represented_count": 0,
+          "residual_count": 2,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:carries"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultist:carries:item:session17:centipede_meat_creature"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:carries"
+        },
+        {
+          "count": 9,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:carries:item_health_potions",
+            "edge:pc:baergrom:carries:node:session10:item:health_potion",
+            "edge:pc:bonogo:carries:item:broken-semi-organic-metal-branch",
+            "edge:pc:bonogo:carries:item:rope",
+            "edge:pc:bonogo:carries:item:session12:caltrops"
+          ],
+          "represented_count": 9,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:carries"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 12,
+      "residual_count": 4
+    },
+    {
+      "buddy_predicate": "carries_report_to",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:berin_ironfoot:carries_report_to:loc:stormspire-academy:sends-meat-sample-for-analysis"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "causes",
+      "count": 4,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:corrupted_meat_mound:causes:obj:session9:corrupted_meat_pile:splits-into"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:causes"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:sleep-spell:causes:node:torbin"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:causes"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:causes:item:ice_platform"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:causes"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:stafl:causes:mystery_3"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": "dnd5e:causes"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 4,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "commands",
+      "count": 5,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:commander_thalia_ashenvale:commands:node:guard_longmont"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:commands"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:wolf:commands:node:thalia"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:commands"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:commands:pc:baergrom",
+            "edge:npc_lysandra:commands:pc:karsemine"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:commands"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:commands:pc:bonogo"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:commands"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 5,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "contains",
+      "count": 17,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:ring-of-guards:contains:node:guard_longmont"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:grotesque-arcane-moving-tree:contains:item:precious-metal-leaves"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:centipede_meat_creature:contains:node:wolf"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 7,
+          "representative_edge_ids": [
+            "edge:loc:chilled_warehouse:contains:node:abhorrent_meat_wings",
+            "edge:loc:chilled_warehouse:contains:node:cultists_of_longmont",
+            "edge:loc:chilled_warehouse:contains:node:meat_mounds",
+            "edge:loc:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
+            "edge:loc:last_known_warehouses_near_water_wheel:contains:node:goblins_hobgoblins_bugbears"
+          ],
+          "represented_count": 7,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:prison:contains:node:prisoners_session9"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:loc:stone_bridge:contains:loc:the_rivers_edge_pub",
+            "edge:loc:the_tunnels:contains:loc:mushroom-lit_tunnels"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:loc:heart_of_the_tree:contains:npc:guardian_tree_heart",
+            "edge:loc:the_rivers_edge_pub:contains:node:grishna"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:contains"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:contains"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 15,
+      "residual_count": 2
+    },
+    {
+      "buddy_predicate": "controls_comms_with",
+      "count": 3,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:controls_comms_with:npc_grobnok"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 3
+    },
+    {
+      "buddy_predicate": "cooperates_with",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:cooperates_with:node:commander_thalia_ashenvale"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:cooperates_with"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "defends_weakened_location",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:defends_weakened_location:node:prisoners_session9:protects"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "displaced_from",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torvak_hempdealer_crew:displaced_from:loc:hempholm"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:displaced_from"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:displaced_from:loc:river_bank"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:displaced_from"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 2,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "holds",
+      "count": 12,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:npc_grobnok:holds:item-015",
+            "edge:npc_lysandra:holds:item-006"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:holds"
+        },
+        {
+          "count": 10,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:holds:item-002",
+            "edge:pc:baergrom:holds:item-003",
+            "edge:pc:baergrom:holds:item-010",
+            "edge:pc:baergrom:holds:item:rope",
+            "edge:pc:bonogo:holds:item:torch:possesses"
+          ],
+          "represented_count": 10,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:holds"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 12,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "identified_as",
+      "count": 4,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:oil:identified_as:node:wolf"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
+            "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms"
+          ],
+          "represented_count": 0,
+          "residual_count": 2,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 4
+    },
+    {
+      "buddy_predicate": "knows_about",
+      "count": 8,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_the_group:knows_about:mn-003"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": "dnd5e:knows_about"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:berin_ironfoot:knows_about:node:rebel_group_mirathorn_gates",
+            "edge:npc_grobnok:knows_about:node:cultists_longmont"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:knows_about"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:knows_about:obj:session9:scroll_abyssal"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:knows_about"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:knows_about:loc_3",
+            "edge:pc:caelynn:knows_about:loc_4"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:knows_about"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:knows_about:mystery:session7:glowing_mushrooms"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": "dnd5e:knows_about"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:karsemine:knows_about:node:ghost_child:confirmed-spectral"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:knows_about"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 8,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "leads",
+      "count": 11,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:lesandra:leads:node:cultists_of_longmont"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:leads"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:node:lyra:leads:node:shepherds_flock",
+            "edge:node:pippa:leads:node:pippa_group",
+            "edge:node:thalia:leads:node:guards_city_delivery",
+            "edge:node:torvak_hempdealer:leads:node:torvak_hempdealer_crew",
+            "edge:npc_lysandra:leads:node:guard_trusted_detail:takes-a-trusted-guard-detail-to-meet-the-party"
+          ],
+          "represented_count": 5,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:leads"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:leads"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+            "edge:node:lyra:leads:node:meat_distribution_network_session9",
+            "edge:node:merril_tealeaf:leads:node:agricultural_union_longmont"
+          ],
+          "represented_count": 3,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:leads"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:leads:pc:caelynn"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:leads"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 9,
+      "residual_count": 2
+    },
+    {
+      "buddy_predicate": "leads_to",
+      "count": 11,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        },
+        {
+          "count": 6,
+          "representative_edge_ids": [
+            "edge:loc:hallway-to-stairs:leads_to:loc:top-of-the-stairs",
+            "edge:loc:old_dusty_ladder:leads_to:node:trapdoor",
+            "edge:loc:road_to_miraholm:leads_to:location:mirathorn:leads-to-mirathorn",
+            "edge:loc:secret-passage:leads_to:loc:hallway-to-stairs",
+            "edge:loc:westward-trek-route:leads_to:location:mirathorn"
+          ],
+          "represented_count": 6,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:mystery:session7:glowing_mushrooms:leads_to:loc:stormspire-academy"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "mystery",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:barin_coppergleam:leads_to:node:guardhouse",
+            "edge:node:pippa:leads_to:loc:stone_bridge"
+          ],
+          "represented_count": 0,
+          "residual_count": 2,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 6,
+      "residual_count": 5
+    },
+    {
+      "buddy_predicate": "linked_to",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_longmont:linked_to:item:session11:tainted-meat"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:associated_with"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "located_in",
+      "count": 48,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:bubbles:located_in:loc:river"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "creature",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "encounter",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:combat_glowkindle_rat_fight:located_in:loc_wizards_tower_brewing_co"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "encounter",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:rebel_group_mirathorn_gates:located_in:loc:mirathorn-gates"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:group_the_group:located_in:location_003",
+            "edge:node:prisoners_session9:located_in:loc:prison",
+            "edge:node:shepherds_flock:located_in:loc:shepherds-flock-base",
+            "edge:node:shepherds_flock:located_in:loc:swamp-north",
+            "edge:node:stone_bridge_townfolk:located_in:loc:stone_bridge"
+          ],
+          "represented_count": 5,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item_glowkindle_help_request:located_in:item_job_board"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 12,
+          "representative_edge_ids": [
+            "edge:item:grotesque-arcane-moving-tree:located_in:loc:hempholm",
+            "edge:item:session17:centipede_meat_creature:located_in:loc:center-platform",
+            "edge:item:session17:hole_in_ceiling:located_in:loc:street",
+            "edge:item_job_board:located_in:loc:stone_bridge",
+            "edge:item_rivers_edge_pub:located_in:loc:stone_bridge"
+          ],
+          "represented_count": 12,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item-001:located_in:pc:karsemine",
+            "edge:item:session17:seed:located_in:pc:stafl"
+          ],
+          "represented_count": 0,
+          "residual_count": 2,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 11,
+          "representative_edge_ids": [
+            "edge:loc:broken_structure:located_in:loc:upriver_town",
+            "edge:loc:copper-and-quartz-inn:located_in:loc:vendor-streets",
+            "edge:loc:morwins:located_in:loc:hempholm:located-in-hempholm",
+            "edge:loc:saladins_emporium:located_in:loc:hempholm:located-in-hempholm",
+            "edge:loc_rivers_edge_pub:located_in:loc:stone_bridge"
+          ],
+          "represented_count": 11,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:mystery:session4:hempholm-moving-tree:located_in:loc:hempholm",
+            "edge:mystery:session4:root-beetle-invasion:located_in:loc:hempholm"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "mystery",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 7,
+          "representative_edge_ids": [
+            "edge:node:captain_mirathorn_gates:located_in:loc:mirathorn-gates",
+            "edge:node:elara_greenleaf:located_in:loc:herbal-shop",
+            "edge:node:elara_swiftwind:located_in:loc:the-council",
+            "edge:node:grishna:located_in:location_005",
+            "edge:node:talia:located_in:loc:herbal-shop"
+          ],
+          "represented_count": 7,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:organization_glowkindle:located_in:loc_wizards_tower_brewing_co",
+            "edge:organization_rivers_edge_pub:located_in:loc:stone_bridge"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:located_in:loc:cell"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 43,
+      "residual_count": 5
+    },
+    {
+      "buddy_predicate": "member_of",
+      "count": 24,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:member_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_excavation_crew:member_of:organization_glowkindle"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:member_of"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:node:cultist:member_of:node:cultists_of_longmont",
+            "edge:node:steve:member_of:node:nonhuman_haters",
+            "edge:node:wolf:member_of:node:guard_longmont"
+          ],
+          "represented_count": 3,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:member_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:member_of:node:captain_lysandra_guardhouse_security:arrives-with-guards-as-part-of-the-city-guard-detail"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:member_of"
+        },
+        {
+          "count": 12,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:member_of:node:heroes-party",
+            "edge:pc:baergrom:member_of:node:heroes-party:baergrom-is-part-of-the-responding-heroes-party",
+            "edge:pc:bonogo:member_of:node:heroes-party",
+            "edge:pc:bonogo:member_of:node:heroes-party:bonogo-is-part-of-the-responding-heroes-party",
+            "edge:pc:caelynn:member_of:node:heroes-party"
+          ],
+          "represented_count": 12,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:member_of"
+        },
+        {
+          "count": 6,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:member_of:party:questionable-company",
+            "edge:pc:bonogo:member_of:party:questionable-company",
+            "edge:pc:caelynn:member_of:party:questionable-company",
+            "edge:pc:ephanna:member_of:party:questionable-company",
+            "edge:pc:karsemine:member_of:party:questionable-company"
+          ],
+          "represented_count": 6,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:member_of"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 23,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "mission_targets",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item_glowkindle_help_request:mission_targets:group_mercenaries"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "near",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc_wizards_tower_brewing_co:near:item_enormous_boulder"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:near"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:city_guard_storeroom:near:node:guardhouse_barracks:is-reached-past-the-barracks"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:near"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 2,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "objective_of",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:stormspire-academy:objective_of:mystery:session7:glowing_mushrooms"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 2
+    },
+    {
+      "buddy_predicate": "occurred_at",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+            "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "event",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:occurs_at"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 2,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "owns",
+      "count": 5,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:pippa:owns:node:bubbles"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "creature",
+          "target_dungeonmind_term": "dnd5e:owns"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:barin_coppergleam:owns:loc:copper-and-quartz-inn",
+            "edge:node:berin_ironfoot:owns:loc:copper-and-quartz-inn"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:owns"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:organization_glowkindle:owns:item_glowkindle_help_request"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:owns"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:owns:item:toy_airship_prize"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:owns"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 5,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "parent_of",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc:grandma_thistlebloom:parent_of:npc:annie_thistlebloom"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:parent_of"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "part_of",
+      "count": 11,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_session24_refugees_of_edge:part_of:loc_3"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:wolf_head:part_of:item:session17:centipede_meat_creature"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:corner_beams_of_a_roof:part_of:loc:broken_structure"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:loc:bridge_flow_ways:part_of:loc:stone_bridge",
+            "edge:location_007:part_of:location_001",
+            "edge:node:guardhouse_barracks:part_of:node:guardhouse:is-part-of-the-guardhouse",
+            "edge:node:guardhouse_office:part_of:node:guardhouse:is-part-of-the-guardhouse",
+            "edge:node:jail:part_of:node:guardhouse:is-part-of-the-guardhouse"
+          ],
+          "represented_count": 5,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:wolf:part_of:item:session17:centipede_meat_creature"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 7,
+      "residual_count": 4
+    },
+    {
+      "buddy_predicate": "part_of_group",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_session24_refugees_of_edge:part_of_group:mystery_7"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "participated_in",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+            "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "event",
+          "target_dungeonmind_term": "dnd5e:participates_in"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 2,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "participates_in",
+      "count": 9,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:npc_flaming_magma_infused_spider_monstrosity:participates_in:combat_shatter_mages_tower_spider",
+            "edge:npc_mysterious_cat_owl:participates_in:combat_glowkindle_rat_fight"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "creature",
+          "target_buddy_kind": "encounter",
+          "target_dungeonmind_term": "dnd5e:participates_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_excavation_crew:participates_in:combat_glowkindle_rat_fight"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "encounter",
+          "target_dungeonmind_term": "dnd5e:participates_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:participates_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_the_group:participates_in:location_007"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:participates_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:session6_item_runaway_cart:participates_in:pc:baergrom:stopped-by-baergrom"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:participates_in"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+            "edge:pc:ephanna:participates_in:node:shepherds_flock",
+            "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
+          ],
+          "represented_count": 0,
+          "residual_count": 3,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:participates_in"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 3,
+      "residual_count": 6
+    },
+    {
+      "buddy_predicate": "path_to",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:loc_5:path_to:node:main_gate:is-the-area-reached-before-the-main-gate",
+            "edge:loc_wizards_tower_brewing_co:path_to:loc:stone_bridge"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 2,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "possesses",
+      "count": 4,
+      "endpoint_pairs": [
+        {
+          "count": 4,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:possesses:item:precious_metal_tree_sap",
+            "edge:pc:caelynn:possesses:item:glowing_mushrooms",
+            "edge:pc:ephanna:possesses:item:precious_metal_tree_sap",
+            "edge:pc:ephanna:possesses:item:session17:greater_healing_potion"
+          ],
+          "represented_count": 4,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:possesses"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 4,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "present_at",
+      "count": 16,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:bubbles:present_at:loc_5:present-at-outtown"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "creature",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:present_at:node:warehouse:occupy-the-warehouse-with-cages"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:fey_entity:present_at:pc:ephanna:appears-to-ephanna-in-prison"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:group_gnomes_brewing_troupe:present_at:loc_wizards_tower_brewing_co",
+            "edge:node:feasting_ritual_group_session9:present_at:loc:prison",
+            "edge:node:guards_session9:present_at:loc:packing-loading-area",
+            "edge:node:the_crowd:present_at:loc:mirathorn_gate:gathered-at-gate",
+            "edge:node:workers_session9:present_at:loc:packing-loading-area"
+          ],
+          "represented_count": 5,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:item_broken_alchemical_tools:present_at:combat_shatter_mages_tower_spider",
+            "edge:item_cat_owl:present_at:combat_glowkindle_rat_fight",
+            "edge:item_flaming_magma_infused_spider_monstrosity:present_at:combat_shatter_mages_tower_spider",
+            "edge:item_health_potions:present_at:combat_glowkindle_rat_fight",
+            "edge:item_trapped_mosaic:present_at:combat_shatter_mages_tower_spider"
+          ],
+          "represented_count": 5,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "encounter",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:paper-bird-summons:present_at:npc_grobnok"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:pippa:present_at:loc_5:present-at-outtown",
+            "edge:npc_lysandra:present_at:loc:copper-and-quartz-inn:meets-at-the-copper-and-quartz"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:present_at"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 14,
+      "residual_count": 2
+    },
+    {
+      "buddy_predicate": "pursues",
+      "count": 3,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:the_crowd:pursues:node:session6_item_toll:protesting-toll"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:pursues"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:group_the_group:pursues:mn-004",
+            "edge:group_the_group:pursues:mn-005"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": "dnd5e:pursues"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 3,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "recruits_for",
+      "count": 3,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_grobnok:recruits_for:node:goblins_hobgoblins_bugbears"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:recruits_for"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:stafl:recruits_for:node:stone_bridge_townfolk",
+            "edge:pc:stafl:recruits_for:node:thraxx"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:recruits_for"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 3,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "reports_threat_in",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "results_in",
+      "count": 5,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:results_in:item:corrupted-fleshy-construct:transform-into-a-corrupted-fleshy-creature"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:causes"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:broken-semi-organic-metal-branch:results_in:item:spiked-metal-for-leather-armor",
+            "edge:item:glowing_sack_of_the_heart_of_the_tree:results_in:item:ordinary_appearing_potato"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:causes"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item-014:results_in:mystery_6",
+            "edge:obj:session9:corrupted_meat_mound:results_in:mystery:session9:poisonous_cloud_and_ichor"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": "dnd5e:causes"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 5,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "rivals",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:morwin:rivals:node:saladin:rivals-with-saladin"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:rivals"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "routes_to",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:long_tunnel:routes_to:node:cold_room:extends-from-the-hidden-wall-in-the-cold-room"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:leads_to"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "same_as",
+      "count": 5,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item_enormous_boulder:same_as:item_foot_of_statue"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
+            "edge:item_session2_hidden_alchemy_room:same_as:location_003"
+          ],
+          "represented_count": 0,
+          "residual_count": 2,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:last_warehouse:same_as:loc:chilled_warehouse"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": null
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 0,
+      "residual_count": 5
+    },
+    {
+      "buddy_predicate": "serves",
+      "count": 7,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:guard_trusted_detail:serves:npc_lysandra:serves-captain-lysandra"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:serves"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:session6_item_dead_horse:serves:pc:ephanna:served-for-ephanna"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:serves"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultist:serves:item:session17:centipede_meat_creature"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:serves"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torrin_flamescale:serves:loc:guilds:represents"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:serves"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thalia:serves:node:wolf"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:serves"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:serves:pc:caelynn",
+            "edge:pc:karsemine:serves:pc:stafl"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:serves"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 4,
+      "residual_count": 3
+    },
+    {
+      "buddy_predicate": "south_of",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:bucolic-walk:south_of:loc:ominous-forest-south"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:south_of"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "sublocation_of",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:hole_in_ceiling:sublocation_of:loc:ceiling"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:part_of"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "suspects",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:suspects:mystery:session8:captain-lysandra-conspiracy:suspects-guard-and-cultist-wrongdoing"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "mystery",
+          "target_dungeonmind_term": "dnd5e:suspects"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "threatens",
+      "count": 6,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:group_session24_monster_horde:threatens:loc_2",
+            "edge:node:rebel_group_mirathorn_gates:threatens:loc:mirathorn-gates"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:threatens"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:rebel_group_mirathorn_gates:threatens:node:captain_mirathorn_gates"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:threatens"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_merchant_guards:threatens:node:the_crowd:attempts-to-disperse-crowd"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:threatens"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:threatens:node:cultists_of_longmont:is-threatened-by-cultists"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:threatens"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:threatens:faction:caretakers"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "faction",
+          "target_dungeonmind_term": "dnd5e:threatens"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 5,
+      "residual_count": 1
+    },
+    {
+      "buddy_predicate": "travels_to",
+      "count": 16,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:heroes-party:travels_to:location:mirathorn:arrived-at-mirathorn"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:travels_to"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:item:broken-semi-organic-metal-branch:travels_to:loc:blacksmith-in-town",
+            "edge:item:meat-sample:travels_to:loc:stormspire-academy:is-taken-to-stormspire-academy-for-analysis",
+            "edge:item:session17:centipede_meat_creature:travels_to:loc_2"
+          ],
+          "represented_count": 3,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:travels_to"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:pippa:travels_to:node:bubbles"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "creature",
+          "target_dungeonmind_term": "dnd5e:travels_to"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:node:lesandra:travels_to:loc:stormspire-academy",
+            "edge:node:thalia:travels_to:loc:wizard_college",
+            "edge:node:torbin:travels_to:loc:wizard_college",
+            "edge:npc:mark_jove:travels_to:location:mirathorn",
+            "edge:npc_lysandra:travels_to:node:warehouse_district:plans-to-meet-there-with-trusted-guards"
+          ],
+          "represented_count": 5,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:travels_to"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:travels_to:loc:next-hallway",
+            "edge:pc:bonogo:travels_to:loc:river",
+            "edge:pc:bonogo:travels_to:loc:secret-passage",
+            "edge:pc:bonogo:travels_to:loc:the_tunnels",
+            "edge:pc:bonogo:travels_to:loc:tunnels-of-traps:takes-point-through"
+          ],
+          "represented_count": 5,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:travels_to"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:travels_to:pc:karsemine"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:travels_to"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 14,
+      "residual_count": 2
+    },
+    {
+      "buddy_predicate": "trusts",
+      "count": 1,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:trusts:pc:baergrom"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:trusts"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 1,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "uses_statblock",
+      "count": 2,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:threat-statblock-binding:07ab38b331085b426bb69474",
+            "edge:threat-statblock-binding:5a173880167df31df00d763e"
+          ],
+          "represented_count": 0,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "threat",
+          "target_buddy_kind": "external_resource",
+          "target_dungeonmind_term": null
+        }
+      ],
+      "mechanics_count": 2,
+      "represented_count": 0,
+      "residual_count": 0
+    },
+    {
+      "buddy_predicate": "within",
+      "count": 15,
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:hempholm_folk_revelry:within:loc:hempholm",
+            "edge:node:root_like_beetles:within:loc:underneath-the-town"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:session17:water:within:loc:ceiling",
+            "edge:item:session17:water:within:loc:the_tunnels"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 8,
+          "representative_edge_ids": [
+            "edge:loc:mirathorn_outskirts:within:location:mirathorn:within-mirathorn",
+            "edge:loc:old-guard-tower:within:loc:the-city",
+            "edge:loc:steampunk-districts:within:loc:the-city",
+            "edge:loc:the_rivers_edge_pub:within:loc:stone_bridge",
+            "edge:loc:torchlit-cages:within:loc:cell"
+          ],
+          "represented_count": 8,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:wizard_college:within:node:city_mirathorn"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:mystery_1:within:item-001"
+          ],
+          "represented_count": 0,
+          "residual_count": 1,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "mystery",
+          "target_buddy_kind": "item",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:ghost_child:within:loc:road_to_miraholm:walking-the-road"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location",
+          "target_dungeonmind_term": "dnd5e:located_in"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 13,
+      "residual_count": 2
+    },
+    {
+      "buddy_predicate": "works_with",
+      "count": 10,
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:works_with:group_merchant_guards:joins-other-guards"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:works_with"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:barin_coppergleam:works_with:node:bartender_copper_quartz"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "party",
+          "target_dungeonmind_term": "dnd5e:works_with"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc:riciberga:works_with:pc:bonogo"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:works_with"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:stafl:works_with:node:hempholm_townsfolk"
+          ],
+          "represented_count": 1,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group",
+          "target_dungeonmind_term": "dnd5e:works_with"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:works_with:node:commander_thalia_ashenvale",
+            "edge:pc:stafl:works_with:node:grishna"
+          ],
+          "represented_count": 2,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc",
+          "target_dungeonmind_term": "dnd5e:works_with"
+        },
+        {
+          "count": 4,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:works_with:pc:bonogo",
+            "edge:pc:stafl:works_with:pc:baergrom",
+            "edge:pc:stafl:works_with:pc:baergrom:heals",
+            "edge:pc:stafl:works_with:pc:karsemine"
+          ],
+          "represented_count": 4,
+          "residual_count": 0,
+          "reverse_endpoints": false,
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc",
+          "target_dungeonmind_term": "dnd5e:works_with"
+        }
+      ],
+      "mechanics_count": 0,
+      "represented_count": 10,
+      "residual_count": 0
+    }
+  ],
+  "relationship_represented_count": 287,
+  "relationship_residual_count": 59,
+  "relationship_semantic_count": 346,
+  "residual_by_predicate": [
+    {
+      "count": 4,
+      "key": "carries"
+    },
+    {
+      "count": 1,
+      "key": "carries_report_to"
+    },
+    {
+      "count": 2,
+      "key": "contains"
+    },
+    {
+      "count": 3,
+      "key": "controls_comms_with"
+    },
+    {
+      "count": 1,
+      "key": "defends_weakened_location"
+    },
+    {
+      "count": 4,
+      "key": "identified_as"
+    },
+    {
+      "count": 2,
+      "key": "leads"
+    },
+    {
+      "count": 5,
+      "key": "leads_to"
+    },
+    {
+      "count": 5,
+      "key": "located_in"
+    },
+    {
+      "count": 1,
+      "key": "member_of"
+    },
+    {
+      "count": 1,
+      "key": "mission_targets"
+    },
+    {
+      "count": 2,
+      "key": "objective_of"
+    },
+    {
+      "count": 4,
+      "key": "part_of"
+    },
+    {
+      "count": 1,
+      "key": "part_of_group"
+    },
+    {
+      "count": 6,
+      "key": "participates_in"
+    },
+    {
+      "count": 2,
+      "key": "present_at"
+    },
+    {
+      "count": 1,
+      "key": "reports_threat_in"
+    },
+    {
+      "count": 1,
+      "key": "routes_to"
+    },
+    {
+      "count": 5,
+      "key": "same_as"
+    },
+    {
+      "count": 3,
+      "key": "serves"
+    },
+    {
+      "count": 1,
+      "key": "threatens"
+    },
+    {
+      "count": 2,
+      "key": "travels_to"
+    },
+    {
+      "count": 2,
+      "key": "within"
+    }
+  ],
+  "role_external_resource_count": 2,
+  "role_field_count": 438,
+  "role_property_adapter_count": 436,
+  "role_residual_count": 0,
+  "schema_version": "dmb_dungeonmind_whole_world_conformance_report_v3",
+  "semantic_profile_descriptor_sha256": "2199e8fb96e917c22718e6aec59cbbf55a37ee81575e1bcf16ce13fae0393496",
+  "semantic_profile_id": "dungeonmind.dnd5e",
+  "semantic_profile_revision": "dnd5e-profile-v3",
+  "source_artifact_schema": "dm_source_artifact_v2",
+  "source_campaign_id": "longmont-c2",
+  "source_graph_payload_sha256": "346c1fbfb3cbbf6d0e5ded1453fdd7760264a5106022e398d6074679799ab0fa",
+  "source_revision_id": "rev:3413bf6f5044cf2680233f5e37c90dcf",
+  "source_world_id": "eldyrwild",
+  "state_family_inventory": [
+    {
+      "count": 333,
+      "key": "edge.session_ids"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.approval_state"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.campaign_scope"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.canon_state"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.epistemic_kind"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.introduced_by_contribution_id"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.memory_state"
+    },
+    {
+      "count": 145,
+      "key": "edge.state.support_state"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.visibility"
+    },
+    {
+      "count": 438,
+      "key": "node.state.approval_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.campaign_scope"
+    },
+    {
+      "count": 438,
+      "key": "node.state.canon_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.epistemic_kind"
+    },
+    {
+      "count": 438,
+      "key": "node.state.identity_canon_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.introduced_by_contribution_id"
+    },
+    {
+      "count": 438,
+      "key": "node.state.memory_state"
+    },
+    {
+      "count": 105,
+      "key": "node.state.support_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.visibility"
+    }
+  ],
+  "target_graph_schema": "dm_union_graph_v5",
+  "unaccounted_durable_elements": 0,
+  "uses_statblock_mechanics_count": 2,
+  "world_object_vocabulary_id": "dungeonmind.dnd5e.world_object",
+  "world_object_vocabulary_revision": "world-object-v3",
+  "world_object_vocabulary_sha256": "d2f08de9ec3def308c8bc6d9d81132e5bbff9bd10b4bd706fc1cb39667b71a19",
+  "world_property_vocabulary_id": "dungeonmind.dnd5e.world_property",
+  "world_property_vocabulary_revision": "world-property-v1",
+  "world_property_vocabulary_sha256": "b466e3f16ae1aba5814f3386dff86b7017399c6099158d99ef95e9979d7cea7f"
+}
