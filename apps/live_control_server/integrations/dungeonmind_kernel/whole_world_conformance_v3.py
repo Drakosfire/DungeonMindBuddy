@@ -1151,18 +1151,77 @@ def _classify_alias_v3(
     )
 
 
-def _rewrite_evidence_provenance_blocker_v3(blockers: list[AdoptionBlocker]) -> None:
-    """Replace stale v1 evidence-contract text with the real alias residual diagnosis."""
+_ALIAS_EVIDENCE_PATH_NOTE = (
+    "Reconstruct assertion-grain AliasAssertionRecord evidence only for "
+    "substantive Buddy aliases (and non-derivable store.aliases entries). "
+    "Canonical-label materialization and derivable lookup-index keys are not "
+    "DM evidence-contract gaps; DungeonMind already admits alias_assertions."
+)
+_MIXED_EVIDENCE_PROVENANCE_NOTE = (
+    "EVIDENCE_PROVENANCE residual mixes alias assertion-grain gaps with other "
+    "evidence/source-artifact failures (empty IDs, unknown roles/status/domains, "
+    "or unclassified fields). Inspect element examples before choosing remediation; "
+    "do not treat the whole class as alias reconstruction alone."
+)
+_DEFAULT_EVIDENCE_PROVENANCE_REPO = "DungeonMind"
+_DEFAULT_EVIDENCE_PROVENANCE_NOTE = (
+    "Preserve Buddy evidence_ref/source span/domain fields in DM evidence contracts."
+)
+
+
+def _is_alias_evidence_provenance_path(element_id: str) -> bool:
+    """True for node.aliases fields and store.aliases index entries."""
+    if element_id.startswith("alias:"):
+        return True
+    return ":field:aliases" in element_id
+
+
+def _evidence_provenance_element_ids(
+    classified: list[ClassifiedElement],
+) -> list[str]:
+    return [
+        item.element_id
+        for item in classified
+        if item.blocker_class == BlockerClass.EVIDENCE_PROVENANCE
+        and item.classification
+        in {
+            SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP,
+            SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP,
+            SemanticClassification.INVALID_SOURCE,
+        }
+    ]
+
+
+def _rewrite_evidence_provenance_blocker_v3(
+    blockers: list[AdoptionBlocker],
+    classified: list[ClassifiedElement],
+) -> None:
+    """Specialize EP remediation only when the residual is exclusively alias paths.
+
+    Non-alias EP failures (unknown evidence_role, empty IDs, etc.) keep the generic
+    diagnosis. Mixed residuals get an explicit mixed-cause note.
+    """
+    ep_ids = _evidence_provenance_element_ids(classified)
+    if not ep_ids:
+        return
+    alias_ids = [eid for eid in ep_ids if _is_alias_evidence_provenance_path(eid)]
+    non_alias_ids = [eid for eid in ep_ids if not _is_alias_evidence_provenance_path(eid)]
+    exclusively_alias = bool(alias_ids) and not non_alias_ids
+    mixed = bool(alias_ids) and bool(non_alias_ids)
+
     for blocker in blockers:
         if blocker.blocker_class != BlockerClass.EVIDENCE_PROVENANCE:
             continue
-        blocker.responsible_repo = "DungeonMindBuddy"  # type: ignore[assignment]
-        blocker.smallest_next_change = (
-            "Reconstruct assertion-grain AliasAssertionRecord evidence only for "
-            "substantive Buddy aliases (and non-derivable store.aliases entries). "
-            "Canonical-label materialization and derivable lookup-index keys are not "
-            "DM evidence-contract gaps; DungeonMind already admits alias_assertions."
-        )
+        if exclusively_alias:
+            blocker.responsible_repo = "DungeonMindBuddy"  # type: ignore[assignment]
+            blocker.smallest_next_change = _ALIAS_EVIDENCE_PATH_NOTE
+        elif mixed:
+            blocker.responsible_repo = "DungeonMindBuddy"  # type: ignore[assignment]
+            blocker.smallest_next_change = _MIXED_EVIDENCE_PROVENANCE_NOTE
+        else:
+            # Pure non-alias EP residual: keep the generic evidence-contract diagnosis.
+            blocker.responsible_repo = _DEFAULT_EVIDENCE_PROVENANCE_REPO  # type: ignore[assignment]
+            blocker.smallest_next_change = _DEFAULT_EVIDENCE_PROVENANCE_NOTE
 
 
 def _build_relationship_predicate_inventory_v3(
@@ -1695,7 +1754,7 @@ def analyze_exact_buddy_world_revision_v3(
     ) = _role_summary_counts(store)
 
     blockers = _build_blockers(classified)
-    _rewrite_evidence_provenance_blocker_v3(blockers)
+    _rewrite_evidence_provenance_blocker_v3(blockers, classified)
     history_count = sum(
         1
         for item in classified

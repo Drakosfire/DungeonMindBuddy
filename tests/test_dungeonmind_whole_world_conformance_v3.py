@@ -718,6 +718,99 @@ def test_v3_substantive_alias_without_assertion_grain_evidence_is_durability_gap
     assert ironveil_blocker is None
 
 
+def test_v3_evidence_provenance_rewrite_is_alias_conditional() -> None:
+    """Non-alias EP residuals must not inherit the alias reconstruction diagnosis."""
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+        AdoptionBlocker,
+        BlockerClass,
+        ClassifiedElement,
+        SemanticClassification,
+    )
+
+    def _ep_blocker() -> AdoptionBlocker:
+        return AdoptionBlocker(
+            blocker_class=BlockerClass.EVIDENCE_PROVENANCE,
+            count=1,
+            examples=["placeholder"],
+            responsible_repo="DungeonMind",
+            smallest_next_change=(
+                "Preserve Buddy evidence_ref/source span/domain fields in DM evidence contracts."
+            ),
+        )
+
+    alias_only = [
+        ClassifiedElement(
+            element_id="node:npc:x:field:aliases",
+            element_family="node_field",
+            classification=SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP,
+            blocker_class=BlockerClass.EVIDENCE_PROVENANCE,
+            note="substantive",
+        )
+    ]
+    blockers = [_ep_blocker()]
+    wwc_v3._rewrite_evidence_provenance_blocker_v3(blockers, alias_only)
+    assert blockers[0].responsible_repo == "DungeonMindBuddy"
+    assert "AliasAssertionRecord" in blockers[0].smallest_next_change
+
+    non_alias_only = [
+        ClassifiedElement(
+            element_id="evidence:ev_1:field:evidence_role",
+            element_family="evidence_field",
+            classification=SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP,
+            blocker_class=BlockerClass.EVIDENCE_PROVENANCE,
+            note="unknown evidence_role 'bogus'",
+        )
+    ]
+    blockers = [_ep_blocker()]
+    wwc_v3._rewrite_evidence_provenance_blocker_v3(blockers, non_alias_only)
+    assert blockers[0].responsible_repo == "DungeonMind"
+    assert "AliasAssertionRecord" not in blockers[0].smallest_next_change
+    assert "evidence contracts" in blockers[0].smallest_next_change
+
+    mixed = alias_only + non_alias_only
+    blockers = [_ep_blocker()]
+    wwc_v3._rewrite_evidence_provenance_blocker_v3(blockers, mixed)
+    assert blockers[0].responsible_repo == "DungeonMindBuddy"
+    assert "mixes alias" in blockers[0].smallest_next_change.lower()
+    # Mixed note must not claim alias reconstruction alone.
+    assert "alone" in blockers[0].smallest_next_change
+    assert "AliasAssertionRecord" not in blockers[0].smallest_next_change
+
+
+def test_v3_unknown_evidence_role_keeps_generic_evidence_provenance_diagnosis() -> None:
+    """Non-alias EP failure must not be rewritten as alias reconstruction work."""
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+        BlockerClass,
+        ClassifiedElement,
+        SemanticClassification,
+        _build_blockers,
+    )
+
+    classification, blocker, note = wwc_v3._classify_evidence_field_v3(
+        "evidence_role", "not-a-real-role"
+    )
+    assert classification == SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP
+    assert blocker == BlockerClass.EVIDENCE_PROVENANCE
+    assert "unknown evidence_role" in note
+
+    classified = [
+        ClassifiedElement(
+            element_id="evidence:ev_bad_role:field:evidence_role",
+            element_family="evidence_field",
+            classification=classification,
+            blocker_class=blocker,
+            note=note,
+        )
+    ]
+    blockers = _build_blockers(classified)
+    wwc_v3._rewrite_evidence_provenance_blocker_v3(blockers, classified)
+    assert len(blockers) == 1
+    assert blockers[0].blocker_class == BlockerClass.EVIDENCE_PROVENANCE
+    assert blockers[0].responsible_repo == "DungeonMind"
+    assert "AliasAssertionRecord" not in blockers[0].smallest_next_change
+    assert "evidence contracts" in blockers[0].smallest_next_change
+
+
 def test_v3_non_derivable_store_alias_remains_visible_durability_gap() -> None:
     store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
     node_id = next(iter(store.nodes))
