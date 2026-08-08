@@ -1,0 +1,3092 @@
+{
+  "adoption_genesis_policy_note": "Genesis policies A/B/C remain undecided for execution. Post-v26 v5 contracts close several v1 semantic gaps (kinds, epistemic, campaign_scope, session_refs, v2 evidence) but adoption remains blocked by residual attribute/relationship gaps, alias durability, contribution/identity history, and the missing DungeonMind durable adoption seam.",
+  "artifact_source_domain_inventory": [
+    {
+      "count": 1,
+      "key": "manual_seed"
+    },
+    {
+      "count": 1,
+      "key": "party_registry"
+    },
+    {
+      "count": 16,
+      "key": "recap"
+    },
+    {
+      "count": 3,
+      "key": "statblock"
+    },
+    {
+      "count": 4,
+      "key": "worldbuilding"
+    }
+  ],
+  "blockers": [
+    {
+      "blocker_class": "ATTRIBUTE_ASSERTION",
+      "count": 438,
+      "examples": [
+        "node:combat_glowkindle_rat_fight:field:role",
+        "node:combat_shatter_mages_tower_spider:field:role",
+        "node:event:longmont-c2:session-22:mireward-road:field:role",
+        "node:event:longmont-c2:session-23:mireward-gate-battle:field:role",
+        "node:external:dungeonmind:statblock:sb_2b18b746b47c46599809fa69d1a075ce:field:role"
+      ],
+      "responsible_repo": "DungeonMindBuddy",
+      "smallest_next_change": "Materialize attribute values or document DM assertion transport."
+    },
+    {
+      "blocker_class": "CAMPAIGN_SCOPE",
+      "count": 1,
+      "examples": [
+        "store:field:campaign_id"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Define DM campaign/scope field for Buddy campaign_scope."
+    },
+    {
+      "blocker_class": "CONTRIBUTION_HISTORY",
+      "count": 4090,
+      "examples": [
+        "node:combat_glowkindle_rat_fight:state:approval_state",
+        "node:combat_glowkindle_rat_fight:state:identity_canon_state",
+        "node:combat_glowkindle_rat_fight:state:introduced_by_contribution_id",
+        "node:combat_glowkindle_rat_fight:state:memory_state",
+        "node:combat_shatter_mages_tower_spider:state:approval_state"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Decide genesis policy A/B/C and add a durable adoption seam that preserves Buddy contribution/assertion reconstruction history."
+    },
+    {
+      "blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+      "count": 1,
+      "examples": [
+        "WorldGraphRepository methods: get_head, get_revision, publish_revision, rollback_head"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Add public governed adopt-existing-world / bootstrap-complete-revision service."
+    },
+    {
+      "blocker_class": "EVIDENCE_PROVENANCE",
+      "count": 862,
+      "examples": [
+        "node:combat_glowkindle_rat_fight:field:aliases",
+        "node:combat_shatter_mages_tower_spider:field:aliases",
+        "node:event:longmont-c2:session-22:mireward-road:field:aliases",
+        "node:event:longmont-c2:session-23:mireward-gate-battle:field:aliases",
+        "node:external:dungeonmind:statblock:sb_2b18b746b47c46599809fa69d1a075ce:field:aliases"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Preserve Buddy evidence_ref/source span/domain fields in DM evidence contracts."
+    },
+    {
+      "blocker_class": "POSTGRES_ADOPTION",
+      "count": 1,
+      "examples": [
+        "Postgres adoption not exercised"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Exercise Postgres adoption only after public seam exists."
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "count": 336,
+      "examples": [
+        "edge:edge:combat_glowkindle_rat_fight:located_in:loc_wizards_tower_brewing_co:field:predicate",
+        "edge:edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower:field:predicate",
+        "edge:edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward:field:predicate",
+        "edge:edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward:field:predicate",
+        "edge:edge:group_excavation_crew:member_of:organization_glowkindle:field:predicate"
+      ],
+      "responsible_repo": "DungeonMind",
+      "smallest_next_change": "Add governed predicate contracts or explicit rename adapters."
+    }
+  ],
+  "classified_elements_count": 18106,
+  "disposition": "WHOLE_GRAPH_ADOPTION_NOT_READY",
+  "dungeonmind_dependency_ref": "da7c32576c319d1030410eabe5c589ef7e990a9f",
+  "durable_adoption_seam": {
+    "missing_public_adoption_service": true,
+    "rationale": "Pinned DungeonMind WorldGraphRepository public callables are ['get_head', 'get_revision', 'publish_revision', 'rollback_head']; none match adopt/bootstrap_complete/import_existing. There is no public governed adopt-existing-world service for pre-existing Buddy worlds.",
+    "status": "DURABLE_ADOPTION_BOUNDARY_MISSING",
+    "world_graph_repository_methods": [
+      "get_head",
+      "get_revision",
+      "publish_revision",
+      "rollback_head"
+    ]
+  },
+  "evidence_schema": "dm_evidence_ref_v2",
+  "evidence_source_domain_inventory": [
+    {
+      "count": 13,
+      "key": "manual_seed"
+    },
+    {
+      "count": 1,
+      "key": "party_registry"
+    },
+    {
+      "count": 158,
+      "key": "recap"
+    },
+    {
+      "count": 9,
+      "key": "statblock"
+    },
+    {
+      "count": 4,
+      "key": "worldbuilding"
+    }
+  ],
+  "inventory": {
+    "aliases": 424,
+    "assertion_support": 968,
+    "contribution_replay_manifest": 34,
+    "durable_element_paths": 18106,
+    "edges": 348,
+    "evidence": 185,
+    "nodes": 438,
+    "source_artifacts": 25
+  },
+  "kind_inventory": [
+    {
+      "count": 4,
+      "key": "creature"
+    },
+    {
+      "count": 2,
+      "key": "encounter"
+    },
+    {
+      "count": 2,
+      "key": "event"
+    },
+    {
+      "count": 2,
+      "key": "external_resource"
+    },
+    {
+      "count": 13,
+      "key": "faction"
+    },
+    {
+      "count": 29,
+      "key": "group"
+    },
+    {
+      "count": 125,
+      "key": "item"
+    },
+    {
+      "count": 103,
+      "key": "location"
+    },
+    {
+      "count": 93,
+      "key": "mystery"
+    },
+    {
+      "count": 45,
+      "key": "npc"
+    },
+    {
+      "count": 11,
+      "key": "party"
+    },
+    {
+      "count": 6,
+      "key": "pc"
+    },
+    {
+      "count": 3,
+      "key": "threat"
+    }
+  ],
+  "located_in_gap_count": 48,
+  "mechanics_specialization_retained": true,
+  "postgres_status": "BLOCKED",
+  "predicate_inventory": [
+    {
+      "count": 1,
+      "key": "allied_with"
+    },
+    {
+      "count": 1,
+      "key": "appeared_in"
+    },
+    {
+      "count": 8,
+      "key": "associated_with"
+    },
+    {
+      "count": 26,
+      "key": "attacks"
+    },
+    {
+      "count": 4,
+      "key": "aware_of"
+    },
+    {
+      "count": 1,
+      "key": "belongs_to"
+    },
+    {
+      "count": 16,
+      "key": "carries"
+    },
+    {
+      "count": 1,
+      "key": "carries_report_to"
+    },
+    {
+      "count": 4,
+      "key": "causes"
+    },
+    {
+      "count": 5,
+      "key": "commands"
+    },
+    {
+      "count": 17,
+      "key": "contains"
+    },
+    {
+      "count": 3,
+      "key": "controls_comms_with"
+    },
+    {
+      "count": 1,
+      "key": "cooperates_with"
+    },
+    {
+      "count": 1,
+      "key": "defends_weakened_location"
+    },
+    {
+      "count": 2,
+      "key": "displaced_from"
+    },
+    {
+      "count": 12,
+      "key": "holds"
+    },
+    {
+      "count": 4,
+      "key": "identified_as"
+    },
+    {
+      "count": 8,
+      "key": "knows_about"
+    },
+    {
+      "count": 11,
+      "key": "leads"
+    },
+    {
+      "count": 11,
+      "key": "leads_to"
+    },
+    {
+      "count": 1,
+      "key": "linked_to"
+    },
+    {
+      "count": 48,
+      "key": "located_in"
+    },
+    {
+      "count": 24,
+      "key": "member_of"
+    },
+    {
+      "count": 1,
+      "key": "mission_targets"
+    },
+    {
+      "count": 2,
+      "key": "near"
+    },
+    {
+      "count": 2,
+      "key": "objective_of"
+    },
+    {
+      "count": 2,
+      "key": "occurred_at"
+    },
+    {
+      "count": 5,
+      "key": "owns"
+    },
+    {
+      "count": 1,
+      "key": "parent_of"
+    },
+    {
+      "count": 11,
+      "key": "part_of"
+    },
+    {
+      "count": 1,
+      "key": "part_of_group"
+    },
+    {
+      "count": 2,
+      "key": "participated_in"
+    },
+    {
+      "count": 9,
+      "key": "participates_in"
+    },
+    {
+      "count": 2,
+      "key": "path_to"
+    },
+    {
+      "count": 4,
+      "key": "possesses"
+    },
+    {
+      "count": 16,
+      "key": "present_at"
+    },
+    {
+      "count": 3,
+      "key": "pursues"
+    },
+    {
+      "count": 3,
+      "key": "recruits_for"
+    },
+    {
+      "count": 1,
+      "key": "reports_threat_in"
+    },
+    {
+      "count": 5,
+      "key": "results_in"
+    },
+    {
+      "count": 1,
+      "key": "rivals"
+    },
+    {
+      "count": 2,
+      "key": "routes_to"
+    },
+    {
+      "count": 5,
+      "key": "same_as"
+    },
+    {
+      "count": 7,
+      "key": "serves"
+    },
+    {
+      "count": 1,
+      "key": "south_of"
+    },
+    {
+      "count": 1,
+      "key": "sublocation_of"
+    },
+    {
+      "count": 1,
+      "key": "suspects"
+    },
+    {
+      "count": 6,
+      "key": "threatens"
+    },
+    {
+      "count": 16,
+      "key": "travels_to"
+    },
+    {
+      "count": 1,
+      "key": "trusts"
+    },
+    {
+      "count": 2,
+      "key": "uses_statblock"
+    },
+    {
+      "count": 15,
+      "key": "within"
+    },
+    {
+      "count": 10,
+      "key": "works_with"
+    }
+  ],
+  "property_gap_inventory": [
+    {
+      "field_name": "node.role",
+      "object_kind_counts": [
+        {
+          "count": 4,
+          "object_kind": "creature"
+        },
+        {
+          "count": 2,
+          "object_kind": "encounter"
+        },
+        {
+          "count": 2,
+          "object_kind": "event"
+        },
+        {
+          "count": 2,
+          "object_kind": "external_resource"
+        },
+        {
+          "count": 13,
+          "object_kind": "faction"
+        },
+        {
+          "count": 29,
+          "object_kind": "group"
+        },
+        {
+          "count": 125,
+          "object_kind": "item"
+        },
+        {
+          "count": 103,
+          "object_kind": "location"
+        },
+        {
+          "count": 93,
+          "object_kind": "mystery"
+        },
+        {
+          "count": 45,
+          "object_kind": "npc"
+        },
+        {
+          "count": 11,
+          "object_kind": "party"
+        },
+        {
+          "count": 6,
+          "object_kind": "pc"
+        },
+        {
+          "count": 3,
+          "object_kind": "threat"
+        }
+      ],
+      "value_counts": [
+        {
+          "count": 125,
+          "value": "item"
+        },
+        {
+          "count": 101,
+          "value": "location"
+        },
+        {
+          "count": 93,
+          "value": "mystery"
+        },
+        {
+          "count": 45,
+          "value": "npc"
+        },
+        {
+          "count": 29,
+          "value": "group"
+        },
+        {
+          "count": 13,
+          "value": "faction"
+        },
+        {
+          "count": 10,
+          "value": "party"
+        },
+        {
+          "count": 6,
+          "value": "creature"
+        },
+        {
+          "count": 6,
+          "value": "player-character"
+        },
+        {
+          "count": 3,
+          "value": "encounter"
+        },
+        {
+          "count": 2,
+          "value": "statblock"
+        },
+        {
+          "count": 1,
+          "value": "travel"
+        },
+        {
+          "count": 1,
+          "value": "city"
+        },
+        {
+          "count": 1,
+          "value": "town"
+        },
+        {
+          "count": 1,
+          "value": "adventuring-party"
+        },
+        {
+          "count": 1,
+          "value": "encounter-threat"
+        }
+      ]
+    }
+  ],
+  "relationship_predicate_inventory": [
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "allied_with",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:allied_with:pc:bonogo"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'allied_with' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:pc:caelynn:allied_with:pc:bonogo"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "appeared_in",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ],
+          "source_buddy_kind": "threat",
+          "target_buddy_kind": "event"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'appeared_in' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:threat:tripod-null-calf:appeared_in:event:longmont-c2:session-23:mireward-gate-battle"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "associated_with",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 8,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session12:giant_chandelier:associated_with:node:guard"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:grit_and_grime:associated_with:npc_grobnok"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc:riciberga:associated_with:item:guardian"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:node:morwin:associated_with:loc:morwins:associated-with-shop",
+            "edge:node:rurik_stonehammer:associated_with:loc:the-council",
+            "edge:node:saladin:associated_with:loc:saladins_emporium:associated-with-his-emporium"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:wolf:associated_with:node:commander_thalia_ashenvale"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:bartender_copper_quartz:associated_with:loc:copper-and-quartz-inn"
+          ],
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'associated_with' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:session12:giant_chandelier:associated_with:node:guard",
+        "edge:loc:grit_and_grime:associated_with:npc_grobnok",
+        "edge:node:bartender_copper_quartz:associated_with:loc:copper-and-quartz-inn",
+        "edge:node:morwin:associated_with:loc:morwins:associated-with-shop",
+        "edge:node:rurik_stonehammer:associated_with:loc:the-council"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "attacks",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 26,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:the_troops:attacks:node:the_crowd:sent-to-disperse-crowd"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:attacks:node:captain_lysandra_guardhouse_security:hold-lysandra-and-her-guards-captive"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thraxx:attacks:node:abhorrent_meat_wings"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:root_like_beetles:attacks:node:hempholm_townsfolk"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:hempholm_townsfolk:attacks:item:grotesque-arcane-moving-tree"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thraxx:attacks:pc:karsemine"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:session10:item:oil_and_torch:attacks:node:abhorrent_meat_wings"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:grotesque-arcane-moving-tree:attacks:pc:karsemine"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:idris:attacks:item:session17:centipede_meat_creature"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:wolf:attacks:pc:bonogo",
+            "edge:npc:guardian_tree_heart:attacks:pc:baergrom"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:attacks:node:cultists_of_longmont",
+            "edge:pc:karsemine:attacks:node:cultists_of_longmont",
+            "edge:pc:stafl:attacks:node:cultists_of_longmont"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:attacks:item:grotesque-arcane-moving-tree",
+            "edge:pc:ephanna:attacks:item:grotesque-arcane-moving-tree",
+            "edge:pc:stafl:attacks:item:session17:seed"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 7,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:attacks:node:guard",
+            "edge:pc:bonogo:attacks:node:wolf",
+            "edge:pc:caelynn:attacks:node:guard",
+            "edge:pc:ephanna:attacks:node:elite_guard",
+            "edge:pc:karsemine:attacks:node:guard"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:attacks:pc:caelynn",
+            "edge:pc:karsemine:attacks:pc:bonogo"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "attacks has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:grotesque-arcane-moving-tree:attacks:pc:karsemine",
+        "edge:node:cultists_of_longmont:attacks:node:captain_lysandra_guardhouse_security:hold-lysandra-and-her-guards-captive",
+        "edge:node:hempholm_townsfolk:attacks:item:grotesque-arcane-moving-tree",
+        "edge:node:idris:attacks:item:session17:centipede_meat_creature",
+        "edge:node:root_like_beetles:attacks:node:hempholm_townsfolk"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "aware_of",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 4,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:aware_of:node:guardhouse:coordinates-investigation-of-the-guardhouse"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:aware_of:node:bubbles"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "creature"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:aware_of:item:session12:amulet",
+            "edge:pc:caelynn:aware_of:item:session17:storm"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'aware_of' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:npc_lysandra:aware_of:node:guardhouse:coordinates-investigation-of-the-guardhouse",
+        "edge:pc:caelynn:aware_of:item:session12:amulet",
+        "edge:pc:caelynn:aware_of:item:session17:storm",
+        "edge:pc:ephanna:aware_of:node:bubbles"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "belongs_to",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session12:armor:belongs_to:node:wolf"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'belongs_to' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:session12:armor:belongs_to:node:wolf"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "carries",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 16,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_session24_monster_horde:carries:item-009"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thraxx:carries:node:session10:item:portable_battering_ram"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:oil:carries:obj:session9:meat_rack:applied-to"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session12:invisibility_potion:carries:node:wolf"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:torch:carries:pc:baergrom:passed-to",
+            "edge:item:torch:carries:pc:karsemine:passed-to"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultist:carries:item:session17:centipede_meat_creature"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 9,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:carries:item_health_potions",
+            "edge:pc:baergrom:carries:node:session10:item:health_potion",
+            "edge:pc:bonogo:carries:item:broken-semi-organic-metal-branch",
+            "edge:pc:bonogo:carries:item:rope",
+            "edge:pc:bonogo:carries:item:session12:caltrops"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'carries' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:group_session24_monster_horde:carries:item-009",
+        "edge:item:session12:invisibility_potion:carries:node:wolf",
+        "edge:item:torch:carries:pc:baergrom:passed-to",
+        "edge:item:torch:carries:pc:karsemine:passed-to",
+        "edge:node:cultist:carries:item:session17:centipede_meat_creature"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "carries_report_to",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:berin_ironfoot:carries_report_to:loc:stormspire-academy:sends-meat-sample-for-analysis"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'carries_report_to' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:berin_ironfoot:carries_report_to:loc:stormspire-academy:sends-meat-sample-for-analysis"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "causes",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 4,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:corrupted_meat_mound:causes:obj:session9:corrupted_meat_pile:splits-into"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:sleep-spell:causes:node:torbin"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:causes:item:ice_platform"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:stafl:causes:mystery_3"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'causes' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:session11:sleep-spell:causes:node:torbin",
+        "edge:obj:session9:corrupted_meat_mound:causes:obj:session9:corrupted_meat_pile:splits-into",
+        "edge:pc:caelynn:causes:item:ice_platform",
+        "edge:pc:stafl:causes:mystery_3"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "commands",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 5,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:commander_thalia_ashenvale:commands:node:guard_longmont"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:wolf:commands:node:thalia"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:commands:pc:baergrom",
+            "edge:npc_lysandra:commands:pc:karsemine"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:commands:pc:bonogo"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'commands' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:commander_thalia_ashenvale:commands:node:guard_longmont",
+        "edge:node:wolf:commands:node:thalia",
+        "edge:npc_lysandra:commands:pc:baergrom",
+        "edge:npc_lysandra:commands:pc:karsemine",
+        "edge:pc:baergrom:commands:pc:bonogo"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "contains",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 17,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:ring-of-guards:contains:node:guard_longmont"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:grotesque-arcane-moving-tree:contains:item:precious-metal-leaves"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:centipede_meat_creature:contains:node:wolf"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 7,
+          "representative_edge_ids": [
+            "edge:loc:chilled_warehouse:contains:node:abhorrent_meat_wings",
+            "edge:loc:chilled_warehouse:contains:node:cultists_of_longmont",
+            "edge:loc:chilled_warehouse:contains:node:meat_mounds",
+            "edge:loc:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
+            "edge:loc:last_known_warehouses_near_water_wheel:contains:node:goblins_hobgoblins_bugbears"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:prison:contains:node:prisoners_session9"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:loc:stone_bridge:contains:loc:the_rivers_edge_pub",
+            "edge:loc:the_tunnels:contains:loc:mushroom-lit_tunnels"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "mystery"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:loc:heart_of_the_tree:contains:npc:guardian_tree_heart",
+            "edge:loc:the_rivers_edge_pub:contains:node:grishna"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears"
+          ],
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "faction"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "contains has no explicit DM adapter (no inverse mapping)",
+      "representative_edge_ids": [
+        "edge:item:grotesque-arcane-moving-tree:contains:item:precious-metal-leaves",
+        "edge:item:session11:ring-of-guards:contains:node:guard_longmont",
+        "edge:item:session17:centipede_meat_creature:contains:node:wolf",
+        "edge:loc:chilled_warehouse:contains:node:abhorrent_meat_wings",
+        "edge:loc:chilled_warehouse:contains:node:cultists_of_longmont"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "controls_comms_with",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 3,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:controls_comms_with:npc_grobnok"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'controls_comms_with' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate",
+        "edge:pc:caelynn:controls_comms_with:npc_grobnok",
+        "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "cooperates_with",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:cooperates_with:node:commander_thalia_ashenvale"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'cooperates_with' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:pc:ephanna:cooperates_with:node:commander_thalia_ashenvale"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "defends_weakened_location",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:defends_weakened_location:node:prisoners_session9:protects"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'defends_weakened_location' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:pc:bonogo:defends_weakened_location:node:prisoners_session9:protects"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "displaced_from",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 2,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torvak_hempdealer_crew:displaced_from:loc:hempholm"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:displaced_from:loc:river_bank"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'displaced_from' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:torvak_hempdealer_crew:displaced_from:loc:hempholm",
+        "edge:pc:bonogo:displaced_from:loc:river_bank"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "holds",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 12,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:npc_grobnok:holds:item-015",
+            "edge:npc_lysandra:holds:item-006"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 10,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:holds:item-002",
+            "edge:pc:baergrom:holds:item-003",
+            "edge:pc:baergrom:holds:item-010",
+            "edge:pc:baergrom:holds:item:rope",
+            "edge:pc:bonogo:holds:item:torch:possesses"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'holds' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:npc_grobnok:holds:item-015",
+        "edge:npc_lysandra:holds:item-006",
+        "edge:pc:baergrom:holds:item-002",
+        "edge:pc:baergrom:holds:item-003",
+        "edge:pc:baergrom:holds:item-010"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "identified_as",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 4,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "mystery"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:oil:identified_as:node:wolf"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
+            "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "identity/alias predicate 'identified_as' requires semantic adjudication; no auto D&D mapping",
+      "representative_edge_ids": [
+        "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
+        "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms",
+        "edge:obj:session9:oil:identified_as:node:wolf",
+        "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "knows_about",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 8,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_the_group:knows_about:mn-003"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "mystery"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:berin_ironfoot:knows_about:node:rebel_group_mirathorn_gates",
+            "edge:npc_grobnok:knows_about:node:cultists_longmont"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:knows_about:obj:session9:scroll_abyssal"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:knows_about:loc_3",
+            "edge:pc:caelynn:knows_about:loc_4"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:knows_about:mystery:session7:glowing_mushrooms"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "mystery"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:karsemine:knows_about:node:ghost_child:confirmed-spectral"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'knows_about' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:group_the_group:knows_about:mn-003",
+        "edge:node:berin_ironfoot:knows_about:node:rebel_group_mirathorn_gates",
+        "edge:npc_grobnok:knows_about:node:cultists_longmont",
+        "edge:pc:caelynn:knows_about:loc_3",
+        "edge:pc:caelynn:knows_about:loc_4"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "leads",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 11,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:lesandra:leads:node:cultists_of_longmont"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:node:lyra:leads:node:shepherds_flock",
+            "edge:node:pippa:leads:node:pippa_group",
+            "edge:node:thalia:leads:node:guards_city_delivery",
+            "edge:node:torvak_hempdealer:leads:node:torvak_hempdealer_crew",
+            "edge:npc_lysandra:leads:node:guard_trusted_detail:takes-a-trusted-guard-detail-to-meet-the-party"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+            "edge:node:lyra:leads:node:meat_distribution_network_session9",
+            "edge:node:merril_tealeaf:leads:node:agricultural_union_longmont"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:leads:pc:caelynn"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'leads' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+        "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+        "edge:node:lesandra:leads:node:cultists_of_longmont",
+        "edge:node:lyra:leads:node:meat_distribution_network_session9",
+        "edge:node:lyra:leads:node:shepherds_flock"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "leads_to",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 11,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 6,
+          "representative_edge_ids": [
+            "edge:loc:hallway-to-stairs:leads_to:loc:top-of-the-stairs",
+            "edge:loc:old_dusty_ladder:leads_to:node:trapdoor",
+            "edge:loc:road_to_miraholm:leads_to:location:mirathorn:leads-to-mirathorn",
+            "edge:loc:secret-passage:leads_to:loc:hallway-to-stairs",
+            "edge:loc:westward-trek-route:leads_to:location:mirathorn"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:mystery:session7:glowing_mushrooms:leads_to:loc:stormspire-academy"
+          ],
+          "source_buddy_kind": "mystery",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:barin_coppergleam:leads_to:node:guardhouse",
+            "edge:node:pippa:leads_to:loc:stone_bridge"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'leads_to' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat",
+        "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling",
+        "edge:loc:hallway-to-stairs:leads_to:loc:top-of-the-stairs",
+        "edge:loc:old_dusty_ladder:leads_to:node:trapdoor",
+        "edge:loc:road_to_miraholm:leads_to:location:mirathorn:leads-to-mirathorn"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "linked_to",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_longmont:linked_to:item:session11:tainted-meat"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "item"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'linked_to' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:cultists_longmont:linked_to:item:session11:tainted-meat"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "located_in",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 48,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:bubbles:located_in:loc:river"
+          ],
+          "source_buddy_kind": "creature",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower"
+          ],
+          "source_buddy_kind": "encounter",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:combat_glowkindle_rat_fight:located_in:loc_wizards_tower_brewing_co"
+          ],
+          "source_buddy_kind": "encounter",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:rebel_group_mirathorn_gates:located_in:loc:mirathorn-gates"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:group_the_group:located_in:location_003",
+            "edge:node:prisoners_session9:located_in:loc:prison",
+            "edge:node:shepherds_flock:located_in:loc:shepherds-flock-base",
+            "edge:node:shepherds_flock:located_in:loc:swamp-north",
+            "edge:node:stone_bridge_townfolk:located_in:loc:stone_bridge"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item_glowkindle_help_request:located_in:item_job_board"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 12,
+          "representative_edge_ids": [
+            "edge:item:grotesque-arcane-moving-tree:located_in:loc:hempholm",
+            "edge:item:session17:centipede_meat_creature:located_in:loc:center-platform",
+            "edge:item:session17:hole_in_ceiling:located_in:loc:street",
+            "edge:item_job_board:located_in:loc:stone_bridge",
+            "edge:item_rivers_edge_pub:located_in:loc:stone_bridge"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item-001:located_in:pc:karsemine",
+            "edge:item:session17:seed:located_in:pc:stafl"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 11,
+          "representative_edge_ids": [
+            "edge:loc:broken_structure:located_in:loc:upriver_town",
+            "edge:loc:copper-and-quartz-inn:located_in:loc:vendor-streets",
+            "edge:loc:morwins:located_in:loc:hempholm:located-in-hempholm",
+            "edge:loc:saladins_emporium:located_in:loc:hempholm:located-in-hempholm",
+            "edge:loc_rivers_edge_pub:located_in:loc:stone_bridge"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:mystery:session4:hempholm-moving-tree:located_in:loc:hempholm",
+            "edge:mystery:session4:root-beetle-invasion:located_in:loc:hempholm"
+          ],
+          "source_buddy_kind": "mystery",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 7,
+          "representative_edge_ids": [
+            "edge:node:captain_mirathorn_gates:located_in:loc:mirathorn-gates",
+            "edge:node:elara_greenleaf:located_in:loc:herbal-shop",
+            "edge:node:elara_swiftwind:located_in:loc:the-council",
+            "edge:node:grishna:located_in:location_005",
+            "edge:node:talia:located_in:loc:herbal-shop"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:organization_glowkindle:located_in:loc_wizards_tower_brewing_co",
+            "edge:organization_rivers_edge_pub:located_in:loc:stone_bridge"
+          ],
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:ephanna:located_in:loc:cell"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "located_in \u2260 located_at; no accepted rename contract",
+      "representative_edge_ids": [
+        "edge:combat_glowkindle_rat_fight:located_in:loc_wizards_tower_brewing_co",
+        "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+        "edge:group_the_group:located_in:location_003",
+        "edge:item-001:located_in:pc:karsemine",
+        "edge:item:grotesque-arcane-moving-tree:located_in:loc:hempholm"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "member_of",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 24,
+      "disposition": "ENDPOINT_ADMISSION_GAP",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_excavation_crew:member_of:organization_glowkindle"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:node:cultist:member_of:node:cultists_of_longmont",
+            "edge:node:steve:member_of:node:nonhuman_haters",
+            "edge:node:wolf:member_of:node:guard_longmont"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:member_of:node:captain_lysandra_guardhouse_security:arrives-with-guards-as-part-of-the-city-guard-detail"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 12,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:member_of:node:heroes-party",
+            "edge:pc:baergrom:member_of:node:heroes-party:baergrom-is-part-of-the-responding-heroes-party",
+            "edge:pc:bonogo:member_of:node:heroes-party",
+            "edge:pc:bonogo:member_of:node:heroes-party:bonogo-is-part-of-the-responding-heroes-party",
+            "edge:pc:caelynn:member_of:node:heroes-party"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 6,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:member_of:party:questionable-company",
+            "edge:pc:bonogo:member_of:party:questionable-company",
+            "edge:pc:caelynn:member_of:party:questionable-company",
+            "edge:pc:ephanna:member_of:party:questionable-company",
+            "edge:pc:karsemine:member_of:party:questionable-company"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "party"
+        }
+      ],
+      "mapped_dungeonmind_term": "dnd5e:member_of",
+      "note": "member_of\u2192dnd5e:member_of: 3/24 endpoint-admitted; 21 endpoint-admission gap(s)",
+      "representative_edge_ids": [
+        "edge:group_excavation_crew:member_of:organization_glowkindle",
+        "edge:node:cultist:member_of:node:cultists_of_longmont",
+        "edge:node:steve:member_of:node:nonhuman_haters",
+        "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+        "edge:node:wolf:member_of:node:guard_longmont"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "mission_targets",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item_glowkindle_help_request:mission_targets:group_mercenaries"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "group"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'mission_targets' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item_glowkindle_help_request:mission_targets:group_mercenaries"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "near",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 2,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc_wizards_tower_brewing_co:near:item_enormous_boulder"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:city_guard_storeroom:near:node:guardhouse_barracks:is-reached-past-the-barracks"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'near' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:loc_wizards_tower_brewing_co:near:item_enormous_boulder",
+        "edge:node:city_guard_storeroom:near:node:guardhouse_barracks:is-reached-past-the-barracks"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "objective_of",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 2,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:stormspire-academy:objective_of:mystery:session7:glowing_mushrooms"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'objective_of' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:loc:stormspire-academy:objective_of:mystery:session7:glowing_mushrooms",
+        "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "occurred_at",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 2,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+            "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward"
+          ],
+          "source_buddy_kind": "event",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'occurred_at' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:event:longmont-c2:session-22:mireward-road:occurred_at:location:mireward",
+        "edge:event:longmont-c2:session-23:mireward-gate-battle:occurred_at:location:mireward"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "owns",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 5,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:pippa:owns:node:bubbles"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "creature"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:barin_coppergleam:owns:loc:copper-and-quartz-inn",
+            "edge:node:berin_ironfoot:owns:loc:copper-and-quartz-inn"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:organization_glowkindle:owns:item_glowkindle_help_request"
+          ],
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:owns:item:toy_airship_prize"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'owns' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:barin_coppergleam:owns:loc:copper-and-quartz-inn",
+        "edge:node:berin_ironfoot:owns:loc:copper-and-quartz-inn",
+        "edge:node:pippa:owns:node:bubbles",
+        "edge:organization_glowkindle:owns:item_glowkindle_help_request",
+        "edge:pc:bonogo:owns:item:toy_airship_prize"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "parent_of",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc:grandma_thistlebloom:parent_of:npc:annie_thistlebloom"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'parent_of' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:npc:grandma_thistlebloom:parent_of:npc:annie_thistlebloom"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "part_of",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 11,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_session24_refugees_of_edge:part_of:loc_3"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:wolf_head:part_of:item:session17:centipede_meat_creature"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:corner_beams_of_a_roof:part_of:loc:broken_structure"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:loc:bridge_flow_ways:part_of:loc:stone_bridge",
+            "edge:location_007:part_of:location_001",
+            "edge:node:guardhouse_barracks:part_of:node:guardhouse:is-part-of-the-guardhouse",
+            "edge:node:guardhouse_office:part_of:node:guardhouse:is-part-of-the-guardhouse",
+            "edge:node:jail:part_of:node:guardhouse:is-part-of-the-guardhouse"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:wolf:part_of:item:session17:centipede_meat_creature"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'part_of' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:group_session24_refugees_of_edge:part_of:loc_3",
+        "edge:item:corner_beams_of_a_roof:part_of:loc:broken_structure",
+        "edge:item:session17:wolf_head:part_of:item:session17:centipede_meat_creature",
+        "edge:loc:bridge_flow_ways:part_of:loc:stone_bridge",
+        "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "part_of_group",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_session24_refugees_of_edge:part_of_group:mystery_7"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'part_of_group' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:group_session24_refugees_of_edge:part_of_group:mystery_7"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "participated_in",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 2,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+            "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle"
+          ],
+          "source_buddy_kind": "party",
+          "target_buddy_kind": "event"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'participated_in' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:party:questionable-company:participated_in:event:longmont-c2:session-22:mireward-road",
+        "edge:party:questionable-company:participated_in:event:longmont-c2:session-23:mireward-gate-battle"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "participates_in",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 9,
+      "disposition": "ENDPOINT_ADMISSION_GAP",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:npc_flaming_magma_infused_spider_monstrosity:participates_in:combat_shatter_mages_tower_spider",
+            "edge:npc_mysterious_cat_owl:participates_in:combat_glowkindle_rat_fight"
+          ],
+          "source_buddy_kind": "creature",
+          "target_buddy_kind": "encounter"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_excavation_crew:participates_in:combat_glowkindle_rat_fight"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "encounter"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_the_group:participates_in:location_007"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:session6_item_runaway_cart:participates_in:pc:baergrom:stopped-by-baergrom"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+            "edge:pc:ephanna:participates_in:node:shepherds_flock",
+            "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group"
+        }
+      ],
+      "mapped_dungeonmind_term": "dnd5e:participates_in",
+      "note": "participates_in\u2192dnd5e:participates_in: 2/9 endpoint-admitted; 7 endpoint-admission gap(s)",
+      "representative_edge_ids": [
+        "edge:group_excavation_crew:participates_in:combat_glowkindle_rat_fight",
+        "edge:group_the_group:participates_in:location_007",
+        "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+        "edge:node:session6_item_runaway_cart:participates_in:pc:baergrom:stopped-by-baergrom",
+        "edge:npc_flaming_magma_infused_spider_monstrosity:participates_in:combat_shatter_mages_tower_spider"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "path_to",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 2,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:loc_5:path_to:node:main_gate:is-the-area-reached-before-the-main-gate",
+            "edge:loc_wizards_tower_brewing_co:path_to:loc:stone_bridge"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'path_to' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:loc_5:path_to:node:main_gate:is-the-area-reached-before-the-main-gate",
+        "edge:loc_wizards_tower_brewing_co:path_to:loc:stone_bridge"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "possesses",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 4,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 4,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:possesses:item:precious_metal_tree_sap",
+            "edge:pc:caelynn:possesses:item:glowing_mushrooms",
+            "edge:pc:ephanna:possesses:item:precious_metal_tree_sap",
+            "edge:pc:ephanna:possesses:item:session17:greater_healing_potion"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "item"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'possesses' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:pc:bonogo:possesses:item:precious_metal_tree_sap",
+        "edge:pc:caelynn:possesses:item:glowing_mushrooms",
+        "edge:pc:ephanna:possesses:item:precious_metal_tree_sap",
+        "edge:pc:ephanna:possesses:item:session17:greater_healing_potion"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "present_at",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 16,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:bubbles:present_at:loc_5:present-at-outtown"
+          ],
+          "source_buddy_kind": "creature",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:present_at:node:warehouse:occupy-the-warehouse-with-cages"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:fey_entity:present_at:pc:ephanna:appears-to-ephanna-in-prison"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:group_gnomes_brewing_troupe:present_at:loc_wizards_tower_brewing_co",
+            "edge:node:feasting_ritual_group_session9:present_at:loc:prison",
+            "edge:node:guards_session9:present_at:loc:packing-loading-area",
+            "edge:node:the_crowd:present_at:loc:mirathorn_gate:gathered-at-gate",
+            "edge:node:workers_session9:present_at:loc:packing-loading-area"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:item_broken_alchemical_tools:present_at:combat_shatter_mages_tower_spider",
+            "edge:item_cat_owl:present_at:combat_glowkindle_rat_fight",
+            "edge:item_flaming_magma_infused_spider_monstrosity:present_at:combat_shatter_mages_tower_spider",
+            "edge:item_health_potions:present_at:combat_glowkindle_rat_fight",
+            "edge:item_trapped_mosaic:present_at:combat_shatter_mages_tower_spider"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "encounter"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session11:paper-bird-summons:present_at:npc_grobnok"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:pippa:present_at:loc_5:present-at-outtown",
+            "edge:npc_lysandra:present_at:loc:copper-and-quartz-inn:meets-at-the-copper-and-quartz"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'present_at' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:group_gnomes_brewing_troupe:present_at:loc_wizards_tower_brewing_co",
+        "edge:item:session11:paper-bird-summons:present_at:npc_grobnok",
+        "edge:item_broken_alchemical_tools:present_at:combat_shatter_mages_tower_spider",
+        "edge:item_cat_owl:present_at:combat_glowkindle_rat_fight",
+        "edge:item_flaming_magma_infused_spider_monstrosity:present_at:combat_shatter_mages_tower_spider"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "pursues",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 3,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:the_crowd:pursues:node:session6_item_toll:protesting-toll"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:group_the_group:pursues:mn-004",
+            "edge:group_the_group:pursues:mn-005"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'pursues' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:group_the_group:pursues:mn-004",
+        "edge:group_the_group:pursues:mn-005",
+        "edge:node:the_crowd:pursues:node:session6_item_toll:protesting-toll"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "recruits_for",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 3,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_grobnok:recruits_for:node:goblins_hobgoblins_bugbears"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:stafl:recruits_for:node:stone_bridge_townfolk",
+            "edge:pc:stafl:recruits_for:node:thraxx"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'recruits_for' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:npc_grobnok:recruits_for:node:goblins_hobgoblins_bugbears",
+        "edge:pc:stafl:recruits_for:node:stone_bridge_townfolk",
+        "edge:pc:stafl:recruits_for:node:thraxx"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "reports_threat_in",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'reports_threat_in' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "results_in",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 5,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultists_of_longmont:results_in:item:corrupted-fleshy-construct:transform-into-a-corrupted-fleshy-creature"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:broken-semi-organic-metal-branch:results_in:item:spiked-metal-for-leather-armor",
+            "edge:item:glowing_sack_of_the_heart_of_the_tree:results_in:item:ordinary_appearing_potato"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item-014:results_in:mystery_6",
+            "edge:obj:session9:corrupted_meat_mound:results_in:mystery:session9:poisonous_cloud_and_ichor"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'results_in' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item-014:results_in:mystery_6",
+        "edge:item:broken-semi-organic-metal-branch:results_in:item:spiked-metal-for-leather-armor",
+        "edge:item:glowing_sack_of_the_heart_of_the_tree:results_in:item:ordinary_appearing_potato",
+        "edge:node:cultists_of_longmont:results_in:item:corrupted-fleshy-construct:transform-into-a-corrupted-fleshy-creature",
+        "edge:obj:session9:corrupted_meat_mound:results_in:mystery:session9:poisonous_cloud_and_ichor"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "rivals",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:morwin:rivals:node:saladin:rivals-with-saladin"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'rivals' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:morwin:rivals:node:saladin:rivals-with-saladin"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "routes_to",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 2,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:long_tunnel:routes_to:node:cold_room:extends-from-the-hidden-wall-in-the-cold-room"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'routes_to' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:long_tunnel:routes_to:node:cold_room:extends-from-the-hidden-wall-in-the-cold-room",
+        "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "same_as",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 5,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item_enormous_boulder:same_as:item_foot_of_statue"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
+            "edge:item_session2_hidden_alchemy_room:same_as:location_003"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:last_warehouse:same_as:loc:chilled_warehouse"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "identity/alias predicate 'same_as' requires semantic adjudication; no auto D&D mapping",
+      "representative_edge_ids": [
+        "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
+        "edge:item_enormous_boulder:same_as:item_foot_of_statue",
+        "edge:item_session2_hidden_alchemy_room:same_as:location_003",
+        "edge:loc:last_warehouse:same_as:loc:chilled_warehouse",
+        "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "serves",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 7,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:guard_trusted_detail:serves:npc_lysandra:serves-captain-lysandra"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:session6_item_dead_horse:serves:pc:ephanna:served-for-ephanna"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:cultist:serves:item:session17:centipede_meat_creature"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:torrin_flamescale:serves:loc:guilds:represents"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:thalia:serves:node:wolf"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:serves:pc:caelynn",
+            "edge:pc:karsemine:serves:pc:stafl"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'serves' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:cultist:serves:item:session17:centipede_meat_creature",
+        "edge:node:guard_trusted_detail:serves:npc_lysandra:serves-captain-lysandra",
+        "edge:node:session6_item_dead_horse:serves:pc:ephanna:served-for-ephanna",
+        "edge:node:thalia:serves:node:wolf",
+        "edge:node:torrin_flamescale:serves:loc:guilds:represents"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "south_of",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:bucolic-walk:south_of:loc:ominous-forest-south"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'south_of' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:loc:bucolic-walk:south_of:loc:ominous-forest-south"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "sublocation_of",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:item:session17:hole_in_ceiling:sublocation_of:loc:ceiling"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'sublocation_of' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:session17:hole_in_ceiling:sublocation_of:loc:ceiling"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "suspects",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:suspects:mystery:session8:captain-lysandra-conspiracy:suspects-guard-and-cultist-wrongdoing"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "mystery"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'suspects' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:npc_lysandra:suspects:mystery:session8:captain-lysandra-conspiracy:suspects-guard-and-cultist-wrongdoing"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "threatens",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 6,
+      "disposition": "ENDPOINT_ADMISSION_GAP",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:group_session24_monster_horde:threatens:loc_2",
+            "edge:node:rebel_group_mirathorn_gates:threatens:loc:mirathorn-gates"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:rebel_group_mirathorn_gates:threatens:node:captain_mirathorn_gates"
+          ],
+          "source_buddy_kind": "faction",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:group_merchant_guards:threatens:node:the_crowd:attempts-to-disperse-crowd"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:threatens:node:cultists_of_longmont:is-threatened-by-cultists"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "faction"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:threatens:faction:caretakers"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "faction"
+        }
+      ],
+      "mapped_dungeonmind_term": "dnd5e:threatens",
+      "note": "threatens\u2192dnd5e:threatens: 5/6 endpoint-admitted; 1 endpoint-admission gap(s)",
+      "representative_edge_ids": [
+        "edge:group_merchant_guards:threatens:node:the_crowd:attempts-to-disperse-crowd",
+        "edge:group_session24_monster_horde:threatens:loc_2",
+        "edge:node:rebel_group_mirathorn_gates:threatens:loc:mirathorn-gates",
+        "edge:node:rebel_group_mirathorn_gates:threatens:node:captain_mirathorn_gates",
+        "edge:npc_lysandra:threatens:node:cultists_of_longmont:is-threatened-by-cultists"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "travels_to",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 16,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:heroes-party:travels_to:location:mirathorn:arrived-at-mirathorn"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 3,
+          "representative_edge_ids": [
+            "edge:item:broken-semi-organic-metal-branch:travels_to:loc:blacksmith-in-town",
+            "edge:item:meat-sample:travels_to:loc:stormspire-academy:is-taken-to-stormspire-academy-for-analysis",
+            "edge:item:session17:centipede_meat_creature:travels_to:loc_2"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:pippa:travels_to:node:bubbles"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "creature"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:node:lesandra:travels_to:loc:stormspire-academy",
+            "edge:node:thalia:travels_to:loc:wizard_college",
+            "edge:node:torbin:travels_to:loc:wizard_college",
+            "edge:npc:mark_jove:travels_to:location:mirathorn",
+            "edge:npc_lysandra:travels_to:node:warehouse_district:plans-to-meet-there-with-trusted-guards"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 5,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:travels_to:loc:next-hallway",
+            "edge:pc:bonogo:travels_to:loc:river",
+            "edge:pc:bonogo:travels_to:loc:secret-passage",
+            "edge:pc:bonogo:travels_to:loc:the_tunnels",
+            "edge:pc:bonogo:travels_to:loc:tunnels-of-traps:takes-point-through"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:travels_to:pc:karsemine"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'travels_to' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:broken-semi-organic-metal-branch:travels_to:loc:blacksmith-in-town",
+        "edge:item:meat-sample:travels_to:loc:stormspire-academy:is-taken-to-stormspire-academy-for-analysis",
+        "edge:item:session17:centipede_meat_creature:travels_to:loc_2",
+        "edge:node:heroes-party:travels_to:location:mirathorn:arrived-at-mirathorn",
+        "edge:node:lesandra:travels_to:loc:stormspire-academy"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "trusts",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 1,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:bonogo:trusts:pc:baergrom"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'trusts' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:pc:bonogo:trusts:pc:baergrom"
+      ]
+    },
+    {
+      "blocker_class": null,
+      "buddy_predicate": "uses_statblock",
+      "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+      "count": 2,
+      "disposition": "MECHANICS_SPECIALIZATION",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:threat-statblock-binding:07ab38b331085b426bb69474",
+            "edge:threat-statblock-binding:5a173880167df31df00d763e"
+          ],
+          "source_buddy_kind": "threat",
+          "target_buddy_kind": "external_resource"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "uses_statblock mechanics specialization (#521 retained; not dnd5e:threatens)",
+      "representative_edge_ids": [
+        "edge:threat-statblock-binding:07ab38b331085b426bb69474",
+        "edge:threat-statblock-binding:5a173880167df31df00d763e"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "within",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 15,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:node:hempholm_folk_revelry:within:loc:hempholm",
+            "edge:node:root_like_beetles:within:loc:underneath-the-town"
+          ],
+          "source_buddy_kind": "group",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:item:session17:water:within:loc:ceiling",
+            "edge:item:session17:water:within:loc:the_tunnels"
+          ],
+          "source_buddy_kind": "item",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 8,
+          "representative_edge_ids": [
+            "edge:loc:mirathorn_outskirts:within:location:mirathorn:within-mirathorn",
+            "edge:loc:old-guard-tower:within:loc:the-city",
+            "edge:loc:steampunk-districts:within:loc:the-city",
+            "edge:loc:the_rivers_edge_pub:within:loc:stone_bridge",
+            "edge:loc:torchlit-cages:within:loc:cell"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "location"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:loc:wizard_college:within:node:city_mirathorn"
+          ],
+          "source_buddy_kind": "location",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:mystery_1:within:item-001"
+          ],
+          "source_buddy_kind": "mystery",
+          "target_buddy_kind": "item"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:ghost_child:within:loc:road_to_miraholm:walking-the-road"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "location"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'within' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:item:session17:water:within:loc:ceiling",
+        "edge:item:session17:water:within:loc:the_tunnels",
+        "edge:loc:mirathorn_outskirts:within:location:mirathorn:within-mirathorn",
+        "edge:loc:old-guard-tower:within:loc:the-city",
+        "edge:loc:steampunk-districts:within:loc:the-city"
+      ]
+    },
+    {
+      "blocker_class": "RELATIONSHIP_PREDICATE",
+      "buddy_predicate": "works_with",
+      "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+      "count": 10,
+      "disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
+      "endpoint_pairs": [
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc_lysandra:works_with:group_merchant_guards:joins-other-guards"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:node:barin_coppergleam:works_with:node:bartender_copper_quartz"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "party"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:npc:riciberga:works_with:pc:bonogo"
+          ],
+          "source_buddy_kind": "npc",
+          "target_buddy_kind": "pc"
+        },
+        {
+          "count": 1,
+          "representative_edge_ids": [
+            "edge:pc:stafl:works_with:node:hempholm_townsfolk"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "group"
+        },
+        {
+          "count": 2,
+          "representative_edge_ids": [
+            "edge:pc:caelynn:works_with:node:commander_thalia_ashenvale",
+            "edge:pc:stafl:works_with:node:grishna"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "npc"
+        },
+        {
+          "count": 4,
+          "representative_edge_ids": [
+            "edge:pc:baergrom:works_with:pc:bonogo",
+            "edge:pc:stafl:works_with:pc:baergrom",
+            "edge:pc:stafl:works_with:pc:baergrom:heals",
+            "edge:pc:stafl:works_with:pc:karsemine"
+          ],
+          "source_buddy_kind": "pc",
+          "target_buddy_kind": "pc"
+        }
+      ],
+      "mapped_dungeonmind_term": null,
+      "note": "predicate 'works_with' has no explicit DM adapter",
+      "representative_edge_ids": [
+        "edge:node:barin_coppergleam:works_with:node:bartender_copper_quartz",
+        "edge:npc:riciberga:works_with:pc:bonogo",
+        "edge:npc_lysandra:works_with:group_merchant_guards:joins-other-guards",
+        "edge:pc:baergrom:works_with:pc:bonogo",
+        "edge:pc:caelynn:works_with:node:commander_thalia_ashenvale"
+      ]
+    }
+  ],
+  "schema_version": "dmb_dungeonmind_whole_world_conformance_report_v2",
+  "semantic_profile_descriptor_sha256": "2199e8fb96e917c22718e6aec59cbbf55a37ee81575e1bcf16ce13fae0393496",
+  "semantic_profile_id": "dungeonmind.dnd5e",
+  "semantic_profile_revision": "dnd5e-profile-v3",
+  "source_artifact_schema": "dm_source_artifact_v2",
+  "source_campaign_id": "longmont-c2",
+  "source_graph_payload_sha256": "346c1fbfb3cbbf6d0e5ded1453fdd7760264a5106022e398d6074679799ab0fa",
+  "source_revision_id": "rev:3413bf6f5044cf2680233f5e37c90dcf",
+  "source_world_id": "eldyrwild",
+  "state_family_inventory": [
+    {
+      "count": 333,
+      "key": "edge.session_ids"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.approval_state"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.campaign_scope"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.canon_state"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.epistemic_kind"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.introduced_by_contribution_id"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.memory_state"
+    },
+    {
+      "count": 145,
+      "key": "edge.state.support_state"
+    },
+    {
+      "count": 348,
+      "key": "edge.state.visibility"
+    },
+    {
+      "count": 438,
+      "key": "node.state.approval_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.campaign_scope"
+    },
+    {
+      "count": 438,
+      "key": "node.state.canon_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.epistemic_kind"
+    },
+    {
+      "count": 438,
+      "key": "node.state.identity_canon_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.introduced_by_contribution_id"
+    },
+    {
+      "count": 438,
+      "key": "node.state.memory_state"
+    },
+    {
+      "count": 105,
+      "key": "node.state.support_state"
+    },
+    {
+      "count": 438,
+      "key": "node.state.visibility"
+    }
+  ],
+  "target_graph_schema": "dm_union_graph_v5",
+  "unaccounted_durable_elements": 0,
+  "uses_statblock_mechanics_count": 2,
+  "world_object_vocabulary_id": "dungeonmind.dnd5e.world_object",
+  "world_object_vocabulary_revision": "world-object-v2",
+  "world_object_vocabulary_sha256": "a53e2d0ec45878288800ff3d30006d54803db70a17e6680b359a0fa88f2a9922"
+}
