@@ -309,6 +309,31 @@ def test_v2_null_campaign_scope_is_world_universal(seeded_root: Path) -> None:
     )
 
 
+def test_v2_store_campaign_id_is_buddy_operational_not_campaign_scope_gap(
+    seeded_root: Path,
+) -> None:
+    """store.campaign_id is Buddy container routing — not a missing DM graph campaign field."""
+    revision_id = _publish_node(
+        seeded_root,
+        node_id="npc:store-campaign",
+        kind="npc",
+        role="ally",
+        campaign_scope=CAMPAIGN_ID,
+    )
+    report = analyze_exact_buddy_world_revision_v2(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+    )
+    assert any(
+        bucket.element_family == "store_field"
+        and bucket.classification.value == "BUDDY_OPERATIONAL_ONLY"
+        and any("container/routing" in note for note in bucket.notes)
+        for bucket in report.mapping_buckets
+    )
+    assert not any(blocker.blocker_class.value == "CAMPAIGN_SCOPE" for blocker in report.blockers)
+
+
 def test_v2_provenance_statblock_party_registry_and_authority_visibility(
     seeded_root: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -593,7 +618,7 @@ def test_committed_eldyrwild_fixture_is_durable_regression_contract() -> None:
     assert blocker_map["ATTRIBUTE_ASSERTION"] == 438
     assert blocker_map["EVIDENCE_PROVENANCE"] == 862
     assert blocker_map["CONTRIBUTION_HISTORY"] == 4090
-    assert blocker_map["CAMPAIGN_SCOPE"] == 1
+    assert "CAMPAIGN_SCOPE" not in blocker_map
     assert blocker_map["DURABLE_ADOPTION_BOUNDARY"] == 1
     assert blocker_map["POSTGRES_ADOPTION"] == 1
 

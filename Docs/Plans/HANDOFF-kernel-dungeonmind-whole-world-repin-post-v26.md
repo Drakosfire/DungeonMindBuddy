@@ -24,8 +24,10 @@
 | Branch | `kernel/dungeonmind-whole-world-repin-post-v26` |
 | Implementation commit (initial PR head) | `3e95f31ec5d33d1e167d090ea13fc6c7fdf300e3` |
 | Review Cycle 1 fix commit | `affdafabfe9937546241eb085bd105eb4e87de08` |
+| Pre-Cycle-2 head | `048ecd75adf3ff413bbb06e4b8bdb3ce3245f809` |
+| Review Cycle 2 fix | same commit as this handoff update (store.campaign_id adjudication + verification re-record) |
 | PR | [#523](https://github.com/Drakosfire/DungeonMindBuddy/pull/523) |
-| review cycles | **1** |
+| review cycles | **2** |
 | **DungeonMind pin (this workstream)** | `da7c32576c319d1030410eabe5c589ef7e990a9f` |
 | Historical v1 pin (#522) | `8095321ed011b8a38640615a90cbc9efaf385e8c` |
 | Real world | `out/graph_memory/worlds/eldyrwild` |
@@ -45,6 +47,13 @@ Requested before merge (no semantic redesign):
 2. Make the checked-in compact fixture a durable CI regression contract: add `classification_inventory`, CI-stable fixture test, and full compact-report equality when Eldyrwild `out/` is present.
 3. Record exact Cursor conversation + PR/#523/base/head provenance (this section).
 4. Fix adversarial mapping test: forbid generic `dnd5e:` prefix fallback, not identical spelling from the explicit adapter table.
+
+## §1c Review Cycle 2 (store.campaign_id adjudication)
+
+Requested before merge:
+
+1. **P1:** Stop classifying `store.campaign_id` as `DUNGEONMIND_SEMANTIC_CONTRACT_GAP` / `CAMPAIGN_SCOPE`. One World Supergraph per world; campaign is assertion/evidence/chronology/visibility scope — not graph ownership. DungeonMind `WorldGraphRevision`/`WorldGraphHead` are keyed by `world_id` with no graph-level `campaign_id` by design. Durable knowledge campaign scopes remain on `KnowledgeAssertionMetadataV1.campaign_scope`. Adjudication: `BUDDY_OPERATIONAL_ONLY` (Buddy container/routing metadata). Executed post-v26 `CAMPAIGN_SCOPE` residual: **0**.
+2. **P2:** Rerun declared verification lanes on the Cycle 2 head and refresh this handoff’s verification counts + touched-file inventory (no separate docs-only counter commit).
 
 ## §2 Contract pins (v2 identity)
 
@@ -86,7 +95,7 @@ Real Eldyrwild @ `rev:3413bf6f5044cf2680233f5e37c90dcf`. Historical counts from 
 | WORLD_OBJECT_KIND | 260 | **0** | All 12 Buddy kinds + mechanics `external_resource` adapter |
 | EPISTEMIC_STATE | 786 | **0** | `EpistemicKindV2` exact peers (`fact`, `source_derived_candidate`, …) |
 | FICTIONAL_TIME | 333 | **0** | `edge.session_ids` → `session_refs` adapter; not fictional time |
-| CAMPAIGN_SCOPE | 787 | **1** | Nonblank → metadata adapter; `None` → world-universal null; residual `store.campaign_id` only |
+| CAMPAIGN_SCOPE | 787 | **0** | Nonblank → metadata adapter; `None` → world-universal null; `store.campaign_id` → Buddy operational container routing (not a DM graph campaign field) |
 | EVIDENCE_PROVENANCE | 1209 | **862** | v2 key/domain preservation; statblock/party_registry no longer gaps |
 | ATTRIBUTE_ASSERTION | 438 | 438 | `node.role` (and description) still semantic gaps |
 | RELATIONSHIP_PREDICATE | 336 | 336 | Unmapped predicates + endpoint admission on mapped predicates |
@@ -223,7 +232,7 @@ uv run pytest tests/test_dungeonmind_world_object_conformance_bridge.py \
   tests/test_dungeonmind_cutover_readiness_audit.py -q
 ```
 
-Result: **72 passed**, ruff clean.
+Result: **75 passed**, ruff clean (Cycle 2 head, post-`store.campaign_id` adjudication).
 
 Fixture: `tests/fixtures/dungeonmind_kernel/eldyrwild_post_v26_conformance_v1.json`  
 (compact v2 report via `compact_whole_world_conformance_report_v2`; `mapping_buckets` stripped; includes `classification_inventory` + full relationship/blocker residual ledger).  
@@ -235,13 +244,16 @@ CI protects the fixture via `test_committed_eldyrwild_fixture_is_durable_regress
 
 | Path | Change |
 |------|--------|
-| `apps/live_control_server/integrations/dungeonmind_kernel/whole_world_conformance_v2.py` | CREATE |
+| `pyproject.toml` / `uv.lock` | DungeonMind pin → `da7c325…` |
+| `apps/live_control_server/integrations/dungeonmind_kernel/whole_world_conformance_v2.py` | CREATE (+ Cycle 2: `store.campaign_id` → `BUDDY_OPERATIONAL_ONLY`) |
 | `apps/live_control_server/integrations/dungeonmind_kernel/__init__.py` | export v2 symbols |
-| `tests/test_dungeonmind_whole_world_conformance_v2.py` | CREATE |
-| `tests/fixtures/dungeonmind_kernel/eldyrwild_post_v26_conformance_v1.json` | CREATE (real run) |
-| `Docs/Plans/HANDOFF-kernel-dungeonmind-whole-world-repin-post-v26.md` | CREATE (this doc) |
+| `apps/live_control_server/integrations/dungeonmind_kernel/whole_world_conformance.py` | v1 head-pin assert relaxed for local head drift (historical analyzer) |
+| `tests/test_dungeonmind_whole_world_conformance.py` | v1 compatibility adjustments |
+| `tests/test_dungeonmind_whole_world_conformance_v2.py` | CREATE (+ Cycle 1/2 regression + store.campaign_id test) |
+| `tests/fixtures/dungeonmind_kernel/eldyrwild_post_v26_conformance_v1.json` | CREATE / regenerate (real pin; Cycle 2: `CAMPAIGN_SCOPE` absent) |
+| `Docs/Plans/HANDOFF-kernel-dungeonmind-whole-world-repin-post-v26.md` | CREATE / update (this doc) |
 
-Out of scope honored: v1 file behavior unchanged; Eldyrwild graph not mutated; DungeonMind repo not modified.
+Out of scope honored: Eldyrwild graph not mutated; DungeonMind repo not modified; no product/UI authority changes.
 
 ---
 
@@ -257,6 +269,7 @@ No source visibility policy was invented.
 No alias-level evidence was manufactured.
 No Buddy contribution history was discarded.
 No fictional time was derived from session IDs.
+store.campaign_id was not treated as a missing DungeonMind graph-level campaign field.
 uses_statblock was not mapped to threatens.
 located_in was not mapped to located_at.
 attacks was not mapped to threatens.
@@ -286,3 +299,5 @@ Immediate next DungeonMind PR: **DND: publish adjudicated Eldyrwild relationship
 ## §13 Review cycles
 
 **1** — acceptance-contract / provenance fixes (assertion metadata pin, durable fixture regression, handoff anchors).
+
+**2** — `store.campaign_id` reclassified as Buddy operational container routing (`CAMPAIGN_SCOPE` residual **0**); verification + touched-file inventory re-recorded on Cycle 2 head.

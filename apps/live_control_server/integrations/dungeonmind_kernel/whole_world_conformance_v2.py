@@ -778,10 +778,16 @@ def _classify_store_scalar_v2(
     if field in {"schema", "version"}:
         return SemanticClassification.BUDDY_OPERATIONAL_ONLY, None, f"store {field} marker"
     if field == "campaign_id":
+        # Buddy container/routing metadata only. Durable campaign scope lives on
+        # assertion metadata (KnowledgeAssertionMetadataV1.campaign_scope).
+        # DungeonMind WorldGraphRevision/Head are keyed by world_id with no
+        # graph-level campaign_id — that absence is intentional architecture,
+        # not a semantic contract gap.
         return (
-            SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP,
-            BlockerClass.CAMPAIGN_SCOPE,
-            "store.campaign_id is store ownership metadata; not KnowledgeAssertionMetadata.campaign_scope",
+            SemanticClassification.BUDDY_OPERATIONAL_ONLY,
+            None,
+            "store.campaign_id is Buddy container/routing metadata; not graph ownership "
+            "and not KnowledgeAssertionMetadata.campaign_scope",
         )
     if field == "focus_session_id":
         return (

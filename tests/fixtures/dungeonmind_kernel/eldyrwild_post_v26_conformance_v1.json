@@ -38,15 +38,6 @@
       "smallest_next_change": "Materialize attribute values or document DM assertion transport."
     },
     {
-      "blocker_class": "CAMPAIGN_SCOPE",
-      "count": 1,
-      "examples": [
-        "store:field:campaign_id"
-      ],
-      "responsible_repo": "DungeonMind",
-      "smallest_next_change": "Define DM campaign/scope field for Buddy campaign_scope."
-    },
-    {
       "blocker_class": "CONTRIBUTION_HISTORY",
       "count": 4090,
       "examples": [
@@ -106,7 +97,7 @@
   ],
   "classification_inventory": [
     {
-      "count": 2645,
+      "count": 2646,
       "key": "BUDDY_OPERATIONAL_ONLY"
     },
     {
@@ -114,7 +105,7 @@
       "key": "DUNGEONMIND_DURABILITY_CONTRACT_GAP"
     },
     {
-      "count": 775,
+      "count": 774,
       "key": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
     },
     {
