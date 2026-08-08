@@ -1264,10 +1264,7 @@ def _verify_create_new_materialization(
         codes.append("threat_label_materialization_mismatch")
     if sorted(threat.aliases) != sorted(list(expected.get("aliases") or [])):
         codes.append("threat_aliases_materialization_mismatch")
-    expected_domains = _provenance_domains_for_object(
-        contribution, record.threat_node_id
-    )
-    if sorted(threat.source_domains) != sorted(expected_domains):
+    if sorted(threat.source_domains) != sorted(list(expected.get("source_domains") or [])):
         codes.append("threat_source_domains_materialization_mismatch")
 
     authored_ids = {item.assertion_id for item in _authored_field_assertions(contribution, record.threat_node_id)}
@@ -1399,10 +1396,9 @@ def _verify_projection_audit(
                 codes.append("projection_threat_role_mismatch")
             if sorted(threat.aliases) != sorted(list(expected.get("aliases") or [])):
                 codes.append("projection_threat_aliases_mismatch")
-            expected_domains = _provenance_domains_for_object(
-                contribution, record.threat_node_id
-            )
-            if not set(expected_domains).issubset(set(threat.source_domains)):
+            if sorted(threat.source_domains) != sorted(
+                list(expected.get("source_domains") or [])
+            ):
                 codes.append("projection_threat_source_domains_mismatch")
         elif record.decision == "connect_existing" and record.selected_target is not None:
             # No Threat node assertion in connect_existing contributions — bind the

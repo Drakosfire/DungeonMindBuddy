@@ -981,9 +981,7 @@ def _verification_store(proposal, world_root: Path, *, binding_direction: str = 
             "kind": str(threat_value.get("kind", "Threat")),
             "role": str(threat_value.get("role", "threat")),
             "aliases": list(threat_value.get("aliases") or []),
-            "source_domains": commit_svc._provenance_domains_for_object(
-                contribution, proposal.threat_node_id
-            ),
+            "source_domains": list(threat_value.get("source_domains") or []),
             "evidence_ref_ids": [],
             "external_resource": None,
         }
@@ -1206,9 +1204,7 @@ def test_projection_audit_accepts_outgoing_direction(tmp_path: Path, monkeypatch
                 kind=str(threat_value.get("kind", "Threat")),
                 role=threat_value.get("role"),
                 aliases=list(threat_value.get("aliases") or []),
-                source_domains=commit_svc._provenance_domains_for_object(
-                    contribution, record.threat_node_id
-                ),
+                source_domains=list(threat_value.get("source_domains") or []),
                 external_resource=None,
             ),
             _Node(
@@ -1265,7 +1261,47 @@ def test_projection_audit_accepts_outgoing_direction(tmp_path: Path, monkeypatch
     assert "projection_binding_direction_mismatch" not in codes
     assert codes == []
 
-def test_verified_replay_skips_dependency_reads(tmp_path: Path, monkeypatch) -> None:
+
+def test_create_new_materialization_matches_node_assertion_source_domains_not_edge(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft, op_id, _resolution_id, proposal_id, proposal, _parent = _pipeline_create_new(
+        tmp_path, monkeypatch
+    )
+    world_root = tmp_path / "graph"
+    contribution = _contribution_from_proposal(proposal, world_root)
+    record, early, _c, _p = commit_svc._admit_and_build_record(
+        root=tmp_path,
+        world_root=world_root,
+        draft_id=draft.draft_id,
+        operation_id=op_id,
+        proposal_id=proposal_id,
+        request=_confirm_request(proposal),
+    )
+    assert early is None and record is not None
+
+    threat_assertion = commit_svc._threat_node_assertion(contribution, record.threat_node_id)
+    assert threat_assertion is not None
+    threat_value = threat_assertion.value or {}
+    node_domains = list(threat_value.get("source_domains") or [])
+    provenance_domains = commit_svc._provenance_domains_for_object(
+        contribution, record.threat_node_id
+    )
+    assert node_domains == ["worldbuilding"]
+    assert "statblock" in provenance_domains
+    assert sorted(provenance_domains) != sorted(node_domains)
+
+    store = _verification_store(proposal, world_root)
+    threat = store.nodes[record.threat_node_id]
+    assert sorted(threat.source_domains) == sorted(node_domains)
+
+    codes = commit_svc._verify_create_new_materialization(
+        store=store,
+        contribution=contribution,
+        record=record,
+    )
+    assert "threat_source_domains_materialization_mismatch" not in codes
+
     draft, op_id, _resolution_id, proposal_id, proposal, _parent = _pipeline_create_new(
         tmp_path, monkeypatch
     )
@@ -1620,9 +1656,7 @@ def _projection_for_verified_commit(*, record, contribution, binding, selected_t
             "kind": str(threat_value.get("kind", "Threat")),
             "role": threat_value.get("role"),
             "aliases": list(threat_value.get("aliases") or []),
-            "source_domains": commit_svc._provenance_domains_for_object(
-                contribution, record.threat_node_id
-            ),
+            "source_domains": list(threat_value.get("source_domains") or []),
             "campaign_scope": threat_value.get("campaign_scope"),
             "summary": threat_value.get("summary"),
             "external_resource": None,
