@@ -1157,12 +1157,6 @@ _ALIAS_EVIDENCE_PATH_NOTE = (
     "Canonical-label materialization and derivable lookup-index keys are not "
     "DM evidence-contract gaps; DungeonMind already admits alias_assertions."
 )
-_MIXED_EVIDENCE_PROVENANCE_NOTE = (
-    "EVIDENCE_PROVENANCE residual mixes alias assertion-grain gaps with other "
-    "evidence/source-artifact failures (empty IDs, unknown roles/status/domains, "
-    "or unclassified fields). Inspect element examples before choosing remediation; "
-    "do not treat the whole class as alias reconstruction alone."
-)
 _DEFAULT_EVIDENCE_PROVENANCE_REPO = "DungeonMind"
 _DEFAULT_EVIDENCE_PROVENANCE_NOTE = (
     "Preserve Buddy evidence_ref/source span/domain fields in DM evidence contracts."
@@ -1196,32 +1190,63 @@ def _rewrite_evidence_provenance_blocker_v3(
     blockers: list[AdoptionBlocker],
     classified: list[ClassifiedElement],
 ) -> None:
-    """Specialize EP remediation only when the residual is exclusively alias paths.
+    """Specialize EP remediation by cause; split mixed residuals by owner.
 
-    Non-alias EP failures (unknown evidence_role, empty IDs, etc.) keep the generic
-    diagnosis. Mixed residuals get an explicit mixed-cause note.
+    Alias-only residuals get Buddy alias reconstruction ownership. Non-alias-only
+    residuals keep the generic DungeonMind evidence-contract diagnosis. Mixed
+    residuals become two ``EVIDENCE_PROVENANCE`` blockers so ``responsible_repo``
+    stays singular and accurate.
     """
     ep_ids = _evidence_provenance_element_ids(classified)
     if not ep_ids:
         return
     alias_ids = [eid for eid in ep_ids if _is_alias_evidence_provenance_path(eid)]
     non_alias_ids = [eid for eid in ep_ids if not _is_alias_evidence_provenance_path(eid)]
-    exclusively_alias = bool(alias_ids) and not non_alias_ids
-    mixed = bool(alias_ids) and bool(non_alias_ids)
 
-    for blocker in blockers:
-        if blocker.blocker_class != BlockerClass.EVIDENCE_PROVENANCE:
-            continue
-        if exclusively_alias:
+    ep_indexes = [
+        index
+        for index, blocker in enumerate(blockers)
+        if blocker.blocker_class == BlockerClass.EVIDENCE_PROVENANCE
+    ]
+    if not ep_indexes:
+        return
+
+    if alias_ids and non_alias_ids:
+        # Replace the aggregated EP blocker with cause-specific entries.
+        for index in reversed(ep_indexes):
+            blockers.pop(index)
+        blockers.append(
+            AdoptionBlocker(
+                blocker_class=BlockerClass.EVIDENCE_PROVENANCE,
+                count=len(alias_ids),
+                examples=alias_ids[:_REPRESENTATIVE_ID_LIMIT],
+                responsible_repo="DungeonMindBuddy",
+                smallest_next_change=_ALIAS_EVIDENCE_PATH_NOTE,
+            )
+        )
+        blockers.append(
+            AdoptionBlocker(
+                blocker_class=BlockerClass.EVIDENCE_PROVENANCE,
+                count=len(non_alias_ids),
+                examples=non_alias_ids[:_REPRESENTATIVE_ID_LIMIT],
+                responsible_repo=_DEFAULT_EVIDENCE_PROVENANCE_REPO,  # type: ignore[arg-type]
+                smallest_next_change=_DEFAULT_EVIDENCE_PROVENANCE_NOTE,
+            )
+        )
+        return
+
+    for index in ep_indexes:
+        blocker = blockers[index]
+        if alias_ids and not non_alias_ids:
             blocker.responsible_repo = "DungeonMindBuddy"  # type: ignore[assignment]
             blocker.smallest_next_change = _ALIAS_EVIDENCE_PATH_NOTE
-        elif mixed:
-            blocker.responsible_repo = "DungeonMindBuddy"  # type: ignore[assignment]
-            blocker.smallest_next_change = _MIXED_EVIDENCE_PROVENANCE_NOTE
+            blocker.count = len(alias_ids)
+            blocker.examples = alias_ids[:_REPRESENTATIVE_ID_LIMIT]
         else:
-            # Pure non-alias EP residual: keep the generic evidence-contract diagnosis.
             blocker.responsible_repo = _DEFAULT_EVIDENCE_PROVENANCE_REPO  # type: ignore[assignment]
             blocker.smallest_next_change = _DEFAULT_EVIDENCE_PROVENANCE_NOTE
+            blocker.count = len(non_alias_ids)
+            blocker.examples = non_alias_ids[:_REPRESENTATIVE_ID_LIMIT]
 
 
 def _build_relationship_predicate_inventory_v3(

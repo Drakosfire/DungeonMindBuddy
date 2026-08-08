@@ -770,11 +770,16 @@ def test_v3_evidence_provenance_rewrite_is_alias_conditional() -> None:
     mixed = alias_only + non_alias_only
     blockers = [_ep_blocker()]
     wwc_v3._rewrite_evidence_provenance_blocker_v3(blockers, mixed)
-    assert blockers[0].responsible_repo == "DungeonMindBuddy"
-    assert "mixes alias" in blockers[0].smallest_next_change.lower()
-    # Mixed note must not claim alias reconstruction alone.
-    assert "alone" in blockers[0].smallest_next_change
-    assert "AliasAssertionRecord" not in blockers[0].smallest_next_change
+    assert len(blockers) == 2
+    by_repo = {blocker.responsible_repo: blocker for blocker in blockers}
+    assert set(by_repo) == {"DungeonMindBuddy", "DungeonMind"}
+    assert by_repo["DungeonMindBuddy"].count == 1
+    assert by_repo["DungeonMindBuddy"].examples == ["node:npc:x:field:aliases"]
+    assert "AliasAssertionRecord" in by_repo["DungeonMindBuddy"].smallest_next_change
+    assert by_repo["DungeonMind"].count == 1
+    assert by_repo["DungeonMind"].examples == ["evidence:ev_1:field:evidence_role"]
+    assert "evidence contracts" in by_repo["DungeonMind"].smallest_next_change
+    assert "AliasAssertionRecord" not in by_repo["DungeonMind"].smallest_next_change
 
 
 def test_v3_unknown_evidence_role_keeps_generic_evidence_provenance_diagnosis() -> None:
