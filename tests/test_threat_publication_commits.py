@@ -1204,7 +1204,9 @@ def test_projection_audit_accepts_outgoing_direction(tmp_path: Path, monkeypatch
                 kind=str(threat_value.get("kind", "Threat")),
                 role=threat_value.get("role"),
                 aliases=list(threat_value.get("aliases") or []),
-                source_domains=list(threat_value.get("source_domains") or []),
+                source_domains=commit_svc._provenance_domains_for_object(
+                    contribution, record.threat_node_id
+                ),
                 external_resource=None,
             ),
             _Node(
@@ -1302,6 +1304,8 @@ def test_create_new_materialization_matches_node_assertion_source_domains_not_ed
     )
     assert "threat_source_domains_materialization_mismatch" not in codes
 
+
+def test_verified_replay_skips_dependency_reads(tmp_path: Path, monkeypatch) -> None:
     draft, op_id, _resolution_id, proposal_id, proposal, _parent = _pipeline_create_new(
         tmp_path, monkeypatch
     )
@@ -1656,7 +1660,9 @@ def _projection_for_verified_commit(*, record, contribution, binding, selected_t
             "kind": str(threat_value.get("kind", "Threat")),
             "role": threat_value.get("role"),
             "aliases": list(threat_value.get("aliases") or []),
-            "source_domains": list(threat_value.get("source_domains") or []),
+            "source_domains": commit_svc._provenance_domains_for_object(
+                contribution, record.threat_node_id
+            ),
             "campaign_scope": threat_value.get("campaign_scope"),
             "summary": threat_value.get("summary"),
             "external_resource": None,

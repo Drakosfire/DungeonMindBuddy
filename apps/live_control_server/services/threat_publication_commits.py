@@ -1396,9 +1396,13 @@ def _verify_projection_audit(
                 codes.append("projection_threat_role_mismatch")
             if sorted(threat.aliases) != sorted(list(expected.get("aliases") or [])):
                 codes.append("projection_threat_aliases_mismatch")
-            if sorted(threat.source_domains) != sorted(
-                list(expected.get("source_domains") or [])
-            ):
+            # Projection may aggregate connected evidence/artifact domains (e.g. binding
+            # brings ``statblock``) beyond the Threat node assertion's declared domains.
+            # Require the package contract to be a subset of projected domains.
+            expected_domains = _provenance_domains_for_object(
+                contribution, record.threat_node_id
+            )
+            if not set(expected_domains).issubset(set(threat.source_domains)):
                 codes.append("projection_threat_source_domains_mismatch")
         elif record.decision == "connect_existing" and record.selected_target is not None:
             # No Threat node assertion in connect_existing contributions — bind the
