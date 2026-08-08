@@ -6,6 +6,13 @@
 **Surfaces when:** Ask thread disappeared, planning document switch, Session 23, Session 26, documentId scoped localStorage, agent-interaction-thread-index-v2, rehydrateScope, hermes_thread_pointers
 **Refs:** `apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts` (`scopedStorageSuffix`); `AgentInteractionProvider.tsx` `rehydrateScope`; `evals/.../hermes_thread_pointers.json`; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
 
+## [DONE] Threat publish verify must not require edge domains on Threat node source_domains — captured 2026-08-08
+**Context:** Meat Mind publish (`operation_id` `53be1ecf-…`) wrote `rev:dfdf38ed…` then verification failed `threat_source_domains_materialization_mismatch`. Store threat had `source_domains=["worldbuilding"]`; check expected `["statblock","worldbuilding"]` via `_provenance_domains_for_object` (includes `uses_statblock` edge).
+**Insight:** Merge materializes Threat node domains from the **node assertion value only**. Binding edge `statblock` stays on the edge/external resource. Verification must match materialization (node assertion), not the connected-edge provenance union. Feat-fork already compared to `node_assertion.value.source_domains`.
+**Done:** 2026-08-08 — create_new + projection threat domain checks compare to node assertion `source_domains`; regression test covers worldbuilding node + statblock edge.
+**Surfaces when:** threat_source_domains_materialization_mismatch, committed_unverified, uses_statblock, Publish Threat, Meat Mind
+**Refs:** `threat_publication_commits.py` `_verify_create_new_materialization`; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
 ## [DONE] Bootstrap status must surface live store head when locked bundle fails cert — captured 2026-08-08
 **Context:** Meat Mind dogfood. After Accept/Save, Publish said head unreadable and demanded Advanced `rev:…` override. Recap/Hermes/projection already read `head.json` (`rev:df92031e…`) fine. Bootstrap status was `invalid_bundle` (stale contribution_ids) and returned `currentHeadRevisionId: null` because cert failure short-circuited before opening the store head.
 **Insight:** Publication/create were treating locked-bootstrap package certification as the authority for “is the head readable?” Those are different: package drift can fail while production head remains readable. Status should stay honest (`state=invalid_bundle`, `bundleValid=false`) and still attach the live head.
