@@ -113,4 +113,88 @@ describe("markdownToTiptapDoc", () => {
     expect(exported).toContain("> [!RULES]");
     expect(exported).toContain("> [!WARNING]");
   });
+
+  it("strips leading YAML frontmatter so callouts and headings render", () => {
+    const markdown = [
+      "---",
+      'title: "Session 26 Prep"',
+      "session: 26",
+      "---",
+      "",
+      "# C2 Session 26 Prep",
+      "",
+      "> [!READ-ALOUD]",
+      "> The bells feel far away.",
+      "",
+    ].join("\n");
+
+    const result = markdownToTiptapDoc(markdown);
+    const types = (result.doc.content ?? []).map((node) => (node as { type: string }).type);
+    expect(types).toEqual(["heading", "callout"]);
+    expect(JSON.stringify(result.doc)).not.toContain("document_class");
+    expect(JSON.stringify(result.doc)).toContain("The bells feel far away.");
+  });
+
+  it("imports recovered Session 26 Prep without leaking frontmatter into the board", () => {
+    const markdown = readFileSync(
+      "../../corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 26 Prep.md",
+      "utf8",
+    );
+    const { doc } = markdownToTiptapDoc(markdown);
+    const types = (doc.content ?? []).map((node) => (node as { type: string }).type);
+    expect(types[0]).toBe("heading");
+    expect(types).toContain("callout");
+    expect(JSON.stringify(doc)).not.toContain("document_class");
+    expect(JSON.stringify(doc)).toContain("doom is approaching");
+    expect(JSON.stringify(doc)).toContain('"type":"table"');
+    expect(JSON.stringify(doc)).toContain("Stafl");
+  });
+
+  it("imports bold/italic/code marks instead of raw markdown tokens", () => {
+    const result = markdownToTiptapDoc("Keep **Stafl** on the *wall* with `Eldritch Blast`.");
+    expect(result.doc.content).toEqual([
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Keep " },
+          { type: "text", text: "Stafl", marks: [{ type: "bold" }] },
+          { type: "text", text: " on the " },
+          { type: "text", text: "wall", marks: [{ type: "italic" }] },
+          { type: "text", text: " with " },
+          { type: "text", text: "Eldritch Blast", marks: [{ type: "code" }] },
+          { type: "text", text: "." },
+        ],
+      },
+    ]);
+  });
+
+  it("imports GFM tables inside GM-NOTE callouts with bold cells", () => {
+    const markdown = [
+      "> [!GM-NOTE]",
+      "> **Who/Where during the hybrid fight**",
+      ">",
+      "> | Who | Position |",
+      "> | --- | --- |",
+      "> | **Stafl** | On the wall |",
+      "> | **Thrin** | Field scout |",
+      "",
+    ].join("\n");
+
+    const { doc } = markdownToTiptapDoc(markdown);
+    const callout = doc.content?.[0] as {
+      type: string;
+      content: Array<{ type: string; content?: unknown[] }>;
+    };
+    expect(callout.type).toBe("callout");
+    expect(callout.content[0]).toMatchObject({
+      type: "paragraph",
+      content: [{ type: "text", text: "Who/Where during the hybrid fight", marks: [{ type: "bold" }] }],
+    });
+    expect(callout.content[1]?.type).toBe("table");
+
+    const exported = tiptapJsonToSemanticMarkdown(doc);
+    expect(exported).toContain("| Who | Position |");
+    expect(exported).toContain("| **Stafl** | On the wall |");
+    expect(exported).toContain("| **Thrin** | Field scout |");
+  });
 });

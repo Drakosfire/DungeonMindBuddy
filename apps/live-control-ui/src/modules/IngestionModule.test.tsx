@@ -1095,6 +1095,12 @@ describe("IngestionModule", () => {
     expect((preview as HTMLTextAreaElement).value).toContain("The party held the gate.");
     expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled();
 
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, assign },
+    });
+
     await user.click(screen.getByRole("button", { name: "Run ingest" }));
 
     await waitFor(() =>
@@ -1107,9 +1113,9 @@ describe("IngestionModule", () => {
       ),
     );
     await waitFor(() => {
-      expect(
-        screen.getAllByText(/Ingest complete|Ingestion ready_for_planning_activation/).length,
-      ).toBeGreaterThan(0);
+      expect(assign).toHaveBeenCalledWith(
+        "/plan?tool=recap&campaign=longmont-c2&session=session-23",
+      );
     });
   });
 

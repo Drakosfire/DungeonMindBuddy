@@ -107,6 +107,60 @@
   margin: 0 0 0.35rem;
 }
 
+.plan-canvas-heading__actions {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: stretch;
+  align-content: start;
+}
+
+.plan-canvas-session-declare {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.plan-canvas-session-declare input {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  font-size: 0.95rem;
+}
+
+.plan-canvas-heading__actions button {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 7px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.plan-canvas-heading__actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.plan-canvas-heading__actions button[data-testid="plan-board-save"] {
+  border-color: var(--accent, #7aa2f7);
+  background: rgba(122, 162, 247, 0.14);
+  color: var(--accent, #7aa2f7);
+}
+
+.plan-canvas-session-error {
+  margin: 0.4rem 0 0;
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
 .plan-canvas-heading__graph .plan-graph-load-panel {
   margin-bottom: 0;
   padding-bottom: 0;

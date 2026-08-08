@@ -9,7 +9,10 @@ import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { PlanDogfoodPanel } from "./dogfood/PlanDogfoodPanel";
 import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
-import { resolvePlanningDocument } from "./config/planSessionDescriptor";
+import {
+  replaceDocumentIdInLocationSearch,
+  resolvePlanningDocument,
+} from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
@@ -32,6 +35,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   const [planningDocument, setPlanningDocument] = useState<PlanDocumentDescriptor | null>(null);
   const [documentLoadStatus, setDocumentLoadStatus] = useState<"loading" | "ready" | "error">("loading");
   const [documentLoadError, setDocumentLoadError] = useState<string | null>(null);
+  const skipNextDocumentLoadRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -56,6 +60,10 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   }, [locationSearch, planView]);
 
   useEffect(() => {
+    if (skipNextDocumentLoadRef.current) {
+      skipNextDocumentLoadRef.current = false;
+      return;
+    }
     void loadPlanningDocument();
   }, [loadPlanningDocument]);
 
@@ -102,6 +110,22 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
 
+  const switchPlanningDocument = useCallback((document: PlanDocumentDescriptor) => {
+    const nextSearch = replaceDocumentIdInLocationSearch(
+      typeof window !== "undefined" ? window.location.search : locationSearch,
+      document.documentId,
+    );
+    if (typeof window !== "undefined") {
+      const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+    skipNextDocumentLoadRef.current = true;
+    setPlanningDocument(document);
+    setLocationSearch(nextSearch);
+    setDocumentLoadStatus("ready");
+    setDocumentLoadError(null);
+  }, [locationSearch]);
+
   if (documentLoadStatus === "loading" || !config) {
     return (
       <main className="app-status">
@@ -143,6 +167,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
                 onEditorToolsChange={onEditorToolsChange}
                 onSaveStatusChange={setSaveStatusLabel}
                 onPlanningDocumentCommitted={setPlanningDocument}
+                onPlanningDocumentSwitch={switchPlanningDocument}
               />
             </div>
           </div>

@@ -137,18 +137,74 @@ export function defaultPlanTargetRelpath(campaignId: string, targetSession: numb
   return `corpus/eldyrwild-markdown/Longmont Campaign/Campaign ${campaignNum}/Session Prep/Session ${targetSession} Prep.md`;
 }
 
-export function suggestedPlanCreatePayload(campaignId: string, liveSession: number): {
+export function planCreatePayloadForTargetSession(campaignId: string, targetSession: number): {
   title: string;
   target_session: number;
   target_relpath: string;
 } {
-  const targetSession = liveSession + 1;
   const campaignLabel = formatReviewCampaignLabel(campaignId);
   return {
     title: defaultSessionPrepTitle(campaignLabel, targetSession),
     target_session: targetSession,
     target_relpath: defaultPlanTargetRelpath(campaignId, targetSession),
   };
+}
+
+export function suggestedPlanCreatePayload(campaignId: string, liveSession: number): {
+  title: string;
+  target_session: number;
+  target_relpath: string;
+} {
+  return planCreatePayloadForTargetSession(campaignId, liveSession + 1);
+}
+
+/** Find an active plan for `targetSession`, or create one with the standard Session Prep path. */
+export async function resolveOrCreatePlanForTargetSession(args: {
+  campaignId: string;
+  targetSession: number;
+}): Promise<{ document: PlanDocumentDescriptor; created: boolean }> {
+  const { campaignId, targetSession } = args;
+  if (!Number.isInteger(targetSession) || targetSession < 1) {
+    throw new Error("targetSession must be a positive integer");
+  }
+
+  const list = await listWorkspaceDocuments({
+    campaign_id: campaignId,
+    kind: "plan",
+    status: "active",
+  });
+  const existing = list.records.find((record) => record.target_session === targetSession);
+  if (existing) {
+    return {
+      document: workspaceRecordToPlanDocumentDescriptor(existing),
+      created: false,
+    };
+  }
+
+  const payload = planCreatePayloadForTargetSession(campaignId, targetSession);
+  const created = await createWorkspaceDocument({
+    title: payload.title,
+    campaign_id: campaignId,
+    kind: "plan",
+    target_session: payload.target_session,
+    target_relpath: payload.target_relpath,
+  });
+  return {
+    document: workspaceRecordToPlanDocumentDescriptor(created),
+    created: true,
+  };
+}
+
+/** Keep other query params; set/replace `documentId` for Plan Board document switching. */
+export function replaceDocumentIdInLocationSearch(
+  search: string | null | undefined,
+  documentId: string,
+): string {
+  const trimmed = (search ?? "").replace(/^\?/, "");
+  const params = new URLSearchParams(trimmed);
+  params.set("documentId", documentId);
+  const query = params.toString();
+  return query ? `?${query}` : "?";
 }
 
 export async function resolvePlanningDocument(args: {

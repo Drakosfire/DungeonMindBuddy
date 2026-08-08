@@ -238,6 +238,10 @@ describe("PlanSurfaceShell", () => {
       within(screen.getByTestId("app-chrome-graph-lens")).getByTestId("plan-graph-load-panel"),
     ).toBeInTheDocument();
     expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    expect(screen.getByTestId("plan-canvas-planning-session")).toHaveTextContent(/Planning session 23/i);
+    expect(screen.getByTestId("plan-board-save")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-board-target-session")).toHaveValue(23);
+    expect(screen.getByTestId("plan-board-open-create-session")).toHaveTextContent(/Load session/i);
     expect(screen.queryByRole("navigation", { name: "Plan surface navigation" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-memory-source")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review memory" })).not.toBeInTheDocument();
@@ -1651,6 +1655,56 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeInTheDocument();
+  });
+
+  it("exposes an enabled Plan Board Save control once the editor is ready", async () => {
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-board-save")).toBeEnabled();
+    });
+  });
+
+  it("loads or creates a Session 26 plan from the Plan Board header", async () => {
+    const user = userEvent.setup();
+    const session26 = fixtureWorkspaceDocumentRecord({
+      document_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      title: "C2 Session 26 Prep",
+      target_session: 26,
+      target_relpath:
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 26 Prep.md",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(session26);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (documentId) => {
+      if (documentId === session26.document_id) {
+        return fixtureWorkspaceDocumentSnapshot({
+          record: session26,
+          loaded_revision: session26.revision,
+        });
+      }
+      return fixtureWorkspaceDocumentSnapshot();
+    });
+
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    const sessionInput = screen.getByTestId("plan-board-target-session");
+    await user.clear(sessionInput);
+    await user.type(sessionInput, "26");
+    await user.click(screen.getByTestId("plan-board-open-create-session"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 26 Prep/i);
+    });
+    expect(screen.getByTestId("plan-canvas-planning-session")).toHaveTextContent(/Planning session 26/i);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target_session: 26,
+        title: "C2 Session 26 Prep",
+      }),
+    );
+    expect(window.location.search).toContain(`documentId=${session26.document_id}`);
   });
 
   it("saves Markdown for the active planning document", async () => {

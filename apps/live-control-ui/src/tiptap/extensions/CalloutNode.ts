@@ -120,6 +120,12 @@ export const CalloutNode = Node.create({
         () =>
         ({ state, dispatch }) => {
           const { $from } = state.selection;
+          // Prefer the paired Decision/Consequence container over a single pane.
+          for (let depth = $from.depth; depth > 0; depth -= 1) {
+            if ($from.node(depth).type.name === "decisionConsequence") {
+              return deleteNodeAtDepth(state, dispatch, $from, depth);
+            }
+          }
           const calloutDepth = findCalloutDepth($from);
           if (calloutDepth !== null) {
             return deleteNodeAtDepth(state, dispatch, $from, calloutDepth);

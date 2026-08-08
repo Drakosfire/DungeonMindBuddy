@@ -17,6 +17,7 @@ import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverl
 import type { GraphObjectAuthoringOverlapWarning } from "./graphObjectAuthoringOverlap";
 import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
 import { serializeGraphObjectAuthoringProposalForApi } from "./graphObjectAuthoringDraft";
+import { navigateToRecapView } from "../graphPreview/recapViewNavigation";
 import { parseGraphObjectAuthoringApiError } from "./graphObjectAuthoringApiErrors";
 
 function toProposalPayload(proposal: GraphObjectAuthoringProposal): GraphObjectAuthoringProposalPayload {
@@ -175,20 +176,26 @@ function formatMaterializationOutcome(
 function CommitSuccessPrimary({
   committed,
   committedBatchHadMerge,
+  campaignId,
+  sessionId,
   onRefreshProjection,
   refreshingProjection,
   refreshProjectionError,
   projectionDiagnostics,
   onRefresh,
+  onOpenRecapView,
   onDismiss,
 }: {
   committed: GraphObjectAuthoringCommitResponse;
   committedBatchHadMerge: boolean;
+  campaignId: string;
+  sessionId: string;
   onRefreshProjection?: () => Promise<unknown>;
   refreshingProjection: boolean;
   refreshProjectionError: string | null;
   projectionDiagnostics: GraphAuthoringOverlayDiagnostic[];
   onRefresh: () => void;
+  onOpenRecapView: () => void;
   onDismiss: () => void;
 }) {
   const materializationMessage = formatMaterializationOutcome(
@@ -226,13 +233,19 @@ function CommitSuccessPrimary({
       ) : null}
       <p className="graph-object-authoring-commit-success-next">
         {refreshingProjection
-          ? "Refreshing graph review…"
-          : onRefreshProjection
-            ? "Graph review refreshed. New pills and authored memory should appear in the recap."
-            : "Reload graph review to see the authored memory."}
+          ? "Refreshing graph review, then opening Recap View…"
+          : `Opening Recap View for ${campaignId} / ${sessionId} so you can read the session.`}
       </p>
-      {onRefreshProjection ? (
-        <div className="graph-object-authoring-commit-refresh-actions">
+      <div className="graph-object-authoring-commit-refresh-actions">
+        <button
+          type="button"
+          className="primary"
+          data-testid="graph-object-authoring-open-recap-view"
+          onClick={onOpenRecapView}
+        >
+          Open Recap View
+        </button>
+        {onRefreshProjection ? (
           <button
             type="button"
             data-testid="graph-object-authoring-refresh-projection"
@@ -241,8 +254,8 @@ function CommitSuccessPrimary({
           >
             {refreshingProjection ? "Refreshing graph review…" : "Refresh graph review"}
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       {refreshProjectionError ? (
         <p className="graph-object-authoring-error" role="alert">
           {refreshProjectionError}
@@ -429,6 +442,8 @@ export function GraphObjectAuthoringPrepareCommitPanel({
           setRefreshingProjection(false);
         }
       }
+      // Happy path: leave Graph Review and return to the session recap.
+      navigateToRecapView(campaignId, sessionId);
     } catch (error) {
       const message = parseGraphObjectAuthoringApiError(error);
       if (message.includes("stale_overlay") || message.includes("changed since")) {
@@ -515,11 +530,14 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         <CommitSuccessPrimary
           committed={committed}
           committedBatchHadMerge={committedBatchHadMerge}
+          campaignId={campaignId}
+          sessionId={sessionId}
           onRefreshProjection={onRefreshProjection}
           refreshingProjection={refreshingProjection}
           refreshProjectionError={refreshProjectionError}
           projectionDiagnostics={projectionDiagnostics}
           onRefresh={handleRefreshProjection}
+          onOpenRecapView={() => navigateToRecapView(campaignId, sessionId)}
           onDismiss={() => {
             setCommitted(null);
             setProjectionDiagnostics([]);

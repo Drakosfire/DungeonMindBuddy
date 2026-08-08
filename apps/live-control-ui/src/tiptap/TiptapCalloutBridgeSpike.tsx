@@ -60,7 +60,7 @@ const RUNBOOK_BLOCK_BOUNDARIES: Record<RunbookBlockSaveState, RunbookBlockBounda
   operational: { state: "operational", label: "Operational", description: "This block points at a live operation/action. Confirm intent before changing expectations or launching tools." },
 };
 
-const BLOCK_SELECTOR = "aside.md-callout, h1, h2, h3, h4, h5, h6, p, li, blockquote";
+const BLOCK_SELECTOR = "aside.md-callout, aside.md-decision-consequence, h1, h2, h3, h4, h5, h6, p, li, blockquote";
 
 function displayStatusLabel(
   overlay: SpikeStatusOverlay | null,
@@ -170,6 +170,14 @@ function RunbookSpikeEditor({
     const ed = editorRef.current;
     if (!ed) return;
     ed.chain().focus().insertCallout({ kind }).run();
+    ed.view.dispatch(ed.state.tr);
+    authoring.markDirty();
+  }, [authoring.markDirty]);
+
+  const insertDecisionConsequence = useCallback(() => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    ed.chain().focus().insertDecisionConsequence().run();
     ed.view.dispatch(ed.state.tr);
     authoring.markDirty();
   }, [authoring.markDirty]);
@@ -383,13 +391,22 @@ function RunbookSpikeEditor({
           id: "tiptap-insert-blocks",
           title: "Insert blocks",
           defaultOpen: true,
-          actions: CALLOUT_KINDS.map((kind) => ({
-            id: `insert-${kind}`,
-            eyebrow: "Insert",
-            label: defaultCalloutLabel(kind),
-            onClick: () => insertCallout(kind),
-            disabled: !editorReady || isEditorLocked,
-          })),
+          actions: [
+            ...CALLOUT_KINDS.map((kind) => ({
+              id: `insert-${kind}`,
+              eyebrow: "Insert",
+              label: defaultCalloutLabel(kind),
+              onClick: () => insertCallout(kind),
+              disabled: !editorReady || isEditorLocked,
+            })),
+            {
+              id: "insert-decision-consequence",
+              eyebrow: "Insert",
+              label: "Decision / Consequence",
+              onClick: insertDecisionConsequence,
+              disabled: !editorReady || isEditorLocked,
+            },
+          ],
         },
         {
           id: "tiptap-insert-refs",
@@ -440,6 +457,7 @@ function RunbookSpikeEditor({
     editorReady,
     importCommittedMarkdown,
     insertCallout,
+    insertDecisionConsequence,
     insertRunbookReference,
     isEditorLocked,
     onEditorToolsChange,

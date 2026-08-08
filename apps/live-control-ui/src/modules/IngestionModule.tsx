@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { getRecapArtifacts, postCitationSource } from "../api/liveApi";
 import { postRecapIngest } from "../api/recapIngestApi";
+import { navigateToRecapView } from "../planSurface/graphPreview/recapViewNavigation";
 import type {
   NormalizedRecapCandidate,
   RecapArtifactRecord,
@@ -1378,14 +1379,17 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
             : graphMaterialized
               ? forceGraphRun
                 ? "Replaced the existing graph with a fresh extract from the packaged recap."
-                : "Graph extract finished. Review the preview graph in the workbench or Recap View."
+                : "Graph extract finished. Opening Recap View…"
               : "Ingest finished; review the Graph status panel for the next step.",
           nextSteps: ok
-            ? ["Open Recap View", "Review in workbench"]
+            ? ["Opening Recap View…"]
             : ["Check Graph status / errors", "Retry Run ingest after fixing"],
-          sticky: true,
+          sticky: !ok,
         });
         jumpToStep(3);
+        if (ok) {
+          navigateToRecapView(ingestCampaignId, `session-${recapSession}`);
+        }
       } else {
         setState(derivePaneStateFromResult(result));
         publishPrimaryToast({
@@ -1792,11 +1796,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
   }
 
   function openRecapView() {
-    if (typeof window !== "undefined") {
-      window.location.assign(
-        `/plan?tool=recap&campaign=${encodeURIComponent(ingestCampaignId)}&session=session-${recapSession}`,
-      );
-    }
+    navigateToRecapView(ingestCampaignId, `session-${recapSession}`);
   }
 
   async function reconcileNormalizedRecap(keepBasename: string) {

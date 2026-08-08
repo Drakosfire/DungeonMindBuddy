@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockPlanView } from "../../test/fixtures";
 import {
@@ -8,13 +8,29 @@ import {
   fixturePlanDocumentDescriptor,
   fixturePlanSessionDescriptor,
   FIXTURE_DOC_ID,
+  planCreatePayloadForTargetSession,
+  replaceDocumentIdInLocationSearch,
+  resolveOrCreatePlanForTargetSession,
   suggestedPlanCreatePayload,
   workspaceDocumentStorageKey,
   workspaceRecordToPlanDocumentDescriptor,
   fixtureWorkspaceDocumentRecord,
 } from "./planSessionDescriptor";
 
+vi.mock("../../api/liveApi", () => ({
+  listWorkspaceDocuments: vi.fn(),
+  createWorkspaceDocument: vi.fn(),
+  getWorkspaceDocument: vi.fn(),
+}));
+
+import { createWorkspaceDocument, listWorkspaceDocuments } from "../../api/liveApi";
+
 describe("planSessionDescriptor", () => {
+  beforeEach(() => {
+    vi.mocked(listWorkspaceDocuments).mockReset();
+    vi.mocked(createWorkspaceDocument).mockReset();
+  });
+
   it("does not invent live-1 as the memory session without an explicit override", () => {
     const planningDocument = fixturePlanDocumentDescriptor();
     const sessionDescriptor = createPlanSessionDescriptor(mockPlanView, planningDocument);
@@ -68,6 +84,73 @@ describe("planSessionDescriptor", () => {
     expect(suggested.title).toBe("C2 Session 23 Prep");
     expect(suggested.target_session).toBe(23);
     expect(suggested.target_relpath).toBe(defaultPlanTargetRelpath("longmont-c2", 23));
+  });
+
+  it("builds create metadata for an explicit target session", () => {
+    const payload = planCreatePayloadForTargetSession("longmont-c2", 26);
+    expect(payload.title).toBe("C2 Session 26 Prep");
+    expect(payload.target_session).toBe(26);
+    expect(payload.target_relpath).toBe(defaultPlanTargetRelpath("longmont-c2", 26));
+  });
+
+  it("reuses an existing active plan for the target session", async () => {
+    const existing = fixtureWorkspaceDocumentRecord({
+      document_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "C2 Session 26 Prep",
+      target_session: 26,
+      target_relpath: defaultPlanTargetRelpath("longmont-c2", 26),
+    });
+    vi.mocked(listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [fixtureWorkspaceDocumentRecord(), existing],
+    });
+
+    const result = await resolveOrCreatePlanForTargetSession({
+      campaignId: "longmont-c2",
+      targetSession: 26,
+    });
+
+    expect(result.created).toBe(false);
+    expect(result.document.documentId).toBe(existing.document_id);
+    expect(result.document.targetSession).toBe(26);
+    expect(createWorkspaceDocument).not.toHaveBeenCalled();
+  });
+
+  it("creates a Session 26 prep plan when none exists", async () => {
+    const created = fixtureWorkspaceDocumentRecord({
+      document_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      title: "C2 Session 26 Prep",
+      target_session: 26,
+      target_relpath: defaultPlanTargetRelpath("longmont-c2", 26),
+    });
+    vi.mocked(listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [fixtureWorkspaceDocumentRecord()],
+    });
+    vi.mocked(createWorkspaceDocument).mockResolvedValue(created);
+
+    const result = await resolveOrCreatePlanForTargetSession({
+      campaignId: "longmont-c2",
+      targetSession: 26,
+    });
+
+    expect(result.created).toBe(true);
+    expect(result.document.documentId).toBe(created.document_id);
+    expect(result.document.title).toBe("C2 Session 26 Prep");
+    expect(createWorkspaceDocument).toHaveBeenCalledWith({
+      title: "C2 Session 26 Prep",
+      campaign_id: "longmont-c2",
+      kind: "plan",
+      target_session: 26,
+      target_relpath: defaultPlanTargetRelpath("longmont-c2", 26),
+    });
+  });
+
+  it("replaces documentId in the location search while preserving other params", () => {
+    expect(replaceDocumentIdInLocationSearch("?campaign=longmont-c2&session=25", FIXTURE_DOC_ID))
+      .toBe(`?campaign=longmont-c2&session=25&documentId=${FIXTURE_DOC_ID}`);
+    expect(replaceDocumentIdInLocationSearch("", FIXTURE_DOC_ID))
+      .toBe(`?documentId=${FIXTURE_DOC_ID}`);
   });
 
   it("provides a reusable fixture session descriptor", () => {

@@ -26,7 +26,10 @@ import {
   GRAPH_NODE_REF_TYPE,
   type RunbookReferenceAttrs,
 } from "../../tiptap/references/runbookReferences";
-import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
+import {
+  createStarterContentForPlanDocument,
+  resolveOrCreatePlanForTargetSession,
+} from "../config/planSessionDescriptor";
 import type { WorkspaceDocumentLocalKind } from "../../tiptap/state/tiptapLocalState";
 import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
 import { useWorkspaceDocumentAuthoring } from "../../workspaceDocument/useWorkspaceDocumentAuthoring";
@@ -51,6 +54,7 @@ interface PlanSurfaceCanvasProps {
   onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
   onSaveStatusChange?: (statusLabel: string) => void;
   onPlanningDocumentCommitted?: (document: PlanDocumentDescriptor) => void;
+  onPlanningDocumentSwitch?: (document: PlanDocumentDescriptor) => void;
 }
 
 function nodeScopeLabel(node: GraphProjectionNodeView): string {
@@ -65,6 +69,7 @@ export function PlanSurfaceCanvas({
   onEditorToolsChange,
   onSaveStatusChange,
   onPlanningDocumentCommitted,
+  onPlanningDocumentSwitch,
 }: PlanSurfaceCanvasProps) {
   const planningDocument = sessionDescriptor.planningDocument;
   const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
@@ -77,6 +82,16 @@ export function PlanSurfaceCanvas({
     projectionError,
   } = usePlanGraphReferenceResolver();
   const editorShellRef = useRef<HTMLDivElement | null>(null);
+  const [declaredSessionInput, setDeclaredSessionInput] = useState(
+    () => String(planningDocument.targetSession ?? 26),
+  );
+  const [sessionSwitchError, setSessionSwitchError] = useState<string | null>(null);
+  const [sessionSwitchBusy, setSessionSwitchBusy] = useState(false);
+
+  useEffect(() => {
+    setDeclaredSessionInput(String(planningDocument.targetSession ?? 26));
+    setSessionSwitchError(null);
+  }, [planningDocument.documentId, planningDocument.targetSession]);
 
   const emptyMarkdownFallback = useMemo(
     () => createStarterContentForPlanDocument(sessionDescriptor),
@@ -138,6 +153,41 @@ export function PlanSurfaceCanvas({
     onSaveStatusChange?.(authoring.statusLabel);
   }, [onSaveStatusChange, authoring.statusLabel]);
 
+  const openOrCreateDeclaredSession = useCallback(async () => {
+    const parsed = Number.parseInt(declaredSessionInput.trim(), 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      setSessionSwitchError("Enter a positive session number.");
+      return;
+    }
+    if (planningDocument.targetSession === parsed && onPlanningDocumentSwitch == null) {
+      return;
+    }
+    if (planningDocument.targetSession === parsed) {
+      onPlanningDocumentSwitch?.(planningDocument);
+      return;
+    }
+    setSessionSwitchBusy(true);
+    setSessionSwitchError(null);
+    try {
+      const { document } = await resolveOrCreatePlanForTargetSession({
+        campaignId: sessionDescriptor.campaignId,
+        targetSession: parsed,
+      });
+      onPlanningDocumentSwitch?.(document);
+    } catch (error) {
+      setSessionSwitchError(
+        error instanceof Error ? error.message : "Unable to open or create that session plan.",
+      );
+    } finally {
+      setSessionSwitchBusy(false);
+    }
+  }, [
+    declaredSessionInput,
+    onPlanningDocumentSwitch,
+    planningDocument,
+    sessionDescriptor.campaignId,
+  ]);
+
   const [editor, setEditor] = useState<Editor | null>(null);
 
   const handleEditorChange = useCallback((nextEditor: Editor | null) => {
@@ -151,6 +201,10 @@ export function PlanSurfaceCanvas({
     },
     [editor],
   );
+
+  const insertDecisionConsequence = useCallback(() => {
+    editor?.chain().focus().insertDecisionConsequence().run();
+  }, [editor]);
 
   const insertRunbookReference = useCallback(
     (attrs: RunbookReferenceAttrs) => {
@@ -324,13 +378,22 @@ export function PlanSurfaceCanvas({
         id: "plan-insert-blocks",
         title: "Insert blocks",
         defaultOpen: true,
-        actions: CALLOUT_KINDS.map((kind) => ({
-          id: `plan-insert-${kind}`,
-          eyebrow: "Insert",
-          label: defaultCalloutLabel(kind),
-          onClick: () => insertCallout(kind),
-          disabled: !editor || isLocked || !editorInteractive,
-        })),
+        actions: [
+          ...CALLOUT_KINDS.map((kind) => ({
+            id: `plan-insert-${kind}`,
+            eyebrow: "Insert",
+            label: defaultCalloutLabel(kind),
+            onClick: () => insertCallout(kind),
+            disabled: !editor || isLocked || !editorInteractive,
+          })),
+          {
+            id: "plan-insert-decision-consequence",
+            eyebrow: "Insert",
+            label: "Decision / Consequence",
+            onClick: insertDecisionConsequence,
+            disabled: !editor || isLocked || !editorInteractive,
+          },
+        ],
       },
       {
         id: "plan-edit-blocks",
@@ -386,6 +449,7 @@ export function PlanSurfaceCanvas({
     editorInteractive,
     graphRefSearchPanel,
     insertCallout,
+    insertDecisionConsequence,
     isLocked,
     removeActiveBlock,
     toggleLock,
@@ -463,9 +527,55 @@ export function PlanSurfaceCanvas({
         <div className="plan-canvas-heading__identity">
           <p className="plan-surface-kicker">Plan Board</p>
           <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
+          <p className="plan-canvas-meta" data-testid="plan-canvas-planning-session">
+            {planningDocument.targetSession != null
+              ? `Planning session ${planningDocument.targetSession}`
+              : "Planning session not declared"}
+          </p>
           <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
             {authoring.statusLabel}
           </p>
+          {sessionSwitchError ? (
+            <p className="plan-canvas-session-error" role="alert" data-testid="plan-board-session-error">
+              {sessionSwitchError}
+            </p>
+          ) : null}
+        </div>
+        <div className="plan-canvas-heading__actions">
+          <label className="plan-canvas-session-declare" htmlFor="plan-board-target-session">
+            <span>Target session</span>
+            <input
+              id="plan-board-target-session"
+              data-testid="plan-board-target-session"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={declaredSessionInput}
+              onChange={(event) => setDeclaredSessionInput(event.target.value)}
+              disabled={sessionSwitchBusy}
+            />
+          </label>
+          <button
+            type="button"
+            data-testid="plan-board-open-create-session"
+            onClick={() => {
+              void openOrCreateDeclaredSession();
+            }}
+            disabled={sessionSwitchBusy || !onPlanningDocumentSwitch}
+          >
+            {sessionSwitchBusy ? "Loading…" : "Load session"}
+          </button>
+          <button
+            type="button"
+            data-testid="plan-board-save"
+            onClick={() => {
+              void authoring.saveMarkdown();
+            }}
+            disabled={authoring.saveDisabled}
+          >
+            Save
+          </button>
         </div>
       </header>
 

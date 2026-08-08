@@ -4,12 +4,18 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
 import { CalloutNode } from "./extensions/CalloutNode";
+import { DECISION_CONSEQUENCE_EXTENSIONS } from "./extensions/DecisionConsequenceNode";
+import { PLAN_TABLE_EXTENSIONS } from "./extensions/planTableExtensions";
+import { SemanticMarkdownPaste } from "./extensions/SemanticMarkdownPaste";
 import { RunbookReferenceNode } from "./extensions/RunbookReferenceNode";
 
 export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
   StarterKit,
   CalloutNode,
+  ...DECISION_CONSEQUENCE_EXTENSIONS,
+  ...PLAN_TABLE_EXTENSIONS,
   RunbookReferenceNode,
+  SemanticMarkdownPaste,
 ];
 
 const NO_EXTRA_EXTENSIONS: AnyExtension[] = [];

@@ -16,6 +16,7 @@ import {
   selectedPromoteAssertionIds,
   togglePromoteSelection,
 } from "./extractPromoteSelectionUtils";
+import { navigateToRecapView } from "../graphPreview/recapViewNavigation";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "./graphReviewWorkbenchUtils";
 
@@ -223,8 +224,25 @@ export function GraphReviewExtractPromoteSheet({
       } catch {
         // Catalog refresh failure must not erase receipt.
       }
+
+      const recapCampaign =
+        (prepared.campaignId ?? "").trim() ||
+        (frozenBinding?.campaignId ?? "").trim();
+      const recapSession =
+        (prepared.sessionId ?? "").trim() ||
+        (frozenBinding?.sessionId ?? "").trim();
+      if (recapCampaign && recapSession) {
+        navigateToRecapView(recapCampaign, recapSession);
+      }
     },
-    [adoptTerminalReceipt, committedBinding, onCatalogRefresh, prepared.reviewPackage],
+    [
+      adoptTerminalReceipt,
+      committedBinding,
+      onCatalogRefresh,
+      prepared.campaignId,
+      prepared.reviewPackage,
+      prepared.sessionId,
+    ],
   );
 
   const onMergeClick = () => {
@@ -437,15 +455,32 @@ export function GraphReviewExtractPromoteSheet({
         ) : null}
 
         {receipt ? (
-          <button
-            type="button"
-            className="secondary"
-            data-testid="graph-review-extract-promote-reload-revision"
-            disabled={reloadingRevision}
-            onClick={() => void onReloadCommittedRevision()}
-          >
-            {reloadingRevision ? "Reloading…" : "Reload committed revision"}
-          </button>
+          <>
+            {((prepared.campaignId ?? committedBinding?.campaignId ?? "").trim() &&
+              (prepared.sessionId ?? committedBinding?.sessionId ?? "").trim()) ? (
+              <button
+                type="button"
+                className="primary"
+                data-testid="graph-review-extract-promote-open-recap"
+                onClick={() => {
+                  const campaign = (prepared.campaignId ?? committedBinding?.campaignId ?? "").trim();
+                  const session = (prepared.sessionId ?? committedBinding?.sessionId ?? "").trim();
+                  navigateToRecapView(campaign, session);
+                }}
+              >
+                Open Recap View
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="secondary"
+              data-testid="graph-review-extract-promote-reload-revision"
+              disabled={reloadingRevision}
+              onClick={() => void onReloadCommittedRevision()}
+            >
+              {reloadingRevision ? "Reloading…" : "Reload committed revision"}
+            </button>
+          </>
         ) : null}
       </footer>
     </section>

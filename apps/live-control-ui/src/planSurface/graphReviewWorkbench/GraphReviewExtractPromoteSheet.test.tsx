@@ -46,6 +46,17 @@ vi.mock("../../api/extractPromoteApi", async () => {
   };
 });
 
+vi.mock("../graphPreview/recapViewNavigation", async () => {
+  const actual =
+    await vi.importActual<typeof import("../graphPreview/recapViewNavigation")>(
+      "../graphPreview/recapViewNavigation",
+    );
+  return {
+    ...actual,
+    navigateToRecapView: vi.fn(),
+  };
+});
+
 const planContext: PlanContextDescriptor = {
   campaignId: "longmont-c2",
   liveSession: 25,

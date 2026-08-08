@@ -218,8 +218,13 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     expect(screen.queryByTestId("graph-object-authoring-commit-button")).not.toBeInTheDocument();
   });
 
-  it("prioritizes refresh graph review on commit success", async () => {
+  it("opens Recap View after commit success and keeps refresh available", async () => {
     const user = userEvent.setup();
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, assign },
+    });
     vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
     vi.mocked(commitGraphObjectAuthoringWrite).mockResolvedValue(commitResponse);
     const onRefreshProjection = vi.fn().mockResolvedValue(undefined);
@@ -243,19 +248,18 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     await waitFor(() => {
       expect(screen.getByTestId("graph-object-authoring-commit-summary")).toBeInTheDocument();
       expect(onRefreshProjection).toHaveBeenCalledTimes(1);
+      expect(assign).toHaveBeenCalledWith("/plan?tool=recap&campaign=longmont-c1&session=session-2");
     });
 
-    expect(
-      screen.getByText(/Graph review refreshed\. New pills and authored memory should appear/i),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-open-recap-view")).toBeInTheDocument();
     expect(screen.getByTestId("graph-object-authoring-refresh-projection")).toBeInTheDocument();
     expect(screen.getByTestId("graph-object-authoring-commit-write-details")).not.toHaveAttribute("open");
 
     const summaryText = screen.getByTestId("graph-object-authoring-commit-summary").textContent ?? "";
-    const refreshIndex = summaryText.indexOf("Refresh graph review");
+    const openRecapIndex = summaryText.indexOf("Open Recap View");
     const writeDetailsIndex = summaryText.indexOf("Write details");
-    expect(refreshIndex).toBeGreaterThanOrEqual(0);
-    expect(writeDetailsIndex).toBeGreaterThan(refreshIndex);
+    expect(openRecapIndex).toBeGreaterThanOrEqual(0);
+    expect(writeDetailsIndex).toBeGreaterThan(openRecapIndex);
 
     const writeDetails = screen.getByTestId("graph-object-authoring-commit-write-details");
     await user.click(screen.getByText("Write details"));

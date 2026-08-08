@@ -104,10 +104,20 @@
 
   function renderCallout(quoteLines) {
     if (!quoteLines.length) return "";
-    const marker = quoteLines[0].match(/^\s*\[!([A-Za-z0-9_-]+)\]\s*(.*)$/);
+    const marker = quoteLines[0].match(/^\s*\[!([A-Za-z0-9_/-]+)\]\s*(.*)$/);
     if (!marker) return "";
 
-    const callout = CALLOUT_TYPES[marker[1].toLowerCase()];
+    const markerKey = marker[1].toLowerCase().replace(/[\s_]+/g, "-");
+    if (
+      markerKey === "decision-consequence" ||
+      markerKey === "decisionconsequence" ||
+      markerKey === "decision/consequence" ||
+      markerKey === "dc"
+    ) {
+      return renderDecisionConsequence(quoteLines.slice(1));
+    }
+
+    const callout = CALLOUT_TYPES[markerKey];
     if (!callout) return "";
 
     const customLabel = marker[2].trim();
@@ -127,6 +137,50 @@
       '<div class="md-callout-body">' +
       bodyHtml +
       "</div>" +
+      "</aside>"
+    );
+  }
+
+  function splitDecisionConsequenceLines(bodyLines) {
+    const decision = [];
+    const consequence = [];
+    let target = null;
+    const heading = /^#{1,3}\s+(decision|consequence)\s*$/i;
+    for (let i = 0; i < bodyLines.length; i++) {
+      const line = bodyLines[i];
+      const match = line.match(heading);
+      if (match) {
+        target = match[1].toLowerCase();
+        continue;
+      }
+      if (target === "decision") {
+        decision.push(line);
+      } else if (target === "consequence") {
+        consequence.push(line);
+      } else if (line.trim()) {
+        target = "decision";
+        decision.push(line);
+      }
+    }
+    return { decision: decision, consequence: consequence };
+  }
+
+  function renderDecisionConsequence(bodyLines) {
+    const parts = splitDecisionConsequenceLines(bodyLines);
+    const decisionHtml = renderMarkdown(parts.decision.join("\n")) || "<p></p>";
+    const consequenceHtml = renderMarkdown(parts.consequence.join("\n")) || "<p></p>";
+    return (
+      '<aside class="md-decision-consequence" data-md-decision-consequence="true">' +
+      '<div class="md-dc-pane md-dc-pane-decision" data-md-dc-pane="decision">' +
+      '<div class="md-dc-pane-label">Decision</div>' +
+      '<div class="md-dc-pane-body">' +
+      decisionHtml +
+      "</div></div>" +
+      '<div class="md-dc-pane md-dc-pane-consequence" data-md-dc-pane="consequence">' +
+      '<div class="md-dc-pane-label">Consequence</div>' +
+      '<div class="md-dc-pane-body">' +
+      consequenceHtml +
+      "</div></div>" +
       "</aside>"
     );
   }
