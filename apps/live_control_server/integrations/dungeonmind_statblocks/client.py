@@ -58,6 +58,26 @@ MAX_RESPONSE_BODY_BYTES = 1_048_576
 ModelT = TypeVar("ModelT", bound=StrictModel)
 
 
+def _json_without_none(value: Any) -> Any:
+    """Recursively drop ``None`` so strict DMS models do not see null extras.
+
+    Acceptance journals dump with ``exclude_none=False`` for replay digests.
+    The typed create path uses ``model_dump(..., exclude_none=True)``; the dict
+    replay path must match that depth, not only top-level keys. Nested nulls
+    such as ``rule_elements[].explains: null`` otherwise 422 as
+    ``extra_forbidden`` when the Server schema no longer declares the field.
+    """
+    if isinstance(value, dict):
+        return {
+            key: _json_without_none(item)
+            for key, item in value.items()
+            if item is not None
+        }
+    if isinstance(value, list):
+        return [_json_without_none(item) for item in value]
+    return value
+
+
 def _source_definition_digest(source_definition: dict[str, Any]) -> str:
     from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
         source_definition_digest_from_body,
@@ -322,9 +342,12 @@ class DungeonMindStatblockV1Client:
         if isinstance(body, CreateStatblockRequestV1):
             json_body = body.model_dump(mode="json", by_alias=True, exclude_none=True)
         else:
-            # Dict path (acceptance journal replay): strip nulls so DMS does not
-            # 422 on accepted_through/asset_bindings typed as object/array only.
-            json_body = {k: v for k, v in body.items() if v is not None}
+            # Dict path (acceptance journal replay): deep-strip nulls so DMS does
+            # not 422 on top-level optionals *or* nested OpenAPI null defaults
+            # (e.g. rule_elements[].explains) that StrictModel treats as extras.
+            json_body = _json_without_none(body)
+            if not isinstance(json_body, dict):
+                raise downstream_invalid_request("create request body must be an object")
         idempotency_key = json_body.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key.strip():
             raise downstream_invalid_request("create request missing idempotency_key")

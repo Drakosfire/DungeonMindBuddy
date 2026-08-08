@@ -991,6 +991,41 @@ def _status_from_certified(
     )
 
 
+def _try_live_head_revision_id(root: Path) -> str | None:
+    """Read the production store head without requiring bootstrap package cert.
+
+    Locked-bundle certification can fail (stale contribution digests, missing
+    package) while ``head.json`` remains readable — the same authority Recap /
+    projection / Hermes already use. Status must still surface that head so
+    Statblock create/publish are not forced through Advanced override.
+    """
+    try:
+        return kernel.open_world_graph_head(root, APPROVED_WORLD_ID).head_revision_id
+    except kernel.WorldGraphNotFoundError:
+        return None
+    except (OSError, ValueError, ValidationError, json.JSONDecodeError):
+        return None
+
+
+def _status_diagnostics_with_live_head(
+    diagnostics: list[BootstrapDiagnostic],
+    live_head: str | None,
+) -> list[BootstrapDiagnostic]:
+    if not live_head:
+        return list(diagnostics)
+    return [
+        *diagnostics,
+        _diagnostic(
+            "live_head_readable",
+            (
+                f"Production store head {live_head} is readable even though the "
+                "locked bootstrap package did not certify."
+            ),
+            severity="info",
+        ),
+    ]
+
+
 def get_world_graph_bootstrap_status(
     *,
     root: Path | None = None,
@@ -999,6 +1034,7 @@ def get_world_graph_bootstrap_status(
     try:
         certified = _certify_bundle()
     except WorldGraphBootstrapError as exc:
+        live_head = _try_live_head_revision_id(graph_root)
         return WorldGraphBootstrapStatusResponse(
             state=exc.bootstrap_state,
             world_id=APPROVED_WORLD_ID,
@@ -1008,12 +1044,14 @@ def get_world_graph_bootstrap_status(
             bundle_digest=APPROVED_BUNDLE_DIGEST,
             approved_bundle_merge_sha=APPROVED_BUNDLE_MERGE_SHA,
             bundle_valid=False,
+            current_head_revision_id=live_head,
             trust_boundary=_trust_boundary(None, exc.bootstrap_state),
-            diagnostics=exc.diagnostics,
+            diagnostics=_status_diagnostics_with_live_head(exc.diagnostics, live_head),
         )
     try:
         return _status_from_certified(graph_root, certified)
     except WorldGraphBootstrapError as exc:
+        live_head = _try_live_head_revision_id(graph_root)
         return WorldGraphBootstrapStatusResponse(
             state=exc.bootstrap_state,
             world_id=APPROVED_WORLD_ID,
@@ -1023,9 +1061,10 @@ def get_world_graph_bootstrap_status(
             bundle_digest=APPROVED_BUNDLE_DIGEST,
             approved_bundle_merge_sha=APPROVED_BUNDLE_MERGE_SHA,
             bundle_valid=True,
+            current_head_revision_id=live_head,
             review=certified.review,
             trust_boundary=_trust_boundary(certified.bundle, exc.bootstrap_state),
-            diagnostics=exc.diagnostics,
+            diagnostics=_status_diagnostics_with_live_head(exc.diagnostics, live_head),
         )
 
 

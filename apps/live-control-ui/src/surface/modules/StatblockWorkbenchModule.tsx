@@ -438,6 +438,19 @@ async function resolveCreateScope(
       };
     }
 
+    // Live store head can remain readable when locked-bundle cert fails
+    // (invalid_bundle / blocked). Pin that head — same authority as Recap/Hermes.
+    if (head) {
+      return {
+        ok: true,
+        scope: {
+          world_id: worldId,
+          campaign_id: campaignId,
+          graph_revision_id: head,
+        },
+      };
+    }
+
     // Typed failure/blocked states arrive as HTTP 200 with null head — not auto-freestanding.
     const diagnosticHint =
       Array.isArray(status.diagnostics) && status.diagnostics.length > 0
@@ -2443,8 +2456,8 @@ export function StatblockWorkbenchModule() {
           typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
             ? status.currentHeadRevisionId.trim()
             : null;
-        // Exact Advanced override is the same authority pin used for create when bootstrap
-        // cannot surface a head (e.g. invalid_bundle with a still-readable store head).
+        // Bootstrap status now attaches the live store head even when locked-bundle
+        // cert fails. Advanced override remains the manual pin if no head exists.
         const overrideHead = createForm.graphRevisionId.trim() || null;
         const head = bootstrapHead ?? overrideHead;
         if (head) {
@@ -2456,7 +2469,7 @@ export function StatblockWorkbenchModule() {
           head: null,
           error:
             "Publication is disabled until the current World Graph head is readable. "
-            + "Set Advanced → Graph revision override to an exact rev:… when bootstrap cannot surface a head.",
+            + "Set Advanced → Graph revision override to an exact rev:… if the store head is missing.",
           loading: false,
         });
       } catch (error) {
@@ -3575,7 +3588,7 @@ export function StatblockWorkbenchModule() {
                     if (!head) {
                       throw new Error(
                         "Publication retry requires a readable World Graph head "
-                        + "(bootstrap head or exact Advanced graph revision override).",
+                        + "(store head from bootstrap status, or exact Advanced graph revision override).",
                       );
                     }
                     setPublicationHeadResolution({

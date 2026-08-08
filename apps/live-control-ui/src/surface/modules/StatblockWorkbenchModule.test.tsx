@@ -2507,16 +2507,24 @@ describe("StatblockWorkbenchModule", () => {
 
     function mockBootstrapFailureState(
       state: "invalid_bundle" | "inconsistent_lineage" | "blocked_existing_world" | "error",
-      options?: { bundleValid?: boolean; diagnostics?: Array<{ code: string; message: string }> },
+      options?: {
+        bundleValid?: boolean;
+        currentHeadRevisionId?: string | null;
+        diagnostics?: Array<{ code: string; message: string }>;
+      },
     ) {
+      const head =
+        options && "currentHeadRevisionId" in options
+          ? options.currentHeadRevisionId ?? null
+          : null;
       return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
         schema: "dmb_world_graph_bootstrap_status_v1",
         state,
         bundleValid: options?.bundleValid ?? false,
         worldId: "eldyrwild",
         campaignId: "longmont-c2",
-        currentHeadRevisionId: null,
-        initialHeadRevisionId: null,
+        currentHeadRevisionId: head,
+        initialHeadRevisionId: head,
         diagnostics: options?.diagnostics ?? [
           { code: state, message: `Bootstrap reported ${state}.` },
         ],
@@ -2650,6 +2658,38 @@ describe("StatblockWorkbenchModule", () => {
         expect(createSpy).toHaveBeenCalledTimes(1);
       });
       expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBeNull();
+    });
+
+    it("pins the live store head when invalid_bundle still reports currentHeadRevisionId", async () => {
+      mockBootstrapFailureState("invalid_bundle", {
+        currentHeadRevisionId: GRAPH_HEAD,
+        diagnostics: [
+          { code: "invalid_bundle", message: "Locked bundle failed acceptance." },
+          { code: "live_head_readable", message: `Production store head ${GRAPH_HEAD} is readable.` },
+        ],
+      });
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
+      vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_invalid_bundle_live_head",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledTimes(1);
+      });
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBe(GRAPH_HEAD);
+      expect(screen.queryByTestId("create-threat-error")).toBeNull();
     });
 
     it("stops on active bootstrap with null head unless freestanding is explicitly allowed", async () => {
@@ -4494,6 +4534,37 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
       expect(screen.queryByTestId("publish")).toBeNull();
       expect(beginSpy).not.toHaveBeenCalled();
+    });
+
+    it("publishes when invalid_bundle still reports a readable store head", async () => {
+      vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
+        schema: "dmb_world_graph_bootstrap_status_v1",
+        state: "invalid_bundle",
+        bundleValid: false,
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        currentHeadRevisionId: GRAPH_HEAD,
+        initialHeadRevisionId: GRAPH_HEAD,
+        diagnostics: [
+          { code: "invalid_bundle", message: "Locked bundle failed acceptance." },
+          {
+            code: "live_head_readable",
+            message: `Production store head ${GRAPH_HEAD} is readable.`,
+          },
+        ],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          workflow_state: "mechanics_saved",
+          accepted_mechanics_ref: mechanicsSavedRef(),
+        }),
+      );
+      await loadId("cand_fixture1");
+      await waitFor(() => expect(screen.getByTestId("threat-publication-panel")).toBeTruthy());
+      expect(screen.queryByTestId("publication-head-unavailable")).toBeNull();
+      await waitFor(() => expect(screen.getByTestId("publication-dock-status")).toBeTruthy());
+      expect(screen.getByRole("button", { name: /Publish Threat/i })).toBeTruthy();
     });
 
     it("keeps editor chrome and updates the floating dock after beginning publish", async () => {

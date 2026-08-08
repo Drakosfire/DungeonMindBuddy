@@ -6,6 +6,20 @@
 **Surfaces when:** Ask thread disappeared, planning document switch, Session 23, Session 26, documentId scoped localStorage, agent-interaction-thread-index-v2, rehydrateScope, hermes_thread_pointers
 **Refs:** `apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts` (`scopedStorageSuffix`); `AgentInteractionProvider.tsx` `rehydrateScope`; `evals/.../hermes_thread_pointers.json`; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
 
+## [DONE] Bootstrap status must surface live store head when locked bundle fails cert — captured 2026-08-08
+**Context:** Meat Mind dogfood. After Accept/Save, Publish said head unreadable and demanded Advanced `rev:…` override. Recap/Hermes/projection already read `head.json` (`rev:df92031e…`) fine. Bootstrap status was `invalid_bundle` (stale contribution_ids) and returned `currentHeadRevisionId: null` because cert failure short-circuited before opening the store head.
+**Insight:** Publication/create were treating locked-bootstrap package certification as the authority for “is the head readable?” Those are different: package drift can fail while production head remains readable. Status should stay honest (`state=invalid_bundle`, `bundleValid=false`) and still attach the live head.
+**Done:** 2026-08-08 — `get_world_graph_bootstrap_status` attaches `open_world_graph_head` on cert/production failure paths + `live_head_readable` info diagnostic. Create scope pins that head when present; publication panel enables without Advanced override. Tests cover invalid_bundle with/without world.
+**Surfaces when:** invalid_bundle, currentHeadRevisionId null, Publication disabled, Graph revision override, stale contribution_id, Statblock publish
+**Refs:** `world_graph_bootstrap.py` `get_world_graph_bootstrap_status`; `StatblockWorkbenchModule.tsx` `resolveCreateScope` / publication head effect; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
+## [DONE] Accept/Save dict path must deep-strip nested nulls (explains) — captured 2026-08-08
+**Context:** Meat Mind dogfood. Generate+validate succeeded; Accept/Save returned `terminal_failure (downstream_validation_failed)` with DMS `POST /statblocks` 422 `invalid_request`. Operator could not see Publish/write-to-graph.
+**Insight:** Accept journals dump create bodies with `exclude_none=False`. The client dict path only stripped **top-level** nulls, so nested `rule_elements[].explains: null` (Buddy OpenAPI still declares `explains`; current DMS `RuleElement` does not) hit StrictModel `extra_forbidden`. Validate used `exclude_none=True`, so it stayed green. Publish UI is gated on `workflow_state === mechanics_saved` after Accept — so no graph-write option until Accept succeeds.
+**Done:** 2026-08-08 — `create_statblock` dict path now recursively strips nulls (`_json_without_none`); test covers nested `explains: null`. Live recreate with stripped body returned 200.
+**Surfaces when:** Accept/Save, downstream_validation_failed, invalid_request, explains, extra_forbidden, mechanics_saved, Publish to World Graph
+**Refs:** `apps/live_control_server/integrations/dungeonmind_statblocks/client.py`; acceptance ops under `out/statblock_acceptance_operations/9bdc59f2-…`; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
 # DungeonMindBuddy — Backlog (archive)
 
 Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Backlog.md`. Active items (`IDEA` / `READY` / `DOING`) live in `Backlog.md`.

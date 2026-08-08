@@ -746,6 +746,15 @@ def test_create_statblock_dict_path_strips_null_optional_fields() -> None:
     body["accepted_through"] = None
     body["asset_bindings"] = None
     body["actor"] = None
+    definition = body.get("definition")
+    assert isinstance(definition, dict)
+    rule_elements = definition.get("rule_elements")
+    assert isinstance(rule_elements, list) and rule_elements
+    first = dict(rule_elements[0])
+    first["explains"] = None
+    definition = dict(definition)
+    definition["rule_elements"] = [first, *rule_elements[1:]]
+    body["definition"] = definition
     _client(httpx.MockTransport(handler)).create_statblock(body)
     sent = captured["body"]
     assert isinstance(sent, dict)
@@ -753,6 +762,12 @@ def test_create_statblock_dict_path_strips_null_optional_fields() -> None:
     assert "asset_bindings" not in sent
     assert "actor" not in sent
     assert sent["idempotency_key"] == body["idempotency_key"]
+    sent_definition = sent["definition"]
+    assert isinstance(sent_definition, dict)
+    sent_elements = sent_definition["rule_elements"]
+    assert isinstance(sent_elements, list) and sent_elements
+    assert isinstance(sent_elements[0], dict)
+    assert "explains" not in sent_elements[0]
 
 
 def test_create_statblock_parses_six_field_locator() -> None:

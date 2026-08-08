@@ -292,6 +292,10 @@ def test_invalid_bundle_takes_precedence_over_existing_world(
     assert status.state == "invalid_bundle"
     assert status.bundle_valid is False
     assert status.diagnostics[0].code == "bundle_unavailable"
+    # Existing production head remains readable — do not null it out on cert failure.
+    assert status.current_head_revision_id is not None
+    assert status.current_head_revision_id.startswith("rev:")
+    assert any(d.code == "live_head_readable" for d in status.diagnostics)
     assert status.trust_boundary.can_trust == [
         "The fixed Eldyrwild bootstrap service identity and endpoint contract."
     ]
@@ -299,6 +303,24 @@ def test_invalid_bundle_takes_precedence_over_existing_world(
         "The bundle contents, review projection, and content-bound initialization plan."
         in status.trust_boundary.cannot_trust
     )
+
+
+def test_invalid_bundle_without_world_leaves_head_null(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        bootstrap,
+        "_approved_bundle_path",
+        lambda: tmp_path / "missing-approved-bundle",
+    )
+
+    status = get_world_graph_bootstrap_status(root=tmp_path)
+
+    assert status.state == "invalid_bundle"
+    assert status.bundle_valid is False
+    assert status.current_head_revision_id is None
+    assert all(d.code != "live_head_readable" for d in status.diagnostics)
 
 
 def test_receipt_serialization_failure_preserves_successful_publication(
