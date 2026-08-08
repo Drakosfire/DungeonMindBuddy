@@ -592,4 +592,87 @@ describe("LegacyProjectionHostAdapter nav session lookup lease safety", () => {
     expect(window.location.search).not.toContain("session-23");
     expect(hostApi!.active?.key).not.toBe("recap");
   });
+
+  it("clears sticky ?tool= on close so later churn does not reopen Statblock", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/plan");
+
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+    function ChurnButton() {
+      const { updateProjectionSurfaceConfig, projectionSurface } = useAgentInteraction();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            if (!projectionSurface) return;
+            // Same-identity config touch — recreates openTool/policy deps without changing tools.
+            updateProjectionSurfaceConfig({
+              ...projectionSurface.publication,
+              config: {
+                ...projectionSurface.publication.config,
+                theme: { ...(projectionSurface.publication.config.theme ?? {}), accent: "#123456" },
+              },
+            });
+          }}
+        >
+          Churn policy
+        </button>
+      );
+    }
+
+    render(
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <CaptureApi />
+        <ChurnButton />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await act(async () => {
+      await hostApi!.activateProjectionTool("statblock");
+    });
+    await waitFor(() => {
+      expect(document.body).toHaveClass("surface-projection-open");
+      expect(window.location.search).toContain("tool=statblock");
+    });
+    expect(hostApi!.active?.key).toBe("statblock");
+
+    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
+    await waitFor(() => {
+      expect(document.body).not.toHaveClass("surface-projection-open");
+    });
+    expect(hostApi!.active).toBeNull();
+    expect(window.location.search).not.toContain("tool=statblock");
+
+    await user.click(screen.getByRole("button", { name: "Churn policy" }));
+    expect(document.body).not.toHaveClass("surface-projection-open");
+    expect(hostApi!.active).toBeNull();
+    expect(window.location.search).not.toContain("tool=statblock");
+  });
+
+  it("still restores Statblock from ?tool= on first mount", async () => {
+    window.history.pushState({}, "", "/plan?tool=statblock");
+
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    render(
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <CaptureApi />
+        <LegacyProjectionHostAdapter />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await waitFor(() => {
+      expect(hostApi!.active?.key).toBe("statblock");
+      expect(document.body).toHaveClass("surface-projection-open");
+    });
+  });
 });

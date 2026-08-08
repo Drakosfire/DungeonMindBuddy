@@ -35,6 +35,22 @@ function requestedToolFromLocation(): string | null {
   return hash.startsWith("tool=") ? hash.slice("tool=".length) : hash || null;
 }
 
+/** Drop sticky ?tool= (and #tool=) so close does not fight the URL restore effect. */
+export function clearToolQueryParamFromLocation(): void {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  const hadQueryTool = params.has("tool");
+  if (hadQueryTool) params.delete("tool");
+  const hash = window.location.hash.replace(/^#/, "");
+  const hadHashTool = hash.startsWith("tool=");
+  if (!hadQueryTool && !hadHashTool) return;
+  const query = params.toString();
+  const path = window.location.pathname;
+  const nextPath = query ? `${path}?${query}` : path;
+  const keepHash = hash && !hash.startsWith("tool=") ? `#${hash}` : "";
+  window.history.replaceState({}, "", `${nextPath}${keepHash}`);
+}
+
 function requestedSessionFromLocation(): string | null {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("session")?.trim() || null;
@@ -220,13 +236,24 @@ export function LegacyProjectionHostAdapter() {
     return undefined;
   }, [openTool, policy.kind, registerProjectionToolActivator]);
 
+  // Deep-link / refresh restore only. Do not re-open on every openTool/policy
+  // identity churn while ?tool= is still sticky after the operator closed.
   useEffect(() => {
     if (policy.kind !== "legacy-plan-or-ingest") return;
     const requestedTool = requestedToolFromLocation();
-    if (requestedTool && policy.config.tools.some((tool) => tool.id === requestedTool)) {
-      openTool(requestedTool);
+    if (!requestedTool) return;
+    if (!policy.config.tools.some((tool) => tool.id === requestedTool)) return;
+    // Plan tool ids match projection keys (recap, statblock, …).
+    if (active?.kind === "tool" && active.key === requestedTool) return;
+    openTool(requestedTool);
+  }, [active, openTool, policy]);
+
+  const handleClose = useCallback(() => {
+    if (policy.kind === "legacy-plan-or-ingest") {
+      clearToolQueryParamFromLocation();
     }
-  }, [openTool, policy]);
+    close();
+  }, [close, policy.kind]);
 
   const runtimeBindings = useMemo(() => {
     const bindings: Record<string, unknown> = policy.kind === "native-build"
@@ -371,7 +398,7 @@ export function LegacyProjectionHostAdapter() {
         theme={hostTheme}
         body={body}
         onNavigate={onNavigate}
-        onClose={close}
+        onClose={handleClose}
         onExpand={expandContent}
       />
     </>

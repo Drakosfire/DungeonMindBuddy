@@ -113,6 +113,46 @@ describe("AgentInteractionProvider", () => {
     expect(result.current.turns[0].question).not.toBe("B?");
   });
 
+  it("keeps the active Plan Ask thread when the planning documentId changes", () => {
+    const doc23 = "bcaa65da-e9c9-4ae9-afba-2d8190ec09d5";
+    const doc26 = "40700cb6-d13d-4fbf-93f6-6ae2986455a7";
+    const seeded = {
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Locate party", doc23),
+      threadId: "agent-thread-b9421fef-a114-4a69-9a5e-74cbf1cf8f18",
+      turns: [{
+        turnId: "t-locate",
+        askedAt: "2026-08-08T20:12:27.000Z",
+        question: "Where are the players?",
+        answer: "Stafl is on the wall.",
+        backend: "hermes" as const,
+        status: "ok" as const,
+      }],
+    };
+    persistAgentThread(seeded);
+
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => result.current.rehydrateScope({
+      campaignId: "longmont-c2",
+      sessionNumber: 22,
+      surfaceId: "plan",
+      documentId: doc23,
+    }));
+    expect(result.current.activeThread?.threadId).toBe(seeded.threadId);
+    expect(result.current.activeThread?.turns[0]?.question).toBe("Where are the players?");
+
+    act(() => result.current.rehydrateScope({
+      campaignId: "longmont-c2",
+      sessionNumber: 22,
+      surfaceId: "plan",
+      documentId: doc26,
+    }));
+
+    expect(result.current.activeThread?.threadId).toBe(seeded.threadId);
+    expect(result.current.activeThread?.documentId).toBe(doc26);
+    expect(result.current.activeThread?.turns[0]?.answer).toBe("Stafl is on the wall.");
+    expect(result.current.threadSummaries.some((summary) => summary.threadId === seeded.threadId)).toBe(true);
+  });
+
   it("persists server-approved Hermes pointer for graph turns", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));

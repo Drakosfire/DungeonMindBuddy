@@ -1,3 +1,11 @@
+## [DONE] Plan Ask threads must stay visible across planning-document switches — captured 2026-08-08
+**Context:** Session-26 dogfood. Operator had an active Hermes planning thread while writing on Session 23 Prep (save-target collision), then switched Plan Board to Session 26 Prep / hard-reloaded. Ask showed an empty “new” conversation even though the thread + Hermes pointer (`agent-thread-b9421fef-…`) still existed under the old `documentId` localStorage scope.
+**Insight:** Binding Ask thread *visibility/index* to `documentId` is wrong for planning. Planning docs change (23→26, load/create session); the agent conversation is campaign/prep continuity, not “owned by one markdown file.” Document may annotate context (which board was active) but must not hide the thread when the operator moves to a newer prep doc.
+**Done:** 2026-08-08 — Plan Ask index/active restore is campaign+surface scoped; documentId remains thread metadata. Migrates legacy per-document indexes on load. Provider keeps the in-memory thread across planning-document switches.
+**Action (was):** Rescope Plan Ask listing + active-thread restore to **campaign + surface (`plan`)**, not `documentId`. Keep `documentId` / target session as optional thread metadata updated on scope publish (for Hermes context), without filtering the thread index. On document switch: preserve the current active thread; do not invent a blank thread unless the operator starts one. Migration: merge/repoint existing per-document indexes into the campaign:plan index so Session 23 threads reappear on Session 26. Falsify: with an active thread on Session 23 Prep, Load session 26 → Ask still shows that same transcript; hard reload on Session 26 restores it.
+**Surfaces when:** Ask thread disappeared, planning document switch, Session 23, Session 26, documentId scoped localStorage, agent-interaction-thread-index-v2, rehydrateScope, hermes_thread_pointers
+**Refs:** `apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts` (`scopedStorageSuffix`); `AgentInteractionProvider.tsx` `rehydrateScope`; `evals/.../hermes_thread_pointers.json`; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
 # DungeonMindBuddy — Backlog (archive)
 
 Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Backlog.md`. Active items (`IDEA` / `READY` / `DOING`) live in `Backlog.md`.

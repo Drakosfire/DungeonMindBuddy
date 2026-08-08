@@ -38,6 +38,7 @@ import {
   loadAgentThreadById,
   persistAgentThread,
   renameAgentThread,
+  resolveThreadIndexDocumentId,
   setActiveAgentThread,
   threadTitleFromQuestion,
   turnFromResponse,
@@ -996,22 +997,45 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setThreadSummaries([]);
       return;
     }
+    const surfaceId = nextScope.surfaceId ?? "plan";
     setThreadSummaries(listAgentThreads(
       nextScope.campaignId,
-      nextScope.surfaceId ?? "plan",
-      nextScope.documentId,
+      surfaceId,
+      resolveThreadIndexDocumentId(surfaceId, nextScope.documentId),
     ));
   }, [scope]);
 
   const rehydrateScope = useCallback((nextScope: AgentInteractionScope) => {
     if (sameScope(scope, nextScope)) return;
     const surfaceId = nextScope.surfaceId ?? "plan";
-    const storedThread = loadAgentThread(nextScope.campaignId, surfaceId, nextScope.documentId);
+    const indexDocumentId = resolveThreadIndexDocumentId(surfaceId, nextScope.documentId);
+    const samePlanCampaign = Boolean(
+      surfaceId === "plan"
+      && scope
+      && scope.campaignId === nextScope.campaignId
+      && (scope.surfaceId ?? "plan") === "plan"
+      && activeThread
+      && activeThread.campaignId === nextScope.campaignId
+      && (activeThread.surfaceId ?? "plan") === "plan",
+    );
+
+    let nextThread: AgentInteractionThread | null = null;
+    if (samePlanCampaign && activeThread) {
+      nextThread = {
+        ...activeThread,
+        documentId: nextScope.documentId ?? null,
+        session: nextScope.sessionNumber,
+      };
+      persistAgentThread(nextThread);
+    } else {
+      nextThread = loadAgentThread(nextScope.campaignId, surfaceId, indexDocumentId);
+    }
+
     setScope(nextScope);
-    setActiveThread(storedThread);
+    setActiveThread(nextThread);
     setSelectedSource(null);
-    setThreadSummaries(listAgentThreads(nextScope.campaignId, surfaceId, nextScope.documentId));
-  }, [scope]);
+    setThreadSummaries(listAgentThreads(nextScope.campaignId, surfaceId, indexDocumentId));
+  }, [activeThread, scope]);
 
   const updateThread = useCallback((thread: AgentInteractionThread) => {
     persistAgentThread(thread);

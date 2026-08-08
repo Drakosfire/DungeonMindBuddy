@@ -7,6 +7,36 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Hermes Ask should use Hermes context/compression/caching — stop reinventing in Buddy — captured 2026-08-08
+**Context:** Session-26 dogfood. After ~7 Ask turns the UI asked to start a new thread. Operator asked about compaction/dedupe/prompt caching, then directed: **lean on Hermes built-in tools as hard as possible; no reason to reinvent the wheel.**
+**Insight:** Buddy currently **disables or bypasses** Hermes’s own stack. Hermes already ships `ContextCompressor` (default context engine), auto-compact near token threshold, `/compress` + `/usage`, session `archive_and_compact`, and prompt-caching policy (`_use_prompt_caching` / `prompt_caching.cache_ttl`). Plan Ask instead: ephemeral `HERMES_HOME` per turn, `skip_memory=True`, `skip_context_files=True`, caller-owned truncated history (6 pairs / 16k chars), and a crude UI nudge at `AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS=6`. That is reinvented truncation+nudge, not Hermes compaction. Keep the authority split from `.hermes.md`: Hermes conversation summaries/LTM are **not** campaign canon — World Graph remains factual memory. `skip_memory` for ambient/campaign LTM can stay; conversation **context compression + prompt caching** should come from Hermes, not a parallel Buddy monitor/summarizer.
+**Action:** Prefer Hermes primitives over new Buddy machinery: (1) inventory which Hermes compression/caching/session APIs the embedded `AIAgent` path can enable without violating graph-only authority; (2) move Ask continuity onto a durable Hermes session (or equivalent) so compressor + cache can work across turns instead of rebuild-from-truncated-history; (3) surface Hermes usage/compact signals in Evidence UI rather than inventing a second token accountant; (4) demote or remove the fixed 6-turn nudge once Hermes budget signals exist; (5) keep campaign-fact LTM off / non-canon. Do **not** build a Buddy-side conversation summarizer that duplicates `ContextCompressor`. Falsify: multi-turn Ask triggers Hermes compression (or `/usage`-equivalent telemetry) before silent pair-drop; prompt-cache hit/miss visible when provider supports it; campaign facts still only from graph/admitted sources after compact.
+**Surfaces when:** Hermes new thread, compaction, ContextCompressor, prompt caching, skip_memory, conversation_history, Session 26 dogfood, reinvent, Hermes built-in
+**Refs:** `.hermes.md` Conversation memory; `hermes_graph_agent.py` AIAgent init; Hermes `agent/context_compressor.py`; `AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS`; `hermesConversationHistory.ts`; sibling IDEAs prompt-cache audit + revision-aware evidence dedup; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
+## [READY] Plan Board `##` heading typing is block-scoped (and silent inside bullets) — captured 2026-08-08
+
+**Context:** Session-26 dogfood. Operator tried inline markdown styling: typing `##` made all following text in the block become a header (wanted one line only). Separately, bullet then `##` produced no heading styling.
+**Insight:** TipTap StarterKit Heading input rule (`## ` + space at start of textblock) calls `setBlockType` on the **entire current paragraph**, not “this visual line.” Soft-wrapped prose in one `<p>` therefore all becomes `h2`. Inside a `listItem`, schema is `paragraph block*` so the first child cannot be replaced by `heading`; the input rule’s `canReplaceWith` fails and `##` stays literal with no style. Enter at end of a heading already exits to paragraph — the bug is convert-whole-block + list dead-end, not Enter-continues-as-heading.
+**Action:** (1) Heading markdown shortcut: only fire on empty paragraph, or split so marker applies to a new empty heading above remaining prose (Notion-like one-line heading). (2) In list items: either lift empty/`## `-prefixed item out of the list then convert to heading, or show honest no-op feedback. (3) Optional toolbar H2 so operators aren’t dependent on the fragile shortcut. Falsify: blank line `## Title` + Enter → only Title is heading, next block paragraph; existing paragraph with caret at start + `## ` does not swallow the whole prose body; bullet + `## Title` either becomes a real heading outside the list or refuses visibly.
+**Surfaces when:** Plan Board heading, ## markdown, inline styling, bullet list heading, TipTap input rule, Session 26 dogfood
+**Refs:** `MarkdownEditorCore.tsx` StarterKit; `@tiptap/extension-heading` `textblockTypeInputRule`; listItem `content: paragraph block*`; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
+## [IDEA] Plan Board becomes an interactive play projection with a trimable live lens — captured 2026-08-08
+
+**Context:** Session-26 dogfood, after Decision/Consequence blocks landed. Operator longer-term wish, refined in-thread: Plan should not stay a static prep doc. It should **translate into a projection into play** — more interactive than the authoring board — and as play happens we should be able to **trim details out of the lens** so only what’s still live stays in view. Forking on decision gates is one mechanism for that translation.
+**Insight:** Three layers want to stay distinct: (1) **Plan authoring** — full Decision/Consequence trees, beats, tables, GM notes; (2) **Play projection** — interactive surface derived from Plan for the table moment; (3) **Live lens** — operator-controlled focus that hides/trims resolved or off-path detail without deleting Plan canon. Decision gates select which fork stays in the projection; trimming is temporal/attention (beat done, branch not taken, clutter off-lens), not rewrite.
+**Action:** When designing: (1) keep Decision/Consequence + Plan markdown as the durable authoring source; (2) define a play-projection model (active gate/branch, visible beats, dimmed/latent siblings); (3) lens controls to trim resolved or irrelevant detail during play without mutating Plan text; (4) optional “what if” / re-open latent branch without rewriting canon. Defer until Session-26 dogfood + undo/draft reliability are stable. Falsify sketch: Plan has gate A→{B,C}; enter play projection on B; trim Opening once past it; C stays latent and restorable; Plan file still holds A/B/C.
+**Surfaces when:** Plan play projection, live lens, trim details, decision gate fork, Decision/Consequence, conditional beats, table projection, Session 26 planning, what-if prep
+**Refs:** `DecisionConsequenceNode.ts`; Plan Board TipTap; live lens / Recap View; sibling IDEA Hermes observe/insert; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
+## [READY] Plan Board needs reliable undo and recoverable local draft history — captured 2026-08-08
+**Context:** Session-26 dogfood. Operator cut a prose block, accidentally copied something else (clipboard overwrite), Ctrl+Z did not restore. No hard Save yet; reloading the corpus/workspace file also did not recover the lost block (likely never persisted to disk).
+**Insight:** Cut/clipboard loss is normal OS behavior, but TipTap undo failing after cut is a product bug/fragility (focus not in editor, History cleared by `documentKey` remount / programmatic `setContent`, or Ctrl+Z handled outside the editor). Local draft storage keeps only the latest dirty snapshot — no prior versions — so an unsaved cut that updates localStorage is unrecoverable once History is gone.
+**Action:** (1) Diagnose/fix Plan editor undo: ensure Cut participates in PM History; keep focus/hotkeys on the board; avoid remount/`setContent` that wipes History on ordinary edits; surface an explicit Undo control. (2) Add lightweight local draft history (N prior exported_markdown snapshots per documentId, ring buffer) with “Restore previous local draft” so clipboard mishaps are recoverable without Save. Falsify: cut a callout/paragraph, copy other text, Undo restores the cut; after History wipe (reload), Restore previous local draft still recovers the pre-cut body.
+**Surfaces when:** Ctrl+Z, undo, cut paste clipboard, lost prose, Plan Board TipTap, local draft, documentKey remount, Session 26 dogfood
+**Refs:** `MarkdownEditorCore.tsx`; `useWorkspaceDocumentAuthoring.ts`; `tiptapLocalState.ts`; transcript `18fb3866-aa20-45b7-a8a9-5d51e1ba24e4`
+
 ## [READY] Hermes must be able to admit a focused corpus document when graph cannot answer — captured 2026-08-08
 **Context:** Session-26 planning dogfood after locate-party timeout. Operator + diagnosis agree: graph thrash (fat truncated expands) failed a question whose answer lives in `Session 25 - Mireward Gate Battle II.md`. Desired behavior: Hermes sees planning context (e.g. planning Session 26) + lens focus (Session 25) + question type (where were the PCs / what just happened), decides graph won’t help, and **admits/reads that session recap document** instead of neighborhood-flooding Mireward hubs.
 **Insight:** Today’s policy is explicit: “do not search Markdown/corpus”; model tools are expand + `read_graph_source` (anchors only). Server-owned `admitted_recap_excerpt` exists only for latest-recap “what changed?” sensemaking — not a general agent decision to open the focused session recap. Party battle-positions are weak/absent as durable graph facts; forcing graph-only retrieval is the product bug. Free-form corpus browse is still wrong (PII, thrash, wrong file); **bounded admit of the lens/focus document** (and maybe active prep) is the right seam.
@@ -347,7 +377,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** flora/fauna taxonomy, Mirathorn products, Float Goat species vs Bubbles individual, object_pass commodity spam, ecology corpus hubs
 **Refs:** `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md` §9.4, `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md` §4.3, `src/graph_memory/extraction/category_candidate_graph_extractor.py` (`NODE_EXTRACTION_PASSES`)
 
-
 ## [READY] Restore Edit bar + highlight→new-node authoring path — captured 2026-07-18
 **Priority:** high — operator expects the previously dogfooded highlight / create-node loop; currently missing or undiscoverable on `/ingest`, and unclear whether `/plan` Edit dock still works end-to-end.
 **Context:** 2026-07-18 `/ingest` dogfood (C1 Session 3). Operator looked for the Edit bar used to highlight prose and make new graph nodes; on ingest the chrome Edit dock is absent (`MemoryIngestPage` never passes `editorTools`). Plan still wires `AppChrome` + `onEditorToolsChange` → `PlanSurfaceCanvas` (lock, World Graph object search/`PlanGraphRefSearch`, insert blocks). Graph Review main canvas is read-only (`readerMode`); selection→author actions live under Tools → Author Draft only.
@@ -468,14 +497,12 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** editing `IngestionModule.tsx`, dogfooding `/ingest` Ingest Recap, or simplifying operator ingest UX.
 **Refs:** `apps/live-control-ui/src/modules/ingestReadiness.ts`, `apps/live-control-ui/src/modules/IngestionModule.tsx`, `src/live_play/recap_ingest_pipeline.py`, 2026-08-07 New-recap unload patch on `main` worktree
 
-
 ## [READY] Plan board hydrates from Session Prep.md — captured 2026-07-13
 **Context:** PR008A `/plan?dogfood=1` dogfood note; promoted 2026-07-13 after confirming load (not Agent graph dogfood) is the next Plan prep-loop gap. Design checkpoint step 2 in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
 **Insight:** On load, the TipTap working board shows starter scaffold sections (Session intent / Memory / Scenes / Reference chips) rather than the full corpus Session Prep document. Save already writes `Session N Prep.md`; reload does not re-read it. Feels like a broken markdown loader.
 **Action:** Implement corpus hydration for the primary Plan board: on mount, if no fresher localStorage draft, read registry-owned `planningDocument.targetRelpath` via existing citation-source/markdown→TipTap path and seed the board; show nav status (corpus vs local-draft overlay). Select boards with opaque `?documentId=<uuid>` (workspace document registry), not session-derived IDs. Defer multi-doc picker UI and `session_N/` crawl.
 **Surfaces when:** Plan canvas load/hydration, Session Prep save/load, `/plan` dogfood, TipTap markdown import, leaving PR008B for Plan prep UX
 **Refs:** `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts` (`sessionPrepStarterMarkdown`), `tiptapLocalState.ts`, `PlanSurfaceCanvas.tsx`, `stash@{0}` SessionPrepLoader hydration, `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md` §7 step 2
-
 
 ## Resume after Graph Review authored-memory pause
 
@@ -1340,14 +1367,12 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 
 **Phase A results** (`evals/mirathorn_vertical_slice/output/parity_experiment_20260420T214522Z/parity_results.md`, ~32min, gpt-5.4-mini, 126 evidence units from `The City of Mirathorn.md`):
 
-
 | Cell | Path   | bs  | facts (extracted) | facts (post-store) |
 | ---- | ------ | --- | ----------------- | ------------------ |
 | A    | direct | 1   | 349               | —                  |
 | B    | direct | 5   | 359               | —                  |
 | C    | cli    | 1   | 600               | 600                |
 | D    | cli    | 5   | 382               | 382                |
-
 
 **What the data falsifies:**
 

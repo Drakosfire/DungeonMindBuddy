@@ -12,12 +12,14 @@ import {
   buildEvidenceSnapshots,
   createAgentInteractionThread,
   deleteAgentThread,
+  loadAgentThread,
   loadAgentThreadById,
   loadAgentThreadIndex,
   normalizePlanAgentBackend,
   persistAgentThread,
   persistAgentThreadIndex,
   renameAgentThread,
+  resolveThreadIndexDocumentId,
   safeTraceForPersistence,
   turnFromResponse,
   worstCorpusFreshnessStatus,
@@ -25,6 +27,8 @@ import {
   threadIndexStorageKey,
   threadStorageKey,
   upsertThreadInIndex,
+  AGENT_THREAD_INDEX_STORAGE_PREFIX,
+  AGENT_ACTIVE_THREAD_STORAGE_PREFIX,
 } from "./agentInteractionHistory";
 
 const NO_LEAK_MARKERS = [
@@ -130,6 +134,57 @@ describe("agentInteractionHistory", () => {
       activeThreadId: null,
       threads: [],
     });
+  });
+
+  it("Plan index keys ignore planning documentId", () => {
+    expect(resolveThreadIndexDocumentId("plan", "doc-a")).toBeNull();
+    expect(threadIndexStorageKey("longmont-c2", "plan", "doc-a")).toBe(
+      threadIndexStorageKey("longmont-c2", "plan", null),
+    );
+    expect(resolveThreadIndexDocumentId("build", "doc-a")).toBe("doc-a");
+  });
+
+  it("migrates legacy document-scoped Plan indexes into the campaign Plan index", () => {
+    const thread = makeThread("Session 23 planning");
+    thread.documentId = "doc-session-23";
+    localStorage.setItem(threadStorageKey("longmont-c2", thread.threadId), JSON.stringify(thread));
+    localStorage.setItem(
+      `${AGENT_THREAD_INDEX_STORAGE_PREFIX}:longmont-c2:plan:doc-session-23`,
+      JSON.stringify({
+        schema: "agent_interaction_thread_index_v2",
+        campaignId: "longmont-c2",
+        surfaceId: "plan",
+        documentId: "doc-session-23",
+        activeThreadId: thread.threadId,
+        threads: [{
+          threadId: thread.threadId,
+          title: thread.title,
+          createdAt: thread.createdAt,
+          updatedAt: thread.updatedAt,
+          turnCount: 1,
+          activeBackend: "hermes",
+          hermesSessionId: null,
+        }],
+      }),
+    );
+    localStorage.setItem(
+      `${AGENT_ACTIVE_THREAD_STORAGE_PREFIX}:longmont-c2:plan:doc-session-23`,
+      thread.threadId,
+    );
+
+    const index = loadAgentThreadIndex("longmont-c2", "plan", "doc-session-26");
+    expect(index.documentId).toBeNull();
+    expect(index.activeThreadId).toBe(thread.threadId);
+    expect(index.threads[0]?.title).toBe("Session 23 planning");
+    expect(loadAgentThread("longmont-c2", "plan", "doc-session-26")?.threadId).toBe(thread.threadId);
+    expect(localStorage.getItem(`${AGENT_THREAD_INDEX_STORAGE_PREFIX}:longmont-c2:plan:doc-session-23`)).toBeNull();
+  });
+
+  it("persists Plan threads into the campaign index even when thread.documentId is set", () => {
+    const thread = { ...makeThread("Continuity"), documentId: "doc-session-26" };
+    persistAgentThread(thread);
+    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", "doc-session-26"))).toContain("Continuity");
+    expect(loadAgentThreadIndex("longmont-c2", "plan", null).activeThreadId).toBe(thread.threadId);
   });
 
   it("persists and loads an index round-trip", () => {
