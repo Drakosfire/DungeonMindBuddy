@@ -6,6 +6,7 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionOptions,
     extract_category_candidate_graph,
 )
+from src.graph_memory.extraction.known_entity_registry import KnownEntity
 from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
 from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE,
@@ -281,3 +282,76 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
     deferred_ids = {item["item_id"] for item in result.candidate_graph.get("deferred_items") or []}
     assert "ignored:noise" in ignored_ids
     assert "deferred:followup" in deferred_ids
+
+
+class LedgerRecordingClient(RecordingClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.user_contents: dict[str, str] = {}
+
+    def run_pass(
+        self,
+        pass_name: str,
+        *,
+        model_id: str,
+        instructions: str,
+        user_content: str,
+        pass_spec=None,
+    ) -> dict[str, Any]:
+        self.user_contents[pass_name] = user_content
+        return super().run_pass(
+            pass_name,
+            model_id=model_id,
+            instructions=instructions,
+            user_content=user_content,
+            pass_spec=pass_spec,
+        )
+
+
+def _world_extra_entity() -> KnownEntity:
+    return KnownEntity(
+        slug="loc_mirathorn",
+        kind="location",
+        display_name="Mirathorn",
+        canonical_entity_id="node:mirathorn",
+        aliases=(),
+        hub_rel_path="",
+        hub_resolved=False,
+        corpus_ref={
+            "type": "location",
+            "ref_id": "node:mirathorn",
+            "resolution": "world_head",
+        },
+        match_terms=(("Mirathorn", "canonical"),),
+    )
+
+
+def test_extra_known_entities_feed_ledger_suppression_and_mentions() -> None:
+    client = LedgerRecordingClient()
+    result = extract_category_candidate_graph(
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            session_number=24,
+            source_span_index=_span_index(session_id="session-24"),
+            profile=RECAP_EXTRACTION_PROFILE,
+            extra_known_entities=(_world_extra_entity(),),
+        ),
+        client=client,
+    )
+    # The world entity appears in the deterministic known-entity ledger shown
+    # to every node pass.
+    ledger = client.user_contents["actor_pass"]
+    assert "Mirathorn" in ledger
+    assert "node:mirathorn" in ledger
+    # Deterministic mention matching covers the extra entity.
+    mention_ids = {
+        m["canonical_entity_id"]
+        for m in result.known_entity_mentions["mentions"]
+    }
+    assert "node:mirathorn" in mention_ids
+    # The LLM's duplicate "Mirathorn" location node is suppressed; the
+    # non-colliding guard node survives.
+    labels = {n.get("label") for n in result.candidate_graph["nodes"]}
+    assert "Mirathorn" not in labels
+    assert "Mirathorn Guard" in labels

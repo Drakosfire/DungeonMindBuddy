@@ -131,6 +131,23 @@ def test_rejected_encounter_job_adjacent_node_types_remain_invalid():
         assert issues[0].object_id == f"node:{node_type}:001"
 
 
+def test_candidate_node_parses_party_claimed_fill_fields_and_ignores_unknown_keys():
+    node_payload = {
+        **_node("character", "Filled PC", "fill"),
+        "description": "Party claimed-fill enriched description",
+        "session_actions": ["cast Fireball", "  ", "negotiate"],
+        "enriched_by": "party_claimed_fill",
+        "future_field": "should be ignored",
+    }
+    preview = candidate_graph_preview_from_dict(_preview_payload([node_payload]))
+    node = preview.nodes[0]
+
+    assert node.description == "Party claimed-fill enriched description"
+    assert node.session_actions == ("cast Fireball", "negotiate")
+    assert node.enriched_by == "party_claimed_fill"
+    assert not hasattr(node, "future_field")
+
+
 def test_encounter_and_quest_candidate_preview_round_trips_and_validates():
     preview = candidate_graph_preview_from_dict(
         _preview_payload(

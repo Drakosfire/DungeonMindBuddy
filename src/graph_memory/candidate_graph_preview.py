@@ -80,6 +80,8 @@ class CandidateNode:
     warnings: tuple[str, ...] = ()
     aliases: tuple[str, ...] = ()
     corpus_ref: CorpusRef | None = None
+    session_actions: tuple[str, ...] = ()
+    enriched_by: str | None = None
 
 @dataclass(frozen=True)
 class CandidateEdge:
@@ -232,12 +234,36 @@ def corpus_ref_from_dict(data: Mapping[str, Any] | None) -> CorpusRef | None: re
 def _refs(items: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...]) -> tuple[EvidenceRef, ...]:
     return tuple(evidence_ref_from_dict(x) for x in items)
 
+def _optional_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+def candidate_node_from_dict(data: Mapping[str, Any]) -> CandidateNode:
+    return CandidateNode(
+        node_id=str(data["node_id"]),
+        label=str(data["label"]),
+        node_type=str(data["node_type"]),
+        description=data.get("description"),
+        importance=str(data["importance"]),
+        semantic_state=semantic_state_from_dict(data["semantic_state"]),
+        evidence_refs=_refs(data.get("evidence_refs", ())),
+        proposed_action=str(data["proposed_action"]),
+        confidence=str(data["confidence"]),
+        warnings=tuple(data.get("warnings", ())),
+        aliases=tuple(str(a).strip() for a in (data.get("aliases") or ()) if str(a).strip()),
+        corpus_ref=corpus_ref_from_dict(data.get("corpus_ref")),
+        session_actions=tuple(str(a).strip() for a in (data.get("session_actions") or ()) if str(a).strip()),
+        enriched_by=_optional_str(data.get("enriched_by")),
+    )
+
 def candidate_graph_preview_from_dict(data: Mapping[str, Any]) -> CandidateGraphPreview:
     return CandidateGraphPreview(
         schema=data["schema"], version=data["version"], preview_id=data["preview_id"],
         campaign_id=data.get("campaign_id"), session_id=data.get("session_id"),
         source_artifact_ids=tuple(data.get("source_artifact_ids", ())), status=data["status"],
-        nodes=tuple(CandidateNode(**{**n, "semantic_state": semantic_state_from_dict(n["semantic_state"]), "evidence_refs": _refs(n.get("evidence_refs", ())), "warnings": tuple(n.get("warnings", ())), "aliases": tuple(str(a).strip() for a in (n.get("aliases") or ()) if str(a).strip()), "corpus_ref": corpus_ref_from_dict(n.get("corpus_ref"))}) for n in data.get("nodes", ())),
+        nodes=tuple(candidate_node_from_dict(n) for n in data.get("nodes", ())),
         edges=tuple(CandidateEdge(**{**e, "semantic_state": semantic_state_from_dict(e["semantic_state"]), "evidence_refs": _refs(e.get("evidence_refs", ())), "warnings": tuple(e.get("warnings", ()))}) for e in data.get("edges", ())),
         beats=tuple(SessionBeat(**{**b, "involved_node_ids": tuple(b.get("involved_node_ids", ())), "evidence_refs": _refs(b.get("evidence_refs", ())), "unresolved_thread_node_ids": tuple(b.get("unresolved_thread_node_ids", ())), "warnings": tuple(b.get("warnings", ()))}) for b in data.get("beats", ())),
         proposed_writes=tuple(ProposedWrite(**{**w, "evidence_refs": _refs(w.get("evidence_refs", ()))}) for w in data.get("proposed_writes", ())),

@@ -30,6 +30,15 @@ describe("recapNodePresentation", () => {
     expect(presentation.threadHints[0]?.rankReason).toBe("current session");
   });
 
+  it("hides deterministic party stub summaries from planning glance", () => {
+    const node = {
+      ...(session23UnionSupergraphFixture.node_views.pc_caelynn as GraphProjectionNodeView),
+      summary: "Deterministic party context anchor",
+    };
+    const presentation = buildRecapNodePresentation(node);
+    expect(presentation.summary).toBeNull();
+  });
+
   it("formats evidence, adjacency, and expansion labels for planning display", () => {
     const node = session23UnionSupergraphFixture.node_views.pc_caelynn as GraphProjectionNodeView;
     const focusBadge = node.evidence_badges[0];

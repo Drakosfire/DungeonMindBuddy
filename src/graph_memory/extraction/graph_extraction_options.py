@@ -29,6 +29,7 @@ class GraphExtractionOptions:
     enable_encounter_job_pass: bool = False
     enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
+    enable_party_claimed_fill: bool = False
 
     @classmethod
     def from_profile(
@@ -63,4 +64,5 @@ class GraphExtractionOptions:
             enable_encounter_job_pass=profile.enable_encounter_job_pass,
             enable_party_participation_attachment=profile.enable_party_participation_attachment,
             enable_encounter_job_edge_guidance=profile.enable_encounter_job_edge_guidance,
+            enable_party_claimed_fill=profile.enable_party_claimed_fill,
         )

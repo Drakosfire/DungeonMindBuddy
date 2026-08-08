@@ -16,7 +16,7 @@ class ExtractionPassSpec:
     default_node_type: str | None
     instruction: str
     progress_label: str
-    kind: str = "node"  # node | beat | encounter_job | edge
+    kind: str = "node"  # node | beat | encounter_job | edge | claimed_fill
     include_dispositions: bool = False
     allowed_node_types: tuple[str, ...] | None = None
 
@@ -39,6 +39,9 @@ class ExtractionProfile:
     enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
     enable_dynamic_node_vocabulary_packet: bool = False
+    # Post-sanitize LLM fill onto deterministic PC/companion anchors using
+    # known-entity mention claims. Descriptions + evidence only.
+    enable_party_claimed_fill: bool = False
     # Recap-oriented session relationship sweep (session-sized counts, refugee/
     # siege/evac guidance). Profiles that own evergreen prose must set False.
     enable_session_relationship_sweep: bool = True

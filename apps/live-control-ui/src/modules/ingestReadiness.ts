@@ -136,14 +136,14 @@ function buildNextAction(options: {
     ) {
       return "Next: Build Frontmatter Seed, then breadcrumb and session memory.";
     }
-    return "Next: paste or load a recap, then Generate Recap Memory.";
+    return "Next: Prep for ingest to package the session recap.";
   }
   if (!graphIsReady) {
-    return "Next: run category graph extraction to materialize the preview union store.";
+    return "Next: Run ingest to extract the graph.";
   }
   const counts = preview ? formatGraphCounts(preview) : null;
   const countHint = counts ? ` (${counts})` : "";
-  return `Recap memory ready; preview union on disk${countHint}. Review Graph Review for coverage — re-extract if the graph looks thin.`;
+  return `Session packaged; graph on disk${countHint}. Review in workbench — check Replace existing graph to re-run ingest.`;
 }
 
 export function buildIngestReadiness(result: RecapIngestStatus | null | undefined): IngestReadiness {

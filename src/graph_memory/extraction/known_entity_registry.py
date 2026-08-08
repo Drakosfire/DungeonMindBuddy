@@ -358,3 +358,162 @@ def build_known_entity_registry(
             ),
         },
     )
+
+
+# --------------------------------------------------------------------------- #
+# World-graph-derived known entities (canonical-ID carry-forward)
+# --------------------------------------------------------------------------- #
+
+# Node kinds whose world-head entries may suppress session re-extraction by
+# default: concrete, durable things. Threads/mysteries/events are excluded by
+# default — a new session legitimately introduces new threads whose labels may
+# rhyme with old ones, so suppressing on them needs an explicit opt-in.
+WORLD_ENTITY_DEFAULT_KINDS: frozenset[str] = frozenset(
+    {"npc", "location", "group", "faction", "item", "creature"}
+)
+
+
+def _world_match_terms(
+    label: str,
+    aliases: Sequence[str],
+) -> tuple[tuple[str, str], ...]:
+    """Match terms from world-graph label + aliases only.
+
+    Unlike party members, world node ids are not human slugs, so no slug-derived
+    surfaces are synthesized (an id like ``loc_mireward_reach`` would only emit
+    junk terms). The same unsafe-alias guard applies to graph aliases.
+    """
+    terms: list[tuple[str, str]] = []
+    seen_norm: set[str] = set()
+
+    def add(surface: str, method: str) -> None:
+        cleaned = surface.strip()
+        if not cleaned:
+            return
+        if method != "canonical" and is_unsafe_match_alias(cleaned):
+            return
+        key = normalize_match_surface(cleaned)
+        if not key or key in seen_norm:
+            return
+        seen_norm.add(key)
+        terms.append((cleaned, method))
+
+    add(label, "canonical")
+    for alias in aliases:
+        add(alias, "alias")
+    terms.sort(key=lambda item: len(normalize_match_surface(item[0])), reverse=True)
+    return tuple(terms)
+
+
+def known_entities_from_world_graph(
+    graph: Mapping[str, Any],
+    *,
+    include_kinds: frozenset[str] | set[str] | None = WORLD_ENTITY_DEFAULT_KINDS,
+    campaign_scopes: frozenset[str] | set[str] | None = None,
+) -> list[KnownEntity]:
+    """Convert world head-revision nodes into known-entity registry entries.
+
+    ``canonical_entity_id`` is the world ``node_id`` verbatim, so deterministic
+    mention matching, the prompt ledger, duplicate suppression, and evidence
+    attachment all reference the canonical world identity directly.
+
+    ``include_kinds`` filters on the node ``kind`` (``None`` = all kinds).
+    ``campaign_scopes`` filters on ``state.campaign_scope`` (``None`` = all
+    scopes; nodes with no scope are kept only when no filter is given).
+    The graph-level ``aliases`` mapping (surface -> node_id) supplements each
+    node's own ``aliases`` list.
+    """
+    raw_nodes = graph.get("nodes") if isinstance(graph, Mapping) else None
+    if isinstance(raw_nodes, Mapping):
+        node_rows = list(raw_nodes.values())
+    elif isinstance(raw_nodes, Sequence):
+        node_rows = list(raw_nodes)
+    else:
+        node_rows = []
+
+    graph_aliases: dict[str, list[str]] = {}
+    raw_aliases = graph.get("aliases") if isinstance(graph, Mapping) else None
+    if isinstance(raw_aliases, Mapping):
+        for surface, target in raw_aliases.items():
+            if isinstance(target, str) and isinstance(surface, str):
+                graph_aliases.setdefault(target, []).append(surface)
+
+    entities: list[KnownEntity] = []
+    for row in node_rows:
+        if not isinstance(row, Mapping):
+            continue
+        node_id = str(row.get("node_id") or "").strip()
+        label = str(row.get("label") or "").strip()
+        if not node_id or not label:
+            continue
+        kind = str(row.get("kind") or row.get("role") or "").strip()
+        if include_kinds is not None and kind not in include_kinds:
+            continue
+        state = row.get("state") if isinstance(row.get("state"), Mapping) else {}
+        scope = str(state.get("campaign_scope") or "").strip()
+        if campaign_scopes is not None and scope not in campaign_scopes:
+            continue
+        aliases: list[str] = []
+        for a in row.get("aliases") or []:
+            if isinstance(a, str) and a.strip():
+                aliases.append(a)
+        for a in graph_aliases.get(node_id, []):
+            if a.strip():
+                aliases.append(a)
+        match_terms = _world_match_terms(label, aliases)
+        if not match_terms:
+            continue
+        entities.append(
+            KnownEntity(
+                slug=node_id,
+                kind=kind or "world_node",
+                display_name=label,
+                canonical_entity_id=node_id,
+                aliases=tuple(a for a in aliases),
+                hub_rel_path="",
+                hub_resolved=False,
+                corpus_ref={
+                    "type": kind or "world_node",
+                    "ref_id": node_id,
+                    "resolution": "world_head",
+                },
+                match_terms=match_terms,
+            )
+        )
+    return entities
+
+
+def extend_known_entity_registry(
+    base: KnownEntityRegistry,
+    extras: Sequence[KnownEntity],
+) -> KnownEntityRegistry:
+    """Append extra known entities; base (party roster) wins id/slug collisions.
+
+    Party anchors are the authoritative identity for PCs/companions, so an extra
+    carrying the same slug or canonical id is dropped rather than merged.
+    """
+    seen_slugs = {e.slug for e in base.entities}
+    seen_ids = {e.canonical_entity_id for e in base.entities}
+    merged = list(base.entities)
+    added = 0
+    for entity in extras:
+        if entity.slug in seen_slugs or entity.canonical_entity_id in seen_ids:
+            continue
+        seen_slugs.add(entity.slug)
+        seen_ids.add(entity.canonical_entity_id)
+        merged.append(entity)
+        added += 1
+    diagnostics = dict(base.diagnostics)
+    diagnostics["extra_entities_offered"] = len(extras)
+    diagnostics["extra_entities_added"] = added
+    diagnostics["entity_count"] = len(merged)
+    return KnownEntityRegistry(
+        campaign_id=base.campaign_id,
+        session_key=base.session_key,
+        roster_session_key=base.roster_session_key,
+        roster_carry_forward=base.roster_carry_forward,
+        registry_relpath=base.registry_relpath,
+        entities=tuple(merged),
+        warnings=base.warnings,
+        diagnostics=diagnostics,
+    )

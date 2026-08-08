@@ -35,7 +35,15 @@ from src.graph_memory.extraction.known_entity_mention_schema import (
 from src.graph_memory.extraction.known_entity_registry import (
     KnownEntityRegistry,
     build_known_entity_registry,
+    extend_known_entity_registry,
     normalize_match_surface,
+)
+from src.graph_memory.extraction.party_claimed_fill import (
+    PASS_NAME as PARTY_CLAIMED_FILL_PASS,
+    PASS_PROGRESS_LABEL as PARTY_CLAIMED_FILL_PROGRESS,
+    apply_fill_to_parts,
+    build_claim_packet,
+    render_fill_prompt,
 )
 from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
 from src.graph_memory.extraction.recap_extraction_profile import (
@@ -270,7 +278,13 @@ class CategoryGraphExtractionOptions:
     enable_encounter_job_pass: bool = False
     enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
+    # None = inherit from profile; True/False overrides.
+    enable_party_claimed_fill: bool | None = None
     profile: ExtractionProfile | None = None
+    # Additional known entities (e.g. world-head nodes) merged into the
+    # deterministic registry after party-roster construction; party wins
+    # id/slug collisions. Default None preserves party-only behavior.
+    extra_known_entities: tuple[Any, ...] | None = None
 
 
 def resolve_source_identity(
@@ -405,10 +419,17 @@ def source_packet_rows_from_span_index(
             continue
         start_line = int(span.get("line_start") or span.get("start_line") or 1)
         end_line = int(span.get("line_end") or span.get("end_line") or start_line)
-        text = str(span.get("text") or span.get("text_excerpt") or "").strip()
-        if not text and lines is not None and start_line >= 1:
-            text = "\n".join(lines[start_line - 1 : end_line]).strip()
+        # Offsets in known_entity_mentions are validated against packaged recap
+        # line joins *including* leading indentation. Prefer reconstructing from
+        # source_text without strip(); .strip() previously shifted every match on
+        # indented session-recap paragraphs (Session 25 dogfood: surface_text
+        # mismatch at offsets by the indent width).
+        text = ""
+        if lines is not None and start_line >= 1 and end_line >= start_line:
+            text = "\n".join(lines[start_line - 1 : end_line])
         if not text:
+            text = str(span.get("text") or span.get("text_excerpt") or "")
+        if not text.strip():
             continue
         rows.append(
             {
@@ -1677,6 +1698,11 @@ def run_category_pipeline(
             options.session_number,
             party_ctx=party_ctx,
         )
+    if options.extra_known_entities:
+        known_entity_registry = extend_known_entity_registry(
+            known_entity_registry,
+            options.extra_known_entities,
+        )
     known_entity_sidecar = match_known_entities_in_spans(
         source_rows,
         known_entity_registry,
@@ -1868,6 +1894,65 @@ def run_category_pipeline(
         allowed_span_refs,
         drop_empty_evidence_edges=inherit_edge_evidence,
     )
+    claimed_fill_diag: dict[str, Any] = {"enabled": False}
+    enable_claimed_fill = (
+        active_profile.enable_party_claimed_fill
+        if options.enable_party_claimed_fill is None
+        else options.enable_party_claimed_fill
+    )
+    if enable_claimed_fill:
+        mentions_payload = known_entity_sidecar.to_dict()
+        packet = build_claim_packet(
+            mentions_payload=mentions_payload,
+            span_index=options.source_span_index,
+            source_text=options.source_text,
+            candidate_nodes=list(sanitized.get("nodes") or []),
+            source_packet_rows_from_span_index=source_packet_rows_from_span_index,
+        )
+        if packet.claims:
+            fill_spec = ExtractionPassSpec(
+                pass_id=PARTY_CLAIMED_FILL_PASS,
+                default_node_type="character",
+                instruction=(
+                    "Enrich owned party PC/companion nodes. Never invent new party IDs."
+                ),
+                progress_label=PARTY_CLAIMED_FILL_PROGRESS,
+                kind="claimed_fill",
+            )
+            _notify(PARTY_CLAIMED_FILL_PASS, "running")
+            fill_result = client.run_pass(
+                PARTY_CLAIMED_FILL_PASS,
+                model_id=model_id,
+                instructions=(
+                    "You enrich owned party graph nodes. Never invent new party node IDs. "
+                    "Ground every quote in the provided source packet paragraphs."
+                ),
+                user_content=render_fill_prompt(packet),
+                pass_spec=fill_spec,
+            )
+            pass_outputs[PARTY_CLAIMED_FILL_PASS] = fill_result["parsed"]
+            pass_telemetry[PARTY_CLAIMED_FILL_PASS] = {
+                "cost_usd": fill_result["cost_usd"],
+                "usage": fill_result["usage"],
+                "elapsed_ms": fill_result["elapsed_ms"],
+                "response_id": fill_result["response_id"],
+                "progress_label": PARTY_CLAIMED_FILL_PROGRESS,
+            }
+            total_cost += fill_result["cost_usd"]
+            sanitized, claimed_fill_diag = apply_fill_to_parts(
+                sanitized,
+                parsed=fill_result["parsed"],
+                claimed_ids={c.node_id for c in packet.claims},
+            )
+            claimed_fill_diag["claim_count"] = len(packet.claims)
+            claimed_fill_diag["cost_usd"] = fill_result["cost_usd"]
+            _notify(PARTY_CLAIMED_FILL_PASS, "complete")
+        else:
+            claimed_fill_diag = {
+                "enabled": True,
+                "skipped": "no_pc_companion_mentions",
+                "claim_count": 0,
+            }
     recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
         sanitized
     )
@@ -1876,6 +1961,7 @@ def run_category_pipeline(
         **repair_diag,
         **sanitize_diag,
         "standing_context_partition": partition_diag,
+        "party_claimed_fill": claimed_fill_diag,
         "profile_id": active_profile.profile_id,
         "profile_version": active_profile.profile_version,
     }
@@ -1939,6 +2025,7 @@ def run_category_pipeline(
             "node_vocabulary_ablation": node_vocabulary_diag,
             "dynamic_node_vocabulary_packet": dynamic_node_vocabulary_diag,
             "standing_context_partition": partition_diag,
+            "party_claimed_fill": claimed_fill_diag,
             **EXTRACTOR_RESULT_DIAGNOSTICS,
         },
         registry_context_graph=registry_context_graph,

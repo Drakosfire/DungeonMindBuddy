@@ -6,6 +6,8 @@ from src.graph_memory.extraction.known_entity_registry import (
     KnownEntity,
     KnownEntityRegistry,
     build_known_entity_registry,
+    extend_known_entity_registry,
+    known_entities_from_world_graph,
     normalize_match_surface,
     resolve_roster_session_key,
 )
@@ -88,3 +90,101 @@ def test_manual_registry_preserves_injected_entities() -> None:
         entities=(entity,),
     )
     assert registry.by_canonical_id()["node:hero-a"].display_name == "Hero A"
+
+
+def _world_graph_fixture() -> dict:
+    return {
+        "nodes": {
+            "loc_mireward_gate": {
+                "node_id": "loc_mireward_gate",
+                "label": "Mireward Gate",
+                "kind": "location",
+                "aliases": ["the Gate"],
+                "state": {"campaign_scope": "longmont-c2"},
+            },
+            "npc_edge_survivors": {
+                "node_id": "npc_edge_survivors",
+                "label": "Edge Survivors",
+                "kind": "group",
+                "aliases": [],
+                "state": {"campaign_scope": "longmont-c2"},
+            },
+            "thread_weave_distortion": {
+                "node_id": "thread_weave_distortion",
+                "label": "Weave Distortion",
+                "kind": "thread",
+                "state": {"campaign_scope": "longmont-c2"},
+            },
+            "loc_other_campaign": {
+                "node_id": "loc_other_campaign",
+                "label": "Farhold",
+                "kind": "location",
+                "state": {"campaign_scope": "longmont-c1"},
+            },
+            "party_node": {
+                "node_id": "node:caelynn",
+                "label": "Caelynn",
+                "kind": "pc",
+                "state": {"campaign_scope": "longmont-c2"},
+            },
+        },
+        "aliases": {
+            "Old Gate": "loc_mireward_gate",
+        },
+    }
+
+
+def test_world_graph_loader_filters_kinds_and_scopes() -> None:
+    entities = known_entities_from_world_graph(
+        _world_graph_fixture(),
+        campaign_scopes=frozenset({"longmont-c2"}),
+    )
+    ids = {e.canonical_entity_id for e in entities}
+    # Concrete same-campaign kinds kept; thread and other-campaign dropped.
+    assert "loc_mireward_gate" in ids
+    assert "npc_edge_survivors" in ids
+    assert "thread_weave_distortion" not in ids
+    assert "loc_other_campaign" not in ids
+    # World pc nodes are excluded by default: party anchors own PC identity.
+    assert "node:caelynn" not in ids
+
+
+def test_world_graph_loader_all_kinds_opt_in() -> None:
+    entities = known_entities_from_world_graph(
+        _world_graph_fixture(),
+        include_kinds=None,
+        campaign_scopes=frozenset({"longmont-c2"}),
+    )
+    assert "thread_weave_distortion" in {e.canonical_entity_id for e in entities}
+
+
+def test_world_graph_loader_aliases_and_identity() -> None:
+    entities = known_entities_from_world_graph(_world_graph_fixture())
+    by_id = {e.canonical_entity_id: e for e in entities}
+    gate = by_id["loc_mireward_gate"]
+    assert gate.display_name == "Mireward Gate"
+    surfaces = {surface for surface, _ in gate.match_terms}
+    # Own label + node aliases + graph-level alias map, no id-derived junk.
+    assert "Mireward Gate" in surfaces
+    assert "Old Gate" in surfaces
+    assert all("loc_mireward_gate" not in s for s in surfaces)
+    assert gate.corpus_ref["resolution"] == "world_head"
+    survivors = by_id["npc_edge_survivors"]
+    assert survivors.slug == "npc_edge_survivors"
+    assert survivors.kind == "group"
+
+
+def test_extend_registry_party_wins_collisions() -> None:
+    base = build_known_entity_registry("longmont-c2", 22)
+    extras = known_entities_from_world_graph(
+        _world_graph_fixture(), include_kinds=None
+    )
+    extended = extend_known_entity_registry(base, extras)
+    ids = extended.by_canonical_id()
+    # Party anchor kept its original registry entry, not the world-graph one.
+    assert ids["node:caelynn"].hub_resolved is True
+    added = set(ids) - {e.canonical_entity_id for e in base.entities}
+    assert {"loc_mireward_gate", "npc_edge_survivors"} <= added
+    assert extended.diagnostics["extra_entities_offered"] == len(extras)
+    assert extended.diagnostics["extra_entities_added"] == len(added)
+    assert extended.diagnostics["entity_count"] == len(extended.entities)

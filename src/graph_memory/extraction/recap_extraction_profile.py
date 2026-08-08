@@ -109,6 +109,7 @@ def _build_recap_profile(
     enable_party_participation_attachment: bool,
     enable_encounter_job_edge_guidance: bool,
     enable_dynamic_node_vocabulary_packet: bool,
+    enable_party_claimed_fill: bool = True,
 ) -> ExtractionProfile:
     return ExtractionProfile(
         profile_id=profile_id,
@@ -125,6 +126,7 @@ def _build_recap_profile(
         enable_party_participation_attachment=enable_party_participation_attachment,
         enable_encounter_job_edge_guidance=enable_encounter_job_edge_guidance,
         enable_dynamic_node_vocabulary_packet=enable_dynamic_node_vocabulary_packet,
+        enable_party_claimed_fill=enable_party_claimed_fill,
         allow_null_session=False,
         schema_ids={
             "envelope": "dmb_live_extractor_candidate_envelope_v0",
@@ -143,6 +145,7 @@ RECAP_EXTRACTION_PROFILE = register_extraction_profile(
         enable_party_participation_attachment=False,
         enable_encounter_job_edge_guidance=False,
         enable_dynamic_node_vocabulary_packet=False,
+        enable_party_claimed_fill=True,
     )
 )
 

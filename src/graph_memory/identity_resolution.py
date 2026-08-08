@@ -239,6 +239,80 @@ def _shared_content_tokens(a: str, b: str) -> set[str]:
     return ta & tb
 
 
+# --------------------------------------------------------------------------- #
+# Audited label-token aliases (node/edge comparator matching only)
+# --------------------------------------------------------------------------- #
+#
+# Curated token-equivalence groups consulted by ``node_match_score`` when plain
+# label similarity fails. Admission bar for a group: a concrete, evidenced
+# comparator miss or production near-duplicate recorded next to the entry.
+# Keep this table small — every entry widens what may pair.
+#
+# Deliberately NOT applied inside ``_label_similarity``/``label_tokens`` so the
+# staged binder's base score, write/ignored/deferred matching, and
+# ``canonical_node_key`` (production dedup keys) keep their pure behavior.
+
+LABEL_ALIAS_POLICY_VERSION = "label_token_alias_v1"
+
+_LABEL_ALIAS_GROUPS: tuple[frozenset[str], ...] = (
+    # S23 staged-edge work (2026-06-29): live `group_edge_survivors`
+    # "Edge Survivors" vs gold `node:edge-refugees` "Edge refugees" — same
+    # collective, divergent head token; blocked `leads`/`displaced_from` edges.
+    frozenset({"refugee", "survivor"}),
+)
+
+# Alias-decisive label similarity is capped below substring (0.9) so curated
+# equivalence never outranks a direct label relationship. At 0.85 a same-class
+# alias pair scores 0.15 + 0.55*0.85 = 0.6175 — clears the 0.6 assignment
+# threshold with class agreement and stays below it without.
+_ALIAS_SIMILARITY_CAP = 0.85
+
+
+def _alias_expand_tokens(tokens: set[str]) -> set[str]:
+    expanded = set(tokens)
+    for token in tokens:
+        for group in _LABEL_ALIAS_GROUPS:
+            if token in group:
+                expanded |= group
+    return expanded
+
+
+def _alias_label_similarity(a: str, b: str) -> tuple[float, bool]:
+    """Alias-aware label similarity. Returns ``(score, alias_decisive)``.
+
+    Fires only when every diverging token on both sides is bridged by an alias
+    group; a diverging token with no alias link vetoes the boost (guards
+    "Mireward Reach" vs "Mireward Survivors"-class false pairs, and bare
+    generic labels pairing into multi-token ones). Plural-folded token equality
+    (tripod/tripods) is treated the same way, also capped.
+    """
+    base = _label_similarity(a, b)
+    if base >= 0.9:  # exact or substring — alias cannot improve on it
+        return base, False
+    ta = {_fold_plural(t) for t in label_tokens(a)}
+    tb = {_fold_plural(t) for t in label_tokens(b)}
+    if not ta or not tb:
+        return base, False
+    if ta == tb:  # plural-fold-only divergence
+        return max(base, _ALIAS_SIMILARITY_CAP), True
+    diff = ta ^ tb
+    for token in diff:
+        groups = [g for g in _LABEL_ALIAS_GROUPS if token in g]
+        if not groups:
+            return base, False
+        if not any((g & ta) and (g & tb) for g in groups):
+            return base, False
+    ea, eb = _alias_expand_tokens(ta), _alias_expand_tokens(tb)
+    alias_score = 1.0 if ea == eb else len(ea & eb) / len(ea | eb)
+    score = max(base, min(alias_score, _ALIAS_SIMILARITY_CAP))
+    return score, score > base
+
+
+def alias_assisted_labels(a: str, b: str) -> bool:
+    """True when the alias/plural-fold path raised the label score."""
+    return _alias_label_similarity(a, b)[1]
+
+
 def _span_overlap_supported(a: Any, b: Any) -> bool:
     """Whether a paragraph-level span overlap may grant the same-source boost.
 
@@ -310,7 +384,7 @@ def node_match_score(a: Any, b: Any) -> float:
     ca, cb = corpus_ref_identity(a), corpus_ref_identity(b)
     if ca and cb and ca == cb:
         return 1.0
-    lab = _label_similarity(str(_get(a, "label", "")), str(_get(b, "label", "")))
+    lab = _alias_label_similarity(str(_get(a, "label", "")), str(_get(b, "label", "")))[0]
     anchors_overlap = bool(evidence_anchor_ids(a) & evidence_anchor_ids(b))
     # span overlap is the addressing-scheme-agnostic form of the anchor signal:
     # gold cites a curated source_anchor_id, an autonomous extractor cites a

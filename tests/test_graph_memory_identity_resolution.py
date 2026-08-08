@@ -168,6 +168,108 @@ def test_corpus_ref_splits_distinct_subentities_sharing_a_hub():
     assert len(result["kept"]) == 2
 
 
+# --------------------------------------------------------------------------- #
+# Audited label-token aliases (label_token_alias_v1)
+# --------------------------------------------------------------------------- #
+
+def test_alias_survivors_refugees_same_class_matches():
+    # The S23 comparator miss this table exists for: live "Edge Survivors"
+    # (group) vs gold "Edge refugees" (group) — same collective, one divergent
+    # head token bridged by the curated group.
+    gold = _node("node:edge-refugees", "Edge refugees", "group")
+    cand = _node("group_edge_survivors", "Edge Survivors", "group")
+    assert ir.label_similarity(gold["label"], cand["label"]) < 0.6  # pure similarity still fails
+    score = ir.node_match_score(gold, cand)
+    assert score >= 0.6
+    assert score < 0.9  # alias-decisive stays below substring/exact territory
+    assert ir.nodes_match(gold, cand)
+    assert ir.alias_assisted_labels(gold["label"], cand["label"])
+
+
+def test_alias_cross_class_stays_capped():
+    # Same labels but divergent classes (creature vs collective): the class
+    # mismatch cap (0.45) holds even with the alias boost — no cross-class merge.
+    gold = _node("node:edge-refugees", "Edge refugees", "group")
+    cand = _node("creature_edge_survivors", "Edge Survivors", "creature")
+    assert ir.node_match_score(gold, cand) <= 0.45
+    assert not ir.nodes_match(gold, cand)
+
+
+def test_alias_diverging_token_veto():
+    # "Mireward Reach" vs "Mireward Survivors": the diverging token "reach" has
+    # no alias bridge, so the alias path must veto and leave the base score.
+    gold = _node("node:mireward-reach", "Mireward Reach", "location")
+    cand = _node("loc_mireward_survivors", "Mireward Survivors", "location")
+    assert not ir.alias_assisted_labels(gold["label"], cand["label"])
+    assert not ir.nodes_match(gold, cand)
+
+
+def test_alias_bare_label_does_not_pair_into_multitoken():
+    # Bare "Refugees" must not alias-pair with "Edge Survivors": the shared
+    # generic token "edge" is only on one side and has no alias bridge.
+    gold = _node("node:refugees", "Refugees", "group")
+    cand = _node("group_edge_survivors", "Edge Survivors", "group")
+    assert not ir.nodes_match(gold, cand)
+
+
+def test_alias_plural_fold_only_divergence():
+    # tripod/tripods-style plural drift now aligns via the fold path, capped.
+    gold = _node("node:tripod", "Giant tripod meat monster", "creature")
+    cand = _node("creature_tripods", "Giant tripods meat monster", "creature")
+    assert ir.alias_assisted_labels(gold["label"], cand["label"])
+    assert ir.nodes_match(gold, cand)
+
+
+def test_alias_exact_and_substring_unchanged():
+    # Exact and substring relationships were already fine and must not change.
+    # (No shared anchors/corpus_ref here, so class+label components only.)
+    exact = ir.node_match_score(
+        _node("a", "Mireward Reach", "location"), _node("b", "Mireward Reach", "location")
+    )
+    assert exact == round(0.15 + 0.55 * 1.0, 4)
+    substring = ir.node_match_score(
+        _node("a", "Mireward", "location"), _node("b", "Mireward Reach", "location")
+    )
+    assert substring == round(0.15 + 0.55 * 0.9, 4)
+    assert not ir.alias_assisted_labels("Mireward", "Mireward Reach")
+    assert not ir.alias_assisted_labels("Mireward Reach", "Mireward Reach")
+
+
+def test_alias_unblocks_target_edges_but_family_mismatch_still_blocks():
+    # Edge level: gold `Brin --leads--> Edge refugees` vs live
+    # `Brin --leads--> Edge Survivors` now aligns (authority family, same rel),
+    # while the family-drifted live `Brin --member_of--> Edge Survivors` must
+    # stay below threshold (endpoint_score * 0.6 < 0.6).
+    gold_nodes = {
+        "node:brin-holloway": _node("node:brin-holloway", "Brin Holloway", "character"),
+        "node:edge-refugees": _node("node:edge-refugees", "Edge refugees", "group"),
+    }
+    cand_nodes = {
+        "npc_brin_holloway": _node("npc_brin_holloway", "Brin Holloway", "npc"),
+        "group_edge_survivors": _node("group_edge_survivors", "Edge Survivors", "group"),
+    }
+    gold_edge = {
+        "edge_id": "edge:brin-leads-edge-refugees",
+        "relationship_type": "leads",
+        "from_node_id": "node:brin-holloway",
+        "to_node_id": "node:edge-refugees",
+    }
+    aligned_live = {
+        "edge_id": "edge:staged:leads",
+        "relationship_type": "leads",
+        "from_node_id": "npc_brin_holloway",
+        "to_node_id": "group_edge_survivors",
+    }
+    drifted_live = {
+        "edge_id": "edge:staged:member",
+        "relationship_type": "member_of",
+        "from_node_id": "npc_brin_holloway",
+        "to_node_id": "group_edge_survivors",
+    }
+    assert ir.edge_match_score(gold_edge, aligned_live, gold_nodes, cand_nodes) >= 0.6
+    assert ir.edge_match_score(gold_edge, drifted_live, gold_nodes, cand_nodes) < 0.6
+
+
 def test_corpus_ref_merges_same_entity_across_sessions():
     # Same type+ref_id merges across sessions even when hub_path differs or is absent.
     s22 = _node(

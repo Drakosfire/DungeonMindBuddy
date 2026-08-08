@@ -196,6 +196,10 @@ def category_edge_pass_json_schema() -> dict[str, Any]:
 
 def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
     """Derive structured-output schema from ExtractionPassSpec.kind (+ policy fields)."""
+    from src.graph_memory.extraction.party_claimed_fill import (
+        party_claimed_fill_json_schema,
+    )
+
     kind = str(getattr(pass_spec, "kind", "node") or "node")
     include_dispositions = bool(getattr(pass_spec, "include_dispositions", False))
     allowed = getattr(pass_spec, "allowed_node_types", None)
@@ -203,6 +207,8 @@ def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
         return category_beat_pass_json_schema()
     if kind == "edge":
         return category_edge_pass_json_schema()
+    if kind == "claimed_fill":
+        return party_claimed_fill_json_schema()
     if kind == "encounter_job":
         return category_node_pass_json_schema(
             include_dispositions=False,
@@ -218,12 +224,19 @@ def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
 
 def schema_for_pass(pass_name: str) -> dict[str, Any]:
     """Legacy name-based dispatcher kept for eval harnesses and older callers."""
+    from src.graph_memory.extraction.party_claimed_fill import (
+        PASS_NAME as CLAIMED_FILL_PASS,
+        party_claimed_fill_json_schema,
+    )
+
     if pass_name == "thread_pass":
         return category_node_pass_json_schema(include_dispositions=True)
     if pass_name == "beat_pass":
         return category_beat_pass_json_schema()
     if pass_name == "edge_pass":
         return category_edge_pass_json_schema()
+    if pass_name == CLAIMED_FILL_PASS:
+        return party_claimed_fill_json_schema()
     if pass_name == "encounter_job_pass":
         return category_node_pass_json_schema(
             include_dispositions=False,

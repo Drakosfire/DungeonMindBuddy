@@ -147,6 +147,24 @@ def compare_parts(
         threshold=0.6,
     )
 
+    # Audit: surface matched node pairs whose score depended on the curated
+    # label-alias layer, so alias-assisted recalls are visible in reports.
+    node_pairs = ir.best_match_assignment(
+        list(gold_parts.get("nodes", [])), live_nodes, ir.node_match_score, threshold=0.6
+    )
+    alias_assisted = [
+        {
+            "gold_node_id": _id_of(gold_parts["nodes"][gi], "node_id"),
+            "gold_label": _label_of(gold_parts["nodes"][gi], "label"),
+            "candidate_node_id": _id_of(live_nodes[ci], "node_id"),
+            "candidate_label": _label_of(live_nodes[ci], "label"),
+        }
+        for gi, ci, _s in node_pairs
+        if ir.alias_assisted_labels(
+            _label_of(gold_parts["nodes"][gi], "label"), _label_of(live_nodes[ci], "label")
+        )
+    ]
+
     scores = {
         "node_recall": _score(len(coverage["matched_nodes"]), coverage["gold_nodes_total"]),
         "edge_recall": _score(len(coverage["matched_edges"]), coverage["gold_edges_total"]),
@@ -184,6 +202,10 @@ def compare_parts(
             "best_match_assignment": True,
             "candidate_dedup_applied": True,
             "id_match_not_required": True,
+            "label_alias": {
+                "policy_version": ir.LABEL_ALIAS_POLICY_VERSION,
+                "alias_assisted_node_matches": alias_assisted,
+            },
             "edge_miss_diagnostics": edge_miss_diagnostics,
         },
     }

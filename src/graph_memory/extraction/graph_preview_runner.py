@@ -319,6 +319,7 @@ def run_production_extraction(
         enable_encounter_job_pass=profile.enable_encounter_job_pass,
         enable_party_participation_attachment=profile.enable_party_participation_attachment,
         enable_encounter_job_edge_guidance=profile.enable_encounter_job_edge_guidance,
+        enable_party_claimed_fill=profile.enable_party_claimed_fill,
         enable_dynamic_node_vocabulary_packet=profile.enable_dynamic_node_vocabulary_packet,
         enable_node_vocabulary_packet=(
             request.enable_node_vocabulary_packet

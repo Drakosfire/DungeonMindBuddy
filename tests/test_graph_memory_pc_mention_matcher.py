@@ -81,6 +81,41 @@ def test_exact_and_alias_mentions() -> None:
     assert all(m.canonical_entity_id == "node:caelynn" for m in sidecar.mentions)
 
 
+def test_indented_paragraph_offsets_match_packaged_recap_lines() -> None:
+    """Regression: leading indent must stay in matcher text (Session 25 dogfood)."""
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        source_packet_rows_from_span_index,
+    )
+    from src.graph_memory.ingestion.graph_ingest_validate import _paragraph_text_for_span
+
+    registry = _registry(_entity(slug="karsemine", display_name="Karsemine"))
+    source_text = (
+        "---\ntitle: fixture\n---\n\n"
+        "    Really not wanting to fight inside the walls, Karsemine starts to climb.\n"
+    )
+    span_index = {
+        "spans": [
+            {
+                "kind": "paragraph",
+                "source_span_id": "span:indented",
+                "source_span_ref_id": "span:indented",
+                "start_line": 5,
+                "end_line": 5,
+            }
+        ]
+    }
+    rows = source_packet_rows_from_span_index(span_index, source_text=source_text)
+    assert len(rows) == 1
+    assert rows[0]["text"].startswith("    ")
+    sidecar = match_known_entities_in_spans(rows, registry, session_id="session-25")
+    assert len(sidecar.mentions) == 1
+    mention = sidecar.mentions[0]
+    paragraph = _paragraph_text_for_span(recap_text=source_text, start_line=5, end_line=5)
+    assert paragraph[mention.start_offset : mention.end_offset] == mention.surface_text
+    assert mention.surface_text == "Karsemine"
+    assert mention.start_offset == paragraph.index("Karsemine")
+
+
 def test_case_and_punctuation_tolerant_match() -> None:
     registry = _registry(_entity(slug="baergrom", display_name="Baergrom"))
     spans = [

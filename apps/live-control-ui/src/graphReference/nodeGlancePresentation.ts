@@ -5,6 +5,7 @@ import type {
   GraphProjectionSuggestedExpansion,
   RecapGraphChip,
 } from "../api/types";
+import { primaryGameSummaryForNode } from "../graphObjectCard/graphObjectDisplay";
 import type { GraphNodeGlancePresentation, GraphNodeGlanceThreadHint } from "./types";
 
 function humanizeToken(value: string): string {
@@ -92,7 +93,7 @@ export function buildGraphNodeGlancePresentation(node: GraphProjectionNodeView):
   const focusEvidence = node.evidence_badges.filter((badge) => badge.is_focus_session_evidence);
   const contextEvidence = node.evidence_badges.filter((badge) => !badge.is_focus_session_evidence);
 
-  const summary = node.summary?.trim() || null;
+  const summary = primaryGameSummaryForNode(node);
   const whyNow = focusEvidence.length ? evidencePlanningText(focusEvidence[0]) : null;
   const knownBefore = contextEvidence.length ? evidencePlanningText(contextEvidence[0]) : null;
 

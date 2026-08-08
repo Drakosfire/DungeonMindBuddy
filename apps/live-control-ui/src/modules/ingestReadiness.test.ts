@@ -49,7 +49,7 @@ describe("buildIngestReadiness", () => {
     expect(readiness.memory.state).toBe("ready");
     expect(readiness.graph.state).toBe("not_ready");
     expect(readiness.isComplete).toBe(false);
-    expect(readiness.nextAction).toMatch(/category graph extraction/i);
+    expect(readiness.nextAction).toMatch(/Run ingest/i);
     expect(readiness.nextAction).not.toMatch(/^Complete:/);
   });
 
@@ -74,7 +74,7 @@ describe("buildIngestReadiness", () => {
     expect(readiness.graph.detail).toMatch(/8 edges/);
     expect(readiness.graph.detail).toMatch(/judge coverage/i);
     expect(readiness.nextAction).toMatch(/12 nodes/);
-    expect(readiness.nextAction).toMatch(/thin/i);
+    expect(readiness.nextAction).toMatch(/Replace existing graph|workbench/i);
     expect(readiness.nextAction).not.toMatch(/^Complete:/);
   });
 
