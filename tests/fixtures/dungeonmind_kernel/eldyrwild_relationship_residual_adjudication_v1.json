@@ -116,7 +116,7 @@
     },
     {
       "key": "EXPLICIT_ADAPTER_CANDIDATE",
-      "count": 8
+      "count": 3
     },
     {
       "key": "IDENTITY_NOT_RELATIONSHIP",
@@ -128,7 +128,7 @@
     },
     {
       "key": "SOURCE_CORRECTION_REQUIRED",
-      "count": 28
+      "count": 33
     }
   ],
   "by_responsible_repo": [
@@ -356,11 +356,11 @@
   "by_next_action": [
     {
       "key": "ADD_BUDDY_EXPLICIT_ADAPTER",
-      "count": 8
+      "count": 3
     },
     {
       "key": "AUTHOR_BUDDY_SOURCE_CORRECTION",
-      "count": 28
+      "count": 33
     },
     {
       "key": "DECOMPOSE_COMPOUND_ASSERTION",
@@ -412,26 +412,21 @@
     {
       "name": "buddy-explicit-adapters",
       "responsible_repo": "DungeonMindBuddy",
-      "edge_count": 8,
+      "edge_count": 3,
       "dispositions": [
         "EXPLICIT_ADAPTER_CANDIDATE"
       ],
-      "note": "Buddy\u2192DungeonMind explicit adapters including local reversals.",
+      "note": "Buddy→DungeonMind explicit adapters including local reversals.",
       "edge_ids": [
-        "edge:item:session12:invisibility_potion:carries:node:wolf",
         "edge:item:session17:seed:located_in:pc:stafl",
-        "edge:item:torch:carries:pc:baergrom:passed-to",
-        "edge:item:torch:carries:pc:karsemine:passed-to",
         "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by",
-        "edge:node:pippa:leads_to:loc:stone_bridge",
-        "edge:pc:ephanna:participates_in:node:shepherds_flock",
-        "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
+        "edge:node:pippa:leads_to:loc:stone_bridge"
       ]
     },
     {
       "name": "buddy-source-corrections",
       "responsible_repo": "DungeonMindBuddy",
-      "edge_count": 28,
+      "edge_count": 33,
       "dispositions": [
         "SOURCE_CORRECTION_REQUIRED"
       ],
@@ -443,7 +438,10 @@
         "edge:item-001:located_in:pc:karsemine",
         "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat",
         "edge:item:session11:paper-bird-summons:present_at:npc_grobnok",
+        "edge:item:session12:invisibility_potion:carries:node:wolf",
         "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling",
+        "edge:item:torch:carries:pc:baergrom:passed-to",
+        "edge:item:torch:carries:pc:karsemine:passed-to",
         "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
         "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
         "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
@@ -464,7 +462,9 @@
         "edge:obj:session9:oil:identified_as:node:wolf",
         "edge:pc:bonogo:travels_to:pc:karsemine",
         "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
-        "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso"
+        "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso",
+        "edge:pc:ephanna:participates_in:node:shepherds_flock",
+        "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
       ]
     },
     {
@@ -495,7 +495,7 @@
       "dispositions": [
         "IDENTITY_NOT_RELATIONSHIP"
       ],
-      "note": "Identity seam \u2014 must not enter ordinary relationship vocabulary.",
+      "note": "Identity seam — must not enter ordinary relationship vocabulary.",
       "edge_ids": [
         "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
         "edge:item_enormous_boulder:same_as:item_foot_of_statue",
@@ -520,7 +520,7 @@
         },
         {
           "key": "EXPLICIT_ADAPTER_CANDIDATE",
-          "count": 8
+          "count": 3
         },
         {
           "key": "IDENTITY_NOT_RELATIONSHIP",
@@ -532,7 +532,7 @@
         },
         {
           "key": "SOURCE_CORRECTION_REQUIRED",
-          "count": 28
+          "count": 33
         }
       ],
       "note": "Counts are findings, not targets to zero in this PR.",
@@ -565,11 +565,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
-      "rationale": "Encounter is inside Shatter Mage's tower; tower is mistyped as item. located_in would admit once the place is a location \u2014 do not widen located_in object to arbitrary items for this case.",
+      "rationale": "Encounter is inside Shatter Mage's tower; tower is mistyped as item. located_in would admit once the place is a location — do not widen located_in object to arbitrary items for this case.",
       "source_dm_kind": "dnd5e:encounter",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:located_in"
+      "mapped_dm_term_from_v3": "dnd5e:located_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-1",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+      "grounding_source_span_ref_id": "session-1:recap:paragraph:009",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:009",
+      "grounding_excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -600,7 +608,15 @@
       "source_dm_kind": "dnd5e:group",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:part_of"
+      "mapped_dm_term_from_v3": "dnd5e:part_of",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c2:session-24",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+      "grounding_source_span_ref_id": "session-24:recap:paragraph:011",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:011",
+      "grounding_excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -631,7 +647,15 @@
       "source_dm_kind": "dnd5e:group",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c2:session-24",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+      "grounding_source_span_ref_id": "session-24:recap:paragraph:011",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:011",
+      "grounding_excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -662,7 +686,15 @@
       "source_dm_kind": "dnd5e:group",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:participates_in"
+      "mapped_dm_term_from_v3": "dnd5e:participates_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "grounding_source_span_ref_id": "session-2:recap:paragraph:005",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:005",
+      "grounding_excerpt_sha256": "035939a163504e7defa959b5b918e9d81f2e2a8b7d8cee9538273047ce178f14"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -693,7 +725,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:located_in"
+      "mapped_dm_term_from_v3": "dnd5e:located_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c2:session-24",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+      "grounding_source_span_ref_id": "session-24:recap:paragraph:002",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:002",
+      "grounding_excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -723,7 +763,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "60158de242616baf7d5704fe2d414bbde98db5c005b0a238d0143208d37aca24"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -750,11 +798,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "PREDICATE_MISAPPLIED",
-      "rationale": "Runes are a detection tool for corrupted meat \u2014 investigative/causal use, not dnd5e:leads_to path connectivity between locations.",
+      "rationale": "Runes are a detection tool for corrupted meat — investigative/causal use, not dnd5e:leads_to path connectivity between locations.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads_to"
+      "mapped_dm_term_from_v3": "dnd5e:leads_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:016",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:016",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:016",
+      "grounding_excerpt_sha256": "64ed8eda7657b05085265c6d5ba344750aabb67ca89be27c8cf37c1fdd91c383"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -784,7 +840,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:npc",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:present_at"
+      "mapped_dm_term_from_v3": "dnd5e:present_at",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:003",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:003",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:003",
+      "grounding_excerpt_sha256": "5701aea8ac277922b05cf4ff855176468cd87bd0a862d6eabc584f2e1f418b67"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -804,18 +868,26 @@
         "contribution:4c89cbbf15da5d10",
         "contribution:dba1d85c7eeae8b5"
       ],
-      "disposition": "EXPLICIT_ADAPTER_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:carries",
-      "reverse_endpoints": true,
-      "requires_source_mutation": false,
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
+      "reverse_endpoints": false,
+      "requires_source_mutation": true,
       "responsible_repo": "DungeonMindBuddy",
-      "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
-      "reason_code": "REVERSE_ENDPOINT_FORM",
-      "rationale": "Wolf downs the Invisibility Potion; durable edge has item\u2192npc inverted from agent-carries-item.",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source: Wolf downs an Invisibility Potion and disappears — consumption/use, not carriage. Reversing to dnd5e:carries would invent a different fact; requires authored correction.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:npc",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:carries"
+      "mapped_dm_term_from_v3": "dnd5e:carries",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-12/20260727T181554Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "7184000a8cfbbd993e5e871b48d83fa274cd36d83f5e05a05cdc408b349ca5c9",
+      "grounding_source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21",
+      "grounding_locator_kind": "line_span",
+      "grounding_locator": "21-21",
+      "grounding_excerpt_sha256": "d73faeb3e932af23f8d0f084971c1783dfa42a898ca0b898d2345df7a62e22ff"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -845,7 +917,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads_to"
+      "mapped_dm_term_from_v3": "dnd5e:leads_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-17",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+      "grounding_source_span_ref_id": "session-17:recap:paragraph:011",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:011",
+      "grounding_excerpt_sha256": "3655bfc33cd7d1bcc9d771a66815311a285bbdaec110fc769ef3f076529315fb"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -865,17 +945,25 @@
         "contribution:55047c991813532c"
       ],
       "disposition": "EXPLICIT_ADAPTER_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:carries",
+      "candidate_dungeonmind_term": "dnd5e:holds",
       "reverse_endpoints": true,
       "requires_source_mutation": false,
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
       "reason_code": "REVERSE_ENDPOINT_FORM",
-      "rationale": "Seed falls into Stafl's hand; possession is PC carries item, not item located_in PC.",
+      "rationale": "Source: seed lands in Stafl's hand and tentacles wrap around it — same hand-held possession fact as dnd5e:holds (PC→item), not carries/transport and not item located_in PC.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:located_in"
+      "mapped_dm_term_from_v3": "dnd5e:located_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:008",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-17",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+      "grounding_source_span_ref_id": "session-17:recap:paragraph:008",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:008",
+      "grounding_excerpt_sha256": "77e26f31ebf8253a2dafbf3eb6d1a1514cb4c96ced996d0da63c7c2a3921f461"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -894,18 +982,26 @@
       "supporting_contribution_ids": [
         "contribution:b8d6018f51828276"
       ],
-      "disposition": "EXPLICIT_ADAPTER_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:carries",
-      "reverse_endpoints": true,
-      "requires_source_mutation": false,
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
+      "reverse_endpoints": false,
+      "requires_source_mutation": true,
       "responsible_repo": "DungeonMindBuddy",
-      "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
-      "reason_code": "REVERSE_ENDPOINT_FORM",
-      "rationale": "Torch tossed to Baergrom; reverse to agent-carries-item.",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source/label: torch tossed/passed to Baergrom — transfer/handoff event, not durable carries. Reversing to carries invents carriage instead of preserving the asserted pass.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:carries"
+      "mapped_dm_term_from_v3": "dnd5e:carries",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:005",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:005",
+      "grounding_excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -924,18 +1020,26 @@
       "supporting_contribution_ids": [
         "contribution:b8d6018f51828276"
       ],
-      "disposition": "EXPLICIT_ADAPTER_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:carries",
-      "reverse_endpoints": true,
-      "requires_source_mutation": false,
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
+      "reverse_endpoints": false,
+      "requires_source_mutation": true,
       "responsible_repo": "DungeonMindBuddy",
-      "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
-      "reason_code": "REVERSE_ENDPOINT_FORM",
-      "rationale": "Torch tossed to Karsemine; reverse to agent-carries-item.",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source/label: torch tossed/passed to Karsemine — transfer/handoff event, not durable carries. Reversing to carries invents carriage instead of preserving the asserted pass.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:carries"
+      "mapped_dm_term_from_v3": "dnd5e:carries",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:005",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:005",
+      "grounding_excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -962,11 +1066,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
       "reason_code": "IDENTITY_EQUIVALENCE",
-      "rationale": "Boulder resolves into the statue foot \u2014 same object identity.",
+      "rationale": "Boulder resolves into the statue foot — same object identity.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:005",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-1",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+      "grounding_source_span_ref_id": "session-1:recap:paragraph:005",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:005",
+      "grounding_excerpt_sha256": "b25cee02104801fdf963ac08e66c775d33b82a20cab04ed6cac8fcf54e80a580"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -997,7 +1109,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:located_in"
+      "mapped_dm_term_from_v3": "dnd5e:located_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-1",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+      "grounding_source_span_ref_id": "session-1:recap:paragraph:003",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:003",
+      "grounding_excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1024,11 +1144,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
       "reason_code": "COMPOUND_MULTI_CLAIM",
-      "rationale": "Job posting solicits mercenaries \u2014 audience/mission targeting plus request semantics; not one atomic relationship.",
+      "rationale": "Job posting solicits mercenaries — audience/mission targeting plus request semantics; not one atomic relationship.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:group",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-1",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+      "grounding_source_span_ref_id": "session-1:recap:paragraph:003",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:003",
+      "grounding_excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1058,7 +1186,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "grounding_source_span_ref_id": "session-2:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "40fc0bd571ff9becd666837ccd4b20ec4ab78147a2b1b8d8cc275594269c4cce"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1088,7 +1224,15 @@
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:party",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:located_in"
+      "mapped_dm_term_from_v3": "dnd5e:located_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:011",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:011",
+      "grounding_excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1116,11 +1260,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
       "reason_code": "IDENTITY_EQUIVALENCE",
-      "rationale": "Last warehouse reached is the chilled warehouse \u2014 same place.",
+      "rationale": "Last warehouse reached is the chilled warehouse — same place.",
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "grounding_source_span_ref_id": "session-10:recap:paragraph:007",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:007",
+      "grounding_excerpt_sha256": "4cdafd47f4280d9a563f33fda4cc49b40f5649ab193b77fd32e6c2aa2dc6006d"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1150,7 +1302,15 @@
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:party",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:part_of"
+      "mapped_dm_term_from_v3": "dnd5e:part_of",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:011",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:011",
+      "grounding_excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1181,7 +1341,15 @@
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:contains"
+      "mapped_dm_term_from_v3": "dnd5e:contains",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-1",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+      "grounding_source_span_ref_id": "session-1:recap:paragraph:003",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:003",
+      "grounding_excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1211,7 +1379,15 @@
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-7",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-7/20260721T141659Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8443eb3113eb57236bcd303d21d60b332f659e72048d81a2e32e48fd31ebb471",
+      "grounding_source_span_ref_id": "session-7:recap:paragraph:010",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:010",
+      "grounding_excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1241,7 +1417,15 @@
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:009",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:009",
+      "grounding_excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1269,11 +1453,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
-      "rationale": "College within Mirathorn is location\u2192location located_in once the city is typed as location (currently party).",
+      "rationale": "College within Mirathorn is location→location located_in once the city is typed as location (currently party).",
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:party",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:located_in"
+      "mapped_dm_term_from_v3": "dnd5e:located_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-12/20260727T181554Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "7184000a8cfbbd993e5e871b48d83fa274cd36d83f5e05a05cdc408b349ca5c9",
+      "grounding_source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+      "grounding_locator_kind": "line_span",
+      "grounding_locator": "37-37",
+      "grounding_excerpt_sha256": "d711a26f9a4301621720edfe0be06f551f50f52533827425f8c8f0a856a88773"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1299,11 +1491,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
       "reason_code": "COMPOUND_MULTI_CLAIM",
-      "rationale": "Mushrooms 'to be taken to academy' mixes transport intent, destination, and mystery topic \u2014 not path leads_to.",
+      "rationale": "Mushrooms 'to be taken to academy' mixes transport intent, destination, and mystery topic — not path leads_to.",
       "source_dm_kind": "dnd5e:mystery",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads_to"
+      "mapped_dm_term_from_v3": "dnd5e:leads_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-7",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-7/20260721T141659Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8443eb3113eb57236bcd303d21d60b332f659e72048d81a2e32e48fd31ebb471",
+      "grounding_source_span_ref_id": "session-7:recap:paragraph:010",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:010",
+      "grounding_excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1334,7 +1534,15 @@
       "source_dm_kind": "dnd5e:mystery",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:located_in"
+      "mapped_dm_term_from_v3": "dnd5e:located_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c2:session-24",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+      "grounding_source_span_ref_id": "session-24:recap:paragraph:002",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:002",
+      "grounding_excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1364,7 +1572,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads_to"
+      "mapped_dm_term_from_v3": "dnd5e:leads_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:017",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:017",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:017",
+      "grounding_excerpt_sha256": "195469db602a6a8495c6baf78a121514a32fd53034ae657479a1dfcfd78b04c1"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1394,7 +1610,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:011",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-8",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+      "grounding_source_span_ref_id": "session-8:recap:paragraph:011",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:011",
+      "grounding_excerpt_sha256": "81757b6e05c1e9c7056c342e2439fd41a156912fa12f2c46be87c9c48b33b4f3"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1424,7 +1648,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:serves"
+      "mapped_dm_term_from_v3": "dnd5e:serves",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:006",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-17",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+      "grounding_source_span_ref_id": "session-17:recap:paragraph:006",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:006",
+      "grounding_excerpt_sha256": "e73cd0ebc7f62b6ee75f3ffffd520cf7fbcf3a6e9762e021f0eca80d336409e9"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1450,11 +1682,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
       "reason_code": "REVERSE_ENDPOINT_FORM",
-      "rationale": "Label led_by and source show Lesandra leading cultists; reverse to dnd5e:leads rather than part_of.",
+      "rationale": "Source: Lesandra is at the front of the cultist crowd and orders them silent — same leadership fact as durable led_by label. Rename/reverse part_of→dnd5e:leads (Lesandra→cultists) preserves that fact.",
       "source_dm_kind": "dnd5e:faction",
       "target_dm_kind": "dnd5e:npc",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:part_of"
+      "mapped_dm_term_from_v3": "dnd5e:part_of",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:015",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-17",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+      "grounding_source_span_ref_id": "session-17:recap:paragraph:015",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:015",
+      "grounding_excerpt_sha256": "f9abc60ff4f7fcf05a30c58f7e6029c3af23844a3dcd76857e18fc593b02a0d1"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1480,11 +1720,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
       "reason_code": "COMPOUND_MULTI_CLAIM",
-      "rationale": "Fey bargain offering Torbin mixes deal terms, objective, and custody \u2014 not one relationship.",
+      "rationale": "Fey bargain offering Torbin mixes deal terms, objective, and custody — not one relationship.",
       "source_dm_kind": "dnd5e:faction",
       "target_dm_kind": "dnd5e:npc",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:006",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-8",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+      "grounding_source_span_ref_id": "session-8:recap:paragraph:006",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:006",
+      "grounding_excerpt_sha256": "7b1b712d624ba58dfaba2b93d5d81b6589e2fa7bf92e80ba141617fc914f30f5"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1510,11 +1758,19 @@
       "responsible_repo": "DungeonMind",
       "next_action": "PUBLISH_NEW_DUNGEONMIND_PREDICATE",
       "reason_code": "ATOMIC_MISSING_PREDICATE",
-      "rationale": "Fey appears to Ephanna in prison \u2014 directed appearance/visitation, not present_at a person as place.",
+      "rationale": "Fey appears to Ephanna in prison — directed appearance/visitation, not present_at a person as place.",
       "source_dm_kind": "dnd5e:faction",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:present_at"
+      "mapped_dm_term_from_v3": "dnd5e:present_at",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:005",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-8",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+      "grounding_source_span_ref_id": "session-8:recap:paragraph:005",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:005",
+      "grounding_excerpt_sha256": "d2da32ea1c75fc5b2a8d85b9472cbe72855772b516bc02c6ef9c385a95f777cf"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1545,7 +1801,15 @@
       "source_dm_kind": "dnd5e:party",
       "target_dm_kind": "dnd5e:faction",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:contains"
+      "mapped_dm_term_from_v3": "dnd5e:contains",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "grounding_source_span_ref_id": "session-10:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "86093a00e717bbbf0344ed80101e20639937c029a2c8cca3a5cc7dd24d446647"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1575,7 +1839,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads"
+      "mapped_dm_term_from_v3": "dnd5e:leads",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:008",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:008",
+      "grounding_excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1605,7 +1877,15 @@
       "source_dm_kind": "dnd5e:group",
       "target_dm_kind": "dnd5e:group",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:participates_in"
+      "mapped_dm_term_from_v3": "dnd5e:participates_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-4",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+      "grounding_source_span_ref_id": "session-4:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1631,11 +1911,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
       "reason_code": "EXPLICIT_RENAME_TO_EXISTING",
-      "rationale": "Pippa led the crew to Stone Bridge \u2014 travel to a location. Map to existing travels_to; do not widen location-path leads_to to agents.",
+      "rationale": "Source: party accepts a ride to Stone Bridge with Pippa and she led the crew toward that destination — same agent→location travel fact as dnd5e:travels_to. Do not widen path leads_to to agents.",
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads_to"
+      "mapped_dm_term_from_v3": "dnd5e:leads_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T225156Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "grounding_source_span_ref_id": "session-3:recap:paragraph:017",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:017",
+      "grounding_excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1661,11 +1949,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "PREDICATE_MISAPPLIED",
-      "rationale": "Pippa hitches Bubbles to the wagon \u2014 accompaniment/harness, not travels_to a creature destination.",
+      "rationale": "Pippa hitches Bubbles to the wagon — accompaniment/harness, not travels_to a creature destination.",
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:creature",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:travels_to"
+      "mapped_dm_term_from_v3": "dnd5e:travels_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T225156Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "grounding_source_span_ref_id": "session-3:recap:paragraph:017",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:017",
+      "grounding_excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1697,7 +1993,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:serves"
+      "mapped_dm_term_from_v3": "dnd5e:serves",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-6",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+      "grounding_source_span_ref_id": "session-6:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1729,7 +2033,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:participates_in"
+      "mapped_dm_term_from_v3": "dnd5e:participates_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-6",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+      "grounding_source_span_ref_id": "session-6:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1755,11 +2067,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
       "reason_code": "CONDITION_ATTRIBUTION_NOT_IDENTITY",
-      "rationale": "Torbin begins showing oily-eye symptoms \u2014 condition attribution linked to a mystery node, not identity and not a single relationship.",
+      "rationale": "Torbin begins showing oily-eye symptoms — condition attribution linked to a mystery node, not identity and not a single relationship.",
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:008",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-8",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+      "grounding_source_span_ref_id": "session-8:recap:paragraph:008",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:008",
+      "grounding_excerpt_sha256": "1c78227f9d50f667d613f4a373264f87cd0770e3013771607c881f6527283cc3"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1789,7 +2109,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:serves"
+      "mapped_dm_term_from_v3": "dnd5e:serves",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:010",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:010",
+      "grounding_excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1819,7 +2147,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-4",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+      "grounding_source_span_ref_id": "session-4:recap:paragraph:002",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:002",
+      "grounding_excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1849,7 +2185,15 @@
       "source_dm_kind": "dnd5e:group",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:member_of"
+      "mapped_dm_term_from_v3": "dnd5e:member_of",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-4",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+      "grounding_source_span_ref_id": "session-4:recap:paragraph:002",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:002",
+      "grounding_excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1879,7 +2223,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:part_of"
+      "mapped_dm_term_from_v3": "dnd5e:part_of",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:003",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-17",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+      "grounding_source_span_ref_id": "session-17:recap:paragraph:003",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:003",
+      "grounding_excerpt_sha256": "8c9014fafc086bdf9c03b521052c4ee1704ad140201cd2bdc07947aadd2d2976"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1905,11 +2257,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
       "reason_code": "CONDITION_ATTRIBUTION_NOT_IDENTITY",
-      "rationale": "Bill shows oily-eye symptoms / link to oily-eyed guards mystery \u2014 condition attribution, not identity.",
+      "rationale": "Bill shows oily-eye symptoms / link to oily-eyed guards mystery — condition attribution, not identity.",
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:003",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-8",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+      "grounding_source_span_ref_id": "session-8:recap:paragraph:003",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:003",
+      "grounding_excerpt_sha256": "a19b300fc2d9b2256225687f444298c4223778886cc93aa3c23841a0e387388c"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1941,7 +2301,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:location",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:006",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-6",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+      "grounding_source_span_ref_id": "session-6:recap:paragraph:006",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:006",
+      "grounding_excerpt_sha256": "008e827d51c5f5c149993950ec4e3d7003d48018dbadb1ff6c5053caaea9b422"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1972,7 +2340,15 @@
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads"
+      "mapped_dm_term_from_v3": "dnd5e:leads",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:008",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c2:session-24",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+      "grounding_source_span_ref_id": "session-24:recap:paragraph:008",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:008",
+      "grounding_excerpt_sha256": "2ab9becf0e06d95c3fed34563a1ad2aadbb71667dbdcadeb64dd403406635d32"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1998,11 +2374,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "DIRECTION_CONTRADICTION",
-      "rationale": "Structural threatens Lysandra\u2192cultists contradicts durable qualifier is-threatened-by-cultists; requires authored correction, not auto-reverse.",
+      "rationale": "Structural threatens Lysandra→cultists contradicts durable qualifier is-threatened-by-cultists; requires authored correction, not auto-reverse.",
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:faction",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": "dnd5e:threatens"
+      "mapped_dm_term_from_v3": "dnd5e:threatens",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:013",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-8",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+      "grounding_source_span_ref_id": "session-8:recap:paragraph:013",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:013",
+      "grounding_excerpt_sha256": "b53b65f72cddb16f1bd9abecbd36ef8c4eb43d513391ec4b866a3e57db63e8de"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2028,11 +2412,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "PREDICATE_MISAPPLIED",
-      "rationale": "Meat pile crawls toward rack \u2014 locomotion toward an object, not routes_to/leads_to path semantics.",
+      "rationale": "Meat pile crawls toward rack — locomotion toward an object, not routes_to/leads_to path semantics.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:leads_to"
+      "mapped_dm_term_from_v3": "dnd5e:leads_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:002",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:002",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:002",
+      "grounding_excerpt_sha256": "3fcf9824d52cfd9df98f8131a4beba73abbb2fdf480f651299ddc4fc3e918a3b"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2062,7 +2454,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:carries"
+      "mapped_dm_term_from_v3": "dnd5e:carries",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:007",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:007",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:007",
+      "grounding_excerpt_sha256": "2c3449ed115e829099df1d49a628c0a1286297eae4bc8f6147d02fc6457363af"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2093,7 +2493,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:npc",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:013",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:013",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:013",
+      "grounding_excerpt_sha256": "2ab46b40de6d49e6899c09b3c0b66a962ae5697420e05189bc06b984b827a2ea"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2123,7 +2531,15 @@
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:mystery",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:009",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:009",
+      "grounding_excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2149,11 +2565,19 @@
       "responsible_repo": "DungeonMind",
       "next_action": "PUBLISH_NEW_DUNGEONMIND_PREDICATE",
       "reason_code": "ATOMIC_MISSING_PREDICATE",
-      "rationale": "Bonogo bars the door to protect prisoners \u2014 atomic protection of a group; Buddy predicate name is compound but source claim is protects.",
+      "rationale": "Bonogo bars the door to protect prisoners — atomic protection of a group; Buddy predicate name is compound but source claim is protects.",
       "source_dm_kind": "dnd5e:player_character",
       "target_dm_kind": "dnd5e:group",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:010",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-9",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+      "grounding_source_span_ref_id": "session-9:recap:paragraph:010",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:010",
+      "grounding_excerpt_sha256": "e320ed1be5b62ee199d9d8d1ad66632213bdf9786763a301fc957919ca355db7"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2179,11 +2603,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "PREDICATE_MISAPPLIED",
-      "rationale": "Bonogo climbs to reach/heal Karsemine \u2014 approach to a person, not travels_to a location; widening destinations to PCs would weaken the term.",
+      "rationale": "Bonogo climbs to reach/heal Karsemine — approach to a person, not travels_to a location; widening destinations to PCs would weaken the term.",
       "source_dm_kind": "dnd5e:player_character",
       "target_dm_kind": "dnd5e:player_character",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:travels_to"
+      "mapped_dm_term_from_v3": "dnd5e:travels_to",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:012",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-17",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+      "grounding_source_span_ref_id": "session-17:recap:paragraph:012",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:012",
+      "grounding_excerpt_sha256": "a3a1f2d05e1314437a3294f0da71498b393c62b6a6c2efd3848ef8480cbe8230"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2210,11 +2642,19 @@
       "responsible_repo": "DungeonMind",
       "next_action": "PUBLISH_NEW_DUNGEONMIND_PREDICATE",
       "reason_code": "ATOMIC_MISSING_PREDICATE",
-      "rationale": "Caelynn calls Grobnok \u2014 atomic communication. Do not inherit the compound controls_comms_with name as the published term.",
+      "rationale": "Caelynn calls Grobnok — atomic communication. Do not inherit the compound controls_comms_with name as the published term.",
       "source_dm_kind": "dnd5e:player_character",
       "target_dm_kind": "dnd5e:npc",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:012",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c2:session-24",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+      "grounding_source_span_ref_id": "session-24:recap:paragraph:012",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:012",
+      "grounding_excerpt_sha256": "5a7209ffce4a6baabe8253a44b5a3008310cf0afbc531d38367bf95122e69b2d"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2244,7 +2684,15 @@
       "source_dm_kind": "dnd5e:player_character",
       "target_dm_kind": "dnd5e:group",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:participates_in"
+      "mapped_dm_term_from_v3": "dnd5e:participates_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-4",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+      "grounding_source_span_ref_id": "session-4:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2271,11 +2719,19 @@
       "responsible_repo": "DungeonMindBuddy",
       "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
       "reason_code": "PREDICATE_MISAPPLIED",
-      "rationale": "Ephanna uses mage hand to lasso Bubbles \u2014 tool use, not communications.",
+      "rationale": "Ephanna uses mage hand to lasso Bubbles — tool use, not communications.",
       "source_dm_kind": "dnd5e:player_character",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "SEMANTIC_ADJUDICATION_REQUIRED",
-      "mapped_dm_term_from_v3": null
+      "mapped_dm_term_from_v3": null,
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T225156Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "grounding_source_span_ref_id": "session-3:recap:paragraph:010",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:010",
+      "grounding_excerpt_sha256": "986582e883b98309d4995fd863959f62b2fe970241301843eeb65d9ed0a11d42"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2294,18 +2750,26 @@
       "supporting_contribution_ids": [
         "contribution:8b046da9ec0f4275"
       ],
-      "disposition": "EXPLICIT_ADAPTER_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:member_of",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
       "reverse_endpoints": false,
-      "requires_source_mutation": false,
+      "requires_source_mutation": true,
       "responsible_repo": "DungeonMindBuddy",
-      "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
-      "reason_code": "EXPLICIT_RENAME_TO_EXISTING",
-      "rationale": "Ephanna goes along with / joins The Shepherds Flock \u2014 membership, not participates_in an event.",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source: Ephanna goes along with Lyra's followers, wants to help, then discovers they are called The Shepherds Flock — accompaniment/affiliation discovery, not membership and not participates_in an event. Mapping to dnd5e:member_of would invent a different fact.",
       "source_dm_kind": "dnd5e:player_character",
       "target_dm_kind": "dnd5e:group",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:participates_in"
+      "mapped_dm_term_from_v3": "dnd5e:participates_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:006",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-7",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-7/20260721T141659Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "8443eb3113eb57236bcd303d21d60b332f659e72048d81a2e32e48fd31ebb471",
+      "grounding_source_span_ref_id": "session-7:recap:paragraph:006",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:006",
+      "grounding_excerpt_sha256": "0af02db4e37ab7b55139b4ce09717b224d3146bfc799576da21424c91a3193b3"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -2326,18 +2790,26 @@
         "contribution:cc2574b7d2d274a9",
         "contribution:f43a2446902be8a9"
       ],
-      "disposition": "EXPLICIT_ADAPTER_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:member_of",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
       "reverse_endpoints": false,
-      "requires_source_mutation": false,
+      "requires_source_mutation": true,
       "responsible_repo": "DungeonMindBuddy",
-      "next_action": "ADD_BUDDY_EXPLICIT_ADAPTER",
-      "reason_code": "EXPLICIT_RENAME_TO_EXISTING",
-      "rationale": "Stafl is part of the heroes party; durable participates_in + performance label overstates a membership fact.",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source/label: epic performance spreading the song of the party — performance-for-audience, not membership. Independent party membership cannot replace this assertion's meaning; do not adapt to member_of.",
       "source_dm_kind": "dnd5e:player_character",
       "target_dm_kind": "dnd5e:group",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
-      "mapped_dm_term_from_v3": "dnd5e:participates_in"
+      "mapped_dm_term_from_v3": "dnd5e:participates_in",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+      "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-6",
+      "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+      "grounding_artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+      "grounding_source_span_ref_id": "session-6:recap:paragraph:004",
+      "grounding_locator_kind": "paragraph",
+      "grounding_locator": "paragraph:004",
+      "grounding_excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
     }
   ]
 }

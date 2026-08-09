@@ -35,9 +35,11 @@ from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_confor
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_residual_adjudication import (
     RELATIONSHIP_RESIDUAL_ADJUDICATION_SCHEMA,
+    RELATIONSHIP_RESIDUAL_SOURCE_SEALS_SCHEMA,
     RelationshipResidualAdjudicationReport,
     analyze_eldyrwild_relationship_residual_adjudication,
     compact_relationship_residual_adjudication_report,
+    load_residual_source_seals,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v3 import (
     WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA_V3,
@@ -63,6 +65,7 @@ __all__ = [
     "WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA_V2",
     "WHOLE_WORLD_CONFORMANCE_REPORT_SCHEMA_V3",
     "RELATIONSHIP_RESIDUAL_ADJUDICATION_SCHEMA",
+    "RELATIONSHIP_RESIDUAL_SOURCE_SEALS_SCHEMA",
     "WholeWorldConformanceError",
     "WholeWorldConformanceReport",
     "WholeWorldConformanceReportV2",
@@ -73,6 +76,7 @@ __all__ = [
     "analyze_exact_buddy_world_revision_v3",
     "analyze_eldyrwild_relationship_residual_adjudication",
     "compact_relationship_residual_adjudication_report",
+    "load_residual_source_seals",
     "build_exact_dungeonmind_adoption_revision",
     "build_exact_dungeonmind_adoption_revision_v2",
     "build_exact_dungeonmind_adoption_revision_v3",

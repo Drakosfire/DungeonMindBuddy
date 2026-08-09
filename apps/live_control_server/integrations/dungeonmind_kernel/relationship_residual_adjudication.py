@@ -7,6 +7,9 @@ the World Graph, or implement adoption.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -31,6 +34,17 @@ from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_confor
 
 RELATIONSHIP_RESIDUAL_ADJUDICATION_SCHEMA = (
     "dmb_dungeonmind_relationship_residual_adjudication_v1"
+)
+RELATIONSHIP_RESIDUAL_SOURCE_SEALS_SCHEMA = (
+    "dmb_dungeonmind_relationship_residual_source_seals_v1"
+)
+
+DEFAULT_SOURCE_SEALS_PATH = (
+    Path(__file__).resolve().parents[4]
+    / "tests"
+    / "fixtures"
+    / "dungeonmind_kernel"
+    / "eldyrwild_relationship_residual_source_seals_v1.json"
 )
 
 ELDYRWILD_WORLD_ID = "eldyrwild"
@@ -158,6 +172,15 @@ class RelationshipResidualAdjudicationRecord:
     target_dm_kind: str | None = None
     v3_disposition: str | None = None
     mapped_dm_term_from_v3: str | None = None
+    grounding_evidence_ref_id: str | None = None
+    grounding_source_artifact_id: str | None = None
+    grounding_artifact_uri: str | None = None
+    grounding_artifact_content_sha256: str | None = None
+    grounding_source_span_ref_id: str | None = None
+    grounding_locator_kind: str | None = None
+    grounding_locator: str | None = None
+    grounding_excerpt_sha256: str | None = None
+    grounding_normalized_excerpt: str | None = None
 
 
 @dataclass
@@ -316,6 +339,165 @@ def _insufficient(*, rationale: str) -> AdjudicationFinding:
     )
 
 
+def resolve_repo_uri(uri: str, *, world_graph_root: Path) -> Path:
+    """Resolve ``repo://out/...`` URIs against the world-graph ``out`` root."""
+    if not isinstance(uri, str) or not uri.startswith("repo://"):
+        raise RelationshipResidualAdjudicationError(f"unsupported artifact uri: {uri!r}")
+    rel = uri.removeprefix("repo://")
+    if rel.startswith("out/"):
+        return (world_graph_root / rel.removeprefix("out/")).resolve()
+    return (world_graph_root.parent / rel).resolve()
+
+
+def normalize_excerpt_text(text: str) -> str:
+    return text.strip().replace("\r\n", "\n")
+
+
+def excerpt_sha256(text: str) -> str:
+    return hashlib.sha256(normalize_excerpt_text(text).encode("utf-8")).hexdigest()
+
+
+def _paragraphs_from_text(text: str) -> list[str]:
+    return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+def extract_excerpt_from_artifact(
+    artifact_path: Path,
+    source_span_ref_id: str | None,
+) -> tuple[str, str, str]:
+    """Return ``(normalized_excerpt, locator_kind, locator)`` from a sealed span."""
+    if not source_span_ref_id:
+        raise RelationshipResidualAdjudicationError(
+            f"missing source_span_ref_id for artifact {artifact_path}"
+        )
+    text = artifact_path.read_text(encoding="utf-8")
+    para = re.search(r"paragraph:(\d+)$", source_span_ref_id)
+    if para:
+        number = int(para.group(1))
+        paragraphs = _paragraphs_from_text(text)
+        idx = number - 1
+        if not (0 <= idx < len(paragraphs)):
+            raise RelationshipResidualAdjudicationError(
+                f"paragraph locator out of range: {source_span_ref_id} path={artifact_path}"
+            )
+        excerpt = normalize_excerpt_text(paragraphs[idx])
+        return excerpt, "paragraph", f"paragraph:{number:03d}"
+    line_span = re.search(r"span:[^:]+:(\d+)-(\d+)$", source_span_ref_id)
+    if line_span:
+        start = int(line_span.group(1))
+        end = int(line_span.group(2))
+        lines = text.splitlines()
+        if start < 1 or end < start or end > len(lines):
+            raise RelationshipResidualAdjudicationError(
+                f"line span out of range: {source_span_ref_id} path={artifact_path}"
+            )
+        excerpt = normalize_excerpt_text("\n".join(lines[start - 1 : end]))
+        return excerpt, "line_span", f"{start}-{end}"
+    raise RelationshipResidualAdjudicationError(
+        f"unparsed source_span_ref_id: {source_span_ref_id!r}"
+    )
+
+
+def load_residual_source_seals(
+    path: Path | None = None,
+) -> dict[str, dict[str, Any]]:
+    seals_path = path or DEFAULT_SOURCE_SEALS_PATH
+    payload = json.loads(seals_path.read_text(encoding="utf-8"))
+    if payload.get("schema") != RELATIONSHIP_RESIDUAL_SOURCE_SEALS_SCHEMA:
+        raise RelationshipResidualAdjudicationError(
+            f"unexpected source seals schema: {payload.get('schema')!r}"
+        )
+    seals = payload.get("seals") or []
+    by_edge = {row["edge_id"]: row for row in seals}
+    if len(by_edge) != len(seals):
+        raise RelationshipResidualAdjudicationError("duplicate edge_id in source seals")
+    return by_edge
+
+
+def resolve_primary_evidence_excerpt(
+    store: Any,
+    *,
+    edge_id: str,
+    evidence_ref_ids: list[str],
+    world_graph_root: Path,
+) -> dict[str, Any]:
+    """Resolve the primary supporting source excerpt for one residual edge."""
+    for evidence_ref_id in evidence_ref_ids:
+        evidence = store.evidence.get(evidence_ref_id)
+        if evidence is None:
+            continue
+        artifact_id = getattr(evidence, "source_artifact_id", None)
+        if not artifact_id:
+            continue
+        artifact = store.source_artifacts.get(artifact_id)
+        if artifact is None:
+            continue
+        uri = getattr(artifact, "uri", None) or (
+            artifact.get("uri") if isinstance(artifact, dict) else None
+        )
+        content_sha = getattr(artifact, "content_sha256", None) or (
+            artifact.get("content_sha256") if isinstance(artifact, dict) else None
+        )
+        span_ref = getattr(evidence, "source_span_ref_id", None)
+        if not uri:
+            continue
+        path = resolve_repo_uri(uri, world_graph_root=world_graph_root)
+        if not path.is_file():
+            raise RelationshipResidualAdjudicationError(
+                f"source artifact missing on disk for {edge_id}: {path}"
+            )
+        live_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        if content_sha and live_sha != content_sha:
+            raise RelationshipResidualAdjudicationError(
+                f"artifact content sha mismatch for {artifact_id}: "
+                f"{live_sha} != {content_sha}"
+            )
+        excerpt, locator_kind, locator = extract_excerpt_from_artifact(path, span_ref)
+        return {
+            "evidence_ref_id": evidence_ref_id,
+            "source_artifact_id": artifact_id,
+            "artifact_uri": uri,
+            "artifact_content_sha256": content_sha or live_sha,
+            "source_span_ref_id": span_ref,
+            "locator_kind": locator_kind,
+            "locator": locator,
+            "normalized_excerpt": excerpt,
+            "excerpt_sha256": excerpt_sha256(excerpt),
+        }
+    raise RelationshipResidualAdjudicationError(
+        f"no resolvable source excerpt for residual edge {edge_id}"
+    )
+
+
+def verify_excerpt_against_seal(
+    live: Mapping[str, Any],
+    seal: Mapping[str, Any],
+    *,
+    edge_id: str,
+) -> None:
+    """Fail closed when live source resolution disagrees with the sealed oracle."""
+    expected_sha = seal.get("excerpt_sha256")
+    live_sha = live.get("excerpt_sha256")
+    if expected_sha != live_sha:
+        raise RelationshipResidualAdjudicationError(
+            f"excerpt seal mismatch for {edge_id}: live={live_sha} seal={expected_sha}"
+        )
+    if seal.get("artifact_content_sha256") != live.get("artifact_content_sha256"):
+        raise RelationshipResidualAdjudicationError(
+            f"artifact seal mismatch for {edge_id}"
+        )
+    if seal.get("source_artifact_id") != live.get("source_artifact_id"):
+        raise RelationshipResidualAdjudicationError(
+            f"source_artifact_id seal mismatch for {edge_id}"
+        )
+    if normalize_excerpt_text(seal.get("normalized_excerpt") or "") != normalize_excerpt_text(
+        live.get("normalized_excerpt") or ""
+    ):
+        raise RelationshipResidualAdjudicationError(
+            f"normalized excerpt text seal mismatch for {edge_id}"
+        )
+
+
 # Exact Eldyrwild residual findings. Keys must equal the live v3 residual set.
 ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
     "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower": _source(
@@ -365,12 +547,11 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
             "event, not a person. Widening would weaken present_at."
         ),
     ),
-    "edge:item:session12:invisibility_potion:carries:node:wolf": _adapter(
-        "dnd5e:carries",
-        reverse_endpoints=True,
+    "edge:item:session12:invisibility_potion:carries:node:wolf": _source(
         rationale=(
-            "Wolf downs the Invisibility Potion; durable edge has item→npc "
-            "inverted from agent-carries-item."
+            "Source: Wolf downs an Invisibility Potion and disappears — "
+            "consumption/use, not carriage. Reversing to dnd5e:carries would "
+            "invent a different fact; requires authored correction."
         ),
     ),
     "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling": _source(
@@ -380,22 +561,27 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
         ),
     ),
     "edge:item:session17:seed:located_in:pc:stafl": _adapter(
-        "dnd5e:carries",
+        "dnd5e:holds",
         reverse_endpoints=True,
         rationale=(
-            "Seed falls into Stafl's hand; possession is PC carries item, not "
-            "item located_in PC."
+            "Source: seed lands in Stafl's hand and tentacles wrap around it — "
+            "same hand-held possession fact as dnd5e:holds (PC→item), not "
+            "carries/transport and not item located_in PC."
         ),
     ),
-    "edge:item:torch:carries:pc:baergrom:passed-to": _adapter(
-        "dnd5e:carries",
-        reverse_endpoints=True,
-        rationale="Torch tossed to Baergrom; reverse to agent-carries-item.",
+    "edge:item:torch:carries:pc:baergrom:passed-to": _source(
+        rationale=(
+            "Source/label: torch tossed/passed to Baergrom — transfer/handoff "
+            "event, not durable carries. Reversing to carries invents carriage "
+            "instead of preserving the asserted pass."
+        ),
     ),
-    "edge:item:torch:carries:pc:karsemine:passed-to": _adapter(
-        "dnd5e:carries",
-        reverse_endpoints=True,
-        rationale="Torch tossed to Karsemine; reverse to agent-carries-item.",
+    "edge:item:torch:carries:pc:karsemine:passed-to": _source(
+        rationale=(
+            "Source/label: torch tossed/passed to Karsemine — transfer/handoff "
+            "event, not durable carries. Reversing to carries invents carriage "
+            "instead of preserving the asserted pass."
+        ),
     ),
     "edge:item_enormous_boulder:same_as:item_foot_of_statue": _identity(
         rationale="Boulder resolves into the statue foot — same object identity.",
@@ -493,8 +679,9 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
         "dnd5e:leads",
         reverse_endpoints=True,
         rationale=(
-            "Label led_by and source show Lesandra leading cultists; reverse to "
-            "dnd5e:leads rather than part_of."
+            "Source: Lesandra is at the front of the cultist crowd and orders "
+            "them silent — same leadership fact as durable led_by label. Rename/"
+            "reverse part_of→dnd5e:leads (Lesandra→cultists) preserves that fact."
         ),
     ),
     "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain": _compound(
@@ -534,8 +721,9 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
     "edge:node:pippa:leads_to:loc:stone_bridge": _adapter(
         "dnd5e:travels_to",
         rationale=(
-            "Pippa led the crew to Stone Bridge — travel to a location. Map to "
-            "existing travels_to; do not widen location-path leads_to to agents."
+            "Source: party accepts a ride to Stone Bridge with Pippa and she "
+            "led the crew toward that destination — same agent→location travel "
+            "fact as dnd5e:travels_to. Do not widen path leads_to to agents."
         ),
     ),
     "edge:node:pippa:travels_to:node:bubbles": _source(
@@ -679,18 +867,19 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
             "Ephanna uses mage hand to lasso Bubbles — tool use, not communications."
         ),
     ),
-    "edge:pc:ephanna:participates_in:node:shepherds_flock": _adapter(
-        "dnd5e:member_of",
+    "edge:pc:ephanna:participates_in:node:shepherds_flock": _source(
         rationale=(
-            "Ephanna goes along with / joins The Shepherds Flock — membership, not "
-            "participates_in an event."
+            "Source: Ephanna goes along with Lyra's followers, wants to help, "
+            "then discovers they are called The Shepherds Flock — accompaniment/"
+            "affiliation discovery, not membership and not participates_in an event. "
+            "Mapping to dnd5e:member_of would invent a different fact."
         ),
     ),
-    "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party": _adapter(
-        "dnd5e:member_of",
+    "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party": _source(
         rationale=(
-            "Stafl is part of the heroes party; durable participates_in + performance "
-            "label overstates a membership fact."
+            "Source/label: epic performance spreading the song of the party — "
+            "performance-for-audience, not membership. Independent party membership "
+            "cannot replace this assertion's meaning; do not adapt to member_of."
         ),
     ),
 }
@@ -724,7 +913,14 @@ def _supports_for_edge(store: Any, edge_id: str) -> list[dict[str, Any]]:
     return supports
 
 
-def _ground_edge(store: Any, edge: Any, vocabulary: Any) -> dict[str, Any]:
+def _ground_edge(
+    store: Any,
+    edge: Any,
+    vocabulary: Any,
+    *,
+    world_graph_root: Path,
+    seals_by_edge: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
     source = store.nodes[edge.source_node_id]
     target = store.nodes[edge.target_node_id]
     source_dm, _ = _endpoint_dm_kinds(store, edge.source_node_id)
@@ -754,6 +950,18 @@ def _ground_edge(store: Any, edge: Any, vocabulary: Any) -> dict[str, Any]:
         for refs in (support.get("per_contribution_evidence_ref_ids") or {}).values():
             evidence_ids.extend(refs or [])
     evidence_ids = list(dict.fromkeys(evidence_ids))
+    live_excerpt = resolve_primary_evidence_excerpt(
+        store,
+        edge_id=edge.edge_id,
+        evidence_ref_ids=evidence_ids,
+        world_graph_root=world_graph_root,
+    )
+    seal = seals_by_edge.get(edge.edge_id)
+    if seal is None:
+        raise RelationshipResidualAdjudicationError(
+            f"missing source seal for residual edge {edge.edge_id}"
+        )
+    verify_excerpt_against_seal(live_excerpt, seal, edge_id=edge.edge_id)
     return {
         "edge": edge,
         "source_buddy_kind": source.kind,
@@ -773,6 +981,7 @@ def _ground_edge(store: Any, edge: Any, vocabulary: Any) -> dict[str, Any]:
             edge_id=edge.edge_id,
         ),
         "mapping": resolve_buddy_predicate_mapping_v3(edge.predicate),
+        "grounding": live_excerpt,
     }
 
 
@@ -841,6 +1050,7 @@ def _build_record(
     finding: AdjudicationFinding,
 ) -> RelationshipResidualAdjudicationRecord:
     edge = grounded["edge"]
+    grounding = grounded.get("grounding") or {}
     return RelationshipResidualAdjudicationRecord(
         schema=RELATIONSHIP_RESIDUAL_ADJUDICATION_SCHEMA,
         edge_id=edge.edge_id,
@@ -864,6 +1074,15 @@ def _build_record(
         target_dm_kind=grounded["target_dm_kind"],
         v3_disposition=grounded["v3_disposition"],
         mapped_dm_term_from_v3=grounded["mapped_dm_term"],
+        grounding_evidence_ref_id=grounding.get("evidence_ref_id"),
+        grounding_source_artifact_id=grounding.get("source_artifact_id"),
+        grounding_artifact_uri=grounding.get("artifact_uri"),
+        grounding_artifact_content_sha256=grounding.get("artifact_content_sha256"),
+        grounding_source_span_ref_id=grounding.get("source_span_ref_id"),
+        grounding_locator_kind=grounding.get("locator_kind"),
+        grounding_locator=grounding.get("locator"),
+        grounding_excerpt_sha256=grounding.get("excerpt_sha256"),
+        grounding_normalized_excerpt=grounding.get("normalized_excerpt"),
     )
 
 
@@ -956,8 +1175,10 @@ def analyze_eldyrwild_relationship_residual_adjudication(
     world_id: str = ELDYRWILD_WORLD_ID,
     revision_id: str = ELDYRWILD_REVISION_ID,
     findings: Mapping[str, AdjudicationFinding] | None = None,
+    source_seals_path: Path | None = None,
 ) -> RelationshipResidualAdjudicationReport:
     findings_map = dict(findings or ELDYRWILD_RESIDUAL_FINDINGS)
+    seals_by_edge = load_residual_source_seals(source_seals_path)
     digest_before = snapshot_world_graph_tree_digest(root, world_id)
     manifest, store = _load_exact_buddy_revision(
         root=root, world_id=world_id, revision_id=revision_id
@@ -989,6 +1210,14 @@ def analyze_eldyrwild_relationship_residual_adjudication(
             f"residual predicate table drift: {dict(pred_counts)}"
         )
 
+    seal_ids = set(seals_by_edge)
+    if seal_ids != residual_ids:
+        raise RelationshipResidualAdjudicationError(
+            "source seals do not cover exactly the v3 residual set: "
+            f"missing={sorted(residual_ids - seal_ids)[:5]} "
+            f"extra={sorted(seal_ids - residual_ids)[:5]}"
+        )
+
     # Count represented / mechanics for report parity with v3
     represented = 0
     mechanics = 0
@@ -1017,7 +1246,13 @@ def analyze_eldyrwild_relationship_residual_adjudication(
             raise RelationshipResidualAdjudicationError(
                 "uses_statblock leaked into residual adjudication set"
             )
-        grounded = _ground_edge(store, edge, vocabulary)
+        grounded = _ground_edge(
+            store,
+            edge,
+            vocabulary,
+            world_graph_root=root,
+            seals_by_edge=seals_by_edge,
+        )
         finding = findings_map[edge.edge_id]
         if (
             finding.candidate_dungeonmind_term
@@ -1132,6 +1367,15 @@ def compact_relationship_residual_adjudication_report(
                 "target_dm_kind": r.target_dm_kind,
                 "v3_disposition": r.v3_disposition,
                 "mapped_dm_term_from_v3": r.mapped_dm_term_from_v3,
+                "grounding_evidence_ref_id": r.grounding_evidence_ref_id,
+                "grounding_source_artifact_id": r.grounding_source_artifact_id,
+                "grounding_artifact_uri": r.grounding_artifact_uri,
+                "grounding_artifact_content_sha256": r.grounding_artifact_content_sha256,
+                "grounding_source_span_ref_id": r.grounding_source_span_ref_id,
+                "grounding_locator_kind": r.grounding_locator_kind,
+                "grounding_locator": r.grounding_locator,
+                "grounding_excerpt_sha256": r.grounding_excerpt_sha256,
+                # Excerpt text lives in the independent seals fixture; keep only digest here.
             }
             for r in sorted(report.records, key=lambda row: row.edge_id)
         ],
