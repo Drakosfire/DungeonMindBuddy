@@ -1,9 +1,10 @@
 # Design Agent Source Set — Curated Manifest
 
-**Status:** ACTIVE REFERENCE / process index
-**Created:** 2026-08-02
-**Snapshot date:** 2026-08-02 (Project Sources filenames from design-agent Sources pane)
-**Repository base at audit:** `917b9d5dff3985b3664aa274eafad7eacb776658` (`origin/main`)
+**Status:** ACTIVE REFERENCE / process index  
+**Created:** 2026-08-02  
+**Repository authority refresh:** 2026-08-09 after Campaign Supergraph re-anchor on `377ca60e146df2c9a801ebcb864a9dd9b0183dbe`  
+**Project Sources snapshot date:** 2026-08-02 (filenames from design-agent Sources pane; not re-observed on 2026-08-09)  
+**Repository base at latest authority refresh:** `377ca60e146df2c9a801ebcb864a9dd9b0183dbe` (`main` after PR #531)  
 **Document class:** curated source index — **not** architecture, roadmap, or PR-sequence authority
 
 ## Purpose
@@ -11,6 +12,8 @@
 Give the design agent one checked-in entrypoint for **which repository documents to treat as current**, how Project Source filenames map to those documents, and what to do when attachments conflict with GitHub.
 
 This file is an **index**. It does not invent Campaign Supergraph sequence, Kernel contracts, or surface ownership. When anything here conflicts with a named ACTIVE AUTHORITY document, the authority document wins.
+
+The 2026-08-09 refresh updates the repository authority anchor after the August DungeonMind whole-world semantic chain (#521–#531). It does **not** claim that the user-managed Project Sources pane was refreshed on that date. The last observed Project Sources filename snapshot remains 2026-08-02 until the operator refreshes it.
 
 ## Authority rule (non-negotiable)
 
@@ -23,7 +26,7 @@ When Project Sources conflict with GitHub, GitHub wins.
 Historical / research / proposal docs cannot direct implementation.
 ```
 
-Full governance: [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md).
+Full governance: [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md).  
 Process template: [`Docs/Plans/JUMPSTART-docs-relevance-first.md`](../Plans/JUMPSTART-docs-relevance-first.md).
 
 ## Compact active source set
@@ -35,7 +38,7 @@ Upload or attach **these repository paths** (or regenerated equivalents) when re
 | Role | Document | Purpose |
 |---|---|---|
 | Graph architecture | [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) | World Supergraph / Campaign Supergraph north star |
-| Graph roadmap | [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) | Phases 0–9 |
+| Graph roadmap | [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) | Phases, active critical path, and whole-world semantic-adoption state |
 | Graph PR sequence | [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) | **Sole** Campaign Supergraph implementation sequence |
 | Doc governance | [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md) | Classification of Docs/ for graph work |
 | Shared UI chrome | [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md) | Nav / Agent / Tool / Edit / Projection host ownership |
@@ -44,6 +47,7 @@ Upload or attach **these repository paths** (or regenerated equivalents) when re
 
 | Role | Document | Purpose |
 |---|---|---|
+| World Graph current state | [`STATUS-world-graph-continuity-spine.md`](STATUS-world-graph-continuity-spine.md) | Concise operational state, current repository/dependency anchors, and what remains false |
 | Plan surface composition | [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md) | Plan domain / SurfaceConfig; not universal bar owner |
 | Graph path layout | [`GRAPH-MEMORY-PROJECT-LAYOUT.md`](GRAPH-MEMORY-PROJECT-LAYOUT.md) | Runtime / eval / fixture path boundaries |
 | UI hoist sequence | [`../Plans/PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md) | SI-01+ runtime composition plan |
@@ -74,7 +78,7 @@ Upload or attach **these repository paths** (or regenerated equivalents) when re
 
 ## 2026-08-02 Project Sources snapshot — reconciliation
 
-The design-agent Sources pane listed these **basenames**. Exact content was not available in the GitHub tree for every name; classifications below follow repository counterparts and the existing audit.
+The design-agent Sources pane listed these **basenames**. Exact content was not available in the GitHub tree for every name; classifications below follow repository counterparts and the existing audit. This table remains a historical record of the last observed pane contents; repository authority was refreshed separately on 2026-08-09.
 
 | # | Project Source basename | Repo counterpart | Classification | Conflict / note |
 |---:|---|---|---|---|
@@ -121,11 +125,12 @@ Classify each conflict as `MATCH`, `SOURCE_AHEAD`, `REPOSITORY_AHEAD`, `CONFLICT
 After a docs-authority merge, or after the operator changes Project Sources:
 
 1. Confirm the immutable revision: `git fetch origin main && git rev-parse origin/main`.
-2. Re-read this INDEX and [`graph-document-audit.md`](../Reports/graph-document-audit.md).
+2. Re-read this INDEX, [`STATUS-world-graph-continuity-spine.md`](STATUS-world-graph-continuity-spine.md), and [`graph-document-audit.md`](../Reports/graph-document-audit.md).
 3. Replace Project Source uploads with the **compact active source set** paths above (exact paths, not ambiguous basenames).
 4. Remove or demote superseded/historical attachments so they cannot be mistaken for current authority.
 5. Leave unresolved source-only local drafts out of the Sources pane unless the operator explicitly wants research/proposal context — and keep their classification visible.
-6. Update the snapshot date / base SHA in this INDEX when the curated set changes.
+6. Update the repository authority refresh date/base SHA whenever ACTIVE AUTHORITY documents are re-anchored.
+7. Update the Project Sources snapshot date only when the operator actually refreshes or re-observes the user-managed Sources pane.
 
 ## Explicit exclusions
 

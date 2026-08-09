@@ -1,20 +1,22 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority  
-**Updated:** 2026-07-28 after PR380C / GitHub #443 merged  
+**Updated:** 2026-08-09 after PR #531 merged  
+**Repository anchor:** `377ca60e146df2c9a801ebcb864a9dd9b0183dbe`  
+**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
 **Tracker:** [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
-**Integration roadmap:** [`../Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)
+**Integration roadmap:** [`../Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)  
 **UI shell (cross-boundary):** [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md)
 
 ## Why this exists
 
-DungeonBuddy's graph work now spans storage, extraction, Graph Review, Recap, Build, Plan, Hermes, and eventually Play. This document is the concise operational map: what owns truth, how reads and writes move, what PR380A/B/C established, and what remains false.
+DungeonBuddy's graph work now spans storage, extraction, Graph Review, Recap, Build, Plan, Hermes, Play, mechanics, and DungeonMind whole-world adoption. This document is the concise operational map: what owns truth, how reads and writes move, what the durable product spine established, what the August semantic-adoption spine established, and what remains false.
 
 ## Objective in one sentence
 
-Turn raw campaign prose and authored records into governed, correctable World Graph memory that every surface and Hermes can use through exact identity and revision-aware projections, without giving any surface or agent silent write authority.
+Turn raw campaign prose and authored records into governed, correctable World Graph memory that every surface and Hermes can use through exact identity and revision-aware projections, without giving any surface, agent, adapter, or diagnostic analyzer silent write authority.
 
 ## Authority stack
 
@@ -22,8 +24,10 @@ Turn raw campaign prose and authored records into governed, correctable World Gr
 2. `ROADMAP-campaign-supergraph.md` — phases and critical path.
 3. `PR-TRACKER-campaign-supergraph.md` — active implementation order.
 4. Owning design contracts and current handoffs — one bounded capability.
-5. Tests, dogfood, and reports — evidence that the contract is true.
+5. Tests, dogfood, adjudication fixtures, source seals, and reports — evidence that the contract is true.
 6. Historical handoffs and old roadmaps — context only.
+
+The repository anchor and external dependency pin above are context for this state guide. They do not freeze future work; after `main` advances, re-read the authority stack and re-anchor this document instead of assuming these hashes remain current.
 
 ## Durable model
 
@@ -32,13 +36,14 @@ one world
 → one World Supergraph and graph head
 → campaign-scoped assertions/evidence/chronology/visibility
 → immutable revisions
+→ replayable contribution + identity + correction history
 → many bounded projections
 → many surfaces
 ```
 
-The graph owns durable object identity, relationships, attributes, evidence links, authority metadata, and replayable correction history. Sessions are projection focus, not graph ownership. Campaigns scope assertions; they do not create a second copy of Mirathorn by default.
+The graph owns durable object identity, relationships, attributes, evidence links, authority metadata, and replayable history. Sessions are projection focus, not graph ownership. Campaigns scope assertions; they do not create a second copy of Mirathorn by default.
 
-## Write path
+## Normal publication write path
 
 ```text
 Source Artifact / authored record
@@ -54,7 +59,7 @@ Source Artifact / authored record
 → exact committed projection reload
 ```
 
-### Write authority rules
+### Publication authority rules
 
 - Ingest proposes; it does not publish.
 - Graph Review is the human reference confirmation surface.
@@ -63,6 +68,27 @@ Source Artifact / authored record
 - A terminal receipt means publication is known. A subsequent read failure may retry the exact committed projection, never re-confirm.
 - Agents may later prepare or propose through typed capabilities, but they must reuse this protocol and cannot bypass GM confirmation.
 - Worldbuilding draft elevation is a separate authority decision; draft lore must not be relabeled as played canon to make promotion convenient.
+
+## Correction write path — current gap
+
+Architecture already says approved graph corrections are durable authored authority and must survive reconstruction. The current Kernel has contribution-level supersession and retraction, but that granularity is source-revision-shaped: superseding one contribution removes its support from every assertion the contribution carried.
+
+That is correct for replacing a source revision. It is too broad for a human correction to exactly one defective extracted assertion when unrelated assertions from the same source contribution remain valid.
+
+The missing governed path is therefore:
+
+```text
+published assertion + historical source authority
+→ explicit human adjudication/correction target
+→ targeted assertion-correction Kernel operation
+→ preserve original source contribution as historical authority
+→ publish separate authored correction authority
+→ retire/contradict only the targeted current assertion
+→ immutable descendant revision
+→ deterministic replay to the corrected head
+```
+
+This path is **not implemented yet** at the repository anchor. Do not emulate it by direct snapshot editing, a projection exception, a global predicate reversal, or whole-contribution supersession unless the entire source revision is actually being replaced.
 
 ## Read path
 
@@ -90,6 +116,7 @@ World Graph revision (head or explicit pin)
 - Hermes discovers facts through graph retrieval and opens only admitted source anchors.
 - A graph miss produces a coverage diagnostic or abstention, not arbitrary Markdown search.
 - Cache and conversation history may improve continuity or latency; neither is authority.
+- Conformance/adjudication reports may explain what a relationship means; they do not become a second graph or mutate the selected revision.
 
 ## Candidate versus committed authority
 
@@ -108,7 +135,7 @@ committed
 
 The product must not blend these into a hybrid view or use candidate labels to stand in for missing durable objects.
 
-## What PR380A/B/C established
+## Product authority spine
 
 ### PR380A / GitHub #412 — recap projection contract
 
@@ -120,30 +147,66 @@ Recap and Build consume the same exact-ID World Graph object contract. Recap pro
 
 ### PR380C / GitHub #443 — post-confirm authority transition
 
-Graph Review now owns committed-transition state for a typed review binding. On a terminal receipt it:
-
-- freezes the binding and validates prepared/receipt identity;
-- requests the receipt's exact world, campaign, focus, and committed revision;
-- replaces candidate presentation with committed loading/ready/error state;
-- opens affected objects by exact ID;
-- preserves the receipt on projection failure;
-- retries only the exact committed read;
-- rejects stale completion or a receipt resolving after the active binding changed;
-- blocks load actions while confirmation is in flight.
+Graph Review owns committed-transition state for a typed review binding. On a terminal receipt it freezes the binding, requests the exact committed revision, opens affected objects by durable ID, preserves the receipt on read failure, retries only the exact read, and never re-confirms merely because projection failed.
 
 This closes the post-confirm authority lie. It does not yet replace the pre-confirm preview-union candidate lane or persist receipts across browser reload.
+
+## DungeonMind whole-world semantic spine
+
+The August chain is now part of current state and must not be reconstructed from stale July roadmap text.
+
+| PR | Durable/current meaning |
+|---|---|
+| #521 | Generalized exact Buddy world-object bridge without product-authority cutover |
+| #522 | Whole-world conformance inventory; real adoption gaps fail closed |
+| #523 | Re-pin after DungeonMind graph-v5/world-object-v2 and emit the exact residual ledger |
+| #525 | Re-pin after DungeonMind PR #28; semantic gaps reduce to 59 relationships |
+| #526 | Every relationship residual receives source-grounded adjudication, ownership, and next action |
+| #528 | Re-pin after DungeonMind PR #29; relationship state moves `287/59 → 291/55`; remaining relationship debt is Buddy-owned |
+| #530 | Three governed explicit adapters move effective state `291/55 → 294/52` without mutating the World Graph |
+| #531 | Adjudication continuity carries only across proven descendants with unchanged durable shape/source grounding; effective conformance composes the exact current interpretation |
+
+### Current Eldyrwild semantic state
+
+At `377ca60e…`, against the pinned DungeonMind dependency:
+
+- relationship semantic count: `346`;
+- effectively represented: `294`;
+- effective relationship residuals: `52`;
+- retained `uses_statblock` mechanics attachments: `2`;
+- remaining DungeonMind-owned relationship debt in the exact adjudication domain: `0`;
+- original adjudication revision: unchanged historical authority.
+
+The 52 effective residuals are not one kind of problem. The adjudication ledger still distinguishes Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, and insufficient-evidence cases. Different classes may require different write authority and therefore different PRs.
+
+### First real correction target
+
+The smallest source-correction exemplar is:
+
+```text
+historical defective edge:
+  npc_lysandra --threatens--> cultists_of_longmont
+  qualifier/source meaning: Lysandra is threatened by the cultists
+
+correct current meaning:
+  cultists_of_longmont --threatens--> npc_lysandra
+```
+
+The Session-8 evidence remains valid historical source evidence and must remain sealed. The defect is the durable relationship direction, not the prose. `dnd5e:threatens` already admits the corrected faction→npc direction on the pinned DungeonMind vocabulary, so this correction does not require a new DungeonMind term or global mapping rule.
+
+The Lysandra mutation is intentionally blocked until targeted assertion correction exists and is replay-safe.
 
 ## Current surface state
 
 | Surface | Current graph role | Remaining gap |
 |---|---|---|
 | Ingest | Creates exact extraction candidates and routes to Graph Review | Primary workflow still carries preview-union-era candidate/materialization concepts |
-| Graph Review | Prepares/selects/confirms; post-confirm reads exact committed revision | Direct exact-run candidate presentation and preview-union retirement |
+| Graph Review | Prepares/selects/confirms; post-confirm reads exact committed revision | Direct exact-run candidate presentation; targeted correction UX/protocol is not yet implemented |
 | Recap | Reads canonical prose through World Graph recap projection | Shared coordinator/cache/invalidation polish |
 | Build | Reads an incoming exact graph object as pointer-only context; authors source documents | Cross-surface pinned agent context and governed worldbuilding elevation |
 | Plan | Reads graph objects/references; Hermes is graph-first | Cross-route agent continuity and exact bound mechanics consumption |
 | Hermes | Graph retrieval, admitted anchors, same-thread continuity in Plan | Governed writes through human protocol; app-level cross-surface identity |
-| Statblock Workbench | Generates, renders, edits, and validates structured mechanics | Complete immutable acceptance proof and typed Threat binding |
+| Statblock Workbench | Generates, renders, edits, validates, and can publish governed Threat mechanics through its publication bridge | Remaining product/dogfood successors are separate from whole-world semantic correction |
 | Play | Existing independent product | World Graph projection/admissibility migration and exact mechanics resolution |
 
 ## Product-state vocabulary
@@ -156,6 +219,11 @@ Keep these visibly and semantically distinct:
 - prepared/sealed proposal;
 - terminal confirm receipt;
 - committed World Graph object/revision;
+- adjudication finding;
+- effective conformance interpretation;
+- authored graph correction;
+- historical source assertion;
+- currently active corrected assertion;
 - statblock candidate;
 - validated definition;
 - immutable saved mechanics;
@@ -166,28 +234,29 @@ Keep these visibly and semantically distinct:
 
 ## Current next gates
 
-1. Direct exact-ExtractionRun candidate-review projection.
-2. Preview-union review materialization retirement.
-3. Shared projection coordinator, coalescing, cache, revision invalidation, and telemetry.
-4. Ingest primary-path simplification.
-5. Fresh end-to-end durable-memory dogfood.
-6. Cross-surface Agent Interaction thread and pinned-context continuity.
-7. Hermes governed write capability over the same human reference protocol.
-8. Typed Threat → exact statblock binding and governed publication.
-9. Plan and Play consumption of the same Threat and exact mechanics revision.
+The PR tracker is the sequencing authority. At this anchor the current gates are:
+
+1. `kernel-targeted-assertion-correction` — synthetic Kernel proof; no Eldyrwild mutation.
+2. `eldyrwild-lysandra-threat-direction-correction` — first bounded real correction after the capability exists.
+3. Effective descendant proof requiring `294/52 → 295/51` with historical anchor/source seals unchanged.
+4. Select the next Buddy-owned semantic residual slice by correction class; do not make one omnibus “fix 51” PR.
+5. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
+6. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
 ## Fast diagnostic questions
 
 When adding or reviewing a feature, ask:
 
-- What exact durable identity owns this object?
-- Which graph revision is being read?
-- Is this candidate, committed memory, saved mechanics, or runtime state?
+- What exact durable identity owns this object or assertion?
+- Which graph revision is being read or corrected?
+- Is this candidate, committed memory, historical source authority, effective interpretation, saved mechanics, or runtime state?
 - Who is authorized to write it?
-- What explicit confirmation or receipt proves the transition?
-- Can a stale async response attach to a different run, campaign, session, or thread?
+- What explicit confirmation, correction target, or receipt proves the transition?
+- If this is a correction, what remains historical and what becomes current?
+- Does the chosen correction primitive affect unrelated assertions from the same contribution?
+- Can a stale async response attach to a different run, campaign, session, revision, or thread?
 - Does failure preserve the last known durable authority?
-- Is any path silently falling back to preview, latest-ingest, Markdown, labels, or current head?
+- Is any path silently falling back to preview, latest-ingest, Markdown, labels, current head, or diagnostic overlays?
 - Can the graph be reconstructed with approved corrections intact?
 - Which obsolete path is deleted when this becomes production-ready?
 
