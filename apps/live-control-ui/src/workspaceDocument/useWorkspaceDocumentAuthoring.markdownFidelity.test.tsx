@@ -147,7 +147,11 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(result.current.phase).toBe("save_error");
-    expect(result.current.error).toContain("cannot round-trip safely");
+    // Unsafe sources seal exported_markdown_authoritative on open; Save must
+    // refuse the sealed projection before (and without) durable write.
+    expect(result.current.error).toMatch(/sealed projection|cannot round-trip safely/i);
+    expect(result.current.exportedMarkdownAuthoritative).toBe(true);
+    expect(result.current.saveDisabled).toBe(true);
   });
 
   it("blocks durable save when the editor creates a node the serializer would flatten", async () => {
@@ -263,11 +267,158 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     expect(reopened.result.current.dirty).toBe(true);
     expect(reopened.result.current.editorContent).toEqual(safeParagraph);
     expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown).toBe(unsafeSource);
+    expect(reopened.result.current.exportedMarkdownAuthoritative).toBe(true);
+    expect(reopened.result.current.saveDisabled).toBe(true);
 
+    act(() => {
+      reopened.result.current.setEditor(editorWithJson(safeParagraph));
+    });
     await act(async () => {
       await reopened.result.current.saveMarkdown();
     });
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(String(reopened.result.current.error ?? "")).toMatch(/sealed projection/i);
+  });
+
+  it("blocks Save of a sealed lossy TipTap projection after the source becomes parse-safe until re-import", async () => {
+    // Simulate a parser-upgrade world: sealed source is currently import-safe,
+    // but TipTap still holds the older lossy projection.
+    const sealedSource = "# Authoritative source\n\nKeep this body.\n";
+    const lossyProjection = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Stale lossy projection" }] }],
+    };
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(sealedSource));
+    localStorage.setItem(
+      workspaceDocumentStorageKey(DOC_ID),
+      JSON.stringify({
+        schema_version: "dmb_workspace_document_local_state_v4",
+        document_id: DOC_ID,
+        title: "World Lore",
+        campaign_id: "eldyrwild",
+        kind: "worldbuilding_source",
+        target_session: null,
+        surface: "build",
+        base_revision: 1,
+        base_content_sha256: "sha-source",
+        tiptap_json: lossyProjection,
+        exported_markdown: sealedSource,
+        exported_markdown_authoritative: true,
+        dirty: true,
+        created_at: "2026-08-09T00:00:00.000Z",
+        updated_at: "2026-08-09T00:00:00.000Z",
+        last_local_save_at: "2026-08-09T00:00:00.000Z",
+      }),
+    );
+
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_dirty"));
+    expect(result.current.exportedMarkdownAuthoritative).toBe(true);
+    expect(result.current.editorContent).toEqual(lossyProjection);
+    expect(result.current.saveDisabled).toBe(true);
+
+    act(() => {
+      result.current.setEditor(editorWithJson(lossyProjection));
+    });
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(result.current.error).toMatch(/sealed projection/i);
+
+    act(() => {
+      result.current.reimportFromAuthoritativeMarkdown();
+    });
+    expect(result.current.exportedMarkdownAuthoritative).toBe(false);
+    expect(result.current.editorContent).not.toEqual(lossyProjection);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown_authoritative)
+      .toBe(false);
+
+    vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "World Lore",
+      target_relpath: "corpus/source.md",
+      target_display_path: "corpus/source.md",
+      registry_revision: 1,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+Edited after re-import",
+      warnings: [],
+      diagnostics: [],
+    });
+    const committedMarkdown = "# Authoritative source\n\nEdited after re-import.\n";
+    vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "World Lore",
+      target_relpath: "corpus/source.md",
+      target_display_path: "corpus/source.md",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: fixtureWorkspaceDocumentRecord({
+        document_id: DOC_ID,
+        kind: "worldbuilding_source",
+        campaign_id: "eldyrwild",
+        target_session: null,
+        revision: 2,
+        content_status: "draft",
+      }),
+      normalized_content_sha256: "sha-committed",
+      writer_ok: true,
+      file_fingerprint: "fp-committed",
+      diagnostics: [],
+    });
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...snapshot(committedMarkdown),
+      content_sha256: "sha-committed",
+      file_fingerprint: "fp-committed",
+      loaded_revision: 2,
+      record: fixtureWorkspaceDocumentRecord({
+        document_id: DOC_ID,
+        kind: "worldbuilding_source",
+        campaign_id: "eldyrwild",
+        target_session: null,
+        revision: 2,
+        content_status: "draft",
+      }),
+    });
+
+    // After re-import, TipTap matches sealed source → dirty clears → Save stays
+    // disabled by requireDirtyToSave. Force a post-reimport edit, then Save.
+    const edited = {
+      type: "doc",
+      content: [{
+        type: "heading",
+        attrs: { level: 1 },
+        content: [{ type: "text", text: "Authoritative source" }],
+      }, {
+        type: "paragraph",
+        content: [{ type: "text", text: "Edited after re-import." }],
+      }],
+    };
+    act(() => {
+      result.current.setEditor(editorWithJson(edited));
+      result.current.handleEditorUpdate(edited, editorWithJson(edited), { programmatic: false });
+    });
+    expect(result.current.exportedMarkdownAuthoritative).toBe(false);
+    expect(result.current.saveDisabled).toBe(false);
+
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    const preparedMarkdown = vi.mocked(prepareTiptapMarkdownWrite).mock.calls[0]?.[0]?.markdown ?? "";
+    expect(preparedMarkdown).toContain("Edited after re-import.");
+    expect(preparedMarkdown).not.toContain("Stale lossy projection");
   });
 });

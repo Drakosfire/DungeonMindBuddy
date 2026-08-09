@@ -107,6 +107,8 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   reconciliation: ReconcileLocalDraftResult | null;
   editorContent: unknown;
   documentKey: string;
+  /** True while Save requires re-import/discard of a sealed source projection. */
+  exportedMarkdownAuthoritative: boolean;
   saveDisabled: boolean;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   activeCommand: ActiveDocumentCommand | null;
@@ -120,6 +122,7 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   ) => void;
   markDirty: () => void;
   saveMarkdown: () => Promise<void>;
+  reimportFromAuthoritativeMarkdown: () => void;
   reloadFromSnapshot: () => Promise<void>;
   discardLocalDraft: () => Promise<void>;
   getAdmittedDocument: (policy: DocumentAdmissionPolicy) => AdmittedDocumentEnvelope | null;

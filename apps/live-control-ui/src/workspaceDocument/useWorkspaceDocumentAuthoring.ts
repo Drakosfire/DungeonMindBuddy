@@ -71,6 +71,8 @@ export interface WorkspaceDocumentAuthoringValue {
   editorContent: unknown;
   documentKey: string;
   dirty: boolean;
+  /** True while Save must wait for re-import/discard of a sealed source projection. */
+  exportedMarkdownAuthoritative: boolean;
   /** In-memory local CAS fingerprint for canvas admission (not a second storage read). */
   localAdmission: WorkspaceDocumentLocalAdmission | null;
   statusLabel: string;
@@ -85,6 +87,12 @@ export interface WorkspaceDocumentAuthoringValue {
   ) => void;
   markDirty: () => void;
   saveMarkdown: () => Promise<void>;
+  /**
+   * Rebase TipTap from sealed `exported_markdown` and clear the authority bit
+   * when the current parser can import that source without blocking diagnostics.
+   * Required before Save while `exported_markdown_authoritative` is true.
+   */
+  reimportFromAuthoritativeMarkdown: () => void;
   reloadFromSnapshot: () => Promise<void>;
   discardLocalDraft: () => Promise<void>;
 }
@@ -345,8 +353,57 @@ export function useWorkspaceDocumentAuthoring(
     persistEditorState(nextEditor);
   }, [persistEditorState]);
 
+  const reimportFromAuthoritativeMarkdown = useCallback(() => {
+    const current = localStateRef.current;
+    if (!current?.exported_markdown_authoritative) return;
+    if (hasBlockingMarkdownImportDiagnostics(current.exported_markdown)) {
+      dispatch({
+        type: "SAVE_FAILED",
+        message:
+          "Sealed source Markdown is still not safely representable by the rich editor. "
+          + "Discard the local draft, or wait until that syntax is supported, before saving.",
+      });
+      return;
+    }
+    const imported = markdownToTiptapDoc(current.exported_markdown);
+    const snap = snapshotRef.current;
+    const editableBody = tiptapJsonToSemanticMarkdown(imported.doc);
+    const exportedMarkdown = preserveLeadingYamlFrontmatter(current.exported_markdown, editableBody);
+    const matchesSnapshot = snap != null
+      && exportedMarkdown === snap.markdown
+      && current.base_revision === snap.loaded_revision
+      && current.base_content_sha256 === snap.content_sha256;
+    const now = new Date().toISOString();
+    const next: WorkspaceDocumentLocalState = {
+      ...current,
+      tiptap_json: imported.doc,
+      exported_markdown: exportedMarkdown,
+      exported_markdown_authoritative: false,
+      dirty: !matchesSnapshot,
+      updated_at: now,
+      last_local_save_at: now,
+    };
+    writeWorkspaceDocumentLocalState(storage, next);
+    localDirtyRef.current = next.dirty;
+    localStateRef.current = next;
+    setLocalState(next);
+    setDocumentKey(
+      `${current.document_id}:${current.base_revision}:${next.dirty ? "dirty" : "clean"}:reimport`,
+    );
+    dispatch({ type: "OPEN_READY", dirty: next.dirty });
+  }, [dispatch, storage]);
+
   const saveMarkdown = useCallback(async () => {
     if (!editor || !snapshot || !localState) return;
+    if (localState.exported_markdown_authoritative) {
+      dispatch({
+        type: "SAVE_FAILED",
+        message:
+          "Local editor content is a sealed projection of source Markdown. "
+          + "Re-import from the sealed source (or discard the local draft) before saving.",
+      });
+      return;
+    }
     if (hasBlockingMarkdownImportDiagnostics(snapshot.markdown)) {
       dispatch({
         type: "SAVE_FAILED",
@@ -570,12 +627,14 @@ export function useWorkspaceDocumentAuthoring(
     editorContent: localState?.tiptap_json ?? markdownToTiptapDoc(snapshot?.markdown ?? "").doc,
     documentKey,
     dirty,
+    exportedMarkdownAuthoritative: Boolean(localState?.exported_markdown_authoritative),
     localAdmission,
     statusLabel,
     saveDisabled: !editor
       || !isEditorInteractive(phase)
       || isSaveDisabled(phase)
       || (requireDirtyToSave && !dirty)
+      || Boolean(localState?.exported_markdown_authoritative)
       || (canSave ? !canSave() : false),
     lastCommitReceipt,
     editor,
@@ -583,6 +642,7 @@ export function useWorkspaceDocumentAuthoring(
     handleEditorUpdate,
     markDirty,
     saveMarkdown,
+    reimportFromAuthoritativeMarkdown,
     reloadFromSnapshot,
     discardLocalDraft,
   };
