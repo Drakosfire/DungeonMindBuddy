@@ -177,6 +177,30 @@ function serializeListItem(node: JsonNode, marker: string): string {
   return `${marker}${first}${continuation}`;
 }
 
+function serializeTableCell(node: JsonNode): string {
+  const text = childNodes(node)
+    .map((child) => serializeNode(child))
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
+  return text.replace(/\|/g, "\\|");
+}
+
+function serializeTable(node: JsonNode): string {
+  const rows = childNodes(node);
+  if (rows.length === 0) return "";
+
+  const width = Math.max(1, ...rows.map((row) => childNodes(row).length));
+  const serializedRows = rows.map((row) => {
+    const cells = childNodes(row).map(serializeTableCell);
+    while (cells.length < width) cells.push("");
+    return `| ${cells.join(" | ")} |`;
+  });
+  const separator = `| ${Array.from({ length: width }, () => "---").join(" | ")} |`;
+  return [serializedRows[0], separator, ...serializedRows.slice(1)].join("\n");
+}
+
 function serializeCallout(node: JsonNode): string {
   const kind = normalizeCalloutKind(node.attrs?.kind);
   const label = calloutLabel(node.attrs?.label);
@@ -202,6 +226,8 @@ function serializeNode(node: JsonNode): string {
       const level = Number.isInteger(requestedLevel) ? Math.min(6, Math.max(1, requestedLevel)) : 2;
       return `${"#".repeat(level)} ${childNodes(node).map(inlineMarkdown).join("")}`;
     }
+    case "horizontalRule":
+      return "---";
     case "bulletList":
       return childNodes(node).map((child) => serializeListItem(child, "- ")).join("\n");
     case "orderedList": {
@@ -213,6 +239,12 @@ function serializeNode(node: JsonNode): string {
     }
     case "listItem":
       return childNodes(node).map(serializeNode).filter(Boolean).join("\n");
+    case "table":
+      return serializeTable(node);
+    case "tableRow":
+    case "tableHeader":
+    case "tableCell":
+      return childNodes(node).map(serializeNode).filter(Boolean).join(" ");
     case "callout":
       return serializeCallout(node);
     default: {

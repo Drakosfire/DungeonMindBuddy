@@ -1,6 +1,7 @@
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
 import {
   buildInitialWorkspaceDocumentLocalState,
   type WorkspaceDocumentLocalKind,
@@ -35,9 +36,21 @@ function chooseEditorContent(args: {
   const snapshotMarkdown = reconciliation.markdown;
 
   if (reconciliation.kind === "dirty-match" && reconciliation.localState) {
+    const localState = reconciliation.localState;
+    // Parser upgrades should rehydrate from Markdown when that Markdown is a
+    // lossless representation. If the local TipTap draft contains a structure
+    // this serializer cannot represent, keep the richer local JSON instead of
+    // destroying an unsaved edit during reload.
+    if (semanticMarkdownSerializationDiagnostics(localState.tiptap_json).length > 0) {
+      return {
+        tiptapJson: localState.tiptap_json,
+        exportedMarkdown: localState.exported_markdown,
+        dirty: true,
+      };
+    }
     return {
-      tiptapJson: reconciliation.localState.tiptap_json,
-      exportedMarkdown: reconciliation.localState.exported_markdown,
+      tiptapJson: markdownToTiptapDoc(localState.exported_markdown).doc,
+      exportedMarkdown: localState.exported_markdown,
       dirty: true,
     };
   }

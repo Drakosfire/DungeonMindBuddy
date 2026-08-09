@@ -11,8 +11,10 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentSnapshot,
 } from "../api/types";
-import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
+import { preserveLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import {
   buildInitialWorkspaceDocumentLocalState,
   clearWorkspaceDocumentLocalState,
@@ -144,6 +146,10 @@ function applyCommitReceiptBaseRetainingEditorContent(args: {
   };
 }
 
+function hasBlockingMarkdownImportDiagnostics(markdown: string): boolean {
+  return markdownToTiptapDoc(markdown).diagnostics.some((diagnostic) => diagnostic.level === "warning");
+}
+
 export function useWorkspaceDocumentAuthoring(
   args: UseWorkspaceDocumentAuthoringArgs,
 ): WorkspaceDocumentAuthoringValue {
@@ -191,7 +197,6 @@ export function useWorkspaceDocumentAuthoring(
 
   const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
-    // Invalidate in-flight prepare/commit/verification belonging to a prior document or selection.
     saveGenerationRef.current += 1;
     verificationGenerationRef.current += 1;
     const openGeneration = ++openGenerationRef.current;
@@ -201,9 +206,7 @@ export function useWorkspaceDocumentAuthoring(
         clearWorkspaceDocumentLocalState(storage, args.documentId);
       }
       const nextSnapshot = await getWorkspaceDocumentSnapshot(args.documentId);
-      if (openGeneration !== openGenerationRef.current) {
-        return;
-      }
+      if (openGeneration !== openGenerationRef.current) return;
       const stored = options?.clearLocalFirst
         ? null
         : readWorkspaceDocumentLocalState(storage, args.documentId);
@@ -251,9 +254,7 @@ export function useWorkspaceDocumentAuthoring(
       );
       dispatch({ type: "OPEN_READY", dirty: opened.localState.dirty });
     } catch (loadError) {
-      if (openGeneration !== openGenerationRef.current) {
-        return;
-      }
+      if (openGeneration !== openGenerationRef.current) return;
       expectedRevisionRef.current = null;
       setSnapshot(null);
       setReconciliation(null);
@@ -285,16 +286,26 @@ export function useWorkspaceDocumentAuthoring(
     const current = localStateRef.current;
     if (!current) return;
     const tiptapJson = nextEditor.getJSON();
-    const exportedMarkdown = tiptapJsonToSemanticMarkdown(tiptapJson);
+    const serializationUnsafe = semanticMarkdownSerializationDiagnostics(tiptapJson).length > 0;
     const snap = snapshotRef.current;
-    // TipTap may emit a non-programmatic update after clean open/reload even when
-    // Markdown is unchanged. Keep (or restore) clean when body matches the snapshot.
+    const editableBody = tiptapJsonToSemanticMarkdown(tiptapJson);
+    // When editor JSON is outside the supported Markdown grammar, preserve the
+    // last valid exported source and keep the richer TipTap JSON locally. Save
+    // will fail closed, and reload will restore this local JSON instead of a
+    // lossy serialization.
+    const exportedMarkdown = serializationUnsafe
+      ? current.exported_markdown
+      : preserveLeadingYamlFrontmatter(
+        snap?.markdown ?? current.exported_markdown,
+        editableBody,
+      );
     const matchesSnapshot =
-      snap != null
+      !serializationUnsafe
+      && snap != null
       && exportedMarkdown === snap.markdown
       && current.base_revision === snap.loaded_revision
       && current.base_content_sha256 === snap.content_sha256;
-    const nextDirty = !matchesSnapshot;
+    const nextDirty = serializationUnsafe || !matchesSnapshot;
     const wasDirty = current.dirty;
     const now = new Date().toISOString();
     const next: WorkspaceDocumentLocalState = {
@@ -332,18 +343,34 @@ export function useWorkspaceDocumentAuthoring(
 
   const saveMarkdown = useCallback(async () => {
     if (!editor || !snapshot || !localState) return;
-    const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
-    if (!markdown.trim()) {
+    if (hasBlockingMarkdownImportDiagnostics(snapshot.markdown)) {
+      dispatch({
+        type: "SAVE_FAILED",
+        message: "This source contains Markdown the rich editor cannot round-trip safely. Save is blocked until that syntax is supported.",
+      });
+      return;
+    }
+
+    const tiptapJson = editor.getJSON();
+    const serializationDiagnostics = semanticMarkdownSerializationDiagnostics(tiptapJson);
+    if (serializationDiagnostics.length > 0) {
+      dispatch({
+        type: "SAVE_FAILED",
+        message: `This edit cannot be represented safely as Markdown. ${serializationDiagnostics[0].message}`,
+      });
+      return;
+    }
+
+    const editableBody = tiptapJsonToSemanticMarkdown(tiptapJson);
+    const markdown = preserveLeadingYamlFrontmatter(snapshot.markdown, editableBody);
+    if (!editableBody.trim()) {
       dispatch({ type: "SAVE_FAILED", message: "Document is empty; add content before saving." });
       return;
     }
 
     const expectedRevision = expectedRevisionRef.current ?? snapshot.loaded_revision;
-    const tiptapJson = editor.getJSON();
     const saveGeneration = ++saveGenerationRef.current;
     const mutationGenerationAtSaveStart = editorMutationGenerationRef.current;
-    // A newer save immediately invalidates verification belonging to an older save,
-    // including while this save is still preparing/committing.
     verificationGenerationRef.current += 1;
 
     try {
@@ -353,9 +380,7 @@ export function useWorkspaceDocumentAuthoring(
         markdown,
         expected_revision: expectedRevision,
       });
-      if (saveGeneration !== saveGenerationRef.current) {
-        return;
-      }
+      if (saveGeneration !== saveGenerationRef.current) return;
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
         dispatch({ type: "SAVE_FAILED", message: "Markdown save could not be prepared." });
         return;
@@ -368,17 +393,13 @@ export function useWorkspaceDocumentAuthoring(
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
       });
-      if (saveGeneration !== saveGenerationRef.current) {
-        return;
-      }
+      if (saveGeneration !== saveGenerationRef.current) return;
       setLastCommitReceipt(committed);
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
       const editedDuringSave =
         editorMutationGenerationRef.current !== mutationGenerationAtSaveStart;
 
-      // Commit receipt is authoritative — advance local base before any verification GET.
-      // If the user typed during prepare/commit, keep that content and remain dirty.
       dispatch({ type: "COMMIT_SUCCEEDED" });
       expectedRevisionRef.current = committed.committed_revision;
       if (editedDuringSave) {
@@ -404,8 +425,6 @@ export function useWorkspaceDocumentAuthoring(
           localDirtyRef.current = true;
           return next;
         });
-        // Do not remount: documentKey stays so the live editor is not reconstructed
-        // from the pre-save capture.
       } else {
         const receiptLocal = applyCommitReceiptToLocalState({
           receipt: committed,
@@ -420,8 +439,6 @@ export function useWorkspaceDocumentAuthoring(
       }
 
       if (committed.writer_ok && (committed.file_fingerprint == null || committed.file_fingerprint === "")) {
-        // Durable write happened, but identity is incomplete: keep receipt-backed local base
-        // and quarantine the prior snapshot so N−1 cannot remain the accepted record.
         setSnapshot(null);
         if (!editedDuringSave) {
           setDocumentKey(`${args.documentId}:${committed.committed_revision}:receipt-unverified`);
@@ -438,7 +455,6 @@ export function useWorkspaceDocumentAuthoring(
         const nextSnapshot: WorkspaceDocumentSnapshot = {
           ...current,
           record: committed.committed_record,
-          // Snapshot reflects durable committed bytes, not post-save local edits.
           markdown,
           content_sha256: committed.normalized_content_sha256,
           file_fingerprint: committed.file_fingerprint as string,
@@ -484,9 +500,7 @@ export function useWorkspaceDocumentAuthoring(
         });
       }
     } catch (saveError) {
-      if (saveGeneration !== saveGenerationRef.current) {
-        return;
-      }
+      if (saveGeneration !== saveGenerationRef.current) return;
       dispatch({
         type: "SAVE_FAILED",
         message: saveError instanceof Error ? saveError.message : "Markdown save failed.",
@@ -499,7 +513,6 @@ export function useWorkspaceDocumentAuthoring(
   }, [openFromSnapshot]);
 
   const reloadFromSnapshot = useCallback(async () => {
-    // Preserve local draft; reopen may re-enter conflict intentionally.
     dispatch({ type: "RELOAD_STARTED" });
     await openFromSnapshot();
   }, [dispatch, openFromSnapshot]);

@@ -1,4 +1,5 @@
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
+import { preserveLeadingYamlFrontmatter } from "../markdown/stripLeadingYamlFrontmatter";
 
 export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v3" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V2 = "dmb_workspace_document_local_state_v2" as const;
@@ -165,9 +166,11 @@ export const isTiptapWorkingBoardState = isWorkspaceDocumentLocalState;
 function deriveWorkspaceDocumentMarkdown(
   state: WorkspaceDocumentLocalState,
 ): WorkspaceDocumentLocalState {
+  const editableBody = tiptapJsonToSemanticMarkdown(state.tiptap_json);
   return {
     ...state,
-    exported_markdown: tiptapJsonToSemanticMarkdown(state.tiptap_json),
+    // Keep metadata that intentionally lives outside the TipTap document.
+    exported_markdown: preserveLeadingYamlFrontmatter(state.exported_markdown, editableBody),
   };
 }
 
