@@ -241,6 +241,7 @@ def rebuild_from_contributions(
         _support_map,
         _with_support_map,
         apply_accepted_assertions,
+        apply_assertion_corrections,
         rebuild_adjacency,
     )
 
@@ -340,6 +341,13 @@ def rebuild_from_contributions(
                 "assertion_identity_rekeyed:"
                 f"{contrib.contribution_id}:{old_assertion_id}->{new_assertion_id}"
             )
+        if contrib.assertion_corrections and effective_status == "active":
+            working, contradicted = apply_assertion_corrections(working, contrib)
+            if contradicted:
+                diagnostics.append(
+                    "replayed_assertion_corrections:"
+                    f"{contrib.contribution_id}:{','.join(contradicted)}"
+                )
         working, _support, applied = apply_accepted_assertions(working, contrib)
         accepted_ids.extend(applied)
         if effective_status in {"superseded", "retracted"}:
