@@ -191,5 +191,6 @@ describe("openWorkspaceDocumentAuthoringState", () => {
     expect(opened.reconciliation.kind).toBe("dirty-match");
     expect(opened.localState?.exported_markdown).toBe(unsafeBody);
     expect(opened.localState?.dirty).toBe(true);
+    expect(opened.localState?.tiptap_json).toEqual(stored.tiptap_json);
   });
 });

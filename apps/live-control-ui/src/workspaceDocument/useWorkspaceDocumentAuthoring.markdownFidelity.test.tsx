@@ -9,7 +9,10 @@ import {
 } from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
-import { workspaceDocumentStorageKey } from "../tiptap/state/tiptapLocalState";
+import {
+  readWorkspaceDocumentLocalState,
+  workspaceDocumentStorageKey,
+} from "../tiptap/state/tiptapLocalState";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
 
 vi.mock("../api/liveApi", () => ({
@@ -202,6 +205,62 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
 
     await act(async () => {
       await result.current.saveMarkdown();
+    });
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("keeps authoritative unsafe markdown across public read/reconcile after local edit", async () => {
+    const unsafeSource = "# Source\n\n```json\n{\"hp\": 95}\n```\n";
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(unsafeSource));
+
+    const first = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(first.result.current.phase).toBe("ready_clean"));
+
+    const safeParagraph = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Looks safe in editor" }] }],
+    };
+    act(() => {
+      first.result.current.setEditor(editorWithJson(safeParagraph));
+      first.result.current.handleEditorUpdate(safeParagraph, editorWithJson(safeParagraph), {
+        programmatic: false,
+      });
+    });
+
+    // Raw localStorage still has authoritative source (persist path).
+    const raw = JSON.parse(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) ?? "null") as {
+      exported_markdown?: string;
+      tiptap_json?: unknown;
+    } | null;
+    expect(raw?.exported_markdown).toBe(unsafeSource);
+
+    // Public read must not re-derive exported_markdown from lossy TipTap JSON.
+    const viaRead = readWorkspaceDocumentLocalState(localStorage, DOC_ID);
+    expect(viaRead?.exported_markdown).toBe(unsafeSource);
+    expect(viaRead?.exported_markdown).not.toContain("Looks safe in editor");
+    expect(viaRead?.tiptap_json).toEqual(safeParagraph);
+    expect(viaRead?.dirty).toBe(true);
+
+    first.unmount();
+
+    const reopened = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(reopened.result.current.phase).toBe("ready_dirty"));
+
+    expect(reopened.result.current.dirty).toBe(true);
+    expect(reopened.result.current.editorContent).toEqual(safeParagraph);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown).toBe(unsafeSource);
+
+    await act(async () => {
+      await reopened.result.current.saveMarkdown();
     });
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();

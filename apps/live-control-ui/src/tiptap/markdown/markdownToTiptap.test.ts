@@ -110,6 +110,17 @@ describe("markdownToTiptapDoc", () => {
     expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe("Use snake_case_value here and *italic* emphasis.\n");
   });
 
+  it("keeps double-underscore identifiers as literal text without intraword bold", () => {
+    const markdown = "Use foo__bar__baz here and __bold__ emphasis.";
+    const imported = markdownToTiptapDoc(markdown);
+    const paragraph = imported.doc.content?.[0] as {
+      content?: Array<{ text?: string; marks?: Array<{ type: string }> }>;
+    };
+    expect(paragraph.content?.find((node) => node.text === "foo__bar__baz")?.marks).toBeUndefined();
+    expect(paragraph.content?.find((node) => node.text === "bold")?.marks).toEqual([{ type: "bold" }]);
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe("Use foo__bar__baz here and **bold** emphasis.\n");
+  });
+
   it("imports semantic callouts", () => {
     const result = markdownToTiptapDoc("> [!GM-NOTE]\n> Keep this about triage.");
     expect(result.doc.content).toEqual([
@@ -201,6 +212,41 @@ describe("markdownToTiptapDoc", () => {
     const imported = markdownToTiptapDoc("Name | Role\n--- | ---\nLysandra | Captain | Guard\n");
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ level: "warning", line: 3 }),
+    ]));
+  });
+
+  it("fails closed when ordinary links inside table cells would be destroyed on export", () => {
+    const imported = markdownToTiptapDoc([
+      "Threat | Note",
+      "--- | ---",
+      "Latchling | See [wiki](https://example.com/latchling)",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        line: 3,
+        message: expect.stringContaining("Ordinary Markdown links"),
+      }),
+    ]));
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).not.toContain("](https://example.com/latchling)");
+  });
+
+  it("fails closed when ordinary links inside callout table cells would be destroyed", () => {
+    const imported = markdownToTiptapDoc([
+      "> [!GM-NOTE]",
+      "> Threat | Note",
+      "> --- | ---",
+      "> Latchling | See [wiki](https://example.com/latchling)",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        line: 4,
+        message: expect.stringContaining("Ordinary Markdown links"),
+      }),
     ]));
   });
 

@@ -301,7 +301,9 @@ export function useWorkspaceDocumentAuthoring(
       && exportedMarkdown === snap.markdown
       && current.base_revision === snap.loaded_revision
       && current.base_content_sha256 === snap.content_sha256;
-    const nextDirty = serializationUnsafe || !matchesSnapshot;
+    // Unsafe sources keep authoritative exported_markdown; TipTap may still hold
+    // unsaved projection edits, so do not clear dirty just because export matches.
+    const nextDirty = serializationUnsafe || sourceHasBlockingImport || !matchesSnapshot;
     const wasDirty = current.dirty;
     const now = new Date().toISOString();
     const next: WorkspaceDocumentLocalState = {

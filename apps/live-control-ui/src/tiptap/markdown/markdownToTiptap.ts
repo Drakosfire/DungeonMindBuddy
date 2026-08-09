@@ -80,7 +80,9 @@ function addMark(content: unknown[], mark: TiptapMark): unknown[] {
 /** Parse only inline marks mounted by StarterKit and emitted by our serializer. */
 function parseTextWithMarks(text: string): unknown[] {
   if (!text) return [];
-  const tokenPattern = /(`+)([\s\S]*?)\1|\*\*([\s\S]+?)\*\*|__([\s\S]+?)__|~~([\s\S]+?)~~|(?<!\\)\*([^*\n]+?)\*|(?<!\\)(?<!\w)_([^_\n]+?)_(?!\w)/g;
+  // Underscore bold/italic require CommonMark-ish non-word boundaries so identifiers
+  // like snake_case_value / foo__bar__baz are not rewritten as emphasis.
+  const tokenPattern = /(`+)([\s\S]*?)\1|\*\*([\s\S]+?)\*\*|(?<!\w)__([^_\n]+?)__(?!\w)|~~([\s\S]+?)~~|(?<!\\)\*([^*\n]+?)\*|(?<!\\)(?<!\w)_([^_\n]+?)_(?!\w)/g;
   const content: unknown[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -234,7 +236,12 @@ function collectTableStructureDiagnostics(
   startIndex: number,
   ctx: ParseContext,
 ): void {
-  const headerWidth = parseTableCells(lines[startIndex]).length;
+  const headerCells = parseTableCells(lines[startIndex]);
+  const headerWidth = headerCells.length;
+  const headerLine = ctx.lineNumberForIndex(startIndex);
+  for (const cell of headerCells) {
+    ctx.diagnostics.push(...collectUnsupportedInlineDiagnostics(cell, headerLine, ctx.options));
+  }
   const separatorCells = parseTableCells(lines[startIndex + 1]);
   if (separatorCells.some((cell) => cell.includes(":"))) {
     ctx.diagnostics.push(unsafeDiagnostic(
@@ -244,11 +251,16 @@ function collectTableStructureDiagnostics(
   }
   let rowIndex = startIndex + 2;
   while (rowIndex < lines.length && !isBlank(lines[rowIndex]) && lines[rowIndex].includes("|")) {
-    if (parseTableCells(lines[rowIndex]).length !== headerWidth) {
+    const cells = parseTableCells(lines[rowIndex]);
+    const lineNumber = ctx.lineNumberForIndex(rowIndex);
+    if (cells.length !== headerWidth) {
       ctx.diagnostics.push(unsafeDiagnostic(
         "GFM table rows must have the same number of cells as the header for safe editing.",
-        ctx.lineNumberForIndex(rowIndex),
+        lineNumber,
       ));
+    }
+    for (const cell of cells) {
+      ctx.diagnostics.push(...collectUnsupportedInlineDiagnostics(cell, lineNumber, ctx.options));
     }
     rowIndex += 1;
   }
@@ -270,6 +282,29 @@ function hasUnsupportedInlineLink(line: string): boolean {
   return ordinaryLinkPattern.test(line) || referenceStyleLinkPattern.test(line);
 }
 
+/** Inline constructs the cell/paragraph parse path cannot round-trip. */
+function collectUnsupportedInlineDiagnostics(
+  text: string,
+  lineNumber: number,
+  options: MarkdownImportOptions,
+): MarkdownImportDiagnostic[] {
+  const diagnostics: MarkdownImportDiagnostic[] = [];
+  if (/!\[[^\]]*\]\([^)]+\)/.test(text)) {
+    diagnostics.push(unsafeDiagnostic("Markdown images are not supported yet.", lineNumber));
+  }
+  if (hasExplicitHardBreak(text)) {
+    diagnostics.push(unsafeDiagnostic("Explicit Markdown hard breaks are not supported yet.", lineNumber));
+  }
+  if (hasUnsupportedInlineLink(text)) {
+    diagnostics.push(unsafeDiagnostic(
+      "Ordinary Markdown links are not supported by the mounted editor schema.",
+      lineNumber,
+    ));
+  }
+  diagnostics.push(...graphNodeLinkDiagnostics(text, lineNumber, options));
+  return diagnostics;
+}
+
 /** Detect source forms that the bounded editor grammar cannot reproduce safely. */
 function sourceSafetyDiagnostics(lines: string[], options: MarkdownImportOptions = {}): MarkdownImportDiagnostic[] {
   const diagnostics: MarkdownImportDiagnostic[] = [];
@@ -282,6 +317,8 @@ function sourceSafetyDiagnostics(lines: string[], options: MarkdownImportOptions
     const topLevelCallout = line.match(calloutMarkerPattern);
 
     if (beginsMarkdownTable(lines, index)) {
+      // Structure + cell inline diagnostics come from collectTableStructureDiagnostics
+      // on the shared table parse path (top-level and callout interiors).
       let rowIndex = index + 2;
       while (rowIndex < lines.length && !isBlank(lines[rowIndex]) && lines[rowIndex].includes("|")) {
         rowIndex += 1;
@@ -313,16 +350,7 @@ function sourceSafetyDiagnostics(lines: string[], options: MarkdownImportOptions
       if (/^\s*(?:```|~~~)/.test(body)) {
         diagnostics.push(unsafeDiagnostic("Fenced code blocks are not supported yet.", lineNumber));
       }
-      if (/!\[[^\]]*\]\([^)]+\)/.test(body)) {
-        diagnostics.push(unsafeDiagnostic("Markdown images are not supported yet.", lineNumber));
-      }
-      if (hasExplicitHardBreak(body)) {
-        diagnostics.push(unsafeDiagnostic("Explicit Markdown hard breaks are not supported yet.", lineNumber));
-      }
-      if (hasUnsupportedInlineLink(body)) {
-        diagnostics.push(unsafeDiagnostic("Ordinary Markdown links are not supported by the mounted editor schema.", lineNumber));
-      }
-      diagnostics.push(...graphNodeLinkDiagnostics(body, lineNumber, options));
+      diagnostics.push(...collectUnsupportedInlineDiagnostics(body, lineNumber, options));
       continue;
     }
 
@@ -381,14 +409,7 @@ function sourceSafetyDiagnostics(lines: string[], options: MarkdownImportOptions
       diagnostics.push(unsafeDiagnostic("Raw HTML blocks are not supported yet.", lineNumber));
       continue;
     }
-    if (/!\[[^\]]*\]\([^)]+\)/.test(line)) {
-      diagnostics.push(unsafeDiagnostic("Markdown images are not supported yet.", lineNumber));
-      continue;
-    }
-    if (hasUnsupportedInlineLink(line)) {
-      diagnostics.push(unsafeDiagnostic("Ordinary Markdown links are not supported by the mounted editor schema.", lineNumber));
-    }
-    diagnostics.push(...graphNodeLinkDiagnostics(line, lineNumber, options));
+    diagnostics.push(...collectUnsupportedInlineDiagnostics(line, lineNumber, options));
   }
 
   return diagnostics;

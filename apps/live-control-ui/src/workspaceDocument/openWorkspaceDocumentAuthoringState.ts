@@ -38,15 +38,10 @@ function chooseEditorContent(args: {
   if (reconciliation.kind === "dirty-match" && reconciliation.localState) {
     const localState = reconciliation.localState;
     if (hasBlockingMarkdownImportDiagnostics(snapshotMarkdown)) {
-      if (semanticMarkdownSerializationDiagnostics(localState.tiptap_json).length > 0) {
-        return {
-          tiptapJson: localState.tiptap_json,
-          exportedMarkdown: snapshotMarkdown,
-          dirty: true,
-        };
-      }
+      // Keep local TipTap projection edits; save admission still uses the
+      // authoritative unsafe snapshot markdown (fail closed on durable write).
       return {
-        tiptapJson: markdownToTiptapDoc(snapshotMarkdown).doc,
+        tiptapJson: localState.tiptap_json,
         exportedMarkdown: snapshotMarkdown,
         dirty: true,
       };

@@ -1,4 +1,5 @@
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
+import { hasBlockingMarkdownImportDiagnostics } from "../markdown/markdownToTiptap";
 import { preserveLeadingYamlFrontmatter } from "../markdown/stripLeadingYamlFrontmatter";
 
 export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v3" as const;
@@ -166,6 +167,12 @@ export const isTiptapWorkingBoardState = isWorkspaceDocumentLocalState;
 function deriveWorkspaceDocumentMarkdown(
   state: WorkspaceDocumentLocalState,
 ): WorkspaceDocumentLocalState {
+  // Persist may intentionally keep authoritative unsafe snapshot Markdown while
+  // TipTap JSON is a lossy projection. Re-serializing on every read would undo
+  // that protection and reintroduce a latent saveable draft after a polish upgrade.
+  if (hasBlockingMarkdownImportDiagnostics(state.exported_markdown)) {
+    return state;
+  }
   const editableBody = tiptapJsonToSemanticMarkdown(state.tiptap_json);
   return {
     ...state,
