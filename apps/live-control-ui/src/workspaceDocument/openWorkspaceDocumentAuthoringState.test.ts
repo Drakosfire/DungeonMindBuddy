@@ -150,4 +150,46 @@ describe("openWorkspaceDocumentAuthoringState", () => {
     expect(opened.localState?.dirty).toBe(false);
     expect(opened.localState?.exported_markdown).toBe(body);
   });
+
+  it("rehydrates dirty-match from snapshot markdown when source has blocking import diagnostics", () => {
+    const unsafeBody = "# Source\n\n```json\n{\"hp\": 95}\n```\n";
+    const snap = snapshot({
+      markdown: unsafeBody,
+      content_sha256: "sha-unsafe",
+      loaded_revision: 2,
+      file_exists: true,
+      file_fingerprint: "present",
+      record: {
+        ...snapshot().record,
+        revision: 2,
+      },
+    });
+    const stored = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "World Lore",
+      campaignId: "eldyrwild",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: "sha-unsafe",
+      starterContent: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Lossy local body" }] }],
+      },
+    });
+    stored.dirty = true;
+    stored.exported_markdown = "# Lossy local export\n";
+    const opened = openWorkspaceDocumentAuthoringState({
+      documentId: DOC_ID,
+      snapshot: snap,
+      stored,
+      surface: "build",
+      kind: "worldbuilding_source",
+    });
+    expect(opened.status).toBe("ready");
+    expect(opened.reconciliation.kind).toBe("dirty-match");
+    expect(opened.localState?.exported_markdown).toBe(unsafeBody);
+    expect(opened.localState?.dirty).toBe(true);
+  });
 });

@@ -32,9 +32,12 @@ describe("MarkdownDocumentAdapter", () => {
   });
 
   it("surfaces unsupported markdown diagnostics without inventing blocks", () => {
-    const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    const result = defaultMarkdownDocumentAdapter.importMarkdown(
+      "# Prep\n\n```json\n{\"hp\": 95}\n```\n",
+    );
 
     expect(result.diagnostics.some((entry) => entry.level === "warning")).toBe(true);
+    expect(JSON.stringify(result.doc)).not.toContain("codeBlock");
   });
 
   it("round-trips supported markdown deterministically through the adapter", () => {
@@ -48,13 +51,17 @@ describe("MarkdownDocumentAdapter", () => {
   });
 
   it("treats warning diagnostics as advisory by default", () => {
-    const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    const result = defaultMarkdownDocumentAdapter.importMarkdown(
+      "# Prep\n\n```json\n{\"hp\": 95}\n```\n",
+    );
     expect(hasCommitBlockingDiagnostics(result.diagnostics)).toBe(false);
     expect(commitBlockingDiagnosticMessages(result.diagnostics)).toEqual([]);
   });
 
   it("blocks warning diagnostics under worldbuilding_lossless policy", () => {
-    const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    const result = defaultMarkdownDocumentAdapter.importMarkdown(
+      "# Prep\n\n```json\n{\"hp\": 95}\n```\n",
+    );
     expect(hasCommitBlockingDiagnostics(result.diagnostics, "worldbuilding_lossless")).toBe(true);
     expect(
       commitBlockingDiagnosticMessages(result.diagnostics, "worldbuilding_lossless").length,

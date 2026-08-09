@@ -17,7 +17,8 @@ describe("markdownToTiptapDoc", () => {
     const markdown = ["# One", "## Two", "### Three", "#### Four", "##### Five", "###### Six", ""].join("\n");
     const imported = markdownToTiptapDoc(markdown);
     expect(imported.doc.content?.map((node) => Number(node.attrs?.level))).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(markdown);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(markdownToTiptapDoc(exported).doc).toEqual(imported.doc);
   });
 
   it("keeps YAML frontmatter outside the TipTap document", () => {
@@ -70,14 +71,11 @@ describe("markdownToTiptapDoc", () => {
     expect(paragraph.content[1].attrs).toMatchObject({ kind: "action", refType: "combat", refId: "north-gate-combat" });
   });
 
-  it("imports graph node links only when requested", () => {
+  it("imports graph node links by default and round-trips through export", () => {
     const markdown = "Inspect [Caelynn](dmb-node:pc_caelynn).";
-    const defaultImport = markdownToTiptapDoc(markdown);
-    const graphImport = markdownToTiptapDoc(markdown, { parseGraphNodeLinks: true });
-    expect(defaultImport.doc.content).toEqual([
-      { type: "paragraph", content: [{ type: "text", text: markdown }] },
-    ]);
-    expect(graphImport.doc.content).toEqual([
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content).toEqual([
       {
         type: "paragraph",
         content: [
@@ -87,6 +85,29 @@ describe("markdownToTiptapDoc", () => {
         ],
       },
     ]);
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(`${markdown}\n`);
+  });
+
+  it("warns when graph node links are explicitly disabled", () => {
+    const markdown = "Inspect [Caelynn](dmb-node:pc_caelynn).";
+    const imported = markdownToTiptapDoc(markdown, { parseGraphNodeLinks: false });
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", line: 1 }),
+    ]));
+    expect(imported.doc.content).toEqual([
+      { type: "paragraph", content: [{ type: "text", text: markdown }] },
+    ]);
+  });
+
+  it("keeps snake_case identifiers as literal text without intraword underscore emphasis", () => {
+    const markdown = "Use snake_case_value here and _italic_ emphasis.";
+    const imported = markdownToTiptapDoc(markdown);
+    const paragraph = imported.doc.content?.[0] as {
+      content?: Array<{ text?: string; marks?: Array<{ type: string }> }>;
+    };
+    expect(paragraph.content?.find((node) => node.text === "snake_case_value")?.marks).toBeUndefined();
+    expect(paragraph.content?.find((node) => node.text === "italic")?.marks).toEqual([{ type: "italic" }]);
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe("Use snake_case_value here and *italic* emphasis.\n");
   });
 
   it("imports semantic callouts", () => {
@@ -180,6 +201,32 @@ describe("markdownToTiptapDoc", () => {
     const imported = markdownToTiptapDoc("Name | Role\n--- | ---\nLysandra | Captain | Guard\n");
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ level: "warning", line: 3 }),
+    ]));
+  });
+
+  it("fails closed on aligned tables inside callouts via the table parse path", () => {
+    const imported = markdownToTiptapDoc([
+      "> [!GM-NOTE]",
+      "> Name | Role",
+      "> :--- | ---:",
+      "> Lysandra | Captain",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", line: 3 }),
+    ]));
+  });
+
+  it("fails closed on uneven table rows inside callouts via the table parse path", () => {
+    const imported = markdownToTiptapDoc([
+      "> [!GM-NOTE]",
+      "> Name | Role",
+      "> --- | ---",
+      "> Lysandra | Captain | Guard",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", line: 4 }),
     ]));
   });
 

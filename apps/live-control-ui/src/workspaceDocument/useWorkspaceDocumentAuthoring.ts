@@ -12,7 +12,7 @@ import type {
   WorkspaceDocumentSnapshot,
 } from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
-import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
 import { preserveLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import {
@@ -144,10 +144,6 @@ function applyCommitReceiptBaseRetainingEditorContent(args: {
     updated_at: now,
     last_local_save_at: now,
   };
-}
-
-function hasBlockingMarkdownImportDiagnostics(markdown: string): boolean {
-  return markdownToTiptapDoc(markdown).diagnostics.some((diagnostic) => diagnostic.level === "warning");
 }
 
 export function useWorkspaceDocumentAuthoring(
@@ -288,13 +284,13 @@ export function useWorkspaceDocumentAuthoring(
     const tiptapJson = nextEditor.getJSON();
     const serializationUnsafe = semanticMarkdownSerializationDiagnostics(tiptapJson).length > 0;
     const snap = snapshotRef.current;
+    const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
     const editableBody = tiptapJsonToSemanticMarkdown(tiptapJson);
-    // When editor JSON is outside the supported Markdown grammar, preserve the
-    // last valid exported source and keep the richer TipTap JSON locally. Save
-    // will fail closed, and reload will restore this local JSON instead of a
-    // lossy serialization.
-    const exportedMarkdown = serializationUnsafe
-      ? current.exported_markdown
+    // When editor JSON is outside the supported Markdown grammar, or the loaded
+    // source already has blocking import diagnostics, preserve authoritative
+    // snapshot markdown instead of a lossy TipTap serialization.
+    const exportedMarkdown = serializationUnsafe || sourceHasBlockingImport
+      ? (sourceHasBlockingImport && snap ? snap.markdown : current.exported_markdown)
       : preserveLeadingYamlFrontmatter(
         snap?.markdown ?? current.exported_markdown,
         editableBody,

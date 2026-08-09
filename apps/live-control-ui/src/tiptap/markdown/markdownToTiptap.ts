@@ -20,8 +20,23 @@ export type MarkdownImportResult = {
 };
 
 export type MarkdownImportOptions = {
+  /** Default true; set false to leave dmb-node links as plain text (emits a warning). */
   parseGraphNodeLinks?: boolean;
 };
+
+type ParseContext = {
+  options: MarkdownImportOptions;
+  diagnostics: MarkdownImportDiagnostic[];
+  lineNumberForIndex: (index: number) => number;
+};
+
+function shouldParseGraphNodeLinks(options: MarkdownImportOptions): boolean {
+  return options.parseGraphNodeLinks !== false;
+}
+
+export function hasBlockingMarkdownImportDiagnostics(markdown: string): boolean {
+  return markdownToTiptapDoc(markdown).diagnostics.some((diagnostic) => diagnostic.level === "warning");
+}
 
 type TiptapMark = { type: string; attrs?: Record<string, unknown> };
 type TiptapNode = {
@@ -65,7 +80,7 @@ function addMark(content: unknown[], mark: TiptapMark): unknown[] {
 /** Parse only inline marks mounted by StarterKit and emitted by our serializer. */
 function parseTextWithMarks(text: string): unknown[] {
   if (!text) return [];
-  const tokenPattern = /(`+)([\s\S]*?)\1|\*\*([\s\S]+?)\*\*|__([\s\S]+?)__|~~([\s\S]+?)~~|(?<!\\)\*([^*\n]+?)\*|(?<!\\)_([^_\n]+?)_/g;
+  const tokenPattern = /(`+)([\s\S]*?)\1|\*\*([\s\S]+?)\*\*|__([\s\S]+?)__|~~([\s\S]+?)~~|(?<!\\)\*([^*\n]+?)\*|(?<!\\)(?<!\w)_([^_\n]+?)_(?!\w)/g;
   const content: unknown[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -95,7 +110,7 @@ function parseTextWithMarks(text: string): unknown[] {
   return content;
 }
 
-function parseInlineContent(text: string, options: MarkdownImportOptions = {}): unknown[] {
+function parseInlineContent(text: string, ctx: ParseContext): unknown[] {
   const matches = [
     ...[...text.matchAll(typedReferencePattern)].map((match) => ({
       match,
@@ -103,7 +118,7 @@ function parseInlineContent(text: string, options: MarkdownImportOptions = {}): 
       length: match[0].length,
       kind: "runbook" as const,
     })),
-    ...(options.parseGraphNodeLinks
+    ...(shouldParseGraphNodeLinks(ctx.options)
       ? [...text.matchAll(graphNodeReferencePattern)].map((match) => ({
         match,
         index: match.index ?? 0,
@@ -144,12 +159,12 @@ function parseInlineContent(text: string, options: MarkdownImportOptions = {}): 
   return content;
 }
 
-function paragraph(text: string, options: MarkdownImportOptions = {}): TiptapNode {
-  return { type: "paragraph", content: parseInlineContent(text, options) };
+function paragraph(text: string, ctx: ParseContext): TiptapNode {
+  return { type: "paragraph", content: parseInlineContent(text, ctx) };
 }
 
-function listItem(text: string, options: MarkdownImportOptions = {}): TiptapNode {
-  return { type: "listItem", content: [paragraph(text, options)] };
+function listItem(text: string, ctx: ParseContext): TiptapNode {
+  return { type: "listItem", content: [paragraph(text, ctx)] };
 }
 
 function isBlank(line: string): boolean {
@@ -214,12 +229,49 @@ function hasExplicitHardBreak(line: string): boolean {
   return / {2}$/.test(line) || /\\$/.test(line);
 }
 
+function collectTableStructureDiagnostics(
+  lines: string[],
+  startIndex: number,
+  ctx: ParseContext,
+): void {
+  const headerWidth = parseTableCells(lines[startIndex]).length;
+  const separatorCells = parseTableCells(lines[startIndex + 1]);
+  if (separatorCells.some((cell) => cell.includes(":"))) {
+    ctx.diagnostics.push(unsafeDiagnostic(
+      "GFM table alignment markers are not represented by the current editor table model.",
+      ctx.lineNumberForIndex(startIndex + 1),
+    ));
+  }
+  let rowIndex = startIndex + 2;
+  while (rowIndex < lines.length && !isBlank(lines[rowIndex]) && lines[rowIndex].includes("|")) {
+    if (parseTableCells(lines[rowIndex]).length !== headerWidth) {
+      ctx.diagnostics.push(unsafeDiagnostic(
+        "GFM table rows must have the same number of cells as the header for safe editing.",
+        ctx.lineNumberForIndex(rowIndex),
+      ));
+    }
+    rowIndex += 1;
+  }
+}
+
+function graphNodeLinkDiagnostics(text: string, lineNumber: number, options: MarkdownImportOptions): MarkdownImportDiagnostic[] {
+  if (shouldParseGraphNodeLinks(options)) return [];
+  const diagnostics: MarkdownImportDiagnostic[] = [];
+  for (const _match of text.matchAll(graphNodeReferencePattern)) {
+    diagnostics.push(unsafeDiagnostic(
+      "Graph node links (dmb-node:) cannot be preserved safely when graph link parsing is disabled.",
+      lineNumber,
+    ));
+  }
+  return diagnostics;
+}
+
 function hasUnsupportedInlineLink(line: string): boolean {
   return ordinaryLinkPattern.test(line) || referenceStyleLinkPattern.test(line);
 }
 
 /** Detect source forms that the bounded editor grammar cannot reproduce safely. */
-function sourceSafetyDiagnostics(lines: string[]): MarkdownImportDiagnostic[] {
+function sourceSafetyDiagnostics(lines: string[], options: MarkdownImportOptions = {}): MarkdownImportDiagnostic[] {
   const diagnostics: MarkdownImportDiagnostic[] = [];
   let inTopLevelCallout = false;
 
@@ -230,29 +282,9 @@ function sourceSafetyDiagnostics(lines: string[]): MarkdownImportDiagnostic[] {
     const topLevelCallout = line.match(calloutMarkerPattern);
 
     if (beginsMarkdownTable(lines, index)) {
-      const headerWidth = parseTableCells(line).length;
-      const separatorCells = parseTableCells(lines[index + 1]);
-      if (separatorCells.some((cell) => cell.includes(":"))) {
-        diagnostics.push(unsafeDiagnostic(
-          "GFM table alignment markers are not represented by the current editor table model.",
-          index + 2,
-        ));
-      }
       let rowIndex = index + 2;
       while (rowIndex < lines.length && !isBlank(lines[rowIndex]) && lines[rowIndex].includes("|")) {
-        if (parseTableCells(lines[rowIndex]).length !== headerWidth) {
-          diagnostics.push(unsafeDiagnostic(
-            "GFM table rows must have the same number of cells as the header for safe editing.",
-            rowIndex + 1,
-          ));
-        }
-        if (hasUnsupportedInlineLink(lines[rowIndex])) {
-          diagnostics.push(unsafeDiagnostic("Ordinary Markdown links are not supported by the mounted editor schema.", rowIndex + 1));
-        }
         rowIndex += 1;
-      }
-      if (hasUnsupportedInlineLink(line)) {
-        diagnostics.push(unsafeDiagnostic("Ordinary Markdown links are not supported by the mounted editor schema.", lineNumber));
       }
       index = Math.max(index, rowIndex - 1);
       inTopLevelCallout = false;
@@ -290,6 +322,7 @@ function sourceSafetyDiagnostics(lines: string[]): MarkdownImportDiagnostic[] {
       if (hasUnsupportedInlineLink(body)) {
         diagnostics.push(unsafeDiagnostic("Ordinary Markdown links are not supported by the mounted editor schema.", lineNumber));
       }
+      diagnostics.push(...graphNodeLinkDiagnostics(body, lineNumber, options));
       continue;
     }
 
@@ -355,6 +388,7 @@ function sourceSafetyDiagnostics(lines: string[]): MarkdownImportDiagnostic[] {
     if (hasUnsupportedInlineLink(line)) {
       diagnostics.push(unsafeDiagnostic("Ordinary Markdown links are not supported by the mounted editor schema.", lineNumber));
     }
+    diagnostics.push(...graphNodeLinkDiagnostics(line, lineNumber, options));
   }
 
   return diagnostics;
@@ -363,14 +397,15 @@ function sourceSafetyDiagnostics(lines: string[]): MarkdownImportDiagnostic[] {
 function parseMarkdownTable(
   lines: string[],
   startIndex: number,
-  options: MarkdownImportOptions,
+  ctx: ParseContext,
 ): { node: TiptapNode; nextIndex: number } {
+  collectTableStructureDiagnostics(lines, startIndex, ctx);
   const headerCells = parseTableCells(lines[startIndex]);
   const rows: unknown[] = [{
     type: "tableRow",
     content: headerCells.map((cell) => ({
       type: "tableHeader",
-      content: [paragraph(cell, options)],
+      content: [paragraph(cell, ctx)],
     })),
   }];
   let index = startIndex + 2;
@@ -380,7 +415,7 @@ function parseMarkdownTable(
       type: "tableRow",
       content: headerCells.map((_, cellIndex) => ({
         type: "tableCell",
-        content: [paragraph(cells[cellIndex] ?? "", options)],
+        content: [paragraph(cells[cellIndex] ?? "", ctx)],
       })),
     });
     index += 1;
@@ -398,7 +433,7 @@ function isBlockStart(lines: string[], index: number): boolean {
     || beginsMarkdownTable(lines, index);
 }
 
-function parseCalloutBody(lines: string[], options: MarkdownImportOptions = {}): unknown[] {
+function parseCalloutBody(lines: string[], ctx: ParseContext): unknown[] {
   const content: unknown[] = [];
   let index = 0;
   while (index < lines.length) {
@@ -411,7 +446,7 @@ function parseCalloutBody(lines: string[], options: MarkdownImportOptions = {}):
       content.push({
         type: "heading",
         attrs: { level: heading[1].length },
-        content: parseInlineContent(heading[2].trim(), options),
+        content: parseInlineContent(heading[2].trim(), ctx),
       });
       index += 1;
       continue;
@@ -422,7 +457,7 @@ function parseCalloutBody(lines: string[], options: MarkdownImportOptions = {}):
       continue;
     }
     if (beginsMarkdownTable(lines, index)) {
-      const table = parseMarkdownTable(lines, index, options);
+      const table = parseMarkdownTable(lines, index, ctx);
       content.push(table.node);
       index = table.nextIndex;
       continue;
@@ -433,7 +468,7 @@ function parseCalloutBody(lines: string[], options: MarkdownImportOptions = {}):
       while (index < lines.length) {
         const item = lines[index].match(bulletListPattern);
         if (!item) break;
-        items.push(listItem(item[1], options));
+        items.push(listItem(item[1], ctx));
         index += 1;
       }
       content.push({ type: "bulletList", content: items });
@@ -446,7 +481,7 @@ function parseCalloutBody(lines: string[], options: MarkdownImportOptions = {}):
       while (index < lines.length) {
         const item = lines[index].match(orderedListPattern);
         if (!item) break;
-        items.push(listItem(item[2], options));
+        items.push(listItem(item[2], ctx));
         index += 1;
       }
       content.push({ type: "orderedList", attrs: { start }, content: items });
@@ -465,18 +500,18 @@ function parseCalloutBody(lines: string[], options: MarkdownImportOptions = {}):
       paragraphLines.push(lines[index]);
       index += 1;
     }
-    content.push(paragraph(paragraphLines.join(" ").trim(), options));
+    content.push(paragraph(paragraphLines.join(" ").trim(), ctx));
   }
-  return content.length > 0 ? content : [paragraph("")];
+  return content.length > 0 ? content : [paragraph("", ctx)];
 }
 
 function parseCalloutAt(
   lines: string[],
   startIndex: number,
-  options: MarkdownImportOptions,
+  ctx: ParseContext,
 ): { node: TiptapNode; nextIndex: number } {
   const match = lines[startIndex].match(calloutMarkerPattern);
-  if (!match) return { node: paragraph(lines[startIndex], options), nextIndex: startIndex + 1 };
+  if (!match) return { node: paragraph(lines[startIndex], ctx), nextIndex: startIndex + 1 };
   const [, marker, rawLabel] = match;
   const bodyLines: string[] = [];
   let index = startIndex + 1;
@@ -485,6 +520,10 @@ function parseCalloutAt(
     bodyLines.push(lines[index].replace(/^> ?/, ""));
     index += 1;
   }
+  const bodyCtx: ParseContext = {
+    ...ctx,
+    lineNumberForIndex: (bodyIndex) => startIndex + 2 + bodyIndex,
+  };
   return {
     node: {
       type: "callout",
@@ -492,7 +531,7 @@ function parseCalloutAt(
         kind: normalizeCalloutKind(marker),
         ...(rawLabel.trim() ? { label: rawLabel.trim() } : {}),
       },
-      content: parseCalloutBody(bodyLines, options),
+      content: parseCalloutBody(bodyLines, bodyCtx),
     },
     nextIndex: index,
   };
@@ -505,7 +544,12 @@ export function markdownToTiptapDoc(
   const stripped = stripLeadingYamlFrontmatter(markdown).markdown;
   const lines = stripped.replace(/\r\n?/g, "\n").split("\n");
   const content: unknown[] = [];
-  const diagnostics = sourceSafetyDiagnostics(lines);
+  const parseDiagnostics: MarkdownImportDiagnostic[] = [];
+  const ctx: ParseContext = {
+    options,
+    diagnostics: parseDiagnostics,
+    lineNumberForIndex: (index) => index + 1,
+  };
   let index = 0;
 
   while (index < lines.length) {
@@ -519,13 +563,13 @@ export function markdownToTiptapDoc(
       content.push({
         type: "heading",
         attrs: { level: heading[1].length },
-        content: parseInlineContent(heading[2].trim(), options),
+        content: parseInlineContent(heading[2].trim(), ctx),
       });
       index += 1;
       continue;
     }
     if (calloutMarkerPattern.test(line)) {
-      const parsed = parseCalloutAt(lines, index, options);
+      const parsed = parseCalloutAt(lines, index, ctx);
       content.push(parsed.node);
       index = parsed.nextIndex;
       continue;
@@ -536,7 +580,7 @@ export function markdownToTiptapDoc(
       continue;
     }
     if (beginsMarkdownTable(lines, index)) {
-      const table = parseMarkdownTable(lines, index, options);
+      const table = parseMarkdownTable(lines, index, ctx);
       content.push(table.node);
       index = table.nextIndex;
       continue;
@@ -547,7 +591,7 @@ export function markdownToTiptapDoc(
       while (index < lines.length) {
         const item = lines[index].match(bulletListPattern);
         if (!item) break;
-        items.push(listItem(item[1], options));
+        items.push(listItem(item[1], ctx));
         index += 1;
       }
       content.push({ type: "bulletList", content: items });
@@ -560,7 +604,7 @@ export function markdownToTiptapDoc(
       while (index < lines.length) {
         const item = lines[index].match(orderedListPattern);
         if (!item) break;
-        items.push(listItem(item[2], options));
+        items.push(listItem(item[2], ctx));
         index += 1;
       }
       content.push({ type: "orderedList", attrs: { start }, content: items });
@@ -571,8 +615,9 @@ export function markdownToTiptapDoc(
       paragraphLines.push(lines[index].trim());
       index += 1;
     }
-    content.push(paragraph(paragraphLines.join(" ").trim(), options));
+    content.push(paragraph(paragraphLines.join(" ").trim(), ctx));
   }
 
+  const diagnostics = [...sourceSafetyDiagnostics(lines, options), ...parseDiagnostics];
   return { doc: { type: "doc", content } as JSONContent, diagnostics };
 }

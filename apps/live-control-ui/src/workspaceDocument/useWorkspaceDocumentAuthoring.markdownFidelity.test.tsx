@@ -9,6 +9,7 @@ import {
 } from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
+import { workspaceDocumentStorageKey } from "../tiptap/state/tiptapLocalState";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
 
 vi.mock("../api/liveApi", () => ({
@@ -172,5 +173,37 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(result.current.phase).toBe("save_error");
     expect(result.current.error).toContain("cannot be represented safely as Markdown");
+  });
+
+  it("does not persist lossy exported_markdown when editing unsafe source", async () => {
+    const unsafeSource = "# Source\n\n```json\n{\"hp\": 95}\n```\n";
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(unsafeSource));
+
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    const safeParagraph = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "Looks safe in editor" }] }],
+    };
+    act(() => {
+      result.current.setEditor(editorWithJson(safeParagraph));
+      result.current.handleEditorUpdate(safeParagraph, editorWithJson(safeParagraph), { programmatic: false });
+    });
+
+    const stored = JSON.parse(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) ?? "null") as {
+      exported_markdown?: string;
+    } | null;
+    expect(stored?.exported_markdown).toBe(unsafeSource);
+
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 });

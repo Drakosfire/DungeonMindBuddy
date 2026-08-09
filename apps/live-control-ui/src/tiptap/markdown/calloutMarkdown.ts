@@ -89,7 +89,7 @@ function escapeMarkdownLineStart(line: string): string {
 
 function escapeMarkdownText(text: string): string {
   return text
-    .replace(/[\\`*_[\]()]/g, "\\$&")
+    .replace(/[\\`*[\]()]/g, "\\$&")
     .split("\n")
     .map(escapeMarkdownLineStart)
     .join("\n");
@@ -159,6 +159,15 @@ function inlineMarkdown(node: JsonNode): string {
     const href = hasKnownKind ? runbookReferenceHref(attrs) : null;
     return href ? `[${label}](${href})` : label;
   }
+  if (node.type === "graphNodeReference") {
+    const nodeId = typeof node.attrs?.nodeId === "string" ? node.attrs.nodeId : "";
+    const label = escapeMarkdownText(
+      typeof node.attrs?.label === "string" && node.attrs.label.trim()
+        ? node.attrs.label
+        : nodeId,
+    );
+    return nodeId ? `[${label}](dmb-node:${nodeId})` : label;
+  }
   return childNodes(node).map(inlineMarkdown).join("");
 }
 
@@ -218,6 +227,7 @@ function serializeNode(node: JsonNode): string {
     case "hardBreak":
       return "\n";
     case "runbookReference":
+    case "graphNodeReference":
       return inlineMarkdown(node);
     case "paragraph":
       return childNodes(node).map(inlineMarkdown).join("");

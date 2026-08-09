@@ -1,6 +1,6 @@
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
-import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
 import {
   buildInitialWorkspaceDocumentLocalState,
@@ -30,13 +30,27 @@ export interface OpenWorkspaceDocumentAuthoringResult {
 
 function chooseEditorContent(args: {
   reconciliation: ReconcileLocalDraftResult;
+  snapshotMarkdown: string;
   emptyMarkdownFallback?: unknown;
 }): { tiptapJson: unknown; exportedMarkdown: string; dirty: boolean } {
-  const { reconciliation } = args;
-  const snapshotMarkdown = reconciliation.markdown;
+  const { reconciliation, snapshotMarkdown } = args;
 
   if (reconciliation.kind === "dirty-match" && reconciliation.localState) {
     const localState = reconciliation.localState;
+    if (hasBlockingMarkdownImportDiagnostics(snapshotMarkdown)) {
+      if (semanticMarkdownSerializationDiagnostics(localState.tiptap_json).length > 0) {
+        return {
+          tiptapJson: localState.tiptap_json,
+          exportedMarkdown: snapshotMarkdown,
+          dirty: true,
+        };
+      }
+      return {
+        tiptapJson: markdownToTiptapDoc(snapshotMarkdown).doc,
+        exportedMarkdown: snapshotMarkdown,
+        dirty: true,
+      };
+    }
     // Parser upgrades should rehydrate from Markdown when that Markdown is a
     // lossless representation. If the local TipTap draft contains a structure
     // this serializer cannot represent, keep the richer local JSON instead of
@@ -117,6 +131,7 @@ export function openWorkspaceDocumentAuthoringState(
 
   const chosen = chooseEditorContent({
     reconciliation,
+    snapshotMarkdown: args.snapshot.markdown,
     emptyMarkdownFallback: args.emptyMarkdownFallback,
   });
   const now = new Date().toISOString();
