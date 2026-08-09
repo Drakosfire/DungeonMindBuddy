@@ -29,6 +29,11 @@
   line-height: 1.45;
   cursor: default;
   vertical-align: baseline;
+  max-width: min(24rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .md-content[data-md-theme] .md-ref-chip-npc {

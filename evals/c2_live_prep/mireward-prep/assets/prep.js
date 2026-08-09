@@ -3,7 +3,8 @@
  */
 (function () {
   const STORAGE_PREFIX = "mireward-prep.";
-  const COMBAT_STORAGE_KEY = "combat.northReachGate";
+  /** Session 26 wall-breach encounter — do not reuse Session 22 northReachGate key. */
+  const COMBAT_STORAGE_KEY = "combat.mirewardWallBreach";
   const COMBAT_STATE_UPDATED_EVENT = "mireward-prep:combat-state-updated";
   const STATBLOCK_DOGFOOD_DRAFT_KEY = "statblockDogfood.lastDraft";
   const STATBLOCK_CORPUS_INDEX_REFRESH_EVENT = "mireward-prep:statblock-corpus-index-refresh";
@@ -227,7 +228,14 @@
     const root = document.getElementById("md-viewer");
     if (!root) return;
     root.hidden = true;
+    root.classList.remove("md-viewer--threat-embed");
     document.body.classList.remove("md-viewer-open");
+    const raw = document.getElementById("md-viewer-raw");
+    if (raw) {
+      raw.textContent = "Open raw";
+      raw.removeAttribute("target");
+      raw.rel = "noopener";
+    }
   }
 
   function applyMarkdownContentTheme(el, themeId) {
@@ -251,6 +259,10 @@
     const body = document.getElementById("md-viewer-body");
     const raw = document.getElementById("md-viewer-raw");
 
+    if (!viewerMeta.keepThreatEmbed) {
+      root.classList.remove("md-viewer--threat-embed");
+    }
+
     root.hidden = false;
     document.body.classList.add("md-viewer-open");
 
@@ -263,6 +275,11 @@
     if (raw) {
       raw.href = repoRelative ? repoHref(repoRelative) : "#";
       raw.hidden = viewerMeta.hideRaw || !repoRelative;
+      if (!viewerMeta.keepThreatEmbed) {
+        raw.textContent = "Open raw";
+        raw.removeAttribute("target");
+        raw.rel = "noopener";
+      }
     }
 
     if (!body) return;
@@ -1204,6 +1221,19 @@
           openGeneratedStatblockFromCombatEntity(
             generatedLink.getAttribute("data-generated-statblock")
           );
+          return;
+        }
+
+        const graphLink = e.target.closest("a.combat-graph-node-link[data-graph-node-id]");
+        if (graphLink) {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+          e.preventDefault();
+          openGraphThreatSheetModal({
+            nodeId: graphLink.getAttribute("data-graph-node-id"),
+            label: (graphLink.textContent || "").trim(),
+            campaignId: graphLink.getAttribute("data-graph-campaign") || undefined,
+            planHref: graphLink.getAttribute("data-plan-href") || undefined,
+          });
           return;
         }
 
@@ -3071,6 +3101,7 @@
     state.entities.forEach(function (entity) {
       const path = entity.statblockPath;
       if (!path || seen[path]) return;
+      if (path.indexOf("corpus/") !== 0 && !/\.md$/i.test(path)) return;
       seen[path] = true;
       paths.push(path);
     });
@@ -3107,6 +3138,20 @@
     });
   }
 
+  const MEAT_MIND_DEFAULT_NOTES =
+    "Boss · HP = core mass; spawn spends HP; fire on core matters. " +
+    "Action — Seed Corruption: if marked refugees are unprotected this round, flip 1 Marked Refugee to enemy " +
+    "(or defeat the refugee token and spawn a Hybrid). Prefer a named face over anonymous mass. " +
+    "Other: Spawn Latchling/Meatling · Telepathic pressure · Reform (if not burned). " +
+    "Provisional HP/AC — hydrate from Workbench / graph threat:authored:d60f9863b0faf7f586d69182a0882f1f (sb_b0b2b907…).";
+
+  const MARKED_REFUGEE_DEFAULT_NOTES =
+    "Partially corrupted · protected? Y/N — Meat Mind Seed Corruption can flip this token to enemy.";
+
+  const LATCHLING_DEFAULT_NOTES =
+    "Wall spill / under-breach · provisional HP/AC — graph threat:authored:d16d43d376833e38caf46dd19b1dd17f (Mireward Latchling).";
+
+  /** Session 26 cold open — Mireward wall breach (replaces Session 22/23 north-gate wave-1). */
   const COMBAT_DEFAULTS = [
     {
       id: "baergrom",
@@ -3122,6 +3167,7 @@
       team: "pc",
       maxHp: null,
       defaultAc: 16,
+      defaultNotes: "Festering wound (Session 25).",
       statblockPath: PC_STATBLOCK_ROOT + "bonogo/bonogo_statblock_dnd_beyond_level5.md",
     },
     {
@@ -3162,48 +3208,23 @@
       team: "ally",
       maxHp: null,
       defaultAc: 16,
+      defaultNotes: "Wall group.",
       statblockPath: LYSANDRA_STATBLOCK,
     },
-    { id: "thrinn", name: "Thrinn", team: "ally", maxHp: null },
     {
-      id: "sewer-meat-a",
-      name: "Sewer Meat Creature A",
-      team: "enemy",
-      maxHp: 37,
-      defaultAc: 12,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "sewer_meat_creature_statblock_cr3.md",
+      id: "ogonob",
+      name: "Ogonob",
+      team: "ally",
+      maxHp: null,
+      defaultAc: "",
+      defaultNotes: "Field companion (Pass without Trace sortie).",
     },
     {
-      id: "sewer-meat-b",
-      name: "Sewer Meat Creature B",
-      team: "enemy",
-      maxHp: 37,
-      defaultAc: 12,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "sewer_meat_creature_statblock_cr3.md",
-    },
-    {
-      id: "corrupted-meat-golem-a",
-      name: "Corrupted Meat Golem A",
-      team: "enemy",
-      maxHp: 55,
-      defaultAc: 12,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "corrupted_meat_golem_statblock_cr3.md",
-    },
-    {
-      id: "tripod-null-calf-a",
-      name: "Tripod Null-Calf A",
-      team: "enemy",
-      maxHp: 95,
-      defaultAc: 15,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "tripod_null_calf_statblock_cr5.md",
-    },
-    {
-      id: "tripod-null-calf-b",
-      name: "Tripod Null-Calf B",
-      team: "enemy",
-      maxHp: 95,
-      defaultAc: 15,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "tripod_null_calf_statblock_cr5.md",
+      id: "thrinn",
+      name: "Thrinn",
+      team: "ally",
+      maxHp: null,
+      defaultNotes: "Underground / dragged under — keep on tracker for recovery.",
     },
     {
       id: "fleshborn-hybrid-a",
@@ -3211,6 +3232,7 @@
       team: "enemy",
       maxHp: 45,
       defaultAc: 13,
+      defaultNotes: "Field continuity from Session 25.",
       statblockPath: ENEMY_STATBLOCK_ROOT + "fleshborn_hybrid_statblock_cr3.md",
     },
     {
@@ -3219,87 +3241,81 @@
       team: "enemy",
       maxHp: 45,
       defaultAc: 13,
+      defaultNotes: "Field continuity from Session 25.",
       statblockPath: ENEMY_STATBLOCK_ROOT + "fleshborn_hybrid_statblock_cr3.md",
     },
     {
-      id: "aberrant-meatwing-a",
-      name: "Aberrant Meatwing A",
+      id: "meat-mind",
+      name: "Meat Mind",
       team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+      maxHp: 200,
+      defaultAc: 16,
+      defaultNotes: MEAT_MIND_DEFAULT_NOTES,
+      graphNodeId: "threat:authored:d60f9863b0faf7f586d69182a0882f1f",
+      // Published Workbench binding (provisional until hydrate fills HP/AC from sheet).
+      statblockId: "sb_b0b2b907c1294c5cae3cf62681829c09",
+      revisionId: "rev_cb413b564685440ebd90373bdb151e5d",
     },
     {
-      id: "aberrant-meatwing-b",
-      name: "Aberrant Meatwing B",
+      id: "mireward-latchling-a",
+      name: "Mireward Latchling A",
       team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+      maxHp: 52,
+      defaultAc: 14,
+      defaultNotes: LATCHLING_DEFAULT_NOTES,
+      // Shared non-corpus key so Latchlings auto-group without a broken repo link.
+      statblockPath: "mireward_latchling_group",
+      graphNodeId: "threat:authored:d16d43d376833e38caf46dd19b1dd17f",
+      statblockId: "sb_7727dfeeb8074214a6a9cebf257691ff",
+      revisionId: "rev_60b7bf03dd8d4a75a0a164ad73ce83b1",
     },
     {
-      id: "aberrant-meatwing-c",
-      name: "Aberrant Meatwing C",
+      id: "mireward-latchling-b",
+      name: "Mireward Latchling B",
       team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+      maxHp: 52,
+      defaultAc: 14,
+      defaultNotes: LATCHLING_DEFAULT_NOTES,
+      statblockPath: "mireward_latchling_group",
+      graphNodeId: "threat:authored:d16d43d376833e38caf46dd19b1dd17f",
+      statblockId: "sb_7727dfeeb8074214a6a9cebf257691ff",
+      revisionId: "rev_60b7bf03dd8d4a75a0a164ad73ce83b1",
     },
     {
-      id: "aberrant-meatwing-d",
-      name: "Aberrant Meatwing D",
+      id: "mireward-latchling-c",
+      name: "Mireward Latchling C",
       team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+      maxHp: 52,
+      defaultAc: 14,
+      defaultNotes: LATCHLING_DEFAULT_NOTES,
+      statblockPath: "mireward_latchling_group",
+      graphNodeId: "threat:authored:d16d43d376833e38caf46dd19b1dd17f",
+      statblockId: "sb_7727dfeeb8074214a6a9cebf257691ff",
+      revisionId: "rev_60b7bf03dd8d4a75a0a164ad73ce83b1",
     },
     {
-      id: "aberrant-meatwing-e",
-      name: "Aberrant Meatwing E",
-      team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+      id: "marked-refugee-a",
+      name: "Marked Refugee A",
+      team: "ally",
+      maxHp: 8,
+      defaultAc: 10,
+      defaultNotes: MARKED_REFUGEE_DEFAULT_NOTES,
     },
     {
-      id: "aberrant-meatwing-f",
-      name: "Aberrant Meatwing F",
-      team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+      id: "marked-refugee-b",
+      name: "Marked Refugee B",
+      team: "ally",
+      maxHp: 8,
+      defaultAc: 10,
+      defaultNotes: MARKED_REFUGEE_DEFAULT_NOTES,
     },
     {
-      id: "aberrant-meatwing-g",
-      name: "Aberrant Meatwing G",
-      team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
-    },
-    {
-      id: "aberrant-meatwing-h",
-      name: "Aberrant Meatwing H",
-      team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
-    },
-    {
-      id: "aberrant-meatwing-i",
-      name: "Aberrant Meatwing I",
-      team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
-    },
-    {
-      id: "aberrant-meatwing-j",
-      name: "Aberrant Meatwing J",
-      team: "enemy",
-      maxHp: 18,
-      defaultAc: 11,
-      statblockPath: ENEMY_STATBLOCK_ROOT + "aberrant_meat_wing_statblock_cr1.md",
+      id: "marked-refugee-c",
+      name: "Marked Refugee C",
+      team: "ally",
+      maxHp: 8,
+      defaultAc: 10,
+      defaultNotes: MARKED_REFUGEE_DEFAULT_NOTES,
     },
   ];
 
@@ -3410,8 +3426,11 @@
   }
 
   function combatEntityDefeated(entity) {
+    if (entity.defeated) return true;
+    // Blank HP (PCs before table fill-in) is not defeated — Number("") === 0 would false-positive.
+    if (entity.hp === "" || entity.hp === null || entity.hp === undefined) return false;
     const hp = Number(entity.hp);
-    return !!entity.defeated || (Number.isFinite(hp) && hp <= 0);
+    return Number.isFinite(hp) && hp <= 0;
   }
 
   function firstLivingIndexInList(entities) {
@@ -3501,9 +3520,12 @@
           hp: hp,
           maxHp: entity.maxHp === null ? "" : entity.maxHp,
           delta: "",
-          notes: "",
+          notes: entity.defaultNotes || "",
           defeated: false,
           statblockPath: entity.statblockPath || "",
+          graphNodeId: entity.graphNodeId || "",
+          statblockId: entity.statblockId || "",
+          revisionId: entity.revisionId || "",
         };
       }),
     };
@@ -3526,10 +3548,14 @@
     const entities = COMBAT_DEFAULTS.map(function (base, index) {
       const current = byId[base.id] || {};
       const defaultHp = base.maxHp === null ? "" : base.maxHp;
+      const hasSavedNotes = Object.prototype.hasOwnProperty.call(current, "notes");
       return {
         id: base.id,
         name: base.name,
-        team: base.team,
+        team:
+          current.team === "pc" || current.team === "ally" || current.team === "enemy"
+            ? current.team
+            : base.team,
         order: typeof current.order === "number" ? current.order : index,
         init: current.init ?? "",
         ac:
@@ -3539,9 +3565,12 @@
         hp: current.hp ?? defaultHp,
         maxHp: current.maxHp ?? defaultHp,
         delta: current.delta ?? "",
-        notes: current.notes ?? "",
+        notes: hasSavedNotes ? current.notes ?? "" : base.defaultNotes || "",
         defeated: !!current.defeated,
         statblockPath: base.statblockPath || current.statblockPath || "",
+        graphNodeId: base.graphNodeId || current.graphNodeId || "",
+        statblockId: base.statblockId || current.statblockId || "",
+        revisionId: base.revisionId || current.revisionId || "",
       };
     }).concat(
       state.entities
@@ -3565,6 +3594,9 @@
             notes: entity.notes ?? "",
             defeated: !!entity.defeated,
             statblockPath: entity.statblockPath ?? "",
+            graphNodeId: entity.graphNodeId ?? "",
+            statblockId: entity.statblockId ?? "",
+            revisionId: entity.revisionId ?? "",
             generatedArtifactId: entity.generatedArtifactId ?? "",
             generatedTitle: entity.generatedTitle ?? "",
             generatedMarkdown: entity.generatedMarkdown ?? "",
@@ -3633,14 +3665,14 @@
     if (!root) {
       return {
         campaign_id: "longmont-c2",
-        session: 22,
-        encounter_slug: "north_reach_gate",
+        session: 26,
+        encounter_slug: "mireward_wall_breach",
       };
     }
     return {
       campaign_id: root.getAttribute("data-combat-save-campaign") || "longmont-c2",
-      session: Number(root.getAttribute("data-combat-save-session") || "22"),
-      encounter_slug: root.getAttribute("data-combat-save-encounter") || "north_reach_gate",
+      session: Number(root.getAttribute("data-combat-save-session") || "26"),
+      encounter_slug: root.getAttribute("data-combat-save-encounter") || "mireward_wall_breach",
     };
   }
 
@@ -3718,6 +3750,126 @@
       });
   }
 
+  function combatStatblockIsCorpusPath(statblockPath) {
+    const path = String(statblockPath || "");
+    return path.indexOf("corpus/") === 0 || /\.md$/i.test(path);
+  }
+
+  function buildPlanOpenNodeHref(graphNodeId, campaignId) {
+    const node = String(graphNodeId || "").trim();
+    if (!node) return "";
+    const campaign = String(campaignId || "longmont-c2").trim() || "longmont-c2";
+    return (
+      "/plan?campaign=" +
+      encodeURIComponent(campaign) +
+      "&openNode=" +
+      encodeURIComponent(node)
+    );
+  }
+
+  function buildEmbedThreatSheetHref(opts) {
+    const options = opts || {};
+    const node = String(options.nodeId || "").trim();
+    if (!node) return "";
+    const params = new URLSearchParams();
+    params.set("nodeId", node);
+    const campaign = String(options.campaignId || "longmont-c2").trim() || "longmont-c2";
+    params.set("campaign", campaign);
+    const label = String(options.label || "").trim();
+    if (label) params.set("label", label);
+    return "/embed/threat-sheet?" + params.toString();
+  }
+
+  function openGraphThreatSheetModal(opts) {
+    const options = opts || {};
+    const nodeId = String(options.nodeId || "").trim();
+    const label = String(options.label || "").trim() || "Threat sheet";
+    if (!nodeId) {
+      setMarkdownViewerState("error", "", "Missing graph node id for Threat sheet.", {
+        displayTitle: label,
+        sourceLabel: "",
+        hideRaw: true,
+        theme: "statblock",
+      });
+      return;
+    }
+
+    const embedHref = buildEmbedThreatSheetHref({
+      nodeId: nodeId,
+      label: label,
+      campaignId: options.campaignId,
+    });
+    const planHref =
+      String(options.planHref || "").trim() || buildPlanOpenNodeHref(nodeId, options.campaignId);
+
+    const root = ensureMarkdownModal();
+    root.classList.add("md-viewer--threat-embed");
+    setMarkdownViewerState(
+      "ready",
+      "",
+      '<iframe class="md-viewer-threat-embed" title="' +
+        escapeHtml(label) +
+        ' Threat sheet" src="' +
+        escapeHtml(embedHref) +
+        '"></iframe>',
+      {
+        displayTitle: label,
+        sourceLabel: nodeId,
+        hideRaw: !planHref,
+        theme: "statblock",
+        keepThreatEmbed: true,
+      }
+    );
+
+    const raw = document.getElementById("md-viewer-raw");
+    if (raw && planHref) {
+      raw.href = planHref;
+      raw.target = "_blank";
+      raw.rel = "noopener";
+      raw.textContent = "Open on Plan";
+      raw.hidden = false;
+    }
+  }
+
+  function combatEntityNameHtml(entity) {
+    const graphNodeId = String(entity.graphNodeId || "").trim();
+    if (graphNodeId) {
+      const planHref = buildPlanOpenNodeHref(graphNodeId);
+      return (
+        '<a class="combat-statblock-link combat-graph-node-link" href="' +
+        escapeHtml(planHref) +
+        '" data-graph-node-id="' +
+        escapeHtml(graphNodeId) +
+        '" data-plan-href="' +
+        escapeHtml(planHref) +
+        '" title="Preview Threat sheet (same page)">' +
+        escapeHtml(entity.name) +
+        "</a>"
+      );
+    }
+    if (combatStatblockIsCorpusPath(entity.statblockPath)) {
+      return (
+        '<a class="combat-statblock-link repo-md" data-repo="' +
+        escapeHtml(entity.statblockPath) +
+        '" href="' +
+        repoHref(entity.statblockPath) +
+        '" title="Click to preview statblock">' +
+        escapeHtml(entity.name) +
+        "</a>"
+      );
+    }
+    if (entity.generatedMarkdown) {
+      return (
+        '<a class="combat-statblock-link repo-md" href="#" data-generated-statblock="' +
+        escapeHtml(entity.id) +
+        '" title="Click to preview generated statblock">' +
+        escapeHtml(entity.name) +
+        "</a>"
+      );
+    }
+    return escapeHtml(entity.name);
+  }
+
   function initCombatTracker() {
     const tbody = document.getElementById("combat-rows");
     if (!tbody) return;
@@ -3744,8 +3896,10 @@
     }
 
     function isEntityDefeated(entity) {
+      if (entity.defeated) return true;
+      if (entity.hp === "" || entity.hp === null || entity.hp === undefined) return false;
       const hp = Number(entity.hp);
-      return !!entity.defeated || (Number.isFinite(hp) && hp <= 0);
+      return Number.isFinite(hp) && hp <= 0;
     }
 
     function isSegmentCollapsed(segment) {
@@ -3786,21 +3940,7 @@
           ? Math.max(0, Math.min(100, Math.round((hpNum / maxNum) * 100)))
           : "";
       const isDefeated = isEntityDefeated(entity);
-      const nameHtml = entity.statblockPath
-        ? '<a class="combat-statblock-link repo-md" data-repo="' +
-          escapeHtml(entity.statblockPath) +
-          '" href="' +
-          repoHref(entity.statblockPath) +
-          '" title="Click to preview statblock">' +
-          escapeHtml(entity.name) +
-          "</a>"
-        : entity.generatedMarkdown
-          ? '<a class="combat-statblock-link repo-md" href="#" data-generated-statblock="' +
-            escapeHtml(entity.id) +
-            '" title="Click to preview generated statblock">' +
-            escapeHtml(entity.name) +
-            "</a>"
-          : escapeHtml(entity.name);
+      const nameHtml = combatEntityNameHtml(entity);
       return (
         '<tr class="' +
         (isTurn ? "active-turn" : "") +
@@ -4149,14 +4289,30 @@
         return member.index === state.turnIndex;
       });
       const activeMember = hasActiveTurn ? state.entities[state.turnIndex] : null;
-      const statblockLink =
-        '<a class="combat-statblock-link repo-md" data-repo="' +
-        escapeHtml(segment.statblockPath) +
-        '" href="' +
-        repoHref(segment.statblockPath) +
-        '" title="Click to preview statblock">' +
-        escapeHtml(segment.label) +
-        "</a>";
+      const groupGraphNodeId = String(
+        (segment.members[0] && segment.members[0].entity && segment.members[0].entity.graphNodeId) ||
+          ""
+      ).trim();
+      const groupPlanHref = groupGraphNodeId ? buildPlanOpenNodeHref(groupGraphNodeId) : "";
+      const statblockLink = groupGraphNodeId
+        ? '<a class="combat-statblock-link combat-graph-node-link" data-graph-node-id="' +
+          escapeHtml(groupGraphNodeId) +
+          '" data-plan-href="' +
+          escapeHtml(groupPlanHref) +
+          '" href="' +
+          escapeHtml(groupPlanHref) +
+          '" title="Preview Threat sheet (same page)">' +
+          escapeHtml(segment.label) +
+          "</a>"
+        : combatStatblockIsCorpusPath(segment.statblockPath)
+          ? '<a class="combat-statblock-link repo-md" data-repo="' +
+            escapeHtml(segment.statblockPath) +
+            '" href="' +
+            repoHref(segment.statblockPath) +
+            '" title="Click to preview statblock">' +
+            escapeHtml(segment.label) +
+            "</a>"
+          : escapeHtml(segment.label);
       return (
         '<tr class="combat-group-row' +
         (collapsed ? " is-collapsed" : "") +
@@ -4640,6 +4796,7 @@
     initCombatTracker: initCombatTracker,
     openMarkdownViewer: openMarkdownViewer,
     openMarkdownFromText: openMarkdownFromText,
+    openGraphThreatSheetModal: openGraphThreatSheetModal,
     closeMarkdownViewer: closeMarkdownViewer,
     initRunbookReferencePopoverShell: initRunbookReferencePopoverShell,
     closeRunbookReferencePopover: closeRunbookReferencePopover,

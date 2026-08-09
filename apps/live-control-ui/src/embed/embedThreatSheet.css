@@ -1,0 +1,58 @@
+.embed-threat-sheet {
+  min-height: 100vh;
+  margin: 0;
+  padding: 12px 16px 24px;
+  box-sizing: border-box;
+  background: #12151a;
+  color: #e8eaed;
+}
+
+.embed-threat-sheet__hd {
+  margin-bottom: 12px;
+}
+
+.embed-threat-sheet__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.embed-threat-sheet__meta {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  opacity: 0.65;
+  word-break: break-all;
+}
+
+.embed-threat-sheet__status,
+.embed-threat-sheet__error {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.embed-threat-sheet__error {
+  border-color: rgba(220, 120, 80, 0.45);
+}
+
+.embed-threat-sheet__error strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.embed-threat-sheet__error p,
+.embed-threat-sheet__status {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.embed-threat-sheet__body {
+  max-width: 920px;
+}
+
+.embed-threat-sheet .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

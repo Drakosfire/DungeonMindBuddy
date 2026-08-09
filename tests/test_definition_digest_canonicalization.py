@@ -87,3 +87,32 @@ def test_nfc_and_decomposed_unicode_normalize_identically() -> None:
     assert source_definition_digest_from_body(composed) == source_definition_digest_from_body(
         decomposed
     )
+
+
+def test_stale_openapi_explains_null_does_not_enter_canonical() -> None:
+    """DMS omitted RuleElement.explains; Buddy OpenAPI may still dump null."""
+    clean = _source_definition()
+    for element in clean.get("rule_elements") or []:
+        if isinstance(element, dict):
+            element.pop("explains", None)
+
+    with_null_explains = copy.deepcopy(clean)
+    for element in with_null_explains.get("rule_elements") or []:
+        if isinstance(element, dict):
+            element["explains"] = None
+
+    clean_canonical = canonicalize_definition_dict(clean)
+    assert '"explains"' not in clean_canonical
+    assert clean_canonical == canonicalize_definition_dict(with_null_explains)
+    assert source_definition_digest_from_body(clean) == source_definition_digest_from_body(
+        with_null_explains
+    )
+
+    # Legacy fixtures sealed with explicit explains:[] must keep that shape.
+    with_empty_explains = copy.deepcopy(clean)
+    for element in with_empty_explains.get("rule_elements") or []:
+        if isinstance(element, dict):
+            element["explains"] = []
+    empty_canonical = canonicalize_definition_dict(with_empty_explains)
+    assert '"explains":[]' in empty_canonical
+    assert empty_canonical != clean_canonical

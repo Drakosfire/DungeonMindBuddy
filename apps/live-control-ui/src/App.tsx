@@ -33,10 +33,18 @@ import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
 import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
 import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
+import { EmbedThreatSheetPage } from "./embed/EmbedThreatSheetPage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
+type AppRoute =
+  | "index"
+  | "surface"
+  | "tiptap-callout-spike"
+  | "plan"
+  | "ingest"
+  | "build"
+  | "embed-threat-sheet";
 
 function currentRoute(): AppRoute {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -45,6 +53,7 @@ function currentRoute(): AppRoute {
   if (path === "/plan") return "plan";
   if (path === "/ingest") return "ingest";
   if (path === "/build") return "build";
+  if (path === "/embed/threat-sheet") return "embed-threat-sheet";
   return "index";
 }
 
@@ -269,6 +278,7 @@ function LiveControlApp() {
 
 export function App() {
   const route = currentRoute();
+  const isEmbed = route === "embed-threat-sheet";
   let content;
   if (route === "index") {
     content = (
@@ -284,6 +294,8 @@ export function App() {
     content = <MemoryIngestPage />;
   } else if (route === "build") {
     content = <BuildSurfacePage />;
+  } else if (route === "embed-threat-sheet") {
+    content = <EmbedThreatSheetPage />;
   } else {
     content = <LiveControlApp />;
   }
@@ -293,9 +305,9 @@ export function App() {
         <WorldGraphLensProvider planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
           <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
             {content}
-            <ToolHost />
-            <LegacyProjectionHostAdapter />
-            <AgentInteractionChrome />
+            {isEmbed ? null : <ToolHost />}
+            {isEmbed ? null : <LegacyProjectionHostAdapter />}
+            {isEmbed ? null : <AgentInteractionChrome />}
           </WorldGraphLensProjectionProvider>
         </WorldGraphLensProvider>
       </AskPluginSlotProvider>

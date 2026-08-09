@@ -9,6 +9,10 @@ OpenAPI-generated ``StatblockDefinitionV1Input`` treats many list fields as
 nullable with default ``None``. Server domain models use
 ``Field(default_factory=list)`` for those fields. Before hashing we restore
 those Server list defaults so omitted / null lists digest as ``[]``.
+
+Stale OpenAPI pins may still declare fields the Server has removed (notably
+``RuleElement.explains``). Those keys are stripped before canonicalize so
+Buddy does not fail exact-revision integrity against Server-sealed revisions.
 """
 from __future__ import annotations
 
@@ -51,7 +55,6 @@ _SERVER_DEFAULT_EMPTY_LIST_FIELDS = frozenset(
         "disabled_element_keys",
         "effects",
         "enabled_element_keys",
-        "explains",
         "failure_effects",
         "hit_effects",
         "languages",
@@ -68,6 +71,27 @@ _SERVER_DEFAULT_EMPTY_LIST_FIELDS = frozenset(
         "tags",
     }
 )
+
+# Dropped on DungeonMindServer main. Stale Buddy OpenAPI still declares the field
+# and dumps ``explains: null``; that must not become ``[]`` or the key will
+# disagree with Server-sealed canonical_definition (which omits the field).
+# Explicit ``explains: []`` / non-empty lists are left intact for legacy fixtures
+# sealed while the field still existed.
+_NULLABLE_REMOVED_SERVER_FIELDS = frozenset({"explains"})
+
+
+def _drop_null_removed_server_fields(value: Any) -> Any:
+    """Drop removed-field keys only when OpenAPI reintroduced them as null."""
+    if isinstance(value, Mapping):
+        restored: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in _NULLABLE_REMOVED_SERVER_FIELDS and item is None:
+                continue
+            restored[str(key)] = _drop_null_removed_server_fields(item)
+        return restored
+    if isinstance(value, list):
+        return [_drop_null_removed_server_fields(item) for item in value]
+    return value
 
 
 def _restore_server_list_defaults(value: Any) -> Any:
@@ -108,8 +132,8 @@ def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
     # Validate against the transport DTO, then restore Server domain list defaults
     # before hashing so omitted subtypes/languages/etc. match Server [].
     parsed = StatblockDefinitionV1Input.model_validate(source_definition)
-    payload = _restore_server_list_defaults(
-        parsed.model_dump(mode="json", exclude_none=False)
+    payload = _drop_null_removed_server_fields(
+        _restore_server_list_defaults(parsed.model_dump(mode="json", exclude_none=False))
     )
     normalized = _normalize_value(payload)
     return json.dumps(
@@ -123,8 +147,8 @@ def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
 
 def canonicalize_definition_payload(definition: StatblockDefinitionV1Input) -> str:
     """Return version-1 canonical JSON text for a parsed definition."""
-    payload = _restore_server_list_defaults(
-        definition.model_dump(mode="json", exclude_none=False)
+    payload = _drop_null_removed_server_fields(
+        _restore_server_list_defaults(definition.model_dump(mode="json", exclude_none=False))
     )
     normalized = _normalize_value(payload)
     return json.dumps(

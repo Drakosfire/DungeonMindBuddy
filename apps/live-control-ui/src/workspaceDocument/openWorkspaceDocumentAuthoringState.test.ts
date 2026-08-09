@@ -150,4 +150,57 @@ describe("openWorkspaceDocumentAuthoringState", () => {
     expect(opened.localState?.dirty).toBe(false);
     expect(opened.localState?.exported_markdown).toBe(body);
   });
+
+  it("re-parses dirty-match Markdown so stale tiptap_json cannot hide callouts", () => {
+    const markdown = [
+      "## Scenes",
+      "",
+      "- Opening",
+      "  > [!READ-ALOUD]",
+      "  > Bells ring.",
+      "",
+    ].join("\n");
+    const snap = snapshot({
+      markdown: "# Server older body\n",
+      content_sha256: "sha-base",
+      loaded_revision: 3,
+      file_exists: true,
+      file_fingerprint: "present",
+      record: { ...snapshot().record, revision: 3 },
+    });
+    const stored = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "World Lore",
+      campaignId: "eldyrwild",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 3,
+      baseContentSha256: "sha-base",
+      starterContent: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "> [!READ-ALOUD] > Bells ring." }],
+          },
+        ],
+      },
+    });
+    stored.dirty = true;
+    stored.exported_markdown = markdown;
+    const opened = openWorkspaceDocumentAuthoringState({
+      documentId: DOC_ID,
+      snapshot: snap,
+      stored,
+      surface: "build",
+      kind: "worldbuilding_source",
+    });
+    expect(opened.status).toBe("ready");
+    expect(opened.reconciliation.kind).toBe("dirty-match");
+    expect(opened.localState?.dirty).toBe(true);
+    const raw = JSON.stringify(opened.localState?.tiptap_json ?? {});
+    expect(raw).toContain('"type":"callout"');
+    expect(raw).not.toContain("[!READ-ALOUD]");
+  });
 });

@@ -32,6 +32,16 @@ describe("markdownToTiptapDoc", () => {
     ]);
   });
 
+  it("heals escaped emphasis in graph-node chip labels so Plan canvas cannot widen", () => {
+    const result = markdownToTiptapDoc(
+      "- [\\*\\*Meat Mind\\*\\*](#dmb-ref:graph-node:threat:authored:d60f9863b0faf7f586d69182a0882f1f)",
+    );
+    const serialized = JSON.stringify(result.doc);
+    expect(serialized).toContain('"refType":"graph-node"');
+    expect(serialized).toContain('"label":"Meat Mind"');
+    expect(serialized).not.toContain("\\\\*");
+  });
+
   it("imports action links as runbookReference nodes", () => {
     const result = markdownToTiptapDoc("Launch [North Gate Combat](#dmb-action:combat:north-gate-combat).");
     const paragraph = result.doc.content[0] as { content: Array<{ attrs?: Record<string, unknown> }> };
@@ -148,6 +158,11 @@ describe("markdownToTiptapDoc", () => {
     expect(JSON.stringify(doc)).toContain("doom is approaching");
     expect(JSON.stringify(doc)).toContain('"type":"table"');
     expect(JSON.stringify(doc)).toContain("Stafl");
+    // Nested save→reload shape must not leave callout markers as plain text.
+    expect(JSON.stringify(doc)).toContain('"type":"decisionConsequence"');
+    expect(JSON.stringify(doc)).toContain('"kind":"read-aloud"');
+    expect(JSON.stringify(doc)).not.toContain("[!READ-ALOUD]");
+    expect(JSON.stringify(doc)).not.toContain("[!DECISION-CONSEQUENCE]");
   });
 
   it("imports bold/italic/code marks instead of raw markdown tokens", () => {
@@ -196,5 +211,46 @@ describe("markdownToTiptapDoc", () => {
     expect(exported).toContain("| Who | Position |");
     expect(exported).toContain("| **Stafl** | On the wall |");
     expect(exported).toContain("| **Thrin** | Field scout |");
+  });
+
+  it("imports indented callouts nested under list items (save → hard-refresh shape)", () => {
+    const markdown = [
+      "## Scenes / beats",
+      "",
+      "- \\## Opening Scene",
+      "  > [!READ-ALOUD]",
+      "  > The bells feel far away.",
+      "- Decision forks",
+      "  - > [!DECISION-CONSEQUENCE]",
+      "  > ### Decision",
+      "  >",
+      "  > Hold the wall",
+      "  >",
+      "  > ### Consequence",
+      "  >",
+      "  > Pressure rises elsewhere.",
+      "    > [!DECISION-CONSEQUENCE]",
+      "    > ### Decision",
+      "    >",
+      "    > Chase Thrin",
+      "    >",
+      "    > ### Consequence",
+      "    >",
+      "    > Leave the gate under strain.",
+      "",
+    ].join("\n");
+
+    const { doc } = markdownToTiptapDoc(markdown);
+    const raw = JSON.stringify(doc);
+    expect(raw).not.toContain("[!READ-ALOUD]");
+    expect(raw).not.toContain("[!DECISION-CONSEQUENCE]");
+    expect(raw).toContain('"type":"callout"');
+    expect(raw).toContain('"type":"decisionConsequence"');
+    expect(raw).toContain("Opening Scene");
+    expect(raw).not.toContain('"text":"## Opening Scene"');
+    expect(raw).toContain("The bells feel far away.");
+    expect(raw).toContain("Hold the wall");
+    expect(raw).toContain("Chase Thrin");
+    expect((raw.match(/"decisionConsequence"/g) || []).length).toBe(2);
   });
 });

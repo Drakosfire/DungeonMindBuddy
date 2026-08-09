@@ -208,6 +208,9 @@
   border-radius: 8px;
   background: rgba(18, 20, 26, 0.55);
   padding: 0.75rem 0.85rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .graph-reference-search__title {
@@ -263,24 +266,38 @@
   display: grid;
   gap: 0.4rem;
   max-height: 14rem;
-  overflow: auto;
+  /* Long labels must wrap inside the row — never widen the track / spawn H-scroll. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
 }
 
 .graph-reference-search__row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.55rem;
   border: 1px solid var(--border, #2a3142);
   border-radius: 6px;
   background: rgba(10, 12, 16, 0.45);
   padding: 0.45rem 0.55rem;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .graph-reference-search__copy {
   display: grid;
   gap: 0.1rem;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.graph-reference-search__copy strong,
+.graph-reference-search__meta,
+.graph-reference-search__denied {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .graph-reference-search__meta {
@@ -295,8 +312,11 @@
 
 .graph-reference-search__actions {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.35rem;
+  max-width: 100%;
 }
 
 .graph-reference-search__button {

@@ -2454,11 +2454,17 @@ body.surface-projection-open .plan-agent-shell {
   background: rgba(156, 163, 175, 0.12);
   color: var(--fg, #e8eaef);
   cursor: pointer;
-  display: inline;
+  display: inline-block;
   font: inherit;
   line-height: 1.15;
   margin: 0 0.04rem;
   padding: 0.05rem 0.38rem 0.08rem;
+  max-width: min(24rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+  vertical-align: baseline;
 }
 
 .recap-node-token:hover,

@@ -43,6 +43,7 @@ import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenc
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import { formatReviewCampaignLabel } from "../sessionCampaignContext";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
+import { readOpenNodeFromSearch, stripOpenNodeFromLocation } from "../planOpenNodeDeepLink";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
@@ -268,6 +269,30 @@ export function PlanSurfaceCanvas({
     },
     [openGraphReference, projection, projectionState],
   );
+
+  const openNodeHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (projectionState !== "ready" || !projection) return;
+    const openNode = readOpenNodeFromSearch(window.location.search);
+    if (!openNode) return;
+    if (openNodeHandledRef.current === openNode) return;
+
+    const item = graphReferenceSearchItems.find((entry) => entry.nodeId === openNode);
+    openNodeHandledRef.current = openNode;
+    if (item) {
+      handleViewGraphReference(item);
+    }
+    window.history.replaceState(
+      {},
+      "",
+      stripOpenNodeFromLocation(
+        window.location.pathname,
+        window.location.search,
+        window.location.hash || "",
+      ),
+    );
+  }, [graphReferenceSearchItems, handleViewGraphReference, projection, projectionState]);
 
   const graphRefSearchPanel = useMemo(
     () => (
@@ -576,6 +601,17 @@ export function PlanSurfaceCanvas({
           >
             Save
           </button>
+          {authoring.dirty ? (
+            <button
+              type="button"
+              data-testid="plan-board-discard-local-draft"
+              onClick={() => {
+                void authoring.discardLocalDraft();
+              }}
+            >
+              Discard local draft
+            </button>
+          ) : null}
         </div>
       </header>
 

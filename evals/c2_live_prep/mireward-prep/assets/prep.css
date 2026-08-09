@@ -1326,6 +1326,24 @@ body.md-viewer-open { overflow: hidden; }
   padding: 16px 18px 24px;
 }
 
+.md-viewer.md-viewer--threat-embed .md-viewer-panel {
+  width: min(1100px, 100%);
+}
+
+.md-viewer.md-viewer--threat-embed .md-viewer-body {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.md-viewer-threat-embed {
+  display: block;
+  width: 100%;
+  height: min(82vh, 920px);
+  border: 0;
+  background: #12151a;
+}
+
 .md-viewer-status {
   color: var(--fg-mute);
   font-size: 13px;

@@ -35,9 +35,13 @@ function chooseEditorContent(args: {
   const snapshotMarkdown = reconciliation.markdown;
 
   if (reconciliation.kind === "dirty-match" && reconciliation.localState) {
+    // Re-parse from exported Markdown so importer upgrades (callouts, tables,
+    // marks) apply on reload. Stale tiptap_json from an older parser must not
+    // silently win when base revision still matches (no conflict banner).
+    const exportedMarkdown = reconciliation.localState.exported_markdown;
     return {
-      tiptapJson: reconciliation.localState.tiptap_json,
-      exportedMarkdown: reconciliation.localState.exported_markdown,
+      tiptapJson: markdownToTiptapDoc(exportedMarkdown).doc,
+      exportedMarkdown,
       dirty: true,
     };
   }
