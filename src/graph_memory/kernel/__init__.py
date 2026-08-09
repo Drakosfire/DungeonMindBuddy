@@ -15,6 +15,7 @@ from graph_memory.kernel.contribution_diagnostics import (
     build_contribution_integrity_report,
 )
 from graph_memory.kernel.contribution_merge import (
+    correct_edge_assertion_support,
     merge_contribution_to_revision,
     retract_graph_contribution,
     supersede_graph_contribution,
@@ -28,6 +29,7 @@ from graph_memory.kernel.contribution_models import (
     ContributionStatus,
     GraphContribution,
     GraphContributionAssertion,
+    GraphContributionAssertionCorrection,
 )
 from graph_memory.kernel.contribution_rebuild import rebuild_from_contributions
 from graph_memory.kernel.contributions import (
@@ -36,6 +38,8 @@ from graph_memory.kernel.contributions import (
     compute_contribution_id,
     compute_contribution_payload_sha256,
     compute_contribution_source_payload_sha256,
+    compute_correction_digest,
+    create_edge_assertion_correction_contribution,
     create_graph_contribution,
 )
 from graph_memory.kernel.temporal import (
@@ -251,10 +255,16 @@ __all__ = [
     "DurableAssertionSupport",
     "GraphContribution",
     "GraphContributionAssertion",
+    "GraphContributionAssertionCorrection",
     "build_assertion",
     "build_contribution_integrity_report",
     "compute_assertion_id",
     "compute_contribution_id",
+    "compute_contribution_payload_sha256",
+    "compute_contribution_source_payload_sha256",
+    "compute_correction_digest",
+    "correct_edge_assertion_support",
+    "create_edge_assertion_correction_contribution",
     "create_graph_contribution",
     "merge_contribution_to_revision",
     "rebuild_from_contributions",
