@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -160,35 +160,37 @@ def _continuity_by_edge(
 
 def resolve_carried_relationship_explicit_adapter_v1(
     *,
+    root: Path,
     world_id: str,
     revision_id: str,
-    graph_payload_sha256: str,
     edge: UnionSupergraphEdge,
-    store: UnionSupergraphStore,
-    continuity_state: Literal[
-        "ANCHOR",
-        "CARRIED_FORWARD",
-        "INVALIDATED_BY_EDGE_CHANGE",
-        "INVALIDATED_BY_SOURCE_CHANGE",
-        "EDGE_REMOVED",
-        "NOT_DESCENDANT",
-        "REQUIRES_READJUDICATION",
-    ],
 ) -> ResolvedRelationshipExplicitAdapterV1 | None:
-    """Resolve a PR #530 adapter only when adjudication continuity still applies.
+    """Resolve a PR #530 adapter only after verifying built-in continuity.
 
-    Always uses the immutable built-in catalog and world-object-v4. Does not
-    accept caller-supplied catalogs or vocabularies.
+    Always derives continuity from ``root`` / ``world_id`` / ``revision_id`` via
+    the sealed adjudication continuity analyzer, then loads the immutable built-in
+    catalog and world-object-v4. Caller-supplied continuity states, catalogs, and
+    vocabularies are intentionally not accepted.
     """
-    del world_id, revision_id, graph_payload_sha256  # continuity_state is authority
-    if continuity_state not in _ACTIVE_CONTINUITY:
+    continuity = analyze_relationship_adjudication_continuity_v1(
+        root=root,
+        world_id=world_id,
+        revision_id=revision_id,
+    )
+    row = next((r for r in continuity.rows if r.edge_id == edge.edge_id), None)
+    if row is None or row.continuity_state not in _ACTIVE_CONTINUITY:
         return None
+    _, store = _load_exact_buddy_revision(
+        root=root,
+        world_id=world_id,
+        revision_id=revision_id,
+    )
     catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     return _resolve_carried_adapter_with_catalog(
         edge=edge,
         store=store,
         catalog=catalog,
-        continuity_state=continuity_state,
+        continuity_state=row.continuity_state,
     )
 
 

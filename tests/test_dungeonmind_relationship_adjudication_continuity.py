@@ -446,12 +446,14 @@ def test_sibling_fork_does_not_inherit_adjudication(tmp_path: Path) -> None:
         world_id=SYNTH_WORLD,
         requested_revision_id=r_a,
         anchor_revision_id=r0,
+        anchor_world_id=SYNTH_WORLD,
     )
     ok_b, diag_b, _ = prove_revision_is_anchor_or_descendant_v1(
         root=tmp_path,
         world_id=SYNTH_WORLD,
         requested_revision_id=r_b,
         anchor_revision_id=r0,
+        anchor_world_id=SYNTH_WORLD,
     )
     assert ok_a is True
     assert ok_b is False
@@ -491,6 +493,22 @@ def test_different_world_receives_zero_carried_adjudications(tmp_path: Path) -> 
     assert report.not_descendant_count == 59
     assert all(row.continuity_state == "NOT_DESCENDANT" for row in report.rows)
     assert all(row.diagnostic == "WORLD_MISMATCH" for row in report.rows)
+
+
+def test_ancestry_prover_rejects_same_revision_id_in_wrong_world(tmp_path: Path) -> None:
+    """Matching Eldyrwild revision ID alone does not grant ancestry elsewhere."""
+    store = _synth_store()
+    # Publish under another world using an unrelated revision id, then ask the
+    # public prover whether the *Eldyrwild* anchor revision ID is ancestral.
+    _publish_store(tmp_path, "spoof-world", store, "op:spoof")
+    ok, diagnostic, detail = prove_revision_is_anchor_or_descendant_v1(
+        root=tmp_path,
+        world_id="spoof-world",
+        requested_revision_id=ELDYRWILD_REVISION_ID,
+    )
+    assert ok is False
+    assert diagnostic == "WORLD_MISMATCH"
+    assert detail is not None and "spoof-world" in detail
 
 
 def test_eldyrwild_continuity_integration_when_present() -> None:

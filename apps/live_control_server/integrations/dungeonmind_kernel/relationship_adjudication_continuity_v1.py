@@ -131,14 +131,22 @@ def prove_revision_is_anchor_or_descendant_v1(
     world_id: str,
     requested_revision_id: str,
     anchor_revision_id: str = ELDYRWILD_REVISION_ID,
+    anchor_world_id: str = ELDYRWILD_WORLD_ID,
 ) -> tuple[bool, ContinuityDiagnostic | None, str | None]:
     """Prove ancestry via the public Kernel revision-manifest parent chain.
 
     Walks ``parent_revision_id`` using ``load_world_graph_revision_manifest``.
     Does not parse storage paths or infer from timestamps/operation IDs.
+
+    World ownership is part of the proof: matching revision IDs alone never
+    grant ancestry across worlds.
     """
-    if requested_revision_id == anchor_revision_id:
-        return True, None, None
+    if world_id != anchor_world_id:
+        return (
+            False,
+            "WORLD_MISMATCH",
+            f"world_id {world_id!r} is not adjudication world {anchor_world_id!r}",
+        )
 
     if not hasattr(kernel, "load_world_graph_revision_manifest"):
         return (
@@ -146,6 +154,32 @@ def prove_revision_is_anchor_or_descendant_v1(
             "DURABLE_REVISION_LINEAGE_READ_SEAM_MISSING",
             "graph_memory.kernel.load_world_graph_revision_manifest is unavailable",
         )
+
+    try:
+        requested_manifest = kernel.load_world_graph_revision_manifest(
+            root, world_id, requested_revision_id
+        )
+    except WorldGraphNotFoundError as exc:
+        return (
+            False,
+            "ANCESTRY_UNPROVEN",
+            f"requested revision missing: {requested_revision_id!r} ({exc})",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return (
+            False,
+            "ANCESTRY_UNPROVEN",
+            f"unreadable requested revision {requested_revision_id!r}: {exc}",
+        )
+    if getattr(requested_manifest, "world_id", None) != world_id:
+        return (
+            False,
+            "ANCESTRY_UNPROVEN",
+            f"manifest world_id mismatch at {requested_revision_id!r}",
+        )
+
+    if requested_revision_id == anchor_revision_id:
+        return True, None, None
 
     seen: set[str] = set()
     current: str | None = requested_revision_id
@@ -625,6 +659,7 @@ def _analyze_relationship_adjudication_continuity_with_authorities(
         world_id=world_id,
         requested_revision_id=revision_id,
         anchor_revision_id=anchor_revision_id,
+        anchor_world_id=anchor_world_id,
     )
 
     live_requested_store = requested_store
