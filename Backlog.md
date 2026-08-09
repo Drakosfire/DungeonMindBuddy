@@ -7,6 +7,14 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [DOING] CommonMark-backed Markdown admission (not more regex edges) — captured 2026-08-09, dispatched 2026-08-09
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-unify-markdown-structural-analysis.md` on branch `agent/dogfood-polish-markdown-ast-admission` (base `c6eb77e5`).
+**Context:** PR #529 review cycle 7 (`4892211756`). After seven cycles of handwritten fail-closed admission (nested indent, list whitelist, reference defs, zero-space/newline destinations), escaped `]` in `[foo\]]: /url` still bypasses `isReferenceLinkDefinitionLine`. Reviewer and handoff agree: stop patching spellings one regex at a time.
+**Insight:** Dual handwritten grammars (sourceSafetyDiagnostics + markdownToTiptap parse) cannot stay coincident with CommonMark/GFM at their edges. Admission and TipTap projection need one real parse representation; regex helpers will keep rediscovering escaped-label / whitespace / container holes.
+**Action:** Successor slice: adopt a CommonMark/GFM parser (e.g. micromark/mdast) as the single import/admission oracle; derive TipTap projection and Save-blocking diagnostics from that AST; keep #527 authority seal / re-import / YAML preserve. Do not absorb into #529 via another `isReferenceLinkDefinition*` tweak. Falsify: `[foo\]]: /url` and prior cycle repros block Save at root/list/callout; Session-26 DC + nested lists still round-trip.
+**Surfaces when:** PR #529, markdownToTiptap, reference definition, CommonMark, fail-closed Markdown, semantic prep authoring, sourceSafetyDiagnostics, DOGFOOD-POLISH
+**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-semantic-prep-authoring.md` §Stop conditions; `apps/live-control-ui/src/tiptap/markdown/markdownToTiptap.ts`; review `4892211756`
+
 ## [IDEA] Statblock mechanics identity is campaign-agnostic — captured 2026-08-06
 **Context:** Dogfood Threat sheet hydration: operator could search the Threat but not load mechanics while DMS was down; separately asserted “statblocks should not be defined by the campaign they were created for or in.”
 **Insight:** Exact mechanics identity is `(statblock_id, revision_id, definition_digest)` in DungeonMind. Campaign belongs to World Graph Threat/scope and to presentation chrome (`chrome="campaign"` parchment), not to ownership of the revision. Naming and Advanced Details that put “Campaign” next to mechanics locators make the wrong boundary feel like product truth.
