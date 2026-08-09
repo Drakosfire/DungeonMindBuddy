@@ -711,3 +711,168 @@ def test_pinned_rebuild_fails_closed_without_replay_manifest(
             publish=False,
             compare_revision_id=pinned_revision_id,
         )
+
+def _rebuild_correction_node(
+    *,
+    node_id: str,
+    label: str,
+    source_artifact_id: str,
+):
+    return kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label=label,
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": [label],
+        },
+        source_artifact_id=source_artifact_id,
+        source_revision_id="src-rev-rebuild",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+
+
+def _rebuild_correction_edge(
+    *,
+    edge_id: str,
+    source_node_id: str,
+    target_node_id: str,
+    predicate: str,
+    source_artifact_id: str,
+    evidence_ref_id: str,
+):
+    return kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=source_node_id,
+        target_node_id=target_node_id,
+        predicate=predicate,
+        label=predicate,
+        value={
+            "edge_id": edge_id,
+            "source_node_id": source_node_id,
+            "target_node_id": target_node_id,
+            "predicate": predicate,
+            "source_domains": ["manual_seed"],
+            "evidence": [
+                {
+                    "evidence_ref_id": evidence_ref_id,
+                    "source_artifact_id": source_artifact_id,
+                    "source_domain": "manual_seed",
+                }
+            ],
+            "canon_state": "canonical",
+        },
+        evidence_ref_ids=[evidence_ref_id],
+        source_artifact_id=source_artifact_id,
+        source_revision_id="src-rev-rebuild",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="resolved_existing",
+    )
+
+
+def test_pinned_rebuild_reproduces_edge_assertion_correction(
+    seeded_root: Path,
+) -> None:
+    root = seeded_root
+    node_src = _rebuild_correction_node(
+        node_id="npc_rebuild_src",
+        label="Rebuild Src",
+        source_artifact_id="artifact:rebuild:a",
+    )
+    node_tgt = _rebuild_correction_node(
+        node_id="npc_rebuild_tgt",
+        label="Rebuild Tgt",
+        source_artifact_id="artifact:rebuild:a",
+    )
+    edge_x = _rebuild_correction_edge(
+        edge_id="edge:npc_rebuild_src:threatens:npc_rebuild_tgt",
+        source_node_id="npc_rebuild_src",
+        target_node_id="npc_rebuild_tgt",
+        predicate="threatens",
+        source_artifact_id="artifact:rebuild:a",
+        evidence_ref_id="evidence:rebuild:x",
+    )
+    contrib_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:rebuild:a",
+        source_revision_id="src-rev-a",
+        extraction_profile="test_profile",
+        accepted_assertions=[node_src, node_tgt, edge_x],
+    )
+    merge_a = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_a
+    )
+    assert merge_a.published is True
+
+    edge_xp = _rebuild_correction_edge(
+        edge_id="edge:npc_rebuild_tgt:threatens:npc_rebuild_src",
+        source_node_id="npc_rebuild_tgt",
+        target_node_id="npc_rebuild_src",
+        predicate="threatens",
+        source_artifact_id="artifact:rebuild:c",
+        evidence_ref_id="evidence:rebuild:xp",
+    )
+    correction = kernel.create_edge_assertion_correction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_contribution_id=contrib_a.contribution_id,
+        target_assertion_id=edge_x.assertion_id,
+        replacement_assertion=edge_xp,
+        source_artifact_id="artifact:rebuild:c",
+        produced_at="2026-08-09T12:00:00Z",
+    )
+    corrected = kernel.correct_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=correction,
+        expected_parent_revision_id=merge_a.revision_id,
+    )
+    assert corrected.published is True
+    corrected_rev = corrected.revision_id
+
+    rebuild = kernel.rebuild_from_contributions(
+        root,
+        world_id=WORLD_ID,
+        compare_revision_id=corrected_rev,
+        publish=False,
+    )
+    assert "rebuild_equivalent_to_pinned_revision" in rebuild.diagnostics
+
+    pinned = kernel.load_world_graph_revision(root, WORLD_ID, corrected_rev)
+    assert pinned.assertion_support[edge_x.assertion_id]["support_state"] == "contradicted"
+    assert pinned.assertion_support[edge_xp.assertion_id]["support_state"] == "supported"
+
+    # Tamper correction linkage on disk → pinned rebuild fails closed.
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_record,
+        write_contribution_record,
+    )
+
+    loaded = load_contribution_record(root, WORLD_ID, correction.contribution_id)
+    tampered = loaded.model_copy(
+        update={
+            "assertion_corrections": [
+                loaded.assertion_corrections[0].model_copy(
+                    update={"target_assertion_id": "assertion:tampered"}
+                )
+            ]
+        }
+    )
+    write_contribution_record(root, WORLD_ID, tampered)
+    with pytest.raises(ValueError, match="source digest mismatch"):
+        kernel.rebuild_from_contributions(
+            root,
+            world_id=WORLD_ID,
+            compare_revision_id=corrected_rev,
+            publish=False,
+        )
