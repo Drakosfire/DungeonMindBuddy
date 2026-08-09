@@ -657,10 +657,15 @@ def _classify_edge_predicate_v4(
     edge: UnionSupergraphEdge,
     store: UnionSupergraphStore,
     vocabulary: Any,
+    *,
+    adjudication_domain: bool = False,
 ) -> tuple[SemanticClassification, BlockerClass | None, str, PredicateDisposition, str | None, bool]:
     """Classify one edge predicate.
 
     Returns classification, blocker, note, disposition, mapped_dm_term, reverse_endpoints.
+
+    Edge-specific overrides activate only when ``adjudication_domain`` is True for the
+    exact Eldyrwild world/revision/payload triad from PR #526.
     """
     predicate = edge.predicate
     if predicate == _USES_STATBLOCK:
@@ -688,18 +693,22 @@ def _classify_edge_predicate_v4(
             False,
         )
 
-    # Exact edge-id overrides precede intentional unresolved / global maps.
-    override_term = _EDGE_SPECIFIC_PREDICATE_OVERRIDES_V4.get(edge.edge_id)
-    if override_term is not None:
-        return _admit_mapped_edge_v4(
-            edge=edge,
-            store=store,
-            vocabulary=vocabulary,
-            buddy_predicate=predicate,
-            dm_predicate=override_term,
-            reverse_endpoints=False,
-            note=f"edge-specific override {edge.edge_id!r}→{override_term}",
-        )
+    # Exact edge-id overrides are Eldyrwild-revision-bound, never global by edge_id alone.
+    if adjudication_domain:
+        override_term = _EDGE_SPECIFIC_PREDICATE_OVERRIDES_V4.get(edge.edge_id)
+        if override_term is not None:
+            return _admit_mapped_edge_v4(
+                edge=edge,
+                store=store,
+                vocabulary=vocabulary,
+                buddy_predicate=predicate,
+                dm_predicate=override_term,
+                reverse_endpoints=False,
+                note=(
+                    f"adjudication-domain edge-specific override "
+                    f"{edge.edge_id!r}→{override_term}"
+                ),
+            )
 
     if predicate in _INTENTIONALLY_UNRESOLVED_PREDICATES:
         return (
@@ -889,10 +898,15 @@ def _classify_edge_field_v4(
     edge: UnionSupergraphEdge,
     store: UnionSupergraphStore,
     vocabulary: Any,
+    *,
+    adjudication_domain: bool = False,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
     if field == "predicate":
         classification, blocker, note, _, _, _ = _classify_edge_predicate_v4(
-            edge, store, vocabulary
+            edge,
+            store,
+            vocabulary,
+            adjudication_domain=adjudication_domain,
         )
         return classification, blocker, note
     if field in {"edge_id", "source_node_id", "target_node_id"}:
@@ -1404,6 +1418,8 @@ def _rewrite_relationship_predicate_blocker_v4(
 def _collect_v4_relationship_edge_sets(
     store: UnionSupergraphStore,
     vocabulary: Any,
+    *,
+    adjudication_domain: bool,
 ) -> tuple[set[str], set[str]]:
     residual_ids: set[str] = set()
     represented_ids: set[str] = set()
@@ -1415,7 +1431,12 @@ def _collect_v4_relationship_edge_sets(
             disposition,
             _mapped,
             _reverse,
-        ) = _classify_edge_predicate_v4(edge, store, vocabulary)
+        ) = _classify_edge_predicate_v4(
+            edge,
+            store,
+            vocabulary,
+            adjudication_domain=adjudication_domain,
+        )
         if disposition == PredicateDisposition.MECHANICS_SPECIALIZATION:
             continue
         if disposition == PredicateDisposition.EXISTING_EXPLICIT_ADAPTER:
@@ -1428,6 +1449,8 @@ def _collect_v4_relationship_edge_sets(
 def _build_relationship_predicate_inventory_v4(
     store: UnionSupergraphStore,
     vocabulary: Any,
+    *,
+    adjudication_domain: bool,
 ) -> tuple[
     list[RelationshipPredicateInventoryRowV4],
     list[InventoryCountRow],
@@ -1467,7 +1490,12 @@ def _build_relationship_predicate_inventory_v4(
                 edge_disposition,
                 edge_mapped_term,
                 reverse_endpoints,
-            ) = _classify_edge_predicate_v4(edge, store, vocabulary)
+            ) = _classify_edge_predicate_v4(
+                edge,
+                store,
+                vocabulary,
+                adjudication_domain=adjudication_domain,
+            )
 
             src_node = store.nodes.get(edge.source_node_id)
             tgt_node = store.nodes.get(edge.target_node_id)
@@ -1637,6 +1665,11 @@ def analyze_exact_buddy_world_revision_v4(
         world_id=world_id,
         revision_id=revision_id,
     )
+    adjudication_domain = _matches_adjudication_domain(
+        world_id=world_id,
+        revision_id=manifest.revision_id,
+        graph_payload_sha256=manifest.graph_payload_sha256,
+    )
     profile = load_builtin_v3_descriptor()
     vocabulary = load_builtin_world_object_v4_vocabulary()
     vocab_ref = builtin_world_object_v4_vocabulary_ref()
@@ -1711,7 +1744,12 @@ def analyze_exact_buddy_world_revision_v4(
             if field in _EDGE_DECLARED_FIELDS:
                 element_id = f"edge:{edge_id}:field:{field}"
                 f_class, f_blocker, f_note = _classify_edge_field_v4(
-                    field, value, edge, store, vocabulary
+                    field,
+                    value,
+                    edge,
+                    store,
+                    vocabulary,
+                    adjudication_domain=adjudication_domain,
                 )
                 family = "edge_session_refs" if field == "session_ids" and value else "edge_field"
                 _append_classification(
@@ -1945,7 +1983,11 @@ def analyze_exact_buddy_world_revision_v4(
         relationship_represented_count,
         relationship_residual_count,
         uses_statblock_count,
-    ) = _build_relationship_predicate_inventory_v4(store, vocabulary)
+    ) = _build_relationship_predicate_inventory_v4(
+        store,
+        vocabulary,
+        adjudication_domain=adjudication_domain,
+    )
     property_gap_inventory = _build_property_gap_inventory_v4(store)
     (
         role_field_count,
@@ -1955,17 +1997,14 @@ def analyze_exact_buddy_world_revision_v4(
     ) = _role_summary_counts(store)
 
     v4_residual_ids, _v4_represented_ids = _collect_v4_relationship_edge_sets(
-        store, vocabulary
+        store,
+        vocabulary,
+        adjudication_domain=adjudication_domain,
     )
     v3_vocabulary = load_builtin_world_object_v3_vocabulary()
     v3_residual_ids = collect_v3_residual_edge_ids(store, v3_vocabulary)
     newly_represented_edge_ids = sorted(v3_residual_ids - v4_residual_ids)
     residual_edge_ids = sorted(v4_residual_ids)
-    adjudication_domain = _matches_adjudication_domain(
-        world_id=world_id,
-        revision_id=manifest.revision_id,
-        graph_payload_sha256=manifest.graph_payload_sha256,
-    )
     (
         residual_disposition_inventory,
         dm_owned_residual_count,

@@ -256,15 +256,16 @@ def test_historical_digests_and_v3_fixture_remain_immutable() -> None:
     assert fixture["relationship_residual_count"] == 59
 
 
-def test_edge_specific_overrides_are_not_global(seeded_root: Path) -> None:
+def test_edge_specific_overrides_do_not_fire_outside_adjudication_domain(
+    seeded_root: Path,
+) -> None:
+    """Approved Eldyrwild edge IDs in another world must not inherit overrides."""
     _publish_node(seeded_root, node_id="pc:a", kind="pc", role="player-character")
     _publish_node(seeded_root, node_id="npc:a", kind="npc", role="ally")
     _publish_node(seeded_root, node_id="group:a", kind="group", role="group")
     _publish_node(seeded_root, node_id="faction:a", kind="faction", role="organization")
 
-    approved_comms = (
-        "edge:pc:caelynn:controls_comms_with:npc_grobnok"
-    )
+    approved_comms = "edge:pc:caelynn:controls_comms_with:npc_grobnok"
     other_comms = "edge:pc:a:controls_comms_with:npc:a"
     approved_present = (
         "edge:node:fey_entity:present_at:pc:ephanna:appears-to-ephanna-in-prison"
@@ -323,35 +324,78 @@ def test_edge_specific_overrides_are_not_global(seeded_root: Path) -> None:
         world_id=WORLD_ID,
         revision_id=revision_id,
     )
+    assert report.source_world_id != "eldyrwild"
     inv = {row.buddy_predicate: row for row in report.relationship_predicate_inventory}
 
     assert resolve_buddy_predicate_mapping_v4("controls_comms_with") is None
     assert resolve_buddy_predicate_mapping_v4("defends_weakened_location") is None
     assert resolve_buddy_predicate_mapping_v4("present_at") == ("dnd5e:present_at", False)
 
-    assert inv["controls_comms_with"].represented_count == 1
-    assert inv["controls_comms_with"].residual_count == 1
-    assert inv["defends_weakened_location"].represented_count == 1
-    assert inv["defends_weakened_location"].residual_count == 1
-    # present_at is globally mapped; the approved edge uses appears_to via override.
+    # Same approved edge IDs remain residual / ordinary outside the adjudication domain.
+    assert inv["controls_comms_with"].represented_count == 0
+    assert inv["controls_comms_with"].residual_count == 2
+    assert inv["defends_weakened_location"].represented_count == 0
+    assert inv["defends_weakened_location"].residual_count == 2
+    for pair in inv["controls_comms_with"].endpoint_pairs:
+        assert pair.target_dungeonmind_term is None
+    for pair in inv["defends_weakened_location"].endpoint_pairs:
+        assert pair.target_dungeonmind_term is None
+
     present_pairs = {
-        pair.representative_edge_ids[0]: pair
+        edge_id: pair
         for pair in inv["present_at"].endpoint_pairs
-        if pair.representative_edge_ids
+        for edge_id in pair.representative_edge_ids
     }
-    assert present_pairs[approved_present].target_dungeonmind_term == "dnd5e:appears_to"
-    assert present_pairs[approved_present].represented_count == 1
+    # Ordinary present_at mapping applies; appears_to override must not fire.
+    assert present_pairs[approved_present].target_dungeonmind_term == "dnd5e:present_at"
     assert present_pairs[other_present].target_dungeonmind_term == "dnd5e:present_at"
+    assert approved_comms not in set(report.relationship_newly_represented_edge_ids)
+    assert approved_protects not in set(report.relationship_newly_represented_edge_ids)
+    assert approved_present not in set(report.relationship_newly_represented_edge_ids)
 
     for row in report.relationship_predicate_inventory:
         for pair in row.endpoint_pairs:
             assert pair.target_dungeonmind_term != "dnd5e:related_to"
-            if row.buddy_predicate in {
-                "controls_comms_with",
-                "defends_weakened_location",
-                "same_as",
-            }:
-                assert pair.target_dungeonmind_term != f"dnd5e:{row.buddy_predicate}"
+            assert pair.target_dungeonmind_term != "dnd5e:appears_to"
+            assert pair.target_dungeonmind_term != "dnd5e:protects"
+            assert pair.target_dungeonmind_term != "dnd5e:communicates_with"
+
+
+def test_edge_specific_override_requires_adjudication_domain_flag(
+    seeded_root: Path,
+) -> None:
+    """Unit-level: override fires only when adjudication_domain=True."""
+    from dungeonmind_dnd.application.world_object_vocabulary import (
+        load_builtin_world_object_v4_vocabulary,
+    )
+
+    _publish_node(seeded_root, node_id="pc:a", kind="pc", role="player-character")
+    _publish_node(seeded_root, node_id="npc:a", kind="npc", role="ally")
+    revision_id = _publish_edge(
+        seeded_root,
+        edge_id="edge:pc:caelynn:controls_comms_with:npc_grobnok",
+        source_node_id="pc:a",
+        target_node_id="npc:a",
+        predicate="controls_comms_with",
+    )
+    _, store = wwc_v4._load_exact_buddy_revision(
+        root=seeded_root,
+        world_id=WORLD_ID,
+        revision_id=revision_id,
+    )
+    edge = store.edges["edge:pc:caelynn:controls_comms_with:npc_grobnok"]
+    vocab = load_builtin_world_object_v4_vocabulary()
+
+    off = wwc_v4._classify_edge_predicate_v4(
+        edge, store, vocab, adjudication_domain=False
+    )
+    on = wwc_v4._classify_edge_predicate_v4(
+        edge, store, vocab, adjudication_domain=True
+    )
+    assert off[3].value != "EXISTING_EXPLICIT_ADAPTER"
+    assert off[4] is None
+    assert on[3].value == "EXISTING_EXPLICIT_ADAPTER"
+    assert on[4] == "dnd5e:communicates_with"
 
 
 def test_wolf_part_of_uses_normal_endpoint_admission_not_override() -> None:
@@ -474,18 +518,85 @@ def test_committed_eldyrwild_v4_fixture_is_durable_regression_contract() -> None
     assert fixture["world_property_vocabulary_sha256"] == (
         "8ad4c223e83ce48cf5cd33a33e10f5be5d48a80ad742784d7c561470b450ab73"
     )
+    assert fixture["source_world_id"] == ELDYRWILD_WORLD_ID
     assert fixture["source_revision_id"] == ELDYRWILD_REVISION_ID
     assert fixture["source_graph_payload_sha256"] == ELDYRWILD_PAYLOAD_SHA256
     assert fixture["relationship_semantic_count"] == 346
     assert fixture["relationship_represented_count"] == 291
     assert fixture["relationship_residual_count"] == 55
     assert fixture["uses_statblock_mechanics_count"] == 2
+    assert fixture["role_field_count"] == 438
+    assert fixture["role_property_adapter_count"] == 436
+    assert fixture["role_external_resource_count"] == 2
+    assert fixture["role_residual_count"] == 0
+    assert fixture["classified_elements_count"] == 18106
+    assert fixture["unaccounted_durable_elements"] == 0
     assert fixture["dungeonmind_owned_relationship_residual_count"] == 0
     assert fixture["dungeonmindbuddy_owned_relationship_residual_count"] == 55
     assert fixture["unadjudicated_relationship_residual_count"] == 0
+    assert fixture["disposition"] == "WHOLE_GRAPH_ADOPTION_NOT_READY"
     assert "mapping_buckets" not in fixture
-    assert len(fixture["relationship_newly_represented_edge_ids"]) == 4
-    assert len(fixture["relationship_residual_edge_ids"]) == 55
+
+    all_ids, dm_ids, buddy_ids = _adjudication_owned_sets()
+    newly = set(fixture["relationship_newly_represented_edge_ids"])
+    residual = set(fixture["relationship_residual_edge_ids"])
+    assert newly == dm_ids
+    assert residual == buddy_ids
+    assert newly | residual == all_ids
+    assert newly & residual == set()
+    assert newly - _APPROVED_OVERRIDE_EDGE_IDS == {
+        "edge:node:wolf:part_of:item:session17:centipede_meat_creature"
+    }
+
+    residual_by = {
+        row["key"]: row["count"] for row in fixture["residual_by_predicate"]
+    }
+    assert residual_by == _EXPECTED_RESIDUAL_BY_PREDICATE
+    assert "defends_weakened_location" not in residual_by
+
+    disp = {
+        row["key"]: row["count"]
+        for row in fixture["relationship_residual_disposition_inventory"]
+    }
+    assert disp == {
+        "SOURCE_CORRECTION_REQUIRED": 35,
+        "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 10,
+        "IDENTITY_NOT_RELATIONSHIP": 6,
+        "EXPLICIT_ADAPTER_CANDIDATE": 3,
+        "INSUFFICIENT_EVIDENCE": 1,
+    }
+    assert "NEW_PREDICATE_CANDIDATE" not in disp
+    assert "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE" not in disp
+
+    class_inv = {
+        row["key"]: row["count"] for row in fixture["classification_inventory"]
+    }
+    assert class_inv == {
+        "BUDDY_OPERATIONAL_ONLY": 3510,
+        "DUNGEONMIND_SEMANTIC_CONTRACT_GAP": 55,
+        "EXACTLY_REPRESENTABLE": 4333,
+        "REPRESENTABLE_BY_EXPLICIT_ADAPTER": 6118,
+        "SOURCE_MIGRATION_HISTORY": 4090,
+    }
+
+    blockers = {b["blocker_class"]: b for b in fixture["blockers"]}
+    assert set(blockers) == {
+        "CONTRIBUTION_HISTORY",
+        "DURABLE_ADOPTION_BOUNDARY",
+        "POSTGRES_ADOPTION",
+        "RELATIONSHIP_PREDICATE",
+    }
+    assert blockers["RELATIONSHIP_PREDICATE"]["count"] == 55
+    assert blockers["RELATIONSHIP_PREDICATE"]["responsible_repo"] == "DungeonMindBuddy"
+    assert "Do not widen DungeonMind relationship vocabulary" in (
+        blockers["RELATIONSHIP_PREDICATE"]["smallest_next_change"]
+    )
+    assert blockers["CONTRIBUTION_HISTORY"]["count"] == 4090
+    assert blockers["CONTRIBUTION_HISTORY"]["responsible_repo"] == "DungeonMind"
+    assert blockers["DURABLE_ADOPTION_BOUNDARY"]["count"] == 1
+    assert blockers["DURABLE_ADOPTION_BOUNDARY"]["responsible_repo"] == "DungeonMind"
+    assert blockers["POSTGRES_ADOPTION"]["count"] == 1
+    assert blockers["POSTGRES_ADOPTION"]["responsible_repo"] == "DungeonMind"
 
 
 def test_eldyrwild_v4_integration_when_present() -> None:
@@ -505,86 +616,15 @@ def test_eldyrwild_v4_integration_when_present() -> None:
     after = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
     assert before == after
 
-    assert report.source_revision_id == ELDYRWILD_REVISION_ID
-    assert report.source_graph_payload_sha256 == ELDYRWILD_PAYLOAD_SHA256
-    assert report.dungeonmind_dependency_ref == (
-        "2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4"
-    )
-    assert report.world_object_vocabulary_revision == "world-object-v4"
-    assert report.world_property_vocabulary_revision == "world-property-v2"
-    assert report.relationship_semantic_count == 346
-    assert report.relationship_represented_count == 291
-    assert report.relationship_residual_count == 55
-    assert report.uses_statblock_mechanics_count == 2
-    assert report.role_field_count == 438
-    assert report.role_property_adapter_count == 436
-    assert report.role_external_resource_count == 2
-    assert report.role_residual_count == 0
-    assert report.classified_elements_count == 18106
-    assert report.unaccounted_durable_elements == 0
-    assert report.disposition == "WHOLE_GRAPH_ADOPTION_NOT_READY"
-
-    class_inv = {row.key: row.count for row in report.classification_inventory}
-    assert class_inv == {
-        "BUDDY_OPERATIONAL_ONLY": 3510,
-        "DUNGEONMIND_SEMANTIC_CONTRACT_GAP": 55,
-        "EXACTLY_REPRESENTABLE": 4333,
-        "REPRESENTABLE_BY_EXPLICIT_ADAPTER": 6118,
-        "SOURCE_MIGRATION_HISTORY": 4090,
-    }
-    residual_by = {row.key: row.count for row in report.residual_by_predicate}
-    assert residual_by == _EXPECTED_RESIDUAL_BY_PREDICATE
-    assert "defends_weakened_location" not in residual_by
-
-    all_ids, dm_ids, buddy_ids = _adjudication_owned_sets()
-    newly = set(report.relationship_newly_represented_edge_ids)
-    residual = set(report.relationship_residual_edge_ids)
-    assert newly == dm_ids
-    assert residual == buddy_ids
-    assert newly | residual == all_ids
-    assert newly & residual == set()
-    assert report.dungeonmind_owned_relationship_residual_count == 0
-    assert report.dungeonmindbuddy_owned_relationship_residual_count == 55
-    assert report.unadjudicated_relationship_residual_count == 0
-    disp = {
-        row.key: row.count for row in report.relationship_residual_disposition_inventory
-    }
-    assert disp == {
-        "SOURCE_CORRECTION_REQUIRED": 35,
-        "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 10,
-        "IDENTITY_NOT_RELATIONSHIP": 6,
-        "EXPLICIT_ADAPTER_CANDIDATE": 3,
-        "INSUFFICIENT_EVIDENCE": 1,
-    }
-    assert "NEW_PREDICATE_CANDIDATE" not in disp
-    assert "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE" not in disp
-
-    blockers = {
-        b.blocker_class.value: b for b in report.blockers
-    }
-    assert set(blockers) == {
-        "CONTRIBUTION_HISTORY",
-        "DURABLE_ADOPTION_BOUNDARY",
-        "POSTGRES_ADOPTION",
-        "RELATIONSHIP_PREDICATE",
-    }
-    assert blockers["RELATIONSHIP_PREDICATE"].count == 55
-    assert blockers["RELATIONSHIP_PREDICATE"].responsible_repo == "DungeonMindBuddy"
-    assert "Do not widen DungeonMind relationship vocabulary" in (
-        blockers["RELATIONSHIP_PREDICATE"].smallest_next_change
-    )
-    assert blockers["CONTRIBUTION_HISTORY"].count == 4090
-    assert blockers["DURABLE_ADOPTION_BOUNDARY"].count == 1
-    assert blockers["POSTGRES_ADOPTION"].count == 1
-
+    # Live regeneration must reproduce the committed fixture compact form.
     compact = compact_whole_world_conformance_report_v4(report)
     fixture = json.loads(V4_FIXTURE_PATH.read_text(encoding="utf-8"))
     assert compact == fixture
-
-    # Wolf uses normal part_of mapping; approved overrides are exact IDs only.
-    assert (
-        "edge:node:wolf:part_of:item:session17:centipede_meat_creature" in newly
-    )
-    assert newly - _APPROVED_OVERRIDE_EDGE_IDS == {
-        "edge:node:wolf:part_of:item:session17:centipede_meat_creature"
-    }
+    assert report.source_revision_id == ELDYRWILD_REVISION_ID
+    assert report.source_graph_payload_sha256 == ELDYRWILD_PAYLOAD_SHA256
+    assert report.dungeonmind_owned_relationship_residual_count == 0
+    assert report.dungeonmindbuddy_owned_relationship_residual_count == 55
+    assert report.unadjudicated_relationship_residual_count == 0
+    _, dm_ids, buddy_ids = _adjudication_owned_sets()
+    assert set(report.relationship_newly_represented_edge_ids) == dm_ids
+    assert set(report.relationship_residual_edge_ids) == buddy_ids
