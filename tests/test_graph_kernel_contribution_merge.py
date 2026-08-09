@@ -20,6 +20,7 @@ from graph_memory.union_supergraph.load import (
 from graph_memory.world_supergraph.contribution_store import (
     load_contribution_index,
     load_contribution_record,
+    write_contribution_record,
 )
 
 WORLD_ID = "eldyrwild"
@@ -2725,6 +2726,97 @@ def test_edge_assertion_correction_missing_ledger_fails_closed(
     with pytest.raises(ValueError, match="missing from ledger"):
         kernel.rebuild_from_contributions(root, world_id=WORLD_ID, publish=False)
 
+    # Lifecycle mutations must also fail closed — not silently ignore C.
+    retract_a = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=contrib_a.contribution_id,
+        reason="attempt retract while correction ledger missing",
+        expected_parent_revision_id=corrected_rev,
+    )
+    assert retract_a.published is False
+    assert retract_a.failure_code == "correction_integrity_failure"
+    assert "missing from ledger" in (retract_a.failure_message or "")
+
+    supersede_a = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=kernel.create_graph_contribution(
+            world_id=WORLD_ID,
+            source_kind="source_extraction",
+            source_artifact_id="artifact:correction:supersede-missing",
+            source_revision_id="src-rev-super-missing",
+            accepted_assertions=[
+                _correction_node_assertion(
+                    node_id="npc_correction_super_missing",
+                    label="Super Missing",
+                    source_artifact_id="artifact:correction:supersede-missing",
+                )
+            ],
+            supersedes_contribution_id=contrib_a.contribution_id,
+        ),
+        superseded_contribution_id=contrib_a.contribution_id,
+        expected_parent_revision_id=corrected_rev,
+    )
+    assert supersede_a.published is False
+    assert supersede_a.failure_code == "correction_integrity_failure"
+
     _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
     assert _head.head_revision_id == corrected_rev
     assert store.assertion_support[edge_x.assertion_id]["support_state"] == "contradicted"
+
+
+def test_edge_assertion_correction_ledger_status_contradiction_blocks_lifecycle(
+    seeded_root,
+) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    edge_xp = _correction_edge_assertion(
+        edge_id="edge:npc_correction_tgt:threatens:npc_correction_src",
+        source_node_id="npc_correction_tgt",
+        target_node_id="npc_correction_src",
+        predicate="threatens",
+        source_artifact_id="artifact:correction:c",
+        evidence_ref_id="evidence:correction:xp-status",
+    )
+    correction = kernel.create_edge_assertion_correction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_contribution_id=contrib_a.contribution_id,
+        target_assertion_id=edge_x.assertion_id,
+        replacement_assertion=edge_xp,
+        source_artifact_id="artifact:correction:c",
+        produced_at="2026-08-09T03:00:00Z",
+    )
+    published = kernel.correct_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=correction,
+        expected_parent_revision_id=parent,
+    )
+    assert published.published is True
+    corrected_rev = published.revision_id
+
+    # Tamper mutable ledger status without advancing the head.
+    loaded_c = load_contribution_record(root, WORLD_ID, correction.contribution_id)
+    write_contribution_record(
+        root,
+        WORLD_ID,
+        loaded_c.model_copy(update={"status": "retracted"}),
+    )
+
+    retract_a = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=contrib_a.contribution_id,
+        reason="attempt retract while correction ledger status contradicts head",
+        expected_parent_revision_id=corrected_rev,
+    )
+    assert retract_a.published is False
+    assert retract_a.failure_code == "correction_integrity_failure"
+    assert "ledger status is 'retracted'" in (retract_a.failure_message or "")
+
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert _head.head_revision_id == corrected_rev
+    assert store.assertion_support[edge_x.assertion_id]["support_state"] == "contradicted"
+    assert store.assertion_support[edge_xp.assertion_id]["support_state"] == "supported"

@@ -776,7 +776,11 @@ def _scopes_unchanged(
 def _revision_bound_active_contribution_ids(
     store: UnionSupergraphStore,
 ) -> list[str]:
-    """Ordered active contribution IDs from revision-bound replay authority."""
+    """Ordered active contribution IDs from an actual revision replay manifest.
+
+    Digest-only legacy heads do not encode superseded/retracted lifecycle, so
+    they contribute no revision-bound active IDs here.
+    """
     return [
         entry.contribution_id
         for entry in _revision_bound_replay_manifest_entries(store)
@@ -787,19 +791,10 @@ def _revision_bound_active_contribution_ids(
 def _revision_bound_replay_manifest_entries(
     store: UnionSupergraphStore,
 ) -> list[ContributionReplayManifestEntry]:
-    """Ordered revision-bound replay entries (all lifecycle statuses)."""
+    """Ordered entries from an actual replay manifest only (empty if none)."""
     manifest = list(store.contribution_replay_manifest or [])
     if not manifest:
-        return [
-            ContributionReplayManifestEntry(
-                contribution_id=contribution_id,
-                status="active",
-                source_payload_sha256=digest,
-            )
-            for contribution_id, digest in (
-                store.contribution_source_payload_sha256 or {}
-            ).items()
-        ]
+        return []
     ordered: list[ContributionReplayManifestEntry] = []
     seen: set[str] = set()
     for entry in manifest:
@@ -1080,6 +1075,9 @@ def _active_correction_relations(
     The mutable contribution index is not the sole discovery mechanism after the
     commit point: a successful publish stamps the correction into the head
     replay/digest authority even if a later index write fails.
+
+    Revision-bound active corrections fail closed on missing ledger bytes,
+    digest mismatch, or ledger lifecycle that contradicts the head manifest.
     """
     index = load_contribution_index(root, world_id)
     candidate_ids: list[str] = []
@@ -1089,25 +1087,54 @@ def _active_correction_relations(
             continue
         seen.add(contribution_id)
         candidate_ids.append(contribution_id)
+
+    revision_active: set[str] = set()
+    revision_digests: dict[str, str] = {}
     try:
         _head, _revision, store = load_current_world_graph(root, world_id)
     except WorldGraphNotFoundError:
         store = None
     if store is not None:
-        for contribution_id in _revision_bound_active_contribution_ids(store):
-            if contribution_id in seen:
+        for entry in _revision_bound_replay_manifest_entries(store):
+            if entry.status != "active":
                 continue
-            seen.add(contribution_id)
-            candidate_ids.append(contribution_id)
+            revision_active.add(entry.contribution_id)
+            revision_digests[entry.contribution_id] = entry.source_payload_sha256
+            if entry.contribution_id in seen:
+                continue
+            seen.add(entry.contribution_id)
+            candidate_ids.append(entry.contribution_id)
 
     relations: list[tuple[GraphContribution, GraphContributionAssertionCorrection]] = []
     for contribution_id in candidate_ids:
         try:
             contribution = load_contribution_record(root, world_id, contribution_id)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
+            if contribution_id in revision_active:
+                raise ValueError(
+                    "revision-bound active contribution missing from ledger: "
+                    f"{contribution_id}"
+                ) from exc
+            raise ValueError(
+                f"active contribution missing from ledger: {contribution_id}"
+            ) from exc
+
+        if contribution_id in revision_active:
+            expected_digest = revision_digests.get(contribution_id)
+            actual_digest = compute_contribution_source_payload_sha256(contribution)
+            if expected_digest is not None and actual_digest != expected_digest:
+                raise ValueError(
+                    "revision-bound contribution ledger digest mismatch: "
+                    f"{contribution_id}"
+                )
+            if contribution.status != "active":
+                raise ValueError(
+                    f"revision-bound contribution {contribution_id} is active in "
+                    f"head but ledger status is {contribution.status!r}"
+                )
+        elif contribution.status != "active":
             continue
-        if contribution.status != "active":
-            continue
+
         for correction in contribution.assertion_corrections:
             relations.append((contribution, correction))
     return relations
@@ -1121,7 +1148,21 @@ def _refuse_lifecycle_touching_active_correction(
     operation: str,
 ) -> ContributionMergeResult | None:
     """Fail closed when retract/supersede would cross an active correction relation."""
-    relations = _active_correction_relations(root, world_id)
+    try:
+        relations = _active_correction_relations(root, world_id)
+    except ValueError as exc:
+        return ContributionMergeResult(
+            world_id=world_id,
+            parent_revision_id=None,
+            revision_id=None,
+            contribution_ids=[contribution_id],
+            diagnostics=[
+                f"{operation}_blocked:correction_integrity_failure:{exc}"
+            ],
+            failure_code="correction_integrity_failure",
+            failure_message=str(exc),
+            published=False,
+        )
     for correction_contribution, correction in relations:
         if correction_contribution.contribution_id == contribution_id:
             return ContributionMergeResult(

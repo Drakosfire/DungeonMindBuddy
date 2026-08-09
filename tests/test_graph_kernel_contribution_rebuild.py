@@ -876,3 +876,131 @@ def test_pinned_rebuild_reproduces_edge_assertion_correction(
             compare_revision_id=corrected_rev,
             publish=False,
         )
+
+
+def test_unpinned_rebuild_legacy_digest_only_head_preserves_ledger_lifecycle(
+    seeded_root: Path, monkeypatch
+) -> None:
+    """Digest-only heads must not invent status=active for superseded contributions."""
+    root = seeded_root
+    assertion_x = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_legacy_x",
+        label="Legacy X",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Legacy X"],
+        },
+        source_artifact_id="artifact:legacy:a",
+        source_revision_id="src-rev-legacy-a",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    assertion_y = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_legacy_y",
+        label="Legacy Y",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Legacy Y"],
+        },
+        source_artifact_id="artifact:legacy:a",
+        source_revision_id="src-rev-legacy-a",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:legacy:a",
+        source_revision_id="src-rev-legacy-a",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion_x, assertion_y],
+    )
+    merge_a = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_a
+    )
+    assert merge_a.published is True
+
+    assertion_x_b = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_legacy_x",
+        label="Legacy X",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Legacy X"],
+        },
+        source_artifact_id="artifact:legacy:b",
+        source_revision_id="src-rev-legacy-b",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="resolved_existing",
+    )
+    contrib_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:legacy:b",
+        source_revision_id="src-rev-legacy-b",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion_x_b],
+        supersedes_contribution_id=contrib_a.contribution_id,
+    )
+    supersede = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=contrib_b,
+        superseded_contribution_id=contrib_a.contribution_id,
+    )
+    assert supersede.published is True
+
+    _head, _rev, head_store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert contrib_a.contribution_id in (
+        head_store.contribution_source_payload_sha256 or {}
+    )
+    assert list(head_store.contribution_replay_manifest or [])
+    assert (
+        head_store.assertion_support[assertion_y.assertion_id]["support_state"]
+        in {"unsupported", "retracted"}
+    )
+
+    real_load = kernel.load_current_world_graph
+
+    def _strip_head_manifest(root_path, world_id):
+        head, revision, store = real_load(root_path, world_id)
+        return (
+            head,
+            revision,
+            store.model_copy(update={"contribution_replay_manifest": []}),
+        )
+
+    monkeypatch.setattr(
+        "graph_memory.kernel.contribution_rebuild.load_current_world_graph",
+        _strip_head_manifest,
+    )
+
+    rebuild = kernel.rebuild_from_contributions(
+        root, world_id=WORLD_ID, publish=False
+    )
+    assert "rebuild_replay_ordered_from_revision_authority" not in rebuild.diagnostics
+    assert any(
+        d.startswith(
+            f"replayed_superseded_support_removal:{contrib_a.contribution_id}"
+        )
+        for d in rebuild.diagnostics
+    )
+    assert "rebuild_omitted_replay_manifest_for_legacy_compare" in rebuild.diagnostics
+    assert "rebuild_equivalent_to_compared_revision" in rebuild.diagnostics

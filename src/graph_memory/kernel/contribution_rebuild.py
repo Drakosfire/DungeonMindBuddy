@@ -273,10 +273,11 @@ def rebuild_from_contributions(
                 f"rebuild_replay_pinned_to_revision:{pinned_revision_id}"
             )
         else:
-            # Prefer revision-bound head replay order when available. The mutable
-            # index may lag a successful publish; appending gaps onto index order
-            # would reorder already-committed contributions (e.g. [A,D] + C →
-            # [A,D,C] instead of [A,C,D]) and break deterministic rebuild.
+            # Prefer revision-bound head replay order only when an actual replay
+            # manifest exists. Digest-only legacy heads do not encode
+            # superseded/retracted lifecycle; inventing status=active would
+            # resurrect historical assertions. Those heads stay on index/ledger
+            # reconstruction.
             failed = set(index.failed_contribution_ids)
             try:
                 _head, _revision, head_store = load_current_world_graph(root, world_id)
@@ -284,9 +285,8 @@ def rebuild_from_contributions(
                 head_store = None
 
             head_entries: list[ContributionReplayManifestEntry] = []
-            if head_store is not None and (
-                list(head_store.contribution_replay_manifest or [])
-                or dict(head_store.contribution_source_payload_sha256 or {})
+            if head_store is not None and list(
+                head_store.contribution_replay_manifest or []
             ):
                 head_entries = _revision_bound_replay_manifest_entries(head_store)
 
