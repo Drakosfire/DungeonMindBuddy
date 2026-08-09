@@ -378,7 +378,7 @@ wheels = [
 [[package]]
 name = "dungeonmind"
 version = "0.1.0"
-source = { git = "https://github.com/Drakosfire/DungeonMind.git?rev=da7c32576c319d1030410eabe5c589ef7e990a9f#da7c32576c319d1030410eabe5c589ef7e990a9f" }
+source = { git = "https://github.com/Drakosfire/DungeonMind.git?rev=03ec801db99959153283312b72c13fafe56c54d1#03ec801db99959153283312b72c13fafe56c54d1" }
 dependencies = [
     { name = "pydantic" },
 ]
@@ -414,7 +414,7 @@ embedding = [
 [package.metadata]
 requires-dist = [
     { name = "blake3", specifier = ">=0.3.3" },
-    { name = "dungeonmind", git = "https://github.com/Drakosfire/DungeonMind.git?rev=da7c32576c319d1030410eabe5c589ef7e990a9f#da7c32576c319d1030410eabe5c589ef7e990a9f" },
+    { name = "dungeonmind", git = "https://github.com/Drakosfire/DungeonMind.git?rev=03ec801db99959153283312b72c13fafe56c54d1#03ec801db99959153283312b72c13fafe56c54d1" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "hermes-agent", git = "https://github.com/NousResearch/hermes-agent.git?rev=861d69c7bba8d2ea6a1cd170e989c901c74d32d1#861d69c7bba8d2ea6a1cd170e989c901c74d32d1" },
     { name = "httpx", specifier = ">=0.27.0" },
