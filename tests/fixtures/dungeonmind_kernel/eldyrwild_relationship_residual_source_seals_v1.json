@@ -16,8 +16,22 @@
       "locator": "paragraph:009",
       "normalized_excerpt": "Finally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools. As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity.",
       "excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009"
+      ],
       "all_evidence_excerpt_sha256s": [
         "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+          "source_span_ref_id": "session-1:recap:paragraph:009",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:009",
+          "excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550",
+          "normalized_excerpt": "Finally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools. As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity."
+        }
       ]
     },
     {
@@ -31,8 +45,22 @@
       "locator": "paragraph:011",
       "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees.",
       "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011"
+      ],
       "all_evidence_excerpt_sha256s": [
         "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_span_ref_id": "session-24:recap:paragraph:011",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:011",
+          "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+          "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees."
+        }
       ]
     },
     {
@@ -46,8 +74,22 @@
       "locator": "paragraph:011",
       "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees.",
       "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011"
+      ],
       "all_evidence_excerpt_sha256s": [
         "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_span_ref_id": "session-24:recap:paragraph:011",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:011",
+          "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+          "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees."
+        }
       ]
     },
     {
@@ -61,8 +103,22 @@
       "locator": "paragraph:005",
       "normalized_excerpt": "After making pretty good money, 25 gp each, a bit of loot, and learning a lot about the dangers of clearing rats out of basements, the group decided to stick together and see where the winds take them.",
       "excerpt_sha256": "035939a163504e7defa959b5b918e9d81f2e2a8b7d8cee9538273047ce178f14",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005"
+      ],
       "all_evidence_excerpt_sha256s": [
         "035939a163504e7defa959b5b918e9d81f2e2a8b7d8cee9538273047ce178f14"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+          "source_span_ref_id": "session-2:recap:paragraph:005",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:005",
+          "excerpt_sha256": "035939a163504e7defa959b5b918e9d81f2e2a8b7d8cee9538273047ce178f14",
+          "normalized_excerpt": "After making pretty good money, 25 gp each, a bit of loot, and learning a lot about the dangers of clearing rats out of basements, the group decided to stick together and see where the winds take them."
+        }
       ]
     },
     {
@@ -76,8 +132,22 @@
       "locator": "paragraph:002",
       "normalized_excerpt": "The disgusting hybrid monsters continue their march toward the wall, but unable to reach it yet. One of them reaches the magically dark cube with Ogonob inside and lashes out with a tentacle, managing to hit Ogonob three times, but avoiding being grappled by the monster. Back on the wall, Karsemine launches a Firebolt at the tripod monster, dealing massive damage igniting the many escaping gases. Whether it’s the sounds of gases ignited or screams of pain, the monster writhes in agony, but is still alive. Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them. Ephanna climbs over and down the wall in an attempt to get to the closest meatwing, but still manages to resist long enough to attack the hybrid monster attacking Ogonob. With two powerful Eldritch Blasts the monster is destroyed, leaving behind a smoldering pile and crackling purple energy. Ogonob then uses Misty Step to get within striking range of the tripod, but misses the attack.",
       "excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002"
+      ],
       "all_evidence_excerpt_sha256s": [
         "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_span_ref_id": "session-24:recap:paragraph:002",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:002",
+          "excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609",
+          "normalized_excerpt": "The disgusting hybrid monsters continue their march toward the wall, but unable to reach it yet. One of them reaches the magically dark cube with Ogonob inside and lashes out with a tentacle, managing to hit Ogonob three times, but avoiding being grappled by the monster. Back on the wall, Karsemine launches a Firebolt at the tripod monster, dealing massive damage igniting the many escaping gases. Whether it’s the sounds of gases ignited or screams of pain, the monster writhes in agony, but is still alive. Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them. Ephanna climbs over and down the wall in an attempt to get to the closest meatwing, but still manages to resist long enough to attack the hybrid monster attacking Ogonob. With two powerful Eldritch Blasts the monster is destroyed, leaving behind a smoldering pile and crackling purple energy. Ogonob then uses Misty Step to get within striking range of the tripod, but misses the attack."
+        }
       ]
     },
     {
@@ -91,24 +161,62 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "The Council headquarters are in the very center of town. This is the original and oldest part of town and was originally a defensive position made of old stone. The party is taken inside where they find a large circular room where they meet the other Council members.",
       "excerpt_sha256": "60158de242616baf7d5704fe2d414bbde98db5c005b0a238d0143208d37aca24",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "60158de242616baf7d5704fe2d414bbde98db5c005b0a238d0143208d37aca24"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "60158de242616baf7d5704fe2d414bbde98db5c005b0a238d0143208d37aca24",
+          "normalized_excerpt": "The Council headquarters are in the very center of town. This is the original and oldest part of town and was originally a defensive position made of old stone. The party is taken inside where they find a large circular room where they meet the other Council members."
+        }
       ]
     },
     {
       "edge_id": "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat",
-      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:016",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:023",
       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
       "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
       "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
-      "source_span_ref_id": "session-11:recap:paragraph:016",
+      "source_span_ref_id": "session-11:recap:paragraph:023",
       "locator_kind": "paragraph",
-      "locator": "paragraph:016",
-      "normalized_excerpt": "Headmaster Tinkerbright will be first to present his plan. He plans to magically lock the city down and use a rune to find the corrupted meat.",
-      "excerpt_sha256": "64ed8eda7657b05085265c6d5ba344750aabb67ca89be27c8cf37c1fdd91c383",
+      "locator": "paragraph:023",
+      "normalized_excerpt": "After hearing each plan the party comes up with a plan of their own. They meet with the Headmaster and convince him to combine plans with Merril. Then with the votes from Barin and Grobnok they have enough to convince the Mayor of the best plan. Using a covert approach they will use the magic runes to locate the meat and the Cultists. They will then use the potions from Merril to purify anyone while at the festival.",
+      "excerpt_sha256": "fdd89dc2aeaabb89c2153f434b1a4fa6d846d5857fa196f3015d97f719e207d0",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:016",
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:023"
+      ],
       "all_evidence_excerpt_sha256s": [
         "64ed8eda7657b05085265c6d5ba344750aabb67ca89be27c8cf37c1fdd91c383",
         "fdd89dc2aeaabb89c2153f434b1a4fa6d846d5857fa196f3015d97f719e207d0"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:016",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:016",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:016",
+          "excerpt_sha256": "64ed8eda7657b05085265c6d5ba344750aabb67ca89be27c8cf37c1fdd91c383",
+          "normalized_excerpt": "Headmaster Tinkerbright will be first to present his plan. He plans to magically lock the city down and use a rune to find the corrupted meat."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:023",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:023",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:023",
+          "excerpt_sha256": "fdd89dc2aeaabb89c2153f434b1a4fa6d846d5857fa196f3015d97f719e207d0",
+          "normalized_excerpt": "After hearing each plan the party comes up with a plan of their own. They meet with the Headmaster and convince him to combine plans with Merril. Then with the votes from Barin and Grobnok they have enough to convince the Mayor of the best plan. Using a covert approach they will use the magic runes to locate the meat and the Cultists. They will then use the potions from Merril to purify anyone while at the festival."
+        }
       ]
     },
     {
@@ -122,8 +230,22 @@
       "locator": "paragraph:003",
       "normalized_excerpt": "While discussing what all has happened, a small paper bird flies around Grobnok’s head. The paper is a summons for an emergency council meeting. Grobnok decides it is best to take the adventuring party with him.",
       "excerpt_sha256": "5701aea8ac277922b05cf4ff855176468cd87bd0a862d6eabc584f2e1f418b67",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:003"
+      ],
       "all_evidence_excerpt_sha256s": [
         "5701aea8ac277922b05cf4ff855176468cd87bd0a862d6eabc584f2e1f418b67"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:003",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:003",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:003",
+          "excerpt_sha256": "5701aea8ac277922b05cf4ff855176468cd87bd0a862d6eabc584f2e1f418b67",
+          "normalized_excerpt": "While discussing what all has happened, a small paper bird flies around Grobnok’s head. The paper is a summons for an emergency council meeting. Grobnok decides it is best to take the adventuring party with him."
+        }
       ]
     },
     {
@@ -137,8 +259,22 @@
       "locator": "21-21",
       "normalized_excerpt": "Despite this ominous sign, Ephanna applies Hex to one of the Elite Guards and hits them with Eldritch Blast for big damage. Stafl finally shows his true form, unfurling his incorporeal wings and casting Radiant Soul. He flies up near the ceiling and casts Heat Metal on the Wolf. The Wolf, sensing danger, downs an Invisibility Potion and disappears. Kasrsemine quickly uses Hunter’s Mark and deals a major blow to a guard.",
       "excerpt_sha256": "d73faeb3e932af23f8d0f084971c1783dfa42a898ca0b898d2345df7a62e22ff",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21"
+      ],
       "all_evidence_excerpt_sha256s": [
         "d73faeb3e932af23f8d0f084971c1783dfa42a898ca0b898d2345df7a62e22ff"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+          "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21",
+          "locator_kind": "line_span",
+          "locator": "21-21",
+          "excerpt_sha256": "d73faeb3e932af23f8d0f084971c1783dfa42a898ca0b898d2345df7a62e22ff",
+          "normalized_excerpt": "Despite this ominous sign, Ephanna applies Hex to one of the Elite Guards and hits them with Eldritch Blast for big damage. Stafl finally shows his true form, unfurling his incorporeal wings and casting Radiant Soul. He flies up near the ceiling and casts Heat Metal on the Wolf. The Wolf, sensing danger, downs an Invisibility Potion and disappears. Kasrsemine quickly uses Hunter’s Mark and deals a major blow to a guard."
+        }
       ]
     },
     {
@@ -152,8 +288,22 @@
       "locator": "paragraph:011",
       "normalized_excerpt": "Sensing that both Bonogo and Karsemine are hanging on to the creature, the walls of meat reach out and grapple them. Karsemine dodges the grapple, but is attached to the creature as it continues to climb up the wall. The creature flips around and crushes Karsemine, downing her well above the reach of any of the party. Worse, the creature is very close to reaching the ceiling and breaking through.",
       "excerpt_sha256": "3655bfc33cd7d1bcc9d771a66815311a285bbdaec110fc769ef3f076529315fb",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011"
+      ],
       "all_evidence_excerpt_sha256s": [
         "3655bfc33cd7d1bcc9d771a66815311a285bbdaec110fc769ef3f076529315fb"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_span_ref_id": "session-17:recap:paragraph:011",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:011",
+          "excerpt_sha256": "3655bfc33cd7d1bcc9d771a66815311a285bbdaec110fc769ef3f076529315fb",
+          "normalized_excerpt": "Sensing that both Bonogo and Karsemine are hanging on to the creature, the walls of meat reach out and grapple them. Karsemine dodges the grapple, but is attached to the creature as it continues to climb up the wall. The creature flips around and crushes Karsemine, downing her well above the reach of any of the party. Worse, the creature is very close to reaching the ceiling and breaking through."
+        }
       ]
     },
     {
@@ -167,8 +317,22 @@
       "locator": "paragraph:008",
       "normalized_excerpt": "All the while Stafl is working on a plan to deal with the Wolf’s head. He yells insults to the head attempting to taunt it closer. He can see a protrusion inside the meat creature shift and move until it slides right next to him. It pops up out of the creature and Stafl grabs it. He can hear something rattling around inside. Stafl shakes it until a seed falls out and lands in his hand. The small tentacles wrap themselves around his hand and he can feel dark energy emanating from it as it tries to burrow into his skin.",
       "excerpt_sha256": "77e26f31ebf8253a2dafbf3eb6d1a1514cb4c96ced996d0da63c7c2a3921f461",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:008"
+      ],
       "all_evidence_excerpt_sha256s": [
         "77e26f31ebf8253a2dafbf3eb6d1a1514cb4c96ced996d0da63c7c2a3921f461"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:008",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_span_ref_id": "session-17:recap:paragraph:008",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:008",
+          "excerpt_sha256": "77e26f31ebf8253a2dafbf3eb6d1a1514cb4c96ced996d0da63c7c2a3921f461",
+          "normalized_excerpt": "All the while Stafl is working on a plan to deal with the Wolf’s head. He yells insults to the head attempting to taunt it closer. He can see a protrusion inside the meat creature shift and move until it slides right next to him. It pops up out of the creature and Stafl grabs it. He can hear something rattling around inside. Stafl shakes it until a seed falls out and lands in his hand. The small tentacles wrap themselves around his hand and he can feel dark energy emanating from it as it tries to burrow into his skin."
+        }
       ]
     },
     {
@@ -182,8 +346,22 @@
       "locator": "paragraph:005",
       "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo’s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom.",
       "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005"
+      ],
       "all_evidence_excerpt_sha256s": [
         "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:005",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:005",
+          "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+          "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo’s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom."
+        }
       ]
     },
     {
@@ -197,8 +375,22 @@
       "locator": "paragraph:005",
       "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo’s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom.",
       "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005"
+      ],
       "all_evidence_excerpt_sha256s": [
         "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:005",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:005",
+          "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+          "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo’s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom."
+        }
       ]
     },
     {
@@ -212,8 +404,22 @@
       "locator": "paragraph:005",
       "normalized_excerpt": "Grishna was true to her word, the directions were sound. There was a clear trail along the river to an enormous boulder.  As the group approached it resolved into what must have been the foot of a once enormous statue. Or a mad sculptures dedication to someone's foot, probably the  former but who really knows with art anyway.",
       "excerpt_sha256": "b25cee02104801fdf963ac08e66c775d33b82a20cab04ed6cac8fcf54e80a580",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:005"
+      ],
       "all_evidence_excerpt_sha256s": [
         "b25cee02104801fdf963ac08e66c775d33b82a20cab04ed6cac8fcf54e80a580"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:005",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+          "source_span_ref_id": "session-1:recap:paragraph:005",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:005",
+          "excerpt_sha256": "b25cee02104801fdf963ac08e66c775d33b82a20cab04ed6cac8fcf54e80a580",
+          "normalized_excerpt": "Grishna was true to her word, the directions were sound. There was a clear trail along the river to an enormous boulder.  As the group approached it resolved into what must have been the foot of a once enormous statue. Or a mad sculptures dedication to someone's foot, probably the  former but who really knows with art anyway."
+        }
       ]
     },
     {
@@ -227,8 +433,22 @@
       "locator": "paragraph:003",
       "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
       "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003"
+      ],
       "all_evidence_excerpt_sha256s": [
         "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+          "source_span_ref_id": "session-1:recap:paragraph:003",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:003",
+          "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+          "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats."
+        }
       ]
     },
     {
@@ -242,8 +462,22 @@
       "locator": "paragraph:003",
       "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
       "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003"
+      ],
       "all_evidence_excerpt_sha256s": [
         "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+          "source_span_ref_id": "session-1:recap:paragraph:003",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:003",
+          "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+          "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats."
+        }
       ]
     },
     {
@@ -257,8 +491,22 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "Since this room was not part of the original contract, and really neither was the rest of this god forsaken place, they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room. It's not much but it's a start.",
       "excerpt_sha256": "40fc0bd571ff9becd666837ccd4b20ec4ab78147a2b1b8d8cc275594269c4cce",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "40fc0bd571ff9becd666837ccd4b20ec4ab78147a2b1b8d8cc275594269c4cce"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+          "source_span_ref_id": "session-2:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "40fc0bd571ff9becd666837ccd4b20ec4ab78147a2b1b8d8cc275594269c4cce",
+          "normalized_excerpt": "Since this room was not part of the original contract, and really neither was the rest of this god forsaken place, they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room. It's not much but it's a start."
+        }
       ]
     },
     {
@@ -272,8 +520,22 @@
       "locator": "paragraph:011",
       "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
       "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011"
+      ],
       "all_evidence_excerpt_sha256s": [
         "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:011",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:011",
+          "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+          "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project."
+        }
       ]
     },
     {
@@ -287,8 +549,22 @@
       "locator": "paragraph:007",
       "normalized_excerpt": "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo. Now it's a straight shot to the last warehouse through this tunnel. Caelynn fills Thraxx in on the details of the quest on the way to the last ladder leading up to another trap door. Bonogo sneaks a look. Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings.",
       "excerpt_sha256": "4cdafd47f4280d9a563f33fda4cc49b40f5649ab193b77fd32e6c2aa2dc6006d",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
       "all_evidence_excerpt_sha256s": [
         "4cdafd47f4280d9a563f33fda4cc49b40f5649ab193b77fd32e6c2aa2dc6006d"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+          "source_span_ref_id": "session-10:recap:paragraph:007",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:007",
+          "excerpt_sha256": "4cdafd47f4280d9a563f33fda4cc49b40f5649ab193b77fd32e6c2aa2dc6006d",
+          "normalized_excerpt": "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo. Now it's a straight shot to the last warehouse through this tunnel. Caelynn fills Thraxx in on the details of the quest on the way to the last ladder leading up to another trap door. Bonogo sneaks a look. Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings."
+        }
       ]
     },
     {
@@ -302,8 +578,22 @@
       "locator": "paragraph:011",
       "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
       "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011"
+      ],
       "all_evidence_excerpt_sha256s": [
         "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:011",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:011",
+          "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+          "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project."
+        }
       ]
     },
     {
@@ -317,8 +607,22 @@
       "locator": "paragraph:003",
       "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
       "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003"
+      ],
       "all_evidence_excerpt_sha256s": [
         "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+          "source_span_ref_id": "session-1:recap:paragraph:003",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:003",
+          "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+          "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats."
+        }
       ]
     },
     {
@@ -332,8 +636,22 @@
       "locator": "paragraph:010",
       "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion.",
       "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010"
+      ],
       "all_evidence_excerpt_sha256s": [
         "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+          "source_span_ref_id": "session-7:recap:paragraph:010",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:010",
+          "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+          "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion."
+        }
       ]
     },
     {
@@ -347,24 +665,62 @@
       "locator": "paragraph:009",
       "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn’s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy.",
       "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009"
+      ],
       "all_evidence_excerpt_sha256s": [
         "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:009",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:009",
+          "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+          "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn’s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy."
+        }
       ]
     },
     {
       "edge_id": "edge:loc:wizard_college:within:node:city_mirathorn",
-      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
       "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
       "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-12/20260727T181554Z/normalized_recap_source.md",
       "artifact_content_sha256": "7184000a8cfbbd993e5e871b48d83fa274cd36d83f5e05a05cdc408b349ca5c9",
-      "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+      "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
       "locator_kind": "line_span",
-      "locator": "37-37",
-      "normalized_excerpt": "As Bonogo deals the killing blow the oily sheen fades from the Wolf’s eyes and is replaced with only regret at betraying the city of Mirathorn.",
-      "excerpt_sha256": "d711a26f9a4301621720edfe0be06f551f50f52533827425f8c8f0a856a88773",
+      "locator": "39-39",
+      "normalized_excerpt": "Finally, Caelynn instructs Thalia to bring a potion to Lesandra at the Wizard’s College. Thalia creates a plan to make sure each guard in the city also receives a potion. Now the group must decide what to do with the Wolf.",
+      "excerpt_sha256": "c7f81353fc4892aaa7fdee62a25b021f6f3f8a0ffe0565ae0b8bb85fa6557180",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+        "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39"
+      ],
       "all_evidence_excerpt_sha256s": [
         "c7f81353fc4892aaa7fdee62a25b021f6f3f8a0ffe0565ae0b8bb85fa6557180",
         "d711a26f9a4301621720edfe0be06f551f50f52533827425f8c8f0a856a88773"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+          "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+          "locator_kind": "line_span",
+          "locator": "37-37",
+          "excerpt_sha256": "d711a26f9a4301621720edfe0be06f551f50f52533827425f8c8f0a856a88773",
+          "normalized_excerpt": "As Bonogo deals the killing blow the oily sheen fades from the Wolf’s eyes and is replaced with only regret at betraying the city of Mirathorn."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+          "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
+          "locator_kind": "line_span",
+          "locator": "39-39",
+          "excerpt_sha256": "c7f81353fc4892aaa7fdee62a25b021f6f3f8a0ffe0565ae0b8bb85fa6557180",
+          "normalized_excerpt": "Finally, Caelynn instructs Thalia to bring a potion to Lesandra at the Wizard’s College. Thalia creates a plan to make sure each guard in the city also receives a potion. Now the group must decide what to do with the Wolf."
+        }
       ]
     },
     {
@@ -378,8 +734,22 @@
       "locator": "paragraph:010",
       "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion.",
       "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010"
+      ],
       "all_evidence_excerpt_sha256s": [
         "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+          "source_span_ref_id": "session-7:recap:paragraph:010",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:010",
+          "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+          "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion."
+        }
       ]
     },
     {
@@ -393,8 +763,22 @@
       "locator": "paragraph:002",
       "normalized_excerpt": "The disgusting hybrid monsters continue their march toward the wall, but unable to reach it yet. One of them reaches the magically dark cube with Ogonob inside and lashes out with a tentacle, managing to hit Ogonob three times, but avoiding being grappled by the monster. Back on the wall, Karsemine launches a Firebolt at the tripod monster, dealing massive damage igniting the many escaping gases. Whether it’s the sounds of gases ignited or screams of pain, the monster writhes in agony, but is still alive. Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them. Ephanna climbs over and down the wall in an attempt to get to the closest meatwing, but still manages to resist long enough to attack the hybrid monster attacking Ogonob. With two powerful Eldritch Blasts the monster is destroyed, leaving behind a smoldering pile and crackling purple energy. Ogonob then uses Misty Step to get within striking range of the tripod, but misses the attack.",
       "excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002"
+      ],
       "all_evidence_excerpt_sha256s": [
         "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_span_ref_id": "session-24:recap:paragraph:002",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:002",
+          "excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609",
+          "normalized_excerpt": "The disgusting hybrid monsters continue their march toward the wall, but unable to reach it yet. One of them reaches the magically dark cube with Ogonob inside and lashes out with a tentacle, managing to hit Ogonob three times, but avoiding being grappled by the monster. Back on the wall, Karsemine launches a Firebolt at the tripod monster, dealing massive damage igniting the many escaping gases. Whether it’s the sounds of gases ignited or screams of pain, the monster writhes in agony, but is still alive. Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them. Ephanna climbs over and down the wall in an attempt to get to the closest meatwing, but still manages to resist long enough to attack the hybrid monster attacking Ogonob. With two powerful Eldritch Blasts the monster is destroyed, leaving behind a smoldering pile and crackling purple energy. Ogonob then uses Misty Step to get within striking range of the tripod, but misses the attack."
+        }
       ]
     },
     {
@@ -408,8 +792,22 @@
       "locator": "paragraph:017",
       "normalized_excerpt": "Barin proposes a much more covert operation going to each guardhouse and using magic runes to locate and dispose of the meat.",
       "excerpt_sha256": "195469db602a6a8495c6baf78a121514a32fd53034ae657479a1dfcfd78b04c1",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:017"
+      ],
       "all_evidence_excerpt_sha256s": [
         "195469db602a6a8495c6baf78a121514a32fd53034ae657479a1dfcfd78b04c1"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:017",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:017",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:017",
+          "excerpt_sha256": "195469db602a6a8495c6baf78a121514a32fd53034ae657479a1dfcfd78b04c1",
+          "normalized_excerpt": "Barin proposes a much more covert operation going to each guardhouse and using magic runes to locate and dispose of the meat."
+        }
       ]
     },
     {
@@ -423,8 +821,22 @@
       "locator": "paragraph:011",
       "normalized_excerpt": "Back at the Inn the party meets up with Lysandra and Berin to discuss the meat and the tunnel they found. Berin has no knowledge of any tunnels, but Lysandra tells us they were used in the past for military movements. She is also concerned about the meat. The next day is supposed to be a city wide barbeque and she is unsure where all the meat may have been stored. She will take 3-4 guards she trusts to meet us in the Warehouse District where she believes the tunnel comes up. An arcana check reveals the meat to be from another plane of existence. Berin will have the orc bartender take a sample of the meat to Stormspire Academy for analysis.",
       "excerpt_sha256": "81757b6e05c1e9c7056c342e2439fd41a156912fa12f2c46be87c9c48b33b4f3",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:011"
+      ],
       "all_evidence_excerpt_sha256s": [
         "81757b6e05c1e9c7056c342e2439fd41a156912fa12f2c46be87c9c48b33b4f3"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:011",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+          "source_span_ref_id": "session-8:recap:paragraph:011",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:011",
+          "excerpt_sha256": "81757b6e05c1e9c7056c342e2439fd41a156912fa12f2c46be87c9c48b33b4f3",
+          "normalized_excerpt": "Back at the Inn the party meets up with Lysandra and Berin to discuss the meat and the tunnel they found. Berin has no knowledge of any tunnels, but Lysandra tells us they were used in the past for military movements. She is also concerned about the meat. The next day is supposed to be a city wide barbeque and she is unsure where all the meat may have been stored. She will take 3-4 guards she trusts to meet us in the Warehouse District where she believes the tunnel comes up. An arcana check reveals the meat to be from another plane of existence. Berin will have the orc bartender take a sample of the meat to Stormspire Academy for analysis."
+        }
       ]
     },
     {
@@ -438,8 +850,22 @@
       "locator": "paragraph:006",
       "normalized_excerpt": "Caelynn quickly casts Ray of Frost on the centipede, slowing its movement speed. She then dumps out some of her water and collects some of the goo that has pooled up on the floor. One of the nearby Cultists begins to fall into a trance. Despite Stafl landing a hit on them, they continue until they reach the center where they spill some of their blood onto the meat where it is absorbed and heals the large creature.",
       "excerpt_sha256": "e73cd0ebc7f62b6ee75f3ffffd520cf7fbcf3a6e9762e021f0eca80d336409e9",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:006"
+      ],
       "all_evidence_excerpt_sha256s": [
         "e73cd0ebc7f62b6ee75f3ffffd520cf7fbcf3a6e9762e021f0eca80d336409e9"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:006",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_span_ref_id": "session-17:recap:paragraph:006",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:006",
+          "excerpt_sha256": "e73cd0ebc7f62b6ee75f3ffffd520cf7fbcf3a6e9762e021f0eca80d336409e9",
+          "normalized_excerpt": "Caelynn quickly casts Ray of Frost on the centipede, slowing its movement speed. She then dumps out some of her water and collects some of the goo that has pooled up on the floor. One of the nearby Cultists begins to fall into a trance. Despite Stafl landing a hit on them, they continue until they reach the center where they spill some of their blood onto the meat where it is absorbed and heals the large creature."
+        }
       ]
     },
     {
@@ -453,8 +879,22 @@
       "locator": "paragraph:015",
       "normalized_excerpt": "A huge crowd begins to form around the hole, looking down on the heroes below. The party realizes that the group is made up of all Cultists, but they see Lesandra at the front. The Sprite and Caelynn’s charm friend even help Ethel out of the water. When the party works their way out of the hole and back up on the street, Lesandra orders everyone to keep quiet about the events of the night so the festival can continue as planned.",
       "excerpt_sha256": "f9abc60ff4f7fcf05a30c58f7e6029c3af23844a3dcd76857e18fc593b02a0d1",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:015"
+      ],
       "all_evidence_excerpt_sha256s": [
         "f9abc60ff4f7fcf05a30c58f7e6029c3af23844a3dcd76857e18fc593b02a0d1"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:015",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_span_ref_id": "session-17:recap:paragraph:015",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:015",
+          "excerpt_sha256": "f9abc60ff4f7fcf05a30c58f7e6029c3af23844a3dcd76857e18fc593b02a0d1",
+          "normalized_excerpt": "A huge crowd begins to form around the hole, looking down on the heroes below. The party realizes that the group is made up of all Cultists, but they see Lesandra at the front. The Sprite and Caelynn’s charm friend even help Ethel out of the water. When the party works their way out of the hole and back up on the street, Lesandra orders everyone to keep quiet about the events of the night so the festival can continue as planned."
+        }
       ]
     },
     {
@@ -468,8 +908,22 @@
       "locator": "paragraph:006",
       "normalized_excerpt": "The first deal the Fey offers is to help Ephanna escape, but Torbin will be turned over to the Fey and raised by them. The second deal is to teach a lock picking spell, however it will cost 1d10 life to cast it. After some deliberation, Ephanna chooses option 2 and receives the new spell.",
       "excerpt_sha256": "7b1b712d624ba58dfaba2b93d5d81b6589e2fa7bf92e80ba141617fc914f30f5",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:006"
+      ],
       "all_evidence_excerpt_sha256s": [
         "7b1b712d624ba58dfaba2b93d5d81b6589e2fa7bf92e80ba141617fc914f30f5"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:006",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+          "source_span_ref_id": "session-8:recap:paragraph:006",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:006",
+          "excerpt_sha256": "7b1b712d624ba58dfaba2b93d5d81b6589e2fa7bf92e80ba141617fc914f30f5",
+          "normalized_excerpt": "The first deal the Fey offers is to help Ephanna escape, but Torbin will be turned over to the Fey and raised by them. The second deal is to teach a lock picking spell, however it will cost 1d10 life to cast it. After some deliberation, Ephanna chooses option 2 and receives the new spell."
+        }
       ]
     },
     {
@@ -483,8 +937,22 @@
       "locator": "paragraph:005",
       "normalized_excerpt": "Here we jump back to Ephanna, who is currently back in a cell, asleep, and having bad dreams. Faintly Torbin can be heard a few cells over being forced to eat some meat again. Suddenly a Fey appears to Ephanna. Ephanna is shown a flash of memories and the Fey is not happy with him. However, the Fey does offer Ephanna a deal, otherwise certain death awaits.",
       "excerpt_sha256": "d2da32ea1c75fc5b2a8d85b9472cbe72855772b516bc02c6ef9c385a95f777cf",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:005"
+      ],
       "all_evidence_excerpt_sha256s": [
         "d2da32ea1c75fc5b2a8d85b9472cbe72855772b516bc02c6ef9c385a95f777cf"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:005",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+          "source_span_ref_id": "session-8:recap:paragraph:005",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:005",
+          "excerpt_sha256": "d2da32ea1c75fc5b2a8d85b9472cbe72855772b516bc02c6ef9c385a95f777cf",
+          "normalized_excerpt": "Here we jump back to Ephanna, who is currently back in a cell, asleep, and having bad dreams. Faintly Torbin can be heard a few cells over being forced to eat some meat again. Suddenly a Fey appears to Ephanna. Ephanna is shown a flash of memories and the Fey is not happy with him. However, the Fey does offer Ephanna a deal, otherwise certain death awaits."
+        }
       ]
     },
     {
@@ -498,8 +966,22 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "When the trapdoor is lifted they discover a huge party happening at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears. The party decides to continue on.",
       "excerpt_sha256": "86093a00e717bbbf0344ed80101e20639937c029a2c8cca3a5cc7dd24d446647",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "86093a00e717bbbf0344ed80101e20639937c029a2c8cca3a5cc7dd24d446647"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+          "source_span_ref_id": "session-10:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "86093a00e717bbbf0344ed80101e20639937c029a2c8cca3a5cc7dd24d446647",
+          "normalized_excerpt": "When the trapdoor is lifted they discover a huge party happening at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears. The party decides to continue on."
+        }
       ]
     },
     {
@@ -513,8 +995,22 @@
       "locator": "paragraph:008",
       "normalized_excerpt": "Headmaster Tinkerbright - Head of the Wizard’s College",
       "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008"
+      ],
       "all_evidence_excerpt_sha256s": [
         "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:008",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:008",
+          "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+          "normalized_excerpt": "Headmaster Tinkerbright - Head of the Wizard’s College"
+        }
       ]
     },
     {
@@ -528,8 +1024,22 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
       "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+          "source_span_ref_id": "session-4:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+          "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare."
+        }
       ]
     },
     {
@@ -543,8 +1053,22 @@
       "locator": "paragraph:017",
       "normalized_excerpt": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to Stone Bridge with Pippa. Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river. Along the way down river, they encountered an elderly fisherman, whose net was stuck. Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn’t have a fish, stupid useless net. With some trial and error and stradling of boats Stafl and Baergrom I think pulled the net to surface to see it looked to be the corner beams of a roof.",
       "excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
       "all_evidence_excerpt_sha256s": [
         "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+          "source_span_ref_id": "session-3:recap:paragraph:017",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:017",
+          "excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4",
+          "normalized_excerpt": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to Stone Bridge with Pippa. Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river. Along the way down river, they encountered an elderly fisherman, whose net was stuck. Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn’t have a fish, stupid useless net. With some trial and error and stradling of boats Stafl and Baergrom I think pulled the net to surface to see it looked to be the corner beams of a roof."
+        }
       ]
     },
     {
@@ -558,8 +1082,22 @@
       "locator": "paragraph:017",
       "normalized_excerpt": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to Stone Bridge with Pippa. Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river. Along the way down river, they encountered an elderly fisherman, whose net was stuck. Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn’t have a fish, stupid useless net. With some trial and error and stradling of boats Stafl and Baergrom I think pulled the net to surface to see it looked to be the corner beams of a roof.",
       "excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
       "all_evidence_excerpt_sha256s": [
         "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+          "source_span_ref_id": "session-3:recap:paragraph:017",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:017",
+          "excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4",
+          "normalized_excerpt": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to Stone Bridge with Pippa. Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river. Along the way down river, they encountered an elderly fisherman, whose net was stuck. Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn’t have a fish, stupid useless net. With some trial and error and stradling of boats Stafl and Baergrom I think pulled the net to surface to see it looked to be the corner beams of a roof."
+        }
       ]
     },
     {
@@ -573,8 +1111,22 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "On to Mirathorn, it’d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn’t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse’s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
       "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+          "source_span_ref_id": "session-6:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+          "normalized_excerpt": "On to Mirathorn, it’d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn’t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse’s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!"
+        }
       ]
     },
     {
@@ -588,8 +1140,22 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "On to Mirathorn, it’d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn’t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse’s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
       "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+          "source_span_ref_id": "session-6:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+          "normalized_excerpt": "On to Mirathorn, it’d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn’t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse’s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!"
+        }
       ]
     },
     {
@@ -603,8 +1169,22 @@
       "locator": "paragraph:008",
       "normalized_excerpt": "Now that the party is back together we need a plan. Stafl comes up with a plan to walk right in with Karsemine. She will use her Thaumaturgy spell to change her eyes to match the guard's and he will have brought his artifact to add to the storeroom. Ephanna will start in our room across the street, keeping an eye on the street and on Torbin (who also started to show signs of the oily eyes). Bonogo will guard the back door, while Baergrom and Caelynn will create a minor distraction in the street.",
       "excerpt_sha256": "1c78227f9d50f667d613f4a373264f87cd0770e3013771607c881f6527283cc3",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:008"
+      ],
       "all_evidence_excerpt_sha256s": [
         "1c78227f9d50f667d613f4a373264f87cd0770e3013771607c881f6527283cc3"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:008",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+          "source_span_ref_id": "session-8:recap:paragraph:008",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:008",
+          "excerpt_sha256": "1c78227f9d50f667d613f4a373264f87cd0770e3013771607c881f6527283cc3",
+          "normalized_excerpt": "Now that the party is back together we need a plan. Stafl comes up with a plan to walk right in with Karsemine. She will use her Thaumaturgy spell to change her eyes to match the guard's and he will have brought his artifact to add to the storeroom. Ephanna will start in our room across the street, keeping an eye on the street and on Torbin (who also started to show signs of the oily eyes). Bonogo will guard the back door, while Baergrom and Caelynn will create a minor distraction in the street."
+        }
       ]
     },
     {
@@ -618,8 +1198,22 @@
       "locator": "paragraph:010",
       "normalized_excerpt": "Torrin Flamescale - Master Smith and Representative of the Guilds",
       "excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010"
+      ],
       "all_evidence_excerpt_sha256s": [
         "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:010",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:010",
+          "excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4",
+          "normalized_excerpt": "Torrin Flamescale - Master Smith and Representative of the Guilds"
+        }
       ]
     },
     {
@@ -633,8 +1227,22 @@
       "locator": "paragraph:002",
       "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak’s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
       "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002"
+      ],
       "all_evidence_excerpt_sha256s": [
         "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+          "source_span_ref_id": "session-4:recap:paragraph:002",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:002",
+          "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+          "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak’s incredible Hemp, the team marched on eager to investigate this bizarre tree."
+        }
       ]
     },
     {
@@ -648,8 +1256,22 @@
       "locator": "paragraph:002",
       "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak’s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
       "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002"
+      ],
       "all_evidence_excerpt_sha256s": [
         "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+          "source_span_ref_id": "session-4:recap:paragraph:002",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:002",
+          "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+          "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak’s incredible Hemp, the team marched on eager to investigate this bizarre tree."
+        }
       ]
     },
     {
@@ -663,8 +1285,22 @@
       "locator": "paragraph:003",
       "normalized_excerpt": "The centipede-like creature begins to vibrate, trying to shake off its adversaries. Bonogo just manages to hang on, however the creature begins to pull Ephanna further into the giant pile on the center platform until only Ephanna’s head remains visible. As Bonogo clings to the creature climbing the wall, a large lump begins shifting around and suddenly a head materializes right in front of him. It pushes against the skin of the creature, revealing itself to be the Wolf and begging to be killed. Dark energy pulses through the room and along the creature, curing a large portion of damage.",
       "excerpt_sha256": "8c9014fafc086bdf9c03b521052c4ee1704ad140201cd2bdc07947aadd2d2976",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:003"
+      ],
       "all_evidence_excerpt_sha256s": [
         "8c9014fafc086bdf9c03b521052c4ee1704ad140201cd2bdc07947aadd2d2976"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:003",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_span_ref_id": "session-17:recap:paragraph:003",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:003",
+          "excerpt_sha256": "8c9014fafc086bdf9c03b521052c4ee1704ad140201cd2bdc07947aadd2d2976",
+          "normalized_excerpt": "The centipede-like creature begins to vibrate, trying to shake off its adversaries. Bonogo just manages to hang on, however the creature begins to pull Ephanna further into the giant pile on the center platform until only Ephanna’s head remains visible. As Bonogo clings to the creature climbing the wall, a large lump begins shifting around and suddenly a head materializes right in front of him. It pushes against the skin of the creature, revealing itself to be the Wolf and begging to be killed. Dark energy pulses through the room and along the creature, curing a large portion of damage."
+        }
       ]
     },
     {
@@ -678,8 +1314,22 @@
       "locator": "paragraph:003",
       "normalized_excerpt": "Bonogo and Baergrom can sense something wrong with one of the guards (Bill). His eyes appear to have a slight oily sheen to them. Lysandra also informs us that she is also being kept out of the city guard's store room, which never happened before. She believes something is happening between some guards and the cultists.",
       "excerpt_sha256": "a19b300fc2d9b2256225687f444298c4223778886cc93aa3c23841a0e387388c",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:003"
+      ],
       "all_evidence_excerpt_sha256s": [
         "a19b300fc2d9b2256225687f444298c4223778886cc93aa3c23841a0e387388c"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:003",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+          "source_span_ref_id": "session-8:recap:paragraph:003",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:003",
+          "excerpt_sha256": "a19b300fc2d9b2256225687f444298c4223778886cc93aa3c23841a0e387388c",
+          "normalized_excerpt": "Bonogo and Baergrom can sense something wrong with one of the guards (Bill). His eyes appear to have a slight oily sheen to them. Lysandra also informs us that she is also being kept out of the city guard's store room, which never happened before. She believes something is happening between some guards and the cultists."
+        }
       ]
     },
     {
@@ -693,8 +1343,22 @@
       "locator": "paragraph:006",
       "normalized_excerpt": "Torbin, immediately spend all 10 of his gold (which is a lot of fucking money for a kid, like, his father’s life savings) on candy. So much candy! After exploring a few shops, they decide it’s time to head into the city. Which is where they find a group gathering, passing out fliers chanting about how unfair the toll is. While they observe and chat with Captain Lysandra Ironveil, the crowd grows to around 50 people. The guards looking tense send a large contingent of troops out to disperse the crowd. Excusing herself, the Captain walks to joining the other guards, complaining of what a headache and ass chewing she will get if she has to close the gate.",
       "excerpt_sha256": "008e827d51c5f5c149993950ec4e3d7003d48018dbadb1ff6c5053caaea9b422",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:006"
+      ],
       "all_evidence_excerpt_sha256s": [
         "008e827d51c5f5c149993950ec4e3d7003d48018dbadb1ff6c5053caaea9b422"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:006",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+          "source_span_ref_id": "session-6:recap:paragraph:006",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:006",
+          "excerpt_sha256": "008e827d51c5f5c149993950ec4e3d7003d48018dbadb1ff6c5053caaea9b422",
+          "normalized_excerpt": "Torbin, immediately spend all 10 of his gold (which is a lot of fucking money for a kid, like, his father’s life savings) on candy. So much candy! After exploring a few shops, they decide it’s time to head into the city. Which is where they find a group gathering, passing out fliers chanting about how unfair the toll is. While they observe and chat with Captain Lysandra Ironveil, the crowd grows to around 50 people. The guards looking tense send a large contingent of troops out to disperse the crowd. Excusing herself, the Captain walks to joining the other guards, complaining of what a headache and ass chewing she will get if she has to close the gate."
+        }
       ]
     },
     {
@@ -708,8 +1372,22 @@
       "locator": "paragraph:008",
       "normalized_excerpt": "The remaining tripod creature turns its attention to Ephanna, loading up its third leg again, but this time launching a massive spike, impaling Ephanna and pulling them toward the disgusting monster. The proximity to the monster causes Ephanna to lose the ability to pinpoint where the creature is. But before the creature can attack again, Stafl casts Sleep on the monster, who almost breaks out of the spell until Stafl uses Luck. Lysandra can see that they have the advantage now and can push for a final assault on the remaining monsters. She recharges her Commanding Shout and directs Bonogo, Baergrom and Karsemine to attack. Bonogo shoots an arrow into where he saw the hybrid monster enter the darkness, and manages to hit his target. Baergom is about to bring his hammer down again on the sewer monster when an arrow from Karsemine flies past, impaling the monster, but in killing it sprays poison on Baergrom, Thrin and herself. Caelynn holds her attack until she can see the hybrid or the tripod wakes up.",
       "excerpt_sha256": "2ab9becf0e06d95c3fed34563a1ad2aadbb71667dbdcadeb64dd403406635d32",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:008"
+      ],
       "all_evidence_excerpt_sha256s": [
         "2ab9becf0e06d95c3fed34563a1ad2aadbb71667dbdcadeb64dd403406635d32"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:008",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_span_ref_id": "session-24:recap:paragraph:008",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:008",
+          "excerpt_sha256": "2ab9becf0e06d95c3fed34563a1ad2aadbb71667dbdcadeb64dd403406635d32",
+          "normalized_excerpt": "The remaining tripod creature turns its attention to Ephanna, loading up its third leg again, but this time launching a massive spike, impaling Ephanna and pulling them toward the disgusting monster. The proximity to the monster causes Ephanna to lose the ability to pinpoint where the creature is. But before the creature can attack again, Stafl casts Sleep on the monster, who almost breaks out of the spell until Stafl uses Luck. Lysandra can see that they have the advantage now and can push for a final assault on the remaining monsters. She recharges her Commanding Shout and directs Bonogo, Baergrom and Karsemine to attack. Bonogo shoots an arrow into where he saw the hybrid monster enter the darkness, and manages to hit his target. Baergom is about to bring his hammer down again on the sewer monster when an arrow from Karsemine flies past, impaling the monster, but in killing it sprays poison on Baergrom, Thrin and herself. Caelynn holds her attack until she can see the hybrid or the tripod wakes up."
+        }
       ]
     },
     {
@@ -723,8 +1401,22 @@
       "locator": "paragraph:013",
       "normalized_excerpt": "The party quickly jumps into battle and makes quick work of two of the Cultists. They seem to go down easily and things seem straightforward, until the remaining Cultists split open to reveal huge mouths full of teeth. Before the party can react the Cultists jump on the guards in the cages. Falling upon, gorging on, and merging with the guards in cages something corrupted and fleshy is born. Captain Lysandra, barely able to hold off the giant meat maw trying to consume her, screams for help while fighting for her life.",
       "excerpt_sha256": "b53b65f72cddb16f1bd9abecbd36ef8c4eb43d513391ec4b866a3e57db63e8de",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:013"
+      ],
       "all_evidence_excerpt_sha256s": [
         "b53b65f72cddb16f1bd9abecbd36ef8c4eb43d513391ec4b866a3e57db63e8de"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:013",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+          "source_span_ref_id": "session-8:recap:paragraph:013",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:013",
+          "excerpt_sha256": "b53b65f72cddb16f1bd9abecbd36ef8c4eb43d513391ec4b866a3e57db63e8de",
+          "normalized_excerpt": "The party quickly jumps into battle and makes quick work of two of the Cultists. They seem to go down easily and things seem straightforward, until the remaining Cultists split open to reveal huge mouths full of teeth. Before the party can react the Cultists jump on the guards in the cages. Falling upon, gorging on, and merging with the guards in cages something corrupted and fleshy is born. Captain Lysandra, barely able to hold off the giant meat maw trying to consume her, screams for help while fighting for her life."
+        }
       ]
     },
     {
@@ -738,8 +1430,22 @@
       "locator": "paragraph:002",
       "normalized_excerpt": "A fierce battle begins. Bonogo is first to strike, and he makes sure it counts. With deadly precision he kills one of large disgusting meat creatures - a Corrupted Meat Mound. However, with his final slice against the creature a chunk of meat falls off to the ground to form a smaller creature - a Corrupted Meat Pile. It quickly crawls toward the nearest rack of meat and disappears inside. Stafl casts Light on the center cage and fires off a bolt from his crossbow for a nice clean hit. However, another chunk falls off and again crawls toward the rack of meat.",
       "excerpt_sha256": "3fcf9824d52cfd9df98f8131a4beba73abbb2fdf480f651299ddc4fc3e918a3b",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:002"
+      ],
       "all_evidence_excerpt_sha256s": [
         "3fcf9824d52cfd9df98f8131a4beba73abbb2fdf480f651299ddc4fc3e918a3b"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:002",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:002",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:002",
+          "excerpt_sha256": "3fcf9824d52cfd9df98f8131a4beba73abbb2fdf480f651299ddc4fc3e918a3b",
+          "normalized_excerpt": "A fierce battle begins. Bonogo is first to strike, and he makes sure it counts. With deadly precision he kills one of large disgusting meat creatures - a Corrupted Meat Mound. However, with his final slice against the creature a chunk of meat falls off to the ground to form a smaller creature - a Corrupted Meat Pile. It quickly crawls toward the nearest rack of meat and disappears inside. Stafl casts Light on the center cage and fires off a bolt from his crossbow for a nice clean hit. However, another chunk falls off and again crawls toward the rack of meat."
+        }
       ]
     },
     {
@@ -753,8 +1459,22 @@
       "locator": "paragraph:007",
       "normalized_excerpt": "Karsemine, inspired by the torch begins pouring oil on the meat rack, and tosses the torch to start a blaze, then slashes out at the Meat Mound and cuts off another chunk.",
       "excerpt_sha256": "2c3449ed115e829099df1d49a628c0a1286297eae4bc8f6147d02fc6457363af",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:007"
+      ],
       "all_evidence_excerpt_sha256s": [
         "2c3449ed115e829099df1d49a628c0a1286297eae4bc8f6147d02fc6457363af"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:007",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:007",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:007",
+          "excerpt_sha256": "2c3449ed115e829099df1d49a628c0a1286297eae4bc8f6147d02fc6457363af",
+          "normalized_excerpt": "Karsemine, inspired by the torch begins pouring oil on the meat rack, and tosses the torch to start a blaze, then slashes out at the Meat Mound and cuts off another chunk."
+        }
       ]
     },
     {
@@ -768,9 +1488,33 @@
       "locator": "paragraph:013",
       "normalized_excerpt": "The party also notices a ring of guards placed along the wall. There are 8 guards, 2 elite guards, and standing at Thalia’s shoulder is Wolf. The party checks each guard, including Wolf, and discovers all have an oily sheen to their eyes. However, they see that Thalia does not.",
       "excerpt_sha256": "2ab46b40de6d49e6899c09b3c0b66a962ae5697420e05189bc06b984b827a2ea",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:013",
+        "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:025"
+      ],
       "all_evidence_excerpt_sha256s": [
         "1c538e8a1a5530d5c0a57578086a3195a27cb4ba0f92ac0ffd6bb1bb2485de56",
         "2ab46b40de6d49e6899c09b3c0b66a962ae5697420e05189bc06b984b827a2ea"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:013",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:013",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:013",
+          "excerpt_sha256": "2ab46b40de6d49e6899c09b3c0b66a962ae5697420e05189bc06b984b827a2ea",
+          "normalized_excerpt": "The party also notices a ring of guards placed along the wall. There are 8 guards, 2 elite guards, and standing at Thalia’s shoulder is Wolf. The party checks each guard, including Wolf, and discovers all have an oily sheen to their eyes. However, they see that Thalia does not."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:025",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+          "source_span_ref_id": "session-11:recap:paragraph:025",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:025",
+          "excerpt_sha256": "1c538e8a1a5530d5c0a57578086a3195a27cb4ba0f92ac0ffd6bb1bb2485de56",
+          "normalized_excerpt": "After all the commotion dies down, Ephanna finally convinces Thalia to look at the eyes of all the guards. She now realizes how dire the situation truly is. Ephanna ushers the other council members out as Caelynn talks with Thalia about the plans. Stafl is set up to distract Wolf when suddenly, with a flash of a dagger, Bonogo attacks Wolf from behind, dealing major damage."
+        }
       ]
     },
     {
@@ -784,8 +1528,22 @@
       "locator": "paragraph:009",
       "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn’s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy.",
       "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009"
+      ],
       "all_evidence_excerpt_sha256s": [
         "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:009",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:009",
+          "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+          "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn’s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy."
+        }
       ]
     },
     {
@@ -799,8 +1557,22 @@
       "locator": "paragraph:010",
       "normalized_excerpt": "Bonogo takes point and directs the party around tunnel after tunnel of traps. They arrive at a prison packed with humans and cultists leading another feasting ritual. Bonogo and Karsemine sneak in, and take out the three cultists, and bar the door hoping to protect the prisoners for a time.",
       "excerpt_sha256": "e320ed1be5b62ee199d9d8d1ad66632213bdf9786763a301fc957919ca355db7",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:010"
+      ],
       "all_evidence_excerpt_sha256s": [
         "e320ed1be5b62ee199d9d8d1ad66632213bdf9786763a301fc957919ca355db7"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:010",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+          "source_span_ref_id": "session-9:recap:paragraph:010",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:010",
+          "excerpt_sha256": "e320ed1be5b62ee199d9d8d1ad66632213bdf9786763a301fc957919ca355db7",
+          "normalized_excerpt": "Bonogo takes point and directs the party around tunnel after tunnel of traps. They arrive at a prison packed with humans and cultists leading another feasting ritual. Bonogo and Karsemine sneak in, and take out the three cultists, and bar the door hoping to protect the prisoners for a time."
+        }
       ]
     },
     {
@@ -814,8 +1586,22 @@
       "locator": "paragraph:012",
       "normalized_excerpt": "In a desperate attempt to save her friends Caelynn casts Magic Missile on the wall holding Bonogo. Bonogo climbs up the creature, reaching Karsemine, and healing her with a potion. He follows up with a stab from his dagger. Karsemine is now able to break free and uses her bonus action to attack, and Stafl sends a bolt from his crossbow. The centipede-like creature looks to be finally on its last leg.",
       "excerpt_sha256": "a3a1f2d05e1314437a3294f0da71498b393c62b6a6c2efd3848ef8480cbe8230",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:012"
+      ],
       "all_evidence_excerpt_sha256s": [
         "a3a1f2d05e1314437a3294f0da71498b393c62b6a6c2efd3848ef8480cbe8230"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:012",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_span_ref_id": "session-17:recap:paragraph:012",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:012",
+          "excerpt_sha256": "a3a1f2d05e1314437a3294f0da71498b393c62b6a6c2efd3848ef8480cbe8230",
+          "normalized_excerpt": "In a desperate attempt to save her friends Caelynn casts Magic Missile on the wall holding Bonogo. Bonogo climbs up the creature, reaching Karsemine, and healing her with a potion. He follows up with a stab from his dagger. Karsemine is now able to break free and uses her bonus action to attack, and Stafl sends a bolt from his crossbow. The centipede-like creature looks to be finally on its last leg."
+        }
       ]
     },
     {
@@ -829,8 +1615,22 @@
       "locator": "paragraph:012",
       "normalized_excerpt": "As they are just about to head out, Caelynn makes a quick call to Grobnok. After some muffled noise, he answers her call and she tells him about both Edge and Mireward Reach. He is very frustrated, not used to not being able to make a plan and get things done. She attempts to get Grobnok’s rockie-talkie connected with Lysandra’s, but this will take some time. He will call them back the next day to check in. In the meantime, there is work to be done.",
       "excerpt_sha256": "5a7209ffce4a6baabe8253a44b5a3008310cf0afbc531d38367bf95122e69b2d",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:012"
+      ],
       "all_evidence_excerpt_sha256s": [
         "5a7209ffce4a6baabe8253a44b5a3008310cf0afbc531d38367bf95122e69b2d"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:012",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_span_ref_id": "session-24:recap:paragraph:012",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:012",
+          "excerpt_sha256": "5a7209ffce4a6baabe8253a44b5a3008310cf0afbc531d38367bf95122e69b2d",
+          "normalized_excerpt": "As they are just about to head out, Caelynn makes a quick call to Grobnok. After some muffled noise, he answers her call and she tells him about both Edge and Mireward Reach. He is very frustrated, not used to not being able to make a plan and get things done. She attempts to get Grobnok’s rockie-talkie connected with Lysandra’s, but this will take some time. He will call them back the next day to check in. In the meantime, there is work to be done."
+        }
       ]
     },
     {
@@ -844,8 +1644,22 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
       "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+          "source_span_ref_id": "session-4:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+          "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare."
+        }
       ]
     },
     {
@@ -859,9 +1673,33 @@
       "locator": "paragraph:010",
       "normalized_excerpt": "Ephanna uses mage hand to lasso Bubbles on the rock. Bubbles is too panicked and bites the mage hand.",
       "excerpt_sha256": "986582e883b98309d4995fd863959f62b2fe970241301843eeb65d9ed0a11d42",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015"
+      ],
       "all_evidence_excerpt_sha256s": [
         "986582e883b98309d4995fd863959f62b2fe970241301843eeb65d9ed0a11d42",
         "f77a82ae716694358809fe6bd22e50f262a10279a158b1fa59ca18979681dd53"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+          "source_span_ref_id": "session-3:recap:paragraph:010",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:010",
+          "excerpt_sha256": "986582e883b98309d4995fd863959f62b2fe970241301843eeb65d9ed0a11d42",
+          "normalized_excerpt": "Ephanna uses mage hand to lasso Bubbles on the rock. Bubbles is too panicked and bites the mage hand."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+          "source_span_ref_id": "session-3:recap:paragraph:015",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:015",
+          "excerpt_sha256": "f77a82ae716694358809fe6bd22e50f262a10279a158b1fa59ca18979681dd53",
+          "normalized_excerpt": "Ephanna’s mage hand succeeds the second time and lassos Bubbles, lead her to Ephanna."
+        }
       ]
     },
     {
@@ -875,8 +1713,22 @@
       "locator": "paragraph:006",
       "normalized_excerpt": "Lyra, the leader of the crowd, and her followers leave to go back to their base and Ephanna decides to take Torbin and go along with them, wanting to help with their plans. Ephanna discovers that the group is called The Shepherds Flock. Each is wearing a symbol of their group and there is talk of their leader, The Shepherd, back in the Swamp to the north.",
       "excerpt_sha256": "0af02db4e37ab7b55139b4ce09717b224d3146bfc799576da21424c91a3193b3",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:006"
+      ],
       "all_evidence_excerpt_sha256s": [
         "0af02db4e37ab7b55139b4ce09717b224d3146bfc799576da21424c91a3193b3"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:006",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+          "source_span_ref_id": "session-7:recap:paragraph:006",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:006",
+          "excerpt_sha256": "0af02db4e37ab7b55139b4ce09717b224d3146bfc799576da21424c91a3193b3",
+          "normalized_excerpt": "Lyra, the leader of the crowd, and her followers leave to go back to their base and Ephanna decides to take Torbin and go along with them, wanting to help with their plans. Ephanna discovers that the group is called The Shepherds Flock. Each is wearing a symbol of their group and there is talk of their leader, The Shepherd, back in the Swamp to the north."
+        }
       ]
     },
     {
@@ -890,8 +1742,22 @@
       "locator": "paragraph:004",
       "normalized_excerpt": "On to Mirathorn, it’d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn’t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse’s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
       "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004"
+      ],
       "all_evidence_excerpt_sha256s": [
         "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+          "source_span_ref_id": "session-6:recap:paragraph:004",
+          "locator_kind": "paragraph",
+          "locator": "paragraph:004",
+          "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+          "normalized_excerpt": "On to Mirathorn, it’d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn’t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse’s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!"
+        }
       ]
     }
   ]

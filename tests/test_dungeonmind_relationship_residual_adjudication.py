@@ -70,6 +70,17 @@ EPHANNA_FLOCK_EDGE_ID = "edge:pc:ephanna:participates_in:node:shepherds_flock"
 STAFL_PARTY_EDGE_ID = (
     "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
 )
+HELP_REQUEST_JOB_BOARD_EDGE_ID = (
+    "edge:item_glowkindle_help_request:located_in:item_job_board"
+)
+CULTIST_SERVES_MEAT_EDGE_ID = (
+    "edge:node:cultist:serves:item:session17:centipede_meat_creature"
+)
+MYSTERY_WITHIN_CUBE_EDGE_ID = "edge:mystery_1:within:item-001"
+WOLF_PART_OF_EDGE_ID = (
+    "edge:node:wolf:part_of:item:session17:centipede_meat_creature"
+)
+WIZARD_COLLEGE_EDGE_ID = "edge:loc:wizard_college:within:node:city_mirathorn"
 
 
 def _eldyrwild_available() -> bool:
@@ -297,6 +308,23 @@ def test_committed_fixture_is_self_consistent() -> None:
     assert seed["candidate_dungeonmind_term"] == "dnd5e:holds"
     assert seed["reverse_endpoints"] is True
 
+    endpoint_ext = [
+        r
+        for r in fixture["records"]
+        if r["disposition"]
+        == ResidualDisposition.EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE.value
+    ]
+    assert {r["edge_id"] for r in endpoint_ext} == {WOLF_PART_OF_EDGE_ID}
+    assert endpoint_ext[0]["candidate_dungeonmind_term"] == "dnd5e:part_of"
+
+    wizard = next(r for r in fixture["records"] if r["edge_id"] == WIZARD_COLLEGE_EDGE_ID)
+    assert wizard["disposition"] == ResidualDisposition.INSUFFICIENT_EVIDENCE.value
+    assert (
+        wizard["grounding_evidence_ref_id"]
+        == seals[WIZARD_COLLEGE_EDGE_ID]["primary_evidence_ref_id"]
+    )
+    assert wizard["grounding_locator"] == "39-39"
+
 
 @pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
 def test_eldyrwild_residual_identity_matches_v3() -> None:
@@ -360,6 +388,9 @@ def test_eldyrwild_integration_fixture_and_read_only_graph() -> None:
         assert row.grounding_excerpt_sha256 == seal["excerpt_sha256"]
         assert row.grounding_source_artifact_id == seal["source_artifact_id"]
         assert row.grounding_artifact_content_sha256 == seal["artifact_content_sha256"]
+        assert row.grounding_evidence_ref_id == seal["primary_evidence_ref_id"]
+        assert row.grounding_source_span_ref_id == seal["source_span_ref_id"]
+        assert row.grounding_locator == seal["locator"]
 
 
 def test_source_seals_fixture_is_self_consistent() -> None:
@@ -379,6 +410,17 @@ def test_source_seals_fixture_is_self_consistent() -> None:
         assert row["artifact_content_sha256"]
         assert row["source_artifact_id"]
         assert row["artifact_uri"].startswith("repo://")
+        assert row["primary_evidence_ref_id"] in row["all_evidence_ref_ids"]
+        primary_rows = [
+            e
+            for e in row["evidence_excerpts"]
+            if e["evidence_ref_id"] == row["primary_evidence_ref_id"]
+        ]
+        assert len(primary_rows) == 1
+        assert primary_rows[0]["excerpt_sha256"] == row["excerpt_sha256"]
+        assert primary_rows[0]["normalized_excerpt"] == row["normalized_excerpt"]
+        assert primary_rows[0]["source_span_ref_id"] == row["source_span_ref_id"]
+        assert primary_rows[0]["locator"] == row["locator"]
 
 
 def test_sealed_excerpts_constrain_former_adapter_candidates() -> None:
@@ -459,3 +501,76 @@ def test_sealed_excerpts_constrain_former_adapter_candidates() -> None:
         CULTISTS_LESANDRA_EDGE_ID,
         PIPPA_STONE_BRIDGE_EDGE_ID,
     }
+
+
+def test_sealed_excerpts_constrain_endpoint_extension_candidates() -> None:
+    """Endpoint extension only when DM predicate meaning stays intact."""
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+
+    posted = seals[HELP_REQUEST_JOB_BOARD_EDGE_ID]["normalized_excerpt"]
+    assert "posted a help request on the jobs board" in posted
+    posted_finding = ELDYRWILD_RESIDUAL_FINDINGS[HELP_REQUEST_JOB_BOARD_EDGE_ID]
+    assert posted_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert posted_finding.candidate_dungeonmind_term is None
+
+    cultist = seals[CULTIST_SERVES_MEAT_EDGE_ID]["normalized_excerpt"]
+    assert "spill some of their blood onto the meat" in cultist
+    assert "heals the large creature" in cultist
+    cultist_finding = ELDYRWILD_RESIDUAL_FINDINGS[CULTIST_SERVES_MEAT_EDGE_ID]
+    assert cultist_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert cultist_finding.candidate_dungeonmind_term is None
+
+    cube = seals[MYSTERY_WITHIN_CUBE_EDGE_ID]["normalized_excerpt"]
+    assert "magically dark cube with Ogonob inside" in cube
+    cube_finding = ELDYRWILD_RESIDUAL_FINDINGS[MYSTERY_WITHIN_CUBE_EDGE_ID]
+    assert cube_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert cube_finding.candidate_dungeonmind_term is None
+
+    wolf = seals[WOLF_PART_OF_EDGE_ID]["normalized_excerpt"]
+    assert "revealing itself to be the Wolf" in wolf
+    wolf_finding = ELDYRWILD_RESIDUAL_FINDINGS[WOLF_PART_OF_EDGE_ID]
+    assert (
+        wolf_finding.disposition
+        == ResidualDisposition.EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE
+    )
+    assert wolf_finding.candidate_dungeonmind_term == "dnd5e:part_of"
+
+    endpoint_ext = {
+        edge_id
+        for edge_id, finding in ELDYRWILD_RESIDUAL_FINDINGS.items()
+        if finding.disposition
+        == ResidualDisposition.EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE
+    }
+    assert endpoint_ext == {WOLF_PART_OF_EDGE_ID}
+
+
+def test_wizard_college_seal_primary_is_not_first_unrelated_span() -> None:
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+    seal = seals[WIZARD_COLLEGE_EDGE_ID]
+    assert len(seal["all_evidence_ref_ids"]) == 2
+    # Authoritative primary must mention the Wizard's College, not only Mirathorn regret.
+    assert "Wizard’s College" in seal["normalized_excerpt"] or "Wizard's College" in seal[
+        "normalized_excerpt"
+    ]
+    assert "oily sheen fades from the Wolf" not in seal["normalized_excerpt"]
+    assert seal["locator"] == "39-39"
+    finding = ELDYRWILD_RESIDUAL_FINDINGS[WIZARD_COLLEGE_EDGE_ID]
+    assert finding.disposition == ResidualDisposition.INSUFFICIENT_EVIDENCE
+
+
+@pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
+def test_grounding_uses_seal_primary_evidence_ref_id() -> None:
+    root = world_graph_root()
+    report = analyze_eldyrwild_relationship_residual_adjudication(root=root)
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+    for row in report.records:
+        seal = seals[row.edge_id]
+        assert row.grounding_evidence_ref_id == seal["primary_evidence_ref_id"]
+        assert row.grounding_source_span_ref_id == seal["source_span_ref_id"]
+        assert row.grounding_locator == seal["locator"]
+        assert row.grounding_locator_kind == seal["locator_kind"]
+
+    wizard = next(r for r in report.records if r.edge_id == WIZARD_COLLEGE_EDGE_ID)
+    assert wizard.disposition == ResidualDisposition.INSUFFICIENT_EVIDENCE.value
+    assert wizard.grounding_locator == "39-39"
+    assert "Wizard" in (wizard.grounding_normalized_excerpt or "")

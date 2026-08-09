@@ -112,7 +112,7 @@
     },
     {
       "key": "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE",
-      "count": 4
+      "count": 1
     },
     {
       "key": "EXPLICIT_ADAPTER_CANDIDATE",
@@ -123,22 +123,26 @@
       "count": 6
     },
     {
+      "key": "INSUFFICIENT_EVIDENCE",
+      "count": 1
+    },
+    {
       "key": "NEW_PREDICATE_CANDIDATE",
       "count": 3
     },
     {
       "key": "SOURCE_CORRECTION_REQUIRED",
-      "count": 33
+      "count": 35
     }
   ],
   "by_responsible_repo": [
     {
       "key": "DungeonMind",
-      "count": 7
+      "count": 4
     },
     {
       "key": "DungeonMindBuddy",
-      "count": 52
+      "count": 55
     }
   ],
   "by_buddy_predicate": [
@@ -360,7 +364,7 @@
     },
     {
       "key": "AUTHOR_BUDDY_SOURCE_CORRECTION",
-      "count": 33
+      "count": 35
     },
     {
       "key": "DECOMPOSE_COMPOUND_ASSERTION",
@@ -368,7 +372,11 @@
     },
     {
       "key": "EXTEND_DUNGEONMIND_ENDPOINTS",
-      "count": 4
+      "count": 1
+    },
+    {
+      "key": "GATHER_OR_CLARIFY_EVIDENCE",
+      "count": 1
     },
     {
       "key": "MIGRATE_VIA_IDENTITY_SEAM",
@@ -383,15 +391,12 @@
     {
       "name": "dungeonmind-endpoint-extensions",
       "responsible_repo": "DungeonMind",
-      "edge_count": 4,
+      "edge_count": 1,
       "dispositions": [
         "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE"
       ],
       "note": "Smallest world-object relationship endpoint widenings for proven terms only.",
       "edge_ids": [
-        "edge:item_glowkindle_help_request:located_in:item_job_board",
-        "edge:mystery_1:within:item-001",
-        "edge:node:cultist:serves:item:session17:centipede_meat_creature",
         "edge:node:wolf:part_of:item:session17:centipede_meat_creature"
       ]
     },
@@ -426,7 +431,7 @@
     {
       "name": "buddy-source-corrections",
       "responsible_repo": "DungeonMindBuddy",
-      "edge_count": 33,
+      "edge_count": 35,
       "dispositions": [
         "SOURCE_CORRECTION_REQUIRED"
       ],
@@ -442,11 +447,13 @@
         "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling",
         "edge:item:torch:carries:pc:baergrom:passed-to",
         "edge:item:torch:carries:pc:karsemine:passed-to",
+        "edge:item_glowkindle_help_request:located_in:item_job_board",
         "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
         "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
         "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
-        "edge:loc:wizard_college:within:node:city_mirathorn",
+        "edge:mystery_1:within:item-001",
         "edge:node:barin_coppergleam:leads_to:node:guardhouse",
+        "edge:node:cultist:serves:item:session17:centipede_meat_creature",
         "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
         "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
         "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
@@ -506,6 +513,18 @@
       ]
     },
     {
+      "name": "evidence-clarification",
+      "responsible_repo": "DungeonMindBuddy",
+      "edge_count": 1,
+      "dispositions": [
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "note": "Gather or clarify durable support before semantic migration.",
+      "edge_ids": [
+        "edge:loc:wizard_college:within:node:city_mirathorn"
+      ]
+    },
+    {
       "name": "summary-disposition-counts",
       "responsible_repo": "derived",
       "edge_count": 59,
@@ -516,7 +535,7 @@
         },
         {
           "key": "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE",
-          "count": 4
+          "count": 1
         },
         {
           "key": "EXPLICIT_ADAPTER_CANDIDATE",
@@ -527,12 +546,16 @@
           "count": 6
         },
         {
+          "key": "INSUFFICIENT_EVIDENCE",
+          "count": 1
+        },
+        {
           "key": "NEW_PREDICATE_CANDIDATE",
           "count": 3
         },
         {
           "key": "SOURCE_CORRECTION_REQUIRED",
-          "count": 33
+          "count": 35
         }
       ],
       "note": "Counts are findings, not targets to zero in this PR.",
@@ -803,14 +826,14 @@
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
       "mapped_dm_term_from_v3": "dnd5e:leads_to",
-      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:016",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:023",
       "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-11",
       "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
       "grounding_artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
-      "grounding_source_span_ref_id": "session-11:recap:paragraph:016",
+      "grounding_source_span_ref_id": "session-11:recap:paragraph:023",
       "grounding_locator_kind": "paragraph",
-      "grounding_locator": "paragraph:016",
-      "grounding_excerpt_sha256": "64ed8eda7657b05085265c6d5ba344750aabb67ca89be27c8cf37c1fdd91c383"
+      "grounding_locator": "paragraph:023",
+      "grounding_excerpt_sha256": "fdd89dc2aeaabb89c2153f434b1a4fa6d846d5857fa196f3015d97f719e207d0"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1098,14 +1121,14 @@
         "contribution:f2fbbf4f7c191d8e",
         "contribution:f1700a77cda5ce95"
       ],
-      "disposition": "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:located_in",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
       "reverse_endpoints": false,
-      "requires_source_mutation": false,
-      "responsible_repo": "DungeonMind",
-      "next_action": "EXTEND_DUNGEONMIND_ENDPOINTS",
-      "reason_code": "ENDPOINT_KIND_TOO_NARROW",
-      "rationale": "Help request posted on the job board is spatial location-on-container; existing located_in semantics stay intact if item objects (surfaces/containers) are admitted.",
+      "requires_source_mutation": true,
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source: help request posted on the jobs board. dnd5e:located_in means subject is spatially/contextually inside a Location; admitting item objects so 'posted on a board' fits would change the relation's spatial meaning, not merely widen endpoints.",
       "source_dm_kind": "dnd5e:item",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
@@ -1446,26 +1469,26 @@
         "contribution:4c89cbbf15da5d10",
         "contribution:dba1d85c7eeae8b5"
       ],
-      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "disposition": "INSUFFICIENT_EVIDENCE",
       "candidate_dungeonmind_term": null,
       "reverse_endpoints": false,
-      "requires_source_mutation": true,
+      "requires_source_mutation": false,
       "responsible_repo": "DungeonMindBuddy",
-      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
-      "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
-      "rationale": "College within Mirathorn is location→location located_in once the city is typed as location (currently party).",
+      "next_action": "GATHER_OR_CLARIFY_EVIDENCE",
+      "reason_code": "INSUFFICIENT_SOURCE_SUPPORT",
+      "rationale": "Durable evidence mentions the Wizard's College and Mirathorn in nearby session-12 spans (potion delivery to Lesandra at the College; Wolf's regret at betraying Mirathorn) but does not assert that the college is within the city. Kind-miscoding of Mirathorn as party cannot substitute for missing spatial support.",
       "source_dm_kind": "dnd5e:location",
       "target_dm_kind": "dnd5e:party",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
       "mapped_dm_term_from_v3": "dnd5e:located_in",
-      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+      "grounding_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
       "grounding_source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
       "grounding_artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-12/20260727T181554Z/normalized_recap_source.md",
       "grounding_artifact_content_sha256": "7184000a8cfbbd993e5e871b48d83fa274cd36d83f5e05a05cdc408b349ca5c9",
-      "grounding_source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+      "grounding_source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
       "grounding_locator_kind": "line_span",
-      "grounding_locator": "37-37",
-      "grounding_excerpt_sha256": "d711a26f9a4301621720edfe0be06f551f50f52533827425f8c8f0a856a88773"
+      "grounding_locator": "39-39",
+      "grounding_excerpt_sha256": "c7f81353fc4892aaa7fdee62a25b021f6f3f8a0ffe0565ae0b8bb85fa6557180"
     },
     {
       "schema": "dmb_dungeonmind_relationship_residual_adjudication_v1",
@@ -1523,14 +1546,14 @@
         "contribution:fe483d91c47590a1",
         "contribution:a01be11c6967afd9"
       ],
-      "disposition": "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:located_in",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
       "reverse_endpoints": false,
-      "requires_source_mutation": false,
-      "responsible_repo": "DungeonMind",
-      "next_action": "EXTEND_DUNGEONMIND_ENDPOINTS",
-      "reason_code": "ENDPOINT_KIND_TOO_NARROW",
-      "rationale": "Ogonob/mystery contained in the dark cube; located_in with item as container object preserves spatial semantics.",
+      "requires_source_mutation": true,
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source: Ogonob is inside the magically dark cube. dnd5e:located_in requires a Location object ('inside a Location'); admitting item containers would change that meaning. The durable mystery→item within edge also does not cleanly encode the person-in-cube claim.",
       "source_dm_kind": "dnd5e:mystery",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
@@ -1637,14 +1660,14 @@
       "supporting_contribution_ids": [
         "contribution:55047c991813532c"
       ],
-      "disposition": "EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE",
-      "candidate_dungeonmind_term": "dnd5e:serves",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "candidate_dungeonmind_term": null,
       "reverse_endpoints": false,
-      "requires_source_mutation": false,
-      "responsible_repo": "DungeonMind",
-      "next_action": "EXTEND_DUNGEONMIND_ENDPOINTS",
-      "reason_code": "ENDPOINT_KIND_TOO_NARROW",
-      "rationale": "Cultist ritually feeds/heals the meat creature; serves semantics hold if object kinds admit the served entity (item/threat/creature).",
+      "requires_source_mutation": true,
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "rationale": "Source: trance-bound cultist spills blood onto the meat and heals the creature — ritual sacrifice/healing. dnd5e:serves means serving a person or organized collective (NPC/PC/faction/group/party); widening objects to item/threat would change the service relation's meaning.",
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",
@@ -2219,7 +2242,7 @@
       "responsible_repo": "DungeonMind",
       "next_action": "EXTEND_DUNGEONMIND_ENDPOINTS",
       "reason_code": "ENDPOINT_KIND_TOO_NARROW",
-      "rationale": "Wolf's head materializes as part of the meat creature; mereological part_of stays coherent if creature/npc subjects are admitted with item composites.",
+      "rationale": "Source: Wolf's head materializes as a structural constituent of the meat creature. dnd5e:part_of already means structural constituent/sub-location; only subject kinds (currently item/location) are too narrow for an npc/creature constituent of an item composite.",
       "source_dm_kind": "dnd5e:npc",
       "target_dm_kind": "dnd5e:item",
       "v3_disposition": "ENDPOINT_ADMISSION_GAP",

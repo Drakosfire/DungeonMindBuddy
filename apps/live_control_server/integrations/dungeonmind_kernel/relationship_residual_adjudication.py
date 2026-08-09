@@ -414,58 +414,84 @@ def load_residual_source_seals(
     return by_edge
 
 
+def resolve_evidence_excerpt(
+    store: Any,
+    *,
+    edge_id: str,
+    evidence_ref_id: str,
+    world_graph_root: Path,
+) -> dict[str, Any]:
+    """Resolve one sealed evidence ref to its artifact excerpt and digests."""
+    evidence = store.evidence.get(evidence_ref_id)
+    if evidence is None:
+        raise RelationshipResidualAdjudicationError(
+            f"sealed primary evidence missing for {edge_id}: {evidence_ref_id}"
+        )
+    artifact_id = getattr(evidence, "source_artifact_id", None)
+    if not artifact_id:
+        raise RelationshipResidualAdjudicationError(
+            f"evidence lacks source_artifact_id for {edge_id}: {evidence_ref_id}"
+        )
+    artifact = store.source_artifacts.get(artifact_id)
+    if artifact is None:
+        raise RelationshipResidualAdjudicationError(
+            f"source artifact missing for {edge_id}: {artifact_id}"
+        )
+    uri = getattr(artifact, "uri", None) or (
+        artifact.get("uri") if isinstance(artifact, dict) else None
+    )
+    content_sha = getattr(artifact, "content_sha256", None) or (
+        artifact.get("content_sha256") if isinstance(artifact, dict) else None
+    )
+    span_ref = getattr(evidence, "source_span_ref_id", None)
+    if not uri:
+        raise RelationshipResidualAdjudicationError(
+            f"source artifact uri missing for {edge_id}: {artifact_id}"
+        )
+    path = resolve_repo_uri(uri, world_graph_root=world_graph_root)
+    if not path.is_file():
+        raise RelationshipResidualAdjudicationError(
+            f"source artifact missing on disk for {edge_id}: {path}"
+        )
+    live_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    if content_sha and live_sha != content_sha:
+        raise RelationshipResidualAdjudicationError(
+            f"artifact content sha mismatch for {artifact_id}: "
+            f"{live_sha} != {content_sha}"
+        )
+    excerpt, locator_kind, locator = extract_excerpt_from_artifact(path, span_ref)
+    return {
+        "evidence_ref_id": evidence_ref_id,
+        "source_artifact_id": artifact_id,
+        "artifact_uri": uri,
+        "artifact_content_sha256": content_sha or live_sha,
+        "source_span_ref_id": span_ref,
+        "locator_kind": locator_kind,
+        "locator": locator,
+        "normalized_excerpt": excerpt,
+        "excerpt_sha256": excerpt_sha256(excerpt),
+    }
+
+
 def resolve_primary_evidence_excerpt(
     store: Any,
     *,
     edge_id: str,
     evidence_ref_ids: list[str],
     world_graph_root: Path,
+    primary_evidence_ref_id: str,
 ) -> dict[str, Any]:
-    """Resolve the primary supporting source excerpt for one residual edge."""
-    for evidence_ref_id in evidence_ref_ids:
-        evidence = store.evidence.get(evidence_ref_id)
-        if evidence is None:
-            continue
-        artifact_id = getattr(evidence, "source_artifact_id", None)
-        if not artifact_id:
-            continue
-        artifact = store.source_artifacts.get(artifact_id)
-        if artifact is None:
-            continue
-        uri = getattr(artifact, "uri", None) or (
-            artifact.get("uri") if isinstance(artifact, dict) else None
+    """Resolve the seal-named primary evidence; do not fall back to first resolvable."""
+    if primary_evidence_ref_id not in evidence_ref_ids:
+        raise RelationshipResidualAdjudicationError(
+            f"sealed primary evidence {primary_evidence_ref_id} is not among "
+            f"durable evidence_ref_ids for {edge_id}"
         )
-        content_sha = getattr(artifact, "content_sha256", None) or (
-            artifact.get("content_sha256") if isinstance(artifact, dict) else None
-        )
-        span_ref = getattr(evidence, "source_span_ref_id", None)
-        if not uri:
-            continue
-        path = resolve_repo_uri(uri, world_graph_root=world_graph_root)
-        if not path.is_file():
-            raise RelationshipResidualAdjudicationError(
-                f"source artifact missing on disk for {edge_id}: {path}"
-            )
-        live_sha = hashlib.sha256(path.read_bytes()).hexdigest()
-        if content_sha and live_sha != content_sha:
-            raise RelationshipResidualAdjudicationError(
-                f"artifact content sha mismatch for {artifact_id}: "
-                f"{live_sha} != {content_sha}"
-            )
-        excerpt, locator_kind, locator = extract_excerpt_from_artifact(path, span_ref)
-        return {
-            "evidence_ref_id": evidence_ref_id,
-            "source_artifact_id": artifact_id,
-            "artifact_uri": uri,
-            "artifact_content_sha256": content_sha or live_sha,
-            "source_span_ref_id": span_ref,
-            "locator_kind": locator_kind,
-            "locator": locator,
-            "normalized_excerpt": excerpt,
-            "excerpt_sha256": excerpt_sha256(excerpt),
-        }
-    raise RelationshipResidualAdjudicationError(
-        f"no resolvable source excerpt for residual edge {edge_id}"
+    return resolve_evidence_excerpt(
+        store,
+        edge_id=edge_id,
+        evidence_ref_id=primary_evidence_ref_id,
+        world_graph_root=world_graph_root,
     )
 
 
@@ -476,6 +502,24 @@ def verify_excerpt_against_seal(
     edge_id: str,
 ) -> None:
     """Fail closed when live source resolution disagrees with the sealed oracle."""
+    expected_evidence = seal.get("primary_evidence_ref_id")
+    if expected_evidence != live.get("evidence_ref_id"):
+        raise RelationshipResidualAdjudicationError(
+            f"primary evidence_ref_id mismatch for {edge_id}: "
+            f"live={live.get('evidence_ref_id')} seal={expected_evidence}"
+        )
+    if seal.get("source_span_ref_id") != live.get("source_span_ref_id"):
+        raise RelationshipResidualAdjudicationError(
+            f"source_span_ref_id seal mismatch for {edge_id}"
+        )
+    if seal.get("locator_kind") != live.get("locator_kind"):
+        raise RelationshipResidualAdjudicationError(
+            f"locator_kind seal mismatch for {edge_id}"
+        )
+    if seal.get("locator") != live.get("locator"):
+        raise RelationshipResidualAdjudicationError(
+            f"locator seal mismatch for {edge_id}"
+        )
     expected_sha = seal.get("excerpt_sha256")
     live_sha = live.get("excerpt_sha256")
     if expected_sha != live_sha:
@@ -586,12 +630,12 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
     "edge:item_enormous_boulder:same_as:item_foot_of_statue": _identity(
         rationale="Boulder resolves into the statue foot — same object identity.",
     ),
-    "edge:item_glowkindle_help_request:located_in:item_job_board": _ext(
-        "dnd5e:located_in",
+    "edge:item_glowkindle_help_request:located_in:item_job_board": _source(
         rationale=(
-            "Help request posted on the job board is spatial location-on-container; "
-            "existing located_in semantics stay intact if item objects (surfaces/"
-            "containers) are admitted."
+            "Source: help request posted on the jobs board. dnd5e:located_in means "
+            "subject is spatially/contextually inside a Location; admitting item "
+            "objects so 'posted on a board' fits would change the relation's "
+            "spatial meaning, not merely widen endpoints."
         ),
     ),
     "edge:item_glowkindle_help_request:mission_targets:group_mercenaries": _compound(
@@ -636,11 +680,13 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
     "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance": _identity(
         rationale="Discovered entrance location duplicates the mystery node.",
     ),
-    "edge:loc:wizard_college:within:node:city_mirathorn": _source(
-        reason=ReasonCode.ENDPOINT_BLOCKED_BY_KIND_MISCODING,
+    "edge:loc:wizard_college:within:node:city_mirathorn": _insufficient(
         rationale=(
-            "College within Mirathorn is location→location located_in once the city "
-            "is typed as location (currently party)."
+            "Durable evidence mentions the Wizard's College and Mirathorn in nearby "
+            "session-12 spans (potion delivery to Lesandra at the College; Wolf's "
+            "regret at betraying Mirathorn) but does not assert that the college is "
+            "within the city. Kind-miscoding of Mirathorn as party cannot substitute "
+            "for missing spatial support."
         ),
     ),
     "edge:mystery:session7:glowing_mushrooms:leads_to:loc:stormspire-academy": _compound(
@@ -649,11 +695,12 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
             "and mystery topic — not path leads_to."
         ),
     ),
-    "edge:mystery_1:within:item-001": _ext(
-        "dnd5e:located_in",
+    "edge:mystery_1:within:item-001": _source(
         rationale=(
-            "Ogonob/mystery contained in the dark cube; located_in with item as "
-            "container object preserves spatial semantics."
+            "Source: Ogonob is inside the magically dark cube. dnd5e:located_in "
+            "requires a Location object ('inside a Location'); admitting item "
+            "containers would change that meaning. The durable mystery→item within "
+            "edge also does not cleanly encode the person-in-cube claim."
         ),
     ),
     "edge:node:barin_coppergleam:leads_to:node:guardhouse": _source(
@@ -668,11 +715,12 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
             "request in one predicate."
         ),
     ),
-    "edge:node:cultist:serves:item:session17:centipede_meat_creature": _ext(
-        "dnd5e:serves",
+    "edge:node:cultist:serves:item:session17:centipede_meat_creature": _source(
         rationale=(
-            "Cultist ritually feeds/heals the meat creature; serves semantics hold "
-            "if object kinds admit the served entity (item/threat/creature)."
+            "Source: trance-bound cultist spills blood onto the meat and heals the "
+            "creature — ritual sacrifice/healing. dnd5e:serves means serving a "
+            "person or organized collective (NPC/PC/faction/group/party); widening "
+            "objects to item/threat would change the service relation's meaning."
         ),
     ),
     "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by": _adapter(
@@ -778,9 +826,10 @@ ELDYRWILD_RESIDUAL_FINDINGS: dict[str, AdjudicationFinding] = {
     "edge:node:wolf:part_of:item:session17:centipede_meat_creature": _ext(
         "dnd5e:part_of",
         rationale=(
-            "Wolf's head materializes as part of the meat creature; mereological "
-            "part_of stays coherent if creature/npc subjects are admitted with item "
-            "composites."
+            "Source: Wolf's head materializes as a structural constituent of the "
+            "meat creature. dnd5e:part_of already means structural constituent/"
+            "sub-location; only subject kinds (currently item/location) are too "
+            "narrow for an npc/creature constituent of an item composite."
         ),
     ),
     "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms": _finding(
@@ -950,17 +999,23 @@ def _ground_edge(
         for refs in (support.get("per_contribution_evidence_ref_ids") or {}).values():
             evidence_ids.extend(refs or [])
     evidence_ids = list(dict.fromkeys(evidence_ids))
-    live_excerpt = resolve_primary_evidence_excerpt(
-        store,
-        edge_id=edge.edge_id,
-        evidence_ref_ids=evidence_ids,
-        world_graph_root=world_graph_root,
-    )
     seal = seals_by_edge.get(edge.edge_id)
     if seal is None:
         raise RelationshipResidualAdjudicationError(
             f"missing source seal for residual edge {edge.edge_id}"
         )
+    primary_evidence_ref_id = seal.get("primary_evidence_ref_id")
+    if not isinstance(primary_evidence_ref_id, str) or not primary_evidence_ref_id:
+        raise RelationshipResidualAdjudicationError(
+            f"seal missing primary_evidence_ref_id for {edge.edge_id}"
+        )
+    live_excerpt = resolve_primary_evidence_excerpt(
+        store,
+        edge_id=edge.edge_id,
+        evidence_ref_ids=evidence_ids,
+        world_graph_root=world_graph_root,
+        primary_evidence_ref_id=primary_evidence_ref_id,
+    )
     verify_excerpt_against_seal(live_excerpt, seal, edge_id=edge.edge_id)
     return {
         "edge": edge,
