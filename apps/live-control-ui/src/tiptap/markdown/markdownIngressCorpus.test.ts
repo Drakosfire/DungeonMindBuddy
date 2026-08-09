@@ -161,6 +161,30 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     blockedOnMain: true,
     note: "tightened: graphNodeReference has no title attribute; importing would drop it",
   },
+  {
+    name: "graph-node reference with empty node id",
+    markdown: "[x](dmb-node:)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 1): empty nodeId serialized as bare label text, so the link disappeared durably on save",
+  },
+  {
+    name: "graph-node reference with formatted label",
+    markdown: "[**Caelynn**](dmb-node:pc_caelynn)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 1): the opaque reference node cannot preserve label marks; serialization dropped the emphasis",
+  },
+  {
+    name: "typed reference with formatted label",
+    markdown: "[**Lysandro**](#dmb-ref:npc:lysandro-ironveil)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 1): same label-flattening class on typed refs",
+  },
+  {
+    name: "action reference with code label",
+    markdown: "[`North Gate`](#dmb-action:combat:north-gate-combat)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 1): code labels flatten to plain text on the opaque node",
+  },
 
   // --- Headings / breaks / HTML -------------------------------------------
   { name: "setext heading (level 1)", markdown: "Heading\n===", blockedOnMain: true },

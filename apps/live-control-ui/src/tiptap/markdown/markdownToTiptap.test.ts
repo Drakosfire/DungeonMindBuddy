@@ -99,6 +99,48 @@ describe("markdownToTiptapDoc", () => {
     ]);
   });
 
+  it("fails closed on graph node links with an empty node id instead of dropping the link on save", () => {
+    const markdown = "See [x](dmb-node:) here.";
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        line: 1,
+        message: "Graph node links must target a valid, non-empty node id.",
+      }),
+    ]));
+    // Sealed projection: literal source text, no opaque reference node.
+    expect(JSON.stringify(imported.doc)).not.toContain("graphNodeReference");
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toContain("dmb-node:");
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("fails closed on reference labels whose formatting the opaque nodes cannot preserve", () => {
+    const cases = [
+      "Inspect [**Caelynn**](dmb-node:pc_caelynn).",
+      "Talk to [**Lysandro**](#dmb-ref:npc:lysandro-ironveil).",
+      "Launch [`North Gate`](#dmb-action:combat:north-gate-combat).",
+    ];
+    for (const markdown of cases) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: 1,
+          message: "Formatted link labels are not represented by DungeonBuddy reference nodes.",
+        }),
+      ]));
+      const serialized = JSON.stringify(imported.doc);
+      expect(serialized).not.toContain("graphNodeReference");
+      expect(serialized).not.toContain("runbookReference");
+      // The sealed source spelling survives export as escaped literal text.
+      const reimported = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(imported.doc));
+      expect(reimported.doc).toEqual(imported.doc);
+    }
+  });
+
   it("keeps snake_case identifiers as literal text without intraword underscore emphasis", () => {
     const markdown = "Use snake_case_value here and _italic_ emphasis.";
     const imported = markdownToTiptapDoc(markdown);

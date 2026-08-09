@@ -14,6 +14,7 @@ import type {
 import {
   healRunbookReferenceLabel,
   isSupportedRunbookReference,
+  isValidGraphNodeId,
   normalizeRunbookReferenceAttrs,
   type RunbookReferenceAttrs,
 } from "../references/runbookReferences";
@@ -194,6 +195,16 @@ function collectLabelText(children: PhrasingContent[]): string {
   return parts.join("");
 }
 
+/**
+ * Reference nodes are opaque atoms with a single plain-text label: only a
+ * label whose parsed children are pure text survives projection. Marked,
+ * code, or otherwise structured labels would be silently flattened, so the
+ * link seals instead of importing lossily.
+ */
+function hasRepresentableReferenceLabel(node: Link): boolean {
+  return node.children.every((child) => child.type === "text");
+}
+
 function visitLink(node: Link, state: VisitorState): TiptapNode[] {
   const url = node.url ?? "";
   const label = healRunbookReferenceLabel(collectLabelText(node.children).trim());
@@ -212,6 +223,15 @@ function visitLink(node: Link, state: VisitorState): TiptapNode[] {
       return sourceTextNodes(node, state);
     }
     const nodeId = url.slice(GRAPH_NODE_URL_PREFIX.length);
+    if (!isValidGraphNodeId(nodeId)) {
+      // An empty/invalid id serializes as bare label text: the link disappears.
+      warn(state, "Graph node links must target a valid, non-empty node id.", nodeStartLine(node));
+      return sourceTextNodes(node, state);
+    }
+    if (!hasRepresentableReferenceLabel(node)) {
+      warn(state, "Formatted link labels are not represented by DungeonBuddy reference nodes.", nodeStartLine(node));
+      return sourceTextNodes(node, state);
+    }
     return [{ type: "graphNodeReference", attrs: { nodeId, label: label || nodeId } }];
   }
 
@@ -225,6 +245,10 @@ function visitLink(node: Link, state: VisitorState): TiptapNode[] {
       label: label || refId,
     } as RunbookReferenceAttrs);
     if (isSupportedRunbookReference(attrs)) {
+      if (!hasRepresentableReferenceLabel(node)) {
+        warn(state, "Formatted link labels are not represented by DungeonBuddy reference nodes.", nodeStartLine(node));
+        return sourceTextNodes(node, state);
+      }
       return [{ type: "runbookReference", attrs: { ...attrs } }];
     }
   }

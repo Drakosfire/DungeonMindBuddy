@@ -30,6 +30,11 @@ const GRAPH_NODE_ID_PATTERN = /^[a-z0-9][a-z0-9_.:-]*$/i;
 
 export const GRAPH_NODE_REF_TYPE: RunbookRefType = "graph-node";
 
+/** Validity boundary for `dmb-node:` link targets and `graph-node` typed refs. */
+export function isValidGraphNodeId(nodeId: string): boolean {
+  return GRAPH_NODE_ID_PATTERN.test(nodeId);
+}
+
 function normalizedString(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
@@ -73,7 +78,7 @@ export function normalizeRunbookReferenceAttrs(
 
 function isValidRefId(refType: string, refId: string): boolean {
   if (refType === GRAPH_NODE_REF_TYPE) {
-    return GRAPH_NODE_ID_PATTERN.test(refId);
+    return isValidGraphNodeId(refId);
   }
   return CORPUS_ID_PATTERN.test(refId);
 }
