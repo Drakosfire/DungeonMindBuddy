@@ -13,6 +13,7 @@ from graph_memory.kernel.contribution_models import (
     ContributionSourceKind,
     GraphContribution,
     GraphContributionAssertion,
+    GraphContributionAssertionCorrection,
 )
 
 PROVENANCE_ONLY_ASSERTION_VALUE_KEYS = frozenset(
@@ -65,11 +66,16 @@ def compute_contribution_payload_sha256(contribution: GraphContribution) -> str:
 def contribution_source_payload(contribution: GraphContribution) -> dict[str, Any]:
     """Return the lifecycle-neutral source body used for revision-bound digests."""
     payload = contribution.model_dump(mode="json", by_alias=True)
-    return {
+    result = {
         key: value
         for key, value in payload.items()
         if key not in CONTRIBUTION_SOURCE_PAYLOAD_EXCLUDED_FIELDS
     }
+    # Historical compatibility: empty correction lists must not change digests
+    # for contributions authored before assertion-level correction existed.
+    if not result.get("assertion_corrections"):
+        result.pop("assertion_corrections", None)
+    return result
 
 
 def compute_contribution_source_payload_sha256(contribution: GraphContribution) -> str:
@@ -79,6 +85,19 @@ def compute_contribution_source_payload_sha256(contribution: GraphContribution) 
     semantic contribution content changes.
     """
     return canonical_payload_sha256(contribution_source_payload(contribution))
+
+
+def compute_correction_digest(
+    assertion_corrections: list[GraphContributionAssertionCorrection] | None,
+) -> str | None:
+    """Canonical digest of durable assertion-correction links (or None if empty)."""
+    corrections = list(assertion_corrections or [])
+    if not corrections:
+        return None
+    payload = [
+        correction.model_dump(mode="json", by_alias=True) for correction in corrections
+    ]
+    return hashlib.sha256(_canonical_json({"assertion_corrections": payload}).encode("utf-8")).hexdigest()
 
 
 def compute_contribution_id(
@@ -92,6 +111,7 @@ def compute_contribution_id(
     supersedes_contribution_id: str | None = None,
     proposal_digest: str | None = None,
     selection_digest: str | None = None,
+    correction_digest: str | None = None,
 ) -> str:
     payload = {
         "world_id": world_id,
@@ -104,6 +124,9 @@ def compute_contribution_id(
         "proposal_digest": proposal_digest,
         "selection_digest": selection_digest,
     }
+    # Omit when absent so historical contribution IDs remain stable.
+    if correction_digest is not None:
+        payload["correction_digest"] = correction_digest
     digest = hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()[:16]
     return f"contribution:{digest}"
 
@@ -285,12 +308,27 @@ def _canonicalize_graph_contribution_assertions(
                 rekeys.append(rekey)
         return canonical
 
+    accepted_before = len(rekeys)
+    accepted = canonicalize(contribution.accepted_assertions)
+    accepted_rekey_map = {
+        old_id: new_id for old_id, new_id in rekeys[accepted_before:]
+    }
+    corrections: list[GraphContributionAssertionCorrection] = []
+    for correction in contribution.assertion_corrections:
+        replacement_id = correction.replacement_assertion_id
+        if replacement_id in accepted_rekey_map:
+            replacement_id = accepted_rekey_map[replacement_id]
+        corrections.append(
+            correction.model_copy(update={"replacement_assertion_id": replacement_id})
+        )
+
     return (
         contribution.model_copy(
             update={
                 "candidate_assertions": canonicalize(contribution.candidate_assertions),
-                "accepted_assertions": canonicalize(contribution.accepted_assertions),
+                "accepted_assertions": accepted,
                 "rejected_assertions": canonicalize(contribution.rejected_assertions),
+                "assertion_corrections": corrections,
             }
         ),
         rekeys,
@@ -333,6 +371,7 @@ def create_graph_contribution(
     rejected_assertions: list[GraphContributionAssertion] | None = None,
     unresolved_mentions: list[ContributionIdentityMention] | None = None,
     identity_decision_ids: list[str] | None = None,
+    assertion_corrections: list[GraphContributionAssertionCorrection] | None = None,
     authored_by: str | None = None,
     supersedes_contribution_id: str | None = None,
     proposal_digest: str | None = None,
@@ -343,12 +382,32 @@ def create_graph_contribution(
     """Build a GraphContribution with a deterministic contribution_id.
 
     ``produced_at`` is metadata only and does not affect identity.
-    ``proposal_digest`` and ``selection_digest`` (when set) enter durable
-    contribution identity so distinct sealed proposals and distinct accepted
-    assertion subsets cannot collide on the same ID.
+    ``proposal_digest``, ``selection_digest``, and ``correction_digest`` (when
+    set) enter durable contribution identity so distinct sealed proposals,
+    accepted assertion subsets, and correction linkages cannot collide.
     """
     if not world_id.strip():
         raise ValueError("world_id must be non-empty")
+
+    # Canonicalize accepted assertions before hashing so correction linkage and
+    # contribution identity agree on replacement_assertion_id.
+    prelim_accepted: list[GraphContributionAssertion] = []
+    accepted_rekey_map: dict[str, str] = {}
+    for assertion in list(accepted_assertions or []):
+        updated, rekey = _canonicalize_assertion_identity(assertion)
+        prelim_accepted.append(updated)
+        if rekey is not None:
+            accepted_rekey_map[rekey[0]] = rekey[1]
+
+    corrections: list[GraphContributionAssertionCorrection] = []
+    for correction in list(assertion_corrections or []):
+        replacement_id = correction.replacement_assertion_id
+        if replacement_id in accepted_rekey_map:
+            replacement_id = accepted_rekey_map[replacement_id]
+        corrections.append(
+            correction.model_copy(update={"replacement_assertion_id": replacement_id})
+        )
+    correction_digest = compute_correction_digest(corrections)
 
     contribution_id = compute_contribution_id(
         world_id=world_id,
@@ -360,12 +419,13 @@ def create_graph_contribution(
         supersedes_contribution_id=supersedes_contribution_id,
         proposal_digest=proposal_digest,
         selection_digest=selection_digest,
+        correction_digest=correction_digest,
     )
 
     candidates = _with_contribution_id(
         list(candidate_assertions or []), contribution_id
     )
-    accepted = _with_contribution_id(list(accepted_assertions or []), contribution_id)
+    accepted = _with_contribution_id(prelim_accepted, contribution_id)
     rejected = _with_contribution_id(list(rejected_assertions or []), contribution_id)
 
     contribution = GraphContribution(
@@ -384,10 +444,13 @@ def create_graph_contribution(
         rejected_assertions=rejected,
         unresolved_mentions=list(unresolved_mentions or []),
         identity_decision_ids=list(identity_decision_ids or []),
+        assertion_corrections=corrections,
         authored_by=authored_by,
         diagnostics=list(diagnostics or []),
     )
     canonical, rekeys = _canonicalize_graph_contribution_assertions(contribution)
+    # Accepted assertions were pre-canonicalized; remaining rekeys are
+    # candidate/rejected only and must not rewrite correction linkage.
     if not rekeys:
         return canonical
     return canonical.model_copy(
@@ -400,6 +463,54 @@ def create_graph_contribution(
                 ],
             ]
         }
+    )
+
+
+def create_edge_assertion_correction_contribution(
+    *,
+    world_id: str,
+    authored_by: str,
+    target_contribution_id: str,
+    target_assertion_id: str,
+    replacement_assertion: GraphContributionAssertion,
+    source_artifact_id: str | None = None,
+    source_revision_id: str | None = None,
+    campaign_scope: str | None = None,
+    produced_at: str | None = None,
+    diagnostics: list[str] | None = None,
+) -> GraphContribution:
+    """Build a human-authored structural edge correction contribution.
+
+    Binds exactly one ``contradicts_and_replaces`` link to the sole accepted
+    replacement edge assertion. Does not publish; callers must use the Kernel
+    correction operation with expected-parent CAS.
+    """
+    if not authored_by or not authored_by.strip():
+        raise ValueError("authored_by must be non-blank for edge assertion correction")
+    if replacement_assertion.assertion_kind != "edge":
+        raise ValueError("replacement assertion must be assertion_kind='edge'")
+    if replacement_assertion.acceptance_state != "accepted":
+        raise ValueError("replacement assertion must be acceptance_state='accepted'")
+
+    # Placeholder replacement id is rewritten after canonicalize.
+    placeholder_replacement_id = replacement_assertion.assertion_id
+    correction = GraphContributionAssertionCorrection(
+        correction_kind="contradicts_and_replaces",
+        target_contribution_id=target_contribution_id,
+        target_assertion_id=target_assertion_id,
+        replacement_assertion_id=placeholder_replacement_id,
+    )
+    return create_graph_contribution(
+        world_id=world_id,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id=source_artifact_id,
+        source_revision_id=source_revision_id,
+        campaign_scope=campaign_scope,
+        accepted_assertions=[replacement_assertion],
+        assertion_corrections=[correction],
+        authored_by=authored_by.strip(),
+        produced_at=produced_at,
+        diagnostics=diagnostics,
     )
 
 

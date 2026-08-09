@@ -32,6 +32,12 @@ class DurableAssertionSupport(BaseModel):
     active_contribution_ids: list[str] = Field(default_factory=list)
     superseded_contribution_ids: list[str] = Field(default_factory=list)
     retracted_contribution_ids: list[str] = Field(default_factory=list)
+    contradicted_contribution_ids: list[str] = Field(default_factory=list)
+    """Contribution IDs whose support was contradicted by a governed correction.
+
+    Distinct from supersession/retraction: the source contribution itself may
+    remain active for unrelated assertions while this assertion is historical.
+    """
     evidence_ref_ids: list[str] = Field(default_factory=list)
     source_artifact_ids: list[str] = Field(default_factory=list)
     support_state: AssertionSupportState = "supported"

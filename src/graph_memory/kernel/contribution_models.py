@@ -90,6 +90,19 @@ class GraphContributionAssertion(_ContributionModel):
         return _reject_blank_campaign_scope(value)
 
 
+class GraphContributionAssertionCorrection(_ContributionModel):
+    """Durable link from one exact target assertion support to its replacement.
+
+    First contract: exactly one ``contradicts_and_replaces`` link per correction
+    contribution, bound into contribution identity and lifecycle-neutral digest.
+    """
+
+    correction_kind: Literal["contradicts_and_replaces"]
+    target_contribution_id: str
+    target_assertion_id: str
+    replacement_assertion_id: str
+
+
 class GraphContribution(_ContributionModel):
     contribution_id: str
     world_id: str
@@ -106,6 +119,9 @@ class GraphContribution(_ContributionModel):
     rejected_assertions: list[GraphContributionAssertion] = Field(default_factory=list)
     unresolved_mentions: list[ContributionIdentityMention] = Field(default_factory=list)
     identity_decision_ids: list[str] = Field(default_factory=list)
+    assertion_corrections: list[GraphContributionAssertionCorrection] = Field(
+        default_factory=list
+    )
     authored_by: str | None = None
     diagnostics: list[str] = Field(default_factory=list)
 
@@ -123,6 +139,7 @@ class ContributionMergeResult(_ContributionModel):
     accepted_assertion_ids: list[str] = Field(default_factory=list)
     rejected_assertion_ids: list[str] = Field(default_factory=list)
     retracted_assertion_ids: list[str] = Field(default_factory=list)
+    contradicted_assertion_ids: list[str] = Field(default_factory=list)
     superseded_contribution_ids: list[str] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
     failure_code: str | None = None
