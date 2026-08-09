@@ -12,10 +12,10 @@ import type {
 } from "mdast";
 
 import {
-  healRunbookReferenceLabel,
   isSupportedRunbookReference,
   isValidGraphNodeId,
   normalizeRunbookReferenceAttrs,
+  normalizeSemanticReferenceLabel,
   type RunbookReferenceAttrs,
 } from "../references/runbookReferences";
 import { normalizeCalloutKind } from "./calloutMarkdown";
@@ -198,9 +198,13 @@ function collectLabelText(children: PhrasingContent[]): string {
 /**
  * Opaque reference nodes store a plain-text label only. Admission requires:
  *   1. every parsed label child is plain text (no marks/code/structure), and
- *   2. the healed/trimmed label is non-empty.
+ *   2. the semantic (parser-decoded) label is non-empty.
  * Otherwise serialization would invent a label from nodeId/refId (empty
  * source → `[id](...)`) or flatten formatting — both durable rewrites.
+ *
+ * Labels come from MDAST as already-decoded semantic text. Do not run the
+ * legacy {@link healRunbookReferenceLabel} repair here: that path strips
+ * wrapping `**`/`__` that the parser intentionally produced from `\*\*`/`\_\_`.
  */
 function referenceLabelAdmissionIssue(node: Link, label: string): string | null {
   if (!node.children.every((child) => child.type === "text")) {
@@ -214,7 +218,8 @@ function referenceLabelAdmissionIssue(node: Link, label: string): string | null 
 
 function visitLink(node: Link, state: VisitorState): TiptapNode[] {
   const url = node.url ?? "";
-  const label = healRunbookReferenceLabel(collectLabelText(node.children).trim());
+  // Parser-decoded semantic text only — never re-interpret as Markdown source.
+  const label = normalizeSemanticReferenceLabel(collectLabelText(node.children));
 
   if (url.startsWith(GRAPH_NODE_URL_PREFIX)) {
     if (node.title != null) {
@@ -252,12 +257,15 @@ function visitLink(node: Link, state: VisitorState): TiptapNode[] {
       warn(state, labelIssue, nodeStartLine(node));
       return sourceTextNodes(node, state);
     }
-    const attrs: RunbookReferenceAttrs = normalizeRunbookReferenceAttrs({
-      kind,
-      refType,
-      refId,
-      label,
-    } as RunbookReferenceAttrs);
+    const attrs: RunbookReferenceAttrs = normalizeRunbookReferenceAttrs(
+      {
+        kind,
+        refType,
+        refId,
+        label,
+      } as RunbookReferenceAttrs,
+      { labelSource: "semantic" },
+    );
     if (isSupportedRunbookReference(attrs)) {
       return [{ type: "runbookReference", attrs: { ...attrs } }];
     }

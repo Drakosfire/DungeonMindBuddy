@@ -171,6 +171,58 @@ describe("markdownToTiptapDoc", () => {
     }
   });
 
+  it("preserves parser-decoded literal emphasis characters in reference labels", () => {
+    const cases = [
+      {
+        markdown: String.raw`Inspect [\*\*Meat Mind\*\*](dmb-node:threat:meat-mind).`,
+        expectedLabel: "**Meat Mind**",
+        nodeType: "graphNodeReference",
+      },
+      {
+        markdown: String.raw`Inspect [\_\_Meat Mind\_\_](dmb-node:threat:meat-mind).`,
+        expectedLabel: "__Meat Mind__",
+        nodeType: "graphNodeReference",
+      },
+      {
+        markdown: String.raw`Talk to [\*\*Lysandro\*\*](#dmb-ref:npc:lysandro-ironveil).`,
+        expectedLabel: "**Lysandro**",
+        nodeType: "runbookReference",
+      },
+      {
+        markdown: String.raw`Talk to [\_\_Lysandro\_\_](#dmb-ref:npc:lysandro-ironveil).`,
+        expectedLabel: "__Lysandro__",
+        nodeType: "runbookReference",
+      },
+      {
+        markdown: String.raw`Launch [\*\*North Gate\*\*](#dmb-action:combat:north-gate-combat).`,
+        expectedLabel: "**North Gate**",
+        nodeType: "runbookReference",
+      },
+      {
+        markdown: String.raw`Launch [\_\_North Gate\_\_](#dmb-action:combat:north-gate-combat).`,
+        expectedLabel: "__North Gate__",
+        nodeType: "runbookReference",
+      },
+    ] as const;
+
+    for (const { markdown, expectedLabel, nodeType } of cases) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual([]);
+      const paragraph = imported.doc.content?.[0] as {
+        content?: Array<{ type?: string; attrs?: { label?: string } }>;
+      };
+      const ref = paragraph.content?.find((node) => node.type === nodeType);
+      expect(ref?.attrs?.label).toBe(expectedLabel);
+      // Serializer must re-escape literal * / _ rather than dropping them.
+      const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+      expect(exported).toContain(expectedLabel.replaceAll("*", "\\*").replaceAll("_", "\\_"));
+      expect(exported).not.toContain(`[${expectedLabel.replace(/^\*+|\*+$/g, "").replace(/^_+|_+$/g, "")}]`);
+      const reimported = markdownToTiptapDoc(exported);
+      expect(reimported.doc).toEqual(imported.doc);
+      expect(reimported.diagnostics).toEqual([]);
+    }
+  });
+
   it("keeps snake_case identifiers as literal text without intraword underscore emphasis", () => {
     const markdown = "Use snake_case_value here and _italic_ emphasis.";
     const imported = markdownToTiptapDoc(markdown);

@@ -156,7 +156,8 @@ function inlineMarkdown(node: JsonNode): string {
   }
   if (node.type === "hardBreak") return "\n";
   if (node.type === "runbookReference") {
-    const attrs = normalizeRunbookReferenceAttrs(node.attrs ?? {});
+    // TipTap attrs are semantic chip text; do not run legacy Markdown heal.
+    const attrs = normalizeRunbookReferenceAttrs(node.attrs ?? {}, { labelSource: "semantic" });
     const label = escapeMarkdownText(attrs.label);
     const hasKnownKind = node.attrs?.kind === "ref" || node.attrs?.kind === "action";
     const href = hasKnownKind ? runbookReferenceHref(attrs) : null;

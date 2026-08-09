@@ -277,6 +277,36 @@ const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
   { name: "typed runbook reference", markdown: "Talk to [Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil)." },
   { name: "typed action reference", markdown: "Launch [North Gate Combat](#dmb-action:combat:north-gate-combat)." },
   { name: "graph-node reference", markdown: "Inspect [Caelynn](dmb-node:pc_caelynn)." },
+  {
+    name: "graph-node reference with escaped literal asterisks in label",
+    markdown: String.raw`Inspect [\*\*Meat Mind\*\*](dmb-node:threat:meat-mind).`,
+    note: "was a hole (PR #535 cycle 3): MDAST-decoded ** must not be re-healed into Meat Mind",
+  },
+  {
+    name: "graph-node reference with escaped literal underscores in label",
+    markdown: String.raw`Inspect [\_\_Meat Mind\_\_](dmb-node:threat:meat-mind).`,
+    note: "was a hole (PR #535 cycle 3): same class for __ after parser decode",
+  },
+  {
+    name: "typed reference with escaped literal asterisks in label",
+    markdown: String.raw`Talk to [\*\*Lysandro\*\*](#dmb-ref:npc:lysandro-ironveil).`,
+    note: "was a hole (PR #535 cycle 3): normalizeRunbookReferenceAttrs must not heal parser-derived labels",
+  },
+  {
+    name: "typed reference with escaped literal underscores in label",
+    markdown: String.raw`Talk to [\_\_Lysandro\_\_](#dmb-ref:npc:lysandro-ironveil).`,
+    note: "was a hole (PR #535 cycle 3): same class for typed __ labels",
+  },
+  {
+    name: "action reference with escaped literal asterisks in label",
+    markdown: String.raw`Launch [\*\*North Gate\*\*](#dmb-action:combat:north-gate-combat).`,
+    note: "was a hole (PR #535 cycle 3): action refs share the semantic-label path",
+  },
+  {
+    name: "action reference with escaped literal underscores in label",
+    markdown: String.raw`Launch [\_\_North Gate\_\_](#dmb-action:combat:north-gate-combat).`,
+    note: "was a hole (PR #535 cycle 3): action refs share the semantic-label path",
+  },
   { name: "thematic break", markdown: "# Before\n\n---\n\n## After" },
   { name: "frontmatter lookalike without YAML keys is a thematic break", markdown: "---\n\n# Body" },
   { name: "bullet list", markdown: "- First\n- Second" },

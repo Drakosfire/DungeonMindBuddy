@@ -45,9 +45,22 @@ function unescapeMarkdownInline(text: string): string {
 }
 
 /**
- * Heal labels that accumulated runaway backslash escapes across save/load.
- * Also strips one wrapping emphasis pair because reference chips render the
- * label semantically rather than as Markdown source.
+ * Normalize label text that is already semantic (MDAST-decoded or TipTap attr
+ * text). Never re-interprets the string as Markdown source.
+ */
+export function normalizeSemanticReferenceLabel(label: string): string {
+  return normalizedString(label);
+}
+
+/**
+ * Legacy repair for labels persisted as escaped Markdown source (runaway
+ * backslash doubling across older save/load cycles). Strips one wrapping
+ * emphasis pair after unescaping because those dirty attrs encoded emphasis
+ * delimiters rather than literal asterisks/underscores.
+ *
+ * Do **not** call this on fresh parser-derived text: MDAST has already decoded
+ * `\*\*` into literal `**`, and the serializer can preserve those characters
+ * by re-escaping on export.
  */
 export function healRunbookReferenceLabel(label: string): string {
   let current = normalizedString(label);
@@ -65,13 +78,28 @@ export function healRunbookReferenceLabel(label: string): string {
   return current;
 }
 
+export type NormalizeRunbookReferenceOptions = {
+  /**
+   * `semantic` (default): treat `label` as already-decoded chip text.
+   * `legacy`: run {@link healRunbookReferenceLabel} for dirty persisted attrs.
+   */
+  labelSource?: "semantic" | "legacy";
+};
+
 export function normalizeRunbookReferenceAttrs(
   input: Partial<RunbookReferenceAttrs>,
+  options: NormalizeRunbookReferenceOptions = {},
 ): RunbookReferenceAttrs {
   const kind = input.kind === "action" ? "action" : "ref";
   const refType = normalizedString(input.refType);
   const refId = normalizedString(input.refId);
-  const label = healRunbookReferenceLabel(normalizedString(input.label) || refId) || refId;
+  const rawLabel = normalizeSemanticReferenceLabel(input.label ?? "") || refId;
+  const labelSource = options.labelSource ?? "semantic";
+  const label = (
+    labelSource === "legacy"
+      ? healRunbookReferenceLabel(rawLabel)
+      : rawLabel
+  ) || refId;
 
   return { kind, refType, refId, label };
 }
