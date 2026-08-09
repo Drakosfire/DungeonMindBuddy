@@ -7,13 +7,19 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_continuity_v1 import (
+    _analyze_relationship_adjudication_continuity_with_authorities,
+    prove_revision_is_anchor_or_descendant_v1,
+)
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_effective_conformance_v1 import (
     RELATIONSHIP_EFFECTIVE_CONFORMANCE_SCHEMA_V1,
+    _analyze_relationship_effective_conformance_with_authorities,
     analyze_relationship_effective_conformance_v1,
     compact_relationship_effective_conformance_report_v1,
     resolve_carried_relationship_explicit_adapter_v1,
@@ -31,6 +37,7 @@ from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_confor
     snapshot_world_graph_tree_digest,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+    WholeWorldConformanceReportV4,
     analyze_exact_buddy_world_revision_v4,
 )
 from graph_memory.union_supergraph.load import (
@@ -42,6 +49,7 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphEvidence,
     UnionSupergraphNode,
     UnionSupergraphSourceArtifact,
+    UnionSupergraphStore,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "dungeonmind_kernel"
@@ -53,6 +61,13 @@ ADAPTER_CONFORMANCE_FIXTURE_PATH = (
 )
 ADJUDICATION_FIXTURE_PATH = (
     FIXTURES / "eldyrwild_relationship_residual_adjudication_v1.json"
+)
+V4_FIXTURE_PATH = FIXTURES / "eldyrwild_post_v29_conformance_v1.json"
+
+_SYNTH_EFFECTIVE_WORLD = "synth-effective-domain"
+_SYNTH_EFFECTIVE_CAMPAIGN = "synth-effective-campaign"
+_SEVENTH_EDGE_ID = (
+    "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower"
 )
 
 _EXPECTED_REMAINING_DISPOSITIONS = {
@@ -82,6 +97,285 @@ _SEED_EDGE_ID = "edge:item:session17:seed:located_in:pc:stafl"
 _FEY_EDGE_ID = (
     "edge:node:fey_entity:present_at:pc:ephanna:appears-to-ephanna-in-prison"
 )
+
+_SPECIAL_DOMAIN_EDGE_IDS = frozenset(_SPECIAL_SIX | {_WOLF_EDGE_ID, _SEVENTH_EDGE_ID})
+
+
+def _node(node_id: str, kind: str) -> UnionSupergraphNode:
+    return UnionSupergraphNode(
+        node_id=node_id,
+        label=node_id,
+        kind=kind,
+        role="synth",
+        aliases=[],
+        source_domains=["manual_seed"],
+        evidence_ref_ids=[],
+        state={},
+    )
+
+
+def _edge(
+    edge_id: str,
+    *,
+    source: str,
+    target: str,
+    predicate: str,
+    evidence_ref_id: str,
+) -> UnionSupergraphEdge:
+    return UnionSupergraphEdge(
+        edge_id=edge_id,
+        source_node_id=source,
+        target_node_id=target,
+        predicate=predicate,
+        label=predicate,
+        direction="outbound",
+        source_domains=["manual_seed"],
+        session_ids=[],
+        evidence_ref_ids=[evidence_ref_id],
+        state={},
+    )
+
+
+def _evidence(evidence_id: str, artifact_id: str, span: str) -> UnionSupergraphEvidence:
+    return UnionSupergraphEvidence(
+        evidence_ref_id=evidence_id,
+        source_artifact_id=artifact_id,
+        source_domain="manual_seed",
+        evidence_role="supports",
+        can_open_source=True,
+        can_highlight_span=True,
+        source_span_ref_id=span,
+        locator=span,
+    )
+
+
+def _artifact(artifact_id: str, sha: str) -> UnionSupergraphSourceArtifact:
+    return UnionSupergraphSourceArtifact(
+        source_artifact_id=artifact_id,
+        source_domain="manual_seed",
+        campaign_id=_SYNTH_EFFECTIVE_CAMPAIGN,
+        uri=f"repo://synth/{artifact_id}",
+        content_sha256=sha,
+        status="active",
+    )
+
+
+def _clone_store(store: UnionSupergraphStore) -> UnionSupergraphStore:
+    return UnionSupergraphStore.model_validate(
+        store.model_dump(mode="python", by_alias=True)
+    )
+
+
+def _special_domain_specs() -> list[dict[str, str]]:
+    """Exact six special edges + wolf ordinary + one non-special residual."""
+    return [
+        {
+            "edge_id": _FEY_EDGE_ID,
+            "source": "node:fey_entity",
+            "source_kind": "faction",
+            "target": "pc:ephanna",
+            "target_kind": "pc",
+            "predicate": "present_at",
+        },
+        {
+            "edge_id": (
+                "edge:pc:bonogo:defends_weakened_location:"
+                "node:prisoners_session9:protects"
+            ),
+            "source": "pc:bonogo",
+            "source_kind": "pc",
+            "target": "node:prisoners_session9",
+            "target_kind": "group",
+            "predicate": "defends_weakened_location",
+        },
+        {
+            "edge_id": "edge:pc:caelynn:controls_comms_with:npc_grobnok",
+            "source": "pc:caelynn",
+            "source_kind": "pc",
+            "target": "npc_grobnok",
+            "target_kind": "npc",
+            "predicate": "controls_comms_with",
+        },
+        {
+            "edge_id": _SEED_EDGE_ID,
+            "source": "item:session17:seed",
+            "source_kind": "item",
+            "target": "pc:stafl",
+            "target_kind": "pc",
+            "predicate": "located_in",
+        },
+        {
+            "edge_id": "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by",
+            "source": "node:cultists_of_longmont",
+            "source_kind": "faction",
+            "target": "node:lesandra",
+            "target_kind": "npc",
+            "predicate": "part_of",
+        },
+        {
+            "edge_id": "edge:node:pippa:leads_to:loc:stone_bridge",
+            "source": "node:pippa",
+            "source_kind": "npc",
+            "target": "loc:stone_bridge",
+            "target_kind": "location",
+            "predicate": "leads_to",
+        },
+        {
+            "edge_id": _WOLF_EDGE_ID,
+            "source": "node:wolf",
+            "source_kind": "npc",
+            "target": "item:session17:centipede_meat_creature",
+            "target_kind": "item",
+            "predicate": "part_of",
+        },
+        {
+            "edge_id": _SEVENTH_EDGE_ID,
+            "source": "combat_shatter_mages_tower_spider",
+            "source_kind": "encounter",
+            "target": "item_shatter_mages_tower",
+            "target_kind": "item",
+            "predicate": "located_in",
+        },
+    ]
+
+
+def _special_domain_store() -> UnionSupergraphStore:
+    """Minimal hermetic domain covering the 6 special + wolf + seventh residual."""
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    for index, spec in enumerate(_special_domain_specs()):
+        evidence_id = f"evidence:synth:special:{index}"
+        artifact_id = f"artifact:synth:special:{index}"
+        span = f"span:synth:special:{index}"
+        sha = f"{index:02d}" * 32
+        store.nodes[spec["source"]] = _node(spec["source"], spec["source_kind"])
+        store.nodes[spec["target"]] = _node(spec["target"], spec["target_kind"])
+        store.evidence[evidence_id] = _evidence(evidence_id, artifact_id, span)
+        store.source_artifacts[artifact_id] = _artifact(artifact_id, sha)
+        store.edges[spec["edge_id"]] = _edge(
+            spec["edge_id"],
+            source=spec["source"],
+            target=spec["target"],
+            predicate=spec["predicate"],
+            evidence_ref_id=evidence_id,
+        )
+    return store
+
+
+def _special_domain_findings() -> dict[str, Any]:
+    return {
+        edge_id: ELDYRWILD_RESIDUAL_FINDINGS[edge_id]
+        for edge_id in sorted(_SPECIAL_DOMAIN_EDGE_IDS)
+    }
+
+
+def _special_domain_seals(store: UnionSupergraphStore) -> dict[str, dict[str, Any]]:
+    seals: dict[str, dict[str, Any]] = {}
+    for edge_id in _SPECIAL_DOMAIN_EDGE_IDS:
+        edge = store.edges[edge_id]
+        evidence_id = edge.evidence_ref_ids[0]
+        evidence = store.evidence[evidence_id]
+        artifact = store.source_artifacts[evidence.source_artifact_id]
+        seals[edge_id] = {
+            "edge_id": edge_id,
+            "primary_evidence_ref_id": evidence_id,
+            "source_artifact_id": evidence.source_artifact_id,
+            "artifact_content_sha256": artifact.content_sha256,
+            "source_span_ref_id": evidence.source_span_ref_id,
+            "locator_kind": "paragraph",
+            "locator": evidence.locator,
+            "excerpt_sha256": "ee" * 32,
+        }
+    return seals
+
+
+def _publish_store(
+    root: Path, world_id: str, store: UnionSupergraphStore, op: str
+) -> str:
+    result = kernel.publish_world_revision(
+        root,
+        world_id,
+        store,
+        operation_ids=[op],
+    )
+    revision_id = result.revision.revision_id
+    assert revision_id
+    return revision_id
+
+
+def _synthetic_descendant_base_report_v4(
+    *,
+    world_id: str,
+    revision_id: str,
+    residual_edge_ids: list[str],
+) -> WholeWorldConformanceReportV4:
+    """Ordinary-v4 stand-in: six special + seventh residual; wolf already represented."""
+    residual = sorted(residual_edge_ids)
+    assert _WOLF_EDGE_ID not in residual
+    assert set(_SPECIAL_SIX) <= set(residual)
+    assert _SEVENTH_EDGE_ID in residual
+    semantic_count = len(residual) + 1  # + wolf ordinary v4
+    represented_count = 1
+    payload = json.loads(V4_FIXTURE_PATH.read_text(encoding="utf-8"))
+    report = WholeWorldConformanceReportV4.model_validate(payload)
+    return report.model_copy(
+        update={
+            "source_world_id": world_id,
+            "source_campaign_id": _SYNTH_EFFECTIVE_CAMPAIGN,
+            "source_revision_id": revision_id,
+            "source_graph_payload_sha256": "1" * 64,
+            "relationship_semantic_count": semantic_count,
+            "relationship_represented_count": represented_count,
+            "relationship_residual_count": len(residual),
+            "relationship_residual_edge_ids": residual,
+            "relationship_newly_represented_edge_ids": [_WOLF_EDGE_ID],
+            "uses_statblock_mechanics_count": 0,
+        }
+    )
+
+
+def _analyze_synth_effective(
+    *,
+    root: Path,
+    revision_id: str,
+    anchor_revision_id: str,
+    anchor_store: UnionSupergraphStore,
+    requested_store: UnionSupergraphStore,
+    residual_edge_ids: list[str] | None = None,
+) -> Any:
+    findings = _special_domain_findings()
+    seals = _special_domain_seals(anchor_store)
+    continuity = _analyze_relationship_adjudication_continuity_with_authorities(
+        root=root,
+        world_id=_SYNTH_EFFECTIVE_WORLD,
+        revision_id=revision_id,
+        findings=findings,
+        seals_by_edge=seals,
+        anchor_world_id=_SYNTH_EFFECTIVE_WORLD,
+        anchor_revision_id=anchor_revision_id,
+        anchor_payload_sha256="0" * 64,
+        campaign_id=_SYNTH_EFFECTIVE_CAMPAIGN,
+        anchor_store=anchor_store,
+        requested_store=requested_store,
+        requested_payload_sha256="1" * 64,
+        verify_excerpt=False,
+    )
+    residual = residual_edge_ids
+    if residual is None:
+        residual = sorted(_SPECIAL_SIX | {_SEVENTH_EDGE_ID})
+    base_report = _synthetic_descendant_base_report_v4(
+        world_id=_SYNTH_EFFECTIVE_WORLD,
+        revision_id=revision_id,
+        residual_edge_ids=residual,
+    )
+    return _analyze_relationship_effective_conformance_with_authorities(
+        root=root,
+        world_id=_SYNTH_EFFECTIVE_WORLD,
+        revision_id=revision_id,
+        base_report=base_report,
+        continuity=continuity,
+        catalog=load_eldyrwild_relationship_explicit_adapter_catalog_v1(),
+        store=requested_store,
+    ), continuity
 
 
 def _clone_eldyrwild_root(tmp_path: Path) -> Path:
@@ -210,6 +504,120 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
     assert dm_owned == _PR29_EDGE_IDS | {_WOLF_EDGE_ID}
     assert _WOLF_EDGE_ID not in payload["remaining_residual_edge_ids"]
     assert _WOLF_EDGE_ID not in payload["newly_represented_by_continuity_edge_ids"]
+
+
+def test_synthetic_descendant_effective_composition_is_unconditional(
+    tmp_path: Path,
+) -> None:
+    """Hermetic proof of descendant effective composition — never skips.
+
+    Constructs the six special edges + wolf ordinary v4 + one non-special residual
+    through private helpers only (no live Eldyrwild World Graph).
+    """
+    assert _SPECIAL_DOMAIN_EDGE_IDS <= set(ELDYRWILD_RESIDUAL_FINDINGS)
+    assert len(_special_domain_findings()) == 8
+
+    store_r0 = _special_domain_store()
+    r0 = _publish_store(tmp_path, _SYNTH_EFFECTIVE_WORLD, store_r0, "op:synth-r0")
+
+    store_r1 = _clone_store(store_r0)
+    store_r1.nodes["npc:unrelated-synth"] = _node("npc:unrelated-synth", "npc")
+    r1 = _publish_store(tmp_path, _SYNTH_EFFECTIVE_WORLD, store_r1, "op:synth-r1")
+
+    ok, diagnostic, _ = prove_revision_is_anchor_or_descendant_v1(
+        root=tmp_path,
+        world_id=_SYNTH_EFFECTIVE_WORLD,
+        requested_revision_id=r1,
+        anchor_revision_id=r0,
+        anchor_world_id=_SYNTH_EFFECTIVE_WORLD,
+    )
+    assert ok is True
+    assert diagnostic is None
+
+    report, continuity = _analyze_synth_effective(
+        root=tmp_path,
+        revision_id=r1,
+        anchor_revision_id=r0,
+        anchor_store=store_r0,
+        requested_store=store_r1,
+    )
+
+    assert continuity.anchor_is_ancestor is True
+    assert continuity.carried_forward_count == 8
+    assert {row.continuity_state for row in continuity.rows} == {"CARRIED_FORWARD"}
+    assert set(row.edge_id for row in continuity.rows if row.edge_id in _SPECIAL_SIX) == (
+        _SPECIAL_SIX
+    )
+
+    # Ordinary v4 leaves the six special + seventh residual; wolf already represented.
+    assert report.base_relationship_represented_count == 1
+    assert report.base_relationship_residual_count == 7
+    assert set(report.newly_represented_by_continuity_edge_ids) | set(
+        report.remaining_residual_edge_ids
+    ) == (_SPECIAL_SIX | {_SEVENTH_EDGE_ID})
+
+    assert report.pr29_interpretation_applied_count == 3
+    assert report.explicit_adapter_applied_count == 3
+    assert set(report.newly_represented_by_continuity_edge_ids) == _SPECIAL_SIX
+    assert _SEVENTH_EDGE_ID not in report.newly_represented_by_continuity_edge_ids
+    assert _WOLF_EDGE_ID not in report.newly_represented_by_continuity_edge_ids
+    assert report.remaining_residual_edge_ids == [_SEVENTH_EDGE_ID]
+    assert report.relationship_semantic_count == 8
+    assert report.relationship_effectively_represented_count == 7
+    assert report.relationship_effective_residual_count == 1
+    assert report.invalidated_adjudication_edge_ids == []
+
+    # Invalidate one PR #29 row only.
+    store_r2 = _clone_store(store_r1)
+    fey = store_r2.edges[_FEY_EDGE_ID]
+    store_r2.edges[_FEY_EDGE_ID] = fey.model_copy(update={"predicate": "located_in"})
+    r2 = _publish_store(tmp_path, _SYNTH_EFFECTIVE_WORLD, store_r2, "op:synth-pr29")
+    report_pr29, continuity_pr29 = _analyze_synth_effective(
+        root=tmp_path,
+        revision_id=r2,
+        anchor_revision_id=r0,
+        anchor_store=store_r0,
+        requested_store=store_r2,
+    )
+    by_id = {row.edge_id: row for row in continuity_pr29.rows}
+    assert by_id[_FEY_EDGE_ID].continuity_state == "INVALIDATED_BY_EDGE_CHANGE"
+    assert by_id[_SEED_EDGE_ID].continuity_state == "CARRIED_FORWARD"
+    assert report_pr29.pr29_interpretation_applied_count == 2
+    assert report_pr29.explicit_adapter_applied_count == 3
+    assert _FEY_EDGE_ID not in report_pr29.newly_represented_by_continuity_edge_ids
+    assert set(report_pr29.newly_represented_by_continuity_edge_ids) == (
+        _SPECIAL_SIX - {_FEY_EDGE_ID}
+    )
+    assert report_pr29.relationship_effectively_represented_count == 6
+    assert report_pr29.relationship_effective_residual_count == 2
+    assert _FEY_EDGE_ID in report_pr29.remaining_residual_edge_ids
+    assert _SEVENTH_EDGE_ID in report_pr29.remaining_residual_edge_ids
+
+    # Invalidate one adapter row only (from the unchanged descendant).
+    store_r3 = _clone_store(store_r1)
+    seed = store_r3.edges[_SEED_EDGE_ID]
+    store_r3.edges[_SEED_EDGE_ID] = seed.model_copy(
+        update={"predicate": "identified_as"}
+    )
+    r3 = _publish_store(tmp_path, _SYNTH_EFFECTIVE_WORLD, store_r3, "op:synth-adapter")
+    report_adapter, continuity_adapter = _analyze_synth_effective(
+        root=tmp_path,
+        revision_id=r3,
+        anchor_revision_id=r0,
+        anchor_store=store_r0,
+        requested_store=store_r3,
+    )
+    by_id = {row.edge_id: row for row in continuity_adapter.rows}
+    assert by_id[_SEED_EDGE_ID].continuity_state == "INVALIDATED_BY_EDGE_CHANGE"
+    assert by_id[_FEY_EDGE_ID].continuity_state == "CARRIED_FORWARD"
+    assert report_adapter.pr29_interpretation_applied_count == 3
+    assert report_adapter.explicit_adapter_applied_count == 2
+    assert _SEED_EDGE_ID not in report_adapter.newly_represented_by_continuity_edge_ids
+    assert set(report_adapter.newly_represented_by_continuity_edge_ids) == (
+        _SPECIAL_SIX - {_SEED_EDGE_ID}
+    )
+    assert report_adapter.relationship_effectively_represented_count == 6
+    assert report_adapter.relationship_effective_residual_count == 2
 
 
 def test_unchanged_descendant_reapplies_exact_six_special_interpretations(
