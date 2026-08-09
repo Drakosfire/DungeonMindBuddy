@@ -385,12 +385,15 @@ function visitThematicBreak(node: ThematicBreak, context: AdmissionContext, stat
       warn(state, "Indented Markdown blocks and list continuations are not supported yet.", nodeStartLine(node));
       return [{ type: "horizontalRule" }];
     }
-  } else if (context === "listItem" || context === "tableCell") {
+    // The parser established a thematic break; only canonical `---` is
+    // admitted. Reinterpreting *** / ___ / - - - as literal prose would
+    // silently change the source's meaning, so non-canonical spellings seal.
+    warn(state, "Only --- thematic breaks are supported by this editor slice.", nodeStartLine(node));
+    return [paragraphFromText(sourceSlice(node, state))];
+  }
+  if (context === "listItem" || context === "tableCell") {
     warn(state, "Thematic breaks nested inside list items or table cells are not supported yet.", nodeStartLine(node));
   }
-  // Non-canonical spellings (***, ___, - - -) keep their pre-rescue treatment:
-  // literal paragraph text, no diagnostic. The serializer escapes them so they
-  // reimport as text — stable, and no previously-clean document seals.
   return [paragraphFromText(sourceSlice(node, state))];
 }
 

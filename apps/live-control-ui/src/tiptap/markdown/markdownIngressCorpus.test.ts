@@ -187,6 +187,24 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   },
 
   // --- Headings / breaks / HTML -------------------------------------------
+  {
+    name: "non-canonical thematic break (stars)",
+    markdown: "***",
+    blockedOnMain: true,
+    note: "tightened (PR #535 cycle 1): the parser establishes a thematic break; admission must not reinterpret non---- spellings as literal prose without sealing",
+  },
+  {
+    name: "non-canonical thematic break (underscores)",
+    markdown: "___",
+    blockedOnMain: true,
+    note: "tightened (PR #535 cycle 1): same parser-established class as stars",
+  },
+  {
+    name: "non-canonical thematic break (spaced hyphens)",
+    markdown: "- - -",
+    blockedOnMain: true,
+    note: "tightened (PR #535 cycle 1): parses as a thematicBreak; only the canonical --- spelling is admitted",
+  },
   { name: "setext heading (level 1)", markdown: "Heading\n===", blockedOnMain: true },
   { name: "setext heading (level 2)", markdown: "Heading\n-------", blockedOnMain: true },
   { name: "hard break (trailing spaces)", markdown: "Line one  \nLine two", blockedOnMain: true },
@@ -231,15 +249,6 @@ const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
   { name: "graph-node reference", markdown: "Inspect [Caelynn](dmb-node:pc_caelynn)." },
   { name: "thematic break", markdown: "# Before\n\n---\n\n## After" },
   { name: "frontmatter lookalike without YAML keys is a thematic break", markdown: "---\n\n# Body" },
-  {
-    name: "non-canonical thematic break (stars) stays literal text",
-    markdown: "***",
-    note: "main treats *** as paragraph text and round-trips it escaped; the rescue preserves that contract rather than sealing or promoting it to a rule",
-  },
-  {
-    name: "non-canonical thematic break (underscores) stays literal text",
-    markdown: "___",
-  },
   { name: "bullet list", markdown: "- First\n- Second" },
   { name: "ordered list", markdown: "1. one\n2. two" },
   { name: "ordered list with paren markers", markdown: "1) one\n2) two", note: "serializer canonicalizes ) to ." },

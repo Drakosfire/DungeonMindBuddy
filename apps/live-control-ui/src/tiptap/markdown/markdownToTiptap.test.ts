@@ -246,6 +246,26 @@ describe("markdownToTiptapDoc", () => {
     expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(markdown);
   });
 
+  it("fails closed on non-canonical thematic break spellings instead of reinterpreting them as prose", () => {
+    for (const markdown of ["***", "___", "- - -"]) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: 1,
+          message: "Only --- thematic breaks are supported by this editor slice.",
+        }),
+      ]));
+      // Sealed projection: literal source text, never a horizontalRule.
+      expect(imported.doc.content).toEqual([
+        { type: "paragraph", content: [{ type: "text", text: markdown }] },
+      ]);
+      // The serializer escapes the sealed text so it reimports stably as text.
+      const reimported = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(imported.doc));
+      expect(reimported.doc).toEqual(imported.doc);
+    }
+  });
+
   it("round-trips GFM tables without splitting escaped pipes", () => {
     const markdown = [
       "Threat | Note",
