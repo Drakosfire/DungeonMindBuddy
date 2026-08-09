@@ -777,24 +777,52 @@ def _revision_bound_active_contribution_ids(
     store: UnionSupergraphStore,
 ) -> list[str]:
     """Ordered active contribution IDs from revision-bound replay authority."""
+    return [
+        entry.contribution_id
+        for entry in _revision_bound_replay_manifest_entries(store)
+        if entry.status == "active"
+    ]
+
+
+def _revision_bound_replay_manifest_entries(
+    store: UnionSupergraphStore,
+) -> list[ContributionReplayManifestEntry]:
+    """Ordered revision-bound replay entries (all lifecycle statuses)."""
     manifest = list(store.contribution_replay_manifest or [])
-    if manifest:
-        ordered: list[str] = []
-        seen: set[str] = set()
-        for entry in manifest:
-            typed = (
-                entry
-                if isinstance(entry, ContributionReplayManifestEntry)
-                else ContributionReplayManifestEntry.model_validate(entry)
+    if not manifest:
+        return [
+            ContributionReplayManifestEntry(
+                contribution_id=contribution_id,
+                status="active",
+                source_payload_sha256=digest,
             )
-            if typed.status != "active":
-                continue
-            if typed.contribution_id in seen:
-                continue
-            seen.add(typed.contribution_id)
-            ordered.append(typed.contribution_id)
-        return ordered
-    return list((store.contribution_source_payload_sha256 or {}).keys())
+            for contribution_id, digest in (
+                store.contribution_source_payload_sha256 or {}
+            ).items()
+        ]
+    ordered: list[ContributionReplayManifestEntry] = []
+    seen: set[str] = set()
+    for entry in manifest:
+        typed = (
+            entry
+            if isinstance(entry, ContributionReplayManifestEntry)
+            else ContributionReplayManifestEntry.model_validate(entry)
+        )
+        if typed.contribution_id in seen:
+            continue
+        seen.add(typed.contribution_id)
+        ordered.append(typed)
+    return ordered
+
+
+def _revision_bound_source_digest(
+    store: UnionSupergraphStore,
+    contribution_id: str,
+) -> str | None:
+    for entry in _revision_bound_replay_manifest_entries(store):
+        if entry.contribution_id == contribution_id:
+            return entry.source_payload_sha256
+    return (store.contribution_source_payload_sha256 or {}).get(contribution_id)
 
 
 def _ensure_correction_index_membership(
@@ -803,25 +831,50 @@ def _ensure_correction_index_membership(
     contribution: GraphContribution,
     *,
     baseline_revision_id: str | None,
+    expected_source_digest: str | None,
 ) -> list[str]:
-    """Repair mutable index/record gaps after a successful correction commit."""
-    diagnostics: list[str] = []
+    """Repair mutable index gaps only. Never synthesize durable ledger authority.
+
+    Safe repair requires an existing ledger record whose source digest matches the
+    revision-bound seal (and the caller's retry payload). Missing ledger bytes,
+    digest mismatch, or incompatible durable lifecycle fail closed.
+    """
     try:
         existing = load_contribution_record(
             root, world_id, contribution.contribution_id
         )
-    except FileNotFoundError:
-        existing = contribution.model_copy(update={"status": "active"})
-        write_contribution_record(root, world_id, existing)
-        diagnostics.append("repaired_contribution_record:post_commit_recovery")
-    else:
-        if existing.status != "active":
-            existing = existing.model_copy(update={"status": "active"})
-            write_contribution_record(root, world_id, existing)
-            diagnostics.append(
-                "repaired_contribution_record_status:post_commit_recovery"
-            )
+    except FileNotFoundError as exc:
+        raise ValueError(
+            "correction contribution ledger missing for revision-bound "
+            f"{contribution.contribution_id}; cannot repair from caller payload"
+        ) from exc
 
+    if existing.status != "active":
+        raise ValueError(
+            f"correction contribution {contribution.contribution_id} durable "
+            f"status is {existing.status!r}; refusing lifecycle rewrite during "
+            "index repair"
+        )
+
+    actual_digest = compute_contribution_source_payload_sha256(existing)
+    if expected_source_digest is None:
+        raise ValueError(
+            "revision-bound source digest missing for correction contribution "
+            f"{contribution.contribution_id}"
+        )
+    if actual_digest != expected_source_digest:
+        raise ValueError(
+            f"correction contribution {contribution.contribution_id} ledger "
+            "digest mismatch vs revision-bound digest"
+        )
+    caller_digest = compute_contribution_source_payload_sha256(contribution)
+    if caller_digest != actual_digest:
+        raise ValueError(
+            f"correction retry payload digest mismatch for "
+            f"{contribution.contribution_id}"
+        )
+
+    diagnostics: list[str] = []
     index = load_contribution_index(root, world_id)
     if contribution.contribution_id not in index.active_contribution_ids:
         upsert_and_save_contribution_index(
@@ -1179,16 +1232,34 @@ def correct_edge_assertion_support(
             or contribution.contribution_id in digest_bound
             or contribution.contribution_id in index.active_contribution_ids
         ):
-            diagnostics.extend(
-                _ensure_correction_index_membership(
-                    root,
-                    world_id,
-                    contribution,
-                    baseline_revision_id=(
-                        index.baseline_revision_id or parent_revision_id
-                    ),
+            try:
+                diagnostics.extend(
+                    _ensure_correction_index_membership(
+                        root,
+                        world_id,
+                        contribution,
+                        baseline_revision_id=(
+                            index.baseline_revision_id or parent_revision_id
+                        ),
+                        expected_source_digest=_revision_bound_source_digest(
+                            current_store, contribution.contribution_id
+                        ),
+                    )
                 )
-            )
+            except ValueError as exc:
+                return ContributionMergeResult(
+                    world_id=world_id,
+                    parent_revision_id=parent_revision_id,
+                    revision_id=None,
+                    contribution_ids=[contribution.contribution_id],
+                    diagnostics=[
+                        *diagnostics,
+                        f"correction_integrity_failure:{exc}",
+                    ],
+                    failure_code="correction_integrity_failure",
+                    failure_message=str(exc),
+                    published=False,
+                )
             diagnostics.append("idempotent_noop:correction_already_applied")
             return ContributionMergeResult(
                 world_id=world_id,

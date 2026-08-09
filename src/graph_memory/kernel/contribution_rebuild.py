@@ -238,7 +238,7 @@ def rebuild_from_contributions(
     from graph_memory.kernel.contribution_merge import (
         _mark_graph_objects_unsupported,
         _remove_contribution_support,
-        _revision_bound_active_contribution_ids,
+        _revision_bound_replay_manifest_entries,
         _support_map,
         _with_support_map,
         apply_accepted_assertions,
@@ -273,39 +273,41 @@ def rebuild_from_contributions(
                 f"rebuild_replay_pinned_to_revision:{pinned_revision_id}"
             )
         else:
-            # Full historical replay: apply each non-failed contribution, then
-            # remove support for superseded/retracted ones so unsupported objects
-            # remain inspectable (matching head semantics).
-            replay_ids = [
-                cid
-                for cid in index.all_contribution_ids
-                if cid not in set(index.failed_contribution_ids)
-            ]
-            # Mutable index can lag a successful publish. Recover membership from
-            # revision-bound head authority so unpinned rebuild cannot silently
-            # omit a committed contribution (e.g. a correction).
+            # Prefer revision-bound head replay order when available. The mutable
+            # index may lag a successful publish; appending gaps onto index order
+            # would reorder already-committed contributions (e.g. [A,D] + C →
+            # [A,D,C] instead of [A,C,D]) and break deterministic rebuild.
+            failed = set(index.failed_contribution_ids)
             try:
                 _head, _revision, head_store = load_current_world_graph(root, world_id)
             except WorldGraphNotFoundError:
                 head_store = None
-            if head_store is not None:
-                known = set(replay_ids)
-                failed = set(index.failed_contribution_ids)
-                for cid in _revision_bound_active_contribution_ids(head_store):
-                    if cid in known or cid in failed:
-                        continue
-                    try:
-                        contrib = load_contribution_record(root, world_id, cid)
-                    except FileNotFoundError:
-                        diagnostics.append(
-                            f"rebuild_missing_ledger_for_revision_bound:{cid}"
-                        )
-                        continue
-                    if contrib.status == "failed":
+
+            head_entries: list[ContributionReplayManifestEntry] = []
+            if head_store is not None and (
+                list(head_store.contribution_replay_manifest or [])
+                or dict(head_store.contribution_source_payload_sha256 or {})
+            ):
+                head_entries = _revision_bound_replay_manifest_entries(head_store)
+
+            if head_entries:
+                replay_ids = []
+                for entry in head_entries:
+                    cid = entry.contribution_id
+                    if cid in failed:
                         continue
                     replay_ids.append(cid)
-                    known.add(cid)
-                    diagnostics.append(f"rebuild_recovered_index_gap:{cid}")
+                    replay_status_by_id[cid] = entry.status
+                    replay_digest_by_id[cid] = entry.source_payload_sha256
+                    if cid not in index.all_contribution_ids:
+                        diagnostics.append(f"rebuild_recovered_index_gap:{cid}")
+                diagnostics.append("rebuild_replay_ordered_from_revision_authority")
+            else:
+                replay_ids = [
+                    cid
+                    for cid in index.all_contribution_ids
+                    if cid not in failed
+                ]
     else:
         replay_ids = list(contribution_ids)
         if pinned_manifest is not None:
@@ -330,7 +332,12 @@ def rebuild_from_contributions(
     payload_digests = dict(baseline.contribution_source_payload_sha256)
     rebuilt_manifest: list[ContributionReplayManifestEntry] = []
     for cid in replay_ids:
-        contrib = load_contribution_record(root, world_id, cid)
+        try:
+            contrib = load_contribution_record(root, world_id, cid)
+        except FileNotFoundError as exc:
+            raise ValueError(
+                f"revision-bound contribution missing from ledger: {cid}"
+            ) from exc
         # Digest the on-disk ledger record before in-memory identity rekeying so
         # migration leave ledger bytes authoritative for graph-data source reads.
         actual_digest = compute_contribution_source_payload_sha256(contrib)
@@ -340,13 +347,14 @@ def rebuild_from_contributions(
                 "pinned contribution source digest mismatch for "
                 f"{cid}: ledger no longer matches revision-bound digest"
             )
-        if pinned_store is not None:
-            # Lifecycle comes from the pinned revision, never the live ledger.
-            effective_status = replay_status_by_id.get(cid)
-            if effective_status is None:
-                raise ValueError(
-                    f"pinned contribution {cid} lacks replay-manifest status"
-                )
+        if cid in replay_status_by_id:
+            # Lifecycle comes from revision-bound authority (pinned compare or
+            # current-head recovery), never from a lagging mutable index.
+            effective_status = replay_status_by_id[cid]
+        elif pinned_store is not None:
+            raise ValueError(
+                f"pinned contribution {cid} lacks replay-manifest status"
+            )
         else:
             effective_status = contrib.status
             if effective_status == "failed":

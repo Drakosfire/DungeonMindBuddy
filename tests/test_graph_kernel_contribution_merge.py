@@ -2544,3 +2544,187 @@ def test_edge_assertion_correction_recovers_from_post_commit_index_failure(
         ].count(contrib_a.contribution_id)
         == 1
     )
+
+
+def test_edge_assertion_correction_index_gap_preserves_manifest_order_after_later_publish(
+    seeded_root, monkeypatch
+) -> None:
+    """Index gap then later D must still rebuild as [A, C, D], not [A, D, C]."""
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    edge_xp = _correction_edge_assertion(
+        edge_id="edge:npc_correction_tgt:threatens:npc_correction_src",
+        source_node_id="npc_correction_tgt",
+        target_node_id="npc_correction_src",
+        predicate="threatens",
+        source_artifact_id="artifact:correction:c",
+        evidence_ref_id="evidence:correction:xp-order",
+    )
+    correction = kernel.create_edge_assertion_correction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_contribution_id=contrib_a.contribution_id,
+        target_assertion_id=edge_x.assertion_id,
+        replacement_assertion=edge_xp,
+        source_artifact_id="artifact:correction:c",
+        produced_at="2026-08-09T01:00:00Z",
+    )
+
+    real_upsert = contribution_merge_mod.upsert_and_save_contribution_index
+    fail_once = {"armed": True}
+
+    def _fail_after_publish(*args, **kwargs):
+        if fail_once["armed"]:
+            fail_once["armed"] = False
+            raise RuntimeError("simulated post-commit index write failure")
+        return real_upsert(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "upsert_and_save_contribution_index",
+        _fail_after_publish,
+    )
+
+    first = kernel.correct_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=correction,
+        expected_parent_revision_id=parent,
+    )
+    assert first.published is True
+    assert correction.contribution_id not in load_contribution_index(
+        root, WORLD_ID
+    ).active_contribution_ids
+
+    # Later unrelated contribution D publishes normally into the lagging index.
+    contrib_d = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:correction:d",
+        accepted_assertions=[
+            _correction_node_assertion(
+                node_id="npc_correction_later_d",
+                label="Later D",
+                source_artifact_id="artifact:correction:d",
+            )
+        ],
+        authored_by="extractor",
+    )
+    merge_d = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_d
+    )
+    assert merge_d.published is True
+    later_head = merge_d.revision_id
+
+    index_after_d = load_contribution_index(root, WORLD_ID)
+    assert contrib_a.contribution_id in index_after_d.all_contribution_ids
+    assert contrib_d.contribution_id in index_after_d.all_contribution_ids
+    assert correction.contribution_id not in index_after_d.all_contribution_ids
+
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert _head.head_revision_id == later_head
+    manifest_ids = [
+        entry.contribution_id for entry in store.contribution_replay_manifest
+    ]
+    assert contrib_a.contribution_id in manifest_ids
+    assert correction.contribution_id in manifest_ids
+    assert contrib_d.contribution_id in manifest_ids
+    assert manifest_ids.index(correction.contribution_id) < manifest_ids.index(
+        contrib_d.contribution_id
+    )
+
+    rebuild = kernel.rebuild_from_contributions(
+        root, world_id=WORLD_ID, publish=False
+    )
+    assert "rebuild_replay_ordered_from_revision_authority" in rebuild.diagnostics
+    assert any(
+        d == f"rebuild_recovered_index_gap:{correction.contribution_id}"
+        for d in rebuild.diagnostics
+    )
+    assert "rebuild_equivalent_to_compared_revision" in rebuild.diagnostics
+    assert "rebuild_equivalent_to_head" in rebuild.diagnostics
+    assert rebuild.contribution_ids.index(contrib_a.contribution_id) < (
+        rebuild.contribution_ids.index(correction.contribution_id)
+    )
+    assert rebuild.contribution_ids.index(correction.contribution_id) < (
+        rebuild.contribution_ids.index(contrib_d.contribution_id)
+    )
+
+
+def test_edge_assertion_correction_missing_ledger_fails_closed(
+    seeded_root, monkeypatch
+) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    edge_xp = _correction_edge_assertion(
+        edge_id="edge:npc_correction_tgt:threatens:npc_correction_src",
+        source_node_id="npc_correction_tgt",
+        target_node_id="npc_correction_src",
+        predicate="threatens",
+        source_artifact_id="artifact:correction:c",
+        evidence_ref_id="evidence:correction:xp-missing",
+    )
+    correction = kernel.create_edge_assertion_correction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_contribution_id=contrib_a.contribution_id,
+        target_assertion_id=edge_x.assertion_id,
+        replacement_assertion=edge_xp,
+        source_artifact_id="artifact:correction:c",
+        produced_at="2026-08-09T02:00:00Z",
+    )
+
+    real_upsert = contribution_merge_mod.upsert_and_save_contribution_index
+    fail_once = {"armed": True}
+
+    def _fail_after_publish(*args, **kwargs):
+        if fail_once["armed"]:
+            fail_once["armed"] = False
+            raise RuntimeError("simulated post-commit index write failure")
+        return real_upsert(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "upsert_and_save_contribution_index",
+        _fail_after_publish,
+    )
+
+    first = kernel.correct_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=correction,
+        expected_parent_revision_id=parent,
+    )
+    assert first.published is True
+    corrected_rev = first.revision_id
+
+    from graph_memory.world_supergraph import paths as world_paths
+
+    ledger_path = world_paths.contribution_path(
+        root, WORLD_ID, correction.contribution_id
+    )
+    assert ledger_path.is_file()
+    ledger_path.unlink()
+    assert not ledger_path.is_file()
+
+    # Exact retry must not synthesize durable authority from the caller payload.
+    retry = kernel.correct_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=correction,
+        expected_parent_revision_id=corrected_rev,
+    )
+    assert retry.published is False
+    assert retry.failure_code == "correction_integrity_failure"
+    assert "ledger missing" in (retry.failure_message or "")
+    assert correction.contribution_id not in load_contribution_index(
+        root, WORLD_ID
+    ).active_contribution_ids
+
+    # Unpinned rebuild must stop rather than omit the committed correction.
+    with pytest.raises(ValueError, match="missing from ledger"):
+        kernel.rebuild_from_contributions(root, world_id=WORLD_ID, publish=False)
+
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert _head.head_revision_id == corrected_rev
+    assert store.assertion_support[edge_x.assertion_id]["support_state"] == "contradicted"
