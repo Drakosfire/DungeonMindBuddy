@@ -107,7 +107,12 @@ describe("markdownToTiptapDoc", () => {
     };
     expect(paragraph.content?.find((node) => node.text === "snake_case_value")?.marks).toBeUndefined();
     expect(paragraph.content?.find((node) => node.text === "italic")?.marks).toEqual([{ type: "italic" }]);
-    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe("Use snake_case_value here and *italic* emphasis.\n");
+    // Serializer escapes literal underscores so reimport cannot gain emphasis.
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(
+      "Use snake\\_case\\_value here and *italic* emphasis.\n",
+    );
+    const reimported = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(imported.doc));
+    expect(reimported.doc).toEqual(imported.doc);
   });
 
   it("keeps double-underscore identifiers as literal text without intraword bold", () => {
@@ -118,7 +123,29 @@ describe("markdownToTiptapDoc", () => {
     };
     expect(paragraph.content?.find((node) => node.text === "foo__bar__baz")?.marks).toBeUndefined();
     expect(paragraph.content?.find((node) => node.text === "bold")?.marks).toEqual([{ type: "bold" }]);
-    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe("Use foo__bar__baz here and **bold** emphasis.\n");
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(
+      "Use foo\\_\\_bar\\_\\_baz here and **bold** emphasis.\n",
+    );
+    const reimported = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(imported.doc));
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("keeps escaped underscore and tilde literals stable across import → serialize → reimport", () => {
+    const underscoreSource = String.raw`Keep \_literal\_ unmarked.`;
+    const tildeSource = String.raw`Keep \~\~literal\~\~ unmarked.`;
+    for (const markdown of [underscoreSource, tildeSource]) {
+      const imported = markdownToTiptapDoc(markdown);
+      const paragraph = imported.doc.content?.[0] as {
+        content?: Array<{ text?: string; marks?: Array<{ type: string }> }>;
+      };
+      const text = paragraph.content?.map((node) => node.text ?? "").join("") ?? "";
+      expect(text.includes("literal")).toBe(true);
+      expect(paragraph.content?.some((node) => node.marks?.length)).toBeFalsy();
+      const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+      const reimported = markdownToTiptapDoc(exported);
+      expect(reimported.doc).toEqual(imported.doc);
+      expect(reimported.diagnostics).toEqual([]);
+    }
   });
 
   it("imports semantic callouts", () => {

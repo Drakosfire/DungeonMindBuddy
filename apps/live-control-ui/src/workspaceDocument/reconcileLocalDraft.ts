@@ -1,5 +1,4 @@
 import type { WorkspaceDocumentSnapshot } from "../api/types";
-import { hasBlockingMarkdownImportDiagnostics } from "../tiptap/markdown/markdownToTiptap";
 import type { WorkspaceDocumentLocalState } from "../tiptap/state/tiptapLocalState";
 
 export type ReconcileLocalDraftKind =
@@ -65,11 +64,11 @@ export function reconcileLocalDraft(
       // Post-commit local drafts can remain dirty:true while Markdown already
       // matches the refreshed snapshot (Save succeeded; overlay flag stale).
       // Treat byte-identical body as clean so hard reload reopens clean —
-      // except when the source is import-unsafe: exported_markdown is kept
-      // authoritative while TipTap may still hold unsaved projection edits.
+      // except when exported_markdown is sealed authoritative while TipTap may
+      // still hold unsaved projection edits (bit survives parser upgrades).
       if (
         localState.exported_markdown === snapshot.markdown
-        && !hasBlockingMarkdownImportDiagnostics(snapshot.markdown)
+        && !localState.exported_markdown_authoritative
       ) {
         return {
           kind: "clean-match",

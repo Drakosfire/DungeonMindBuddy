@@ -32,18 +32,29 @@ function chooseEditorContent(args: {
   reconciliation: ReconcileLocalDraftResult;
   snapshotMarkdown: string;
   emptyMarkdownFallback?: unknown;
-}): { tiptapJson: unknown; exportedMarkdown: string; dirty: boolean } {
+}): {
+  tiptapJson: unknown;
+  exportedMarkdown: string;
+  dirty: boolean;
+  exportedMarkdownAuthoritative: boolean;
+} {
   const { reconciliation, snapshotMarkdown } = args;
 
   if (reconciliation.kind === "dirty-match" && reconciliation.localState) {
     const localState = reconciliation.localState;
-    if (hasBlockingMarkdownImportDiagnostics(snapshotMarkdown)) {
+    if (
+      localState.exported_markdown_authoritative
+      || hasBlockingMarkdownImportDiagnostics(snapshotMarkdown)
+    ) {
       // Keep local TipTap projection edits; save admission still uses the
-      // authoritative unsafe snapshot markdown (fail closed on durable write).
+      // authoritative source markdown (fail closed on durable write).
       return {
         tiptapJson: localState.tiptap_json,
-        exportedMarkdown: snapshotMarkdown,
+        exportedMarkdown: localState.exported_markdown_authoritative
+          ? localState.exported_markdown
+          : snapshotMarkdown,
         dirty: true,
+        exportedMarkdownAuthoritative: true,
       };
     }
     // Parser upgrades should rehydrate from Markdown when that Markdown is a
@@ -55,12 +66,14 @@ function chooseEditorContent(args: {
         tiptapJson: localState.tiptap_json,
         exportedMarkdown: localState.exported_markdown,
         dirty: true,
+        exportedMarkdownAuthoritative: false,
       };
     }
     return {
       tiptapJson: markdownToTiptapDoc(localState.exported_markdown).doc,
       exportedMarkdown: localState.exported_markdown,
       dirty: true,
+      exportedMarkdownAuthoritative: false,
     };
   }
 
@@ -70,6 +83,7 @@ function chooseEditorContent(args: {
       tiptapJson,
       exportedMarkdown: snapshotMarkdown,
       dirty: false,
+      exportedMarkdownAuthoritative: hasBlockingMarkdownImportDiagnostics(snapshotMarkdown),
     };
   }
 
@@ -79,6 +93,7 @@ function chooseEditorContent(args: {
       tiptapJson: reconciliation.localState.tiptap_json,
       exportedMarkdown: reconciliation.localState.exported_markdown,
       dirty: false,
+      exportedMarkdownAuthoritative: reconciliation.localState.exported_markdown_authoritative,
     };
   }
 
@@ -87,6 +102,7 @@ function chooseEditorContent(args: {
     tiptapJson,
     exportedMarkdown: tiptapJsonToSemanticMarkdown(tiptapJson),
     dirty: false,
+    exportedMarkdownAuthoritative: false,
   };
 }
 
@@ -145,6 +161,7 @@ export function openWorkspaceDocumentAuthoringState(
     }),
     tiptap_json: chosen.tiptapJson,
     exported_markdown: chosen.exportedMarkdown,
+    exported_markdown_authoritative: chosen.exportedMarkdownAuthoritative,
     dirty: chosen.dirty,
     updated_at: now,
     last_local_save_at: now,

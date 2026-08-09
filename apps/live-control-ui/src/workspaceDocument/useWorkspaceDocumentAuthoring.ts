@@ -124,6 +124,7 @@ function applyCommitReceiptToLocalState(args: {
     }),
     tiptap_json: args.tiptapJson,
     exported_markdown: args.markdown,
+    exported_markdown_authoritative: false,
     dirty: false,
     updated_at: now,
     last_local_save_at: now,
@@ -289,7 +290,8 @@ export function useWorkspaceDocumentAuthoring(
     // When editor JSON is outside the supported Markdown grammar, or the loaded
     // source already has blocking import diagnostics, preserve authoritative
     // snapshot markdown instead of a lossy TipTap serialization.
-    const exportedMarkdown = serializationUnsafe || sourceHasBlockingImport
+    const preservingAuthoritativeExport = serializationUnsafe || sourceHasBlockingImport;
+    const exportedMarkdown = preservingAuthoritativeExport
       ? (sourceHasBlockingImport && snap ? snap.markdown : current.exported_markdown)
       : preserveLeadingYamlFrontmatter(
         snap?.markdown ?? current.exported_markdown,
@@ -310,6 +312,10 @@ export function useWorkspaceDocumentAuthoring(
       ...current,
       tiptap_json: tiptapJson,
       exported_markdown: exportedMarkdown,
+      // Seal authority in localStorage so a future parser upgrade cannot flip the
+      // live diagnostics guard and re-derive from this TipTap projection.
+      exported_markdown_authoritative: preservingAuthoritativeExport
+        || current.exported_markdown_authoritative,
       dirty: nextDirty,
       updated_at: now,
       last_local_save_at: now,

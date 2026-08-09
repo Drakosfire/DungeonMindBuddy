@@ -88,8 +88,11 @@ function escapeMarkdownLineStart(line: string): string {
 }
 
 function escapeMarkdownText(text: string): string {
+  // Escape _ and ~ as well as emphasis/link controls. Unmarked TipTap text must
+  // reimport as unmarked text: \_literal\_ / \~\~literal\~\~ stay stable across
+  // import → serialize → reimport (italic/strike emit *…* / ~~…~~, not raw delimiters).
   return text
-    .replace(/[\\`*[\]()]/g, "\\$&")
+    .replace(/[\\`*_~[\]()]/g, "\\$&")
     .split("\n")
     .map(escapeMarkdownLineStart)
     .join("\n");

@@ -200,8 +200,10 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
 
     const stored = JSON.parse(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) ?? "null") as {
       exported_markdown?: string;
+      exported_markdown_authoritative?: boolean;
     } | null;
     expect(stored?.exported_markdown).toBe(unsafeSource);
+    expect(stored?.exported_markdown_authoritative).toBe(true);
 
     await act(async () => {
       await result.current.saveMarkdown();
@@ -235,13 +237,16 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     // Raw localStorage still has authoritative source (persist path).
     const raw = JSON.parse(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) ?? "null") as {
       exported_markdown?: string;
+      exported_markdown_authoritative?: boolean;
       tiptap_json?: unknown;
     } | null;
     expect(raw?.exported_markdown).toBe(unsafeSource);
+    expect(raw?.exported_markdown_authoritative).toBe(true);
 
     // Public read must not re-derive exported_markdown from lossy TipTap JSON.
     const viaRead = readWorkspaceDocumentLocalState(localStorage, DOC_ID);
     expect(viaRead?.exported_markdown).toBe(unsafeSource);
+    expect(viaRead?.exported_markdown_authoritative).toBe(true);
     expect(viaRead?.exported_markdown).not.toContain("Looks safe in editor");
     expect(viaRead?.tiptap_json).toEqual(safeParagraph);
     expect(viaRead?.dirty).toBe(true);

@@ -180,6 +180,7 @@ describe("openWorkspaceDocumentAuthoringState", () => {
     });
     stored.dirty = true;
     stored.exported_markdown = "# Lossy local export\n";
+    stored.exported_markdown_authoritative = false;
     const opened = openWorkspaceDocumentAuthoringState({
       documentId: DOC_ID,
       snapshot: snap,
@@ -189,8 +190,54 @@ describe("openWorkspaceDocumentAuthoringState", () => {
     });
     expect(opened.status).toBe("ready");
     expect(opened.reconciliation.kind).toBe("dirty-match");
+    // Recover authoritative snapshot markdown when the local export was not sealed.
     expect(opened.localState?.exported_markdown).toBe(unsafeBody);
+    expect(opened.localState?.exported_markdown_authoritative).toBe(true);
     expect(opened.localState?.dirty).toBe(true);
+    expect(opened.localState?.tiptap_json).toEqual(stored.tiptap_json);
+  });
+
+  it("keeps sealed authoritative local markdown even when the snapshot is now parse-safe", () => {
+    const sealed = "# Sealed local source\n\nPreserved across parser upgrades.\n";
+    const snap = snapshot({
+      markdown: "# Now supported snapshot\n",
+      content_sha256: "sha-safe",
+      loaded_revision: 3,
+      file_exists: true,
+      file_fingerprint: "present",
+      record: {
+        ...snapshot().record,
+        revision: 3,
+      },
+    });
+    const stored = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "World Lore",
+      campaignId: "eldyrwild",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 3,
+      baseContentSha256: "sha-safe",
+      starterContent: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Lossy local body" }] }],
+      },
+    });
+    stored.dirty = true;
+    stored.exported_markdown = sealed;
+    stored.exported_markdown_authoritative = true;
+    const opened = openWorkspaceDocumentAuthoringState({
+      documentId: DOC_ID,
+      snapshot: snap,
+      stored,
+      surface: "build",
+      kind: "worldbuilding_source",
+    });
+    expect(opened.status).toBe("ready");
+    expect(opened.reconciliation.kind).toBe("dirty-match");
+    expect(opened.localState?.exported_markdown).toBe(sealed);
+    expect(opened.localState?.exported_markdown_authoritative).toBe(true);
     expect(opened.localState?.tiptap_json).toEqual(stored.tiptap_json);
   });
 });
