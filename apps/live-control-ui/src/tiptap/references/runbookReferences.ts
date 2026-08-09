@@ -104,6 +104,89 @@ export function normalizeRunbookReferenceAttrs(
   return { kind, refType, refId, label };
 }
 
+/**
+ * True when a persisted label still looks like escaped Markdown source
+ * (legacy save/load runaway) rather than semantic chip text.
+ */
+export function looksLikeEscapedMarkdownLabel(label: string): boolean {
+  return /\\[\\`*_{}[\]()#+.!|>~-]/.test(label);
+}
+
+/**
+ * Heal a persisted opaque-reference label exactly once when it still carries
+ * Markdown escapes. Already-semantic labels (including literal `**` / `__`)
+ * pass through unchanged.
+ */
+export function hydratePersistedReferenceLabel(label: string): string {
+  const semantic = normalizeSemanticReferenceLabel(label);
+  if (!semantic || !looksLikeEscapedMarkdownLabel(semantic)) {
+    return semantic;
+  }
+  return healRunbookReferenceLabel(semantic);
+}
+
+/**
+ * Hydration boundary for persisted TipTap `runbookReference` attrs: heal
+ * escaped legacy labels once, otherwise treat as semantic in-memory text.
+ */
+export function hydratePersistedRunbookReferenceAttrs(
+  input: Partial<RunbookReferenceAttrs>,
+): RunbookReferenceAttrs {
+  const rawLabel = normalizeSemanticReferenceLabel(input.label ?? "");
+  return normalizeRunbookReferenceAttrs(
+    input,
+    {
+      labelSource: looksLikeEscapedMarkdownLabel(rawLabel) ? "legacy" : "semantic",
+    },
+  );
+}
+
+type TiptapJsonNode = {
+  type?: string;
+  attrs?: Record<string, unknown>;
+  content?: TiptapJsonNode[];
+  text?: string;
+  marks?: unknown[];
+  [key: string]: unknown;
+};
+
+function migratePersistedReferenceNode(node: TiptapJsonNode): TiptapJsonNode {
+  const next: TiptapJsonNode = { ...node };
+  if (Array.isArray(node.content)) {
+    next.content = node.content.map(migratePersistedReferenceNode);
+  }
+
+  if (node.type === "runbookReference") {
+    const hydrated = hydratePersistedRunbookReferenceAttrs(
+      (node.attrs ?? {}) as Partial<RunbookReferenceAttrs>,
+    );
+    next.attrs = { ...hydrated };
+    return next;
+  }
+
+  if (node.type === "graphNodeReference" && node.attrs) {
+    const nodeId = typeof node.attrs.nodeId === "string" ? node.attrs.nodeId : "";
+    const rawLabel = typeof node.attrs.label === "string" ? node.attrs.label : "";
+    const label = hydratePersistedReferenceLabel(rawLabel) || nodeId;
+    next.attrs = { ...node.attrs, nodeId, label };
+    return next;
+  }
+
+  return next;
+}
+
+/**
+ * Migrate persisted TipTap JSON at the load/hydration boundary so in-memory
+ * reference labels are semantic. Idempotent for already-clean docs and for
+ * fresh semantic labels that intentionally contain literal `**` / `__`.
+ */
+export function migratePersistedTiptapReferenceLabels<T>(doc: T): T {
+  if (!doc || typeof doc !== "object") {
+    return doc;
+  }
+  return migratePersistedReferenceNode(doc as TiptapJsonNode) as T;
+}
+
 function isValidRefId(refType: string, refId: string): boolean {
   if (refType === GRAPH_NODE_REF_TYPE) {
     return isValidGraphNodeId(refId);

@@ -2,6 +2,7 @@ import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
+import { migratePersistedTiptapReferenceLabels } from "../tiptap/references/runbookReferences";
 import {
   buildInitialWorkspaceDocumentLocalState,
   type WorkspaceDocumentLocalKind,
@@ -28,6 +29,11 @@ export interface OpenWorkspaceDocumentAuthoringResult {
   status: "ready" | "conflict" | "reject";
 }
 
+function hydratePersistedEditorJson(tiptapJson: unknown): unknown {
+  // Heal legacy escaped reference labels once at the persistence→memory boundary.
+  return migratePersistedTiptapReferenceLabels(tiptapJson);
+}
+
 function chooseEditorContent(args: {
   reconciliation: ReconcileLocalDraftResult;
   snapshotMarkdown: string;
@@ -49,7 +55,7 @@ function chooseEditorContent(args: {
       // Keep local TipTap projection edits; save admission still uses the
       // authoritative source markdown (fail closed on durable write).
       return {
-        tiptapJson: localState.tiptap_json,
+        tiptapJson: hydratePersistedEditorJson(localState.tiptap_json),
         exportedMarkdown: localState.exported_markdown_authoritative
           ? localState.exported_markdown
           : snapshotMarkdown,
@@ -63,7 +69,7 @@ function chooseEditorContent(args: {
     // destroying an unsaved edit during reload.
     if (semanticMarkdownSerializationDiagnostics(localState.tiptap_json).length > 0) {
       return {
-        tiptapJson: localState.tiptap_json,
+        tiptapJson: hydratePersistedEditorJson(localState.tiptap_json),
         exportedMarkdown: localState.exported_markdown,
         dirty: true,
         exportedMarkdownAuthoritative: false,
@@ -90,14 +96,16 @@ function chooseEditorContent(args: {
   // Empty server file: keep an existing clean local draft when present.
   if (reconciliation.localState) {
     return {
-      tiptapJson: reconciliation.localState.tiptap_json,
+      tiptapJson: hydratePersistedEditorJson(reconciliation.localState.tiptap_json),
       exportedMarkdown: reconciliation.localState.exported_markdown,
       dirty: false,
       exportedMarkdownAuthoritative: reconciliation.localState.exported_markdown_authoritative,
     };
   }
 
-  const tiptapJson = args.emptyMarkdownFallback ?? markdownToTiptapDoc("").doc;
+  const tiptapJson = hydratePersistedEditorJson(
+    args.emptyMarkdownFallback ?? markdownToTiptapDoc("").doc,
+  );
   return {
     tiptapJson,
     exportedMarkdown: tiptapJsonToSemanticMarkdown(tiptapJson),

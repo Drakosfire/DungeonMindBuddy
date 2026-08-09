@@ -3,6 +3,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react";
 
 import {
   isSupportedRunbookReference,
+  hydratePersistedRunbookReferenceAttrs,
   normalizeRunbookReferenceAttrs,
   runbookReferenceClasses,
   type RunbookReferenceAttrs,
@@ -34,7 +35,9 @@ export const RunbookReferenceNode = Node.create({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const attrs = normalizeRunbookReferenceAttrs(node.attrs);
+    // Persisted TipTap attrs may still carry legacy escaped labels until
+    // migratePersistedTiptapReferenceLabels runs; hydrate once for display.
+    const attrs = hydratePersistedRunbookReferenceAttrs(node.attrs);
     const hasKnownKind = node.attrs.kind === "ref" || node.attrs.kind === "action";
     const isSupported = hasKnownKind && isSupportedRunbookReference(attrs);
     return [
@@ -62,7 +65,8 @@ export const RunbookReferenceNode = Node.create({
         ({ commands }) =>
           commands.insertContent({
             type: this.name,
-            attrs: normalizeRunbookReferenceAttrs(attrs),
+            // Authoring path: labels are already semantic chip text.
+            attrs: normalizeRunbookReferenceAttrs(attrs, { labelSource: "semantic" }),
           }),
     };
   },
