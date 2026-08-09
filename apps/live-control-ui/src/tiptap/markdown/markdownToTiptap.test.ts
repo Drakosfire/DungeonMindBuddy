@@ -141,6 +141,36 @@ describe("markdownToTiptapDoc", () => {
     }
   });
 
+  it("fails closed on empty or whitespace-only reference labels instead of inventing an id label", () => {
+    const cases = [
+      "[](dmb-node:pc_caelynn)",
+      "[ ](dmb-node:pc_caelynn)",
+      "[](#dmb-ref:npc:lysandro-ironveil)",
+      "[  ](#dmb-ref:npc:lysandro-ironveil)",
+      "[](#dmb-action:combat:north-gate-combat)",
+    ];
+    for (const markdown of cases) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: 1,
+          message: "Empty reference labels are not preserved by DungeonBuddy reference nodes.",
+        }),
+      ]));
+      const serialized = JSON.stringify(imported.doc);
+      expect(serialized).not.toContain("graphNodeReference");
+      expect(serialized).not.toContain("runbookReference");
+      // Empty-label rewrite class: without sealing, save would emit [id](...).
+      const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+      expect(exported).not.toMatch(/\[pc_caelynn\]\(dmb-node:pc_caelynn\)/);
+      expect(exported).not.toMatch(/\[lysandro-ironveil\]\(#dmb-ref:npc:lysandro-ironveil\)/);
+      expect(exported).not.toMatch(/\[north-gate-combat\]\(#dmb-action:combat:north-gate-combat\)/);
+      const reimported = markdownToTiptapDoc(exported);
+      expect(reimported.doc).toEqual(imported.doc);
+    }
+  });
+
   it("keeps snake_case identifiers as literal text without intraword underscore emphasis", () => {
     const markdown = "Use snake_case_value here and _italic_ emphasis.";
     const imported = markdownToTiptapDoc(markdown);

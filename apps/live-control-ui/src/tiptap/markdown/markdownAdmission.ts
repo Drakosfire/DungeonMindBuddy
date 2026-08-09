@@ -196,13 +196,20 @@ function collectLabelText(children: PhrasingContent[]): string {
 }
 
 /**
- * Reference nodes are opaque atoms with a single plain-text label: only a
- * label whose parsed children are pure text survives projection. Marked,
- * code, or otherwise structured labels would be silently flattened, so the
- * link seals instead of importing lossily.
+ * Opaque reference nodes store a plain-text label only. Admission requires:
+ *   1. every parsed label child is plain text (no marks/code/structure), and
+ *   2. the healed/trimmed label is non-empty.
+ * Otherwise serialization would invent a label from nodeId/refId (empty
+ * source → `[id](...)`) or flatten formatting — both durable rewrites.
  */
-function hasRepresentableReferenceLabel(node: Link): boolean {
-  return node.children.every((child) => child.type === "text");
+function referenceLabelAdmissionIssue(node: Link, label: string): string | null {
+  if (!node.children.every((child) => child.type === "text")) {
+    return "Formatted link labels are not represented by DungeonBuddy reference nodes.";
+  }
+  if (!label) {
+    return "Empty reference labels are not preserved by DungeonBuddy reference nodes.";
+  }
+  return null;
 }
 
 function visitLink(node: Link, state: VisitorState): TiptapNode[] {
@@ -228,27 +235,30 @@ function visitLink(node: Link, state: VisitorState): TiptapNode[] {
       warn(state, "Graph node links must target a valid, non-empty node id.", nodeStartLine(node));
       return sourceTextNodes(node, state);
     }
-    if (!hasRepresentableReferenceLabel(node)) {
-      warn(state, "Formatted link labels are not represented by DungeonBuddy reference nodes.", nodeStartLine(node));
+    const labelIssue = referenceLabelAdmissionIssue(node, label);
+    if (labelIssue) {
+      warn(state, labelIssue, nodeStartLine(node));
       return sourceTextNodes(node, state);
     }
-    return [{ type: "graphNodeReference", attrs: { nodeId, label: label || nodeId } }];
+    return [{ type: "graphNodeReference", attrs: { nodeId, label } }];
   }
 
   const referenceMatch = url.match(DMB_REFERENCE_URL_PATTERN);
   if (referenceMatch && node.title == null) {
     const [, kind, refType, refId] = referenceMatch;
+    const labelIssue = referenceLabelAdmissionIssue(node, label);
+    if (labelIssue) {
+      // Reject before normalizeRunbookReferenceAttrs substitutes refId for "".
+      warn(state, labelIssue, nodeStartLine(node));
+      return sourceTextNodes(node, state);
+    }
     const attrs: RunbookReferenceAttrs = normalizeRunbookReferenceAttrs({
       kind,
       refType,
       refId,
-      label: label || refId,
+      label,
     } as RunbookReferenceAttrs);
     if (isSupportedRunbookReference(attrs)) {
-      if (!hasRepresentableReferenceLabel(node)) {
-        warn(state, "Formatted link labels are not represented by DungeonBuddy reference nodes.", nodeStartLine(node));
-        return sourceTextNodes(node, state);
-      }
       return [{ type: "runbookReference", attrs: { ...attrs } }];
     }
   }

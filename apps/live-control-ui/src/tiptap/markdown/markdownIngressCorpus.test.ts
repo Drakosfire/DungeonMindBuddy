@@ -185,6 +185,36 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     blockedOnMain: true,
     note: "was a hole (PR #535 cycle 1): code labels flatten to plain text on the opaque node",
   },
+  {
+    name: "graph-node reference with empty label",
+    markdown: "[](dmb-node:pc_caelynn)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 2): empty children passed the text-only check; admission substituted nodeId as the label on save",
+  },
+  {
+    name: "graph-node reference with whitespace-only label",
+    markdown: "[ ](dmb-node:pc_caelynn)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 2): whitespace-only labels trim to empty and then fall back to nodeId",
+  },
+  {
+    name: "typed reference with empty label",
+    markdown: "[](#dmb-ref:npc:lysandro-ironveil)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 2): normalizeRunbookReferenceAttrs substitutes refId for an empty label",
+  },
+  {
+    name: "typed reference with whitespace-only label",
+    markdown: "[  ](#dmb-ref:npc:lysandro-ironveil)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 2): same empty-label rewrite class on typed refs",
+  },
+  {
+    name: "action reference with empty label",
+    markdown: "[](#dmb-action:combat:north-gate-combat)",
+    blockedOnMain: true,
+    note: "was a hole (PR #535 cycle 2): empty action labels rewrite to refId on save",
+  },
 
   // --- Headings / breaks / HTML -------------------------------------------
   {
