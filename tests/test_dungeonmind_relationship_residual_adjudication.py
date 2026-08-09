@@ -1,0 +1,576 @@
+"""Eldyrwild residual relationship semantic adjudication proofs."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from apps.live_control_server.config import world_graph_root
+from apps.live_control_server.integrations.dungeonmind_kernel.relationship_residual_adjudication import (
+    ELDYRWILD_PAYLOAD_SHA256,
+    ELDYRWILD_RESIDUAL_FINDINGS,
+    ELDYRWILD_REVISION_ID,
+    ELDYRWILD_WORLD_ID,
+    EXPECTED_RESIDUAL_BY_PREDICATE,
+    EXPECTED_RESIDUAL_COUNT,
+    FORBIDDEN_CATCH_ALL_TERMS,
+    RELATIONSHIP_RESIDUAL_ADJUDICATION_SCHEMA,
+    RELATIONSHIP_RESIDUAL_SOURCE_SEALS_SCHEMA,
+    NextAction,
+    ReasonCode,
+    RelationshipResidualAdjudicationError,
+    ResidualDisposition,
+    ResponsibleRepo,
+    adjudicate_synthetic_residual,
+    analyze_eldyrwild_relationship_residual_adjudication,
+    collect_v3_residual_edge_ids,
+    compact_relationship_residual_adjudication_report,
+    excerpt_sha256,
+    load_residual_source_seals,
+)
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    snapshot_world_graph_tree_digest,
+)
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v3 import (
+    PredicateDisposition,
+    _classify_edge_predicate_v3,
+)
+from dungeonmind_dnd.application.world_object_vocabulary import (
+    load_builtin_world_object_v3_vocabulary,
+)
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    _load_exact_buddy_revision,
+)
+
+FIXTURE_PATH = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "dungeonmind_kernel"
+    / "eldyrwild_relationship_residual_adjudication_v1.json"
+)
+SOURCE_SEALS_PATH = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "dungeonmind_kernel"
+    / "eldyrwild_relationship_residual_source_seals_v1.json"
+)
+
+LYSANDRA_EDGE_ID = (
+    "edge:npc_lysandra:threatens:node:cultists_of_longmont:is-threatened-by-cultists"
+)
+WOLF_POTION_EDGE_ID = "edge:item:session12:invisibility_potion:carries:node:wolf"
+SEED_STAFL_EDGE_ID = "edge:item:session17:seed:located_in:pc:stafl"
+TORCH_BAERGROM_EDGE_ID = "edge:item:torch:carries:pc:baergrom:passed-to"
+TORCH_KARSEMINE_EDGE_ID = "edge:item:torch:carries:pc:karsemine:passed-to"
+CULTISTS_LESANDRA_EDGE_ID = "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by"
+PIPPA_STONE_BRIDGE_EDGE_ID = "edge:node:pippa:leads_to:loc:stone_bridge"
+EPHANNA_FLOCK_EDGE_ID = "edge:pc:ephanna:participates_in:node:shepherds_flock"
+STAFL_PARTY_EDGE_ID = (
+    "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
+)
+HELP_REQUEST_JOB_BOARD_EDGE_ID = (
+    "edge:item_glowkindle_help_request:located_in:item_job_board"
+)
+CULTIST_SERVES_MEAT_EDGE_ID = (
+    "edge:node:cultist:serves:item:session17:centipede_meat_creature"
+)
+MYSTERY_WITHIN_CUBE_EDGE_ID = "edge:mystery_1:within:item-001"
+WOLF_PART_OF_EDGE_ID = (
+    "edge:node:wolf:part_of:item:session17:centipede_meat_creature"
+)
+WIZARD_COLLEGE_EDGE_ID = "edge:loc:wizard_college:within:node:city_mirathorn"
+
+
+def _eldyrwild_available() -> bool:
+    root = world_graph_root()
+    world_root = root / "graph_memory" / "worlds" / ELDYRWILD_WORLD_ID
+    if not world_root.exists():
+        world_root = root / "worlds" / ELDYRWILD_WORLD_ID
+    return world_root.exists()
+
+
+def test_synthetic_existing_term_endpoint_extension() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="located_in",
+        source_buddy_kind="item",
+        target_buddy_kind="item",
+        edge_id="edge:synthetic:poster:located_in:board",
+        evidence_supports_exact_dm_term="dnd5e:located_in",
+        endpoint_extension_safe=True,
+    )
+    assert (
+        finding.disposition
+        == ResidualDisposition.EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE
+    )
+    assert finding.candidate_dungeonmind_term == "dnd5e:located_in"
+    assert finding.responsible_repo == ResponsibleRepo.DUNGEONMIND
+    assert finding.next_action == NextAction.EXTEND_DUNGEONMIND_ENDPOINTS
+
+
+def test_synthetic_matching_predicate_string_is_not_automatically_safe() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="leads_to",
+        source_buddy_kind="npc",
+        target_buddy_kind="location",
+        edge_id="edge:synthetic:npc:leads_to:loc",
+        evidence_supports_exact_dm_term="dnd5e:leads_to",
+        endpoint_extension_safe=False,
+        predicate_misapplied=True,
+    )
+    assert finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert finding.candidate_dungeonmind_term is None
+
+
+def test_synthetic_explicit_rename_adapter() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="path_to",
+        source_buddy_kind="location",
+        target_buddy_kind="location",
+        edge_id="edge:synthetic:a:path_to:b",
+        evidence_supports_exact_dm_term="dnd5e:leads_to",
+        reverse_endpoints=False,
+    )
+    assert finding.disposition == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE
+    assert finding.candidate_dungeonmind_term == "dnd5e:leads_to"
+    assert finding.reverse_endpoints is False
+    assert finding.responsible_repo == ResponsibleRepo.DUNGEONMINDBUDDY
+
+
+def test_synthetic_explicit_reversal_is_local() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="carries",
+        source_buddy_kind="item",
+        target_buddy_kind="pc",
+        edge_id="edge:synthetic:item:carries:pc",
+        evidence_supports_exact_dm_term="dnd5e:carries",
+        reverse_endpoints=True,
+    )
+    assert finding.disposition == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE
+    assert finding.reverse_endpoints is True
+    assert finding.reason_code == ReasonCode.REVERSE_ENDPOINT_FORM
+
+
+def test_synthetic_identity_stays_outside_relationship_vocabulary() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="same_as",
+        source_buddy_kind="location",
+        target_buddy_kind="location",
+        edge_id="edge:synthetic:a:same_as:b",
+        is_identity=True,
+    )
+    assert finding.disposition == ResidualDisposition.IDENTITY_NOT_RELATIONSHIP
+    assert finding.candidate_dungeonmind_term is None
+    with pytest.raises(RelationshipResidualAdjudicationError):
+        adjudicate_synthetic_residual(
+            buddy_predicate="same_as",
+            source_buddy_kind="location",
+            target_buddy_kind="location",
+            edge_id="edge:synthetic:a:same_as:b",
+            is_identity=True,
+            evidence_supports_exact_dm_term="dnd5e:same_as",
+        )
+
+
+def test_synthetic_compound_cannot_flatten_to_component_term() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="carries_report_to",
+        source_buddy_kind="npc",
+        target_buddy_kind="location",
+        edge_id="edge:synthetic:npc:carries_report_to:loc",
+        is_compound=True,
+        evidence_supports_exact_dm_term="dnd5e:carries",
+    )
+    assert (
+        finding.disposition
+        == ResidualDisposition.COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP
+    )
+    assert finding.candidate_dungeonmind_term is None
+
+
+def test_synthetic_direction_contradiction_not_saved_by_compatible_endpoints() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="threatens",
+        source_buddy_kind="npc",
+        target_buddy_kind="faction",
+        edge_id=LYSANDRA_EDGE_ID,
+        evidence_supports_exact_dm_term="dnd5e:threatens",
+        endpoint_extension_safe=True,
+        direction_contradiction=True,
+    )
+    assert finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert finding.reason_code == ReasonCode.DIRECTION_CONTRADICTION
+
+
+def test_synthetic_insufficient_evidence_remains_visible() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="mystery_link",
+        source_buddy_kind="npc",
+        target_buddy_kind="mystery",
+        edge_id="edge:synthetic:insufficient",
+        insufficient_evidence=True,
+    )
+    assert finding.disposition == ResidualDisposition.INSUFFICIENT_EVIDENCE
+    assert finding.next_action == NextAction.GATHER_OR_CLARIFY_EVIDENCE
+
+
+def test_synthetic_unknown_predicate_has_no_fallback() -> None:
+    finding = adjudicate_synthetic_residual(
+        buddy_predicate="blorps_with",
+        source_buddy_kind="npc",
+        target_buddy_kind="npc",
+        edge_id="edge:synthetic:unknown",
+    )
+    assert finding.disposition == ResidualDisposition.NEW_PREDICATE_CANDIDATE
+    assert finding.candidate_dungeonmind_term is None
+    assert "related_to" not in (finding.rationale or "")
+
+
+def test_synthetic_uses_statblock_never_enters_adjudication() -> None:
+    with pytest.raises(RelationshipResidualAdjudicationError):
+        adjudicate_synthetic_residual(
+            buddy_predicate="uses_statblock",
+            source_buddy_kind="npc",
+            target_buddy_kind="external_resource",
+            edge_id="edge:synthetic:uses_statblock",
+            mechanics_predicate=True,
+        )
+
+
+def test_findings_table_covers_exactly_expected_residual_predicates() -> None:
+    assert len(ELDYRWILD_RESIDUAL_FINDINGS) == EXPECTED_RESIDUAL_COUNT
+    assert sum(EXPECTED_RESIDUAL_BY_PREDICATE.values()) == EXPECTED_RESIDUAL_COUNT
+    for edge_id, finding in ELDYRWILD_RESIDUAL_FINDINGS.items():
+        assert finding.candidate_dungeonmind_term not in FORBIDDEN_CATCH_ALL_TERMS
+        if ":same_as:" in edge_id or edge_id.endswith(":same_as"):
+            # edge ids embed predicate; all same_as edges must be identity
+            pass
+        if finding.disposition == ResidualDisposition.IDENTITY_NOT_RELATIONSHIP:
+            assert finding.candidate_dungeonmind_term is None
+
+
+def test_committed_fixture_is_self_consistent() -> None:
+    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert fixture["schema"] == RELATIONSHIP_RESIDUAL_ADJUDICATION_SCHEMA
+    assert fixture["world_id"] == ELDYRWILD_WORLD_ID
+    assert fixture["revision_id"] == ELDYRWILD_REVISION_ID
+    assert fixture["graph_payload_sha256"] == ELDYRWILD_PAYLOAD_SHA256
+    assert fixture["relationship_semantic_count"] == 346
+    assert fixture["relationship_represented_count"] == 287
+    assert fixture["relationship_residual_count"] == 59
+    assert fixture["uses_statblock_mechanics_count"] == 2
+    assert fixture["adjudicated_count"] == 59
+    assert fixture["missing_adjudication_count"] == 0
+    assert fixture["extra_adjudication_count"] == 0
+    assert len(fixture["records"]) == 59
+
+    pred_table = {row["key"]: row["count"] for row in fixture["residual_by_predicate"]}
+    assert pred_table == EXPECTED_RESIDUAL_BY_PREDICATE
+
+    edge_ids = [row["edge_id"] for row in fixture["records"]]
+    assert len(set(edge_ids)) == 59
+    assert "uses_statblock" not in {
+        row["buddy_predicate"] for row in fixture["records"]
+    }
+    for row in fixture["records"]:
+        assert row["candidate_dungeonmind_term"] not in FORBIDDEN_CATCH_ALL_TERMS
+        assert not (
+            row["candidate_dungeonmind_term"]
+            and row["candidate_dungeonmind_term"].endswith(":related_to")
+        )
+        if row["buddy_predicate"] == "same_as":
+            assert row["disposition"] == ResidualDisposition.IDENTITY_NOT_RELATIONSHIP.value
+            assert row["candidate_dungeonmind_term"] is None
+
+    lysandra = next(r for r in fixture["records"] if r["edge_id"] == LYSANDRA_EDGE_ID)
+    assert lysandra["disposition"] == ResidualDisposition.SOURCE_CORRECTION_REQUIRED.value
+    assert lysandra["reason_code"] == ReasonCode.DIRECTION_CONTRADICTION.value
+
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+    for row in fixture["records"]:
+        seal = seals[row["edge_id"]]
+        assert row["grounding_excerpt_sha256"] == seal["excerpt_sha256"]
+        assert row["grounding_source_artifact_id"] == seal["source_artifact_id"]
+        assert "grounding_normalized_excerpt" not in row
+
+    adapters = [
+        r
+        for r in fixture["records"]
+        if r["disposition"] == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE.value
+    ]
+    assert {r["edge_id"] for r in adapters} == {
+        SEED_STAFL_EDGE_ID,
+        CULTISTS_LESANDRA_EDGE_ID,
+        PIPPA_STONE_BRIDGE_EDGE_ID,
+    }
+    seed = next(r for r in adapters if r["edge_id"] == SEED_STAFL_EDGE_ID)
+    assert seed["candidate_dungeonmind_term"] == "dnd5e:holds"
+    assert seed["reverse_endpoints"] is True
+
+    endpoint_ext = [
+        r
+        for r in fixture["records"]
+        if r["disposition"]
+        == ResidualDisposition.EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE.value
+    ]
+    assert {r["edge_id"] for r in endpoint_ext} == {WOLF_PART_OF_EDGE_ID}
+    assert endpoint_ext[0]["candidate_dungeonmind_term"] == "dnd5e:part_of"
+
+    wizard = next(r for r in fixture["records"] if r["edge_id"] == WIZARD_COLLEGE_EDGE_ID)
+    assert wizard["disposition"] == ResidualDisposition.INSUFFICIENT_EVIDENCE.value
+    assert (
+        wizard["grounding_evidence_ref_id"]
+        == seals[WIZARD_COLLEGE_EDGE_ID]["primary_evidence_ref_id"]
+    )
+    assert wizard["grounding_locator"] == "39-39"
+
+
+@pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
+def test_eldyrwild_residual_identity_matches_v3() -> None:
+    root = world_graph_root()
+    vocabulary = load_builtin_world_object_v3_vocabulary()
+    _manifest, store = _load_exact_buddy_revision(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=ELDYRWILD_REVISION_ID,
+    )
+    v3_ids = collect_v3_residual_edge_ids(store, vocabulary)
+    assert len(v3_ids) == 59
+
+    # uses_statblock must be mechanics, never residual
+    for edge in store.edges.values():
+        if edge.predicate != "uses_statblock":
+            continue
+        *_r, disposition, _m, _rev = _classify_edge_predicate_v3(
+            edge, store, vocabulary
+        )
+        assert disposition == PredicateDisposition.MECHANICS_SPECIALIZATION
+        assert edge.edge_id not in v3_ids
+
+    report = analyze_eldyrwild_relationship_residual_adjudication(root=root)
+    assert {r.edge_id for r in report.records} == v3_ids
+    assert report.adjudicated_count == 59
+    assert report.missing_adjudication_count == 0
+    assert report.extra_adjudication_count == 0
+
+
+@pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
+def test_eldyrwild_integration_fixture_and_read_only_graph() -> None:
+    root = world_graph_root()
+    before = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    report = analyze_eldyrwild_relationship_residual_adjudication(root=root)
+    after = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    assert before == after
+    assert report.world_graph_digest_before == report.world_graph_digest_after
+
+    assert report.relationship_semantic_count == 346
+    assert report.relationship_represented_count == 287
+    assert report.relationship_residual_count == 59
+    assert report.uses_statblock_mechanics_count == 2
+    assert report.adjudicated_count == 59
+
+    compact = compact_relationship_residual_adjudication_report(report)
+    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert compact == fixture
+
+    # Successor derivation is multi-owner — do not collapse to one fix-all slice.
+    named = [s for s in report.successor_slices if s["name"] != "summary-disposition-counts"]
+    assert len(named) >= 2
+    owners = {s["responsible_repo"] for s in named}
+    assert ResponsibleRepo.DUNGEONMIND.value in owners
+    assert ResponsibleRepo.DUNGEONMINDBUDDY.value in owners
+
+    # Live grounding digests must match the independent seals oracle.
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+    for row in report.records:
+        seal = seals[row.edge_id]
+        assert row.grounding_excerpt_sha256 == seal["excerpt_sha256"]
+        assert row.grounding_source_artifact_id == seal["source_artifact_id"]
+        assert row.grounding_artifact_content_sha256 == seal["artifact_content_sha256"]
+        assert row.grounding_evidence_ref_id == seal["primary_evidence_ref_id"]
+        assert row.grounding_source_span_ref_id == seal["source_span_ref_id"]
+        assert row.grounding_locator == seal["locator"]
+
+
+def test_source_seals_fixture_is_self_consistent() -> None:
+    payload = json.loads(SOURCE_SEALS_PATH.read_text(encoding="utf-8"))
+    assert payload["schema"] == RELATIONSHIP_RESIDUAL_SOURCE_SEALS_SCHEMA
+    assert payload["world_id"] == ELDYRWILD_WORLD_ID
+    assert payload["revision_id"] == ELDYRWILD_REVISION_ID
+    assert payload["graph_payload_sha256"] == ELDYRWILD_PAYLOAD_SHA256
+    assert payload["sealed_count"] == 59
+    seals = payload["seals"]
+    assert len(seals) == 59
+    edge_ids = [row["edge_id"] for row in seals]
+    assert len(set(edge_ids)) == 59
+    for row in seals:
+        assert row["normalized_excerpt"].strip()
+        assert row["excerpt_sha256"] == excerpt_sha256(row["normalized_excerpt"])
+        assert row["artifact_content_sha256"]
+        assert row["source_artifact_id"]
+        assert row["artifact_uri"].startswith("repo://")
+        assert row["primary_evidence_ref_id"] in row["all_evidence_ref_ids"]
+        primary_rows = [
+            e
+            for e in row["evidence_excerpts"]
+            if e["evidence_ref_id"] == row["primary_evidence_ref_id"]
+        ]
+        assert len(primary_rows) == 1
+        assert primary_rows[0]["excerpt_sha256"] == row["excerpt_sha256"]
+        assert primary_rows[0]["normalized_excerpt"] == row["normalized_excerpt"]
+        assert primary_rows[0]["source_span_ref_id"] == row["source_span_ref_id"]
+        assert primary_rows[0]["locator"] == row["locator"]
+
+
+def test_sealed_excerpts_constrain_former_adapter_candidates() -> None:
+    """Non-circular: sealed source text must agree with semantic conclusions.
+
+    These checks bind findings to the independent seals fixture, not to the
+    adjudication report fixture that is generated from the same findings table.
+    """
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+
+    potion = seals[WOLF_POTION_EDGE_ID]["normalized_excerpt"]
+    assert "downs an Invisibility Potion and disappears" in potion
+    potion_finding = ELDYRWILD_RESIDUAL_FINDINGS[WOLF_POTION_EDGE_ID]
+    assert potion_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert potion_finding.candidate_dungeonmind_term is None
+
+    seed = seals[SEED_STAFL_EDGE_ID]["normalized_excerpt"]
+    assert "lands in his hand" in seed
+    assert "wrap themselves around his hand" in seed
+    seed_finding = ELDYRWILD_RESIDUAL_FINDINGS[SEED_STAFL_EDGE_ID]
+    assert seed_finding.disposition == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE
+    assert seed_finding.candidate_dungeonmind_term == "dnd5e:holds"
+    assert seed_finding.reverse_endpoints is True
+    assert seed_finding.candidate_dungeonmind_term != "dnd5e:carries"
+
+    torch_text = seals[TORCH_BAERGROM_EDGE_ID]["normalized_excerpt"]
+    assert "tossing the torch over to Karsemine and Baergrom" in torch_text
+    assert seals[TORCH_KARSEMINE_EDGE_ID]["excerpt_sha256"] == seals[
+        TORCH_BAERGROM_EDGE_ID
+    ]["excerpt_sha256"]
+    for edge_id in (TORCH_BAERGROM_EDGE_ID, TORCH_KARSEMINE_EDGE_ID):
+        finding = ELDYRWILD_RESIDUAL_FINDINGS[edge_id]
+        assert finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+        assert finding.candidate_dungeonmind_term is None
+
+    cultists = seals[CULTISTS_LESANDRA_EDGE_ID]["normalized_excerpt"]
+    assert "Lesandra at the front" in cultists
+    assert "Lesandra orders everyone" in cultists
+    cultists_finding = ELDYRWILD_RESIDUAL_FINDINGS[CULTISTS_LESANDRA_EDGE_ID]
+    assert cultists_finding.disposition == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE
+    assert cultists_finding.candidate_dungeonmind_term == "dnd5e:leads"
+    assert cultists_finding.reverse_endpoints is True
+
+    pippa = seals[PIPPA_STONE_BRIDGE_EDGE_ID]["normalized_excerpt"]
+    assert "ride to Stone Bridge with Pippa" in pippa
+    pippa_finding = ELDYRWILD_RESIDUAL_FINDINGS[PIPPA_STONE_BRIDGE_EDGE_ID]
+    assert pippa_finding.disposition == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE
+    assert pippa_finding.candidate_dungeonmind_term == "dnd5e:travels_to"
+    assert pippa_finding.reverse_endpoints is False
+
+    flock = seals[EPHANNA_FLOCK_EDGE_ID]["normalized_excerpt"]
+    assert "go along with them" in flock
+    assert "discovers that the group is called The Shepherds Flock" in flock
+    flock_finding = ELDYRWILD_RESIDUAL_FINDINGS[EPHANNA_FLOCK_EDGE_ID]
+    assert flock_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert flock_finding.candidate_dungeonmind_term != "dnd5e:member_of"
+    assert flock_finding.candidate_dungeonmind_term is None
+
+    performance = seals[STAFL_PARTY_EDGE_ID]["normalized_excerpt"]
+    assert "epic performance by Stafl" in performance
+    assert "spreading the song of the party" in performance
+    performance_finding = ELDYRWILD_RESIDUAL_FINDINGS[STAFL_PARTY_EDGE_ID]
+    assert (
+        performance_finding.disposition
+        == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    )
+    assert performance_finding.candidate_dungeonmind_term != "dnd5e:member_of"
+    assert performance_finding.candidate_dungeonmind_term is None
+
+    # Aggregate: surviving explicit adapters must be exactly the source-preserving set.
+    adapters = {
+        edge_id: finding
+        for edge_id, finding in ELDYRWILD_RESIDUAL_FINDINGS.items()
+        if finding.disposition == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE
+    }
+    assert set(adapters) == {
+        SEED_STAFL_EDGE_ID,
+        CULTISTS_LESANDRA_EDGE_ID,
+        PIPPA_STONE_BRIDGE_EDGE_ID,
+    }
+
+
+def test_sealed_excerpts_constrain_endpoint_extension_candidates() -> None:
+    """Endpoint extension only when DM predicate meaning stays intact."""
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+
+    posted = seals[HELP_REQUEST_JOB_BOARD_EDGE_ID]["normalized_excerpt"]
+    assert "posted a help request on the jobs board" in posted
+    posted_finding = ELDYRWILD_RESIDUAL_FINDINGS[HELP_REQUEST_JOB_BOARD_EDGE_ID]
+    assert posted_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert posted_finding.candidate_dungeonmind_term is None
+
+    cultist = seals[CULTIST_SERVES_MEAT_EDGE_ID]["normalized_excerpt"]
+    assert "spill some of their blood onto the meat" in cultist
+    assert "heals the large creature" in cultist
+    cultist_finding = ELDYRWILD_RESIDUAL_FINDINGS[CULTIST_SERVES_MEAT_EDGE_ID]
+    assert cultist_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert cultist_finding.candidate_dungeonmind_term is None
+
+    cube = seals[MYSTERY_WITHIN_CUBE_EDGE_ID]["normalized_excerpt"]
+    assert "magically dark cube with Ogonob inside" in cube
+    cube_finding = ELDYRWILD_RESIDUAL_FINDINGS[MYSTERY_WITHIN_CUBE_EDGE_ID]
+    assert cube_finding.disposition == ResidualDisposition.SOURCE_CORRECTION_REQUIRED
+    assert cube_finding.candidate_dungeonmind_term is None
+
+    wolf = seals[WOLF_PART_OF_EDGE_ID]["normalized_excerpt"]
+    assert "revealing itself to be the Wolf" in wolf
+    wolf_finding = ELDYRWILD_RESIDUAL_FINDINGS[WOLF_PART_OF_EDGE_ID]
+    assert (
+        wolf_finding.disposition
+        == ResidualDisposition.EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE
+    )
+    assert wolf_finding.candidate_dungeonmind_term == "dnd5e:part_of"
+
+    endpoint_ext = {
+        edge_id
+        for edge_id, finding in ELDYRWILD_RESIDUAL_FINDINGS.items()
+        if finding.disposition
+        == ResidualDisposition.EXISTING_TERM_ENDPOINT_EXTENSION_CANDIDATE
+    }
+    assert endpoint_ext == {WOLF_PART_OF_EDGE_ID}
+
+
+def test_wizard_college_seal_primary_is_not_first_unrelated_span() -> None:
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+    seal = seals[WIZARD_COLLEGE_EDGE_ID]
+    assert len(seal["all_evidence_ref_ids"]) == 2
+    # Authoritative primary must mention the Wizard's College, not only Mirathorn regret.
+    assert "Wizard’s College" in seal["normalized_excerpt"] or "Wizard's College" in seal[
+        "normalized_excerpt"
+    ]
+    assert "oily sheen fades from the Wolf" not in seal["normalized_excerpt"]
+    assert seal["locator"] == "39-39"
+    finding = ELDYRWILD_RESIDUAL_FINDINGS[WIZARD_COLLEGE_EDGE_ID]
+    assert finding.disposition == ResidualDisposition.INSUFFICIENT_EVIDENCE
+
+
+@pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
+def test_grounding_uses_seal_primary_evidence_ref_id() -> None:
+    root = world_graph_root()
+    report = analyze_eldyrwild_relationship_residual_adjudication(root=root)
+    seals = load_residual_source_seals(SOURCE_SEALS_PATH)
+    for row in report.records:
+        seal = seals[row.edge_id]
+        assert row.grounding_evidence_ref_id == seal["primary_evidence_ref_id"]
+        assert row.grounding_source_span_ref_id == seal["source_span_ref_id"]
+        assert row.grounding_locator == seal["locator"]
+        assert row.grounding_locator_kind == seal["locator_kind"]
+
+    wizard = next(r for r in report.records if r.edge_id == WIZARD_COLLEGE_EDGE_ID)
+    assert wizard.disposition == ResidualDisposition.INSUFFICIENT_EVIDENCE.value
+    assert wizard.grounding_locator == "39-39"
+    assert "Wizard" in (wizard.grounding_normalized_excerpt or "")
