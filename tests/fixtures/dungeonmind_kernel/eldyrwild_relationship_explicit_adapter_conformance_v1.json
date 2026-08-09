@@ -1,0 +1,190 @@
+{
+  "adapter_applied_count": 3,
+  "adapter_candidate_count": 3,
+  "adapter_catalog_schema": "dmb_dungeonmind_relationship_explicit_adapter_catalog_v1",
+  "adapter_failed_count": 0,
+  "base_relationship_represented_count": 291,
+  "base_relationship_residual_count": 55,
+  "base_relationship_semantic_count": 346,
+  "campaign_id": "longmont-c2",
+  "dungeonmind_dependency_ref": "2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4",
+  "dungeonmind_owned_remaining_count": 0,
+  "dungeonmindbuddy_owned_remaining_count": 52,
+  "effective_relationship_represented_count": 294,
+  "effective_relationship_residual_count": 52,
+  "newly_represented_edge_ids": [
+    "edge:item:session17:seed:located_in:pc:stafl",
+    "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by",
+    "edge:node:pippa:leads_to:loc:stone_bridge"
+  ],
+  "remaining_residual_by_predicate": [
+    {
+      "count": 4,
+      "key": "carries"
+    },
+    {
+      "count": 1,
+      "key": "carries_report_to"
+    },
+    {
+      "count": 2,
+      "key": "contains"
+    },
+    {
+      "count": 2,
+      "key": "controls_comms_with"
+    },
+    {
+      "count": 4,
+      "key": "identified_as"
+    },
+    {
+      "count": 2,
+      "key": "leads"
+    },
+    {
+      "count": 4,
+      "key": "leads_to"
+    },
+    {
+      "count": 4,
+      "key": "located_in"
+    },
+    {
+      "count": 1,
+      "key": "member_of"
+    },
+    {
+      "count": 1,
+      "key": "mission_targets"
+    },
+    {
+      "count": 2,
+      "key": "objective_of"
+    },
+    {
+      "count": 2,
+      "key": "part_of"
+    },
+    {
+      "count": 1,
+      "key": "part_of_group"
+    },
+    {
+      "count": 6,
+      "key": "participates_in"
+    },
+    {
+      "count": 1,
+      "key": "present_at"
+    },
+    {
+      "count": 1,
+      "key": "reports_threat_in"
+    },
+    {
+      "count": 1,
+      "key": "routes_to"
+    },
+    {
+      "count": 5,
+      "key": "same_as"
+    },
+    {
+      "count": 3,
+      "key": "serves"
+    },
+    {
+      "count": 1,
+      "key": "threatens"
+    },
+    {
+      "count": 2,
+      "key": "travels_to"
+    },
+    {
+      "count": 2,
+      "key": "within"
+    }
+  ],
+  "remaining_residual_disposition_inventory": [
+    {
+      "count": 10,
+      "key": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP"
+    },
+    {
+      "count": 6,
+      "key": "IDENTITY_NOT_RELATIONSHIP"
+    },
+    {
+      "count": 1,
+      "key": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "count": 35,
+      "key": "SOURCE_CORRECTION_REQUIRED"
+    }
+  ],
+  "remaining_residual_edge_ids": [
+    "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+    "edge:group_session24_refugees_of_edge:part_of:loc_3",
+    "edge:group_session24_refugees_of_edge:part_of_group:mystery_7",
+    "edge:group_the_group:participates_in:location_007",
+    "edge:item-001:located_in:pc:karsemine",
+    "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
+    "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat",
+    "edge:item:session11:paper-bird-summons:present_at:npc_grobnok",
+    "edge:item:session12:invisibility_potion:carries:node:wolf",
+    "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling",
+    "edge:item:torch:carries:pc:baergrom:passed-to",
+    "edge:item:torch:carries:pc:karsemine:passed-to",
+    "edge:item_enormous_boulder:same_as:item_foot_of_statue",
+    "edge:item_glowkindle_help_request:located_in:item_job_board",
+    "edge:item_glowkindle_help_request:mission_targets:group_mercenaries",
+    "edge:item_session2_hidden_alchemy_room:same_as:location_003",
+    "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+    "edge:loc:last_warehouse:same_as:loc:chilled_warehouse",
+    "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+    "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+    "edge:loc:stormspire-academy:objective_of:mystery:session7:glowing_mushrooms",
+    "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance",
+    "edge:loc:wizard_college:within:node:city_mirathorn",
+    "edge:mystery:session7:glowing_mushrooms:leads_to:loc:stormspire-academy",
+    "edge:mystery_1:within:item-001",
+    "edge:node:barin_coppergleam:leads_to:node:guardhouse",
+    "edge:node:berin_ironfoot:carries_report_to:loc:stormspire-academy:sends-meat-sample-for-analysis",
+    "edge:node:cultist:serves:item:session17:centipede_meat_creature",
+    "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain",
+    "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
+    "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+    "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+    "edge:node:pippa:travels_to:node:bubbles",
+    "edge:node:session6_item_dead_horse:serves:pc:ephanna:served-for-ephanna",
+    "edge:node:session6_item_runaway_cart:participates_in:pc:baergrom:stopped-by-baergrom",
+    "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
+    "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+    "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree",
+    "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+    "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms",
+    "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate",
+    "edge:npc_lysandra:leads:pc:caelynn",
+    "edge:npc_lysandra:threatens:node:cultists_of_longmont:is-threatened-by-cultists",
+    "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward",
+    "edge:obj:session9:oil:carries:obj:session9:meat_rack:applied-to",
+    "edge:obj:session9:oil:identified_as:node:wolf",
+    "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language",
+    "edge:pc:bonogo:travels_to:pc:karsemine",
+    "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+    "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso",
+    "edge:pc:ephanna:participates_in:node:shepherds_flock",
+    "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
+  ],
+  "schema_version": "dmb_dungeonmind_relationship_explicit_adapter_conformance_v1",
+  "source_graph_payload_sha256": "346c1fbfb3cbbf6d0e5ded1453fdd7760264a5106022e398d6074679799ab0fa",
+  "source_revision_id": "rev:3413bf6f5044cf2680233f5e37c90dcf",
+  "unadjudicated_remaining_count": 0,
+  "uses_statblock_mechanics_count": 2,
+  "world_id": "eldyrwild",
+  "world_object_vocabulary_revision": "world-object-v4",
+  "world_object_vocabulary_sha256": "552c59a3fa9a20e437294d1a77974c05e37b69ec95e5ea03337a7d010e4d287b"
+}
