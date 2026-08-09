@@ -27,14 +27,22 @@ truth.
 ## Current state
 
 The durable World Graph, Graph Kernel, source and agent contracts, initial
-Eldyrwild Campaign 2 publication, projection engine, and graph-first Hermes
-reads are in place. Surface integration and multi-source expansion continue;
-governed agent writes remain dependent on the accepted human confirmation path.
+Eldyrwild publication, projection engine, graph-first Hermes reads, and the
+human confirm/reload authority path are in place. The current whole-world
+DungeonMind work has advanced from broad compatibility inventory to an exact,
+source-grounded relationship residual ledger with descendant-safe effective
+conformance. The next semantic write gap is assertion-granular correction:
+fixing one adjudicated durable assertion without retiring unrelated assertions
+from the same source contribution. Surface integration, candidate-path cleanup,
+Play migration, and governed agent writes remain separate active or blocked
+workstreams under the Campaign Supergraph tracker.
 
 The current phase status and critical path are maintained in the
 [Campaign Supergraph roadmap](Docs/Roadmaps/ROADMAP-campaign-supergraph.md).
 The [PR tracker](Docs/Plans/PR-TRACKER-campaign-supergraph.md) is the sole
-implementation sequence.
+implementation sequence. For a concise operational snapshot of what is true
+and what remains false, use the
+[World Graph continuity state guide](Docs/Design/STATUS-world-graph-continuity-spine.md).
 
 ## Authority and design-agent sources
 
@@ -44,6 +52,7 @@ authority. Use these documents for current design work:
 - [Campaign Supergraph architecture](Docs/Design/ARCHITECTURE-campaign-supergraph.md)
 - [Campaign Supergraph roadmap](Docs/Roadmaps/ROADMAP-campaign-supergraph.md)
 - [Campaign Supergraph PR tracker](Docs/Plans/PR-TRACKER-campaign-supergraph.md)
+- [World Graph continuity state guide](Docs/Design/STATUS-world-graph-continuity-spine.md)
 - [Shared surface-interaction architecture](Docs/Design/ARCHITECTURE-surface-interaction-layer.md)
 - [Graph document audit](Docs/Reports/graph-document-audit.md)
 - [Design-agent source manifest](Docs/Design/INDEX-design-agent-source-set.md)
@@ -100,4 +109,3 @@ Remote inventory and normalization helpers remain under
 `evals/corpus_remote/`, with the local wrapper at
 `scripts/run_remote_snapshot_from_env.sh`. They support corpus operations;
 they do not define World Supergraph authority or product graph context.
-
