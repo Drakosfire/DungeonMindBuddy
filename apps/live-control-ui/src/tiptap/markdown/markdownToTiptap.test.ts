@@ -319,6 +319,8 @@ describe("markdownToTiptapDoc", () => {
   });
 
   it("fails closed on Session-26 structures owned by the next semantic polish slice", () => {
+    // The AST classifies this as a nested list (line 2) containing a callout
+    // (line 2); both structural diagnostics fire at the container boundary.
     const imported = markdownToTiptapDoc([
       "- Decision forks",
       "  - > [!DECISION-CONSEQUENCE]",
@@ -327,8 +329,8 @@ describe("markdownToTiptapDoc", () => {
       "",
     ].join("\n"));
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 2 }),
-      expect.objectContaining({ level: "warning", line: 3 }),
+      expect.objectContaining({ level: "warning", line: 2, message: "Nested lists are not supported yet." }),
+      expect.objectContaining({ level: "warning", line: 2, message: "Callouts nested in list items are not supported yet." }),
     ]));
   });
 

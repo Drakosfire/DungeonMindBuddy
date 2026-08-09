@@ -8,18 +8,20 @@
  * 1. ADVERSARIAL_CASES — source the bounded editor grammar cannot faithfully
  *    round-trip. Every case here MUST end up behind a blocking (warning)
  *    diagnostic so the source seals instead of flattening into a saveable
- *    lossy projection. `blockedOnMain` records the pre-rescue behavior:
- *    `false` marks a known hole in the handwritten line/regex grammar that
- *    the AST admission boundary (Commits 2–4) must close. When the rescue
- *    lands, every flag in this table flips to `true`.
+ *    lossy projection. `blockedOnMain` is the post-rescue contract: every
+ *    flag is `true`. The `note` field records which cases were holes in the
+ *    pre-rescue handwritten line/regex grammar (PR #529 review cycles) that
+ *    the AST admission boundary closed structurally.
  *
  * 2. PRESERVED_CLEAN_CASES — source that imports cleanly today and MUST stay
  *    clean after the rescue. The rescue changes how structure is recognized,
  *    not which structures are supported. Each case also asserts semantic
  *    model stability across import → serialize → reimport.
  */
+import { normalizeMdast } from "../../test/normalizeMdast";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "./markdownToTiptap";
+import { parseMarkdownAst } from "./parseMarkdownAst";
 
 type AdversarialCase = {
   name: string;
@@ -49,14 +51,14 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   {
     name: "nested callout via doubled quote marker",
     markdown: "> [!GM-NOTE]\n>> [!WARNING]\n>> nested",
-    blockedOnMain: false,
-    note: "hole: inner marker flattens into callout prose; AST blockquote nesting closes it",
+    blockedOnMain: true,
+    note: "was a hole: inner marker flattened into callout prose; AST blockquote nesting closes it",
   },
   {
     name: "table indented 3 spaces",
     markdown: "   | a | b |\n   | --- | --- |\n   | 1 | 2 |",
-    blockedOnMain: false,
-    note: "hole: table branch runs before the indent guard; AST column admission closes it",
+    blockedOnMain: true,
+    note: "was a hole: the table branch ran before the indent guard; AST column admission closes it",
   },
 
   // --- Lists --------------------------------------------------------------
@@ -96,14 +98,14 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   {
     name: "zero-space reference definition",
     markdown: "[rules]:https://example.com/rules",
-    blockedOnMain: false,
-    note: "hole (cycle 6): handwritten recognizer required whitespace after the colon",
+    blockedOnMain: true,
+    note: "was a hole (cycle 6): the handwritten recognizer required whitespace after the colon; the parser owns definitions now",
   },
   {
     name: "split-destination reference definition",
     markdown: "[rules]:\nhttps://example.com/rules",
-    blockedOnMain: false,
-    note: "hole (cycle 6): destination on the next line is legal CommonMark",
+    blockedOnMain: true,
+    note: "was a hole (cycle 6): destination on the next line is legal CommonMark; the parser owns definitions now",
   },
   {
     name: "split-destination reference definition (indented continuation)",
@@ -114,20 +116,20 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   {
     name: "escaped closing bracket in reference label",
     markdown: String.raw`[foo\]]: /url`,
-    blockedOnMain: false,
-    note: "hole (cycle 7): label ends at the first UNescaped ] per CommonMark; no DungeonBuddy regex may own this",
+    blockedOnMain: true,
+    note: "was a hole (cycle 7): label ends at the first UNescaped ] per CommonMark; no DungeonBuddy regex owns this",
   },
   {
     name: "reference definition inside callout",
     markdown: "> [!GM-NOTE]\n> [rules]: https://example.com/rules",
-    blockedOnMain: false,
-    note: "hole (cycle 5): callout continuation path only ran inline checks",
+    blockedOnMain: true,
+    note: "was a hole (cycle 5): the callout continuation path only ran inline checks; callout bodies are parsed now",
   },
   {
     name: "zero-space reference definition inside callout",
     markdown: "> [!GM-NOTE]\n> [rules]:https://example.com/rules",
-    blockedOnMain: false,
-    note: "hole (cycles 5+6 combined)",
+    blockedOnMain: true,
+    note: "was a hole (cycles 5+6 combined)",
   },
   {
     name: "autolink at line start",
@@ -138,26 +140,26 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   {
     name: "autolink mid-paragraph",
     markdown: "See <https://example.com> for detail",
-    blockedOnMain: false,
-    note: "hole: mid-paragraph autolinks escaped every inline regex",
+    blockedOnMain: true,
+    note: "was a hole: mid-paragraph autolinks escaped every inline regex; the parser classifies them as links",
   },
   {
     name: "malformed typed reference",
     markdown: "[label](#dmb-ref:BADTYPE:x)",
-    blockedOnMain: false,
-    note: "tightening: a #dmb- scheme link that fails validation must seal, not silently flatten to text",
+    blockedOnMain: true,
+    note: "tightened: a #dmb- scheme link that fails validation seals instead of silently flattening to text",
   },
   {
     name: "typed reference with link title",
     markdown: "[a](#dmb-ref:npc:lysandro-ironveil \"title\")",
-    blockedOnMain: false,
-    note: "tightening: runbookReference has no title attribute; importing would drop it",
+    blockedOnMain: true,
+    note: "tightened: runbookReference has no title attribute; importing would drop it",
   },
   {
     name: "graph-node reference with link title",
     markdown: "[a](dmb-node:pc_caelynn \"title\")",
-    blockedOnMain: false,
-    note: "tightening: graphNodeReference has no title attribute; importing would drop it",
+    blockedOnMain: true,
+    note: "tightened: graphNodeReference has no title attribute; importing would drop it",
   },
 
   // --- Headings / breaks / HTML -------------------------------------------
@@ -262,13 +264,51 @@ describe("Markdown ingress corpus", () => {
   });
 
   describe("frontmatter diagnostics", () => {
-    it("reports body-relative line numbers for unsafe body nodes (pre-rescue behavior)", () => {
-      // Handoff §7 requires diagnostics to map to ORIGINAL document lines once
-      // the AST boundary lands (frontmatter occupies lines 1-4, so the fenced
-      // code block starts at line 6). The AST commit flips this assertion.
+    it("reports original-document line numbers for unsafe body nodes (handoff §7)", () => {
+      // CRLF frontmatter occupies original lines 1-3, `# Body` is line 4, and
+      // the fenced code block opens at original line 5. Diagnostics must point
+      // at the original document, not the stripped body.
       const markdown = "---\r\ntitle: X\r\n---\r\n# Body\r\n```json\r\n{}\r\n```\r\n";
       const imported = markdownToTiptapDoc(markdown);
-      expect(imported.diagnostics.map((diagnostic) => diagnostic.line)).toEqual([2, 4]);
+      expect(imported.diagnostics.map((diagnostic) => diagnostic.line)).toEqual([5]);
+    });
+  });
+
+  describe("AST semantic equivalence (handoff §18/§19)", () => {
+    it("keeps parse(exported) equivalent to parse(re-exported) for every preserved-clean case", () => {
+      for (const testCase of PRESERVED_CLEAN_CASES) {
+        const exported = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(testCase.markdown).doc);
+        const reexported = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(exported).doc);
+        expect(
+          normalizeMdast(parseMarkdownAst(reexported)),
+          `AST instability after re-export: ${testCase.name}`,
+        ).toEqual(normalizeMdast(parseMarkdownAst(exported)));
+      }
+    });
+
+    it("keeps parse(source) equivalent to parse(exported) for canonical-spelling fixtures", () => {
+      // Fixtures whose source spelling is already serializer-canonical: the
+      // admitted semantic model must survive source → AST → TipTap → Markdown
+      // → AST unchanged (frontmatter fidelity is covered separately).
+      const canonicalFixtures = [
+        "# Heading",
+        "- a\n- b",
+        "1. one\n2. two",
+        "**bold** and *italic* and ~~strike~~ and `code`",
+        "# Before\n\n---\n\n## After",
+        "> [!GM-NOTE]\n> Body text.",
+        "> [!WARNING] Custom label\n> body",
+        "A | B\n--- | ---\n1 | 2",
+        "Talk to [Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil).",
+        "Inspect [Caelynn](dmb-node:pc_caelynn).",
+      ];
+      for (const markdown of canonicalFixtures) {
+        const exported = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(markdown).doc);
+        expect(
+          normalizeMdast(parseMarkdownAst(exported)),
+          `AST drift for canonical fixture: ${JSON.stringify(markdown)}`,
+        ).toEqual(normalizeMdast(parseMarkdownAst(markdown)));
+      }
     });
   });
 });
