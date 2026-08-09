@@ -731,6 +731,36 @@ def _edge_object_id_from_assertion(assertion: GraphContributionAssertion) -> str
     return str(value.get("edge_id") or f"edge:{source_id}:{predicate}:{target_id}")
 
 
+def _edge_endpoints_and_predicate(
+    assertion: GraphContributionAssertion,
+) -> tuple[str, str, str]:
+    value = dict(assertion.value or {})
+    source_id = assertion.subject_node_id or str(value.get("source_node_id") or "")
+    target_id = assertion.target_node_id or str(value.get("target_node_id") or "")
+    predicate = str(assertion.predicate or value.get("predicate") or "related_to")
+    return source_id, target_id, predicate
+
+
+def _replacement_edge_structural_fingerprint_agrees(
+    existing: UnionSupergraphEdge,
+    replacement: GraphContributionAssertion,
+) -> bool:
+    """True when a stored edge already materializes the replacement's structure.
+
+    Ordinary edge apply does not rewrite endpoints/predicate for an existing
+    edge id, so a correction may only reuse an id whose stored fingerprint
+    already matches the replacement assertion.
+    """
+    source_id, target_id, predicate = _edge_endpoints_and_predicate(replacement)
+    edge_id = _edge_object_id_from_assertion(replacement)
+    return (
+        existing.edge_id == edge_id
+        and existing.source_node_id == source_id
+        and existing.target_node_id == target_id
+        and existing.predicate == predicate
+    )
+
+
 def _scopes_unchanged(
     target: GraphContributionAssertion,
     replacement: GraphContributionAssertion,
@@ -741,6 +771,67 @@ def _scopes_unchanged(
         and target.epistemic_kind == replacement.epistemic_kind
         and target.temporal_scope == replacement.temporal_scope
     )
+
+
+def _revision_bound_active_contribution_ids(
+    store: UnionSupergraphStore,
+) -> list[str]:
+    """Ordered active contribution IDs from revision-bound replay authority."""
+    manifest = list(store.contribution_replay_manifest or [])
+    if manifest:
+        ordered: list[str] = []
+        seen: set[str] = set()
+        for entry in manifest:
+            typed = (
+                entry
+                if isinstance(entry, ContributionReplayManifestEntry)
+                else ContributionReplayManifestEntry.model_validate(entry)
+            )
+            if typed.status != "active":
+                continue
+            if typed.contribution_id in seen:
+                continue
+            seen.add(typed.contribution_id)
+            ordered.append(typed.contribution_id)
+        return ordered
+    return list((store.contribution_source_payload_sha256 or {}).keys())
+
+
+def _ensure_correction_index_membership(
+    root: Path,
+    world_id: str,
+    contribution: GraphContribution,
+    *,
+    baseline_revision_id: str | None,
+) -> list[str]:
+    """Repair mutable index/record gaps after a successful correction commit."""
+    diagnostics: list[str] = []
+    try:
+        existing = load_contribution_record(
+            root, world_id, contribution.contribution_id
+        )
+    except FileNotFoundError:
+        existing = contribution.model_copy(update={"status": "active"})
+        write_contribution_record(root, world_id, existing)
+        diagnostics.append("repaired_contribution_record:post_commit_recovery")
+    else:
+        if existing.status != "active":
+            existing = existing.model_copy(update={"status": "active"})
+            write_contribution_record(root, world_id, existing)
+            diagnostics.append(
+                "repaired_contribution_record_status:post_commit_recovery"
+            )
+
+    index = load_contribution_index(root, world_id)
+    if contribution.contribution_id not in index.active_contribution_ids:
+        upsert_and_save_contribution_index(
+            root,
+            world_id,
+            existing,
+            baseline_revision_id=baseline_revision_id or index.baseline_revision_id,
+        )
+        diagnostics.append("repaired_contribution_index:post_commit_recovery")
+    return diagnostics
 
 
 def _validate_edge_assertion_correction_contribution(
@@ -839,6 +930,16 @@ def _validate_edge_assertion_correction_contribution(
             "structural correction must materialize a distinct edge object identity; "
             f"reuse of {target_edge_id!r} is forbidden"
         )
+    existing_replacement = store.edges.get(replacement_edge_id)
+    if existing_replacement is not None and not (
+        _replacement_edge_structural_fingerprint_agrees(
+            existing_replacement, replacement
+        )
+    ):
+        raise ValueError(
+            f"replacement edge_id {replacement_edge_id!r} already exists with a "
+            "different structural fingerprint; collision is forbidden"
+        )
 
     support = _support_map(store)
     target_support = support.get(correction.target_assertion_id)
@@ -921,9 +1022,33 @@ def _active_correction_relations(
     root: Path,
     world_id: str,
 ) -> list[tuple[GraphContribution, GraphContributionAssertionCorrection]]:
+    """Discover active corrections from index and revision-bound head authority.
+
+    The mutable contribution index is not the sole discovery mechanism after the
+    commit point: a successful publish stamps the correction into the head
+    replay/digest authority even if a later index write fails.
+    """
     index = load_contribution_index(root, world_id)
-    relations: list[tuple[GraphContribution, GraphContributionAssertionCorrection]] = []
+    candidate_ids: list[str] = []
+    seen: set[str] = set()
     for contribution_id in index.active_contribution_ids:
+        if contribution_id in seen:
+            continue
+        seen.add(contribution_id)
+        candidate_ids.append(contribution_id)
+    try:
+        _head, _revision, store = load_current_world_graph(root, world_id)
+    except WorldGraphNotFoundError:
+        store = None
+    if store is not None:
+        for contribution_id in _revision_bound_active_contribution_ids(store):
+            if contribution_id in seen:
+                continue
+            seen.add(contribution_id)
+            candidate_ids.append(contribution_id)
+
+    relations: list[tuple[GraphContribution, GraphContributionAssertionCorrection]] = []
+    for contribution_id in candidate_ids:
         try:
             contribution = load_contribution_record(root, world_id, contribution_id)
         except FileNotFoundError:
@@ -1043,30 +1168,42 @@ def correct_edge_assertion_support(
         )
 
     index = load_contribution_index(root, world_id)
-    if contribution.contribution_id in index.active_contribution_ids:
-        try:
-            existing = load_contribution_record(
-                root, world_id, contribution.contribution_id
-            )
-        except FileNotFoundError:
-            existing = None
-        if existing is not None and existing.status == "active":
-            if _correction_already_applied(current_store, contribution):
-                diagnostics.append("idempotent_noop:correction_already_applied")
-                return ContributionMergeResult(
-                    world_id=world_id,
-                    parent_revision_id=parent_revision_id,
-                    revision_id=parent_revision_id,
-                    contribution_ids=[contribution.contribution_id],
-                    accepted_assertion_ids=[
-                        a.assertion_id for a in contribution.accepted_assertions
-                    ],
-                    contradicted_assertion_ids=[
-                        c.target_assertion_id for c in contribution.assertion_corrections
-                    ],
-                    diagnostics=diagnostics,
-                    published=False,
+    # After the commit point, revision-bound authority is definitive. Exact retry
+    # must discover an already-applied correction even when the mutable index
+    # lagged or failed to record membership.
+    if _correction_already_applied(current_store, contribution):
+        revision_bound = set(_revision_bound_active_contribution_ids(current_store))
+        digest_bound = set(current_store.contribution_source_payload_sha256 or {})
+        if (
+            contribution.contribution_id in revision_bound
+            or contribution.contribution_id in digest_bound
+            or contribution.contribution_id in index.active_contribution_ids
+        ):
+            diagnostics.extend(
+                _ensure_correction_index_membership(
+                    root,
+                    world_id,
+                    contribution,
+                    baseline_revision_id=(
+                        index.baseline_revision_id or parent_revision_id
+                    ),
                 )
+            )
+            diagnostics.append("idempotent_noop:correction_already_applied")
+            return ContributionMergeResult(
+                world_id=world_id,
+                parent_revision_id=parent_revision_id,
+                revision_id=parent_revision_id,
+                contribution_ids=[contribution.contribution_id],
+                accepted_assertion_ids=[
+                    a.assertion_id for a in contribution.accepted_assertions
+                ],
+                contradicted_assertion_ids=[
+                    c.target_assertion_id for c in contribution.assertion_corrections
+                ],
+                diagnostics=diagnostics,
+                published=False,
+            )
 
     try:
         _validate_edge_assertion_correction_contribution(
@@ -1155,12 +1292,20 @@ def correct_edge_assertion_support(
             published=False,
         )
 
-    upsert_and_save_contribution_index(
-        root,
-        world_id,
-        to_store,
-        baseline_revision_id=index.baseline_revision_id or parent_revision_id,
-    )
+    try:
+        upsert_and_save_contribution_index(
+            root,
+            world_id,
+            to_store,
+            baseline_revision_id=index.baseline_revision_id or parent_revision_id,
+        )
+    except Exception as exc:
+        # Commit point already succeeded; mutable index lag must not rewrite
+        # published truth. Exact retry repairs bookkeeping from revision authority.
+        diagnostics.append(
+            "contribution_index_post_commit_write_failed:"
+            f"{type(exc).__name__}:{exc}"
+        )
 
     return ContributionMergeResult(
         world_id=world_id,
