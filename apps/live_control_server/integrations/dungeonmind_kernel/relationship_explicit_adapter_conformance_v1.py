@@ -21,10 +21,9 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_expli
     RELATIONSHIP_EXPLICIT_ADAPTER_CATALOG_SCHEMA_V1,
     RelationshipExplicitAdapterCatalogV1,
     RelationshipExplicitAdapterIntegrityError,
-    catalog_edge_ids_v1,
     load_eldyrwild_relationship_explicit_adapter_catalog_v1,
     matches_explicit_adapter_domain_v1,
-    resolve_relationship_explicit_adapter_v1,
+    _resolve_relationship_explicit_adapter_with_catalog,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_residual_adjudication import (
     ELDYRWILD_RESIDUAL_FINDINGS,
@@ -141,40 +140,31 @@ def _ownership_for_remaining(
     )
 
 
-def analyze_relationship_explicit_adapter_conformance_v1(
+def _analyze_relationship_explicit_adapter_conformance_with_authorities(
     *,
     root: Path,
     world_id: str,
     revision_id: str,
-    base_report: WholeWorldConformanceReportV4 | None = None,
-    catalog: RelationshipExplicitAdapterCatalogV1 | None = None,
+    base_report: WholeWorldConformanceReportV4,
+    catalog: RelationshipExplicitAdapterCatalogV1,
     world_graph_digest_before: str | None = None,
     world_graph_digest_after: str | None = None,
 ) -> RelationshipExplicitAdapterConformanceReportV1:
-    """Apply the explicit-adapter catalog to a v4 residual set.
+    """Private conformance path with injectable authorities (tests only).
 
-    Translation-only: does not write the World Graph.
+    Production callers must use ``analyze_relationship_explicit_adapter_conformance_v1``,
+    which always derives the live v4 base report and the immutable built-in catalog.
     """
-    report = base_report or analyze_exact_buddy_world_revision_v4(
-        root=root,
-        world_id=world_id,
-        revision_id=revision_id,
-    )
-    payload_sha = report.source_graph_payload_sha256
+    payload_sha = base_report.source_graph_payload_sha256
     adjudication_domain = matches_explicit_adapter_domain_v1(
-        world_id=report.source_world_id,
-        revision_id=report.source_revision_id,
+        world_id=base_report.source_world_id,
+        revision_id=base_report.source_revision_id,
         graph_payload_sha256=payload_sha,
     )
-    loaded_catalog = (
-        catalog
-        if catalog is not None
-        else load_eldyrwild_relationship_explicit_adapter_catalog_v1()
-    )
-    candidate_ids = catalog_edge_ids_v1(loaded_catalog)
+    candidate_ids = [record.edge_id for record in catalog.records]
     candidate_set = set(candidate_ids)
 
-    base_residual = list(report.relationship_residual_edge_ids)
+    base_residual = list(base_report.relationship_residual_edge_ids)
     base_residual_set = set(base_residual)
     vocabulary = load_builtin_world_object_v4_vocabulary()
 
@@ -197,13 +187,13 @@ def analyze_relationship_explicit_adapter_conformance_v1(
                 failed += 1
                 continue
             try:
-                resolved = resolve_relationship_explicit_adapter_v1(
-                    world_id=report.source_world_id,
-                    revision_id=report.source_revision_id,
+                resolved = _resolve_relationship_explicit_adapter_with_catalog(
+                    world_id=base_report.source_world_id,
+                    revision_id=base_report.source_revision_id,
                     graph_payload_sha256=payload_sha,
                     edge=edge,
                     store=store,
-                    catalog=loaded_catalog,
+                    catalog=catalog,
                     vocabulary=vocabulary,
                 )
             except RelationshipExplicitAdapterIntegrityError:
@@ -254,30 +244,30 @@ def analyze_relationship_explicit_adapter_conformance_v1(
             )
 
     effective_represented = (
-        report.relationship_represented_count + len(newly_represented)
+        base_report.relationship_represented_count + len(newly_represented)
     )
     effective_residual = len(remaining)
-    if effective_represented + effective_residual != report.relationship_semantic_count:
+    if effective_represented + effective_residual != base_report.relationship_semantic_count:
         raise RelationshipExplicitAdapterConformanceError(
             "effective represented + residual must equal base semantic count: "
             f"{effective_represented}+{effective_residual}!="
-            f"{report.relationship_semantic_count}"
+            f"{base_report.relationship_semantic_count}"
         )
 
     return RelationshipExplicitAdapterConformanceReportV1(
         schema_version=RELATIONSHIP_EXPLICIT_ADAPTER_CONFORMANCE_SCHEMA_V1,
-        world_id=report.source_world_id,
-        campaign_id=report.source_campaign_id,
-        source_revision_id=report.source_revision_id,
+        world_id=base_report.source_world_id,
+        campaign_id=base_report.source_campaign_id,
+        source_revision_id=base_report.source_revision_id,
         source_graph_payload_sha256=payload_sha,
         dungeonmind_dependency_ref=_DUNGEONMIND_DEPENDENCY_REF_V4,
         world_object_vocabulary_revision=vocabulary.vocabulary_revision,
         world_object_vocabulary_sha256=vocabulary_sha256(vocabulary),
         adapter_catalog_schema=RELATIONSHIP_EXPLICIT_ADAPTER_CATALOG_SCHEMA_V1,
-        base_relationship_semantic_count=report.relationship_semantic_count,
-        base_relationship_represented_count=report.relationship_represented_count,
-        base_relationship_residual_count=report.relationship_residual_count,
-        uses_statblock_mechanics_count=report.uses_statblock_mechanics_count,
+        base_relationship_semantic_count=base_report.relationship_semantic_count,
+        base_relationship_represented_count=base_report.relationship_represented_count,
+        base_relationship_residual_count=base_report.relationship_residual_count,
+        uses_statblock_mechanics_count=base_report.uses_statblock_mechanics_count,
         adapter_candidate_count=len(candidate_ids),
         adapter_applied_count=len(newly_represented),
         adapter_failed_count=failed,
@@ -290,6 +280,35 @@ def analyze_relationship_explicit_adapter_conformance_v1(
         dungeonmind_owned_remaining_count=dm_owned,
         dungeonmindbuddy_owned_remaining_count=buddy_owned,
         unadjudicated_remaining_count=unadjudicated,
+        world_graph_digest_before=world_graph_digest_before,
+        world_graph_digest_after=world_graph_digest_after,
+    )
+
+
+def analyze_relationship_explicit_adapter_conformance_v1(
+    *,
+    root: Path,
+    world_id: str,
+    revision_id: str,
+    world_graph_digest_before: str | None = None,
+    world_graph_digest_after: str | None = None,
+) -> RelationshipExplicitAdapterConformanceReportV1:
+    """Apply the immutable built-in adapter catalog to a freshly derived v4 report.
+
+    Translation-only: does not write the World Graph. Caller-supplied catalogs and
+    base reports are intentionally not accepted.
+    """
+    base_report = analyze_exact_buddy_world_revision_v4(
+        root=root,
+        world_id=world_id,
+        revision_id=revision_id,
+    )
+    return _analyze_relationship_explicit_adapter_conformance_with_authorities(
+        root=root,
+        world_id=world_id,
+        revision_id=revision_id,
+        base_report=base_report,
+        catalog=load_eldyrwild_relationship_explicit_adapter_catalog_v1(),
         world_graph_digest_before=world_graph_digest_before,
         world_graph_digest_after=world_graph_digest_after,
     )

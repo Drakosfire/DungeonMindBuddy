@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ import graph_memory.kernel as kernel
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_explicit_adapter_conformance_v1 import (
     RELATIONSHIP_EXPLICIT_ADAPTER_CONFORMANCE_SCHEMA_V1,
+    _analyze_relationship_explicit_adapter_conformance_with_authorities,
     analyze_relationship_explicit_adapter_conformance_v1,
     compact_relationship_explicit_adapter_conformance_report_v1,
     derive_adjudication_explicit_adapter_edge_ids,
@@ -19,7 +21,10 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_expli
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_explicit_adapters_v1 import (
     RELATIONSHIP_EXPLICIT_ADAPTER_CATALOG_SCHEMA_V1,
+    RelationshipExplicitAdapterCatalogV1,
     RelationshipExplicitAdapterIntegrityError,
+    RelationshipExplicitAdapterV1,
+    _resolve_relationship_explicit_adapter_with_catalog,
     load_eldyrwild_relationship_explicit_adapter_catalog_v1,
     matches_explicit_adapter_domain_v1,
     resolve_relationship_explicit_adapter_v1,
@@ -221,7 +226,6 @@ def test_catalog_identity_matches_adjudication_oracle() -> None:
 
 
 def test_seed_adapter_reverses_to_holds() -> None:
-    catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     store = _store_with_nodes(
         {"item:session17:seed": "item", "pc:stafl": "pc"}
     )
@@ -237,7 +241,6 @@ def test_seed_adapter_reverses_to_holds() -> None:
         graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
         edge=edge,
         store=store,
-        catalog=catalog,
     )
     assert resolved is not None
     assert resolved.dungeonmind_term == "dnd5e:holds"
@@ -249,7 +252,6 @@ def test_seed_adapter_reverses_to_holds() -> None:
 
 
 def test_lesandra_adapter_reverses_to_leads() -> None:
-    catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     store = _store_with_nodes(
         {
             "node:cultists_of_longmont": "faction",
@@ -268,7 +270,6 @@ def test_lesandra_adapter_reverses_to_leads() -> None:
         graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
         edge=edge,
         store=store,
-        catalog=catalog,
     )
     assert resolved is not None
     assert resolved.dungeonmind_term == "dnd5e:leads"
@@ -280,7 +281,6 @@ def test_lesandra_adapter_reverses_to_leads() -> None:
 
 
 def test_pippa_adapter_renames_to_travels_to() -> None:
-    catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     store = _store_with_nodes(
         {"node:pippa": "npc", "loc:stone_bridge": "location"}
     )
@@ -296,7 +296,6 @@ def test_pippa_adapter_renames_to_travels_to() -> None:
         graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
         edge=edge,
         store=store,
-        catalog=catalog,
     )
     assert resolved is not None
     assert resolved.dungeonmind_term == "dnd5e:travels_to"
@@ -308,7 +307,6 @@ def test_pippa_adapter_renames_to_travels_to() -> None:
 
 
 def test_different_edge_id_same_predicate_does_not_adapt() -> None:
-    catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     store = _store_with_nodes({"item:other": "item", "pc:other": "pc"})
     edge = _edge(
         edge_id="edge:item:other:located_in:pc:other",
@@ -323,7 +321,6 @@ def test_different_edge_id_same_predicate_does_not_adapt() -> None:
             graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
             edge=edge,
             store=store,
-            catalog=catalog,
         )
         is None
     )
@@ -340,7 +337,6 @@ def test_different_edge_id_same_predicate_does_not_adapt() -> None:
     ],
 )
 def test_catalog_edge_shape_drift_fails_closed(mutate: str) -> None:
-    catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     kinds = {"item:session17:seed": "item", "pc:stafl": "pc"}
     source = "item:session17:seed"
     target = "pc:stafl"
@@ -371,12 +367,10 @@ def test_catalog_edge_shape_drift_fails_closed(mutate: str) -> None:
             graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
             edge=edge,
             store=store,
-            catalog=catalog,
         )
 
 
 def test_outside_adjudication_domain_returns_none() -> None:
-    catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     store = _store_with_nodes(
         {"item:session17:seed": "item", "pc:stafl": "pc"}
     )
@@ -393,7 +387,6 @@ def test_outside_adjudication_domain_returns_none() -> None:
             graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
             edge=edge,
             store=store,
-            catalog=catalog,
         )
         is None
     )
@@ -455,7 +448,6 @@ def test_synthetic_same_predicate_edges_do_not_inherit_adapters(
         for row in report.relationship_predicate_inventory
     )
     # Adapter resolver itself returns None outside Eldyrwild domain.
-    catalog = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
     store = _store_with_nodes(
         {"item:a": "item", "pc:a": "pc", "faction:a": "faction", "npc:a": "npc", "loc:a": "location"}
     )
@@ -476,7 +468,6 @@ def test_synthetic_same_predicate_edges_do_not_inherit_adapters(
                     predicate=pred,
                 ),
                 store=store,
-                catalog=catalog,
             )
             is None
         )
@@ -494,6 +485,150 @@ def test_no_forbidden_generic_adapter_behavior() -> None:
             record.dungeonmind_term
             != f"dnd5e:{record.expected_buddy_predicate}"
         )
+
+
+def test_public_apis_reject_caller_supplied_semantic_authority() -> None:
+    """Governed seams must not accept injectable catalogs/base reports/vocabularies."""
+    resolve_params = set(inspect.signature(resolve_relationship_explicit_adapter_v1).parameters)
+    analyze_params = set(
+        inspect.signature(analyze_relationship_explicit_adapter_conformance_v1).parameters
+    )
+    assert "catalog" not in resolve_params
+    assert "vocabulary" not in resolve_params
+    assert "catalog" not in analyze_params
+    assert "base_report" not in analyze_params
+
+    store = _store_with_nodes(
+        {"item:session17:seed": "item", "pc:stafl": "pc"}
+    )
+    edge = _edge(
+        edge_id="edge:item:session17:seed:located_in:pc:stafl",
+        source_node_id="item:session17:seed",
+        target_node_id="pc:stafl",
+        predicate="located_in",
+    )
+    with pytest.raises(TypeError):
+        resolve_relationship_explicit_adapter_v1(  # type: ignore[call-arg]
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=ELDYRWILD_REVISION_ID,
+            graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
+            edge=edge,
+            store=store,
+            catalog=load_eldyrwild_relationship_explicit_adapter_catalog_v1(),
+        )
+
+
+def test_injected_source_correction_catalog_cannot_shrink_residuals_via_public_api() -> None:
+    """A SOURCE_CORRECTION_REQUIRED edge must not become 'represented' via injected catalog.
+
+    Private helpers can demonstrate the old escape hatch; the public conformance
+    seam must ignore caller catalogs and keep the governed 52 residual ledger.
+    """
+    poison_edge_id = "edge:item-001:located_in:pc:karsemine"
+    adj = _adjudication_record(poison_edge_id)
+    assert adj["disposition"] == "SOURCE_CORRECTION_REQUIRED"
+
+    builtin = load_eldyrwild_relationship_explicit_adapter_catalog_v1()
+    poison_row = RelationshipExplicitAdapterV1(
+        edge_id=poison_edge_id,
+        expected_buddy_predicate=adj["buddy_predicate"],
+        expected_source_node_id=adj["source_node_id"],
+        expected_source_buddy_kind=adj["source_buddy_kind"],
+        expected_target_node_id=adj["target_node_id"],
+        expected_target_buddy_kind=adj["target_buddy_kind"],
+        dungeonmind_term="dnd5e:holds",
+        reverse_endpoints=True,
+        adjudication_disposition="EXPLICIT_ADAPTER_CANDIDATE",
+        adjudication_reason_code="REVERSE_ENDPOINT_FORM",
+        requires_source_mutation=False,
+    )
+    poisoned_catalog = RelationshipExplicitAdapterCatalogV1(
+        schema_version=builtin.schema_version,
+        world_id=builtin.world_id,
+        campaign_id=builtin.campaign_id,
+        source_revision_id=builtin.source_revision_id,
+        source_graph_payload_sha256=builtin.source_graph_payload_sha256,
+        adjudication_schema=builtin.adjudication_schema,
+        records=[*builtin.records, poison_row],
+    )
+
+    # Private path would apply the poison (documents why injection is not public).
+    store = _store_with_nodes(
+        {
+            adj["source_node_id"]: adj["source_buddy_kind"],
+            adj["target_node_id"]: adj["target_buddy_kind"],
+        }
+    )
+    poison_edge = _edge(
+        edge_id=poison_edge_id,
+        source_node_id=adj["source_node_id"],
+        target_node_id=adj["target_node_id"],
+        predicate=adj["buddy_predicate"],
+    )
+    private_resolved = _resolve_relationship_explicit_adapter_with_catalog(
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=ELDYRWILD_REVISION_ID,
+        graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
+        edge=poison_edge,
+        store=store,
+        catalog=poisoned_catalog,
+    )
+    assert private_resolved is not None
+    assert private_resolved.dungeonmind_term == "dnd5e:holds"
+
+    # Public resolver never sees the poison row.
+    assert (
+        resolve_relationship_explicit_adapter_v1(
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=ELDYRWILD_REVISION_ID,
+            graph_payload_sha256=ELDYRWILD_PAYLOAD_SHA256,
+            edge=poison_edge,
+            store=store,
+        )
+        is None
+    )
+
+    root = world_graph_root()
+    world_root = (root / "graph_memory" / "worlds" / ELDYRWILD_WORLD_ID).resolve()
+    if not world_root.exists():
+        world_root = (root / "worlds" / ELDYRWILD_WORLD_ID).resolve()
+    if not world_root.exists():
+        pytest.skip("Eldyrwild world graph not present")
+
+    with pytest.raises(TypeError):
+        analyze_relationship_explicit_adapter_conformance_v1(  # type: ignore[call-arg]
+            root=root,
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=ELDYRWILD_REVISION_ID,
+            catalog=poisoned_catalog,
+        )
+
+    public_report = analyze_relationship_explicit_adapter_conformance_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=ELDYRWILD_REVISION_ID,
+    )
+    assert public_report.adapter_applied_count == 3
+    assert public_report.effective_relationship_residual_count == 52
+    assert poison_edge_id in public_report.remaining_residual_edge_ids
+    assert poison_edge_id not in public_report.newly_represented_edge_ids
+
+    # Confirm the private analyzer would have shrunk below 52 if trusted.
+    v4 = analyze_exact_buddy_world_revision_v4(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=ELDYRWILD_REVISION_ID,
+    )
+    poisoned_report = _analyze_relationship_explicit_adapter_conformance_with_authorities(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=ELDYRWILD_REVISION_ID,
+        base_report=v4,
+        catalog=poisoned_catalog,
+    )
+    assert poisoned_report.adapter_applied_count == 4
+    assert poisoned_report.effective_relationship_residual_count == 51
+    assert poison_edge_id in poisoned_report.newly_represented_edge_ids
 
 
 def test_committed_adapter_conformance_fixture_is_durable_regression_contract() -> None:
@@ -581,7 +716,6 @@ def test_eldyrwild_adapter_conformance_when_present() -> None:
         root=root,
         world_id=ELDYRWILD_WORLD_ID,
         revision_id=ELDYRWILD_REVISION_ID,
-        base_report=v4,
         world_graph_digest_before=before,
         world_graph_digest_after=snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID),
     )

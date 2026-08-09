@@ -320,20 +320,20 @@ def _assert_shape_matches_catalog(
         )
 
 
-def resolve_relationship_explicit_adapter_v1(
+def _resolve_relationship_explicit_adapter_with_catalog(
     *,
     world_id: str,
     revision_id: str,
     graph_payload_sha256: str,
     edge: UnionSupergraphEdge,
     store: UnionSupergraphStore,
-    catalog: RelationshipExplicitAdapterCatalogV1 | None = None,
+    catalog: RelationshipExplicitAdapterCatalogV1,
     vocabulary: Any | None = None,
 ) -> ResolvedRelationshipExplicitAdapterV1 | None:
-    """Resolve a catalog-bound explicit adapter, or ``None`` outside domain/catalog.
+    """Private resolver allowing catalog injection for unit tests only.
 
-    Raises ``RelationshipExplicitAdapterIntegrityError`` when the edge ID is in
-    the catalog but the durable shape drifted, or when endpoints are not admitted.
+    Production callers must use ``resolve_relationship_explicit_adapter_v1``,
+    which always binds the immutable built-in catalog and ``world-object-v4``.
     """
     if not matches_explicit_adapter_domain_v1(
         world_id=world_id,
@@ -342,8 +342,7 @@ def resolve_relationship_explicit_adapter_v1(
     ):
         return None
 
-    loaded = catalog if catalog is not None else load_eldyrwild_relationship_explicit_adapter_catalog_v1()
-    by_id = {record.edge_id: record for record in loaded.records}
+    by_id = {record.edge_id: record for record in catalog.records}
     record = by_id.get(edge.edge_id)
     if record is None:
         return None
@@ -351,15 +350,15 @@ def resolve_relationship_explicit_adapter_v1(
     _assert_shape_matches_catalog(record, edge=edge, store=store)
     validate_explicit_adapter_catalog_endpoints_v1(
         RelationshipExplicitAdapterCatalogV1(
-            schema_version=loaded.schema_version,
-            world_id=loaded.world_id,
-            campaign_id=loaded.campaign_id,
-            source_revision_id=loaded.source_revision_id,
-            source_graph_payload_sha256=loaded.source_graph_payload_sha256,
-            adjudication_schema=loaded.adjudication_schema,
+            schema_version=catalog.schema_version,
+            world_id=catalog.world_id,
+            campaign_id=catalog.campaign_id,
+            source_revision_id=catalog.source_revision_id,
+            source_graph_payload_sha256=catalog.source_graph_payload_sha256,
+            adjudication_schema=catalog.adjudication_schema,
             records=[record],
         ),
-        vocabulary=vocabulary,
+        vocabulary=vocabulary if vocabulary is not None else load_builtin_world_object_v4_vocabulary(),
     )
 
     if record.reverse_endpoints:
@@ -390,8 +389,34 @@ def resolve_relationship_explicit_adapter_v1(
     )
 
 
-def catalog_edge_ids_v1(
-    catalog: RelationshipExplicitAdapterCatalogV1 | None = None,
-) -> list[str]:
-    loaded = catalog if catalog is not None else load_eldyrwild_relationship_explicit_adapter_catalog_v1()
-    return [record.edge_id for record in loaded.records]
+def resolve_relationship_explicit_adapter_v1(
+    *,
+    world_id: str,
+    revision_id: str,
+    graph_payload_sha256: str,
+    edge: UnionSupergraphEdge,
+    store: UnionSupergraphStore,
+) -> ResolvedRelationshipExplicitAdapterV1 | None:
+    """Resolve against the immutable built-in Eldyrwild adapter catalog.
+
+    Raises ``RelationshipExplicitAdapterIntegrityError`` when the edge ID is in
+    the catalog but the durable shape drifted, or when endpoints are not admitted.
+    Caller-supplied catalogs/vocabularies are intentionally not accepted.
+    """
+    return _resolve_relationship_explicit_adapter_with_catalog(
+        world_id=world_id,
+        revision_id=revision_id,
+        graph_payload_sha256=graph_payload_sha256,
+        edge=edge,
+        store=store,
+        catalog=load_eldyrwild_relationship_explicit_adapter_catalog_v1(),
+        vocabulary=load_builtin_world_object_v4_vocabulary(),
+    )
+
+
+def catalog_edge_ids_v1() -> list[str]:
+    """Edge IDs from the immutable built-in explicit-adapter catalog."""
+    return [
+        record.edge_id
+        for record in load_eldyrwild_relationship_explicit_adapter_catalog_v1().records
+    ]
