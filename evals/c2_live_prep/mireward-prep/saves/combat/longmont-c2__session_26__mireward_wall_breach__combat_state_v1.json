@@ -318,6 +318,40 @@
         "graphNodeId": "",
         "statblockId": "",
         "revisionId": ""
+      },
+      {
+        "id": "town-guard-a",
+        "name": "Town Guard A",
+        "team": "ally",
+        "order": 18,
+        "init": "",
+        "ac": "16",
+        "hp": 11,
+        "maxHp": 11,
+        "delta": "",
+        "notes": "Basic town guard · wall / breach response · spear + shield; follow Lysandra or a clear PC order.",
+        "defeated": false,
+        "statblockPath": "mireward_town_guard_group",
+        "graphNodeId": "",
+        "statblockId": "",
+        "revisionId": ""
+      },
+      {
+        "id": "town-guard-b",
+        "name": "Town Guard B",
+        "team": "ally",
+        "order": 19,
+        "init": "",
+        "ac": "16",
+        "hp": 11,
+        "maxHp": 11,
+        "delta": "",
+        "notes": "Basic town guard · wall / breach response · spear + shield; follow Lysandra or a clear PC order.",
+        "defeated": false,
+        "statblockPath": "mireward_town_guard_group",
+        "graphNodeId": "",
+        "statblockId": "",
+        "revisionId": ""
       }
     ]
   }

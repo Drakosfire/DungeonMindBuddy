@@ -3151,6 +3151,9 @@
   const LATCHLING_DEFAULT_NOTES =
     "Wall spill / under-breach · provisional HP/AC — graph threat:authored:d16d43d376833e38caf46dd19b1dd17f (Mireward Latchling).";
 
+  const TOWN_GUARD_DEFAULT_NOTES =
+    "Basic town guard · wall / breach response · spear + shield; follow Lysandra or a clear PC order.";
+
   /** Session 26 cold open — Mireward wall breach (replaces Session 22/23 north-gate wave-1). */
   const COMBAT_DEFAULTS = [
     {
@@ -3316,6 +3319,25 @@
       maxHp: 8,
       defaultAc: 10,
       defaultNotes: MARKED_REFUGEE_DEFAULT_NOTES,
+    },
+    {
+      id: "town-guard-a",
+      name: "Town Guard A",
+      team: "ally",
+      maxHp: 11,
+      defaultAc: 16,
+      defaultNotes: TOWN_GUARD_DEFAULT_NOTES,
+      // Shared non-corpus key so guards auto-group without a broken repo link.
+      statblockPath: "mireward_town_guard_group",
+    },
+    {
+      id: "town-guard-b",
+      name: "Town Guard B",
+      team: "ally",
+      maxHp: 11,
+      defaultAc: 16,
+      defaultNotes: TOWN_GUARD_DEFAULT_NOTES,
+      statblockPath: "mireward_town_guard_group",
     },
   ];
 
