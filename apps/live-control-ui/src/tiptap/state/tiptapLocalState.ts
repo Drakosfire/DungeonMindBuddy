@@ -1,6 +1,9 @@
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
+import { hasBlockingMarkdownImportDiagnostics } from "../markdown/markdownToTiptap";
+import { preserveLeadingYamlFrontmatter } from "../markdown/stripLeadingYamlFrontmatter";
 
-export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v3" as const;
+export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v4" as const;
+const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V3 = "dmb_workspace_document_local_state_v3" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V2 = "dmb_workspace_document_local_state_v2" as const;
 
 export type WorkspaceDocumentLocalKind = "plan" | "runbook" | "worldbuilding_source";
@@ -18,6 +21,12 @@ export interface WorkspaceDocumentLocalState {
   base_content_sha256: string;
   tiptap_json: unknown;
   exported_markdown: string;
+  /**
+   * When true, `exported_markdown` is authoritative source text and must not be
+   * re-derived from `tiptap_json`. Persists across parser upgrades that would
+   * otherwise clear import-blocking diagnostics and reopen a lossy draft.
+   */
+  exported_markdown_authoritative: boolean;
   dirty: boolean;
   created_at: string;
   updated_at: string;
@@ -71,6 +80,46 @@ function migrateV2LocalState(value: Record<string, unknown>): WorkspaceDocumentL
     base_content_sha256: "",
     tiptap_json: value.tiptap_json,
     exported_markdown: value.exported_markdown,
+    exported_markdown_authoritative: hasBlockingMarkdownImportDiagnostics(value.exported_markdown),
+    dirty: value.dirty,
+    created_at: value.created_at,
+    updated_at: value.updated_at,
+    last_local_save_at: value.last_local_save_at,
+  };
+}
+
+function migrateV3LocalState(value: Record<string, unknown>): WorkspaceDocumentLocalState | null {
+  if (value.schema_version !== WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V3) return null;
+  if (typeof value.document_id !== "string") return null;
+  if (typeof value.title !== "string") return null;
+  if (typeof value.campaign_id !== "string") return null;
+  if (!isWorkspaceDocumentLocalKind(value.kind)) return null;
+  if (!(value.target_session === null || typeof value.target_session === "number")) return null;
+  if (!isWorkspaceDocumentLocalSurface(value.surface)) return null;
+  if (typeof value.base_revision !== "number") return null;
+  if (typeof value.base_content_sha256 !== "string") return null;
+  if (!isObject(value.tiptap_json)) return null;
+  if (typeof value.exported_markdown !== "string") return null;
+  if (typeof value.dirty !== "boolean") return null;
+  if (typeof value.created_at !== "string") return null;
+  if (typeof value.updated_at !== "string") return null;
+  if (typeof value.last_local_save_at !== "string") return null;
+
+  return {
+    schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA,
+    document_id: value.document_id,
+    title: value.title,
+    campaign_id: value.campaign_id,
+    kind: value.kind,
+    target_session: value.target_session,
+    surface: value.surface,
+    base_revision: value.base_revision,
+    base_content_sha256: value.base_content_sha256,
+    tiptap_json: value.tiptap_json,
+    exported_markdown: value.exported_markdown,
+    // Seal authority from the diagnostics at migration time so a later parser
+    // upgrade cannot flip the guard and re-derive from lossy TipTap JSON.
+    exported_markdown_authoritative: hasBlockingMarkdownImportDiagnostics(value.exported_markdown),
     dirty: value.dirty,
     created_at: value.created_at,
     updated_at: value.updated_at,
@@ -103,6 +152,7 @@ export function buildInitialWorkspaceDocumentLocalState(args: {
     base_content_sha256: args.baseContentSha256,
     tiptap_json: args.starterContent,
     exported_markdown: tiptapJsonToSemanticMarkdown(args.starterContent),
+    exported_markdown_authoritative: false,
     dirty: false,
     created_at: now,
     updated_at: now,
@@ -152,6 +202,7 @@ export function isWorkspaceDocumentLocalState(value: unknown): value is Workspac
     && typeof value.base_content_sha256 === "string"
     && isObject(value.tiptap_json)
     && typeof value.exported_markdown === "string"
+    && typeof value.exported_markdown_authoritative === "boolean"
     && typeof value.dirty === "boolean"
     && typeof value.created_at === "string"
     && typeof value.updated_at === "string"
@@ -165,9 +216,17 @@ export const isTiptapWorkingBoardState = isWorkspaceDocumentLocalState;
 function deriveWorkspaceDocumentMarkdown(
   state: WorkspaceDocumentLocalState,
 ): WorkspaceDocumentLocalState {
+  // Persisted authority bit — not live parser diagnostics — gates re-derivation.
+  // A polish upgrade that learns previously unsupported syntax must not regenerate
+  // exported_markdown from an older lossy TipTap projection.
+  if (state.exported_markdown_authoritative) {
+    return state;
+  }
+  const editableBody = tiptapJsonToSemanticMarkdown(state.tiptap_json);
   return {
     ...state,
-    exported_markdown: tiptapJsonToSemanticMarkdown(state.tiptap_json),
+    // Keep metadata that intentionally lives outside the TipTap document.
+    exported_markdown: preserveLeadingYamlFrontmatter(state.exported_markdown, editableBody),
   };
 }
 
@@ -176,7 +235,7 @@ function parseStoredWorkspaceDocumentLocalState(parsed: unknown): WorkspaceDocum
     return deriveWorkspaceDocumentMarkdown(parsed);
   }
   if (isObject(parsed)) {
-    const migrated = migrateV2LocalState(parsed);
+    const migrated = migrateV3LocalState(parsed) ?? migrateV2LocalState(parsed);
     if (migrated) return deriveWorkspaceDocumentMarkdown(migrated);
   }
   return null;

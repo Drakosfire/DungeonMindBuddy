@@ -40,14 +40,25 @@ export function useBuildMarkdownCanvasSlots(args?: {
       </>
     ),
     actions: hideFooterSave ? undefined : (
-      <button
-        type="button"
-        data-testid="build-save-button"
-        disabled={session.saveDisabled}
-        onClick={() => void session.saveMarkdown()}
-      >
-        Save
-      </button>
+      <>
+        {session.exportedMarkdownAuthoritative ? (
+          <button
+            type="button"
+            data-testid="build-reimport-authoritative-button"
+            onClick={() => session.reimportFromAuthoritativeMarkdown()}
+          >
+            Re-import from source
+          </button>
+        ) : null}
+        <button
+          type="button"
+          data-testid="build-save-button"
+          disabled={session.saveDisabled}
+          onClick={() => void session.saveMarkdown()}
+        >
+          Save
+        </button>
+      </>
     ),
   };
 }

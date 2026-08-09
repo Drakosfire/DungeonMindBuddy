@@ -1,6 +1,7 @@
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
-import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
 import {
   buildInitialWorkspaceDocumentLocalState,
   type WorkspaceDocumentLocalKind,
@@ -29,16 +30,50 @@ export interface OpenWorkspaceDocumentAuthoringResult {
 
 function chooseEditorContent(args: {
   reconciliation: ReconcileLocalDraftResult;
+  snapshotMarkdown: string;
   emptyMarkdownFallback?: unknown;
-}): { tiptapJson: unknown; exportedMarkdown: string; dirty: boolean } {
-  const { reconciliation } = args;
-  const snapshotMarkdown = reconciliation.markdown;
+}): {
+  tiptapJson: unknown;
+  exportedMarkdown: string;
+  dirty: boolean;
+  exportedMarkdownAuthoritative: boolean;
+} {
+  const { reconciliation, snapshotMarkdown } = args;
 
   if (reconciliation.kind === "dirty-match" && reconciliation.localState) {
+    const localState = reconciliation.localState;
+    if (
+      localState.exported_markdown_authoritative
+      || hasBlockingMarkdownImportDiagnostics(snapshotMarkdown)
+    ) {
+      // Keep local TipTap projection edits; save admission still uses the
+      // authoritative source markdown (fail closed on durable write).
+      return {
+        tiptapJson: localState.tiptap_json,
+        exportedMarkdown: localState.exported_markdown_authoritative
+          ? localState.exported_markdown
+          : snapshotMarkdown,
+        dirty: true,
+        exportedMarkdownAuthoritative: true,
+      };
+    }
+    // Parser upgrades should rehydrate from Markdown when that Markdown is a
+    // lossless representation. If the local TipTap draft contains a structure
+    // this serializer cannot represent, keep the richer local JSON instead of
+    // destroying an unsaved edit during reload.
+    if (semanticMarkdownSerializationDiagnostics(localState.tiptap_json).length > 0) {
+      return {
+        tiptapJson: localState.tiptap_json,
+        exportedMarkdown: localState.exported_markdown,
+        dirty: true,
+        exportedMarkdownAuthoritative: false,
+      };
+    }
     return {
-      tiptapJson: reconciliation.localState.tiptap_json,
-      exportedMarkdown: reconciliation.localState.exported_markdown,
+      tiptapJson: markdownToTiptapDoc(localState.exported_markdown).doc,
+      exportedMarkdown: localState.exported_markdown,
       dirty: true,
+      exportedMarkdownAuthoritative: false,
     };
   }
 
@@ -48,6 +83,7 @@ function chooseEditorContent(args: {
       tiptapJson,
       exportedMarkdown: snapshotMarkdown,
       dirty: false,
+      exportedMarkdownAuthoritative: hasBlockingMarkdownImportDiagnostics(snapshotMarkdown),
     };
   }
 
@@ -57,6 +93,7 @@ function chooseEditorContent(args: {
       tiptapJson: reconciliation.localState.tiptap_json,
       exportedMarkdown: reconciliation.localState.exported_markdown,
       dirty: false,
+      exportedMarkdownAuthoritative: reconciliation.localState.exported_markdown_authoritative,
     };
   }
 
@@ -65,6 +102,7 @@ function chooseEditorContent(args: {
     tiptapJson,
     exportedMarkdown: tiptapJsonToSemanticMarkdown(tiptapJson),
     dirty: false,
+    exportedMarkdownAuthoritative: false,
   };
 }
 
@@ -104,6 +142,7 @@ export function openWorkspaceDocumentAuthoringState(
 
   const chosen = chooseEditorContent({
     reconciliation,
+    snapshotMarkdown: args.snapshot.markdown,
     emptyMarkdownFallback: args.emptyMarkdownFallback,
   });
   const now = new Date().toISOString();
@@ -122,6 +161,7 @@ export function openWorkspaceDocumentAuthoringState(
     }),
     tiptap_json: chosen.tiptapJson,
     exported_markdown: chosen.exportedMarkdown,
+    exported_markdown_authoritative: chosen.exportedMarkdownAuthoritative,
     dirty: chosen.dirty,
     updated_at: now,
     last_local_save_at: now,

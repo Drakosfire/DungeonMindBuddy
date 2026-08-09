@@ -4,12 +4,16 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
 import { CalloutNode } from "./extensions/CalloutNode";
+import { GraphNodeReferenceNode } from "./extensions/GraphNodeReferenceNode";
+import { PLAN_TABLE_EXTENSIONS } from "./extensions/planTableExtensions";
 import { RunbookReferenceNode } from "./extensions/RunbookReferenceNode";
 
 export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
   StarterKit,
   CalloutNode,
+  ...PLAN_TABLE_EXTENSIONS,
   RunbookReferenceNode,
+  GraphNodeReferenceNode,
 ];
 
 const NO_EXTRA_EXTENSIONS: AnyExtension[] = [];

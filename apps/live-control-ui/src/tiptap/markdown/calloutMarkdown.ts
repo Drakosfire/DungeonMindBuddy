@@ -88,8 +88,11 @@ function escapeMarkdownLineStart(line: string): string {
 }
 
 function escapeMarkdownText(text: string): string {
+  // Escape _ and ~ as well as emphasis/link controls. Unmarked TipTap text must
+  // reimport as unmarked text: \_literal\_ / \~\~literal\~\~ stay stable across
+  // import → serialize → reimport (italic/strike emit *…* / ~~…~~, not raw delimiters).
   return text
-    .replace(/[\\`*_[\]()]/g, "\\$&")
+    .replace(/[\\`*_~[\]()]/g, "\\$&")
     .split("\n")
     .map(escapeMarkdownLineStart)
     .join("\n");
@@ -159,6 +162,15 @@ function inlineMarkdown(node: JsonNode): string {
     const href = hasKnownKind ? runbookReferenceHref(attrs) : null;
     return href ? `[${label}](${href})` : label;
   }
+  if (node.type === "graphNodeReference") {
+    const nodeId = typeof node.attrs?.nodeId === "string" ? node.attrs.nodeId : "";
+    const label = escapeMarkdownText(
+      typeof node.attrs?.label === "string" && node.attrs.label.trim()
+        ? node.attrs.label
+        : nodeId,
+    );
+    return nodeId ? `[${label}](dmb-node:${nodeId})` : label;
+  }
   return childNodes(node).map(inlineMarkdown).join("");
 }
 
@@ -175,6 +187,30 @@ function serializeListItem(node: JsonNode, marker: string): string {
   const [first, ...rest] = parts;
   const continuation = rest.length > 0 ? `\n${indentLines(rest.join("\n"), "  ")}` : "";
   return `${marker}${first}${continuation}`;
+}
+
+function serializeTableCell(node: JsonNode): string {
+  const text = childNodes(node)
+    .map((child) => serializeNode(child))
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
+  return text.replace(/\|/g, "\\|");
+}
+
+function serializeTable(node: JsonNode): string {
+  const rows = childNodes(node);
+  if (rows.length === 0) return "";
+
+  const width = Math.max(1, ...rows.map((row) => childNodes(row).length));
+  const serializedRows = rows.map((row) => {
+    const cells = childNodes(row).map(serializeTableCell);
+    while (cells.length < width) cells.push("");
+    return `| ${cells.join(" | ")} |`;
+  });
+  const separator = `| ${Array.from({ length: width }, () => "---").join(" | ")} |`;
+  return [serializedRows[0], separator, ...serializedRows.slice(1)].join("\n");
 }
 
 function serializeCallout(node: JsonNode): string {
@@ -194,6 +230,7 @@ function serializeNode(node: JsonNode): string {
     case "hardBreak":
       return "\n";
     case "runbookReference":
+    case "graphNodeReference":
       return inlineMarkdown(node);
     case "paragraph":
       return childNodes(node).map(inlineMarkdown).join("");
@@ -202,6 +239,8 @@ function serializeNode(node: JsonNode): string {
       const level = Number.isInteger(requestedLevel) ? Math.min(6, Math.max(1, requestedLevel)) : 2;
       return `${"#".repeat(level)} ${childNodes(node).map(inlineMarkdown).join("")}`;
     }
+    case "horizontalRule":
+      return "---";
     case "bulletList":
       return childNodes(node).map((child) => serializeListItem(child, "- ")).join("\n");
     case "orderedList": {
@@ -213,6 +252,12 @@ function serializeNode(node: JsonNode): string {
     }
     case "listItem":
       return childNodes(node).map(serializeNode).filter(Boolean).join("\n");
+    case "table":
+      return serializeTable(node);
+    case "tableRow":
+    case "tableHeader":
+    case "tableCell":
+      return childNodes(node).map(serializeNode).filter(Boolean).join(" ");
     case "callout":
       return serializeCallout(node);
     default: {

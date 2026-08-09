@@ -34,13 +34,39 @@ function normalizedString(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
+/** Undo one CommonMark inline escape pass (`\*` → `*`, `\\` → `\`, …). */
+function unescapeMarkdownInline(text: string): string {
+  return text.replace(/\\([\\`*_{}[\]()#+.!|>~-])/g, "$1");
+}
+
+/**
+ * Heal labels that accumulated runaway backslash escapes across save/load.
+ * Also strips one wrapping emphasis pair because reference chips render the
+ * label semantically rather than as Markdown source.
+ */
+export function healRunbookReferenceLabel(label: string): string {
+  let current = normalizedString(label);
+  for (let pass = 0; pass < 48; pass += 1) {
+    const next = unescapeMarkdownInline(current);
+    if (next === current) break;
+    current = next;
+  }
+  const wrapped =
+    current.match(/^\*\*(.+)\*\*$/)?.[1]
+    ?? current.match(/^__(.+)__$/)?.[1];
+  if (wrapped) {
+    current = normalizedString(wrapped);
+  }
+  return current;
+}
+
 export function normalizeRunbookReferenceAttrs(
   input: Partial<RunbookReferenceAttrs>,
 ): RunbookReferenceAttrs {
   const kind = input.kind === "action" ? "action" : "ref";
   const refType = normalizedString(input.refType);
   const refId = normalizedString(input.refId);
-  const label = normalizedString(input.label) || refId;
+  const label = healRunbookReferenceLabel(normalizedString(input.label) || refId) || refId;
 
   return { kind, refType, refId, label };
 }

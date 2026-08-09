@@ -69,7 +69,6 @@ function loadThreatHoverHydration(
           campaignId: scope.campaignId,
           scopeMode: scope.scopeMode,
           revisionId: scope.revisionId,
-          threatNodeId,
         },
         threatNodeId,
       );

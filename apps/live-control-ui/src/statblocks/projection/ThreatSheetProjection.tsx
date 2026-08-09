@@ -32,7 +32,6 @@ import {
   availableBindingCount,
   buildThreatQueryHydrationRequest,
   buildThreatSheetViewModel,
-  isExactResolvedThreat,
   mapHydrationResultLabelToLoadStatus,
   selectExactThreatHit,
   shouldRenderThreatCampaignSheet,
