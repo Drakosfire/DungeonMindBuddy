@@ -8,6 +8,8 @@ import {
   fixturePlanDocumentDescriptor,
   fixturePlanSessionDescriptor,
   FIXTURE_DOC_ID,
+  planDocumentOptionLabel,
+  planDocumentSelectionSearch,
   suggestedPlanCreatePayload,
   workspaceDocumentStorageKey,
   workspaceRecordToPlanDocumentDescriptor,
@@ -73,5 +75,57 @@ describe("planSessionDescriptor", () => {
   it("provides a reusable fixture session descriptor", () => {
     const sessionDescriptor = fixturePlanSessionDescriptor();
     expect(sessionDescriptor.planningDocument.documentId).toBe(FIXTURE_DOC_ID);
+  });
+});
+
+describe("planDocumentSelectionSearch", () => {
+  const DOC_A = "11111111-1111-4111-8111-111111111111";
+  const DOC_B = "22222222-2222-4222-8222-222222222222";
+
+  it("sets the exact documentId and preserves session + campaigns lens params", () => {
+    const next = planDocumentSelectionSearch(
+      "?session=longmont-c2:25&campaigns=longmont-c1,longmont-c2&documentId=" + DOC_A,
+      DOC_B,
+    );
+    const params = new URLSearchParams(next);
+    expect(params.get("documentId")).toBe(DOC_B);
+    expect(params.get("session")).toBe("longmont-c2:25");
+    expect(params.get("campaigns")).toBe("longmont-c1,longmont-c2");
+  });
+
+  it("preserves unrelated tool/dogfood state across selection", () => {
+    const next = planDocumentSelectionSearch("?dogfood=1&tool=recap&documentId=" + DOC_A, DOC_B);
+    const params = new URLSearchParams(next);
+    expect(params.get("documentId")).toBe(DOC_B);
+    expect(params.get("dogfood")).toBe("1");
+    expect(params.get("tool")).toBe("recap");
+  });
+
+  it("adds documentId to a param-less search without inventing other params", () => {
+    const next = planDocumentSelectionSearch("", DOC_B);
+    expect(next).toBe(`?documentId=${DOC_B}`);
+  });
+
+  it("never writes the document title or target session into the search", () => {
+    const next = planDocumentSelectionSearch("?documentId=" + DOC_A, DOC_B);
+    expect(next).not.toContain("Prep");
+    expect(next).not.toContain("session");
+  });
+});
+
+describe("planDocumentOptionLabel", () => {
+  it("uses the human title as the primary label", () => {
+    const record = fixtureWorkspaceDocumentRecord({ title: "C2 Session 23 Prep", target_session: 23 });
+    expect(planDocumentOptionLabel(record)).toBe("C2 Session 23 Prep");
+  });
+
+  it("appends target session only when the title does not already name it", () => {
+    const record = fixtureWorkspaceDocumentRecord({ title: "Gate contingency", target_session: 26 });
+    expect(planDocumentOptionLabel(record)).toBe("Gate contingency · Session 26");
+  });
+
+  it("falls back to an untitled label without exposing the UUID", () => {
+    const record = fixtureWorkspaceDocumentRecord({ title: "  ", target_session: null });
+    expect(planDocumentOptionLabel(record)).toBe("Untitled prep document");
   });
 });
