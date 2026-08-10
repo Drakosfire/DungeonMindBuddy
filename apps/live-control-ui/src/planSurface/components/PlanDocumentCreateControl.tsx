@@ -205,19 +205,27 @@ export function PlanDocumentCreateControl({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     clearSessionCommitTimer();
-    const parsed = parseSessionInput(sessionText) ?? targetSession;
-    setSessionText(String(parsed));
-    if (parsed !== targetSession) {
-      commitSession(parsed);
+    // Commit pending session digits synchronously so Enter-before-debounce
+    // cannot pair a new targetSession with a stale auto title from the last render.
+    const effectiveSession = parseSessionInput(sessionText) ?? targetSession;
+    const effectiveTitle =
+      !titleManuallyEditedRef.current && effectiveSession !== targetSession
+        ? defaultSessionPrepTitle(campaignLabelRef.current, effectiveSession)
+        : title;
+    setSessionText(String(effectiveSession));
+    setTargetSession(effectiveSession);
+    if (effectiveTitle !== title) {
+      setTitle(effectiveTitle);
     }
     if (disabled || creating) return;
-    const trimmed = title.trim();
+    const trimmed = effectiveTitle.trim();
     if (!trimmed) return;
     const sameSessionForSubmit = activeDocuments.filter(
-      (document) => document.targetSession != null && document.targetSession === parsed,
+      (document) =>
+        document.targetSession != null && document.targetSession === effectiveSession,
     );
     if (findConflictingSameSessionTitle(trimmed, sameSessionForSubmit) != null) return;
-    onSubmit({ title: trimmed, targetSession: parsed });
+    onSubmit({ title: trimmed, targetSession: effectiveSession });
   };
 
   const canSubmit = !disabled && !creating && !titleConflicts && Boolean(title.trim());

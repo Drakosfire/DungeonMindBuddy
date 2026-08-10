@@ -171,6 +171,59 @@ describe("PlanDocumentCreateControl", () => {
     });
   });
 
+  it("derives auto title from final session on Enter before debounce commits", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PlanDocumentCreateControl
+        {...baseProps}
+        suggestedSession={27}
+        suggestedTitle="C2 Session 27 Prep"
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.click(screen.getByTestId("plan-document-create-open"));
+    const sessionInput = screen.getByTestId("plan-document-create-session");
+    // Mid-edit digits: debounce has not fired; title state is still Session 27.
+    fireEvent.change(sessionInput, { target: { value: "26" } });
+    expect(screen.getByTestId("plan-document-create-title")).toHaveValue("C2 Session 27 Prep");
+
+    fireEvent.submit(screen.getByTestId("plan-document-create-form"));
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: "C2 Session 26 Prep",
+      targetSession: 26,
+    });
+  });
+
+  it("preserves a manually edited title when submitting before session debounce", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PlanDocumentCreateControl
+        {...baseProps}
+        suggestedSession={27}
+        suggestedTitle="C2 Session 27 Prep"
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.click(screen.getByTestId("plan-document-create-open"));
+    const titleInput = screen.getByTestId("plan-document-create-title");
+    await user.clear(titleInput);
+    await user.type(titleInput, "If the party goes north");
+
+    fireEvent.change(screen.getByTestId("plan-document-create-session"), {
+      target: { value: "26" },
+    });
+    fireEvent.submit(screen.getByTestId("plan-document-create-form"));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: "If the party goes north",
+      targetSession: 26,
+    });
+  });
+
   it("shows create and activation errors with retry open", async () => {
     const onRetryOpen = vi.fn();
     render(
