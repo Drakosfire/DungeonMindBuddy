@@ -820,6 +820,28 @@ def _revision_bound_source_digest(
     return (store.contribution_source_payload_sha256 or {}).get(contribution_id)
 
 
+def _contradiction_active_replay_manifest_entry(
+    store: UnionSupergraphStore,
+    contribution: GraphContribution,
+) -> ContributionReplayManifestEntry | None:
+    """Return C's active replay-manifest entry when it seals the exact payload.
+
+    Contradiction-only already_applied must not treat digest-map or mutable-index
+    membership as revision-bound active authority. A digest proves which payload,
+    not that C was active in that revision.
+    """
+    expected_digest = compute_contribution_source_payload_sha256(contribution)
+    for entry in _revision_bound_replay_manifest_entries(store):
+        if entry.contribution_id != contribution.contribution_id:
+            continue
+        if entry.status != "active":
+            continue
+        if entry.source_payload_sha256 != expected_digest:
+            continue
+        return entry
+    return None
+
+
 def _prewrite_source_bound_authority_gate(
     *,
     root: Path,
@@ -1814,13 +1836,13 @@ def contradict_edge_assertion_support(
 
     index = load_contribution_index(root, world_id)
     if _correction_already_applied(current_store, contribution):
-        revision_bound = set(_revision_bound_active_contribution_ids(current_store))
-        digest_bound = set(current_store.contribution_source_payload_sha256 or {})
-        if (
-            contribution.contribution_id in revision_bound
-            or contribution.contribution_id in digest_bound
-            or contribution.contribution_id in index.active_contribution_ids
-        ):
+        # Contradiction-only retry: require an actual active replay-manifest entry
+        # sealing exact C. Digest-map / mutable-index membership alone is not
+        # revision-bound active authority.
+        manifest_entry = _contradiction_active_replay_manifest_entry(
+            current_store, contribution
+        )
+        if manifest_entry is not None:
             try:
                 diagnostics.extend(
                     _ensure_correction_index_membership(
@@ -1830,9 +1852,7 @@ def contradict_edge_assertion_support(
                         baseline_revision_id=(
                             index.baseline_revision_id or parent_revision_id
                         ),
-                        expected_source_digest=_revision_bound_source_digest(
-                            current_store, contribution.contribution_id
-                        ),
+                        expected_source_digest=manifest_entry.source_payload_sha256,
                     )
                 )
             except ValueError as exc:

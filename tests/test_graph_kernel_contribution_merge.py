@@ -3360,3 +3360,97 @@ def test_contradict_rejects_blank_authored_by_and_accepted_assertions(
     )
     assert result.published is False
     assert result.failure_code == "correction_rejected"
+
+
+def test_contradict_retry_without_replay_manifest_entry_fails_closed(
+    seeded_root,
+) -> None:
+    """Digest + ledger/index + contradicted shape without manifest must not noop."""
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    contradiction = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradiction:digest-only",
+        produced_at="2026-08-10T12:07:00Z",
+    )
+    published = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=parent,
+    )
+    assert published.published is True
+    q = published.revision_id
+    assert q is not None
+
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    cid = contradiction.contribution_id
+    assert cid in (store.contribution_source_payload_sha256 or {})
+    assert any(
+        (
+            entry.contribution_id
+            if hasattr(entry, "contribution_id")
+            else entry["contribution_id"]
+        )
+        == cid
+        for entry in (store.contribution_replay_manifest or [])
+    )
+    index = load_contribution_index(root, WORLD_ID)
+    assert cid in index.active_contribution_ids
+    support_x = store.assertion_support[edge_x.assertion_id]
+    assert support_x["support_state"] == "contradicted"
+    assert support_x["active_contribution_ids"] == []
+
+    # Adversary: drop C from the replay manifest while keeping digest, ledger,
+    # index membership, and contradicted target shape intact.
+    stripped_manifest = [
+        entry
+        for entry in (store.contribution_replay_manifest or [])
+        if (
+            entry.contribution_id
+            if hasattr(entry, "contribution_id")
+            else entry["contribution_id"]
+        )
+        != cid
+    ]
+    adversarial = store.model_copy(
+        update={"contribution_replay_manifest": stripped_manifest}
+    )
+    assert cid in (adversarial.contribution_source_payload_sha256 or {})
+    advanced = kernel.publish_world_graph_revision(
+        root,
+        WORLD_ID,
+        adversarial,
+        operation_ids=["op:adversarial-strip-contradiction-manifest"],
+        expected_parent_revision_id=q,
+    ).revision.revision_id
+
+    retry = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=advanced,
+    )
+    assert retry.published is False
+    assert "idempotent_noop:correction_already_applied" not in retry.diagnostics
+    assert retry.failure_code in {
+        "correction_rejected",
+        "correction_integrity_failure",
+        "correction_failed",
+    }
+    assert kernel.open_world_graph_head(root, WORLD_ID).head_revision_id == advanced
+    # No second contradiction authority / no support churn from a false noop.
+    _h2, _r2, after = kernel.open_current_world_graph(root, WORLD_ID)
+    assert after.assertion_support[edge_x.assertion_id]["support_state"] == "contradicted"
+    assert after.assertion_support[edge_x.assertion_id]["active_contribution_ids"] == []
+    assert cid not in {
+        (
+            entry.contribution_id
+            if hasattr(entry, "contribution_id")
+            else entry["contribution_id"]
+        )
+        for entry in (after.contribution_replay_manifest or [])
+    }
