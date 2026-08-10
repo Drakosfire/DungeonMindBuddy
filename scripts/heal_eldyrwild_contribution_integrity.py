@@ -425,10 +425,13 @@ def apply(
                 "head digest/lifecycle changed under lock",
             )
 
+        # Dirty as soon as the first mutable surface changes so mid-write
+        # failures (ledger ok / index not yet saved) still restore both bytes.
         wrote = False
         try:
             healed = dstar.model_copy(update={"status": L_now})
             write_contribution_record(resolved, WORLD_ID, healed)
+            wrote = True
             index = load_contribution_index(resolved, WORLD_ID)
             index = upsert_contribution_in_index(index, healed)
             if list(index.all_contribution_ids) != pre_all_ids:
@@ -447,7 +450,6 @@ def apply(
                     "baseline_revision_id changed unexpectedly",
                 )
             save_contribution_index(resolved, WORLD_ID, index)
-            wrote = True
 
             # Post-write verification under the same lock; restore on any failure.
             if open_world_graph_head(resolved, WORLD_ID).head_revision_id != (

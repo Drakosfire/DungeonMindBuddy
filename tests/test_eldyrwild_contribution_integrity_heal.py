@@ -313,6 +313,27 @@ def test_post_write_rebuild_failure_rolls_back_under_lock(
     monkeypatch.setattr(heal, "rebuild_from_contributions", real_rebuild)
 
 
+def test_index_save_failure_after_ledger_write_rolls_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ledger written then index save raises: restore both pre-heal byte sequences."""
+    root = _clone_eldyrwild(tmp_path)
+    head = kernel.open_world_graph_head(root, WORLD_ID).head_revision_id
+    before_d = world_paths.contribution_path(root, WORLD_ID, D).read_bytes()
+    before_index = world_paths.contribution_index_path(root, WORLD_ID).read_bytes()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("injected index save failure")
+
+    monkeypatch.setattr(heal, "save_contribution_index", _boom)
+    with pytest.raises(RuntimeError, match="injected index save failure"):
+        heal.apply(expected_head_revision_id=head, root=root)
+    assert world_paths.contribution_path(root, WORLD_ID, D).read_bytes() == before_d
+    assert (
+        world_paths.contribution_index_path(root, WORLD_ID).read_bytes() == before_index
+    )
+
+
 def test_real_clone_heal_preserves_head_and_rebuilds(tmp_path: Path) -> None:
     root = _clone_eldyrwild(tmp_path)
     head = kernel.open_world_graph_head(root, WORLD_ID).head_revision_id
