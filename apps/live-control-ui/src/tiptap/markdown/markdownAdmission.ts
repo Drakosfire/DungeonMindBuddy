@@ -695,8 +695,7 @@ function visitListItemBlockquote(node: Blockquote, state: VisitorState): TiptapN
       const bodyText = bodyChildren
         .map((child) => sourceSlice(child as RootContent & PhrasingContent, state))
         .join("\n");
-      const parsedBody = parseMarkdownAst(bodyText).children;
-      return [visitDecisionConsequenceBody(bodyText, parsedBody, markerLine, bodyStartLine, sealed, state)];
+      return [visitDecisionConsequenceBody(bodyText, bodyChildren, markerLine, bodyStartLine, sealed, state)];
     }
     const kind = SUPPORTED_CALLOUT_MARKERS.has(info.marker.toUpperCase())
       ? normalizeCalloutKind(info.marker)
@@ -790,7 +789,7 @@ function visitBlockquote(node: Blockquote, context: AdmissionContext, state: Vis
 }
 
 function visitListItem(item: ListItem, list: List, context: AdmissionContext, state: VisitorState): TiptapNode {
-  if (context !== "nested" && context !== "tableCell" && !list.ordered) {
+  if (context !== "nested" && context !== "tableCell" && context !== "pane" && context !== "callout" && !list.ordered) {
     // Bullet-marker spelling: the parser established the list; only `-` is canonical.
     const marker = (state.lines[nodeStartLine(item) - 1] ?? "").trimStart().charAt(0);
     if (marker !== "-") {

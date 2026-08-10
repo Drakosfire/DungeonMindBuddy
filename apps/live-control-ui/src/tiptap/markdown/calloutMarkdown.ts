@@ -195,9 +195,16 @@ function indentLines(value: string, prefix: string): string {
 function serializeListItem(node: JsonNode, marker: string): string {
   const parts = childNodes(node).map(serializeNode).filter(Boolean);
   if (parts.length === 0) return marker.trimEnd();
+  const indent = " ".repeat(marker.length);
+  const serializeFirst = (text: string): string => {
+    const lines = text.split("\n");
+    if (lines.length <= 1) return `${marker}${text}`;
+    return `${marker}${lines[0]}\n${indentLines(lines.slice(1).join("\n"), indent)}`;
+  };
   const [first, ...rest] = parts;
-  const continuation = rest.length > 0 ? `\n${indentLines(rest.join("\n"), "  ")}` : "";
-  return `${marker}${first}${continuation}`;
+  const head = serializeFirst(first);
+  const continuation = rest.length > 0 ? `\n${indentLines(rest.join("\n"), indent)}` : "";
+  return `${head}${continuation}`;
 }
 
 function serializeTableCell(node: JsonNode): string {
@@ -230,6 +237,27 @@ function serializeCallout(node: JsonNode): string {
   const marker = `> [!${calloutKindToMarkdownMarker(kind)}]${label ? ` ${label}` : ""}`;
   const body = childNodes(node).map(serializeNode).filter(Boolean).join("\n\n");
   return body ? `${marker}\n${indentLines(body, "> ")}` : marker;
+}
+
+function paneBodyMarkdown(pane: JsonNode): string {
+  return childNodes(pane).map(serializeNode).filter(Boolean).join("\n\n");
+}
+
+/** Semantic Markdown for the paired Decision / Consequence prep block. */
+export function serializeDecisionConsequence(node: JsonNode): string {
+  const panes = childNodes(node);
+  const decision = panes.find((child) => child.type === "decisionPane") ?? null;
+  const consequence = panes.find((child) => child.type === "consequencePane") ?? null;
+  const decisionBody = decision ? paneBodyMarkdown(decision) : "";
+  const consequenceBody = consequence ? paneBodyMarkdown(consequence) : "";
+  const decisionSection = decisionBody ? `### Decision\n${decisionBody}` : "### Decision";
+  const consequenceSection = consequenceBody ? `### Consequence\n${consequenceBody}` : "### Consequence";
+  const sections = `${decisionSection}\n\n${consequenceSection}`;
+  const body = sections
+    .split("\n")
+    .map((line) => (line === "" ? ">" : `> ${line}`))
+    .join("\n");
+  return `> [!DECISION-CONSEQUENCE]\n${body}`;
 }
 
 function serializeNode(node: JsonNode): string {
@@ -271,6 +299,11 @@ function serializeNode(node: JsonNode): string {
       return childNodes(node).map(serializeNode).filter(Boolean).join(" ");
     case "callout":
       return serializeCallout(node);
+    case "decisionConsequence":
+      return serializeDecisionConsequence(node);
+    case "decisionPane":
+    case "consequencePane":
+      return paneBodyMarkdown(node);
     default: {
       const text = inlineMarkdown(node);
       return text || `[Unsupported ${typeof node.type === "string" ? node.type : "node"}]`;

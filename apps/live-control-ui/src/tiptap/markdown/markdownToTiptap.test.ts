@@ -494,6 +494,19 @@ describe("markdownToTiptapDoc", () => {
         ],
       },
     ]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toBe([
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> Hold the wall",
+      ">",
+      "> ### Consequence",
+      "> - Pressure stays at the gate.",
+      "",
+    ].join("\n"));
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
   });
 
   it("fails closed on malformed Decision/Consequence blocks", () => {
@@ -585,23 +598,57 @@ describe("markdownToTiptapDoc", () => {
   });
 
   it("imports Session-26 nested list + Decision/Consequence structure cleanly", () => {
-    const imported = markdownToTiptapDoc([
-      "- Decision forks",
+    const markdown = [
+      "## North Gate",
+      "",
+      "- If the party holds position:",
       "  - > [!DECISION-CONSEQUENCE]",
       "    > ### Decision",
-      "    > Hold the wall",
+      "    > Hold the gate and keep the refugees behind the wall.",
       "    >",
       "    > ### Consequence",
-      "    > - Pressure stays at the gate.",
+      "    > - The pressure remains concentrated at the gate.",
+      "    > - Lysandra can reposition the reserve.",
       "",
-    ].join("\n"));
+      "- If the party abandons the gate:",
+      "  > [!GM-NOTE]",
+      "  > Advance the breach clock.",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
     expect(imported.diagnostics).toEqual([]);
-    const outerItem = (imported.doc.content?.[0] as { content?: unknown[] }).content?.[0] as { content?: unknown[] };
-    const innerList = outerItem.content?.[1] as { content?: unknown[] };
+    const heading = imported.doc.content?.[0] as { type?: string; content?: unknown[] };
+    expect(heading.type).toBe("heading");
+    const list = imported.doc.content?.[1] as { content?: unknown[] };
+    const holdItem = list?.content?.[0] as { content?: unknown[] };
+    const innerList = holdItem?.content?.[1] as { content?: unknown[] };
     const innerItem = innerList?.content?.[0] as { content?: unknown[] };
     const dc = innerItem?.content?.[0] as { type?: string; content?: unknown[] };
     expect(dc?.type).toBe("decisionConsequence");
     expect(dc?.content?.map((pane) => (pane as { type?: string }).type)).toEqual(["decisionPane", "consequencePane"]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("round-trips nested bullet lists with marker-width continuation indent", () => {
+    const imported = markdownToTiptapDoc("- Parent\n  - Child\n");
+    expect(imported.diagnostics).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("round-trips list-item GM-NOTE callouts", () => {
+    const markdown = "- Choice\n  > [!GM-NOTE]\n  > Something changes.\n";
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
   });
 
   it("fails closed on Decision/Consequence with only the Decision pane", () => {

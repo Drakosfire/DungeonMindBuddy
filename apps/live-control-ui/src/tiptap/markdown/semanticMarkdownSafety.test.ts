@@ -41,7 +41,61 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     expect(diagnostics.map((diagnostic) => diagnostic.nodeType)).toEqual(["blockquote", "codeBlock"]);
   });
 
-  it("rejects hard breaks, nested list blocks, and merged table cells", () => {
+  it("accepts nested list and Decision/Consequence prep structures", () => {
+    expect(semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{
+        type: "bulletList",
+        content: [{
+          type: "listItem",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Decision forks" }] },
+            {
+              type: "bulletList",
+              content: [{
+                type: "listItem",
+                content: [{
+                  type: "decisionConsequence",
+                  content: [
+                    {
+                      type: "decisionPane",
+                      content: [{
+                        type: "orderedList",
+                        content: [{
+                          type: "listItem",
+                          content: [{ type: "paragraph", content: [{ type: "text", text: "Defend" }] }],
+                        }],
+                      }],
+                    },
+                    {
+                      type: "consequencePane",
+                      content: [{
+                        type: "bulletList",
+                        content: [{
+                          type: "listItem",
+                          content: [{ type: "paragraph", content: [{ type: "text", text: "Escalation" }] }],
+                        }],
+                      }],
+                    },
+                  ],
+                }],
+              }],
+            },
+          ],
+        }],
+      }],
+    })).toEqual([]);
+  });
+
+  it("rejects orphan decision panes outside a paired block", () => {
+    const diagnostics = semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{ type: "decisionPane", content: [{ type: "paragraph", content: [{ type: "text", text: "Orphan" }] }] }],
+    });
+    expect(diagnostics.some((diagnostic) => diagnostic.nodeType === "decisionPane")).toBe(true);
+  });
+
+  it("rejects hard breaks, unsupported nested list blocks, and merged table cells", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",
       content: [
@@ -55,7 +109,7 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
             type: "listItem",
             content: [
               { type: "paragraph", content: [{ type: "text", text: "Parent" }] },
-              { type: "bulletList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Child" }] }] }] },
+              { type: "blockquote", content: [{ type: "paragraph", content: [{ type: "text", text: "Nested quote" }] }] },
             ],
           }],
         },
@@ -74,7 +128,7 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     });
 
     expect(diagnostics.some((diagnostic) => diagnostic.nodeType === "hardBreak")).toBe(true);
-    expect(diagnostics.some((diagnostic) => diagnostic.message.includes("List items must contain exactly one paragraph"))).toBe(true);
+    expect(diagnostics.some((diagnostic) => diagnostic.message.includes("List item child"))).toBe(true);
     expect(diagnostics.some((diagnostic) => diagnostic.message.includes("Merged or width-constrained"))).toBe(true);
   });
 
