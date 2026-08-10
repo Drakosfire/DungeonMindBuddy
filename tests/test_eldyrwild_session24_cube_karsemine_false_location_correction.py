@@ -47,6 +47,7 @@ from apps.live_control_server.services.eldyrwild_session24_cube_karsemine_false_
     load_approved_session24_cube_karsemine_false_location_correction,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphNode
+from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.contribution_store import (
     load_contribution_index,
     load_contribution_record,
@@ -734,3 +735,67 @@ def test_c_ledger_inactive_is_integrity_failure(tmp_path: Path) -> None:
         root=root, expected_parent_revision_id=child, repo=REPO
     )
     assert st.eligibility == "integrity_failure"
+
+
+def test_same_c_id_different_source_payload_fails_closed(tmp_path: Path) -> None:
+    """Unbound mutable C with same ID but different digest must not be overwritten."""
+    root = _clone_eldyrwild(tmp_path)
+    parent = get_session24_cube_karsemine_false_location_correction_status(
+        root=root, repo=REPO
+    ).head_revision_id
+    assert parent
+    assert (
+        get_session24_cube_karsemine_false_location_correction_status(
+            root=root, repo=REPO
+        ).eligibility
+        == "eligible"
+    )
+
+    approved = load_approved_session24_cube_karsemine_false_location_correction(
+        repo=REPO
+    )
+    # produced_at is metadata-only for contribution identity, so the ID stays
+    # locked while the source-payload digest diverges.
+    colliding = approved.model_copy(update={"produced_at": "2020-01-01T00:00:00Z"})
+    assert colliding.contribution_id == LOCKED_CORRECTION_CONTRIBUTION_ID
+    colliding_digest = kernel.compute_contribution_source_payload_sha256(colliding)
+    assert colliding_digest != LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    write_contribution_record(root, ELDYRWILD_WORLD_ID, colliding)
+
+    before = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    before_index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    before_ledger_bytes = world_paths.contribution_path(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    ).read_bytes()
+
+    st = get_session24_cube_karsemine_false_location_correction_status(
+        root=root, expected_parent_revision_id=parent, repo=REPO
+    )
+    assert st.eligibility == "integrity_failure"
+    assert "mutable_C_source_digest_collision" in st.diagnostics
+
+    with pytest.raises(Session24CubeKarsemineFalseLocationCorrectionError) as exc:
+        apply_session24_cube_karsemine_false_location_correction(
+            expected_parent_revision_id=parent,
+            root=root,
+            repo=REPO,
+        )
+    assert exc.value.code == "integrity_failure"
+
+    assert snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID) == before
+    after_index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    assert after_index.model_dump() == before_index.model_dump()
+    head, _, _ = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
+    assert head.head_revision_id == parent
+    assert (
+        world_paths.contribution_path(
+            root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+        ).read_bytes()
+        == before_ledger_bytes
+    )
+    still = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    )
+    assert (
+        kernel.compute_contribution_source_payload_sha256(still) == colliding_digest
+    )

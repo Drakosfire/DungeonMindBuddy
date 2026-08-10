@@ -441,6 +441,35 @@ def _classify_applied_state(
     return None
 
 
+def _mutable_c_source_digest_collision(
+    *,
+    root: Path,
+) -> tuple[bool, list[str]]:
+    """True when an unbound mutable C ledger exists with a non-locked digest.
+
+    Contribution IDs are stable across some source-payload fields (e.g.
+    ``produced_at``). An unbound ledger row for locked C with different source
+    bytes must fail closed before eligibility or publish; otherwise the Kernel
+    writer would atomically overwrite the conflicting durable record before any
+    revision-bound digest protects C.
+    """
+    try:
+        ledger = load_contribution_record(
+            root, WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+        )
+    except FileNotFoundError:
+        return False, []
+    if ledger.contribution_id != LOCKED_CORRECTION_CONTRIBUTION_ID:
+        return True, ["mutable_C_id_mismatch"]
+    ledger_digest = kernel.compute_contribution_source_payload_sha256(ledger)
+    if ledger_digest == LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256:
+        return False, []
+    return True, [
+        "mutable_C_source_digest_collision",
+        f"observed_digest={ledger_digest}",
+    ]
+
+
 def _preflight(
     *,
     root: Path,
@@ -483,6 +512,19 @@ def _preflight(
     )
     if applied is not None:
         return applied
+
+    # Fail closed on same-ID / different-source mutable C before eligibility.
+    collision, collision_diag = _mutable_c_source_digest_collision(root=root)
+    if collision:
+        return _status(
+            eligibility="integrity_failure",
+            reason=(
+                "mutable ledger already contains locked C contribution_id with a "
+                "different source-payload digest; refusing overwrite"
+            ),
+            diagnostics=["integrity_failure", *collision_diag],
+            head_revision_id=head_revision_id,
+        )
 
     parent_for_proof = expected_parent_revision_id or head_revision_id
 
