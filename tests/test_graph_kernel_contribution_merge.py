@@ -3006,3 +3006,357 @@ def test_bound_ledger_missing_not_reconstructed_from_caller(seeded_root) -> None
     assert not ledger_path.is_file()
     assert after["head"] == before["head"]
     assert after["index_sha"] == before["index_sha"]
+
+
+# ---------------------------------------------------------------------------
+# Governed edge-assertion contradiction without replacement
+# ---------------------------------------------------------------------------
+
+
+def test_lysandra_correction_model_extension_preserves_identity_and_digests() -> None:
+    """Historical Lysandra replacement correction must remain byte/digest stable."""
+    import hashlib
+    import json
+
+    from apps.live_control_server.services.eldyrwild_lysandra_threat_direction_correction import (
+        LOCKED_CORRECTION_CONTRIBUTION_ID,
+        LOCKED_CORRECTION_RAW_ARTIFACT_SHA256,
+        LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256,
+        load_approved_lysandra_threat_direction_correction,
+    )
+
+    repo = Path(__file__).resolve().parents[1]
+    artifact = (
+        repo
+        / "graph_data/approved_graph_corrections/eldyrwild/lysandra-threat-direction-v1.json"
+    )
+    raw = artifact.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == LOCKED_CORRECTION_RAW_ARTIFACT_SHA256
+    contribution = load_approved_lysandra_threat_direction_correction(repo=repo)
+    assert contribution.contribution_id == LOCKED_CORRECTION_CONTRIBUTION_ID
+    assert (
+        kernel.compute_contribution_source_payload_sha256(contribution)
+        == LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    link = contribution.assertion_corrections[0]
+    assert link.correction_kind == "contradicts_and_replaces"
+    assert link.replacement_assertion_id
+    # Round-trip through current model without rewriting serialized artifact.
+    parsed = kernel.GraphContributionAssertionCorrection.model_validate(
+        json.loads(raw)["assertion_corrections"][0]
+    )
+    assert parsed.correction_kind == "contradicts_and_replaces"
+    assert parsed.replacement_assertion_id == link.replacement_assertion_id
+
+
+def test_contradict_single_support_preserves_history_and_siblings(seeded_root) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, node_y, node_z, parent = _publish_source_with_edge_and_siblings(
+        root
+    )
+    _head, _rev, before = kernel.open_current_world_graph(root, WORLD_ID)
+    support_y_before = dict(before.assertion_support[node_y.assertion_id])
+    support_z_before = dict(before.assertion_support[node_z.assertion_id])
+    edge_before = before.edges[
+        "edge:npc_correction_src:threatens:npc_correction_tgt"
+    ]
+
+    contradiction = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradiction:c",
+        source_revision_id="contradiction-1",
+        produced_at="2026-08-10T12:00:00Z",
+    )
+    assert contradiction.accepted_assertions == []
+    assert len(contradiction.assertion_corrections) == 1
+    assert contradiction.assertion_corrections[0].correction_kind == "contradicts"
+    assert contradiction.assertion_corrections[0].replacement_assertion_id is None
+
+    result = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=parent,
+    )
+    assert result.published is True
+    assert result.revision_id != parent
+    assert result.accepted_assertion_ids == []
+    assert edge_x.assertion_id in result.contradicted_assertion_ids
+
+    old_store = kernel.load_world_graph_revision(root, WORLD_ID, parent)
+    assert old_store.assertion_support[edge_x.assertion_id]["support_state"] == "supported"
+
+    _head2, _rev2, store = kernel.open_current_world_graph(root, WORLD_ID)
+    support_x = store.assertion_support[edge_x.assertion_id]
+    assert support_x["support_state"] == "contradicted"
+    assert support_x["active_contribution_ids"] == []
+    assert contrib_a.contribution_id in support_x["contradicted_contribution_ids"]
+    # Durable edge history remains; correction is a support transition.
+    assert "edge:npc_correction_src:threatens:npc_correction_tgt" in store.edges
+    assert store.edges["edge:npc_correction_src:threatens:npc_correction_tgt"].edge_id == (
+        edge_before.edge_id
+    )
+    assert store.assertion_support[node_y.assertion_id] == support_y_before
+    assert store.assertion_support[node_z.assertion_id] == support_z_before
+    loaded_a = load_contribution_record(root, WORLD_ID, contrib_a.contribution_id)
+    assert loaded_a.status == "active"
+    loaded_c = load_contribution_record(
+        root, WORLD_ID, contradiction.contribution_id
+    )
+    assert loaded_c.status == "active"
+    assert contradiction.contribution_id in (
+        store.contribution_source_payload_sha256 or {}
+    )
+
+
+def test_contradict_multi_support_exact_coverage(seeded_root) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    edge_x_b = _correction_edge_assertion(
+        edge_id="edge:npc_correction_src:threatens:npc_correction_tgt",
+        source_node_id="npc_correction_src",
+        target_node_id="npc_correction_tgt",
+        predicate="threatens",
+        source_artifact_id="artifact:correction:b",
+        evidence_ref_id="evidence:correction:xb",
+    )
+    contrib_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:correction:b",
+        source_revision_id="src-rev-b",
+        extraction_profile="test_profile",
+        accepted_assertions=[edge_x_b],
+    )
+    merge_b = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_b
+    )
+    assert merge_b.published is True
+    parent = merge_b.revision_id
+
+    contradiction = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[
+            contrib_a.contribution_id,
+            contrib_b.contribution_id,
+        ],
+        source_artifact_id="artifact:contradiction:multi",
+        produced_at="2026-08-10T12:01:00Z",
+    )
+    result = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=parent,
+    )
+    assert result.published is True
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    support_x = store.assertion_support[edge_x.assertion_id]
+    assert support_x["support_state"] == "contradicted"
+    assert support_x["active_contribution_ids"] == []
+    assert set(support_x["contradicted_contribution_ids"]) >= {
+        contrib_a.contribution_id,
+        contrib_b.contribution_id,
+    }
+
+
+def test_contradict_partial_support_coverage_fails_before_mutation(seeded_root) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    edge_x_b = _correction_edge_assertion(
+        edge_id="edge:npc_correction_src:threatens:npc_correction_tgt",
+        source_node_id="npc_correction_src",
+        target_node_id="npc_correction_tgt",
+        predicate="threatens",
+        source_artifact_id="artifact:correction:b",
+        evidence_ref_id="evidence:correction:xb",
+    )
+    contrib_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:correction:b",
+        source_revision_id="src-rev-b",
+        extraction_profile="test_profile",
+        accepted_assertions=[edge_x_b],
+    )
+    merge_b = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_b
+    )
+    assert merge_b.published is True
+    parent = merge_b.revision_id
+    before_head = parent
+    before_index = load_contribution_index(root, WORLD_ID)
+
+    # Partial coverage: only A while A+B are active.
+    contradiction = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradiction:partial",
+        produced_at="2026-08-10T12:02:00Z",
+    )
+    result = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=parent,
+    )
+    assert result.published is False
+    assert result.failure_code == "correction_rejected"
+    head = kernel.open_world_graph_head(root, WORLD_ID).head_revision_id
+    assert head == before_head
+    after_index = load_contribution_index(root, WORLD_ID)
+    assert after_index.active_contribution_ids == before_index.active_contribution_ids
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    support_x = store.assertion_support[edge_x.assertion_id]
+    assert support_x["support_state"] == "supported"
+    assert set(support_x["active_contribution_ids"]) == {
+        contrib_a.contribution_id,
+        contrib_b.contribution_id,
+    }
+    with pytest.raises(FileNotFoundError):
+        load_contribution_record(root, WORLD_ID, contradiction.contribution_id)
+
+
+def test_contradict_stale_parent_and_exact_retry(seeded_root) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    contradiction = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradiction:retry",
+        produced_at="2026-08-10T12:03:00Z",
+    )
+    first = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=parent,
+    )
+    assert first.published is True
+    q = first.revision_id
+    assert q is not None
+
+    with pytest.raises(ValueError, match="stale parent"):
+        kernel.contradict_edge_assertion_support(
+            root,
+            world_id=WORLD_ID,
+            contribution=contradiction,
+            expected_parent_revision_id=parent,
+        )
+
+    before_support = dict(
+        kernel.open_current_world_graph(root, WORLD_ID)[2].assertion_support[
+            edge_x.assertion_id
+        ]
+    )
+    before_index = load_contribution_index(root, WORLD_ID)
+    retry = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=q,
+    )
+    assert retry.published is False
+    assert retry.revision_id == q
+    assert "idempotent_noop:correction_already_applied" in retry.diagnostics
+    after_support = dict(
+        kernel.open_current_world_graph(root, WORLD_ID)[2].assertion_support[
+            edge_x.assertion_id
+        ]
+    )
+    assert after_support == before_support
+    after_index = load_contribution_index(root, WORLD_ID)
+    assert after_index.active_contribution_ids == before_index.active_contribution_ids
+    assert kernel.open_world_graph_head(root, WORLD_ID).head_revision_id == q
+
+
+def test_contradict_already_contradicted_without_revision_bound_c_fails(
+    seeded_root,
+) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    first = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradiction:first",
+        produced_at="2026-08-10T12:04:00Z",
+    )
+    published = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=first,
+        expected_parent_revision_id=parent,
+    )
+    assert published.published is True
+    q = published.revision_id
+
+    impostor = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradiction:impostor",
+        produced_at="2026-08-10T12:05:00Z",
+    )
+    assert impostor.contribution_id != first.contribution_id
+    result = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=impostor,
+        expected_parent_revision_id=q,
+    )
+    assert result.published is False
+    assert result.failure_code == "correction_rejected"
+    assert kernel.open_world_graph_head(root, WORLD_ID).head_revision_id == q
+
+
+def test_contradict_rejects_blank_authored_by_and_accepted_assertions(
+    seeded_root,
+) -> None:
+    root, _ = seeded_root
+    contrib_a, edge_x, _y, _z, parent = _publish_source_with_edge_and_siblings(root)
+    with pytest.raises(ValueError, match="authored_by"):
+        kernel.create_edge_assertion_contradiction_contribution(
+            world_id=WORLD_ID,
+            authored_by="  ",
+            target_assertion_id=edge_x.assertion_id,
+            target_contribution_ids=[contrib_a.contribution_id],
+        )
+
+    contradiction = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradiction:accepted-forbidden",
+        produced_at="2026-08-10T12:06:00Z",
+    )
+    sibling = _correction_node_assertion(
+        node_id="npc_contradiction_extra",
+        label="Extra",
+        source_artifact_id="artifact:contradiction:accepted-forbidden",
+    )
+    tainted = contradiction.model_copy(
+        update={"accepted_assertions": [sibling.model_copy(
+            update={"contribution_id": contradiction.contribution_id}
+        )]}
+    )
+    result = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=tainted,
+        expected_parent_revision_id=parent,
+    )
+    assert result.published is False
+    assert result.failure_code == "correction_rejected"

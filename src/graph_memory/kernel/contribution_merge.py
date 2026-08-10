@@ -1119,22 +1119,101 @@ def apply_assertion_corrections(
     """
     if not contribution.assertion_corrections:
         return store, []
-    support = _support_map(store)
-    contradicted_ids: list[str] = []
-    for correction in contribution.assertion_corrections:
-        if correction.correction_kind != "contradicts_and_replaces":
+    kinds = {correction.correction_kind for correction in contribution.assertion_corrections}
+    if kinds == {"contradicts_and_replaces"}:
+        support = _support_map(store)
+        contradicted_ids: list[str] = []
+        for correction in contribution.assertion_corrections:
+            _contradict_assertion_support(
+                support,
+                assertion_id=correction.target_assertion_id,
+                contribution_id=correction.target_contribution_id,
+            )
+            contradicted_ids.append(correction.target_assertion_id)
+        working = _with_support_map(store, support)
+        working = _mark_graph_objects_unsupported(working, support, contradicted_ids)
+        return working, contradicted_ids
+    if kinds == {"contradicts"}:
+        return _apply_contradicts_only_corrections(store, contribution)
+    raise ValueError(
+        f"unsupported or mixed correction_kind set: {sorted(kinds)!r}"
+    )
+
+
+def _apply_contradicts_only_corrections(
+    store: UnionSupergraphStore,
+    contribution: GraphContribution,
+) -> tuple[UnionSupergraphStore, list[str]]:
+    """Move the complete active support set for one edge assertion to contradicted."""
+    links = list(contribution.assertion_corrections)
+    if not links:
+        return store, []
+    for correction in links:
+        if correction.correction_kind != "contradicts":
             raise ValueError(
                 f"unsupported correction_kind {correction.correction_kind!r}"
             )
-        _contradict_assertion_support(
-            support,
-            assertion_id=correction.target_assertion_id,
-            contribution_id=correction.target_contribution_id,
+        if correction.replacement_assertion_id is not None:
+            raise ValueError(
+                "contradicts links require replacement_assertion_id to be null"
+            )
+
+    assertion_ids = {correction.target_assertion_id for correction in links}
+    if len(assertion_ids) != 1:
+        raise ValueError(
+            "contradiction contribution must target exactly one assertion_id; "
+            f"found {sorted(assertion_ids)!r}"
         )
-        contradicted_ids.append(correction.target_assertion_id)
+    assertion_id = next(iter(assertion_ids))
+    declared = [correction.target_contribution_id for correction in links]
+    if len(declared) != len(set(declared)):
+        raise ValueError(
+            f"duplicate target_contribution_id links for assertion {assertion_id}"
+        )
+    declared_set = set(declared)
+
+    support = _support_map(store)
+    record = support.get(assertion_id)
+    if record is None:
+        raise ValueError(f"target assertion support missing: {assertion_id}")
+    if record.support_state != "supported":
+        raise ValueError(
+            f"target assertion {assertion_id} is not supported "
+            f"(state={record.support_state})"
+        )
+    active = list(record.active_contribution_ids)
+    if not active:
+        raise ValueError(
+            f"target assertion {assertion_id} has no active supporting contributions"
+        )
+    active_set = set(active)
+    if active_set != declared_set:
+        raise ValueError(
+            f"target assertion {assertion_id} active support {sorted(active_set)!r} "
+            f"!= declared contradiction targets {sorted(declared_set)!r}"
+        )
+
+    contradicted = list(record.contradicted_contribution_ids)
+    per_contribution_evidence = dict(record.per_contribution_evidence_ref_ids)
+    per_contribution_sources = dict(record.per_contribution_source_artifact_ids)
+    for contribution_id in declared:
+        if contribution_id not in contradicted:
+            contradicted.append(contribution_id)
+        per_contribution_evidence.pop(contribution_id, None)
+        per_contribution_sources.pop(contribution_id, None)
+
+    support[assertion_id] = record.model_copy(
+        update={
+            "active_contribution_ids": [],
+            "contradicted_contribution_ids": contradicted,
+            "support_state": "contradicted",
+            "per_contribution_evidence_ref_ids": per_contribution_evidence,
+            "per_contribution_source_artifact_ids": per_contribution_sources,
+        }
+    )
     working = _with_support_map(store, support)
-    working = _mark_graph_objects_unsupported(working, support, contradicted_ids)
-    return working, contradicted_ids
+    working = _mark_graph_objects_unsupported(working, support, [assertion_id])
+    return working, [assertion_id]
 
 
 def _correction_already_applied(
@@ -1152,9 +1231,9 @@ def _correction_already_applied(
             return False
         if target.support_state != "contradicted":
             return False
-        if correction.target_contribution_id not in target.contradicted_contribution_ids:
+        if target.active_contribution_ids:
             return False
-        if correction.target_contribution_id in target.active_contribution_ids:
+        if correction.target_contribution_id not in target.contradicted_contribution_ids:
             return False
     return True
 
@@ -1531,6 +1610,372 @@ def correct_edge_assertion_support(
         revision_id=publish_result.revision.revision_id,
         contribution_ids=[to_store.contribution_id],
         accepted_assertion_ids=accepted_ids,
+        contradicted_assertion_ids=contradicted_ids,
+        diagnostics=diagnostics,
+        published=True,
+    )
+
+
+def _validate_edge_assertion_contradiction_contribution(
+    contribution: GraphContribution,
+    *,
+    world_id: str,
+    store: UnionSupergraphStore,
+    root: Path,
+) -> None:
+    """Fail closed unless the contribution is a legal contradiction-only correction."""
+    if contribution.world_id != world_id:
+        raise ValueError(
+            f"contradiction world_id {contribution.world_id!r} != requested {world_id!r}"
+        )
+    if contribution.source_kind != "graph_review_authored_assertion":
+        raise ValueError(
+            "contradiction contribution source_kind must be "
+            "'graph_review_authored_assertion'"
+        )
+    if not contribution.authored_by or not str(contribution.authored_by).strip():
+        raise ValueError("contradiction contribution authored_by must be non-blank")
+    if contribution.supersedes_contribution_id is not None:
+        raise ValueError(
+            "contradiction contribution must not carry contribution supersession"
+        )
+    if contribution.identity_decision_ids:
+        raise ValueError(
+            "contradiction contribution must not carry identity decisions"
+        )
+    if contribution.unresolved_mentions:
+        raise ValueError(
+            "contradiction contribution must not carry unresolved mentions"
+        )
+    if (
+        contribution.candidate_assertions
+        or contribution.accepted_assertions
+        or contribution.rejected_assertions
+    ):
+        raise ValueError(
+            "contradiction contribution must not carry candidate/accepted/"
+            "rejected assertions"
+        )
+    if not contribution.assertion_corrections:
+        raise ValueError(
+            "contradiction contribution must contain at least one correction link"
+        )
+
+    for correction in contribution.assertion_corrections:
+        if correction.correction_kind != "contradicts":
+            raise ValueError(
+                f"unsupported correction_kind {correction.correction_kind!r}; "
+                "expected 'contradicts'"
+            )
+        if correction.replacement_assertion_id is not None:
+            raise ValueError(
+                "contradicts links require replacement_assertion_id to be null"
+            )
+
+    assertion_ids = {
+        correction.target_assertion_id
+        for correction in contribution.assertion_corrections
+    }
+    if len(assertion_ids) != 1:
+        raise ValueError(
+            "contradiction contribution must target exactly one assertion_id; "
+            f"found {sorted(assertion_ids)!r}"
+        )
+    assertion_id = next(iter(assertion_ids))
+    declared = [
+        correction.target_contribution_id
+        for correction in contribution.assertion_corrections
+    ]
+    if len(declared) != len(set(declared)):
+        raise ValueError(
+            f"duplicate target_contribution_id links for assertion {assertion_id}"
+        )
+    declared_set = set(declared)
+
+    support = _support_map(store)
+    target_support = support.get(assertion_id)
+    if target_support is None:
+        raise ValueError(f"target assertion support missing: {assertion_id}")
+    if target_support.assertion_kind != "edge":
+        raise ValueError("target assertion must be assertion_kind='edge'")
+    edge_id = target_support.graph_object_id
+    if not edge_id or edge_id not in store.edges:
+        raise ValueError(
+            f"target assertion graph object missing for {assertion_id}: {edge_id!r}"
+        )
+    if target_support.support_state != "supported":
+        raise ValueError(
+            f"target assertion {assertion_id} is not supported "
+            f"(state={target_support.support_state})"
+        )
+    active = list(target_support.active_contribution_ids)
+    if not active:
+        raise ValueError(
+            f"target assertion {assertion_id} has no active supporting contributions"
+        )
+    active_set = set(active)
+    if active_set != declared_set:
+        raise ValueError(
+            f"target assertion {assertion_id} active support {sorted(active_set)!r} "
+            f"!= declared contradiction targets {sorted(declared_set)!r}"
+        )
+
+    for target_contribution_id in declared:
+        try:
+            target_contribution = load_contribution_record(
+                root, world_id, target_contribution_id
+            )
+        except FileNotFoundError as exc:
+            raise ValueError(
+                f"target contribution missing: {target_contribution_id}"
+            ) from exc
+        target_assertion = next(
+            (
+                assertion
+                for assertion in target_contribution.accepted_assertions
+                if assertion.assertion_id == assertion_id
+            ),
+            None,
+        )
+        if target_assertion is None:
+            raise ValueError(
+                f"target contribution {target_contribution_id} does not contain "
+                f"accepted assertion {assertion_id}"
+            )
+        if target_assertion.assertion_kind != "edge":
+            raise ValueError("target assertion must be assertion_kind='edge'")
+        if target_contribution_id not in active_set:
+            raise ValueError(
+                f"declared target {target_contribution_id} is not in active support"
+            )
+
+
+def contradict_edge_assertion_support(
+    root: Path,
+    *,
+    world_id: str,
+    contribution: GraphContribution,
+    expected_parent_revision_id: str,
+) -> ContributionMergeResult:
+    """Publish one governed edge-assertion contradiction without replacement.
+
+    Moves the exact current active support set for one edge assertion into
+    contradicted historical lineage and publishes one CAS-fenced descendant.
+    """
+    if not expected_parent_revision_id or not str(expected_parent_revision_id).strip():
+        raise ValueError(
+            "expected_parent_revision_id is required for contradiction publish"
+        )
+
+    contribution, assertion_rekeys = _canonicalize_graph_contribution_assertions(
+        contribution
+    )
+    diagnostics: list[str] = list(contribution.diagnostics)
+    diagnostics.extend(
+        f"assertion_identity_rekeyed:{old_id}->{new_id}"
+        for old_id, new_id in assertion_rekeys
+    )
+
+    parent_revision_id, current_store = _load_or_none(root, world_id)
+    if current_store is None:
+        raise WorldGraphNotFoundError(
+            f"world {world_id!r} has no graph head; publish a baseline revision before "
+            "contradicting assertions"
+        )
+
+    head = open_world_graph_head(root, world_id)
+    if head.head_revision_id != expected_parent_revision_id:
+        raise ValueError(
+            f"stale parent: expected {expected_parent_revision_id!r}, "
+            f"head is {head.head_revision_id!r}"
+        )
+    if parent_revision_id != expected_parent_revision_id:
+        raise ValueError(
+            f"stale parent: expected {expected_parent_revision_id!r}, "
+            f"head is {parent_revision_id!r}"
+        )
+
+    if _head_lacks_contribution_source_authority(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[contribution.contribution_id],
+            diagnostics=diagnostics,
+            reason="contribution_source_authority_incomplete",
+        )
+    if _head_requires_assertion_identity_migration(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[contribution.contribution_id],
+            diagnostics=diagnostics,
+            reason="assertion_identity_migration_required",
+        )
+
+    index = load_contribution_index(root, world_id)
+    if _correction_already_applied(current_store, contribution):
+        revision_bound = set(_revision_bound_active_contribution_ids(current_store))
+        digest_bound = set(current_store.contribution_source_payload_sha256 or {})
+        if (
+            contribution.contribution_id in revision_bound
+            or contribution.contribution_id in digest_bound
+            or contribution.contribution_id in index.active_contribution_ids
+        ):
+            try:
+                diagnostics.extend(
+                    _ensure_correction_index_membership(
+                        root,
+                        world_id,
+                        contribution,
+                        baseline_revision_id=(
+                            index.baseline_revision_id or parent_revision_id
+                        ),
+                        expected_source_digest=_revision_bound_source_digest(
+                            current_store, contribution.contribution_id
+                        ),
+                    )
+                )
+            except ValueError as exc:
+                return ContributionMergeResult(
+                    world_id=world_id,
+                    parent_revision_id=parent_revision_id,
+                    revision_id=None,
+                    contribution_ids=[contribution.contribution_id],
+                    diagnostics=[
+                        *diagnostics,
+                        f"correction_integrity_failure:{exc}",
+                    ],
+                    failure_code="correction_integrity_failure",
+                    failure_message=str(exc),
+                    published=False,
+                )
+            diagnostics.append("idempotent_noop:correction_already_applied")
+            return ContributionMergeResult(
+                world_id=world_id,
+                parent_revision_id=parent_revision_id,
+                revision_id=parent_revision_id,
+                contribution_ids=[contribution.contribution_id],
+                accepted_assertion_ids=[],
+                contradicted_assertion_ids=[
+                    c.target_assertion_id for c in contribution.assertion_corrections
+                ],
+                diagnostics=diagnostics,
+                published=False,
+            )
+
+    try:
+        _validate_edge_assertion_contradiction_contribution(
+            contribution,
+            world_id=world_id,
+            store=current_store,
+            root=root,
+        )
+    except ValueError as exc:
+        return ContributionMergeResult(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            revision_id=None,
+            contribution_ids=[contribution.contribution_id],
+            diagnostics=[*diagnostics, f"correction_rejected:{exc}"],
+            failure_code="correction_rejected",
+            failure_message=str(exc),
+            published=False,
+        )
+
+    blocked = _prewrite_source_bound_authority_gate(
+        root=root,
+        world_id=world_id,
+        store=current_store,
+        contribution=contribution,
+        parent_revision_id=parent_revision_id,
+        diagnostics=diagnostics,
+        operation="contradict",
+    )
+    if blocked is not None:
+        return blocked
+
+    to_store = contribution.model_copy(
+        update={"status": "active", "diagnostics": diagnostics}
+    )
+    write_contribution_record(root, world_id, to_store)
+
+    try:
+        proposed, contradicted_ids = apply_assertion_corrections(current_store, to_store)
+        proposed = proposed.model_copy(
+            update={"adjacency": _rebuild_adjacency(proposed)}
+        )
+        proposed = stamp_contribution_source_digest(proposed, to_store)
+        publish_result = publish_world_graph_revision(
+            root,
+            world_id,
+            proposed,
+            operation_ids=[to_store.contribution_id],
+            expected_parent_revision_id=parent_revision_id,
+        )
+    except WorldGraphStaleParentError as exc:
+        if not _correction_already_applied(
+            load_current_world_graph(root, world_id)[2], to_store
+        ):
+            _mark_merge_contribution_failed(
+                root=root,
+                world_id=world_id,
+                to_store=to_store,
+                diagnostics=diagnostics,
+                reason=f"correction_failed:{exc}",
+            )
+        raise _stale_parent_value_error(
+            expected_parent_revision_id=parent_revision_id,
+            exc=exc,
+        ) from exc
+    except (WorldGraphValidationError, ValueError, Exception) as exc:
+        if isinstance(exc, ValueError) and "stale parent" in str(exc).lower():
+            raise
+        try:
+            _head, _rev, head_store = load_current_world_graph(root, world_id)
+            already = _correction_already_applied(head_store, to_store)
+        except WorldGraphNotFoundError:
+            already = False
+        if already:
+            raise
+        diagnostics = _mark_merge_contribution_failed(
+            root=root,
+            world_id=world_id,
+            to_store=to_store,
+            diagnostics=diagnostics,
+            reason=f"correction_failed:{exc}",
+        )
+        return ContributionMergeResult(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            revision_id=None,
+            contribution_ids=[to_store.contribution_id],
+            accepted_assertion_ids=[],
+            contradicted_assertion_ids=[],
+            diagnostics=diagnostics,
+            failure_code="correction_failed",
+            failure_message=str(exc),
+            published=False,
+        )
+
+    try:
+        upsert_and_save_contribution_index(
+            root,
+            world_id,
+            to_store,
+            baseline_revision_id=index.baseline_revision_id or parent_revision_id,
+        )
+    except Exception as exc:
+        diagnostics.append(
+            "contribution_index_post_commit_write_failed:"
+            f"{type(exc).__name__}:{exc}"
+        )
+
+    return ContributionMergeResult(
+        world_id=world_id,
+        parent_revision_id=parent_revision_id,
+        revision_id=publish_result.revision.revision_id,
+        contribution_ids=[to_store.contribution_id],
+        accepted_assertion_ids=[],
         contradicted_assertion_ids=contradicted_ids,
         diagnostics=diagnostics,
         published=True,
@@ -2326,12 +2771,14 @@ def merge_contribution_to_revision(
             contribution_ids=[contribution.contribution_id],
             diagnostics=[
                 *diagnostics,
-                "merge_blocked:use_correct_edge_assertion_support_for_assertion_corrections",
+                "merge_blocked:use_dedicated_assertion_correction_operation",
             ],
             failure_code="correction_requires_dedicated_operation",
             failure_message=(
                 "assertion_corrections must be published via "
-                "correct_edge_assertion_support(), not merge_contribution_to_revision()"
+                "correct_edge_assertion_support() or "
+                "contradict_edge_assertion_support(), not "
+                "merge_contribution_to_revision()"
             ),
             published=False,
         )
@@ -2559,7 +3006,7 @@ def supersede_graph_contribution(
             failure_code="correction_requires_dedicated_operation",
             failure_message=(
                 "assertion_corrections must be published via "
-                "correct_edge_assertion_support()"
+                "correct_edge_assertion_support() or contradict_edge_assertion_support()"
             ),
             published=False,
         )

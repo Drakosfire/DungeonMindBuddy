@@ -1004,3 +1004,135 @@ def test_unpinned_rebuild_legacy_digest_only_head_preserves_ledger_lifecycle(
     )
     assert "rebuild_omitted_replay_manifest_for_legacy_compare" in rebuild.diagnostics
     assert "rebuild_equivalent_to_compared_revision" in rebuild.diagnostics
+
+
+def test_contradict_without_replacement_rebuilds_pinned_and_unpinned(
+    seeded_root: Path,
+) -> None:
+    """Contradiction-only Q must reconstruct equivalently pinned and as head."""
+    root = seeded_root
+    node_src = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_contradict_src",
+        label="Contradict Src",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Contradict Src"],
+        },
+        source_artifact_id="artifact:contradict:a",
+        source_revision_id="src-rev-a",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    node_tgt = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_contradict_tgt",
+        label="Contradict Tgt",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Contradict Tgt"],
+        },
+        source_artifact_id="artifact:contradict:a",
+        source_revision_id="src-rev-a",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    edge_x = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id="npc_contradict_src",
+        target_node_id="npc_contradict_tgt",
+        predicate="threatens",
+        label="threatens",
+        value={
+            "edge_id": "edge:npc_contradict_src:threatens:npc_contradict_tgt",
+            "source_node_id": "npc_contradict_src",
+            "target_node_id": "npc_contradict_tgt",
+            "predicate": "threatens",
+            "source_domains": ["manual_seed"],
+            "evidence": [
+                {
+                    "evidence_ref_id": "evidence:contradict:x",
+                    "source_artifact_id": "artifact:contradict:a",
+                    "source_domain": "manual_seed",
+                }
+            ],
+            "canon_state": "canonical",
+        },
+        evidence_ref_ids=["evidence:contradict:x"],
+        source_artifact_id="artifact:contradict:a",
+        source_revision_id="src-rev-a",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="resolved_existing",
+    )
+    contrib_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:contradict:a",
+        source_revision_id="src-rev-a",
+        extraction_profile="test_profile",
+        accepted_assertions=[node_src, node_tgt, edge_x],
+    )
+    merge_a = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_a
+    )
+    assert merge_a.published is True
+
+    contradiction = kernel.create_edge_assertion_contradiction_contribution(
+        world_id=WORLD_ID,
+        authored_by="gm-operator",
+        target_assertion_id=edge_x.assertion_id,
+        target_contribution_ids=[contrib_a.contribution_id],
+        source_artifact_id="artifact:contradict:c",
+        produced_at="2026-08-10T13:00:00Z",
+    )
+    published = kernel.contradict_edge_assertion_support(
+        root,
+        world_id=WORLD_ID,
+        contribution=contradiction,
+        expected_parent_revision_id=merge_a.revision_id,
+    )
+    assert published.published is True
+    q = published.revision_id
+    assert q is not None
+
+    pinned_rebuild = kernel.rebuild_from_contributions(
+        root,
+        world_id=WORLD_ID,
+        compare_revision_id=q,
+        publish=False,
+    )
+    assert "rebuild_equivalent_to_pinned_revision" in pinned_rebuild.diagnostics
+
+    unpinned_rebuild = kernel.rebuild_from_contributions(
+        root,
+        world_id=WORLD_ID,
+        publish=False,
+    )
+    assert (
+        "rebuild_equivalent_to_head" in unpinned_rebuild.diagnostics
+        or "rebuild_equivalent_to_published_head" in unpinned_rebuild.diagnostics
+    )
+
+    pinned = kernel.load_world_graph_revision(root, WORLD_ID, q)
+    assert pinned.assertion_support[edge_x.assertion_id]["support_state"] == "contradicted"
+    assert pinned.assertion_support[edge_x.assertion_id]["active_contribution_ids"] == []
+    assert contrib_a.contribution_id in pinned.assertion_support[edge_x.assertion_id][
+        "contradicted_contribution_ids"
+    ]
+    assert "edge:npc_contradict_src:threatens:npc_contradict_tgt" in pinned.edges
+    assert contradiction.contribution_id in (
+        pinned.contribution_source_payload_sha256 or {}
+    )
