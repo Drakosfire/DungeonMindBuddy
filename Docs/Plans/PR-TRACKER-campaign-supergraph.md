@@ -1,9 +1,9 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices  
-**Updated:** 2026-08-09 — land `HANDOFF-eldyrwild-contribution-integrity-heal` after PR #538 merge `5dae4183…`; heal remains READY for BUILD; Lysandra remains BLOCKED on heal live exit  
-**Repository anchor:** `5dae41830220c50b162fe76c349101c4955aff0c`  
-**#538 design predecessor / docs base:** PR #538 merge (this anchor)  
+**Updated:** 2026-08-10 — after #537 merge `9b4f02ab…` and canonical Lysandra `P_live→Q_live` exit; re-anchor current effective conformance to `R_current = Q_live`  
+**Repository anchor:** `81e7b5d71ff647e17fe806bb4ab851f6800b478c` (`origin/main` at BUILD dispatch; #537 merge `9b4f02ab…` is a proven ancestor)  
+**#538 design predecessor / docs base:** PR #538 merge  
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -14,7 +14,14 @@
 
 This tracker records only current sequence, dependencies, and exit proofs. Completed implementation narrative belongs in merged PRs, archived handoffs, and acceptance reports.
 
-At the immutable adjudication domain, effective Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. PR #536 made relationship conformance current-support aware so contradicted historical edges are durable history, not current residuals. The live Eldyrwild head may have additional current relationships beyond that historical baseline. The next dispatchable slice is the forensic `eldyrwild-contribution-integrity-heal` for `contribution:d3d244474789879c` ([`HANDOFF-eldyrwild-contribution-integrity-heal.md`](HANDOFF-eldyrwild-contribution-integrity-heal.md)). Lysandra remains blocked until that heal's merge-ready package **and** post-merge canonical live exit proof succeed; Lysandra then accepts **parent-relative** effective movement (`0 / +1 / −1 / 0`), not absolute `294/52 → 295/51`. Merging a Lysandra correction package is not the same as completing the real Eldyrwild correction: Lysandra `DONE` also requires its post-merge canonical apply exit proof.
+At the immutable adjudication domain, historical Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. The formal **current** effective-conformance baseline is now anchored to exact live descendant:
+
+```text
+R_current = Q_live = rev:b90646fb5b135988bd7842cde858c96e
+369 semantic / 311 represented / 58 residual / 3 uses_statblock
+```
+
+after integrity heal `DONE`, #537 merge, and canonical Lysandra `P_live → Q_live` exit (`P_live = rev:dfdf38edbefd734d108832e92467b208`). Parent-relative Lysandra delta was `0 / +1 / −1 / 0`. The next dispatchable work is bounded Buddy residual selection by correction class (`buddy-remaining-relationship-correction-slices`), not an omnibus residual zeroing PR.
 
 ## Rules
 
@@ -65,10 +72,10 @@ At the immutable adjudication domain, effective Eldyrwild relationship conforman
 | #531 adjudication continuity + effective conformance | DONE | #530 | Carry adjudication across proven descendants and compose exact effective conformance without injected authority |
 | `kernel-targeted-assertion-correction` / #534 | DONE | #531 | Correct exactly one durable assertion without superseding unrelated assertions from the same source contribution; preserve historical source authority, CAS publication, and replay equivalence |
 | `dungeonmind-current-relationship-authority-conformance` / #536 | DONE | #534 | Count only current assertion-supported edges in v4/effective relationship inventory so contradicted history is not current residual |
-| `eldyrwild-contribution-integrity-heal` (`contribution:d3d244474789879c`) | READY | #536 / #538 | Forensic first, repair second per [`HANDOFF-eldyrwild-contribution-integrity-heal.md`](HANDOFF-eldyrwild-contribution-integrity-heal.md): reproduce same-ID/different-source ledger overwrite; guard Kernel supersede before ledger write; recover exact D\* only if lifecycle-neutral digest equals immutable E; heal mutable ledger/index only (no revision publish). Merge-ready on temp clone; slice `DONE` requires post-merge canonical live heal exit proof. Not “change the hash until green.” |
-| `eldyrwild-lysandra-threat-direction-correction` | BLOCKED | #534 + #536 + contribution-integrity heal `DONE` | Correction package: publish one governed descendant on a temp clone replacing only the defective Lysandra→cultists threat assertion with cultists→Lysandra; accept parent-relative `0/+1/−1/0`; pinned rebuild of Q is not waivable. Slice `DONE` additionally requires post-merge canonical apply exit proof (`P_live→Q_live` with `--allow-live-world`) |
-| `eldyrwild-effective-conformance-after-first-correction` | BLOCKED | Lysandra correction `DONE` (merged package **and** canonical apply exit proof) | Re-anchor descendant effective-conformance fixtures/tracker on the **actual current baseline** after live `Q_live` (parent-relative proof already required by Lysandra); keep adjudication anchor/source seals unchanged |
-| `buddy-remaining-relationship-correction-slices` | BLOCKED | first real correction proof | Select subsequent bounded correction/decomposition/identity/evidence slices from the remaining residual ledger; never zero the ledger in one omnibus PR |
+| `eldyrwild-contribution-integrity-heal` (`contribution:d3d244474789879c`) | DONE | #536 / #538 / #540 | Forensic heal + Kernel same-ID/different-source guard landed; canonical live heal exit proven (`already_healed`, head unchanged through heal) |
+| `eldyrwild-lysandra-threat-direction-correction` / #537 | DONE | #534 + #536 + contribution-integrity heal `DONE` | Merged correction package + canonical `P_live→Q_live` exit proven (`P_live=rev:dfdf38edbefd734d108832e92467b208`, `Q_live=rev:b90646fb5b135988bd7842cde858c96e`, parent-relative `0/+1/−1/0`, retry `already_applied`) |
+| `eldyrwild-effective-conformance-after-first-correction` | DONE | Lysandra correction `DONE` (merged package **and** canonical apply exit proof) | Current effective fixture/replay baseline re-anchored to exact `R_current = Q_live`; adjudication anchor/source seals unchanged |
+| `buddy-remaining-relationship-correction-slices` | READY | first real correction proof + current effective baseline | Select one bounded correction/decomposition/identity/evidence slice from the R_current residual ledger by adjudicated correction class; never zero the ledger in one omnibus PR |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | Buddy semantic closure + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until whole-world conformance and durable adoption both prove READY |
 
 ### Parallel product backlog retained from the July sequence
@@ -89,24 +96,19 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Dispatch `eldyrwild-contribution-integrity-heal` BUILD using [`HANDOFF-eldyrwild-contribution-integrity-heal.md`](HANDOFF-eldyrwild-contribution-integrity-heal.md): forensic reproduction → Kernel same-ID/different-source pre-write guard → prove/recover D\* → fixed one-off heal CLI → real-clone pinned+unpinned rebuild equivalence. Do not hash-patch; stop if D\* or E cannot be uniquely proven.
-2. After the heal **implementation PR merges**, an operator must complete the **post-merge canonical live heal** exit proof (`--allow-live-world`, head unchanged, rebuild equivalent) before marking heal `DONE` and Lysandra `READY`.
-3. Only then dispatch `eldyrwild-lysandra-threat-direction-correction` using [`HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`](HANDOFF-eldyrwild-lysandra-threat-direction-correction.md): parent-relative conformance, `--allow-live-world` fence, complete preflight, non-waivable pinned rebuild of Q on a temp clone.
-4. After the Lysandra **implementation PR merges**, an operator must complete the **post-merge canonical apply** exit proof (`P_live→Q_live` with `--allow-live-world` and parent-relative `0/+1/−1/0`) before marking Lysandra `DONE`.
-5. Only then re-anchor formal descendant effective-conformance fixtures/tracker on the actual post-`Q_live` baseline (`eldyrwild-effective-conformance-after-first-correction`); do not force historical absolute counts onto an evolved head.
-6. Select the next Buddy-owned residual slice from the adjudicated ledger by correction class; keep source corrections, compound decomposition, identity migration, and insufficient-evidence work distinct where their authority semantics differ.
-7. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
-8. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
+1. Select one bounded Buddy-owned residual slice from the R_current residual ledger by correction class (`SOURCE_CORRECTION_REQUIRED`, `COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP`, `IDENTITY_NOT_RELATIONSHIP`, or `INSUFFICIENT_EVIDENCE`); keep authority models distinct.
+2. Do not schedule an omnibus residual-zeroing PR or another automatic “fix the rest” correction batch.
+3. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
+4. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
-The following remain true at this docs-dispatch anchor (`5dae4183…`; #536 design predecessor `413e8081…`):
+The following remain true after the first governed correction sequence closed:
 
-- The public Kernel assertion-level correction operation exists (#534) and is proven on synthetic multi-assertion contributions; it has not yet been applied to the live Eldyrwild head.
-- Current-support-aware conformance (#536) is merged; historical contradicted edges are durable history, not current relationship residuals.
-- Pinned `rebuild_from_contributions` on the live Eldyrwild head fails closed because the on-disk contribution ledger for `contribution:d3d244474789879c` no longer matches the immutable revision-bound digest — this blocks Lysandra until forensically healed (not hash-patched). Owning handoff: [`HANDOFF-eldyrwild-contribution-integrity-heal.md`](HANDOFF-eldyrwild-contribution-integrity-heal.md).
-- The Lysandra threat-direction contradiction is adjudicated and source-grounded but intentionally still uncorrected in the live World Graph; a merge-ready correction package is not the same as a completed live correction.
-- Effective relationship conformance remains `294 represented / 52 residual` on the adjudication anchor; the live head may differ; diagnostics and adapters do not mutate the original graph.
+- Integrity heal for `contribution:d3d244474789879c` is `DONE` (merged #540 + canonical live heal exit).
+- Lysandra threat-direction correction is `DONE` (merged #537 + canonical `P_live→Q_live` exit).
+- Formal current effective conformance is anchored to `R_current = rev:b90646fb5b135988bd7842cde858c96e` (`369 / 311 / 58 / 3`); historical adjudication anchor `rev:3413bf6f5044cf2680233f5e37c90dcf` remains `346 / 294 / 52 / 2`.
+- Remaining Buddy residuals must be selected by correction class from the R_current ledger; diagnostics and adapters still do not mutate the World Graph.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.
