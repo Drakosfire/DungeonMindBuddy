@@ -1,8 +1,8 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority  
-**Updated:** 2026-08-09 — land contribution-integrity-heal handoff after PR #538 merge `5dae4183…`  
-**Repository anchor:** `5dae41830220c50b162fe76c349101c4955aff0c`  
+**Updated:** 2026-08-10 — after #537 merge + canonical Lysandra live exit; current effective baseline is `R_current = Q_live`  
+**Repository anchor:** `81e7b5d71ff647e17fe806bb4ab851f6800b478c`  
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)  
@@ -169,7 +169,9 @@ The August chain is now part of current state and must not be reconstructed from
 
 ### Current Eldyrwild semantic state
 
-On the immutable adjudication domain, against the pinned DungeonMind dependency:
+The generic correction primitive has now been used on real Eldyrwild. Lysandra is live and replayable through authored correction C (`contribution:4c65f668dc95ef4f`). Historical X remains inspectable and non-current; current truth contains X′ through C.
+
+**Immutable adjudication domain** (`rev:3413bf6f5044cf2680233f5e37c90dcf`):
 
 - relationship semantic count: `346`;
 - effectively represented: `294`;
@@ -178,26 +180,33 @@ On the immutable adjudication domain, against the pinned DungeonMind dependency:
 - remaining DungeonMind-owned relationship debt in the exact adjudication domain: `0`;
 - original adjudication revision: unchanged historical authority.
 
-The live Eldyrwild head may carry additional current relationships beyond that historical baseline. After #536, relationship inventory is current-support aware: contradicted historical edges are durable history, not current residuals.
+**Current formal effective-conformance baseline** (`R_current = Q_live = rev:b90646fb5b135988bd7842cde858c96e`):
 
-The 52 effective residuals (on the adjudication anchor) are not one kind of problem. The adjudication ledger still distinguishes Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, and insufficient-evidence cases. Different classes may require different write authority and therefore different PRs.
+- relationship semantic count: `369`;
+- effectively represented: `311`;
+- effective relationship residuals: `58`;
+- retained `uses_statblock` mechanics attachments: `3`;
+- parent-relative Lysandra exit delta from `P_live`: semantic `0` / represented `+1` / residual `−1` / mechanics `0`.
 
-### First real correction target
+Do not carry the historical `346 / 294 / 52 / 2` forward as though it were the live baseline. Remaining residual work must be selected by correction class from the R_current ledger.
 
-The smallest source-correction exemplar is:
+The residual classes still distinguish Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, and insufficient-evidence cases. Different classes may require different write authority and therefore different PRs.
+
+### First real correction — closed
 
 ```text
-historical defective edge:
+historical defective edge X:
   npc_lysandra --threatens--> cultists_of_longmont
-  qualifier/source meaning: Lysandra is threatened by the cultists
 
-correct current meaning:
+current corrected edge X′:
   cultists_of_longmont --threatens--> npc_lysandra
+
+C: contribution:4c65f668dc95ef4f
+P_live: rev:dfdf38edbefd734d108832e92467b208
+Q_live / R_current: rev:b90646fb5b135988bd7842cde858c96e
 ```
 
-The Session-8 evidence remains valid historical source evidence and must remain sealed. The defect is the durable relationship direction, not the prose. `dnd5e:threatens` already admits the corrected faction→npc direction on the pinned DungeonMind vocabulary, so this correction does not require a new DungeonMind term or global mapping rule.
-
-Lysandra BUILD is **blocked on contribution-integrity heal** for `contribution:d3d244474789879c` (pinned rebuild is not waivable). The heal handoff is now landed and READY for BUILD: [`HANDOFF-eldyrwild-contribution-integrity-heal.md`](../Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md). It is forensic first / repair second: reproduce same-ID/different-source ledger overwrite; guard Kernel supersede before ledger write; recover exact D\* only if lifecycle-neutral digest equals immutable E; heal mutable ledger/index only — not “change the hash until green.” Merge-ready clone proof is not slice `DONE`; an operator must still run the post-merge canonical live heal exit proof before Lysandra becomes READY. Owning Lysandra handoff: [`HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`](../Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md).
+Integrity heal and Lysandra live exits are complete. The next step is one bounded Buddy residual slice by correction class — not batch repair.
 
 ## Current surface state
 
@@ -239,12 +248,11 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `eldyrwild-contribution-integrity-heal` — READY for BUILD via [`HANDOFF-eldyrwild-contribution-integrity-heal.md`](../Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md): forensic reproduction; Kernel pre-write guard; recover D\* only if digest equals immutable E; fixed one-off heal; clone pinned+unpinned rebuild. Post-merge canonical live heal required for `DONE`. Do not hash-patch.
-2. `eldyrwild-lysandra-threat-direction-correction` — BLOCKED until heal `DONE`; then parent-relative `0/+1/−1/0` on a temp clone for merge-ready package; then post-merge canonical apply exit proof before Lysandra `DONE`.
-3. `eldyrwild-effective-conformance-after-first-correction` — READY only after Lysandra `DONE` (merged package **and** live `Q_live`); re-anchor descendant fixtures/tracker on the actual post-correction baseline; keep historical anchor/source seals unchanged.
-4. Select the next Buddy-owned semantic residual slice by correction class; do not make one omnibus residual-zeroing PR.
-5. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
-6. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
+1. `buddy-remaining-relationship-correction-slices` — READY: select one bounded Buddy residual from the R_current ledger by correction class; do not make one omnibus residual-zeroing PR.
+2. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
+3. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
+
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, effective-conformance re-anchor to `R_current = Q_live` `DONE`.
 
 ## Fast diagnostic questions
 

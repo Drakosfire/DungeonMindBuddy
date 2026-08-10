@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import os
@@ -63,6 +64,42 @@ ADJUDICATION_FIXTURE_PATH = (
     FIXTURES / "eldyrwild_relationship_residual_adjudication_v1.json"
 )
 V4_FIXTURE_PATH = FIXTURES / "eldyrwild_post_v29_conformance_v1.json"
+APPROVED_LYSANDRA_CORRECTION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "graph_data"
+    / "approved_graph_corrections"
+    / "eldyrwild"
+    / "lysandra-threat-direction-v1.json"
+)
+
+# Current effective-conformance baseline after Lysandra live exit (Q_live).
+# Distinct from immutable adjudication anchor ELDYRWILD_REVISION_ID (A).
+R_CURRENT_REVISION_ID = "rev:b90646fb5b135988bd7842cde858c96e"
+R_CURRENT_PAYLOAD_SHA256 = (
+    "9bec03ebf893c1c5aca592f283757d5f455f2e67cf0fef7f85852cb85b2d480c"
+)
+Q_LIVE_REVISION_ID = R_CURRENT_REVISION_ID
+P_LIVE_REVISION_ID = "rev:dfdf38edbefd734d108832e92467b208"
+LOCKED_CORRECTION_CONTRIBUTION_ID = "contribution:4c65f668dc95ef4f"
+LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256 = (
+    "78d4d7118c3ba71ed0f930157bcd2343c675ccab8544580ff0aa506aa9ec0c5d"
+)
+TARGET_ASSERTION_ID = "assertion:1dc0fef6561c3282"
+TARGET_EDGE_ID = (
+    "edge:npc_lysandra:threatens:node:cultists_of_longmont:is-threatened-by-cultists"
+)
+REPLACEMENT_ASSERTION_ID = "assertion:3668ba31192a37ad"
+REPLACEMENT_EDGE_ID = "edge:node:cultists_of_longmont:threatens:npc_lysandra"
+
+_HISTORICAL_ADJUDICATION_FIXTURE_SHA256 = (
+    "9aeade076defff7258a0cc25b93c18dcb64e6cdf94533d1b9b8f8ca409a6fbd8"
+)
+_HISTORICAL_ADAPTER_FIXTURE_SHA256 = (
+    "310964d48e719f8027ea7d0db2f0ebada9ee6062251dc4b1258c0948bdf7a9fa"
+)
+_LOCKED_CORRECTION_RAW_ARTIFACT_SHA256 = (
+    "ff0e07b1eee2085f8a6e8280e431e4d8d1eefa809b929538afe9f3f79a2c2518"
+)
 
 _SYNTH_EFFECTIVE_WORLD = "synth-effective-domain"
 _SYNTH_EFFECTIVE_CAMPAIGN = "synth-effective-campaign"
@@ -70,7 +107,17 @@ _SEVENTH_EDGE_ID = (
     "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower"
 )
 
-_EXPECTED_REMAINING_DISPOSITIONS = {
+_EXPECTED_CURRENT_REMAINING_DISPOSITIONS = {
+    "SOURCE_CORRECTION_REQUIRED": 34,
+    "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 10,
+    "IDENTITY_NOT_RELATIONSHIP": 6,
+    "INSUFFICIENT_EVIDENCE": 1,
+    "UNADJUDICATED": 7,
+}
+
+# Disposition inventory on the immutable adjudication anchor domain (A and
+# unchanged A-descendants used by hermetic continuity proofs).
+_EXPECTED_ANCHOR_REMAINING_DISPOSITIONS = {
     "SOURCE_CORRECTION_REQUIRED": 35,
     "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 10,
     "IDENTITY_NOT_RELATIONSHIP": 6,
@@ -461,39 +508,39 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
     payload = json.loads(EFFECTIVE_FIXTURE_PATH.read_text(encoding="utf-8"))
     assert payload["schema_version"] == RELATIONSHIP_EFFECTIVE_CONFORMANCE_SCHEMA_V1
     assert payload["world_id"] == ELDYRWILD_WORLD_ID
-    assert payload["source_revision_id"] == ELDYRWILD_REVISION_ID
-    assert payload["source_graph_payload_sha256"] == ELDYRWILD_PAYLOAD_SHA256
-    assert payload["relationship_semantic_count"] == 346
-    assert payload["relationship_effectively_represented_count"] == 294
-    assert payload["relationship_effective_residual_count"] == 52
-    assert payload["uses_statblock_mechanics_count"] == 2
+    assert payload["source_revision_id"] == R_CURRENT_REVISION_ID
+    assert payload["source_graph_payload_sha256"] == R_CURRENT_PAYLOAD_SHA256
+    assert payload["relationship_semantic_count"] == 369
+    assert payload["relationship_effectively_represented_count"] == 311
+    assert payload["relationship_effective_residual_count"] == 58
+    assert payload["uses_statblock_mechanics_count"] == 3
     assert payload["dungeonmind_owned_remaining_count"] == 0
-    assert payload["dungeonmindbuddy_owned_remaining_count"] == 52
-    assert payload["unadjudicated_remaining_count"] == 0
+    assert payload["dungeonmindbuddy_owned_remaining_count"] == 51
+    assert payload["unadjudicated_remaining_count"] == 7
     assert payload["requires_readjudication_count"] == 0
     assert len(payload["active_adjudicated_edge_ids"]) == 59
-    assert payload["active_adjudicated_edge_ids"] == sorted(ELDYRWILD_RESIDUAL_FINDINGS)
-    assert payload["invalidated_adjudication_edge_ids"] == []
+    assert TARGET_EDGE_ID not in payload["remaining_residual_edge_ids"]
+    assert REPLACEMENT_EDGE_ID not in payload["remaining_residual_edge_ids"]
     assert payload["explicit_adapter_applied_count"] == 3
-    # On the exact anchor, PR #29 interpretations are already represented by
-    # historical v4 exact-domain overrides, so the effective layer does not
-    # re-apply them as newly represented residuals.
-    assert payload["pr29_interpretation_applied_count"] == 0
-    assert set(payload["newly_represented_by_continuity_edge_ids"]) == _ADAPTER_EDGE_IDS
+    assert payload["pr29_interpretation_applied_count"] == 3
+    assert set(payload["newly_represented_by_continuity_edge_ids"]) == _SPECIAL_SIX
 
     dispositions = {
         row["key"]: row["count"]
         for row in payload["remaining_residual_disposition_inventory"]
     }
-    assert dispositions == _EXPECTED_REMAINING_DISPOSITIONS
+    assert dispositions == _EXPECTED_CURRENT_REMAINING_DISPOSITIONS
 
-    adapter_fixture = json.loads(
-        ADAPTER_CONFORMANCE_FIXTURE_PATH.read_text(encoding="utf-8")
-    )
-    assert (
-        payload["remaining_residual_edge_ids"]
-        == adapter_fixture["remaining_residual_edge_ids"]
-    )
+    # Historical adjudication/adapter fixtures remain sealed and distinct from
+    # the current effective baseline (they answer a different authority question).
+    adjudication_sha = hashlib.sha256(
+        ADJUDICATION_FIXTURE_PATH.read_bytes()
+    ).hexdigest()
+    adapter_sha = hashlib.sha256(
+        ADAPTER_CONFORMANCE_FIXTURE_PATH.read_bytes()
+    ).hexdigest()
+    assert adjudication_sha == _HISTORICAL_ADJUDICATION_FIXTURE_SHA256
+    assert adapter_sha == _HISTORICAL_ADAPTER_FIXTURE_SHA256
 
     adjudication = json.loads(ADJUDICATION_FIXTURE_PATH.read_text(encoding="utf-8"))
     dm_owned = {
@@ -504,6 +551,8 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
     assert dm_owned == _PR29_EDGE_IDS | {_WOLF_EDGE_ID}
     assert _WOLF_EDGE_ID not in payload["remaining_residual_edge_ids"]
     assert _WOLF_EDGE_ID not in payload["newly_represented_by_continuity_edge_ids"]
+    assert adjudication["revision_id"] == ELDYRWILD_REVISION_ID
+    assert adjudication["graph_payload_sha256"] == ELDYRWILD_PAYLOAD_SHA256
 
 
 def test_synthetic_descendant_effective_composition_is_unconditional(
@@ -655,7 +704,7 @@ def test_unchanged_descendant_reapplies_exact_six_special_interpretations(
     dispositions = {
         row.key: row.count for row in report.remaining_residual_disposition_inventory
     }
-    assert dispositions == _EXPECTED_REMAINING_DISPOSITIONS
+    assert dispositions == _EXPECTED_ANCHOR_REMAINING_DISPOSITIONS
 
 
 def test_descendant_pr29_edge_change_blocks_that_interpretation_only(
@@ -818,13 +867,16 @@ def test_eldyrwild_effective_conformance_integration_when_present() -> None:
     report = analyze_relationship_effective_conformance_v1(
         root=root,
         world_id=ELDYRWILD_WORLD_ID,
-        revision_id=ELDYRWILD_REVISION_ID,
+        revision_id=R_CURRENT_REVISION_ID,
     )
     after = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
     assert before == after
     compact = compact_relationship_effective_conformance_report_v1(report)
     committed = json.loads(EFFECTIVE_FIXTURE_PATH.read_text(encoding="utf-8"))
     assert compact == committed
+    assert compact["source_revision_id"] == R_CURRENT_REVISION_ID
+    assert TARGET_EDGE_ID not in compact["remaining_residual_edge_ids"]
+    assert REPLACEMENT_EDGE_ID not in compact["remaining_residual_edge_ids"]
 
 
 def test_effective_conformance_inherits_support_aware_v4_correction_delta(
@@ -980,7 +1032,8 @@ def test_effective_conformance_inherits_support_aware_v4_correction_delta(
     store_q = kernel.load_world_graph_revision(root, world_id, child)
     assert "edge:eff:x" in store_q.edges
 
-    # Historical Eldyrwild effective anchor remains the fixture contract.
+    # Immutable adjudication-domain observation on historical A remains 346/294/52/2.
+    # That is not the current effective fixture (R_current / Q_live).
     eldyrwild = world_graph_root() / "graph_memory" / "worlds" / "eldyrwild"
     if eldyrwild.is_dir():
         before = snapshot_world_graph_tree_digest(world_graph_root(), ELDYRWILD_WORLD_ID)
@@ -995,3 +1048,185 @@ def test_effective_conformance_inherits_support_aware_v4_correction_delta(
         assert anchor.relationship_effectively_represented_count == 294
         assert anchor.relationship_effective_residual_count == 52
         assert anchor.uses_statblock_mechanics_count == 2
+        assert anchor.source_revision_id == ELDYRWILD_REVISION_ID
+        current_fixture = json.loads(EFFECTIVE_FIXTURE_PATH.read_text(encoding="utf-8"))
+        assert current_fixture["source_revision_id"] == R_CURRENT_REVISION_ID
+        assert current_fixture["relationship_semantic_count"] != 346
+
+
+def _clone_eldyrwild_world(tmp_path: Path) -> Path:
+    src_root = world_graph_root()
+    eldyrwild_src = src_root / "graph_memory" / "worlds" / "eldyrwild"
+    if not eldyrwild_src.is_dir():
+        pytest.skip("Eldyrwild world graph not present")
+    (tmp_path / "graph_memory" / "worlds").mkdir(parents=True)
+    shutil.copytree(eldyrwild_src, tmp_path / "graph_memory" / "worlds" / "eldyrwild")
+    runs = src_root / "graph_memory" / "runs"
+    if runs.is_dir():
+        os.symlink(runs, tmp_path / "graph_memory" / "runs")
+    return tmp_path
+
+
+def test_r_current_ancestry_includes_adjudication_anchor_and_q_live(
+    tmp_path: Path,
+) -> None:
+    root = _clone_eldyrwild_world(tmp_path)
+    ok_a, diag_a, _ = prove_revision_is_anchor_or_descendant_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        requested_revision_id=R_CURRENT_REVISION_ID,
+        anchor_revision_id=ELDYRWILD_REVISION_ID,
+    )
+    assert ok_a is True, diag_a
+    ok_q, diag_q, _ = prove_revision_is_anchor_or_descendant_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        requested_revision_id=R_CURRENT_REVISION_ID,
+        anchor_revision_id=Q_LIVE_REVISION_ID,
+    )
+    assert ok_q is True, diag_q
+    ok_p, diag_p, _ = prove_revision_is_anchor_or_descendant_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        requested_revision_id=Q_LIVE_REVISION_ID,
+        anchor_revision_id=P_LIVE_REVISION_ID,
+    )
+    assert ok_p is True, diag_p
+
+
+def test_r_current_retains_lysandra_correction_authority(tmp_path: Path) -> None:
+    from apps.live_control_server.services.eldyrwild_lysandra_threat_direction_correction import (
+        get_lysandra_threat_direction_correction_status,
+    )
+    from graph_memory.kernel.contributions import (
+        compute_contribution_source_payload_sha256,
+    )
+    from graph_memory.world_supergraph.contribution_store import load_contribution_record
+
+    root = _clone_eldyrwild_world(tmp_path)
+    store = kernel.load_world_graph_revision(
+        root, ELDYRWILD_WORLD_ID, R_CURRENT_REVISION_ID
+    )
+    x = store.assertion_support[TARGET_ASSERTION_ID]
+    xp = store.assertion_support[REPLACEMENT_ASSERTION_ID]
+    assert x["support_state"] == "contradicted"
+    assert not (x.get("active_contribution_ids") or [])
+    assert xp["support_state"] == "supported"
+    assert list(xp.get("active_contribution_ids") or []) == [
+        LOCKED_CORRECTION_CONTRIBUTION_ID
+    ]
+    assert REPLACEMENT_EDGE_ID in store.edges
+    ledger = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    )
+    assert (
+        compute_contribution_source_payload_sha256(ledger)
+        == LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    st = get_lysandra_threat_direction_correction_status(
+        root=root, expected_parent_revision_id=R_CURRENT_REVISION_ID
+    )
+    assert st.eligibility == "already_applied"
+
+
+def test_historical_x_continuity_remains_source_grounded(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_continuity_v1 import (
+        analyze_relationship_adjudication_continuity_v1,
+    )
+
+    root = _clone_eldyrwild_world(tmp_path)
+    continuity = analyze_relationship_adjudication_continuity_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=R_CURRENT_REVISION_ID,
+    )
+    rows = {row.edge_id: row for row in continuity.rows}
+    assert TARGET_EDGE_ID in rows
+    row = rows[TARGET_EDGE_ID]
+    assert row.source_grounding_verified is True
+    assert row.durable_shape_verified is True
+    store = kernel.load_world_graph_revision(
+        root, ELDYRWILD_WORLD_ID, R_CURRENT_REVISION_ID
+    )
+    assert TARGET_EDGE_ID in store.edges
+    report = analyze_relationship_effective_conformance_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=R_CURRENT_REVISION_ID,
+    )
+    assert TARGET_EDGE_ID not in report.remaining_residual_edge_ids
+
+
+def test_source_and_adjudication_seals_unchanged_by_reanchor() -> None:
+    assert (
+        hashlib.sha256(ADJUDICATION_FIXTURE_PATH.read_bytes()).hexdigest()
+        == _HISTORICAL_ADJUDICATION_FIXTURE_SHA256
+    )
+    assert (
+        hashlib.sha256(ADAPTER_CONFORMANCE_FIXTURE_PATH.read_bytes()).hexdigest()
+        == _HISTORICAL_ADAPTER_FIXTURE_SHA256
+    )
+    assert (
+        hashlib.sha256(APPROVED_LYSANDRA_CORRECTION_PATH.read_bytes()).hexdigest()
+        == _LOCKED_CORRECTION_RAW_ARTIFACT_SHA256
+    )
+    adjudication = json.loads(ADJUDICATION_FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert adjudication["revision_id"] == ELDYRWILD_REVISION_ID
+    assert adjudication["graph_payload_sha256"] == ELDYRWILD_PAYLOAD_SHA256
+
+
+def test_r_current_rebuilds_pinned_and_unpinned(tmp_path: Path) -> None:
+    root = _clone_eldyrwild_world(tmp_path)
+    pinned = kernel.rebuild_from_contributions(
+        root,
+        world_id=ELDYRWILD_WORLD_ID,
+        compare_revision_id=R_CURRENT_REVISION_ID,
+        publish=False,
+    )
+    unpinned = kernel.rebuild_from_contributions(
+        root,
+        world_id=ELDYRWILD_WORLD_ID,
+        publish=False,
+    )
+    pinned_diag = list(getattr(pinned, "diagnostics", []) or [])
+    unpinned_diag = list(getattr(unpinned, "diagnostics", []) or [])
+    assert "rebuild_equivalent_to_pinned_revision" in pinned_diag
+    assert (
+        "rebuild_equivalent_to_head" in unpinned_diag
+        or "rebuild_equivalent_to_published_head" in unpinned_diag
+    )
+    # Rebuild audit is clone-local; prove Lysandra authority still reconstructs.
+    store = kernel.load_world_graph_revision(
+        root, ELDYRWILD_WORLD_ID, R_CURRENT_REVISION_ID
+    )
+    assert store.assertion_support[TARGET_ASSERTION_ID]["support_state"] == "contradicted"
+    assert store.assertion_support[REPLACEMENT_ASSERTION_ID]["support_state"] == "supported"
+    assert list(
+        store.assertion_support[REPLACEMENT_ASSERTION_ID]["active_contribution_ids"]
+    ) == [LOCKED_CORRECTION_CONTRIBUTION_ID]
+
+
+def test_effective_reanchor_tests_do_not_mutate_canonical_world() -> None:
+    root = world_graph_root()
+    eldyrwild = root / "graph_memory" / "worlds" / "eldyrwild"
+    if not eldyrwild.is_dir():
+        pytest.skip("Eldyrwild world graph not present")
+    before_head = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
+    before_tree = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    before_index = (
+        root / "graph_memory" / "worlds" / "eldyrwild" / "contribution_index.json"
+    ).read_bytes()
+    _ = analyze_relationship_effective_conformance_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=R_CURRENT_REVISION_ID,
+    )
+    assert (
+        kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
+        == before_head
+        == R_CURRENT_REVISION_ID
+    )
+    assert snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID) == before_tree
+    assert (
+        root / "graph_memory" / "worlds" / "eldyrwild" / "contribution_index.json"
+    ).read_bytes() == before_index
