@@ -3056,12 +3056,63 @@ describe("PlanSurfaceShell", () => {
       expect(params.get("campaigns")).toBe("longmont-c1,longmont-c2");
     });
 
-    it("restores the exact document on browser back and forward navigation", async () => {
+    async function navigateHistory(direction: "back" | "forward") {
+      await act(async () => {
+        const popped = new Promise<void>((resolve) => {
+          window.addEventListener("popstate", () => resolve(), { once: true });
+        });
+        if (direction === "back") {
+          window.history.back();
+        } else {
+          window.history.forward();
+        }
+        await popped;
+      });
+    }
+
+    it("canonicalizes bare /plan so back/forward restore the exact document", async () => {
       mockRegistry(DOC_A, DOC_B);
       mockResolutionByDocumentId();
-      window.history.pushState({}, "", `/plan?campaigns=longmont-c1,longmont-c2&documentId=${DOC_A}`);
+      // Ordinary entry: no documentId. Successful default resolve must replaceState
+      // the exact id into the URL, or Back after selecting B returns to bare /plan
+      // and re-picks whichever record is first later.
+      window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
       renderPlanSurface();
       await waitForPlanSurfaceReady();
+      await waitFor(() =>
+        expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_A));
+      expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep");
+      expect(new URL(window.location.href).searchParams.get("campaigns")).toBe(
+        "longmont-c1,longmont-c2",
+      );
+
+      const user = userEvent.setup();
+      await waitForSelectorReady();
+      await user.selectOptions(screen.getByTestId("plan-document-select"), DOC_B);
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 26 Prep"));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_B);
+
+      await navigateHistory("back");
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep"));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_A);
+      expect(screen.getByTestId("plan-document-select")).toHaveValue(DOC_A);
+
+      await navigateHistory("forward");
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 26 Prep"));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_B);
+      expect(screen.getByTestId("plan-document-select")).toHaveValue(DOC_B);
+    });
+
+    it("retains the current document URL when a historical target no longer resolves", async () => {
+      mockRegistry(DOC_A, DOC_B);
+      mockResolutionByDocumentId();
+      window.history.pushState({}, "", `/plan?dogfood=1&documentId=${DOC_A}`);
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+      expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep");
 
       const user = userEvent.setup();
       await waitForSelectorReady();
@@ -3069,21 +3120,30 @@ describe("PlanSurfaceShell", () => {
       await waitFor(() =>
         expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 26 Prep"));
 
-      act(() => {
-        window.history.pushState({}, "", `/plan?campaigns=longmont-c1,longmont-c2&documentId=${DOC_A}`);
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      });
+      // B later disappears from exact resolution (deleted/archived). Forward/back
+      // must not leave the browser URL naming B while Canvas stays on A.
+      vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementation(
+        async ({ locationSearch }) => {
+          const id = new URLSearchParams(locationSearch ?? "").get("documentId") ?? DOC_A;
+          if (id === DOC_B) throw new Error("Workspace document not found");
+          return descriptorFor(id);
+        },
+      );
+
+      await navigateHistory("back");
       await waitFor(() =>
         expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep"));
-      expect(screen.getByTestId("plan-document-select")).toHaveValue(DOC_A);
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_A);
 
-      act(() => {
-        window.history.pushState({}, "", `/plan?campaigns=longmont-c1,longmont-c2&documentId=${DOC_B}`);
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      });
+      await navigateHistory("forward");
       await waitFor(() =>
-        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 26 Prep"));
-      expect(screen.getByTestId("plan-document-select")).toHaveValue(DOC_B);
+        expect(screen.getByTestId("plan-document-switch-error")).toHaveTextContent(
+          "Workspace document not found",
+        ));
+      expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep");
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_A);
+      expect(new URL(window.location.href).searchParams.get("dogfood")).toBe("1");
+      expect(screen.getByTestId("plan-document-select")).toHaveValue(DOC_A);
     });
 
     it("keeps the current document when the exact switch read fails", async () => {

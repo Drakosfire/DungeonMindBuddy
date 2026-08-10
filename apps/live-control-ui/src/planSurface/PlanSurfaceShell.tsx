@@ -23,6 +23,11 @@ interface PlanSurfaceShellProps {
   onEditorToolsChange?: (tools: AppChromeToolsGeneration | null) => void;
 }
 
+/** How a successful/failed document resolve may commit browser URL identity. */
+type DocumentUrlCommit =
+  | { mode: "push"; search: string }
+  | { mode: "history" };
+
 function themeStyle(config: PlanSurfaceConfig): CSSProperties {
   return (config.theme.tokens ?? {}) as CSSProperties;
 }
@@ -41,6 +46,8 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   const planningDocumentRef = useRef<PlanDocumentDescriptor | null>(null);
   planningDocumentRef.current = planningDocument;
+  const locationSearchRef = useRef(locationSearch);
+  locationSearchRef.current = locationSearch;
   /** Monotonic generation so a stale resolution cannot clobber a newer document choice. */
   const documentLoadGenerationRef = useRef(0);
   const selectorListGenerationRef = useRef(0);
@@ -69,14 +76,17 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   /**
    * Single resolution path for initial load, browser navigation, and selector
-   * switches. A resolution applies only while it is the newest request; a
-   * failed switch keeps the current document authoritative and never falls
+   * switches. Resolve first, then commit URL identity: selector success uses
+   * pushState; bare/default and history success canonicalize with replaceState;
+   * failed history keeps Canvas + restores the retained exact URL. A resolution
+   * applies only while it is the newest request; a failed switch never falls
    * back to a different record.
    */
   const loadPlanningDocument = useCallback(
-    async (search: string): Promise<boolean> => {
+    async (search: string, urlCommit: DocumentUrlCommit): Promise<boolean> => {
       const generation = ++documentLoadGenerationRef.current;
       const switching = planningDocumentRef.current != null;
+      const retainedSearch = locationSearchRef.current;
       if (switching) {
         setDocumentSwitching(true);
         setDocumentSwitchError(null);
@@ -92,6 +102,25 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         setDocumentSwitching(false);
         setDocumentSwitchError(null);
         void loadSelectorDocuments();
+
+        if (typeof window !== "undefined") {
+          if (urlCommit.mode === "push") {
+            window.history.pushState({}, "", `${window.location.pathname}${urlCommit.search}`);
+            setLocationSearch(urlCommit.search);
+          } else {
+            const named = new URLSearchParams(window.location.search).get("documentId");
+            if (named === document.documentId) {
+              setLocationSearch(window.location.search);
+            } else {
+              const canonical = planDocumentSelectionSearch(
+                window.location.search,
+                document.documentId,
+              );
+              window.history.replaceState({}, "", `${window.location.pathname}${canonical}`);
+              setLocationSearch(canonical);
+            }
+          }
+        }
         return true;
       } catch (error) {
         if (generation !== documentLoadGenerationRef.current) return false;
@@ -100,6 +129,14 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
           setDocumentSwitching(false);
           setDocumentSwitchError(message);
           setDocumentLoadStatus("ready");
+          // History already moved the browser URL; put exact current identity back.
+          if (urlCommit.mode === "history" && typeof window !== "undefined") {
+            const retainedUrl = `${window.location.pathname}${retainedSearch}`;
+            const currentUrl = `${window.location.pathname}${window.location.search}`;
+            if (currentUrl !== retainedUrl) {
+              window.history.replaceState({}, "", retainedUrl);
+            }
+          }
         } else {
           setPlanningDocument(null);
           setDocumentLoadStatus("error");
@@ -111,12 +148,11 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     [loadSelectorDocuments, planView],
   );
 
-  // Initial load and browser back/forward resolve the document the URL names.
+  // Initial load and browser back/forward: resolve, then commit URL identity.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sync = () => {
-      setLocationSearch(window.location.search);
-      void loadPlanningDocument(window.location.search);
+      void loadPlanningDocument(window.location.search, { mode: "history" });
     };
     sync();
     window.addEventListener("popstate", sync);
@@ -130,11 +166,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       if (typeof window === "undefined") return;
       if (documentId === planningDocumentRef.current?.documentId) return;
       const search = planDocumentSelectionSearch(window.location.search, documentId);
-      void loadPlanningDocument(search).then((applied) => {
-        if (!applied) return;
-        window.history.pushState({}, "", `${window.location.pathname}${search}`);
-        setLocationSearch(search);
-      });
+      void loadPlanningDocument(search, { mode: "push", search });
     },
     [loadPlanningDocument],
   );
