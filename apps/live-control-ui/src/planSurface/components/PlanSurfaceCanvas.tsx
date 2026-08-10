@@ -42,7 +42,7 @@ import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectio
 import { formatReviewCampaignLabel } from "../sessionCampaignContext";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
-import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
+import "../../tiptap/prepMarkdownThemes.css";
 import "../../tiptap/tiptapSpike.css";
 import "../../graphReference/graphReference.css";
 

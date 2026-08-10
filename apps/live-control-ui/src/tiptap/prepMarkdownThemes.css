@@ -1,0 +1,400 @@
+.md-content[data-md-theme] {
+  color: var(--md-fg, var(--fg));
+  background: var(--md-bg, transparent);
+}
+
+.md-content[data-md-theme] h1,
+.md-content[data-md-theme] h2,
+.md-content[data-md-theme] h3,
+.md-content[data-md-theme] h4 {
+  color: var(--md-heading, var(--md-fg, var(--fg)));
+}
+
+.md-content[data-md-theme] a {
+  color: var(--md-accent, var(--accent));
+}
+
+.md-content[data-md-theme] .md-ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin: 0 0.08rem;
+  padding: 0.08rem 0.42rem;
+  border: 1px solid var(--md-ref-chip-border, rgba(148, 163, 184, 0.45));
+  border-radius: 999px;
+  background: var(--md-ref-chip-bg, rgba(148, 163, 184, 0.12));
+  color: var(--md-ref-chip-fg, inherit);
+  font: inherit;
+  font-size: 0.92em;
+  line-height: 1.45;
+  cursor: default;
+  vertical-align: baseline;
+  max-width: min(24rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.md-content[data-md-theme] .md-ref-chip-npc {
+  --md-ref-chip-bg: rgba(245, 158, 11, 0.14);
+  --md-ref-chip-border: rgba(245, 158, 11, 0.42);
+}
+
+.md-content[data-md-theme] .md-ref-chip-location {
+  --md-ref-chip-bg: rgba(14, 165, 233, 0.13);
+  --md-ref-chip-border: rgba(14, 165, 233, 0.42);
+}
+
+.md-content[data-md-theme] .md-ref-chip-statblock {
+  --md-ref-chip-bg: rgba(239, 68, 68, 0.13);
+  --md-ref-chip-border: rgba(239, 68, 68, 0.45);
+}
+
+.md-content[data-md-theme] .md-ref-chip-roll-table {
+  --md-ref-chip-bg: rgba(168, 85, 247, 0.13);
+  --md-ref-chip-border: rgba(168, 85, 247, 0.42);
+}
+
+.md-content[data-md-theme] .md-ref-chip-citation {
+  --md-ref-chip-bg: rgba(148, 163, 184, 0.12);
+  --md-ref-chip-border: rgba(148, 163, 184, 0.38);
+}
+
+.md-content[data-md-theme] .md-ref-chip-action {
+  --md-ref-chip-bg: rgba(34, 197, 94, 0.14);
+  --md-ref-chip-border: rgba(34, 197, 94, 0.46);
+  font-weight: 600;
+}
+
+.md-content[data-md-theme] table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.md-content[data-md-theme] th,
+.md-content[data-md-theme] td {
+  border: 1px solid var(--md-border, var(--border));
+  padding: 0.4rem 0.55rem;
+  vertical-align: top;
+}
+
+.md-content[data-md-theme] blockquote {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.85rem;
+  border-left: 4px solid var(--md-accent, var(--accent));
+  background: var(--md-surface, var(--bg-input));
+}
+
+.md-content[data-md-theme] .md-callout {
+  margin: 0.85rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--md-callout-border, var(--md-border, var(--border)));
+  border-left-width: 4px;
+  border-radius: var(--radius, 8px);
+  background: var(--md-callout-bg, var(--md-surface, var(--bg-input)));
+}
+
+.md-content[data-md-theme] .md-callout-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.md-content[data-md-theme] .md-callout-body > :first-child {
+  margin-top: 0;
+}
+
+.md-content[data-md-theme] .md-callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* Paired Decision / Consequence prep block */
+.md-content[data-md-theme] .md-decision-consequence {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  margin: 0.95rem 0;
+  padding: 0.55rem;
+  border: 1px solid var(--md-border, var(--border));
+  border-radius: var(--radius, 8px);
+  background: color-mix(in srgb, var(--md-surface, var(--bg-input)) 88%, transparent);
+}
+
+.md-content[data-md-theme] .md-dc-pane {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--md-dc-pane-border, var(--md-border, var(--border)));
+  border-left-width: 4px;
+  border-radius: calc(var(--radius, 8px) - 2px);
+  background: var(--md-dc-pane-bg, var(--md-surface, var(--bg-input)));
+}
+
+.md-content[data-md-theme] .md-dc-pane-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--md-dc-pane-label, var(--md-fg, var(--fg)));
+}
+
+.md-content[data-md-theme] .md-dc-pane-body > :first-child {
+  margin-top: 0;
+}
+
+.md-content[data-md-theme] .md-dc-pane-body > :last-child {
+  margin-bottom: 0;
+}
+
+.md-content.md-theme-command .md-dc-pane-decision {
+  --md-dc-pane-border: rgba(94, 168, 160, 0.9);
+  --md-dc-pane-bg: rgba(94, 168, 160, 0.08);
+  --md-dc-pane-label: #7ec8bf;
+}
+
+.md-content.md-theme-command .md-dc-pane-consequence {
+  --md-dc-pane-border: rgba(196, 140, 82, 0.92);
+  --md-dc-pane-bg: rgba(196, 140, 82, 0.09);
+  --md-dc-pane-label: #d4a574;
+}
+
+@media (min-width: 720px) {
+  .md-content[data-md-theme] .md-decision-consequence {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+}
+
+.md-content[data-md-theme] code {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  color: var(--md-fg, var(--fg));
+  background: var(--md-surface, var(--bg-input));
+  border: 1px solid var(--md-border, var(--border));
+  border-radius: 4px;
+  padding: 0.05rem 0.25rem;
+}
+
+.md-content[data-md-theme] pre {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--md-border, var(--border));
+  border-radius: var(--radius, 8px);
+  background: var(--md-surface, var(--bg-input));
+}
+
+.md-content[data-md-theme] pre code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.md-content[data-md-theme] ul,
+.md-content[data-md-theme] ol {
+  padding-left: 1.4rem;
+}
+
+.md-content[data-md-theme] hr {
+  border: 0;
+  border-top: 1px solid var(--md-border, var(--border));
+  margin: 1rem 0;
+}
+
+.md-content.md-theme-command {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--md-border, var(--border));
+  border-radius: var(--radius, 8px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.md-embed > .md-content.md-theme-command {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.md-content.md-theme-command h1,
+.md-content.md-theme-command h2,
+.md-content.md-theme-command h3 {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.md-content.md-theme-command h2,
+.md-content.md-theme-command h3 {
+  padding-bottom: 0.18rem;
+  border-bottom: 1px solid rgba(122, 162, 247, 0.22);
+}
+
+.md-content.md-theme-command h2 {
+  margin-top: 1.15rem;
+}
+
+.md-content.md-theme-command a {
+  font-weight: 600;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.md-content.md-theme-command th {
+  color: var(--md-heading, var(--fg));
+  background: rgba(122, 162, 247, 0.08);
+}
+
+.md-content.md-theme-command blockquote {
+  border-left-color: rgba(122, 162, 247, 0.72);
+  border-radius: 0 var(--radius, 8px) var(--radius, 8px) 0;
+  background: rgba(122, 162, 247, 0.06);
+}
+
+.md-content.md-theme-command .md-callout-read-aloud {
+  --md-callout-border: rgba(122, 162, 247, 0.72);
+  --md-callout-bg: rgba(122, 162, 247, 0.07);
+}
+
+.md-content.md-theme-command .md-callout-gm-note {
+  --md-callout-border: rgba(187, 154, 247, 0.72);
+  --md-callout-bg: rgba(187, 154, 247, 0.07);
+}
+
+.md-content.md-theme-command .md-callout-rules {
+  --md-callout-border: rgba(125, 207, 255, 0.72);
+  --md-callout-bg: rgba(125, 207, 255, 0.06);
+}
+
+.md-content.md-theme-command .md-callout-warning {
+  --md-callout-border: rgba(255, 158, 100, 0.85);
+  --md-callout-bg: rgba(255, 158, 100, 0.08);
+}
+
+.md-content.md-theme-command code {
+  color: var(--md-accent, var(--accent));
+}
+
+.md-content.md-theme-command pre {
+  background: rgba(15, 17, 21, 0.52);
+}
+
+.md-content.md-theme-statblock {
+  padding: 1rem 1.1rem;
+  border: 2px solid var(--md-border, #c0ad6a);
+  border-radius: 6px;
+  color: var(--md-fg, #2b1d0f);
+  background:
+    linear-gradient(rgba(255, 249, 237, 0.72), rgba(255, 249, 237, 0.72)),
+    var(--md-bg, #f7ebd7);
+  box-shadow: 0 2px 10px rgba(43, 29, 15, 0.18);
+  font-family: "Bookinsanity", "Book Antiqua", Georgia, serif;
+}
+
+.md-content.md-theme-statblock h1,
+.md-content.md-theme-statblock h2,
+.md-content.md-theme-statblock h3 {
+  color: var(--md-heading, #58180d);
+  font-family: "Bookinsanity", "Book Antiqua", Georgia, serif;
+}
+
+.md-content.md-theme-statblock h1 {
+  margin-bottom: 0.25rem;
+  font-size: 1.7rem;
+}
+
+.md-content.md-theme-statblock h2,
+.md-content.md-theme-statblock h3 {
+  margin-top: 1rem;
+  padding-bottom: 0.18rem;
+  border-bottom: 2px solid var(--md-accent, #a11d18);
+  letter-spacing: 0.02em;
+}
+
+.md-content.md-theme-statblock a {
+  color: var(--md-accent, #a11d18);
+  font-weight: 600;
+}
+
+.md-content.md-theme-statblock th {
+  color: var(--md-heading, #58180d);
+  background: rgba(192, 173, 106, 0.26);
+}
+
+.md-content.md-theme-statblock tr:nth-child(even) td {
+  background: rgba(255, 249, 237, 0.55);
+}
+
+.md-content.md-theme-statblock blockquote {
+  border-left-color: var(--md-accent, #a11d18);
+  background: rgba(255, 249, 237, 0.72);
+  font-style: italic;
+}
+
+.md-content.md-theme-statblock .md-callout {
+  background: rgba(255, 249, 237, 0.74);
+  border-color: var(--md-border, #c0ad6a);
+}
+
+.md-content.md-theme-statblock .md-callout-label {
+  color: var(--md-heading, #58180d);
+  font-family: "Bookinsanity", "Book Antiqua", Georgia, serif;
+}
+
+.md-content.md-theme-statblock .md-callout-warning {
+  border-left-color: var(--md-accent, #a11d18);
+}
+
+.md-content.md-theme-statblock code,
+.md-content.md-theme-statblock pre {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+
+.md-content.md-theme-plain {
+  background: transparent;
+  box-shadow: none;
+}
+
+.md-content.md-theme-plain h1,
+.md-content.md-theme-plain h2,
+.md-content.md-theme-plain h3,
+.md-content.md-theme-plain h4 {
+  color: var(--md-fg, var(--fg));
+  letter-spacing: normal;
+}
+
+.md-content.md-theme-plain blockquote {
+  border-left-width: 2px;
+  border-left-color: var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.md-content.md-theme-plain .md-callout {
+  border-color: var(--border);
+  border-left-width: 3px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.md-content.md-theme-plain .md-callout-label {
+  color: var(--fg);
+}
+
+.md-content.md-theme-plain th {
+  color: var(--md-fg, var(--fg));
+  background: transparent;
+  font-weight: 600;
+}
+
+.md-content.md-theme-plain code {
+  border-color: var(--border);
+  background: transparent;
+}
+
+.md-content.md-theme-plain pre {
+  border-color: var(--border);
+  background: transparent;
+}

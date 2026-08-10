@@ -28,7 +28,7 @@ import {
   resolveRunbookSpikeDocument,
   type TiptapRunbookDescriptor,
 } from "./descriptors/tiptapRunbookDescriptors";
-import "../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
+import "./prepMarkdownThemes.css";
 import "./tiptapSpike.css";
 
 export { initialCalloutContent };
