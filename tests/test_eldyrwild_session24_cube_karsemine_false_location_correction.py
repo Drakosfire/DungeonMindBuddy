@@ -65,6 +65,76 @@ ADJUDICATION_PATH = (
     / "tests/fixtures/dungeonmind_kernel/eldyrwild_relationship_residual_adjudication_v1.json"
 )
 
+# Locked eligible parent used by the canonical Session-24 live exit (also the
+# service's R_CURRENT at package authoring: post-Lysandra / pre-Session-24).
+PRE_C_PARENT_REVISION_ID = R_CURRENT_REVISION_ID
+POST_C_CHILD_REVISION_ID = "rev:b8dfc063bc13a4fb297e83f5f9b313d9"
+
+
+def _strip_contribution_from_clone(root: Path, contribution_id: str) -> None:
+    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    if contribution_id in set(index.all_contribution_ids) or contribution_id in set(
+        index.active_contribution_ids
+    ):
+        index = index.model_copy(
+            update={
+                "all_contribution_ids": [
+                    x for x in index.all_contribution_ids if x != contribution_id
+                ],
+                "active_contribution_ids": [
+                    x for x in index.active_contribution_ids if x != contribution_id
+                ],
+                "superseded_contribution_ids": [
+                    x for x in index.superseded_contribution_ids if x != contribution_id
+                ],
+                "retracted_contribution_ids": [
+                    x for x in index.retracted_contribution_ids if x != contribution_id
+                ],
+                "failed_contribution_ids": [
+                    x for x in index.failed_contribution_ids if x != contribution_id
+                ],
+            }
+        )
+        save_contribution_index(root, ELDYRWILD_WORLD_ID, index)
+
+    contrib_path = world_paths.contribution_path(
+        root, ELDYRWILD_WORLD_ID, contribution_id
+    )
+    if contrib_path.is_file():
+        contrib_path.unlink()
+
+
+def _ensure_pre_c_eligible_root(root: Path) -> None:
+    """Force a clone onto explicit pre-C₂ parent P with C₂ absent from the ledger.
+
+    Copying canonical Eldyrwild after the Session-24 live cutover inherits Q and a
+    mutable store that already contains locked C₂. Eligible/apply/replay proofs
+    require the pre-C₂ parent instead, so restore that state inside the clone.
+    """
+    try:
+        kernel.load_world_graph_revision(
+            root, ELDYRWILD_WORLD_ID, PRE_C_PARENT_REVISION_ID
+        )
+    except Exception as exc:  # pragma: no cover - fixture absence
+        pytest.skip(f"pre-C parent {PRE_C_PARENT_REVISION_ID} unavailable: {exc}")
+
+    kernel.rollback_world_graph_head(
+        root, ELDYRWILD_WORLD_ID, PRE_C_PARENT_REVISION_ID
+    )
+    _strip_contribution_from_clone(root, LOCKED_CORRECTION_CONTRIBUTION_ID)
+
+    post_c_dir = world_paths.revision_dir(
+        root, ELDYRWILD_WORLD_ID, POST_C_CHILD_REVISION_ID
+    )
+    if post_c_dir.is_dir():
+        shutil.rmtree(post_c_dir)
+
+    rebuild_latest = world_paths.contribution_rebuild_latest_path(
+        root, ELDYRWILD_WORLD_ID
+    )
+    if rebuild_latest.is_file():
+        rebuild_latest.unlink()
+
 
 def _clone_eldyrwild(tmp_path: Path) -> Path:
     src_root = world_graph_root()
@@ -76,6 +146,7 @@ def _clone_eldyrwild(tmp_path: Path) -> Path:
     runs = src_root / "graph_memory" / "runs"
     if runs.is_dir():
         os.symlink(runs, tmp_path / "graph_memory" / "runs")
+    _ensure_pre_c_eligible_root(tmp_path)
     return tmp_path
 
 
