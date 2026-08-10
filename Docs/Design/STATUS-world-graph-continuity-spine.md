@@ -1,8 +1,8 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority  
-**Updated:** 2026-08-09 after PR #531 merged  
-**Repository anchor:** `377ca60e146df2c9a801ebcb864a9dd9b0183dbe`  
+**Updated:** 2026-08-09 after PR #534 merged  
+**Repository anchor:** `99f1d18dffd48d7e46250d63892adfae97a654a8`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
@@ -69,13 +69,11 @@ Source Artifact / authored record
 - Agents may later prepare or propose through typed capabilities, but they must reuse this protocol and cannot bypass GM confirmation.
 - Worldbuilding draft elevation is a separate authority decision; draft lore must not be relabeled as played canon to make promotion convenient.
 
-## Correction write path — current gap
+## Correction write path
 
-Architecture already says approved graph corrections are durable authored authority and must survive reconstruction. The current Kernel has contribution-level supersession and retraction, but that granularity is source-revision-shaped: superseding one contribution removes its support from every assertion the contribution carried.
+Architecture already says approved graph corrections are durable authored authority and must survive reconstruction. Contribution-level supersession and retraction remain source-revision-shaped: superseding one contribution removes its support from every assertion the contribution carried. That is correct for replacing a source revision and too broad for a human correction to exactly one defective extracted assertion when unrelated assertions from the same source contribution remain valid.
 
-That is correct for replacing a source revision. It is too broad for a human correction to exactly one defective extracted assertion when unrelated assertions from the same source contribution remain valid.
-
-The missing governed path is therefore:
+PR #534 closed that gap with a governed Kernel operation:
 
 ```text
 published assertion + historical source authority
@@ -88,7 +86,7 @@ published assertion + historical source authority
 → deterministic replay to the corrected head
 ```
 
-This path is **not implemented yet** at the repository anchor. Do not emulate it by direct snapshot editing, a projection exception, a global predicate reversal, or whole-contribution supersession unless the entire source revision is actually being replaced.
+The synthetic/replay-safe Kernel contract is implemented and merged. It has **not** yet been applied to Eldyrwild. Do not emulate a real correction by direct snapshot editing, a projection exception, a global predicate reversal, or whole-contribution supersession unless the entire source revision is actually being replaced.
 
 ## Read path
 
@@ -165,10 +163,11 @@ The August chain is now part of current state and must not be reconstructed from
 | #528 | Re-pin after DungeonMind PR #29; relationship state moves `287/59 → 291/55`; remaining relationship debt is Buddy-owned |
 | #530 | Three governed explicit adapters move effective state `291/55 → 294/52` without mutating the World Graph |
 | #531 | Adjudication continuity carries only across proven descendants with unchanged durable shape/source grounding; effective conformance composes the exact current interpretation |
+| #534 | Targeted structural edge-assertion correction: contradict exactly one active support and publish a replacement in one CAS-fenced descendant, with replay and integrity fail-closed proofs |
 
 ### Current Eldyrwild semantic state
 
-At `377ca60e…`, against the pinned DungeonMind dependency:
+At `99f1d18d…`, against the pinned DungeonMind dependency:
 
 - relationship semantic count: `346`;
 - effectively represented: `294`;
@@ -194,7 +193,7 @@ correct current meaning:
 
 The Session-8 evidence remains valid historical source evidence and must remain sealed. The defect is the durable relationship direction, not the prose. `dnd5e:threatens` already admits the corrected faction→npc direction on the pinned DungeonMind vocabulary, so this correction does not require a new DungeonMind term or global mapping rule.
 
-The Lysandra mutation is intentionally blocked until targeted assertion correction exists and is replay-safe.
+The Lysandra mutation is now **dispatchable**: the #534 Kernel seam is merged and replay-safe. The owning handoff is [`HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`](../Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md).
 
 ## Current surface state
 
@@ -236,12 +235,11 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `kernel-targeted-assertion-correction` — synthetic Kernel proof; no Eldyrwild mutation.
-2. `eldyrwild-lysandra-threat-direction-correction` — first bounded real correction after the capability exists.
-3. Effective descendant proof requiring `294/52 → 295/51` with historical anchor/source seals unchanged.
-4. Select the next Buddy-owned semantic residual slice by correction class; do not make one omnibus “fix 51” PR.
-5. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
-6. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
+1. `eldyrwild-lysandra-threat-direction-correction` — first bounded real correction using the merged #534 Kernel seam.
+2. Effective descendant proof requiring `294/52 → 295/51` with historical anchor/source seals unchanged.
+3. Select the next Buddy-owned semantic residual slice by correction class; do not make one omnibus “fix 51” PR.
+4. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
+5. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
 ## Fast diagnostic questions
 

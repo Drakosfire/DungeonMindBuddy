@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-09 — PR #531 is merged; Eldyrwild semantic adjudication now survives proven descendant revisions and effective relationship conformance is `294 represented / 52 residual` on the immutable anchor.  
-**Repository anchor:** `377ca60e146df2c9a801ebcb864a9dd9b0183dbe`  
+**Updated:** 2026-08-09 — PR #534 is merged; the Kernel targeted assertion-correction seam is DONE; next dispatchable real correction is Eldyrwild Lysandra threat direction. Eldyrwild effective relationship conformance remains `294 represented / 52 residual` until that correction publishes.  
+**Repository anchor:** `99f1d18dffd48d7e46250d63892adfae97a654a8`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
@@ -81,9 +81,10 @@ DONE  #526  Source-ground and adjudicate every residual relationship
 DONE  #528  Re-pin after DungeonMind PR #29; 287/59 → 291/55; DungeonMind relationship debt → 0
 DONE  #530  Govern three remaining explicit adapters; 291/55 → 294/52
 DONE  #531  Carry adjudication across proven descendants; compose effective conformance
+DONE  #534  Targeted structural edge-assertion correction (synthetic/replay-safe; no Eldyrwild mutation)
 ```
 
-At repository anchor `377ca60e…`, the immutable Eldyrwild adjudication anchor has:
+At repository anchor `99f1d18d…`, the immutable Eldyrwild adjudication anchor has:
 
 - `346` durable relationship semantics;
 - `294` effectively represented against the pinned DungeonMind contracts;
@@ -96,13 +97,8 @@ The remaining relationship debt is Buddy-owned. The adjudication ledger distingu
 ## Current critical path — semantic correction before cutover
 
 ```text
-READY   kernel-targeted-assertion-correction
-        Add one governed Kernel operation that can replace exactly one durable
-        assertion while preserving unrelated assertions from the same source
-        contribution, immutable history, source grounding, CAS safety, and replay.
-
-BLOCKED eldyrwild-lysandra-threat-direction-correction
-        Use that capability on the smallest adjudicated real defect:
+READY   eldyrwild-lysandra-threat-direction-correction
+        Use the merged #534 Kernel seam on the smallest adjudicated real defect:
         Lysandra→cultists threatens becomes cultists→Lysandra threatens.
         Preserve the Session-8 source seal; do not rewrite prose or add a
         Lysandra-specific projection/conformance exception.
@@ -122,18 +118,18 @@ BLOCKED DungeonMind whole-world authority cutover
         product or Play mechanics authority.
 ```
 
-### Why targeted assertion correction is a prerequisite
+### Why targeted assertion correction was a prerequisite
 
 Contribution supersession is intentionally source-revision-shaped: replacing contribution A with contribution B removes A's support from every assertion A carried, then re-applies B. That is correct when a source revision is replaced. It is too broad when a human adjudicates exactly one extracted assertion as semantically wrong while the rest of that source contribution remains valid.
 
-The correction primitive therefore has to preserve four distinct facts at once:
+PR #534 published the correction primitive that preserves four distinct facts at once:
 
 1. the historical source contribution really did assert the old meaning;
 2. the human correction is a separate governed authored authority;
 3. unrelated assertions from the historical contribution remain actively supported;
 4. replay of contributions plus correction records reconstructs the corrected head exactly.
 
-The first synthetic proof must use a multi-assertion source contribution so the implementation cannot accidentally pass by superseding an entire one-assertion contribution.
+The first synthetic proof used a multi-assertion source contribution so the implementation could not accidentally pass by superseding an entire one-assertion contribution. The next proof must apply that seam to the exact Lysandra Eldyrwild target.
 
 ## Parallel product path retained
 
@@ -170,7 +166,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to targeted assertion correction, then the bounded Lysandra correction, before the next whole-world semantic slice.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the bounded Lysandra threat-direction correction, then the exact `294/52 → 295/51` descendant conformance proof, before the next whole-world semantic slice.
 
 ## Phase 8 exit criteria
 
