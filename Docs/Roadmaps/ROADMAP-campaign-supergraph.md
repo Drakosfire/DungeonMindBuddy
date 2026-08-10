@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-09 — PR #534 is merged; the Kernel targeted assertion-correction seam is DONE; next dispatchable real correction is Eldyrwild Lysandra threat direction. Eldyrwild effective relationship conformance remains `294 represented / 52 residual` until that correction publishes.  
-**Repository anchor:** `99f1d18dffd48d7e46250d63892adfae97a654a8`  
+**Updated:** 2026-08-09 — PR #536 is merged (current-support-aware relationship conformance); Lysandra handoff is re-anchored to parent-relative gates and blocked on Eldyrwild contribution-integrity heal for `contribution:d3d244474789879c`. Historical adjudication-domain effective conformance remains `294 represented / 52 residual`.  
+**Repository anchor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
@@ -82,9 +82,10 @@ DONE  #528  Re-pin after DungeonMind PR #29; 287/59 → 291/55; DungeonMind rela
 DONE  #530  Govern three remaining explicit adapters; 291/55 → 294/52
 DONE  #531  Carry adjudication across proven descendants; compose effective conformance
 DONE  #534  Targeted structural edge-assertion correction (synthetic/replay-safe; no Eldyrwild mutation)
+DONE  #536  Current-support-aware relationship conformance (durable history ≠ current residual)
 ```
 
-At repository anchor `99f1d18d…`, the immutable Eldyrwild adjudication anchor has:
+At the immutable Eldyrwild adjudication domain:
 
 - `346` durable relationship semantics;
 - `294` effectively represented against the pinned DungeonMind contracts;
@@ -97,14 +98,20 @@ The remaining relationship debt is Buddy-owned. The adjudication ledger distingu
 ## Current critical path — semantic correction before cutover
 
 ```text
-READY   eldyrwild-lysandra-threat-direction-correction
-        Use the merged #534 Kernel seam on the smallest adjudicated real defect:
-        Lysandra→cultists threatens becomes cultists→Lysandra threatens.
-        Preserve the Session-8 source seal; do not rewrite prose or add a
-        Lysandra-specific projection/conformance exception.
+READY   eldyrwild-contribution-integrity-heal
+        Restore contribution:d3d244474789879c ledger source-payload digest to the
+        revision-bound seal so pinned rebuild_from_contributions succeeds.
+        Do not rewrite immutable revision history; pinned rebuild is not waivable.
+
+BLOCKED eldyrwild-lysandra-threat-direction-correction
+        Depends on the integrity heal above, plus merged #534+#536.
+        Parent-relative gate: semantic unchanged / represented +1 / residual −1 /
+        mechanics unchanged. Live-write fence, complete preflight, dual artifact
+        seals, integrity_failure status, and successful pinned rebuild of Q.
 
 BLOCKED effective-conformance-after-first-correction
-        Analyze the new descendant and require exact movement 294/52 → 295/51.
+        Re-anchor descendant fixtures/tracker on the actual post-Q baseline.
+        Do not force historical absolute counts onto an evolved live head.
         The original adjudication anchor and historical analyzers remain unchanged.
 
 BLOCKED remaining-buddy-semantic-correction-slices
