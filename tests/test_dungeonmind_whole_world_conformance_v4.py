@@ -12,6 +12,8 @@ import apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conf
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    SemanticClassification,
+    enumerate_durable_element_ids,
     snapshot_world_graph_tree_digest,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
@@ -628,3 +630,418 @@ def test_eldyrwild_v4_integration_when_present() -> None:
     _, dm_ids, buddy_ids = _adjudication_owned_sets()
     assert set(report.relationship_newly_represented_edge_ids) == dm_ids
     assert set(report.relationship_residual_edge_ids) == buddy_ids
+
+
+def _support_row(
+    *,
+    assertion_id: str,
+    edge_id: str,
+    support_state: str,
+    active_contribution_ids: list[str] | None = None,
+    contribution_id: str = "contribution:support-probe",
+) -> dict[str, Any]:
+    active = list(active_contribution_ids or [])
+    return {
+        "assertion_id": assertion_id,
+        "assertion_kind": "edge",
+        "graph_object_id": edge_id,
+        "support_state": support_state,
+        "active_contribution_ids": active,
+        "introduced_by_contribution_id": contribution_id,
+        "evidence_ref_ids": [],
+        "source_artifact_ids": [],
+        "per_contribution_evidence_ref_ids": {cid: [] for cid in active},
+        "per_contribution_source_artifact_ids": {cid: [] for cid in active},
+        "superseded_contribution_ids": [],
+        "retracted_contribution_ids": [],
+        "contradicted_contribution_ids": [],
+        "provenance_lineage_version": 1,
+    }
+
+
+def _publish_mutated_store(root: Path, world_id: str, store: Any, op: str) -> str:
+    result = kernel.publish_world_revision(
+        root,
+        world_id,
+        store,
+        operation_ids=[op],
+    )
+    return result.revision.revision_id
+
+
+def test_current_support_matrix_controls_semantic_edge_membership(
+    seeded_root: Path,
+) -> None:
+    """Support-currentness matrix with no edge-id-specific logic."""
+    from graph_memory.union_supergraph.model import UnionSupergraphEdge
+
+    root = seeded_root
+    head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert head.head_revision_id
+    store = kernel.load_world_graph_revision(root, WORLD_ID, head.head_revision_id)
+
+    cases = [
+        ("edge:matrix:no-support", None),
+        (
+            "edge:matrix:supported-active",
+            _support_row(
+                assertion_id="assertion:matrix:supported-active",
+                edge_id="edge:matrix:supported-active",
+                support_state="supported",
+                active_contribution_ids=["contribution:matrix-a"],
+            ),
+        ),
+        (
+            "edge:matrix:supported-empty",
+            _support_row(
+                assertion_id="assertion:matrix:supported-empty",
+                edge_id="edge:matrix:supported-empty",
+                support_state="supported",
+                active_contribution_ids=[],
+            ),
+        ),
+        (
+            "edge:matrix:contradicted",
+            _support_row(
+                assertion_id="assertion:matrix:contradicted",
+                edge_id="edge:matrix:contradicted",
+                support_state="contradicted",
+                active_contribution_ids=[],
+            ),
+        ),
+        (
+            "edge:matrix:retracted",
+            _support_row(
+                assertion_id="assertion:matrix:retracted",
+                edge_id="edge:matrix:retracted",
+                support_state="retracted",
+                active_contribution_ids=[],
+            ),
+        ),
+        (
+            "edge:matrix:unsupported",
+            _support_row(
+                assertion_id="assertion:matrix:unsupported",
+                edge_id="edge:matrix:unsupported",
+                support_state="unsupported",
+                active_contribution_ids=[],
+            ),
+        ),
+        (
+            "edge:matrix:mixed",
+            [
+                _support_row(
+                    assertion_id="assertion:matrix:mixed-old",
+                    edge_id="edge:matrix:mixed",
+                    support_state="contradicted",
+                    active_contribution_ids=[],
+                    contribution_id="contribution:matrix-old",
+                ),
+                _support_row(
+                    assertion_id="assertion:matrix:mixed-new",
+                    edge_id="edge:matrix:mixed",
+                    support_state="supported",
+                    active_contribution_ids=["contribution:matrix-new"],
+                    contribution_id="contribution:matrix-new",
+                ),
+            ],
+        ),
+    ]
+
+    # Ensure endpoint nodes exist for threatens classification.
+    for node_id, kind in (
+        ("npc:matrix-src", "npc"),
+        ("npc:matrix-tgt", "npc"),
+    ):
+        if node_id not in store.nodes:
+            from graph_memory.union_supergraph.model import UnionSupergraphNode
+
+            store.nodes[node_id] = UnionSupergraphNode(
+                node_id=node_id,
+                label=node_id,
+                kind=kind,
+                role="probe",
+                aliases=[],
+                source_domains=["manual_seed"],
+                evidence_ref_ids=[],
+                state={},
+            )
+
+    expected_included = {
+        "edge:matrix:no-support",
+        "edge:matrix:supported-active",
+        "edge:matrix:mixed",
+    }
+    expected_excluded = {
+        "edge:matrix:supported-empty",
+        "edge:matrix:contradicted",
+        "edge:matrix:retracted",
+        "edge:matrix:unsupported",
+    }
+
+    for edge_id, support in cases:
+        store.edges[edge_id] = UnionSupergraphEdge(
+            edge_id=edge_id,
+            source_node_id="npc:matrix-src",
+            target_node_id="npc:matrix-tgt",
+            predicate="threatens",
+            label="threatens",
+            direction="outbound",
+            source_domains=["manual_seed"],
+            evidence_ref_ids=[],
+            state={},
+        )
+        if support is None:
+            continue
+        rows = support if isinstance(support, list) else [support]
+        for row in rows:
+            store.assertion_support[row["assertion_id"]] = row
+
+    rev = _publish_mutated_store(root, WORLD_ID, store, "op:support-matrix")
+    report = analyze_exact_buddy_world_revision_v4(
+        root=root, world_id=WORLD_ID, revision_id=rev
+    )
+
+    residual = set(report.relationship_residual_edge_ids)
+    # represented set is not exported directly; infer via inventory counts and
+    # residual absence for known admitted threatens edges.
+    current_ids = wwc_v4._current_relationship_edge_ids(
+        kernel.load_world_graph_revision(root, WORLD_ID, rev)
+    )
+    assert expected_included <= current_ids
+    assert expected_excluded.isdisjoint(current_ids)
+    assert expected_excluded.isdisjoint(residual)
+    # Mixed edge is counted once, not twice.
+    assert sum(1 for eid in current_ids if eid == "edge:matrix:mixed") == 1
+    # No Lysandra/special-case constants in helper path.
+    assert "lysandra" not in wwc_v4._edge_has_current_semantic_support.__code__.co_names
+
+
+def test_correction_shaped_support_transition_preserves_semantic_count(
+    seeded_root: Path,
+) -> None:
+    """Contradicted X stays durable history; X′ becomes current represented."""
+    root = seeded_root
+    world_id = WORLD_ID
+
+    def _node(node_id: str, kind: str):
+        return kernel.build_assertion(
+            assertion_kind="node",
+            acceptance_state="accepted",
+            subject_node_id=node_id,
+            label=node_id,
+            campaign_scope=CAMPAIGN_ID,
+            value={"kind": kind, "role": "probe", "source_domains": ["manual_seed"]},
+            identity_resolution_outcome="created_new",
+        )
+
+    def _edge(
+        *,
+        edge_id: str,
+        source_node_id: str,
+        target_node_id: str,
+        predicate: str,
+        evidence_ref_id: str,
+        source_artifact_id: str,
+    ):
+        return kernel.build_assertion(
+            assertion_kind="edge",
+            acceptance_state="accepted",
+            subject_node_id=source_node_id,
+            target_node_id=target_node_id,
+            predicate=predicate,
+            label=predicate,
+            campaign_scope=CAMPAIGN_ID,
+            visibility="gm",
+            epistemic_kind="fact",
+            identity_resolution_outcome="resolved_existing",
+            evidence_ref_ids=[evidence_ref_id],
+            source_artifact_id=source_artifact_id,
+            value={
+                "edge_id": edge_id,
+                "source_node_id": source_node_id,
+                "target_node_id": target_node_id,
+                "predicate": predicate,
+                "direction": "outbound",
+                "source_domains": ["manual_seed"],
+                "evidence": [
+                    {
+                        "evidence_ref_id": evidence_ref_id,
+                        "source_artifact_id": source_artifact_id,
+                        "source_domain": "manual_seed",
+                    }
+                ],
+            },
+        )
+
+    source = kernel.create_graph_contribution(
+        world_id=world_id,
+        source_kind="manual_import",
+        source_artifact_id="artifact:correction-shape:source",
+        campaign_scope=CAMPAIGN_ID,
+        accepted_assertions=[
+            _node("npc:corr-a", "npc"),
+            _node("npc:corr-b", "npc"),
+            _node("faction:corr-c", "faction"),
+            _edge(
+                edge_id="edge:corr:x",
+                source_node_id="npc:corr-a",
+                target_node_id="npc:corr-b",
+                predicate="same_as",
+                evidence_ref_id="evidence:correction-shape:x",
+                source_artifact_id="artifact:correction-shape:source",
+            ),
+        ],
+    )
+    published = kernel.merge_contribution_to_revision(
+        root, world_id=world_id, contribution=source
+    )
+    assert published.published is True
+    parent = published.revision_id
+    assert parent
+
+    x_assertion = next(
+        a for a in source.accepted_assertions if a.assertion_kind == "edge"
+    )
+    before = snapshot_world_graph_tree_digest(root, world_id)
+    report_p = analyze_exact_buddy_world_revision_v4(
+        root=root, world_id=world_id, revision_id=parent
+    )
+    assert "edge:corr:x" in report_p.relationship_residual_edge_ids
+    s_p = report_p.relationship_semantic_count
+    r_p = report_p.relationship_represented_count
+    d_p = report_p.relationship_residual_count
+    m_p = report_p.uses_statblock_mechanics_count
+
+    replacement = _edge(
+        edge_id="edge:corr:xp",
+        source_node_id="faction:corr-c",
+        target_node_id="npc:corr-a",
+        predicate="threatens",
+        evidence_ref_id="evidence:correction-shape:xp",
+        source_artifact_id="artifact:correction-shape:c",
+    )
+    correction = kernel.create_edge_assertion_correction_contribution(
+        world_id=world_id,
+        authored_by="gm-operator",
+        target_contribution_id=source.contribution_id,
+        target_assertion_id=x_assertion.assertion_id,
+        replacement_assertion=replacement,
+        source_artifact_id="artifact:correction-shape:c",
+        campaign_scope=CAMPAIGN_ID,
+    )
+    corrected = kernel.correct_edge_assertion_support(
+        root,
+        world_id=world_id,
+        contribution=correction,
+        expected_parent_revision_id=parent,
+    )
+    assert corrected.published is True
+    child = corrected.revision_id
+    assert child
+
+    report_q = analyze_exact_buddy_world_revision_v4(
+        root=root, world_id=world_id, revision_id=child
+    )
+    after = snapshot_world_graph_tree_digest(root, world_id)
+    # Analyzers must not mutate the graph; correction publish did, so digest changes
+    # across the mutation itself. Re-snapshot Q and re-analyze to prove analyzer purity.
+    before_q = snapshot_world_graph_tree_digest(root, world_id)
+    report_q2 = analyze_exact_buddy_world_revision_v4(
+        root=root, world_id=world_id, revision_id=child
+    )
+    after_q = snapshot_world_graph_tree_digest(root, world_id)
+    assert before_q == after_q
+    assert report_q2.relationship_semantic_count == report_q.relationship_semantic_count
+
+    assert report_q.relationship_semantic_count == s_p
+    assert report_q.relationship_represented_count == r_p + 1
+    assert report_q.relationship_residual_count == d_p - 1
+    assert report_q.uses_statblock_mechanics_count == m_p
+    assert "edge:corr:x" not in report_q.relationship_residual_edge_ids
+    assert "edge:corr:x" not in report_q.relationship_newly_represented_edge_ids
+    assert "edge:corr:xp" not in report_q.relationship_residual_edge_ids
+
+    store_q = kernel.load_world_graph_revision(root, world_id, child)
+    assert "edge:corr:x" in store_q.edges
+    assert "edge:corr:xp" in store_q.edges
+    x_support = next(
+        s
+        for s in store_q.assertion_support.values()
+        if s.get("graph_object_id") == "edge:corr:x"
+    )
+    assert x_support["support_state"] == "contradicted"
+    assert source.contribution_id in (x_support.get("contradicted_contribution_ids") or [])
+
+    # Historical X fields remain classified as durable migration history, not omitted,
+    # and do not create current relationship blockers.
+    x_element_ids = {
+        element_id
+        for element_id in enumerate_durable_element_ids(store_q)
+        if element_id.startswith("edge:edge:corr:x:")
+    }
+    assert x_element_ids, "contradicted X must retain durable field element IDs"
+    # Declared/extra fields (not edge.state lifecycle keys) only join SOURCE_MIGRATION_HISTORY
+    # when the edge loses current support — that is the accounting seam under test.
+    x_declared_or_extra_ids = {
+        element_id
+        for element_id in x_element_ids
+        if ":field:" in element_id or ":extra:" in element_id
+    }
+    assert x_declared_or_extra_ids
+
+    def _migration_declared_edge_element_count(report: Any) -> int:
+        return sum(
+            bucket.count
+            for bucket in report.mapping_buckets
+            if bucket.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+            and bucket.element_family
+            in {"edge_field", "edge_extra", "edge_session_refs"}
+        )
+
+    assert _migration_declared_edge_element_count(report_p) == 0
+    assert _migration_declared_edge_element_count(report_q) == len(
+        x_declared_or_extra_ids
+    )
+    assert report_q.unaccounted_durable_elements == 0
+
+    lifecycle_buckets = [
+        bucket
+        for bucket in report_q.mapping_buckets
+        if bucket.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+        and any(
+            "assertion-support lifecycle removed current semantic authority" in note
+            for note in bucket.notes
+        )
+    ]
+    assert lifecycle_buckets
+    assert "edge_field" in {bucket.element_family for bucket in lifecycle_buckets}
+
+    rel_blockers = [
+        b for b in report_q.blockers if b.blocker_class.value == "RELATIONSHIP_PREDICATE"
+    ]
+    for blocker in rel_blockers:
+        assert "edge:corr:x" not in (blocker.examples or [])
+
+    # Non-current edge must not appear as newly represented merely because v4 excluded it.
+    assert "edge:corr:x" not in report_q.relationship_newly_represented_edge_ids
+    assert before != after  # mutation happened via correction, not analyzer
+
+
+def test_historical_eldyrwild_anchor_v4_counts_unchanged_when_present() -> None:
+    root = world_graph_root()
+    world_root = (root / "graph_memory" / "worlds" / ELDYRWILD_WORLD_ID).resolve()
+    if not world_root.exists():
+        pytest.skip("Eldyrwild world graph not present")
+    before = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    report = analyze_exact_buddy_world_revision_v4(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=ELDYRWILD_REVISION_ID,
+    )
+    after = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    assert before == after
+    assert report.relationship_semantic_count == 346
+    assert report.relationship_represented_count == 291
+    assert report.relationship_residual_count == 55
+    assert report.uses_statblock_mechanics_count == 2

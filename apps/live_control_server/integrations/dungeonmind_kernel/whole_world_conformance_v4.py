@@ -1415,6 +1415,61 @@ def _rewrite_relationship_predicate_blocker_v4(
         blocker.smallest_next_change = _RELATIONSHIP_BLOCKER_BUDDY_NOTE
 
 
+def _support_field(support: Any, field: str) -> Any:
+    if isinstance(support, dict):
+        return support.get(field)
+    return getattr(support, field, None)
+
+
+def _support_graph_object_id(support: Any) -> str | None:
+    graph_object_id = _support_field(support, "graph_object_id")
+    if isinstance(graph_object_id, str) and graph_object_id.strip():
+        return graph_object_id
+    return None
+
+
+def _support_is_current(support: Any) -> bool:
+    """Mirror World Graph projection: supported + non-empty active contributions."""
+    state = _support_field(support, "support_state")
+    active = _support_field(support, "active_contribution_ids") or []
+    return state == "supported" and bool(active)
+
+
+def _edge_has_current_semantic_support(
+    store: UnionSupergraphStore,
+    edge_id: str,
+) -> bool:
+    """Return whether an edge is current semantic relationship authority.
+
+    No support rows → legacy as-built inclusion.
+    Any current support → included once.
+    Support rows exist but none current → durable history only.
+    """
+    supports = [
+        support
+        for support in store.assertion_support.values()
+        if _support_graph_object_id(support) == edge_id
+    ]
+    if not supports:
+        return True
+    return any(_support_is_current(support) for support in supports)
+
+
+def _current_relationship_edges(
+    store: UnionSupergraphStore,
+) -> list[UnionSupergraphEdge]:
+    """Durable edges that currently count as semantic relationships."""
+    return [
+        edge
+        for edge in store.edges.values()
+        if _edge_has_current_semantic_support(store, edge.edge_id)
+    ]
+
+
+def _current_relationship_edge_ids(store: UnionSupergraphStore) -> set[str]:
+    return {edge.edge_id for edge in _current_relationship_edges(store)}
+
+
 def _collect_v4_relationship_edge_sets(
     store: UnionSupergraphStore,
     vocabulary: Any,
@@ -1423,7 +1478,7 @@ def _collect_v4_relationship_edge_sets(
 ) -> tuple[set[str], set[str]]:
     residual_ids: set[str] = set()
     represented_ids: set[str] = set()
-    for edge in store.edges.values():
+    for edge in _current_relationship_edges(store):
         (
             _classification,
             _blocker,
@@ -1460,7 +1515,7 @@ def _build_relationship_predicate_inventory_v4(
     int,
 ]:
     by_predicate: dict[str, list[UnionSupergraphEdge]] = defaultdict(list)
-    for edge in store.edges.values():
+    for edge in _current_relationship_edges(store):
         by_predicate[edge.predicate].append(edge)
 
     rows: list[RelationshipPredicateInventoryRowV4] = []
@@ -1568,6 +1623,7 @@ def _build_relationship_predicate_inventory_v4(
         total_residual,
         total_mechanics,
     )
+
 
 
 def _build_property_gap_inventory_v4(
@@ -1725,12 +1781,23 @@ def analyze_exact_buddy_world_revision_v4(
                 )
 
     for edge_id, edge in store.edges.items():
+        edge_is_current = _edge_has_current_semantic_support(store, edge_id)
         edge_dump = _dump_record(edge)
         for field, value in edge_dump.items():
             if field == "state":
                 for state_key, state_value in (value or {}).items():
                     element_id = f"edge:{edge_id}:state:{state_key}"
-                    f_class, f_blocker, f_note = _classify_state_field_v4(state_key, state_value)
+                    if edge_is_current:
+                        f_class, f_blocker, f_note = _classify_state_field_v4(
+                            state_key, state_value
+                        )
+                    else:
+                        f_class = SemanticClassification.SOURCE_MIGRATION_HISTORY
+                        f_blocker = None
+                        f_note = (
+                            "non-current edge state retained as durable history; "
+                            "assertion-support lifecycle removed current semantic authority"
+                        )
                     _append_classification(
                         classified=classified,
                         buckets=buckets,
@@ -1743,14 +1810,22 @@ def analyze_exact_buddy_world_revision_v4(
                 continue
             if field in _EDGE_DECLARED_FIELDS:
                 element_id = f"edge:{edge_id}:field:{field}"
-                f_class, f_blocker, f_note = _classify_edge_field_v4(
-                    field,
-                    value,
-                    edge,
-                    store,
-                    vocabulary,
-                    adjudication_domain=adjudication_domain,
-                )
+                if edge_is_current:
+                    f_class, f_blocker, f_note = _classify_edge_field_v4(
+                        field,
+                        value,
+                        edge,
+                        store,
+                        vocabulary,
+                        adjudication_domain=adjudication_domain,
+                    )
+                else:
+                    f_class = SemanticClassification.SOURCE_MIGRATION_HISTORY
+                    f_blocker = None
+                    f_note = (
+                        "non-current edge field retained as durable history; "
+                        "assertion-support lifecycle removed current semantic authority"
+                    )
                 family = "edge_session_refs" if field == "session_ids" and value else "edge_field"
                 _append_classification(
                     classified=classified,
@@ -1763,7 +1838,15 @@ def analyze_exact_buddy_world_revision_v4(
                 )
                 continue
             if field in _KNOWN_EDGE_EXTRA_FIELDS:
-                f_class, f_blocker, f_note = _KNOWN_EDGE_EXTRA_FIELDS[field]
+                if edge_is_current:
+                    f_class, f_blocker, f_note = _KNOWN_EDGE_EXTRA_FIELDS[field]
+                else:
+                    f_class = SemanticClassification.SOURCE_MIGRATION_HISTORY
+                    f_blocker = None
+                    f_note = (
+                        "non-current edge extra retained as durable history; "
+                        "assertion-support lifecycle removed current semantic authority"
+                    )
                 _append_classification(
                     classified=classified,
                     buckets=buckets,
@@ -2003,7 +2086,11 @@ def analyze_exact_buddy_world_revision_v4(
     )
     v3_vocabulary = load_builtin_world_object_v3_vocabulary()
     v3_residual_ids = collect_v3_residual_edge_ids(store, v3_vocabulary)
-    newly_represented_edge_ids = sorted(v3_residual_ids - v4_residual_ids)
+    # Historical v3 classification remains frozen; intersect with current semantic
+    # membership so contradicted/historical edges cannot appear as newly represented.
+    current_edge_ids = _current_relationship_edge_ids(store)
+    current_v3_residual_ids = v3_residual_ids & current_edge_ids
+    newly_represented_edge_ids = sorted(current_v3_residual_ids - v4_residual_ids)
     residual_edge_ids = sorted(v4_residual_ids)
     (
         residual_disposition_inventory,

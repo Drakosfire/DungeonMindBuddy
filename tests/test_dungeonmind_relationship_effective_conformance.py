@@ -825,3 +825,173 @@ def test_eldyrwild_effective_conformance_integration_when_present() -> None:
     compact = compact_relationship_effective_conformance_report_v1(report)
     committed = json.loads(EFFECTIVE_FIXTURE_PATH.read_text(encoding="utf-8"))
     assert compact == committed
+
+
+def test_effective_conformance_inherits_support_aware_v4_correction_delta(
+    tmp_path: Path,
+) -> None:
+    """§7F: effective conformance on correction-shaped P and Q follows support-aware v4."""
+    from graph_memory.union_supergraph.load import (
+        DEFAULT_FIXTURE_PATH,
+        load_union_supergraph_store,
+    )
+
+    world_id = "effective-correction-delta"
+    campaign_id = "longmont-c2"
+    root = tmp_path
+    kernel.publish_world_revision(
+        root,
+        world_id,
+        load_union_supergraph_store(DEFAULT_FIXTURE_PATH),
+        operation_ids=["op:effective-correction-baseline"],
+    )
+
+    def _node(node_id: str, kind: str):
+        return kernel.build_assertion(
+            assertion_kind="node",
+            acceptance_state="accepted",
+            subject_node_id=node_id,
+            label=node_id,
+            campaign_scope=campaign_id,
+            value={"kind": kind, "role": "probe", "source_domains": ["manual_seed"]},
+            identity_resolution_outcome="created_new",
+        )
+
+    def _edge(
+        *,
+        edge_id: str,
+        source_node_id: str,
+        target_node_id: str,
+        predicate: str,
+        evidence_ref_id: str,
+        source_artifact_id: str,
+    ):
+        return kernel.build_assertion(
+            assertion_kind="edge",
+            acceptance_state="accepted",
+            subject_node_id=source_node_id,
+            target_node_id=target_node_id,
+            predicate=predicate,
+            label=predicate,
+            campaign_scope=campaign_id,
+            visibility="gm",
+            epistemic_kind="fact",
+            identity_resolution_outcome="resolved_existing",
+            evidence_ref_ids=[evidence_ref_id],
+            source_artifact_id=source_artifact_id,
+            value={
+                "edge_id": edge_id,
+                "source_node_id": source_node_id,
+                "target_node_id": target_node_id,
+                "predicate": predicate,
+                "direction": "outbound",
+                "source_domains": ["manual_seed"],
+                "evidence": [
+                    {
+                        "evidence_ref_id": evidence_ref_id,
+                        "source_artifact_id": source_artifact_id,
+                        "source_domain": "manual_seed",
+                    }
+                ],
+            },
+        )
+
+    source = kernel.create_graph_contribution(
+        world_id=world_id,
+        source_kind="manual_import",
+        source_artifact_id="artifact:eff-corr:source",
+        campaign_scope=campaign_id,
+        accepted_assertions=[
+            _node("npc:eff-a", "npc"),
+            _node("npc:eff-b", "npc"),
+            _node("faction:eff-c", "faction"),
+            _edge(
+                edge_id="edge:eff:x",
+                source_node_id="npc:eff-a",
+                target_node_id="npc:eff-b",
+                predicate="same_as",
+                evidence_ref_id="evidence:eff:x",
+                source_artifact_id="artifact:eff-corr:source",
+            ),
+        ],
+    )
+    published = kernel.merge_contribution_to_revision(
+        root, world_id=world_id, contribution=source
+    )
+    assert published.published is True
+    parent = published.revision_id
+    assert parent
+
+    before_p = snapshot_world_graph_tree_digest(root, world_id)
+    eff_p = analyze_relationship_effective_conformance_v1(
+        root=root, world_id=world_id, revision_id=parent
+    )
+    after_p = snapshot_world_graph_tree_digest(root, world_id)
+    assert before_p == after_p
+    assert "edge:eff:x" in eff_p.remaining_residual_edge_ids
+
+    x_assertion = next(a for a in source.accepted_assertions if a.assertion_kind == "edge")
+    replacement = _edge(
+        edge_id="edge:eff:xp",
+        source_node_id="faction:eff-c",
+        target_node_id="npc:eff-a",
+        predicate="threatens",
+        evidence_ref_id="evidence:eff:xp",
+        source_artifact_id="artifact:eff-corr:c",
+    )
+    correction = kernel.create_edge_assertion_correction_contribution(
+        world_id=world_id,
+        authored_by="gm-operator",
+        target_contribution_id=source.contribution_id,
+        target_assertion_id=x_assertion.assertion_id,
+        replacement_assertion=replacement,
+        source_artifact_id="artifact:eff-corr:c",
+        campaign_scope=campaign_id,
+    )
+    corrected = kernel.correct_edge_assertion_support(
+        root,
+        world_id=world_id,
+        contribution=correction,
+        expected_parent_revision_id=parent,
+    )
+    assert corrected.published is True
+    child = corrected.revision_id
+    assert child
+
+    before_q = snapshot_world_graph_tree_digest(root, world_id)
+    eff_q = analyze_relationship_effective_conformance_v1(
+        root=root, world_id=world_id, revision_id=child
+    )
+    after_q = snapshot_world_graph_tree_digest(root, world_id)
+    assert before_q == after_q
+
+    assert eff_q.relationship_semantic_count == eff_p.relationship_semantic_count
+    assert (
+        eff_q.relationship_effectively_represented_count
+        == eff_p.relationship_effectively_represented_count + 1
+    )
+    assert (
+        eff_q.relationship_effective_residual_count
+        == eff_p.relationship_effective_residual_count - 1
+    )
+    assert eff_q.uses_statblock_mechanics_count == eff_p.uses_statblock_mechanics_count
+    assert "edge:eff:x" not in eff_q.remaining_residual_edge_ids
+    assert "edge:eff:xp" not in eff_q.remaining_residual_edge_ids
+    store_q = kernel.load_world_graph_revision(root, world_id, child)
+    assert "edge:eff:x" in store_q.edges
+
+    # Historical Eldyrwild effective anchor remains the fixture contract.
+    eldyrwild = world_graph_root() / "graph_memory" / "worlds" / "eldyrwild"
+    if eldyrwild.is_dir():
+        before = snapshot_world_graph_tree_digest(world_graph_root(), ELDYRWILD_WORLD_ID)
+        anchor = analyze_relationship_effective_conformance_v1(
+            root=world_graph_root(),
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=ELDYRWILD_REVISION_ID,
+        )
+        after = snapshot_world_graph_tree_digest(world_graph_root(), ELDYRWILD_WORLD_ID)
+        assert before == after
+        assert anchor.relationship_semantic_count == 346
+        assert anchor.relationship_effectively_represented_count == 294
+        assert anchor.relationship_effective_residual_count == 52
+        assert anchor.uses_statblock_mechanics_count == 2
