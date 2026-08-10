@@ -830,10 +830,7 @@ def test_eldyrwild_effective_conformance_integration_when_present() -> None:
 def test_effective_conformance_inherits_support_aware_v4_correction_delta(
     tmp_path: Path,
 ) -> None:
-    """Effective arithmetic follows support-aware v4 base across a correction shape."""
-    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
-        analyze_exact_buddy_world_revision_v4,
-    )
+    """§7F: effective conformance on correction-shaped P and Q follows support-aware v4."""
     from graph_memory.union_supergraph.load import (
         DEFAULT_FIXTURE_PATH,
         load_union_supergraph_store,
@@ -925,12 +922,14 @@ def test_effective_conformance_inherits_support_aware_v4_correction_delta(
     parent = published.revision_id
     assert parent
 
-    v4_p = analyze_exact_buddy_world_revision_v4(
+    before_p = snapshot_world_graph_tree_digest(root, world_id)
+    eff_p = analyze_relationship_effective_conformance_v1(
         root=root, world_id=world_id, revision_id=parent
     )
-    assert "edge:eff:x" in v4_p.relationship_residual_edge_ids
+    after_p = snapshot_world_graph_tree_digest(root, world_id)
+    assert before_p == after_p
+    assert "edge:eff:x" in eff_p.remaining_residual_edge_ids
 
-    # Prove the v4 base delta that effective conformance consumes.
     x_assertion = next(a for a in source.accepted_assertions if a.assertion_kind == "edge")
     replacement = _edge(
         edge_id="edge:eff:xp",
@@ -959,18 +958,27 @@ def test_effective_conformance_inherits_support_aware_v4_correction_delta(
     child = corrected.revision_id
     assert child
 
-    v4_q = analyze_exact_buddy_world_revision_v4(
+    before_q = snapshot_world_graph_tree_digest(root, world_id)
+    eff_q = analyze_relationship_effective_conformance_v1(
         root=root, world_id=world_id, revision_id=child
     )
-    assert v4_q.relationship_semantic_count == v4_p.relationship_semantic_count
+    after_q = snapshot_world_graph_tree_digest(root, world_id)
+    assert before_q == after_q
+
+    assert eff_q.relationship_semantic_count == eff_p.relationship_semantic_count
     assert (
-        v4_q.relationship_represented_count
-        == v4_p.relationship_represented_count + 1
+        eff_q.relationship_effectively_represented_count
+        == eff_p.relationship_effectively_represented_count + 1
     )
-    assert v4_q.relationship_residual_count == v4_p.relationship_residual_count - 1
-    assert v4_q.uses_statblock_mechanics_count == v4_p.uses_statblock_mechanics_count
-    assert "edge:eff:x" not in v4_q.relationship_residual_edge_ids
-    assert "edge:eff:xp" not in v4_q.relationship_residual_edge_ids
+    assert (
+        eff_q.relationship_effective_residual_count
+        == eff_p.relationship_effective_residual_count - 1
+    )
+    assert eff_q.uses_statblock_mechanics_count == eff_p.uses_statblock_mechanics_count
+    assert "edge:eff:x" not in eff_q.remaining_residual_edge_ids
+    assert "edge:eff:xp" not in eff_q.remaining_residual_edge_ids
+    store_q = kernel.load_world_graph_revision(root, world_id, child)
+    assert "edge:eff:x" in store_q.edges
 
     # Historical Eldyrwild effective anchor remains the fixture contract.
     eldyrwild = world_graph_root() / "graph_memory" / "worlds" / "eldyrwild"

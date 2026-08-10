@@ -12,6 +12,8 @@ import apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conf
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    SemanticClassification,
+    enumerate_durable_element_ids,
     snapshot_world_graph_tree_digest,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
@@ -971,12 +973,50 @@ def test_correction_shaped_support_transition_preserves_semantic_count(
     assert x_support["support_state"] == "contradicted"
     assert source.contribution_id in (x_support.get("contradicted_contribution_ids") or [])
 
-    # Historical X fields are accounted for but do not create current relationship blockers.
-    x_field_items = [
-        item
-        for item in report_q.classification_inventory
-        # classification_inventory is aggregated; inspect blockers instead
+    # Historical X fields remain classified as durable migration history, not omitted,
+    # and do not create current relationship blockers.
+    x_element_ids = {
+        element_id
+        for element_id in enumerate_durable_element_ids(store_q)
+        if element_id.startswith("edge:edge:corr:x:")
+    }
+    assert x_element_ids, "contradicted X must retain durable field element IDs"
+    # Declared/extra fields (not edge.state lifecycle keys) only join SOURCE_MIGRATION_HISTORY
+    # when the edge loses current support — that is the accounting seam under test.
+    x_declared_or_extra_ids = {
+        element_id
+        for element_id in x_element_ids
+        if ":field:" in element_id or ":extra:" in element_id
+    }
+    assert x_declared_or_extra_ids
+
+    def _migration_declared_edge_element_count(report: Any) -> int:
+        return sum(
+            bucket.count
+            for bucket in report.mapping_buckets
+            if bucket.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+            and bucket.element_family
+            in {"edge_field", "edge_extra", "edge_session_refs"}
+        )
+
+    assert _migration_declared_edge_element_count(report_p) == 0
+    assert _migration_declared_edge_element_count(report_q) == len(
+        x_declared_or_extra_ids
+    )
+    assert report_q.unaccounted_durable_elements == 0
+
+    lifecycle_buckets = [
+        bucket
+        for bucket in report_q.mapping_buckets
+        if bucket.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+        and any(
+            "assertion-support lifecycle removed current semantic authority" in note
+            for note in bucket.notes
+        )
     ]
+    assert lifecycle_buckets
+    assert "edge_field" in {bucket.element_family for bucket in lifecycle_buckets}
+
     rel_blockers = [
         b for b in report_q.blockers if b.blocker_class.value == "RELATIONSHIP_PREDICATE"
     ]
@@ -986,7 +1026,6 @@ def test_correction_shaped_support_transition_preserves_semantic_count(
     # Non-current edge must not appear as newly represented merely because v4 excluded it.
     assert "edge:corr:x" not in report_q.relationship_newly_represented_edge_ids
     assert before != after  # mutation happened via correction, not analyzer
-    del x_field_items  # silence unused if inventory is aggregate-only
 
 
 def test_historical_eldyrwild_anchor_v4_counts_unchanged_when_present() -> None:
