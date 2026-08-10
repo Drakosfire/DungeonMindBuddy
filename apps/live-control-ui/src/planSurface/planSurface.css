@@ -79,6 +79,18 @@
   gap: 0.75rem 1.25rem;
 }
 
+.plan-document-toolbar > .plan-document-selector {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.plan-document-toolbar > .plan-document-create {
+  /* Stay beside the selector when space allows; never grow from status copy. */
+  flex: 1 1 22rem;
+  min-width: min(100%, 22rem);
+  max-width: 100%;
+}
+
 .plan-surface-empty {
   width: min(720px, calc(100% - 2rem));
   margin: 2rem auto;
@@ -91,6 +103,7 @@
   display: grid;
   gap: 0.5rem;
   font-size: 0.85rem;
+  min-width: 0;
 }
 
 .plan-document-create__open,
@@ -102,6 +115,7 @@
   color: var(--fg, #e8eaef);
   font: inherit;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .plan-document-create__open:disabled,
@@ -111,20 +125,41 @@
 }
 
 .plan-document-create__form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.5rem 0.75rem;
+  display: grid;
+  gap: 0.45rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border, #2a3142);
   border-radius: 8px;
   background: var(--bg-input, #12141a);
+  width: 100%;
+  max-width: 36rem;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.plan-document-create__controls {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+  min-height: 3.1rem;
+  min-width: 0;
 }
 
 .plan-document-create__field {
   display: grid;
   gap: 0.2rem;
-  min-width: 10rem;
+  min-width: 0;
+}
+
+.plan-document-create__field--session {
+  flex: 0 0 6.75rem;
+  width: 6.75rem;
+}
+
+.plan-document-create__field--title {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .plan-document-create__field span {
@@ -139,27 +174,60 @@
   background: var(--bg, #0d0f14);
   color: var(--fg, #e8eaef);
   font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.plan-document-create__status {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  /* Reserve two wrapped lines so helper/error appearing does not resize the box. */
+  height: 3.6rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+}
+
+.plan-document-create__status-slot,
+.plan-document-create__path-warning,
+.plan-document-create__title-warning,
+.plan-document-create__same-session,
+.plan-document-create__error {
+  margin: 0;
+  max-width: 100%;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.plan-document-create__status-slot[hidden],
+.plan-document-create__same-session[hidden],
+.plan-document-create__title-warning[hidden] {
+  display: none;
 }
 
 .plan-document-create__path-warning,
 .plan-document-create__title-warning,
 .plan-document-create__error {
-  margin: 0;
-  flex-basis: 100%;
   color: #f2a6a6;
 }
 
 .plan-document-create__same-session {
-  margin: 0;
-  flex-basis: 100%;
   color: var(--muted, #9aa3b5);
-  font-size: 0.85rem;
 }
 
 .plan-document-create__actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 0.5rem;
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .plan-toolbox-card {
