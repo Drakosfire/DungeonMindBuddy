@@ -36,6 +36,7 @@ describe("PlanDocumentCreateControl", () => {
     const sessionInput = screen.getByTestId("plan-document-create-session");
     await user.clear(sessionInput);
     await user.type(sessionInput, "26");
+    await user.tab();
 
     expect(titleInput).toHaveValue("Custom prep title");
   });
@@ -45,11 +46,46 @@ describe("PlanDocumentCreateControl", () => {
     render(<PlanDocumentCreateControl {...baseProps} />);
 
     await user.click(screen.getByTestId("plan-document-create-open"));
-    fireEvent.change(screen.getByTestId("plan-document-create-session"), {
+    const sessionInput = screen.getByTestId("plan-document-create-session");
+    fireEvent.change(sessionInput, {
       target: { value: "26" },
     });
+    fireEvent.blur(sessionInput);
 
     expect(screen.getByTestId("plan-document-create-title")).toHaveValue("C2 Session 26 Prep");
+  });
+
+  it("does not retarget helpers while session digits are mid-edit", async () => {
+    const user = userEvent.setup();
+    render(
+      <PlanDocumentCreateControl
+        {...baseProps}
+        suggestedSession={27}
+        suggestedTitle="C2 Session 27 Prep"
+        activeDocuments={[
+          { title: "C2 Session 27 Prep", targetSession: 27 },
+          { title: "Lone Session 2", targetSession: 2 },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByTestId("plan-document-create-open"));
+    expect(screen.getByTestId("plan-document-create-same-session")).toHaveTextContent(
+      "1 other prep is already aimed at Session 27",
+    );
+
+    const sessionInput = screen.getByTestId("plan-document-create-session");
+    fireEvent.change(sessionInput, { target: { value: "2" } });
+    expect(screen.getByTestId("plan-document-create-same-session")).toHaveTextContent(
+      "Session 27",
+    );
+    expect(screen.getByTestId("plan-document-create-title")).toHaveValue("C2 Session 27 Prep");
+
+    fireEvent.change(sessionInput, { target: { value: "26" } });
+    fireEvent.blur(sessionInput);
+    expect(screen.getByTestId("plan-document-create-session")).toHaveValue(26);
+    expect(screen.getByTestId("plan-document-create-title")).toHaveValue("C2 Session 26 Prep");
+    expect(screen.getByTestId("plan-document-create-same-session")).not.toBeVisible();
   });
 
   it("allows create for campaigns without a derivable corpus Session Prep path", async () => {
@@ -96,13 +132,24 @@ describe("PlanDocumentCreateControl", () => {
     expect(screen.getByTestId("plan-document-create-same-session")).toHaveTextContent(
       "2 other preps are already aimed at Session 27",
     );
-    expect(screen.getByTestId("plan-document-create-title-error")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-document-create-title-error")).toHaveTextContent(
+      'Another active prep for Session 27 is already titled "C2 Session 27 Prep"',
+    );
+    expect(screen.getByTestId("plan-document-create-title-error")).toHaveTextContent(
+      'Choose a different name, such as "If the siege breaks"',
+    );
     expect(screen.getByTestId("plan-document-create-submit")).toBeDisabled();
 
     const titleInput = screen.getByTestId("plan-document-create-title");
     await user.clear(titleInput);
+    await user.type(titleInput, "If the party goes north");
+    expect(screen.getByTestId("plan-document-create-title-error")).toHaveTextContent(
+      'already titled "If the party goes north"',
+    );
+
+    await user.clear(titleInput);
     await user.type(titleInput, "If the siege breaks");
-    expect(screen.queryByTestId("plan-document-create-title-error")).not.toBeInTheDocument();
+    expect(screen.getByTestId("plan-document-create-title-error")).not.toBeVisible();
     await user.click(screen.getByTestId("plan-document-create-submit"));
     expect(onSubmit).toHaveBeenCalledWith({
       title: "If the siege breaks",
@@ -145,5 +192,36 @@ describe("PlanDocumentCreateControl", () => {
     const user = userEvent.setup();
     await user.click(screen.getByTestId("plan-document-create-retry-open"));
     expect(onRetryOpen).toHaveBeenCalled();
+  });
+
+  it("closes the form after a successful create cycle", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<PlanDocumentCreateControl {...baseProps} />);
+    await user.click(screen.getByTestId("plan-document-create-open"));
+    expect(screen.getByTestId("plan-document-create-form")).toBeInTheDocument();
+
+    rerender(<PlanDocumentCreateControl {...baseProps} creating />);
+    rerender(<PlanDocumentCreateControl {...baseProps} creating={false} />);
+    expect(screen.queryByTestId("plan-document-create-form")).not.toBeInTheDocument();
+    expect(screen.getByTestId("plan-document-create-open")).toBeInTheDocument();
+  });
+
+  it("keeps the form open when create fails", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<PlanDocumentCreateControl {...baseProps} />);
+    await user.click(screen.getByTestId("plan-document-create-open"));
+
+    rerender(<PlanDocumentCreateControl {...baseProps} creating />);
+    rerender(
+      <PlanDocumentCreateControl
+        {...baseProps}
+        creating={false}
+        createError="Registry unavailable"
+      />,
+    );
+    expect(screen.getByTestId("plan-document-create-form")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-document-create-error")).toHaveTextContent(
+      "Registry unavailable",
+    );
   });
 });
