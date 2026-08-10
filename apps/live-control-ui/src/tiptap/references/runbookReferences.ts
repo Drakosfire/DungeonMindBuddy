@@ -53,15 +53,44 @@ export function normalizeSemanticReferenceLabel(label: string): string {
 }
 
 /**
+ * True when a persisted label looks like the runaway Markdown-*source*
+ * encoding of a wrapping-emphasis chip (`\*\*...\*\*` / `\_\_...\_\_`,
+ * possibly backslash-doubled).
+ *
+ * Used only by the versioned local-state migration. Schema version alone is
+ * not provenance: v4 mixes promoted dirty attrs with native semantic attrs
+ * such as `**Meat Mind**` and path-like `C:\*ward`.
+ */
+export function isLegacyEscapedEmphasisReferenceLabel(label: string): boolean {
+  const trimmed = normalizedString(label);
+  if (!trimmed.includes("\\")) return false;
+
+  let current = trimmed;
+  let unescaped = false;
+  for (let pass = 0; pass < 48; pass += 1) {
+    const next = unescapeMarkdownInline(current);
+    if (next === current) break;
+    unescaped = true;
+    current = next;
+  }
+  if (!unescaped) return false;
+  return Boolean(
+    current.match(/^\*\*(.+)\*\*$/)
+    ?? current.match(/^__(.+)__$/),
+  );
+}
+
+/**
  * Legacy repair for labels persisted as escaped Markdown source (runaway
  * backslash doubling across older save/load cycles). Strips one wrapping
  * emphasis pair after unescaping because those dirty attrs encoded emphasis
  * delimiters rather than literal asterisks/underscores.
  *
- * Invoke only from a versioned persisted-state migration. Never call this on
- * fresh parser-derived text or on in-memory attrs after migration: MDAST has
- * already decoded `\*\*` into literal `**`, and semantic labels may contain
- * legitimate backslashes (e.g. `C:\*ward`).
+ * Invoke only from a versioned persisted-state migration, and only after
+ * {@link isLegacyEscapedEmphasisReferenceLabel} confirms the dirty pattern.
+ * Never call this on fresh parser-derived text or on in-memory attrs after
+ * migration: MDAST has already decoded `\*\*` into literal `**`, and semantic
+ * labels may contain legitimate backslashes (e.g. `C:\*ward`).
  */
 export function healRunbookReferenceLabel(label: string): string {
   let current = normalizedString(label);
@@ -122,10 +151,13 @@ function migrateLegacyReferenceNode(node: TiptapJsonNode): TiptapJsonNode {
   }
 
   if (node.type === "runbookReference") {
-    const healed = normalizeRunbookReferenceAttrs(
-      (node.attrs ?? {}) as Partial<RunbookReferenceAttrs>,
-      { labelSource: "legacy" },
-    );
+    const attrs = (node.attrs ?? {}) as Partial<RunbookReferenceAttrs>;
+    const rawLabel = typeof attrs.label === "string" ? attrs.label : "";
+    const healed = normalizeRunbookReferenceAttrs(attrs, {
+      // Heal only the dirty escaped-emphasis pattern; leave native semantic
+      // labels (including literal `**` / `C:\*ward`) untouched.
+      labelSource: isLegacyEscapedEmphasisReferenceLabel(rawLabel) ? "legacy" : "semantic",
+    });
     next.attrs = { ...healed };
     return next;
   }
@@ -133,7 +165,11 @@ function migrateLegacyReferenceNode(node: TiptapJsonNode): TiptapJsonNode {
   if (node.type === "graphNodeReference" && node.attrs) {
     const nodeId = typeof node.attrs.nodeId === "string" ? node.attrs.nodeId : "";
     const rawLabel = typeof node.attrs.label === "string" ? node.attrs.label : "";
-    const label = healRunbookReferenceLabel(rawLabel) || nodeId;
+    const label = (
+      isLegacyEscapedEmphasisReferenceLabel(rawLabel)
+        ? healRunbookReferenceLabel(rawLabel)
+        : normalizeSemanticReferenceLabel(rawLabel)
+    ) || nodeId;
     next.attrs = { ...node.attrs, nodeId, label };
     return next;
   }
@@ -142,9 +178,10 @@ function migrateLegacyReferenceNode(node: TiptapJsonNode): TiptapJsonNode {
 }
 
 /**
- * One-time legacy→semantic migration for TipTap JSON loaded from pre-v5
- * workspace local state. Always heals (provenance is the schema version, not
- * label characters). Do not call from render/serialize/authoring paths.
+ * One-time migration for TipTap JSON loaded from pre-v5 workspace local state.
+ * Heals only dirty historical labels that match the escaped wrapping-emphasis
+ * failure mode. Native semantic attrs in mixed-provenance v4 state are left
+ * alone. Do not call from render/serialize/authoring paths.
  */
 export function migrateLegacyTiptapReferenceLabels<T>(doc: T): T {
   if (!doc || typeof doc !== "object") {

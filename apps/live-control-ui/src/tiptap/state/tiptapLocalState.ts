@@ -80,7 +80,7 @@ function migrateV2LocalState(value: Record<string, unknown>): WorkspaceDocumentL
     surface,
     base_revision: 0,
     base_content_sha256: "",
-    // v2→v5: heal legacy escaped reference labels once (schema provenance).
+    // v2→v5: heal dirty escaped-emphasis reference labels once.
     tiptap_json: migrateLegacyTiptapReferenceLabels(value.tiptap_json),
     exported_markdown: value.exported_markdown,
     exported_markdown_authoritative: hasBlockingMarkdownImportDiagnostics(value.exported_markdown),
@@ -118,7 +118,7 @@ function migrateV3LocalState(value: Record<string, unknown>): WorkspaceDocumentL
     surface: value.surface,
     base_revision: value.base_revision,
     base_content_sha256: value.base_content_sha256,
-    // v3→v5: heal legacy escaped reference labels once (schema provenance).
+    // v3→v5: heal dirty escaped-emphasis reference labels once.
     tiptap_json: migrateLegacyTiptapReferenceLabels(value.tiptap_json),
     exported_markdown: value.exported_markdown,
     // Seal authority from the diagnostics at migration time so a later parser
@@ -159,8 +159,8 @@ function migrateV4LocalState(value: Record<string, unknown>): WorkspaceDocumentL
     surface: value.surface,
     base_revision: value.base_revision,
     base_content_sha256: value.base_content_sha256,
-    // v4→v5: heal legacy escaped reference labels once. Provenance is the
-    // schema bump — never infer legacy from label characters on hot paths.
+    // v4→v5: v4 is mixed provenance (promoted dirty attrs + native semantic
+    // starterContent). Heal only the dirty escaped-emphasis pattern.
     tiptap_json: migrateLegacyTiptapReferenceLabels(value.tiptap_json),
     exported_markdown: value.exported_markdown,
     exported_markdown_authoritative: value.exported_markdown_authoritative,

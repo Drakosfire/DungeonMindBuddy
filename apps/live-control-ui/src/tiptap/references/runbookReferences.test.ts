@@ -4,6 +4,7 @@ import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../markdown/markdownToTiptap";
 import {
   healRunbookReferenceLabel,
+  isLegacyEscapedEmphasisReferenceLabel,
   migrateLegacyTiptapReferenceLabels,
   normalizeRunbookReferenceAttrs,
   normalizeSemanticReferenceLabel,
@@ -23,6 +24,22 @@ describe("healRunbookReferenceLabel", () => {
   it("collapses runaway backslash doubling from save/load cycles", () => {
     const runaway = "\\\\\\\\\\\\*\\\\\\\\\\\\*Meat Mind\\\\\\\\\\\\*\\\\\\\\\\\\*";
     expect(healRunbookReferenceLabel(runaway)).toBe("Meat Mind");
+  });
+});
+
+describe("isLegacyEscapedEmphasisReferenceLabel", () => {
+  it("detects dirty escaped wrapping-emphasis source attrs", () => {
+    expect(isLegacyEscapedEmphasisReferenceLabel("\\*\\*Meat Mind\\*\\*")).toBe(true);
+    expect(
+      isLegacyEscapedEmphasisReferenceLabel("\\\\\\\\\\\\*\\\\\\\\\\\\*Meat Mind\\\\\\\\\\\\*\\\\\\\\\\\\*"),
+    ).toBe(true);
+  });
+
+  it("rejects native semantic labels including literal emphasis and path backslashes", () => {
+    expect(isLegacyEscapedEmphasisReferenceLabel("**Meat Mind**")).toBe(false);
+    expect(isLegacyEscapedEmphasisReferenceLabel("__Meat Mind__")).toBe(false);
+    expect(isLegacyEscapedEmphasisReferenceLabel(String.raw`C:\*ward`)).toBe(false);
+    expect(isLegacyEscapedEmphasisReferenceLabel("Meat Mind")).toBe(false);
   });
 });
 
@@ -72,7 +89,20 @@ describe("versioned persisted TipTap reference label migration", () => {
   const threatId = "threat:authored:d60f9863b0faf7f586d69182a0882f1f";
   const documentId = "11111111-1111-4111-8111-111111111111";
 
-  it("heals legacy escaped labels once when reading pre-v5 local state", () => {
+  function memoryStorage() {
+    const storage = new Map<string, string>();
+    return {
+      storage,
+      api: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          storage.set(key, value);
+        },
+      } satisfies Pick<Storage, "getItem" | "setItem">,
+    };
+  }
+
+  it("heals dirty escaped labels once when reading pre-v5 local state", () => {
     const legacyTiptapJson = {
       type: "doc",
       content: [
@@ -106,16 +136,10 @@ describe("versioned persisted TipTap reference label migration", () => {
     expect(migratedDoc.content[0].content[0].attrs.label).toBe("Meat Mind");
     expect(migratedDoc.content[0].content[2].attrs.label).toBe("Meat Mind");
 
-    const storage = new Map<string, string>();
-    const memoryStorage: Pick<Storage, "getItem" | "setItem"> = {
-      getItem: (key) => storage.get(key) ?? null,
-      setItem: (key, value) => {
-        storage.set(key, value);
-      },
-    };
+    const { api: memory } = memoryStorage();
 
-    // Persist as v4 (pre-semantic-label schema) and read through the versioned gate.
-    memoryStorage.setItem(
+    // Persist as v4 promoted dirty TipTap JSON and read through the versioned gate.
+    memory.setItem(
       workspaceDocumentStorageKey(documentId),
       JSON.stringify({
         schema_version: "dmb_workspace_document_local_state_v4",
@@ -137,7 +161,7 @@ describe("versioned persisted TipTap reference label migration", () => {
       }),
     );
 
-    const restored = readWorkspaceDocumentLocalState(memoryStorage, documentId);
+    const restored = readWorkspaceDocumentLocalState(memory, documentId);
     expect(restored?.schema_version).toBe(WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA);
     const paragraph = (restored?.tiptap_json as typeof legacyTiptapJson).content[0];
     expect(paragraph.content[0].attrs.label).toBe("Meat Mind");
@@ -151,6 +175,86 @@ describe("versioned persisted TipTap reference label migration", () => {
 
     const reimported = markdownToTiptapDoc(exported);
     expect(reimported.diagnostics).toEqual([]);
+  });
+
+  it("preserves native-v4 semantic graph-reference labels through v4→v5", () => {
+    const nativeV4TiptapJson = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "graphNodeReference",
+              attrs: {
+                nodeId: "threat:meat-mind",
+                label: "**Meat Mind**",
+              },
+            },
+            { type: "text", text: " / " },
+            {
+              type: "graphNodeReference",
+              attrs: {
+                nodeId: "threat:path-ward",
+                label: String.raw`C:\*ward`,
+              },
+            },
+            { type: "text", text: " / " },
+            {
+              type: "runbookReference",
+              attrs: {
+                kind: "ref",
+                refType: "npc",
+                refId: "path-ward",
+                label: String.raw`C:\*ward`,
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    // Migration helper must not rewrite clean semantic attrs.
+    const migratedDoc = migrateLegacyTiptapReferenceLabels(nativeV4TiptapJson);
+    expect(migratedDoc.content[0].content[0].attrs.label).toBe("**Meat Mind**");
+    expect(migratedDoc.content[0].content[2].attrs.label).toBe(String.raw`C:\*ward`);
+    expect(migratedDoc.content[0].content[4].attrs.label).toBe(String.raw`C:\*ward`);
+
+    const { api: memory } = memoryStorage();
+    memory.setItem(
+      workspaceDocumentStorageKey(documentId),
+      JSON.stringify({
+        schema_version: "dmb_workspace_document_local_state_v4",
+        document_id: documentId,
+        title: "Native v4 semantic labels",
+        campaign_id: "longmont-c2",
+        kind: "plan",
+        target_session: 1,
+        surface: "plan",
+        base_revision: 1,
+        base_content_sha256: "abc",
+        tiptap_json: nativeV4TiptapJson,
+        exported_markdown: "placeholder",
+        exported_markdown_authoritative: true,
+        dirty: true,
+        created_at: "2026-08-09T00:00:00.000Z",
+        updated_at: "2026-08-09T00:00:00.000Z",
+        last_local_save_at: "2026-08-09T00:00:00.000Z",
+      }),
+    );
+
+    const restored = readWorkspaceDocumentLocalState(memory, documentId);
+    expect(restored?.schema_version).toBe(WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA);
+    const paragraph = (restored?.tiptap_json as typeof nativeV4TiptapJson).content[0];
+    expect(paragraph.content[0].attrs.label).toBe("**Meat Mind**");
+    expect(paragraph.content[2].attrs.label).toBe(String.raw`C:\*ward`);
+    expect(paragraph.content[4].attrs.label).toBe(String.raw`C:\*ward`);
+
+    const exported = tiptapJsonToSemanticMarkdown(restored!.tiptap_json);
+    expect(exported).toContain(String.raw`[\*\*Meat Mind\*\*](dmb-node:threat:meat-mind)`);
+    expect(exported).toContain("C:\\\\\\*ward");
+    expect(exported).not.toContain("[Meat Mind](dmb-node:threat:meat-mind)");
+    expect(exported).not.toContain("[C:*ward]");
   });
 
   it("does not heal semantic labels on render/serialize after v5 provenance", () => {
@@ -192,15 +296,9 @@ describe("versioned persisted TipTap reference label migration", () => {
     expect(exported).not.toContain("[C:*ward]");
     expect(exported).not.toContain("[Meat Mind](dmb-node:threat:meat-mind)");
 
-    const storage = new Map<string, string>();
-    const memoryStorage: Pick<Storage, "getItem" | "setItem"> = {
-      getItem: (key) => storage.get(key) ?? null,
-      setItem: (key, value) => {
-        storage.set(key, value);
-      },
-    };
+    const { api: memory } = memoryStorage();
 
-    writeWorkspaceDocumentLocalState(memoryStorage, {
+    writeWorkspaceDocumentLocalState(memory, {
       schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA,
       document_id: documentId,
       title: "Semantic labels",
@@ -219,7 +317,7 @@ describe("versioned persisted TipTap reference label migration", () => {
       last_local_save_at: "2026-08-09T00:00:00.000Z",
     });
 
-    const restored = readWorkspaceDocumentLocalState(memoryStorage, documentId);
+    const restored = readWorkspaceDocumentLocalState(memory, documentId);
     expect(restored?.schema_version).toBe(WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA);
     const paragraph = (restored?.tiptap_json as typeof semanticDoc).content[0];
     expect(paragraph.content[0].attrs.label).toBe(String.raw`C:\*ward`);
