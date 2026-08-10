@@ -8,8 +8,8 @@ import {
 } from "../../graphReference";
 import {
   GRAPH_NODE_REF_TYPE,
-  hydratePersistedRunbookReferenceAttrs,
   isSupportedRunbookReference,
+  normalizeRunbookReferenceAttrs,
   runbookReferenceClasses,
   type RunbookReferenceAttrs,
 } from "../references/runbookReferences";
@@ -19,8 +19,10 @@ import {
  * Graph-native chips get the shared CSS hover glance; corpus chips stay md-ref spans.
  */
 export function RunbookReferenceView({ node }: NodeViewProps) {
-  // Hydrate legacy escaped labels for display; fresh semantic labels pass through.
-  const attrs = hydratePersistedRunbookReferenceAttrs(node.attrs as Partial<RunbookReferenceAttrs>);
+  // In-memory attrs are semantic after versioned load migration.
+  const attrs = normalizeRunbookReferenceAttrs(node.attrs as Partial<RunbookReferenceAttrs>, {
+    labelSource: "semantic",
+  });
   const { nodeViews, activeNodeId, onSelectNode } = useGraphNodeChipRuntime();
   const supported = isSupportedRunbookReference(attrs);
   const isGraphNode = supported && attrs.refType === GRAPH_NODE_REF_TYPE;

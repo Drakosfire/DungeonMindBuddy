@@ -58,9 +58,10 @@ export function normalizeSemanticReferenceLabel(label: string): string {
  * emphasis pair after unescaping because those dirty attrs encoded emphasis
  * delimiters rather than literal asterisks/underscores.
  *
- * Do **not** call this on fresh parser-derived text: MDAST has already decoded
- * `\*\*` into literal `**`, and the serializer can preserve those characters
- * by re-escaping on export.
+ * Invoke only from a versioned persisted-state migration. Never call this on
+ * fresh parser-derived text or on in-memory attrs after migration: MDAST has
+ * already decoded `\*\*` into literal `**`, and semantic labels may contain
+ * legitimate backslashes (e.g. `C:\*ward`).
  */
 export function healRunbookReferenceLabel(label: string): string {
   let current = normalizedString(label);
@@ -81,7 +82,8 @@ export function healRunbookReferenceLabel(label: string): string {
 export type NormalizeRunbookReferenceOptions = {
   /**
    * `semantic` (default): treat `label` as already-decoded chip text.
-   * `legacy`: run {@link healRunbookReferenceLabel} for dirty persisted attrs.
+   * `legacy`: run {@link healRunbookReferenceLabel} — only for versioned
+   * persisted-state migration, never for render/serialize/authoring.
    */
   labelSource?: "semantic" | "legacy";
 };
@@ -104,43 +106,6 @@ export function normalizeRunbookReferenceAttrs(
   return { kind, refType, refId, label };
 }
 
-/**
- * True when a persisted label still looks like escaped Markdown source
- * (legacy save/load runaway) rather than semantic chip text.
- */
-export function looksLikeEscapedMarkdownLabel(label: string): boolean {
-  return /\\[\\`*_{}[\]()#+.!|>~-]/.test(label);
-}
-
-/**
- * Heal a persisted opaque-reference label exactly once when it still carries
- * Markdown escapes. Already-semantic labels (including literal `**` / `__`)
- * pass through unchanged.
- */
-export function hydratePersistedReferenceLabel(label: string): string {
-  const semantic = normalizeSemanticReferenceLabel(label);
-  if (!semantic || !looksLikeEscapedMarkdownLabel(semantic)) {
-    return semantic;
-  }
-  return healRunbookReferenceLabel(semantic);
-}
-
-/**
- * Hydration boundary for persisted TipTap `runbookReference` attrs: heal
- * escaped legacy labels once, otherwise treat as semantic in-memory text.
- */
-export function hydratePersistedRunbookReferenceAttrs(
-  input: Partial<RunbookReferenceAttrs>,
-): RunbookReferenceAttrs {
-  const rawLabel = normalizeSemanticReferenceLabel(input.label ?? "");
-  return normalizeRunbookReferenceAttrs(
-    input,
-    {
-      labelSource: looksLikeEscapedMarkdownLabel(rawLabel) ? "legacy" : "semantic",
-    },
-  );
-}
-
 type TiptapJsonNode = {
   type?: string;
   attrs?: Record<string, unknown>;
@@ -150,24 +115,25 @@ type TiptapJsonNode = {
   [key: string]: unknown;
 };
 
-function migratePersistedReferenceNode(node: TiptapJsonNode): TiptapJsonNode {
+function migrateLegacyReferenceNode(node: TiptapJsonNode): TiptapJsonNode {
   const next: TiptapJsonNode = { ...node };
   if (Array.isArray(node.content)) {
-    next.content = node.content.map(migratePersistedReferenceNode);
+    next.content = node.content.map(migrateLegacyReferenceNode);
   }
 
   if (node.type === "runbookReference") {
-    const hydrated = hydratePersistedRunbookReferenceAttrs(
+    const healed = normalizeRunbookReferenceAttrs(
       (node.attrs ?? {}) as Partial<RunbookReferenceAttrs>,
+      { labelSource: "legacy" },
     );
-    next.attrs = { ...hydrated };
+    next.attrs = { ...healed };
     return next;
   }
 
   if (node.type === "graphNodeReference" && node.attrs) {
     const nodeId = typeof node.attrs.nodeId === "string" ? node.attrs.nodeId : "";
     const rawLabel = typeof node.attrs.label === "string" ? node.attrs.label : "";
-    const label = hydratePersistedReferenceLabel(rawLabel) || nodeId;
+    const label = healRunbookReferenceLabel(rawLabel) || nodeId;
     next.attrs = { ...node.attrs, nodeId, label };
     return next;
   }
@@ -176,15 +142,15 @@ function migratePersistedReferenceNode(node: TiptapJsonNode): TiptapJsonNode {
 }
 
 /**
- * Migrate persisted TipTap JSON at the load/hydration boundary so in-memory
- * reference labels are semantic. Idempotent for already-clean docs and for
- * fresh semantic labels that intentionally contain literal `**` / `__`.
+ * One-time legacy→semantic migration for TipTap JSON loaded from pre-v5
+ * workspace local state. Always heals (provenance is the schema version, not
+ * label characters). Do not call from render/serialize/authoring paths.
  */
-export function migratePersistedTiptapReferenceLabels<T>(doc: T): T {
+export function migrateLegacyTiptapReferenceLabels<T>(doc: T): T {
   if (!doc || typeof doc !== "object") {
     return doc;
   }
-  return migratePersistedReferenceNode(doc as TiptapJsonNode) as T;
+  return migrateLegacyReferenceNode(doc as TiptapJsonNode) as T;
 }
 
 function isValidRefId(refType: string, refId: string): boolean {

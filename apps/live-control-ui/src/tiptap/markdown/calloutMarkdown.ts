@@ -1,6 +1,5 @@
 import {
-  hydratePersistedReferenceLabel,
-  hydratePersistedRunbookReferenceAttrs,
+  normalizeRunbookReferenceAttrs,
   runbookReferenceHref,
 } from "../references/runbookReferences";
 
@@ -157,8 +156,8 @@ function inlineMarkdown(node: JsonNode): string {
   }
   if (node.type === "hardBreak") return "\n";
   if (node.type === "runbookReference") {
-    // Persist/serialize boundary: heal legacy escaped attrs once; semantic labels stay.
-    const attrs = hydratePersistedRunbookReferenceAttrs(node.attrs ?? {});
+    // In-memory attrs are semantic after versioned load migration.
+    const attrs = normalizeRunbookReferenceAttrs(node.attrs ?? {}, { labelSource: "semantic" });
     const label = escapeMarkdownText(attrs.label);
     const hasKnownKind = node.attrs?.kind === "ref" || node.attrs?.kind === "action";
     const href = hasKnownKind ? runbookReferenceHref(attrs) : null;
@@ -166,11 +165,11 @@ function inlineMarkdown(node: JsonNode): string {
   }
   if (node.type === "graphNodeReference") {
     const nodeId = typeof node.attrs?.nodeId === "string" ? node.attrs.nodeId : "";
-    const rawLabel =
+    const label = escapeMarkdownText(
       typeof node.attrs?.label === "string" && node.attrs.label.trim()
         ? node.attrs.label
-        : nodeId;
-    const label = escapeMarkdownText(hydratePersistedReferenceLabel(rawLabel) || nodeId);
+        : nodeId,
+    );
     return nodeId ? `[${label}](dmb-node:${nodeId})` : label;
   }
   return childNodes(node).map(inlineMarkdown).join("");

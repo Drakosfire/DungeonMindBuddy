@@ -6,21 +6,19 @@ import {
   presentationForNodeId,
   useGraphNodeChipRuntime,
 } from "../../graphReference";
-import { hydratePersistedReferenceLabel } from "../references/runbookReferences";
 import type { GraphNodeReferenceAttrs } from "./GraphNodeReferenceNode";
 
 export function GraphNodeReferenceView({ node }: NodeViewProps) {
   const { nodeViews, activeNodeId, onSelectNode, deltaByNodeId } = useGraphNodeChipRuntime();
   const attrs = node.attrs as GraphNodeReferenceAttrs;
-  const label = hydratePersistedReferenceLabel(attrs.label) || attrs.nodeId;
-  const presentation = presentationForNodeId(nodeViews, attrs.nodeId, label);
+  const presentation = presentationForNodeId(nodeViews, attrs.nodeId, attrs.label);
   const delta = deltaByNodeId?.[attrs.nodeId];
 
   return (
     <NodeViewWrapper as="span" className="graph-node-reference-view">
       <GraphNodeHoverToken
         presentation={presentation}
-        label={label}
+        label={attrs.label || attrs.nodeId}
         pinned={activeNodeId === attrs.nodeId}
         onSelect={() => onSelectNode(attrs.nodeId)}
         deltaStatus={delta?.status}
