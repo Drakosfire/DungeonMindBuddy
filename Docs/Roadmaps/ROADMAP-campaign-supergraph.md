@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-09 — post-#536 Lysandra docs authority sync (PR #538) on docs-dispatch base `2fb059c3…`; Lysandra blocked on forensic Eldyrwild contribution-integrity heal for `contribution:d3d244474789879c`. Historical adjudication-domain effective conformance remains `294 represented / 52 residual`.  
-**Repository anchor:** `2fb059c3daf0644860eaac73bf05990c70dc2e8c`  
+**Updated:** 2026-08-09 — land `HANDOFF-eldyrwild-contribution-integrity-heal` after PR #538 merge `5dae4183…`; heal READY for BUILD; Lysandra BLOCKED until heal live exit. Historical adjudication-domain effective conformance remains `294 represented / 52 residual`.  
+**Repository anchor:** `5dae41830220c50b162fe76c349101c4955aff0c`  
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -100,16 +100,17 @@ The remaining relationship debt is Buddy-owned. The adjudication ledger distingu
 
 ```text
 READY   eldyrwild-contribution-integrity-heal
-        DESIGN first (not code): determine why contribution:d3d244474789879c's
-        current ledger differs from immutable revision-bound contribution
-        authority; recover the exact sealed payload if proven; restore
-        ledger/replay integrity without rewriting immutable revisions; stop if
-        unrecoverable. Exit proof: before/after byte/semantic forensics, exact
-        expected vs actual digests, drifted fields, recovery provenance, and
-        successful pinned rebuild. Do not “change the hash until green.”
+        Owning handoff: Docs/Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md
+        Forensic first, repair second for contribution:d3d244474789879c:
+        reproduce same-ID/different-source ledger overwrite; Kernel pre-write
+        guard; recover exact D* only if digest equals immutable E; heal mutable
+        ledger/index only (no revision publish). Merge-ready on temp clone;
+        DONE requires post-merge canonical live heal. Do not “change the hash
+        until green.”
 
 BLOCKED eldyrwild-lysandra-threat-direction-correction
-        Depends on the integrity heal above, plus merged #534+#536.
+        Depends on contribution-integrity heal DONE (merged package and live
+        exit), plus merged #534+#536.
         Merge-ready package: parent-relative gate on a temp clone
         (semantic unchanged / represented +1 / residual −1 / mechanics unchanged);
         live-write fence, complete preflight, dual artifact seals,
