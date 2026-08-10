@@ -1,0 +1,27 @@
+{
+  "contribution_id": "contribution:6c13bc0f8edf4377",
+  "world_id": "eldyrwild",
+  "source_kind": "graph_review_authored_assertion",
+  "source_artifact_id": "graph-native:eldyrwild-correction:session24-cube-karsemine-false-location-v1",
+  "source_revision_id": "correction:eldyrwild:session24-cube-karsemine-false-location-v1",
+  "extraction_profile": null,
+  "produced_at": "2026-08-10T18:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "assertion_corrections": [
+    {
+      "correction_kind": "contradicts",
+      "target_contribution_id": "contribution:fe483d91c47590a1",
+      "target_assertion_id": "assertion:d27dd4e9041147bc",
+      "replacement_assertion_id": null
+    }
+  ],
+  "authored_by": "gm",
+  "diagnostics": []
+}
