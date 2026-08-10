@@ -1,8 +1,30 @@
 import { readFileSync } from "node:fs";
 
+import { Editor } from "@tiptap/core";
+import type { JSONContent } from "@tiptap/core";
+
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../MarkdownEditorCore";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { markdownToTiptapDoc } from "./markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
+
+const SESSION_26_NESTED_PREP_MARKDOWN = [
+  "## North Gate",
+  "",
+  "- If the party holds position:",
+  "  - > [!DECISION-CONSEQUENCE]",
+  "    > ### Decision",
+  "    > Hold the gate and keep the refugees behind the wall.",
+  "    >",
+  "    > ### Consequence",
+  "    > - The pressure remains concentrated at the gate.",
+  "    > - Lysandra can reposition the reserve.",
+  "",
+  "- If the party abandons the gate:",
+  "  > [!GM-NOTE]",
+  "  > Advance the breach clock.",
+  "",
+].join("\n");
 
 describe("markdownToTiptapDoc", () => {
   it("imports headings and paragraphs", () => {
@@ -599,32 +621,18 @@ describe("markdownToTiptapDoc", () => {
   });
 
   it("imports Session-26 nested list + Decision/Consequence structure cleanly", () => {
-    const markdown = [
-      "## North Gate",
-      "",
-      "- If the party holds position:",
-      "  - > [!DECISION-CONSEQUENCE]",
-      "    > ### Decision",
-      "    > Hold the gate and keep the refugees behind the wall.",
-      "    >",
-      "    > ### Consequence",
-      "    > - The pressure remains concentrated at the gate.",
-      "    > - Lysandra can reposition the reserve.",
-      "",
-      "- If the party abandons the gate:",
-      "  > [!GM-NOTE]",
-      "  > Advance the breach clock.",
-      "",
-    ].join("\n");
-    const imported = markdownToTiptapDoc(markdown);
+    const imported = markdownToTiptapDoc(SESSION_26_NESTED_PREP_MARKDOWN);
     expect(imported.diagnostics).toEqual([]);
     const heading = imported.doc.content?.[0] as { type?: string; content?: unknown[] };
     expect(heading.type).toBe("heading");
     const list = imported.doc.content?.[1] as { content?: unknown[] };
     const holdItem = list?.content?.[0] as { content?: unknown[] };
     const innerList = holdItem?.content?.[1] as { content?: unknown[] };
-    const innerItem = innerList?.content?.[0] as { content?: unknown[] };
-    const dc = innerItem?.content?.[0] as { type?: string; content?: unknown[] };
+    const innerItem = innerList?.content?.[0] as { content?: Array<{ type?: string; content?: unknown[] }> };
+    // TipTap's ListItem schema is `paragraph block*`: block-first semantic content
+    // gets an empty structural paragraph that the serializer omits on export.
+    expect(innerItem?.content?.[0]).toEqual({ type: "paragraph", content: [] });
+    const dc = innerItem?.content?.[1];
     expect(dc?.type).toBe("decisionConsequence");
     expect(dc?.content?.map((pane) => (pane as { type?: string }).type)).toEqual(["decisionPane", "consequencePane"]);
     const exported = tiptapJsonToSemanticMarkdown(imported.doc);
@@ -841,7 +849,10 @@ describe("markdownToTiptapDoc", () => {
     const listItem = (imported.doc.content?.[0] as { content?: unknown[] }).content?.[0] as {
       content?: Array<{ type?: string; content?: Array<{ type?: string; content?: unknown[] }> }>;
     };
-    const dc = listItem.content?.[0];
+    // Structural paragraph keeps the list item valid against TipTap's
+    // `paragraph block*` ListItem schema; serializer omits it on export.
+    expect(listItem.content?.[0]).toEqual({ type: "paragraph", content: [] });
+    const dc = listItem.content?.[1];
     expect(dc?.type).toBe("decisionConsequence");
     const decisionPane = dc?.content?.[0];
     expect(decisionPane?.content?.map((node) => node.type)).toEqual(["heading", "paragraph"]);
@@ -902,5 +913,87 @@ describe("markdownToTiptapDoc", () => {
     expect(exported).toContain("> [!GM-NOTE]");
     expect(exported).toContain("> [!RULES]");
     expect(exported).toContain("> [!WARNING]");
+  });
+});
+
+describe("Session-26 Markdown → Editor → Save → reload integration", () => {
+  function createIntegrationEditor(content: JSONContent) {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const editor = new Editor({
+      element,
+      extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+      content,
+    });
+    return {
+      editor,
+      cleanup: () => {
+        editor.destroy();
+        element.remove();
+      },
+    };
+  }
+
+  it("keeps nested Decision/Consequence schema-valid through a real TipTap Editor edit/save cycle", () => {
+    const imported = markdownToTiptapDoc(SESSION_26_NESTED_PREP_MARKDOWN);
+    expect(imported.diagnostics).toEqual([]);
+
+    const { editor, cleanup } = createIntegrationEditor(imported.doc);
+    try {
+      // The real extension set mounts StarterKit's ListItem, whose schema is
+      // `paragraph block*` (@tiptap/extension-list-item 2.27.2). The imported
+      // doc must validate against that schema — not just serialize cleanly.
+      expect(() => editor.state.doc.check()).not.toThrow();
+
+      const decisionConsequences: Array<{ type?: string; content?: Array<{ type?: string }> }> = [];
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === "decisionConsequence") {
+          decisionConsequences.push(node.toJSON() as { type?: string; content?: Array<{ type?: string }> });
+        }
+        return true;
+      });
+      expect(decisionConsequences).toHaveLength(1);
+      expect(decisionConsequences[0]?.content?.map((pane) => pane.type)).toEqual([
+        "decisionPane",
+        "consequencePane",
+      ]);
+
+      // Save path before editing: editor JSON serializes to the same canonical
+      // Markdown as the importer projection (structural paragraph omitted).
+      expect(semanticMarkdownSerializationDiagnostics(editor.getJSON())).toEqual([]);
+      const exportedBeforeEdit = tiptapJsonToSemanticMarkdown(editor.getJSON());
+      expect(exportedBeforeEdit).toBe(tiptapJsonToSemanticMarkdown(imported.doc));
+      expect(exportedBeforeEdit).toContain("> [!DECISION-CONSEQUENCE]");
+
+      // Edit inside the decision pane through a real editor transaction.
+      let insertPos: number | null = null;
+      editor.state.doc.descendants((node, pos) => {
+        const text = node.text ?? "";
+        if (insertPos === null && node.isText && text.includes("Hold the gate")) {
+          insertPos = pos + text.length;
+        }
+        return true;
+      });
+      expect(insertPos).not.toBeNull();
+      editor.commands.insertContentAt(insertPos!, " Sentries rotate at dusk.");
+
+      // Save → reload: canonical Markdown carries the edit and reimports clean.
+      expect(semanticMarkdownSerializationDiagnostics(editor.getJSON())).toEqual([]);
+      const exportedAfterEdit = tiptapJsonToSemanticMarkdown(editor.getJSON());
+      expect(exportedAfterEdit).toContain("Sentries rotate at dusk.");
+      const reloaded = markdownToTiptapDoc(exportedAfterEdit);
+      expect(reloaded.diagnostics).toEqual([]);
+      expect(tiptapJsonToSemanticMarkdown(reloaded.doc)).toBe(exportedAfterEdit);
+
+      // The reloaded doc is again schema-valid in a fresh real editor.
+      const { editor: reloadedEditor, cleanup: cleanupReloaded } = createIntegrationEditor(reloaded.doc);
+      try {
+        expect(() => reloadedEditor.state.doc.check()).not.toThrow();
+      } finally {
+        cleanupReloaded();
+      }
+    } finally {
+      cleanup();
+    }
   });
 });

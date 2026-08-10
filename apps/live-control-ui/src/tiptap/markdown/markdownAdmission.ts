@@ -909,6 +909,12 @@ function visitListItem(item: ListItem, list: List, context: AdmissionContext, st
   }
   if (content.length === 0) {
     content.push({ type: "paragraph", content: [] });
+  } else if ((content[0] as { type?: string }).type !== "paragraph") {
+    // TipTap's ListItem schema is `paragraph block*`; block-first semantic
+    // content (callout / D/C / nested list) needs an empty structural paragraph
+    // that serialization omits. This keeps Markdown → Editor → Save → reload
+    // lossless without widening TipTap's list schema.
+    content.unshift({ type: "paragraph", content: [] });
   }
   return { type: "listItem", content };
 }
