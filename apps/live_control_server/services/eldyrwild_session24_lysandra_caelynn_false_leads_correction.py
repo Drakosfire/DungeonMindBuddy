@@ -36,7 +36,10 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_resid
     ELDYRWILD_WORLD_ID,
 )
 from graph_memory.kernel.contribution_models import GraphContribution
-from graph_memory.world_supergraph.contribution_store import load_contribution_record
+from graph_memory.world_supergraph.contribution_store import (
+    load_contribution_index,
+    load_contribution_record,
+)
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 
 APPROVED_CORRECTION_RELPATH = (
@@ -519,6 +522,27 @@ def _revision_bound_correction_authority(
         return False, diagnostics
     if ledger.status != "active":
         diagnostics.append("mutable_C_not_active")
+        return False, diagnostics
+
+    # Mutable contribution index is a distinct authority store from revision
+    # digests / replay manifest / ledger. already_applied requires coherence.
+    index = load_contribution_index(root, WORLD_ID)
+    all_ids = set(index.all_contribution_ids)
+    active_ids = set(index.active_contribution_ids)
+    superseded_ids = set(index.superseded_contribution_ids)
+    retracted_ids = set(index.retracted_contribution_ids)
+    failed_ids = set(index.failed_contribution_ids)
+    if LOCKED_CORRECTION_CONTRIBUTION_ID not in all_ids:
+        diagnostics.append("mutable_C_index_missing_from_all")
+    if LOCKED_CORRECTION_CONTRIBUTION_ID not in active_ids:
+        diagnostics.append("mutable_C_index_not_active")
+    if LOCKED_CORRECTION_CONTRIBUTION_ID in superseded_ids:
+        diagnostics.append("mutable_C_index_superseded")
+    if LOCKED_CORRECTION_CONTRIBUTION_ID in retracted_ids:
+        diagnostics.append("mutable_C_index_retracted")
+    if LOCKED_CORRECTION_CONTRIBUTION_ID in failed_ids:
+        diagnostics.append("mutable_C_index_failed")
+    if any(d.startswith("mutable_C_index_") for d in diagnostics):
         return False, diagnostics
 
     if not _support_shape_suggests_applied(store):

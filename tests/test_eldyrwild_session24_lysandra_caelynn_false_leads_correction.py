@@ -917,6 +917,117 @@ def test_c_ledger_inactive_is_integrity_failure(tmp_path: Path) -> None:
     assert st.eligibility == "integrity_failure"
 
 
+def test_c_index_only_split_brain_is_integrity_failure(tmp_path: Path) -> None:
+    """Index-only reclassification must not report already_applied.
+
+    Leaves Q₃ revision digest, replay manifest, ledger bytes/status, and
+    contradicted target shape intact while dropping C₃ from the mutable
+    contribution index (or classifying it retracted there).
+    """
+    root = _clone_eldyrwild(tmp_path)
+    parent = get_session24_lysandra_caelynn_false_leads_correction_status(
+        root=root, repo=REPO
+    ).head_revision_id
+    assert parent
+    result = apply_session24_lysandra_caelynn_false_leads_correction(
+        expected_parent_revision_id=parent,
+        root=root,
+        repo=REPO,
+    )
+    child = result.revision_id
+    assert child
+    assert (
+        get_session24_lysandra_caelynn_false_leads_correction_status(
+            root=root, expected_parent_revision_id=child, repo=REPO
+        ).eligibility
+        == "already_applied"
+    )
+
+    store_before = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, child)
+    digests_before = dict(store_before.contribution_source_payload_sha256 or {})
+    assert digests_before.get(LOCKED_CORRECTION_CONTRIBUTION_ID) == (
+        LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    ledger_path = world_paths.contribution_path(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    )
+    ledger_bytes_before = ledger_path.read_bytes()
+    ledger_before = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    )
+    assert ledger_before.status == "active"
+
+    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    assert LOCKED_CORRECTION_CONTRIBUTION_ID in set(index.active_contribution_ids)
+    index = index.model_copy(
+        update={
+            "active_contribution_ids": [
+                x
+                for x in index.active_contribution_ids
+                if x != LOCKED_CORRECTION_CONTRIBUTION_ID
+            ],
+            "retracted_contribution_ids": sorted(
+                set(index.retracted_contribution_ids)
+                | {LOCKED_CORRECTION_CONTRIBUTION_ID}
+            ),
+        }
+    )
+    save_contribution_index(root, ELDYRWILD_WORLD_ID, index)
+
+    # Prove only the mutable index diverged: revision/ledger/target intact.
+    store_after_tamper = kernel.load_world_graph_revision(
+        root, ELDYRWILD_WORLD_ID, child
+    )
+    assert dict(store_after_tamper.contribution_source_payload_sha256 or {}) == (
+        digests_before
+    )
+    assert ledger_path.read_bytes() == ledger_bytes_before
+    ledger_after_tamper = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    )
+    assert ledger_after_tamper.status == "active"
+    assert (
+        kernel.compute_contribution_source_payload_sha256(ledger_after_tamper)
+        == LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    x_support = store_after_tamper.assertion_support[TARGET_ASSERTION_ID]
+    assert x_support["support_state"] == "contradicted"
+    assert not (x_support.get("active_contribution_ids") or [])
+    manifest_hit = False
+    for entry in store_after_tamper.contribution_replay_manifest or []:
+        cid = getattr(entry, "contribution_id", None)
+        status_m = getattr(entry, "status", None)
+        digest_m = getattr(entry, "source_payload_sha256", None)
+        if cid == LOCKED_CORRECTION_CONTRIBUTION_ID:
+            assert status_m == "active"
+            assert digest_m == LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+            manifest_hit = True
+    assert manifest_hit
+
+    st = get_session24_lysandra_caelynn_false_leads_correction_status(
+        root=root, expected_parent_revision_id=child, repo=REPO
+    )
+    assert st.eligibility == "integrity_failure"
+    assert "mutable_C_index_not_active" in st.diagnostics
+    assert "mutable_C_index_retracted" in st.diagnostics
+
+    before = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    before_index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    with pytest.raises(Session24LysandraCaelynnFalseLeadsCorrectionError) as exc:
+        apply_session24_lysandra_caelynn_false_leads_correction(
+            expected_parent_revision_id=child,
+            root=root,
+            repo=REPO,
+        )
+    assert exc.value.code == "integrity_failure"
+    assert snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID) == before
+    after_index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    assert after_index.model_dump() == before_index.model_dump()
+    head, _, _ = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
+    assert head.head_revision_id == child
+    assert ledger_path.read_bytes() == ledger_bytes_before
+
+
 def test_same_c_id_different_source_payload_fails_closed(tmp_path: Path) -> None:
     """Unbound mutable C with same ID but different digest must not be overwritten."""
     root = _clone_eldyrwild(tmp_path)
