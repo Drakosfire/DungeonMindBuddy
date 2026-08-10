@@ -1,14 +1,14 @@
 # Current State — World Graph Continuity Spine
 
-**Status:** Current-state guide; not a replacement for architecture or sequencing authority  
-**Updated:** 2026-08-10 — after #537 merge + canonical Lysandra live exit; current effective baseline is `R_current = Q_live`  
-**Repository anchor:** `81e7b5d71ff647e17fe806bb4ab851f6800b478c`  
-**#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
-**Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)  
-**Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
-**Tracker:** [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
-**Integration roadmap:** [`../Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)  
+**Status:** Current-state guide; not a replacement for architecture or sequencing authority
+**Updated:** 2026-08-10 — after #545 Session-24 live exit; current effective baseline is `R_current = Q`
+**Repository anchor:** `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde`
+**#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
+**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
+**Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
+**Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
+**Tracker:** [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
+**Integration roadmap:** [`../Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)
 **UI shell (cross-boundary):** [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md)
 
 ## Why this exists
@@ -169,7 +169,7 @@ The August chain is now part of current state and must not be reconstructed from
 
 ### Current Eldyrwild semantic state
 
-The generic correction primitive has now been used on real Eldyrwild. Lysandra is live and replayable through authored correction C (`contribution:4c65f668dc95ef4f`). Historical X remains inspectable and non-current; current truth contains X′ through C.
+Two governed real-world corrections have now crossed the full design → Kernel → canonical write → replay → formal-current-baseline path. Lysandra remains live through C₁ (`contribution:4c65f668dc95ef4f`). Session-24 false cube→Karsemine location is contradicted without replacement through C₂ (`contribution:6c13bc0f8edf4377`). Historical X₁/X₂ remain inspectable and non-current; current truth contains X₁′ through C₁ and no longer projects X₂.
 
 **Immutable adjudication domain** (`rev:3413bf6f5044cf2680233f5e37c90dcf`):
 
@@ -180,33 +180,55 @@ The generic correction primitive has now been used on real Eldyrwild. Lysandra i
 - remaining DungeonMind-owned relationship debt in the exact adjudication domain: `0`;
 - original adjudication revision: unchanged historical authority.
 
-**Current formal effective-conformance baseline** (`R_current = Q_live = rev:b90646fb5b135988bd7842cde858c96e`):
+**Previous formal effective-conformance baseline** (`P = rev:b90646fb5b135988bd7842cde858c96e`):
 
 - relationship semantic count: `369`;
 - effectively represented: `311`;
 - effective relationship residuals: `58`;
 - retained `uses_statblock` mechanics attachments: `3`;
-- parent-relative Lysandra exit delta from `P_live`: semantic `0` / represented `+1` / residual `−1` / mechanics `0`.
+- parent-relative Lysandra exit delta from Lysandra `P_live`: semantic `0` / represented `+1` / residual `−1` / mechanics `0`.
 
-Do not carry the historical `346 / 294 / 52 / 2` forward as though it were the live baseline. Remaining residual work must be selected by correction class from the R_current ledger.
+**Current formal effective-conformance baseline** (`R_current = Q = rev:b8dfc063bc13a4fb297e83f5f9b313d9`):
 
-The residual classes still distinguish Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, and insufficient-evidence cases. Different classes may require different write authority and therefore different PRs.
+- relationship semantic count: `368`;
+- effectively represented: `311`;
+- effective relationship residuals: `57`;
+- retained `uses_statblock` mechanics attachments: `3`;
+- parent-relative Session-24 exit delta from `P`: semantic `−1` / represented `0` / residual `−1` / mechanics `0`.
+
+Do not carry historical `346 / 294 / 52 / 2` or previous `369 / 311 / 58 / 3` forward as though they were the live baseline. Remaining residual work must be selected by correction class from the Q ledger.
+
+The residual classes still distinguish Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, insufficient-evidence cases, and unadjudicated residuals. Different classes may require different write authority and therefore different PRs.
 
 ### First real correction — closed
 
 ```text
-historical defective edge X:
+historical defective edge X₁:
   npc_lysandra --threatens--> cultists_of_longmont
 
-current corrected edge X′:
+current corrected edge X₁′:
   cultists_of_longmont --threatens--> npc_lysandra
 
-C: contribution:4c65f668dc95ef4f
+C₁: contribution:4c65f668dc95ef4f
 P_live: rev:dfdf38edbefd734d108832e92467b208
-Q_live / R_current: rev:b90646fb5b135988bd7842cde858c96e
+Q_live: rev:b90646fb5b135988bd7842cde858c96e
 ```
 
-Integrity heal and Lysandra live exits are complete. The next step is one bounded Buddy residual slice by correction class — not batch repair.
+### Second real correction — closed
+
+```text
+historical defective edge X₂:
+  item-001 --located_in--> pc:karsemine
+
+replacement:
+  none (contradiction without replacement)
+
+C₂: contribution:6c13bc0f8edf4377
+P: rev:b90646fb5b135988bd7842cde858c96e
+Q / R_current: rev:b8dfc063bc13a4fb297e83f5f9b313d9
+```
+
+Integrity heal, Lysandra, and Session-24 live exits are complete. The next step is one bounded Buddy residual slice by correction class from the 57-edge Q ledger — not batch repair.
 
 ## Current surface state
 
@@ -248,11 +270,11 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `buddy-remaining-relationship-correction-slices` — READY: select one bounded Buddy residual from the R_current ledger by correction class; do not make one omnibus residual-zeroing PR.
+1. `buddy-remaining-relationship-correction-slices` — READY: select one bounded Buddy residual from the Q residual ledger by correction class; do not make one omnibus residual-zeroing PR.
 2. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
 3. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, effective-conformance re-anchor to `R_current = Q_live` `DONE`.
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor to `R_current = Q` in progress / DONE on merge.
 
 ## Fast diagnostic questions
 
