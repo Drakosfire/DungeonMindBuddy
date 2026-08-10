@@ -1,7 +1,7 @@
 # HANDOFF — Eldyrwild effective conformance after first governed correction
 
 **Created:** 2026-08-10
-**Status:** BUILD IN PROGRESS — predecessor live exit proven; R_current = Q_live
+**Status:** IMPLEMENTATION COMPLETE — PR #542; R_current = Q_live = rev:b90646fb5b135988bd7842cde858c96e
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-effective-conformance-after-first-correction.md`
 **Conversation name:** `Eldyrwild Effective Conformance After First Correction`
 **Flow / agent:** `BUILD`
