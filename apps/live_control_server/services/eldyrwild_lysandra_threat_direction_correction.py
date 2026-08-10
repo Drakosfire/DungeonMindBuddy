@@ -400,6 +400,14 @@ def _classify_applied_state(
 
 
 def _replacement_has_unrelated_current_authority(store: Any) -> bool:
+    """True when X' is already current from authority other than locked C.
+
+    Current authority is the durable edge/support association: any supported
+    assertion_support row with ``graph_object_id == REPLACEMENT_EDGE_ID`` and
+    nonempty active contributions. The fixed ``REPLACEMENT_ASSERTION_ID`` is
+    not required — unrelated authority under a distinct assertion id must
+    also fail closed.
+    """
     edge = store.edges.get(REPLACEMENT_EDGE_ID)
     if edge is None:
         return False
@@ -409,30 +417,21 @@ def _replacement_has_unrelated_current_authority(store: Any) -> bool:
         or edge.predicate != REPLACEMENT_PREDICATE
     ):
         return False
-    support = store.assertion_support.get(REPLACEMENT_ASSERTION_ID)
-    if not isinstance(support, dict):
-        # Edge exists with correct fingerprint but no replacement assertion
-        # support — treat structural presence alone as not "current authority".
-        # Also check any assertion_support rows that currently support this edge.
-        for assertion_id, row in (store.assertion_support or {}).items():
-            if not isinstance(row, dict):
-                continue
-            if row.get("support_state") != "supported":
-                continue
-            active = list(row.get("active_contribution_ids") or [])
-            if not active:
-                continue
-            # Heuristic: edge materialization with other supported assertions
-            # sharing this edge id via value is rare; fall through.
-            _ = assertion_id
-        return False
-    if support.get("support_state") != "supported":
-        return False
-    active = set(support.get("active_contribution_ids") or [])
-    if not active:
-        return False
-    # Any active current authority that is not exactly our locked C is unrelated.
-    return active != {LOCKED_CORRECTION_CONTRIBUTION_ID}
+
+    for _assertion_id, row in (store.assertion_support or {}).items():
+        if not isinstance(row, dict):
+            continue
+        if row.get("graph_object_id") != REPLACEMENT_EDGE_ID:
+            continue
+        if row.get("support_state") != "supported":
+            continue
+        active = set(row.get("active_contribution_ids") or [])
+        if not active:
+            continue
+        # Any active current authority that is not exactly our locked C is unrelated.
+        if active != {LOCKED_CORRECTION_CONTRIBUTION_ID}:
+            return True
+    return False
 
 
 def _preflight(

@@ -358,6 +358,57 @@ def test_unrelated_current_xprime_is_ineligible(tmp_path: Path) -> None:
     assert "replacement_unrelated_current_authority" in st.diagnostics
 
 
+def test_unrelated_current_xprime_via_distinct_assertion_id_is_ineligible(
+    tmp_path: Path,
+) -> None:
+    """X' current via a non-canonical assertion id must still fail closed."""
+    root = _clone_eldyrwild(tmp_path)
+    parent = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)[0].head_revision_id
+    store = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
+    unrelated = "contribution:unrelated-xprime-alt-assertion"
+    other_assertion_id = "assertion:unrelated-xprime-support"
+    target = dict(store.assertion_support[TARGET_ASSERTION_ID])
+    evidence_ids = list(target.get("evidence_ref_ids") or [])
+    artifact_ids = list(target.get("source_artifact_ids") or [])
+    store.edges[REPLACEMENT_EDGE_ID] = store.edges[TARGET_EDGE_ID].model_copy(
+        update={
+            "edge_id": REPLACEMENT_EDGE_ID,
+            "source_node_id": REPLACEMENT_SOURCE_NODE_ID,
+            "target_node_id": REPLACEMENT_TARGET_NODE_ID,
+            "predicate": REPLACEMENT_PREDICATE,
+        }
+    )
+    # Deliberately omit REPLACEMENT_ASSERTION_ID; authority lives elsewhere.
+    assert REPLACEMENT_ASSERTION_ID not in store.assertion_support
+    store.assertion_support[other_assertion_id] = {
+        "assertion_id": other_assertion_id,
+        "assertion_kind": "edge",
+        "graph_object_id": REPLACEMENT_EDGE_ID,
+        "support_state": "supported",
+        "active_contribution_ids": [unrelated],
+        "contradicted_contribution_ids": [],
+        "superseded_contribution_ids": [],
+        "retracted_contribution_ids": [],
+        "introduced_by_contribution_id": unrelated,
+        "evidence_ref_ids": evidence_ids,
+        "source_artifact_ids": artifact_ids,
+        "provenance_lineage_version": 1,
+        "per_contribution_evidence_ref_ids": {unrelated: evidence_ids},
+        "per_contribution_source_artifact_ids": {unrelated: artifact_ids},
+    }
+    advanced = kernel.publish_world_revision(
+        root,
+        ELDYRWILD_WORLD_ID,
+        store,
+        operation_ids=["op:lysandra-unrelated-xprime-alt-assertion"],
+    ).revision.revision_id
+    st = get_lysandra_threat_direction_correction_status(
+        root=root, expected_parent_revision_id=advanced, repo=REPO
+    )
+    assert st.eligibility == "ineligible"
+    assert "replacement_unrelated_current_authority" in st.diagnostics
+
+
 def test_false_positive_already_applied_without_revision_bound_c(
     tmp_path: Path,
 ) -> None:
