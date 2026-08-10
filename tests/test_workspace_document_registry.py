@@ -9,12 +9,16 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.workspace_document_registry import (
     REGISTRY_SCHEMA,
+    WorkspaceDocumentRecord,
     WorkspaceDocumentRegistryError,
     create_workspace_document,
     discard_workspace_document,
+    find_duplicate_target_relpath_ownership,
     get_workspace_document,
     list_workspace_documents,
     mark_workspace_document_committed,
+    reinstate_workspace_document_record,
+    release_target_relpath_from_discarded_duplicate,
     restore_workspace_document,
     update_workspace_document_metadata,
     workspace_documents_path,
@@ -822,3 +826,145 @@ def test_worldbuilding_create_remains_uuid_bound_and_collision_free(root: Path) 
     assert a.target_relpath is not None and a.document_id in a.target_relpath
     assert b.target_relpath is not None and b.document_id in b.target_relpath
     assert a.target_relpath != b.target_relpath
+
+
+def test_find_duplicate_target_relpath_ownership_reports_groups(root: Path) -> None:
+    target = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 23 Prep.md"
+    )
+    first = create_workspace_document(
+        root,
+        title="C2 Session 23 Prep",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=23,
+        target_relpath=target,
+    )
+    # Bypass create guard to simulate a pre-invariant duplicate registry.
+    from apps.live_control_server.services.workspace_document_registry import (
+        _load_unlocked,
+        _save_cas,
+        _utc_now_iso,
+    )
+    from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
+
+    twin_id = str(uuid.uuid4())
+    now = _utc_now_iso()
+    twin = WorkspaceDocumentRecord(
+        document_id=twin_id,
+        title="C2 Session 23 Prep",
+        campaign_id="longmont-c2",
+        target_session=23,
+        kind="plan",
+        target_relpath=target,
+        status="active",
+        content_status="draft",
+        revision=1,
+        created_at=now,
+        updated_at=now,
+    )
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        document.records.append(twin)
+        _save_cas(root, document, expected_token=token)
+
+    groups = find_duplicate_target_relpath_ownership(root)
+    assert len(groups) == 1
+    assert groups[0][0] == target
+    assert {r.document_id for r in groups[0][1]} == {first.document_id, twin_id}
+
+
+def test_release_target_relpath_from_discarded_duplicate_keeps_survivor_path(
+    root: Path,
+) -> None:
+    target = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 23 Prep.md"
+    )
+    survivor = create_workspace_document(
+        root,
+        title="C2 Session 23 Prep",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=23,
+        target_relpath=target,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        _load_unlocked,
+        _save_cas,
+        _utc_now_iso,
+    )
+    from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
+
+    twin_id = str(uuid.uuid4())
+    now = _utc_now_iso()
+    twin = WorkspaceDocumentRecord(
+        document_id=twin_id,
+        title="C2 Session 23 Prep",
+        campaign_id="longmont-c2",
+        target_session=23,
+        kind="plan",
+        target_relpath=target,
+        status="discarded",
+        content_status="draft",
+        revision=2,
+        created_at=now,
+        updated_at=now,
+    )
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        document.records.append(twin)
+        _save_cas(root, document, expected_token=token)
+
+    discard_workspace_document(root, survivor.document_id)
+    released = release_target_relpath_from_discarded_duplicate(
+        root,
+        survivor_document_id=survivor.document_id,
+        retire_document_id=twin_id,
+    )
+    assert released.document_id == twin_id
+    assert released.target_relpath is None
+    assert released.status == "discarded"
+    assert get_workspace_document(root, survivor.document_id).target_relpath == target
+    assert find_duplicate_target_relpath_ownership(root) == []
+
+
+def test_reinstate_workspace_document_record_restores_identity_without_path_collision(
+    root: Path,
+) -> None:
+    survivor = create_workspace_document(
+        root,
+        title="C2 Session 23 Prep",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=23,
+        target_relpath=(
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+            "Session Prep/Session 23 Prep.md"
+        ),
+    )
+    discard_workspace_document(root, survivor.document_id)
+    restored_id = str(uuid.uuid4())
+    now = "2026-08-08T18:00:00Z"
+    reinstated = reinstate_workspace_document_record(
+        root,
+        WorkspaceDocumentRecord(
+            document_id=restored_id,
+            title="C2 Session 23 Prep",
+            campaign_id="longmont-c2",
+            target_session=23,
+            kind="plan",
+            target_relpath=None,
+            status="discarded",
+            content_status="draft",
+            revision=2,
+            created_at=now,
+            updated_at=now,
+        ),
+    )
+    assert reinstated.document_id == restored_id
+    assert get_workspace_document(root, restored_id).status == "discarded"
+    assert find_duplicate_target_relpath_ownership(root) == []
