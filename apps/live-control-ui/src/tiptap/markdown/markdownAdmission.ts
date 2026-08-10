@@ -473,8 +473,24 @@ function headingSemanticText(node: Heading): string {
   return collectLabelText(node.children as PhrasingContent[]).trim();
 }
 
+/** Pane delimiters are structural syntax; only plain text is representable. */
+function isPlainTextHeadingChildren(node: Heading): boolean {
+  return (node.children as PhrasingContent[]).every((child) => child.type === "text");
+}
+
 function isExactPaneHeading(node: Heading, label: "Decision" | "Consequence"): boolean {
-  return node.depth === 3 && headingSemanticText(node).toLowerCase() === label.toLowerCase();
+  if (node.depth !== 3 || !isPlainTextHeadingChildren(node)) return false;
+  return headingSemanticText(node).toLowerCase() === label.toLowerCase();
+}
+
+/**
+ * Flattened text looks like a pane delimiter, but the heading AST is not the
+ * plain-text shape we can serialize losslessly (marks, links, code, HTML).
+ */
+function isFormattedPaneDelimiterHeading(node: Heading): boolean {
+  if (node.depth !== 3 || isPlainTextHeadingChildren(node)) return false;
+  const text = headingSemanticText(node).toLowerCase();
+  return text === "decision" || text === "consequence";
 }
 
 function isNearMissPaneHeading(node: Heading): boolean {
@@ -500,9 +516,14 @@ type DecisionConsequenceClassification =
 
 const DECISION_CONSEQUENCE_MALFORMED =
   "Decision/Consequence blocks must contain exactly one Decision pane and one Consequence pane.";
+const DECISION_CONSEQUENCE_FORMATTED_PANE_HEADING =
+  "Decision/Consequence pane headings must be plain text without formatting or links.";
 
 function classifyDecisionConsequencePanes(children: RootContent[]): DecisionConsequenceClassification {
   for (const child of children) {
+    if (child.type === "heading" && isFormattedPaneDelimiterHeading(child)) {
+      return { ok: false, message: DECISION_CONSEQUENCE_FORMATTED_PANE_HEADING };
+    }
     if (child.type === "heading" && isNearMissPaneHeading(child)) {
       return {
         ok: false,
@@ -695,7 +716,17 @@ type StrippedCalloutSource = {
   label: string;
   bodyText: string;
   bodyStartLine: number;
+  /**
+   * Nested classification found a marker but cannot admit it without dropping
+   * or absorbing surrounding blockquote content (root segmenter seals these).
+   */
+  classificationBlocked?: string;
 };
+
+const NESTED_CALLOUT_ORPHAN_BEFORE_MARKER =
+  "Blockquote content before a callout marker is not supported by this editor slice.";
+const NESTED_CALLOUT_SIBLING_MARKERS =
+  "Stacked sibling callouts are not supported inside list items or Decision/Consequence panes.";
 
 function calloutSourceFromStrippedLines(
   stripped: string[],
@@ -710,13 +741,36 @@ function calloutSourceFromStrippedLines(
       bodyStartLine: blockStartLine,
     };
   }
+  // Match root splitCalloutSegments: nonblank content before the first marker
+  // must seal — never discard the preface and project only the trailing body.
+  if (stripped.slice(0, markerLineIndex).some((line) => line.trim() !== "")) {
+    return {
+      marker: null,
+      label: "",
+      bodyText: stripped.join("\n"),
+      bodyStartLine: blockStartLine,
+      classificationBlocked: NESTED_CALLOUT_ORPHAN_BEFORE_MARKER,
+    };
+  }
+  const bodyLines = stripped.slice(markerLineIndex + 1);
+  // Nested path admits one callout/D/C per blockquote; absorbing a later marker
+  // into the first body's Markdown would drop or mis-nest sibling segments.
+  if (bodyLines.some((line) => CALLOUT_MARKER_LINE_PATTERN.test(line))) {
+    return {
+      marker: null,
+      label: "",
+      bodyText: stripped.join("\n"),
+      bodyStartLine: blockStartLine,
+      classificationBlocked: NESTED_CALLOUT_SIBLING_MARKERS,
+    };
+  }
   const match = stripped[markerLineIndex]!.match(CALLOUT_MARKER_LINE_PATTERN)!;
   return {
     marker: match[1]!.trim(),
     // Label comes from the marker LINE only. Soft-broken first paragraphs can
     // otherwise pull body prose into the label and duplicate it on serialize.
     label: (match[2] ?? "").trim(),
-    bodyText: stripped.slice(markerLineIndex + 1).join("\n"),
+    bodyText: bodyLines.join("\n"),
     bodyStartLine: blockStartLine + markerLineIndex + 1,
   };
 }
@@ -729,7 +783,13 @@ function listItemBlockquoteStrippedSource(node: Blockquote, state: VisitorState)
 function visitListItemBlockquote(node: Blockquote, state: VisitorState): TiptapNode[] {
   const markerLine = nodeStartLine(node);
   const sealed = listItemBlockquoteSealedText(node, state);
-  const { marker, label, bodyText, bodyStartLine } = listItemBlockquoteStrippedSource(node, state);
+  const source = listItemBlockquoteStrippedSource(node, state);
+  const { marker, label, bodyText, bodyStartLine, classificationBlocked } = source;
+
+  if (classificationBlocked) {
+    warn(state, classificationBlocked, markerLine);
+    return [paragraphFromText(sealed)];
+  }
 
   if (marker !== null) {
     if (isDecisionConsequenceMarker(marker)) {
@@ -765,7 +825,14 @@ function visitPaneBlockquote(node: Blockquote, state: VisitorState): TiptapNode[
   const markerLine = nodeStartLine(node);
   // Prefer line-split marker/label over AST first-paragraph text so soft-broken
   // body lines never become a spurious callout label.
-  const { marker, label, bodyText, bodyStartLine } = blockquoteStrippedBody(node, state);
+  const source = blockquoteStrippedBody(node, state);
+  const { marker, label, bodyText, bodyStartLine, classificationBlocked } = source;
+
+  if (classificationBlocked) {
+    warn(state, classificationBlocked, markerLine);
+    const content = visitBlockChildren(node.children ?? [], "nested", state);
+    return content.length > 0 ? content : [{ type: "paragraph", content: [] }];
+  }
 
   if (marker !== null) {
     if (isDecisionConsequenceMarker(marker)) {

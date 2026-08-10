@@ -694,6 +694,98 @@ describe("markdownToTiptapDoc", () => {
     }
   });
 
+  it("fails closed on formatted or linked Decision/Consequence pane headings", () => {
+    const message =
+      "Decision/Consequence pane headings must be plain text without formatting or links.";
+    const cases: Array<{ name: string; markdown: string }> = [
+      {
+        name: "bold Decision",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### **Decision**",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "emphasis Consequence",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### Decision",
+          "> Hold",
+          ">",
+          "> ### *Consequence*",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "inline-code Decision",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### `Decision`",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "ordinary-link Decision",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### [Decision](https://example.com)",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+    ];
+    for (const testCase of cases) {
+      const imported = markdownToTiptapDoc(testCase.markdown);
+      expect(imported.diagnostics, testCase.name).toEqual(expect.arrayContaining([
+        expect.objectContaining({ level: "warning", message }),
+      ]));
+      expect(JSON.stringify(imported.doc), testCase.name).not.toContain('"type":"decisionConsequence"');
+    }
+  });
+
+  it("fails closed when nested callouts have content before the marker", () => {
+    const message =
+      "Blockquote content before a callout marker is not supported by this editor slice.";
+    const listItem = markdownToTiptapDoc([
+      "- > preface that must survive",
+      "  > [!GM-NOTE]",
+      "  > body",
+      "",
+    ].join("\n"));
+    expect(listItem.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message }),
+    ]));
+    expect(JSON.stringify(listItem.doc)).not.toContain('"type":"callout"');
+
+    const pane = markdownToTiptapDoc([
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > preface that must survive",
+      "> > [!GM-NOTE]",
+      "> > body",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+      "",
+    ].join("\n"));
+    expect(pane.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message }),
+    ]));
+  });
+
   it("imports list-item Decision/Consequence pane ATX headings without false source-form diagnostics", () => {
     const markdown = [
       "- > [!DECISION-CONSEQUENCE]",

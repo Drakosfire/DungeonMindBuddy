@@ -257,6 +257,70 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     blockedOnMain: true,
     note: "was a hole (PR #529 cycle 8): same label-drop class on the list-item path",
   },
+  {
+    name: "decision-consequence bold pane heading",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### **Decision**",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): flattened **Decision** became a delimiter and lost bold on save",
+  },
+  {
+    name: "decision-consequence linked pane heading",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### [Decision](https://example.com)",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): link heading consumed as structure bypassed ordinary-link blocker",
+  },
+  {
+    name: "decision-consequence inline-code pane heading",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### `Decision`",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): inline-code Decision flattened into delimiter",
+  },
+  {
+    name: "list-item callout with preface before marker",
+    markdown: [
+      "- > preface that must survive",
+      "  > [!GM-NOTE]",
+      "  > body",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): nested findIndex discarded pre-marker content",
+  },
+  {
+    name: "pane callout with preface before marker",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > preface that must survive",
+      "> > [!GM-NOTE]",
+      "> > body",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): same pre-marker drop class inside D/C panes",
+  },
 
   // --- Headings / breaks / HTML -------------------------------------------
   {
