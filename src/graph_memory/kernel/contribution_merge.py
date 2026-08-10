@@ -820,6 +820,99 @@ def _revision_bound_source_digest(
     return (store.contribution_source_payload_sha256 or {}).get(contribution_id)
 
 
+def _prewrite_source_bound_authority_gate(
+    *,
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    contribution: GraphContribution,
+    parent_revision_id: str | None,
+    diagnostics: list[str],
+    operation: str,
+) -> ContributionMergeResult | None:
+    """Refuse ledger/index writes that would redefine already-bound source digests.
+
+    Immutable revision-bound ``contribution_source_payload_sha256`` outranks mutable
+    ledger bytes. Call this immediately before any ``write_contribution_record`` on
+    public contribution mutators that accept a caller-supplied ``GraphContribution``.
+
+    Returns a fail-closed ``ContributionMergeResult`` when the write must not proceed;
+    returns ``None`` when the mutator may continue with existing behavior.
+    """
+    contribution_id = contribution.contribution_id
+    bound = _revision_bound_source_digest(store, contribution_id)
+    if bound is None:
+        return None
+
+    incoming = compute_contribution_source_payload_sha256(contribution)
+    if bound != incoming:
+        return ContributionMergeResult(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            revision_id=None,
+            contribution_ids=[contribution_id],
+            diagnostics=[
+                *diagnostics,
+                (
+                    f"{operation}_blocked:source_bound_digest_collision:"
+                    f"{contribution_id}"
+                ),
+            ],
+            failure_code="source_bound_digest_collision",
+            failure_message=(
+                "contribution source digest already bound with a different value: "
+                f"{contribution_id}"
+            ),
+            published=False,
+        )
+
+    try:
+        existing = load_contribution_record(root, world_id, contribution_id)
+    except FileNotFoundError:
+        return ContributionMergeResult(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            revision_id=None,
+            contribution_ids=[contribution_id],
+            diagnostics=[
+                *diagnostics,
+                (
+                    f"{operation}_integrity_failure:bound_ledger_missing:"
+                    f"{contribution_id}"
+                ),
+            ],
+            failure_code="bound_ledger_integrity_failure",
+            failure_message=(
+                "revision-bound contribution ledger missing; refusing to synthesize "
+                f"from caller payload: {contribution_id}"
+            ),
+            published=False,
+        )
+
+    existing_digest = compute_contribution_source_payload_sha256(existing)
+    if existing_digest != bound:
+        return ContributionMergeResult(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            revision_id=None,
+            contribution_ids=[contribution_id],
+            diagnostics=[
+                *diagnostics,
+                (
+                    f"{operation}_integrity_failure:bound_ledger_digest_mismatch:"
+                    f"{contribution_id}"
+                ),
+            ],
+            failure_code="bound_ledger_integrity_failure",
+            failure_message=(
+                "mutable contribution ledger digest no longer matches revision-bound "
+                f"digest for {contribution_id}; refusing caller-payload overwrite"
+            ),
+            published=False,
+        )
+    return None
+
+
 def _ensure_correction_index_membership(
     root: Path,
     world_id: str,
@@ -1335,6 +1428,19 @@ def correct_edge_assertion_support(
             failure_message=str(exc),
             published=False,
         )
+
+    # Immediately before write: refuse same-ID/different-source overwrite.
+    blocked = _prewrite_source_bound_authority_gate(
+        root=root,
+        world_id=world_id,
+        store=current_store,
+        contribution=contribution,
+        parent_revision_id=parent_revision_id,
+        diagnostics=diagnostics,
+        operation="correct",
+    )
+    if blocked is not None:
+        return blocked
 
     to_store = contribution.model_copy(
         update={"status": "active", "diagnostics": diagnostics}
@@ -2269,6 +2375,33 @@ def merge_contribution_to_revision(
             reason="contribution_source_authority_incomplete",
         )
 
+    # Pre-repair heads keep legacy assertion IDs. Re-merge/supersede under the
+    # current semantic rule would overwrite ledger records and create mixed
+    # identity support. Require explicit rebuild first.
+    if _head_requires_assertion_identity_migration(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[contribution.contribution_id],
+            diagnostics=diagnostics,
+            reason="assertion_identity_migration_required",
+        )
+
+    # Immutable revision-bound source digest outranks caller/ledger retries.
+    # After migration gates, before idempotent/write, so same-ID/different-source
+    # cannot no-op as "already applied" and cannot overwrite the ledger.
+    blocked = _prewrite_source_bound_authority_gate(
+        root=root,
+        world_id=world_id,
+        store=current_store,
+        contribution=contribution,
+        parent_revision_id=parent_revision_id,
+        diagnostics=diagnostics,
+        operation="merge",
+    )
+    if blocked is not None:
+        return blocked
+
     # Idempotent reprocessing: same contribution already active and applied.
     if contribution.contribution_id in index.active_contribution_ids:
         try:
@@ -2292,18 +2425,6 @@ def merge_contribution_to_revision(
                     diagnostics=diagnostics,
                     published=False,
                 )
-
-    # Pre-repair heads keep legacy assertion IDs. Re-merge/supersede under the
-    # current semantic rule would overwrite ledger records and create mixed
-    # identity support. Require explicit rebuild first.
-    if _head_requires_assertion_identity_migration(root, world_id, current_store):
-        return _migration_required_result(
-            world_id=world_id,
-            parent_revision_id=parent_revision_id,
-            contribution_ids=[contribution.contribution_id],
-            diagnostics=diagnostics,
-            reason="assertion_identity_migration_required",
-        )
 
     # Persist contribution record before attempting graph mutation.
     to_store = contribution.model_copy(
@@ -2404,6 +2525,20 @@ def supersede_graph_contribution(
     superseded_contribution_id: str,
     expected_parent_revision_id: str | None = None,
 ) -> ContributionMergeResult:
+    parent_revision_id, current_store = _load_or_none(root, world_id)
+    if current_store is None:
+        raise WorldGraphNotFoundError(f"world {world_id!r} has no graph head")
+    # Source-authority incompleteness outranks correction-relation scans that
+    # themselves require durable ledger bytes for revision-bound contributions.
+    if _head_lacks_contribution_source_authority(root, world_id, current_store):
+        return _migration_required_result(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            contribution_ids=[new_contribution.contribution_id],
+            diagnostics=list(new_contribution.diagnostics),
+            superseded_contribution_ids=[],
+            reason="contribution_source_authority_incomplete",
+        )
     blocked = _refuse_lifecycle_touching_active_correction(
         root=root,
         world_id=world_id,
@@ -2443,9 +2578,6 @@ def supersede_graph_contribution(
                 ]
             }
         )
-    parent_revision_id, current_store = _load_or_none(root, world_id)
-    if current_store is None:
-        raise WorldGraphNotFoundError(f"world {world_id!r} has no graph head")
 
     if expected_parent_revision_id is not None:
         head = open_world_graph_head(root, world_id)
@@ -2455,15 +2587,6 @@ def supersede_graph_contribution(
                 f"head is {head.head_revision_id!r}"
             )
 
-    if _head_lacks_contribution_source_authority(root, world_id, current_store):
-        return _migration_required_result(
-            world_id=world_id,
-            parent_revision_id=parent_revision_id,
-            contribution_ids=[new_contribution.contribution_id],
-            diagnostics=list(new_contribution.diagnostics),
-            superseded_contribution_ids=[],
-            reason="contribution_source_authority_incomplete",
-        )
     old = load_contribution_record(root, world_id, superseded_contribution_id)
     if _head_requires_assertion_identity_migration(root, world_id, current_store):
         return _migration_required_result(
@@ -2505,6 +2628,17 @@ def supersede_graph_contribution(
     # superseded (or update the index) until publish succeeds. Otherwise a failed
     # publish leaves the ledger disagreeing with the still-active graph head.
     pending_new = new_contribution.model_copy(update={"status": "active"})
+    blocked = _prewrite_source_bound_authority_gate(
+        root=root,
+        world_id=world_id,
+        store=current_store,
+        contribution=pending_new,
+        parent_revision_id=parent_revision_id,
+        diagnostics=list(new_contribution.diagnostics),
+        operation="supersede",
+    )
+    if blocked is not None:
+        return blocked
     write_contribution_record(root, world_id, pending_new)
 
     try:
@@ -2577,15 +2711,6 @@ def retract_graph_contribution(
     if not reason.strip():
         raise ValueError("reason must be non-empty")
 
-    blocked = _refuse_lifecycle_touching_active_correction(
-        root=root,
-        world_id=world_id,
-        contribution_id=contribution_id,
-        operation="retract",
-    )
-    if blocked is not None:
-        return blocked
-
     parent_revision_id, current_store = _load_or_none(root, world_id)
     if current_store is None:
         raise WorldGraphNotFoundError(f"world {world_id!r} has no graph head")
@@ -2606,6 +2731,15 @@ def retract_graph_contribution(
             diagnostics=[],
             reason="contribution_source_authority_incomplete",
         )
+
+    blocked = _refuse_lifecycle_touching_active_correction(
+        root=root,
+        world_id=world_id,
+        contribution_id=contribution_id,
+        operation="retract",
+    )
+    if blocked is not None:
+        return blocked
 
     existing = load_contribution_record(root, world_id, contribution_id)
     support = _support_map(current_store)
