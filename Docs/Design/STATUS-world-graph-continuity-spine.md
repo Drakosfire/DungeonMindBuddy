@@ -1,8 +1,8 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority  
-**Updated:** 2026-08-09 — post-#536 Lysandra docs authority sync (PR #538) on docs-dispatch base `2fb059c3…`  
-**Repository anchor:** `2fb059c3daf0644860eaac73bf05990c70dc2e8c`  
+**Updated:** 2026-08-09 — land contribution-integrity-heal handoff after PR #538 merge `5dae4183…`  
+**Repository anchor:** `5dae41830220c50b162fe76c349101c4955aff0c`  
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)  
@@ -197,7 +197,7 @@ correct current meaning:
 
 The Session-8 evidence remains valid historical source evidence and must remain sealed. The defect is the durable relationship direction, not the prose. `dnd5e:threatens` already admits the corrected faction→npc direction on the pinned DungeonMind vocabulary, so this correction does not require a new DungeonMind term or global mapping rule.
 
-Lysandra BUILD is **blocked on contribution-integrity heal** for `contribution:d3d244474789879c` (pinned rebuild is not waivable). The heal is a forensic DESIGN→CODE predecessor: determine why the current ledger differs from immutable revision-bound authority; recover the sealed payload if proven; restore ledger/replay integrity without rewriting immutable revisions; stop if unrecoverable — not “change the hash until green.” After that heal, the post-#536 handoff is dispatchable: parent-relative conformance (`0/+1/−1/0`), live-write fence, complete preflight, and non-waivable Q replay on a temp clone. Merging that implementation package is **not** slice `DONE`; an operator must still apply C to the canonical root and prove `P_live→Q_live`. Owning handoff: [`HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`](../Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md).
+Lysandra BUILD is **blocked on contribution-integrity heal** for `contribution:d3d244474789879c` (pinned rebuild is not waivable). The heal handoff is now landed and READY for BUILD: [`HANDOFF-eldyrwild-contribution-integrity-heal.md`](../Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md). It is forensic first / repair second: reproduce same-ID/different-source ledger overwrite; guard Kernel supersede before ledger write; recover exact D\* only if lifecycle-neutral digest equals immutable E; heal mutable ledger/index only — not “change the hash until green.” Merge-ready clone proof is not slice `DONE`; an operator must still run the post-merge canonical live heal exit proof before Lysandra becomes READY. Owning Lysandra handoff: [`HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`](../Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md).
 
 ## Current surface state
 
@@ -239,8 +239,8 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `eldyrwild-contribution-integrity-heal` — forensic DESIGN first: explain ledger vs revision-bound authority for `contribution:d3d244474789879c`; recover sealed payload if proven; restore ledger/replay integrity without rewriting immutable revisions; prove pinned rebuild. Stop if unrecoverable. Do not hash-patch.
-2. `eldyrwild-lysandra-threat-direction-correction` — first bounded real correction using #534+#536; parent-relative `0/+1/−1/0` on a temp clone for merge-ready package; then post-merge canonical apply exit proof before `DONE`.
+1. `eldyrwild-contribution-integrity-heal` — READY for BUILD via [`HANDOFF-eldyrwild-contribution-integrity-heal.md`](../Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md): forensic reproduction; Kernel pre-write guard; recover D\* only if digest equals immutable E; fixed one-off heal; clone pinned+unpinned rebuild. Post-merge canonical live heal required for `DONE`. Do not hash-patch.
+2. `eldyrwild-lysandra-threat-direction-correction` — BLOCKED until heal `DONE`; then parent-relative `0/+1/−1/0` on a temp clone for merge-ready package; then post-merge canonical apply exit proof before Lysandra `DONE`.
 3. `eldyrwild-effective-conformance-after-first-correction` — READY only after Lysandra `DONE` (merged package **and** live `Q_live`); re-anchor descendant fixtures/tracker on the actual post-correction baseline; keep historical anchor/source seals unchanged.
 4. Select the next Buddy-owned semantic residual slice by correction class; do not make one omnibus residual-zeroing PR.
 5. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.

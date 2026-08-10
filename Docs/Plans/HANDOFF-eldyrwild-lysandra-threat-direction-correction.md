@@ -8,7 +8,7 @@ pr_body_template: |
   - PR / branch: build/eldyrwild-lysandra-threat-direction-correction
   - Docs authority sync: post-#536 parent-relative contract; BUILD blocked until contribution-integrity heal for contribution:d3d244474789879c
   - Merge-ready ≠ complete: implementation PR proves Q on a temp clone; slice DONE requires post-merge canonical apply exit proof
-  - Next DESIGN after this docs PR: bounded eldyrwild-contribution-integrity-heal handoff (forensic, not hash-patch)
+  - Predecessor heal handoff: Docs/Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md
 
   ## Verification pointer
   - Base/head: record exact implementation base and head in review handback
