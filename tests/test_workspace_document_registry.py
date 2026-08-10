@@ -729,3 +729,96 @@ def test_commit_receipt_matches_snapshot_fingerprint(root: Path) -> None:
     assert receipt.normalized_content_sha256 == snapshot.content_sha256
     assert receipt.file_fingerprint == snapshot.file_fingerprint
     assert receipt.committed_record.document_id == snapshot.record.document_id
+
+
+def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
+    from apps.live_control_server.services.workspace_document_registry import _load_registry_document
+
+    target = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 28 Prep.md"
+    first = create_workspace_document(
+        root,
+        title="C2 Session 28 Prep",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=28,
+        target_relpath=target,
+    )
+    before_count = len(_load_registry_document(root).records)
+
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        create_workspace_document(
+            root,
+            title="C2 Session 28 Prep again",
+            campaign_id="longmont-c2",
+            kind="plan",
+            target_session=28,
+            target_relpath=target,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert first.document_id in str(exc_info.value)
+    assert len(_load_registry_document(root).records) == before_count
+
+    second = create_workspace_document(
+        root,
+        title="C2 Session 29 Prep",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=29,
+        target_relpath=target.replace("Session 28", "Session 29"),
+    )
+    assert second.document_id != first.document_id
+    assert second.target_relpath != first.target_relpath
+
+
+def test_create_rejects_target_relpath_owned_by_discarded_document(root: Path) -> None:
+    target = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 30 Prep.md"
+    first = create_workspace_document(
+        root,
+        title="C2 Session 30 Prep",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=30,
+        target_relpath=target,
+    )
+    discard_workspace_document(root, first.document_id)
+
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        create_workspace_document(
+            root,
+            title="C2 Session 30 Prep revived",
+            campaign_id="longmont-c2",
+            kind="plan",
+            target_session=30,
+            target_relpath=target,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert first.document_id in str(exc_info.value)
+
+
+def test_worldbuilding_create_remains_uuid_bound_and_collision_free(root: Path) -> None:
+    a = create_workspace_document(
+        root,
+        title="Untitled worldbuilding source",
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    b = create_workspace_document(
+        root,
+        title="Untitled worldbuilding source",
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    assert a.document_id != b.document_id
+    assert a.target_relpath is not None and a.document_id in a.target_relpath
+    assert b.target_relpath is not None and b.document_id in b.target_relpath
+    assert a.target_relpath != b.target_relpath

@@ -339,6 +339,21 @@ def create_workspace_document(
     path = workspace_documents_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
+        if resolved_target is not None and resolved_target != "":
+            conflict = next(
+                (
+                    existing
+                    for existing in document.records
+                    if existing.target_relpath == resolved_target
+                ),
+                None,
+            )
+            if conflict is not None:
+                raise WorkspaceDocumentRegistryError(
+                    "target_relpath is already owned by another workspace document: "
+                    f"{conflict.document_id}",
+                    status_code=409,
+                )
         document.records.append(record)
         _save_cas(root, document, expected_token=token)
     return record
