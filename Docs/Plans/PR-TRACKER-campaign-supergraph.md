@@ -1,8 +1,8 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices  
-**Updated:** 2026-08-09 after PR #531 merged to `main` as `377ca60e146df2c9a801ebcb864a9dd9b0183dbe`  
-**Repository anchor:** `377ca60e146df2c9a801ebcb864a9dd9b0183dbe`  
+**Updated:** 2026-08-09 after PR #534 merged to `main` as `99f1d18dffd48d7e46250d63892adfae97a654a8`  
+**Repository anchor:** `99f1d18dffd48d7e46250d63892adfae97a654a8`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
@@ -12,7 +12,7 @@
 
 This tracker records only current sequence, dependencies, and exit proofs. Completed implementation narrative belongs in merged PRs, archived handoffs, and acceptance reports.
 
-At this anchor, effective Eldyrwild relationship conformance is **346 semantic relationships / 294 represented / 52 residual / 2 `uses_statblock` mechanics attachments**. PR #531 proves the remaining 52 relationship residuals are Buddy-owned for the exact adjudication domain and carry forward only across proven descendant revisions whose durable edge shape and sealed source grounding remain unchanged. The original adjudication revision is immutable and remains historical evidence.
+At this anchor, effective Eldyrwild relationship conformance remains **346 semantic relationships / 294 represented / 52 residual / 2 `uses_statblock` mechanics attachments** on the immutable adjudication domain. PR #534 published the governed Kernel targeted edge-assertion correction primitive (synthetic/replay-safe; no Eldyrwild mutation). The next dispatchable real correction is `eldyrwild-lysandra-threat-direction-correction`.
 
 ## Rules
 
@@ -61,8 +61,8 @@ At this anchor, effective Eldyrwild relationship conformance is **346 semantic r
 | #528 DungeonMind-v4 re-pin | DONE | #526 + DungeonMind PR #29 | Consume new DungeonMind vocabulary exactly; move `287/59 → 291/55`; leave only Buddy-owned residuals |
 | #530 explicit relationship adapters | DONE | #528 | Govern the three remaining lossless adapter cases; move `291/55 → 294/52` without World Graph mutation |
 | #531 adjudication continuity + effective conformance | DONE | #530 | Carry adjudication across proven descendants and compose exact effective conformance without injected authority |
-| `kernel-targeted-assertion-correction` | READY | #531 | Correct exactly one durable assertion without superseding unrelated assertions from the same source contribution; preserve historical source authority, CAS publication, and replay equivalence |
-| `eldyrwild-lysandra-threat-direction-correction` | BLOCKED | targeted assertion correction | Publish one governed descendant revision replacing only the defective Lysandra→cultists threat assertion with cultists→Lysandra; no source prose rewrite or global reversal rule |
+| `kernel-targeted-assertion-correction` / #534 | DONE | #531 | Correct exactly one durable assertion without superseding unrelated assertions from the same source contribution; preserve historical source authority, CAS publication, and replay equivalence |
+| `eldyrwild-lysandra-threat-direction-correction` | READY | #534 | Publish one governed descendant revision replacing only the defective Lysandra→cultists threat assertion with cultists→Lysandra; no source prose rewrite or global reversal rule |
 | `eldyrwild-effective-conformance-after-first-correction` | BLOCKED | Lysandra correction | Prove descendant continuity and exact effective movement `294/52 → 295/51`, with the adjudication anchor and source seals unchanged |
 | `buddy-remaining-relationship-correction-slices` | BLOCKED | first real correction proof | Select subsequent bounded correction/decomposition/identity/evidence slices from the remaining 51-edge ledger; never zero the ledger in one omnibus PR |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | Buddy semantic closure + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until whole-world conformance and durable adoption both prove READY |
@@ -85,21 +85,19 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Dispatch `kernel-targeted-assertion-correction` as a synthetic/Kernel contract slice. It must not mutate Eldyrwild.
-2. After that capability is merged and replay-safe, dispatch `eldyrwild-lysandra-threat-direction-correction` as the smallest real correction.
-3. Re-run effective conformance on the new descendant and require the exact `295 represented / 51 residual` proof before selecting another semantic correction.
-4. Select the next Buddy-owned residual slice from the adjudicated ledger by correction class; keep source corrections, compound decomposition, identity migration, and insufficient-evidence work distinct where their authority semantics differ.
-5. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
-6. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
+1. Dispatch `eldyrwild-lysandra-threat-direction-correction` as the smallest real correction, using the merged #534 Kernel seam and [`HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`](HANDOFF-eldyrwild-lysandra-threat-direction-correction.md).
+2. Re-run effective conformance on the new descendant and require the exact `295 represented / 51 residual` proof before selecting another semantic correction (`eldyrwild-effective-conformance-after-first-correction`).
+3. Select the next Buddy-owned residual slice from the adjudicated ledger by correction class; keep source corrections, compound decomposition, identity migration, and insufficient-evidence work distinct where their authority semantics differ.
+4. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
+5. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
-The following remain true at `377ca60e…`:
+The following remain true at `99f1d18d…`:
 
-- There is no public Kernel assertion-level correction operation. Existing supersession/retraction APIs operate at whole-`GraphContribution` granularity.
-- Whole-contribution supersession is too broad for a human correction to one extracted assertion when the same contribution contains unrelated accepted assertions.
+- The public Kernel assertion-level correction operation exists (#534) and is proven on synthetic multi-assertion contributions; it has not yet been applied to Eldyrwild.
 - The Lysandra threat-direction contradiction is adjudicated and source-grounded but intentionally still uncorrected in the World Graph.
-- Effective relationship conformance remains `294 represented / 52 residual`; diagnostics and adapters do not mutate the original graph.
+- Effective relationship conformance remains `294 represented / 52 residual` on the adjudication anchor; diagnostics and adapters do not mutate the original graph.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.
