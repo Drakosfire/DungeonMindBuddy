@@ -18,7 +18,7 @@ import {
   normalizeSemanticReferenceLabel,
   type RunbookReferenceAttrs,
 } from "../references/runbookReferences";
-import { normalizeCalloutKind } from "./calloutMarkdown";
+import { isDecisionConsequenceMarker, normalizeCalloutKind } from "./calloutMarkdown";
 import { parseMarkdownAst } from "./parseMarkdownAst";
 
 export type MarkdownImportDiagnostic = {
@@ -56,9 +56,10 @@ export type MarkdownImportOptions = {
  * - "nested":   parsed-children projection of an already-sealed nested
  *               blockquote. Source lines carry container prefixes, so all
  *               source-form checks are skipped; structural diagnostics stay.
+ * - "pane":     inside a Decision/Consequence pane body (re-parsed, prefix-free).
  * - "tableCell": synthesized cell paragraphs; no source span of their own.
  */
-type AdmissionContext = "document" | "callout" | "listItem" | "tableCell" | "nested";
+type AdmissionContext = "document" | "callout" | "listItem" | "tableCell" | "nested" | "pane";
 
 type VisitorState = {
   /** Source lines of the current parse space (document body or a dedented callout segment). */
@@ -97,7 +98,7 @@ function shouldParseGraphNodeLinks(options: MarkdownImportOptions): boolean {
 
 /** True when the context's source lines are free of container prefixes. */
 function allowsSourceFormChecks(context: AdmissionContext): boolean {
-  return context === "document" || context === "callout";
+  return context === "document" || context === "callout" || context === "pane";
 }
 
 function warn(state: VisitorState, message: string, line: number): void {
@@ -348,9 +349,11 @@ function visitParagraph(
   context: AdmissionContext,
   state: VisitorState,
 ): TiptapNode {
-  if (context !== "nested" && context !== "tableCell") {
+  if (context !== "nested" && context !== "tableCell" && context !== "listItem") {
     // Blunt indent guard carried over from the line grammar: any span line that
     // begins with a tab or 2+ spaces is source the serializer would normalize.
+    // Skip inside listItem: the parser owns nested list/callout structure and
+    // span lines carry item-marker indentation.
     spanLines(node, state).forEach((line, index) => {
       if (LEADING_INDENT_PATTERN.test(line)) {
         warn(
@@ -466,7 +469,198 @@ function leadingCalloutMarker(node: Blockquote): string | null {
   return match?.[1] ?? null;
 }
 
+function headingSemanticText(node: Heading): string {
+  return collectLabelText(node.children as PhrasingContent[]).trim();
+}
+
+/** Pane delimiters are structural syntax; only plain text is representable. */
+function isPlainTextHeadingChildren(node: Heading): boolean {
+  return (node.children as PhrasingContent[]).every((child) => child.type === "text");
+}
+
+function isExactPaneHeading(node: Heading, label: "Decision" | "Consequence"): boolean {
+  if (node.depth !== 3 || !isPlainTextHeadingChildren(node)) return false;
+  return headingSemanticText(node).toLowerCase() === label.toLowerCase();
+}
+
+/**
+ * Flattened text looks like a pane delimiter, but the heading AST is not the
+ * plain-text shape we can serialize losslessly (marks, links, code, HTML).
+ */
+function isFormattedPaneDelimiterHeading(node: Heading): boolean {
+  if (node.depth !== 3 || isPlainTextHeadingChildren(node)) return false;
+  const text = headingSemanticText(node).toLowerCase();
+  return text === "decision" || text === "consequence";
+}
+
+function isNearMissPaneHeading(node: Heading): boolean {
+  const text = headingSemanticText(node).toLowerCase();
+  if (text === "decision" || text === "consequence") {
+    return node.depth !== 3;
+  }
+  if (/^decision/.test(text) && text !== "decision") return true;
+  if (/^consequence/.test(text) && text !== "consequence") return true;
+  return false;
+}
+
+function isWhitespaceOnlyBlock(node: RootContent): boolean {
+  if (node.type === "paragraph") {
+    return node.children.every((child) => child.type === "text" && child.value.trim() === "");
+  }
+  return false;
+}
+
+type DecisionConsequenceClassification =
+  | { ok: true; decisionChildren: RootContent[]; consequenceChildren: RootContent[] }
+  | { ok: false; message: string };
+
+const DECISION_CONSEQUENCE_MALFORMED =
+  "Decision/Consequence blocks must contain exactly one Decision pane and one Consequence pane.";
+const DECISION_CONSEQUENCE_FORMATTED_PANE_HEADING =
+  "Decision/Consequence pane headings must be plain text without formatting or links.";
+
+function classifyDecisionConsequencePanes(children: RootContent[]): DecisionConsequenceClassification {
+  for (const child of children) {
+    if (child.type === "heading" && isFormattedPaneDelimiterHeading(child)) {
+      return { ok: false, message: DECISION_CONSEQUENCE_FORMATTED_PANE_HEADING };
+    }
+    if (child.type === "heading" && isNearMissPaneHeading(child)) {
+      return {
+        ok: false,
+        message: "Decision/Consequence pane headings must be level-3 headings with exact labels.",
+      };
+    }
+  }
+
+  let decisionStart = -1;
+  let consequenceStart = -1;
+  let decisionCount = 0;
+  let consequenceCount = 0;
+
+  children.forEach((child, index) => {
+    if (child.type !== "heading") return;
+    if (isExactPaneHeading(child, "Decision")) {
+      decisionCount += 1;
+      if (decisionStart === -1) decisionStart = index;
+    } else if (isExactPaneHeading(child, "Consequence")) {
+      consequenceCount += 1;
+      if (consequenceStart === -1) consequenceStart = index;
+    }
+  });
+
+  if (decisionCount !== 1 || consequenceCount !== 1) {
+    return { ok: false, message: DECISION_CONSEQUENCE_MALFORMED };
+  }
+  if (decisionStart >= consequenceStart) {
+    return { ok: false, message: "Decision must precede Consequence in Decision/Consequence blocks." };
+  }
+  for (let index = 0; index < decisionStart; index += 1) {
+    if (!isWhitespaceOnlyBlock(children[index])) {
+      return {
+        ok: false,
+        message: "Decision/Consequence blocks cannot contain content before the Decision pane.",
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    decisionChildren: children.slice(decisionStart + 1, consequenceStart),
+    consequenceChildren: children.slice(consequenceStart + 1),
+  };
+}
+
+function emptyPaneContent(): TiptapNode[] {
+  return [{ type: "paragraph", content: [] }];
+}
+
+function visitDecisionConsequenceBody(
+  bodyText: string,
+  bodyChildren: RootContent[],
+  markerLine: number,
+  bodyStartLine: number,
+  sealedFallback: string,
+  state: VisitorState,
+): TiptapNode {
+  const classification = classifyDecisionConsequencePanes(bodyChildren);
+  if (!classification.ok) {
+    warn(state, classification.message, markerLine);
+    return paragraphFromText(sealedFallback);
+  }
+
+  const bodyState: VisitorState = {
+    lines: bodyText.split("\n"),
+    lineOffset: state.lineOffset + bodyStartLine - 1,
+    options: state.options,
+    diagnostics: state.diagnostics,
+  };
+  const decisionContent = visitBlockChildren(classification.decisionChildren, "pane", bodyState);
+  const consequenceContent = visitBlockChildren(classification.consequenceChildren, "pane", bodyState);
+
+  return {
+    type: "decisionConsequence",
+    content: [
+      {
+        type: "decisionPane",
+        content: decisionContent.length > 0 ? decisionContent : emptyPaneContent(),
+      },
+      {
+        type: "consequencePane",
+        content: consequenceContent.length > 0 ? consequenceContent : emptyPaneContent(),
+      },
+    ],
+  };
+}
+
+function visitCalloutBody(
+  bodyText: string,
+  kind: ReturnType<typeof normalizeCalloutKind>,
+  label: string,
+  bodyStartLine: number,
+  state: VisitorState,
+): TiptapNode {
+  const bodyState: VisitorState = {
+    lines: bodyText.split("\n"),
+    lineOffset: state.lineOffset + bodyStartLine - 1,
+    options: state.options,
+    diagnostics: state.diagnostics,
+  };
+  const content = visitBlockChildren(
+    bodyText.trim() ? parseMarkdownAst(bodyText).children : [],
+    "callout",
+    bodyState,
+  );
+  return {
+    type: "callout",
+    attrs: { kind, ...(label ? { label } : {}) },
+    content: content.length > 0 ? content : [{ type: "paragraph", content: [] }],
+  };
+}
+
+const DECISION_CONSEQUENCE_LABEL_UNSUPPORTED =
+  "Decision/Consequence marker labels are not preserved by this editor slice.";
+
 function visitCalloutSegment(segment: CalloutSegment, state: VisitorState): TiptapNode {
+  if (isDecisionConsequenceMarker(segment.marker)) {
+    const sealed = [`[!${segment.marker}]${segment.label ? ` ${segment.label}` : ""}`, ...segment.bodyLines].join("\n");
+    // Canonical D/C TipTap schema has no label attr; serializer always emits the
+    // bare marker. Non-empty trailing marker text would be silently dropped.
+    if (segment.label) {
+      warn(state, DECISION_CONSEQUENCE_LABEL_UNSUPPORTED, segment.markerLine);
+      return paragraphFromText(sealed);
+    }
+    const bodyText = segment.bodyLines.join("\n");
+    const bodyAst = parseMarkdownAst(bodyText);
+    return visitDecisionConsequenceBody(
+      bodyText,
+      bodyAst.children,
+      segment.markerLine,
+      segment.bodyStartLine,
+      sealed,
+      state,
+    );
+  }
+
   const kind = SUPPORTED_CALLOUT_MARKERS.has(segment.marker.toUpperCase())
     ? normalizeCalloutKind(segment.marker)
     : null;
@@ -496,6 +690,165 @@ function visitCalloutSegment(segment: CalloutSegment, state: VisitorState): Tipt
   };
 }
 
+function listItemBlockquoteSealedText(node: Blockquote, state: VisitorState): string {
+  return spanLines(node, state)
+    .map((line) => line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/\s*>\s?/g, " ").trimEnd())
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Strip list-item and blockquote source prefixes so nested callout/D/C bodies
+ * can be reparsed as prefix-free Markdown (same contract as top-level segments).
+ *
+ * List-nested blockquote opening lines often look like `- > [!MARKER]`;
+ * continuation lines look like `  > body`. Both must become marker/body text
+ * without structural prefixes before `parseMarkdownAst`.
+ */
+function stripListItemBlockquoteSourceLine(line: string): string {
+  return line
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+    .replace(/^[\t ]*> ?/, "");
+}
+
+type StrippedCalloutSource = {
+  marker: string | null;
+  label: string;
+  bodyText: string;
+  bodyStartLine: number;
+  /**
+   * Nested classification found a marker but cannot admit it without dropping
+   * or absorbing surrounding blockquote content (root segmenter seals these).
+   */
+  classificationBlocked?: string;
+};
+
+const NESTED_CALLOUT_ORPHAN_BEFORE_MARKER =
+  "Blockquote content before a callout marker is not supported by this editor slice.";
+const NESTED_CALLOUT_SIBLING_MARKERS =
+  "Stacked sibling callouts are not supported inside list items or Decision/Consequence panes.";
+
+function calloutSourceFromStrippedLines(
+  stripped: string[],
+  blockStartLine: number,
+): StrippedCalloutSource {
+  const markerLineIndex = stripped.findIndex((line) => CALLOUT_MARKER_LINE_PATTERN.test(line));
+  if (markerLineIndex < 0) {
+    return {
+      marker: null,
+      label: "",
+      bodyText: stripped.join("\n"),
+      bodyStartLine: blockStartLine,
+    };
+  }
+  // Match root splitCalloutSegments: nonblank content before the first marker
+  // must seal — never discard the preface and project only the trailing body.
+  if (stripped.slice(0, markerLineIndex).some((line) => line.trim() !== "")) {
+    return {
+      marker: null,
+      label: "",
+      bodyText: stripped.join("\n"),
+      bodyStartLine: blockStartLine,
+      classificationBlocked: NESTED_CALLOUT_ORPHAN_BEFORE_MARKER,
+    };
+  }
+  const bodyLines = stripped.slice(markerLineIndex + 1);
+  // Nested path admits one callout/D/C per blockquote; absorbing a later marker
+  // into the first body's Markdown would drop or mis-nest sibling segments.
+  if (bodyLines.some((line) => CALLOUT_MARKER_LINE_PATTERN.test(line))) {
+    return {
+      marker: null,
+      label: "",
+      bodyText: stripped.join("\n"),
+      bodyStartLine: blockStartLine,
+      classificationBlocked: NESTED_CALLOUT_SIBLING_MARKERS,
+    };
+  }
+  const match = stripped[markerLineIndex]!.match(CALLOUT_MARKER_LINE_PATTERN)!;
+  return {
+    marker: match[1]!.trim(),
+    // Label comes from the marker LINE only. Soft-broken first paragraphs can
+    // otherwise pull body prose into the label and duplicate it on serialize.
+    label: (match[2] ?? "").trim(),
+    bodyText: bodyLines.join("\n"),
+    bodyStartLine: blockStartLine + markerLineIndex + 1,
+  };
+}
+
+function listItemBlockquoteStrippedSource(node: Blockquote, state: VisitorState): StrippedCalloutSource {
+  const stripped = spanLines(node, state).map(stripListItemBlockquoteSourceLine);
+  return calloutSourceFromStrippedLines(stripped, nodeStartLine(node));
+}
+
+function visitListItemBlockquote(node: Blockquote, state: VisitorState): TiptapNode[] {
+  const markerLine = nodeStartLine(node);
+  const sealed = listItemBlockquoteSealedText(node, state);
+  const source = listItemBlockquoteStrippedSource(node, state);
+  const { marker, label, bodyText, bodyStartLine, classificationBlocked } = source;
+
+  if (classificationBlocked) {
+    warn(state, classificationBlocked, markerLine);
+    return [paragraphFromText(sealed)];
+  }
+
+  if (marker !== null) {
+    if (isDecisionConsequenceMarker(marker)) {
+      if (label) {
+        warn(state, DECISION_CONSEQUENCE_LABEL_UNSUPPORTED, markerLine);
+        return [paragraphFromText(sealed)];
+      }
+      // Reparse the stripped body so pane children carry relative positions that
+      // align with bodyState.lines — same contract as visitCalloutSegment.
+      const bodyAst = parseMarkdownAst(bodyText);
+      return [visitDecisionConsequenceBody(bodyText, bodyAst.children, markerLine, bodyStartLine, sealed, state)];
+    }
+    const kind = SUPPORTED_CALLOUT_MARKERS.has(marker.toUpperCase())
+      ? normalizeCalloutKind(marker)
+      : null;
+    if (kind !== null) {
+      return [visitCalloutBody(bodyText, kind, label, bodyStartLine, state)];
+    }
+    warn(state, `Callout marker ${marker} is not supported by this editor slice.`, markerLine);
+  } else {
+    warn(state, "Plain blockquotes are not supported yet.", markerLine);
+  }
+  const content = visitBlockChildren(node.children ?? [], "nested", state);
+  return content.length > 0 ? content : [{ type: "paragraph", content: [] }];
+}
+
+function blockquoteStrippedBody(node: Blockquote, state: VisitorState): StrippedCalloutSource {
+  const stripped = spanLines(node, state).map((line) => line.replace(/^\s{0,3}> ?/, ""));
+  return calloutSourceFromStrippedLines(stripped, nodeStartLine(node));
+}
+
+function visitPaneBlockquote(node: Blockquote, state: VisitorState): TiptapNode[] {
+  const markerLine = nodeStartLine(node);
+  // Prefer line-split marker/label over AST first-paragraph text so soft-broken
+  // body lines never become a spurious callout label.
+  const source = blockquoteStrippedBody(node, state);
+  const { marker, label, bodyText, bodyStartLine, classificationBlocked } = source;
+
+  if (classificationBlocked) {
+    warn(state, classificationBlocked, markerLine);
+    const content = visitBlockChildren(node.children ?? [], "nested", state);
+    return content.length > 0 ? content : [{ type: "paragraph", content: [] }];
+  }
+
+  if (marker !== null) {
+    if (isDecisionConsequenceMarker(marker)) {
+      warn(state, "Nested Decision/Consequence blocks are not supported yet.", markerLine);
+    } else if (SUPPORTED_CALLOUT_MARKERS.has(marker.toUpperCase())) {
+      return [visitCalloutBody(bodyText, normalizeCalloutKind(marker), label, bodyStartLine, state)];
+    } else {
+      warn(state, `Callout marker ${marker} is not supported by this editor slice.`, markerLine);
+    }
+  } else {
+    warn(state, "Plain blockquotes are not supported yet.", markerLine);
+  }
+  const content = visitBlockChildren(node.children ?? [], "nested", state);
+  return content.length > 0 ? content : [{ type: "paragraph", content: [] }];
+}
+
 function visitBlockquote(node: Blockquote, context: AdmissionContext, state: VisitorState): TiptapNode[] {
   if (context === "document") {
     if ((node.position?.start.column ?? 1) !== 1) {
@@ -510,12 +863,22 @@ function visitBlockquote(node: Blockquote, context: AdmissionContext, state: Vis
     return segments.map((segment) => visitCalloutSegment(segment, state));
   }
 
-  // Nested container: the parser already owns the dedented structure, and its
-  // source lines carry container prefixes. Diagnose by parsed shape, then
-  // project the parsed children for sealed viewing.
+  if (context === "listItem") {
+    return visitListItemBlockquote(node, state);
+  }
+
+  if (context === "pane") {
+    return visitPaneBlockquote(node, state);
+  }
+
+  // Nested container inside callout: the parser already owns the dedented structure.
   const marker = leadingCalloutMarker(node);
   if (context === "callout" || context === "nested") {
-    warn(state, "Nested callouts are not supported yet.", nodeStartLine(node));
+    if (marker !== null && isDecisionConsequenceMarker(marker)) {
+      warn(state, "Nested Decision/Consequence blocks are not supported yet.", nodeStartLine(node));
+    } else {
+      warn(state, "Nested callouts are not supported yet.", nodeStartLine(node));
+    }
   } else {
     warn(
       state,
@@ -530,7 +893,7 @@ function visitBlockquote(node: Blockquote, context: AdmissionContext, state: Vis
 }
 
 function visitListItem(item: ListItem, list: List, context: AdmissionContext, state: VisitorState): TiptapNode {
-  if (context !== "nested" && context !== "tableCell" && !list.ordered) {
+  if (context !== "nested" && context !== "tableCell" && context !== "pane" && context !== "callout" && !list.ordered) {
     // Bullet-marker spelling: the parser established the list; only `-` is canonical.
     const marker = (state.lines[nodeStartLine(item) - 1] ?? "").trimStart().charAt(0);
     if (marker !== "-") {
@@ -542,13 +905,16 @@ function visitListItem(item: ListItem, list: List, context: AdmissionContext, st
   }
   const content: unknown[] = [];
   for (const child of item.children ?? []) {
-    if (child.type === "list") {
-      warn(state, "Nested lists are not supported yet.", nodeStartLine(child));
-    }
     content.push(...visitBlockNode(child, "listItem", state));
   }
   if (content.length === 0) {
     content.push({ type: "paragraph", content: [] });
+  } else if ((content[0] as { type?: string }).type !== "paragraph") {
+    // TipTap's ListItem schema is `paragraph block*`; block-first semantic
+    // content (callout / D/C / nested list) needs an empty structural paragraph
+    // that serialization omits. This keeps Markdown → Editor → Save → reload
+    // lossless without widening TipTap's list schema.
+    content.unshift({ type: "paragraph", content: [] });
   }
   return { type: "listItem", content };
 }

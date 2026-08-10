@@ -25,6 +25,25 @@ const CALLOUT_CHILD_TYPES = new Set([
   "orderedList",
   "table",
 ]);
+const LIST_ITEM_CHILD_TYPES = new Set([
+  "paragraph",
+  "bulletList",
+  "orderedList",
+  "callout",
+  "decisionConsequence",
+  // Tables stay out: markdownAdmission.visitTable blocks list-item tables.
+]);
+const DECISION_CONSEQUENCE_CHILD_TYPES = new Set(["decisionPane", "consequencePane"]);
+const PANE_CHILD_TYPES = new Set([
+  "paragraph",
+  "heading",
+  "horizontalRule",
+  "bulletList",
+  "orderedList",
+  "table",
+  // Matches visitPaneBlockquote admitting supported callouts inside panes.
+  "callout",
+]);
 const SUPPORTED_MARK_TYPES = new Set(["bold", "italic", "strike", "code"]);
 
 function asNode(value: unknown): JsonNode | null {
@@ -60,11 +79,6 @@ function hasNonDefaultTableSpan(attrs: Record<string, unknown> | null | undefine
 /**
  * Validate the TipTap document against the exact semantic Markdown grammar
  * implemented by calloutMarkdown.ts + markdownToTiptap.ts.
- *
- * This is intentionally strict. If a user creates a StarterKit node that the
- * Markdown layer cannot round-trip (blockquote, codeBlock, hardBreak, nested
- * list structure, merged table cells, etc.), durable Save must fail instead of
- * flattening or replacing that structure.
  */
 export function semanticMarkdownSerializationDiagnostics(
   document: unknown,
@@ -111,9 +125,6 @@ export function semanticMarkdownSerializationDiagnostics(
         return;
       case "bulletList":
       case "orderedList":
-        if (parentType === "listItem") {
-          diagnostics.push(warning("Nested lists are not supported by the current Markdown importer.", type));
-        }
         for (const child of children) {
           if (child.type !== "listItem") {
             diagnostics.push(warning(`${type} contains a non-listItem child.`, String(child.type)));
@@ -121,17 +132,24 @@ export function semanticMarkdownSerializationDiagnostics(
           visit(child, type);
         }
         return;
-      case "listItem":
-        if (children.length !== 1 || children[0]?.type !== "paragraph") {
-          diagnostics.push(warning(
-            "List items must contain exactly one paragraph until nested/list-block fidelity lands.",
-            type,
-          ));
+      case "listItem": {
+        for (const child of children) {
+          const childType = typeof child.type === "string" ? child.type : "unknown";
+          if (!LIST_ITEM_CHILD_TYPES.has(childType)) {
+            diagnostics.push(warning(
+              `List item child ${childType} is not supported by semantic Markdown.`,
+              childType,
+            ));
+          }
+        }
+        if (children.length === 0) {
+          diagnostics.push(warning("List items must contain at least one supported block.", type));
         }
         for (const child of children) visit(child, type);
         return;
+      }
       case "callout":
-        if (parentType === "listItem" || parentType === "callout") {
+        if (parentType === "callout") {
           diagnostics.push(warning("Nested callouts are not supported by the current Markdown importer.", type));
         }
         for (const child of children) {
@@ -139,6 +157,43 @@ export function semanticMarkdownSerializationDiagnostics(
           if (!CALLOUT_CHILD_TYPES.has(childType)) {
             diagnostics.push(warning(
               `Callout child ${childType} is not supported by semantic Markdown.`,
+              childType,
+            ));
+          }
+          visit(child, type);
+        }
+        return;
+      case "decisionConsequence":
+        if (parentType === "callout" || parentType === "decisionConsequence") {
+          diagnostics.push(warning("Nested Decision/Consequence blocks are not supported.", type));
+        }
+        if (children.length !== 2) {
+          diagnostics.push(warning("Decision/Consequence blocks must contain exactly two panes.", type));
+        }
+        if (children[0]?.type !== "decisionPane" || children[1]?.type !== "consequencePane") {
+          diagnostics.push(warning("Decision/Consequence panes must be ordered Decision then Consequence.", type));
+        }
+        for (const child of children) {
+          const childType = typeof child.type === "string" ? child.type : "unknown";
+          if (!DECISION_CONSEQUENCE_CHILD_TYPES.has(childType)) {
+            diagnostics.push(warning(
+              `Decision/Consequence child ${childType} is not supported by semantic Markdown.`,
+              childType,
+            ));
+          }
+          visit(child, type);
+        }
+        return;
+      case "decisionPane":
+      case "consequencePane":
+        if (parentType !== "decisionConsequence") {
+          diagnostics.push(warning(`${type} must live inside a Decision/Consequence block.`, type));
+        }
+        for (const child of children) {
+          const childType = typeof child.type === "string" ? child.type : "unknown";
+          if (!PANE_CHILD_TYPES.has(childType)) {
+            diagnostics.push(warning(
+              `${type} child ${childType} is not supported by semantic Markdown.`,
               childType,
             ));
           }

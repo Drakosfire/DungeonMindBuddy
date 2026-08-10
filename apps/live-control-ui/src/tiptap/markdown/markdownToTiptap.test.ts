@@ -1,7 +1,30 @@
 import { readFileSync } from "node:fs";
 
+import { Editor } from "@tiptap/core";
+import type { JSONContent } from "@tiptap/core";
+
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../MarkdownEditorCore";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { markdownToTiptapDoc } from "./markdownToTiptap";
+import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
+
+const SESSION_26_NESTED_PREP_MARKDOWN = [
+  "## North Gate",
+  "",
+  "- If the party holds position:",
+  "  - > [!DECISION-CONSEQUENCE]",
+  "    > ### Decision",
+  "    > Hold the gate and keep the refugees behind the wall.",
+  "    >",
+  "    > ### Consequence",
+  "    > - The pressure remains concentrated at the gate.",
+  "    > - Lysandra can reposition the reserve.",
+  "",
+  "- If the party abandons the gate:",
+  "  > [!GM-NOTE]",
+  "  > Advance the breach clock.",
+  "",
+].join("\n");
 
 describe("markdownToTiptapDoc", () => {
   it("imports headings and paragraphs", () => {
@@ -462,24 +485,402 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
-  it("fails closed on Session-26 structures owned by the next semantic polish slice", () => {
-    // The AST classifies this as a nested list (line 2) containing a callout
-    // (line 2); both structural diagnostics fire at the container boundary.
+  it("imports canonical top-level Decision/Consequence with two ordered panes", () => {
     const imported = markdownToTiptapDoc([
-      "- Decision forks",
-      "  - > [!DECISION-CONSEQUENCE]",
-      "    > ### Decision",
-      "    > Hold the wall",
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> Hold the wall",
+      ">",
+      "> ### Consequence",
+      "> - Pressure stays at the gate.",
       "",
     ].join("\n"));
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content).toEqual([
+      {
+        type: "decisionConsequence",
+        content: [
+          {
+            type: "decisionPane",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "Hold the wall" }] }],
+          },
+          {
+            type: "consequencePane",
+            content: [{
+              type: "bulletList",
+              content: [{
+                type: "listItem",
+                content: [{ type: "paragraph", content: [{ type: "text", text: "Pressure stays at the gate." }] }],
+              }],
+            }],
+          },
+        ],
+      },
+    ]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toBe([
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> Hold the wall",
+      ">",
+      "> ### Consequence",
+      "> - Pressure stays at the gate.",
+      "",
+    ].join("\n"));
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("fails closed on malformed Decision/Consequence blocks", () => {
+    const malformedMessage =
+      "Decision/Consequence blocks must contain exactly one Decision pane and one Consequence pane.";
+    const cases: Array<{ name: string; markdown: string; message: string }> = [
+      {
+        name: "missing Consequence",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> Hold the wall\n",
+        message: malformedMessage,
+      },
+      {
+        name: "missing Decision",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Consequence\n> Fall back\n",
+        message: malformedMessage,
+      },
+      {
+        name: "reversed panes",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Consequence\n> B\n>\n> ### Decision\n> A\n",
+        message: "Decision must precede Consequence in Decision/Consequence blocks.",
+      },
+      {
+        name: "duplicate Decision",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> A\n>\n> ### Decision\n> B\n>\n> ### Consequence\n> C\n",
+        message: malformedMessage,
+      },
+      {
+        name: "wrong heading level",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ## Decision\n> A\n>\n> ### Consequence\n> B\n",
+        message: "Decision/Consequence pane headings must be level-3 headings with exact labels.",
+      },
+      {
+        name: "near-match heading",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision-ish\n> A\n>\n> ### Consequence\n> B\n",
+        message: "Decision/Consequence pane headings must be level-3 headings with exact labels.",
+      },
+    ];
+    for (const testCase of cases) {
+      const imported = markdownToTiptapDoc(testCase.markdown);
+      expect(imported.diagnostics, testCase.name).toEqual(expect.arrayContaining([
+        expect.objectContaining({ level: "warning", message: testCase.message }),
+      ]));
+      expect(JSON.stringify(imported.doc), testCase.name).not.toContain('"type":"decisionConsequence"');
+    }
+  });
+
+  it("imports nested bullet lists inside list items cleanly", () => {
+    const imported = markdownToTiptapDoc("- Parent\n  - Child\n");
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content).toEqual([{
+      type: "bulletList",
+      content: [{
+        type: "listItem",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "Parent" }] },
+          {
+            type: "bulletList",
+            content: [{
+              type: "listItem",
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Child" }] }],
+            }],
+          },
+        ],
+      }],
+    }]);
+  });
+
+  it("imports supported GM-NOTE callout inside list item cleanly", () => {
+    const imported = markdownToTiptapDoc("- Choice\n  > [!GM-NOTE]\n  > Something changes.\n");
+    expect(imported.diagnostics).toEqual([]);
+    const listItem = (imported.doc.content?.[0] as { content?: unknown[] }).content?.[0] as { content?: unknown[] };
+    const callout = listItem.content?.[1] as { type?: string; attrs?: unknown };
+    expect(callout.type).toBe("callout");
+    expect(callout.attrs).toMatchObject({ kind: "gm-note" });
+  });
+
+  it("still blocks plain blockquote inside list item", () => {
+    const imported = markdownToTiptapDoc("- Parent\n  > plain blockquote\n");
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 2, message: "Nested lists are not supported yet." }),
-      expect.objectContaining({ level: "warning", line: 2, message: "Callouts nested in list items are not supported yet." }),
+      expect.objectContaining({ level: "warning", message: "Plain blockquotes are not supported yet." }),
     ]));
   });
 
+  it("still blocks nested callout inside callout", () => {
+    const imported = markdownToTiptapDoc("> [!GM-NOTE]\n>> [!WARNING]\n>> nested\n");
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message: "Nested callouts are not supported yet." }),
+    ]));
+  });
+
+  it("imports Session-26 nested list + Decision/Consequence structure cleanly", () => {
+    const imported = markdownToTiptapDoc(SESSION_26_NESTED_PREP_MARKDOWN);
+    expect(imported.diagnostics).toEqual([]);
+    const heading = imported.doc.content?.[0] as { type?: string; content?: unknown[] };
+    expect(heading.type).toBe("heading");
+    const list = imported.doc.content?.[1] as { content?: unknown[] };
+    const holdItem = list?.content?.[0] as { content?: unknown[] };
+    const innerList = holdItem?.content?.[1] as { content?: unknown[] };
+    const innerItem = innerList?.content?.[0] as { content?: Array<{ type?: string; content?: unknown[] }> };
+    // TipTap's ListItem schema is `paragraph block*`: block-first semantic content
+    // gets an empty structural paragraph that the serializer omits on export.
+    expect(innerItem?.content?.[0]).toEqual({ type: "paragraph", content: [] });
+    const dc = innerItem?.content?.[1];
+    expect(dc?.type).toBe("decisionConsequence");
+    expect(dc?.content?.map((pane) => (pane as { type?: string }).type)).toEqual(["decisionPane", "consequencePane"]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("round-trips nested bullet lists with marker-width continuation indent", () => {
+    const imported = markdownToTiptapDoc("- Parent\n  - Child\n");
+    expect(imported.diagnostics).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("round-trips list-item GM-NOTE callouts", () => {
+    const markdown = "- Choice\n  > [!GM-NOTE]\n  > Something changes.\n";
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("fails closed on Decision/Consequence marker labels that the schema cannot preserve", () => {
+    const cases = [
+      {
+        name: "top-level",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE] Secret fork",
+          "> ### Decision",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
+        line: 1,
+      },
+      {
+        name: "list-item",
+        markdown: [
+          "- > [!DECISION-CONSEQUENCE] Secret fork",
+          "  > ### Decision",
+          "  > Hold",
+          "  >",
+          "  > ### Consequence",
+          "  > Fall back",
+          "",
+        ].join("\n"),
+        line: 1,
+      },
+    ];
+    for (const testCase of cases) {
+      const imported = markdownToTiptapDoc(testCase.markdown);
+      expect(imported.diagnostics, testCase.name).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: testCase.line,
+          message: "Decision/Consequence marker labels are not preserved by this editor slice.",
+        }),
+      ]));
+      expect(JSON.stringify(imported.doc), testCase.name).not.toContain('"type":"decisionConsequence"');
+    }
+  });
+
+  it("fails closed on formatted or linked Decision/Consequence pane headings", () => {
+    const message =
+      "Decision/Consequence pane headings must be plain text without formatting or links.";
+    const cases: Array<{ name: string; markdown: string }> = [
+      {
+        name: "bold Decision",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### **Decision**",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "emphasis Consequence",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### Decision",
+          "> Hold",
+          ">",
+          "> ### *Consequence*",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "inline-code Decision",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### `Decision`",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+      {
+        name: "ordinary-link Decision",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE]",
+          "> ### [Decision](https://example.com)",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
+      },
+    ];
+    for (const testCase of cases) {
+      const imported = markdownToTiptapDoc(testCase.markdown);
+      expect(imported.diagnostics, testCase.name).toEqual(expect.arrayContaining([
+        expect.objectContaining({ level: "warning", message }),
+      ]));
+      expect(JSON.stringify(imported.doc), testCase.name).not.toContain('"type":"decisionConsequence"');
+    }
+  });
+
+  it("fails closed when nested callouts have content before the marker", () => {
+    const message =
+      "Blockquote content before a callout marker is not supported by this editor slice.";
+    const listItem = markdownToTiptapDoc([
+      "- > preface that must survive",
+      "  > [!GM-NOTE]",
+      "  > body",
+      "",
+    ].join("\n"));
+    expect(listItem.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message }),
+    ]));
+    expect(JSON.stringify(listItem.doc)).not.toContain('"type":"callout"');
+
+    const pane = markdownToTiptapDoc([
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > preface that must survive",
+      "> > [!GM-NOTE]",
+      "> > body",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+      "",
+    ].join("\n"));
+    expect(pane.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message }),
+    ]));
+  });
+
+  it("round-trips sibling callouts inside one list item through blank-line boundaries", () => {
+    const doc = {
+      type: "doc",
+      content: [{
+        type: "bulletList",
+        content: [{
+          type: "listItem",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Choice" }] },
+            {
+              type: "callout",
+              attrs: { kind: "gm-note" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "First" }] }],
+            },
+            {
+              type: "callout",
+              attrs: { kind: "warning" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Second" }] }],
+            },
+          ],
+        }],
+      }],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(doc)).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(doc);
+    expect(exported).toBe([
+      "- Choice",
+      "  > [!GM-NOTE]",
+      "  > First",
+      "",
+      "  > [!WARNING]",
+      "  > Second",
+      "",
+    ].join("\n"));
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(doc);
+  });
+
+  it("imports list-item Decision/Consequence pane ATX headings without false source-form diagnostics", () => {
+    const markdown = [
+      "- > [!DECISION-CONSEQUENCE]",
+      "  > ### Decision",
+      "  > #### Detail",
+      "  > Hold",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const listItem = (imported.doc.content?.[0] as { content?: unknown[] }).content?.[0] as {
+      content?: Array<{ type?: string; content?: Array<{ type?: string; content?: unknown[] }> }>;
+    };
+    // Structural paragraph keeps the list item valid against TipTap's
+    // `paragraph block*` ListItem schema; serializer omits it on export.
+    expect(listItem.content?.[0]).toEqual({ type: "paragraph", content: [] });
+    const dc = listItem.content?.[1];
+    expect(dc?.type).toBe("decisionConsequence");
+    const decisionPane = dc?.content?.[0];
+    expect(decisionPane?.content?.map((node) => node.type)).toEqual(["heading", "paragraph"]);
+    expect((decisionPane?.content?.[0] as { attrs?: { level?: number } }).attrs?.level).toBe(4);
+  });
+
+  it("imports supported callout inside Decision pane cleanly and keeps Save safety green", () => {
+    const markdown = [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > [!GM-NOTE]",
+      "> > Hold notes.",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    expect(semanticMarkdownSerializationDiagnostics(imported.doc)).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
   it("fails closed on an unknown top-level callout marker", () => {
-    const imported = markdownToTiptapDoc("> [!DECISION-CONSEQUENCE]\n> ### Decision\n> Hold the wall\n");
+    const imported = markdownToTiptapDoc("> [!UNKNOWN-MARKER]\n> Body text\n");
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ level: "warning", line: 1 }),
     ]));
@@ -512,5 +913,87 @@ describe("markdownToTiptapDoc", () => {
     expect(exported).toContain("> [!GM-NOTE]");
     expect(exported).toContain("> [!RULES]");
     expect(exported).toContain("> [!WARNING]");
+  });
+});
+
+describe("Session-26 Markdown → Editor → Save → reload integration", () => {
+  function createIntegrationEditor(content: JSONContent) {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const editor = new Editor({
+      element,
+      extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+      content,
+    });
+    return {
+      editor,
+      cleanup: () => {
+        editor.destroy();
+        element.remove();
+      },
+    };
+  }
+
+  it("keeps nested Decision/Consequence schema-valid through a real TipTap Editor edit/save cycle", () => {
+    const imported = markdownToTiptapDoc(SESSION_26_NESTED_PREP_MARKDOWN);
+    expect(imported.diagnostics).toEqual([]);
+
+    const { editor, cleanup } = createIntegrationEditor(imported.doc);
+    try {
+      // The real extension set mounts StarterKit's ListItem, whose schema is
+      // `paragraph block*` (@tiptap/extension-list-item 2.27.2). The imported
+      // doc must validate against that schema — not just serialize cleanly.
+      expect(() => editor.state.doc.check()).not.toThrow();
+
+      const decisionConsequences: Array<{ type?: string; content?: Array<{ type?: string }> }> = [];
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === "decisionConsequence") {
+          decisionConsequences.push(node.toJSON() as { type?: string; content?: Array<{ type?: string }> });
+        }
+        return true;
+      });
+      expect(decisionConsequences).toHaveLength(1);
+      expect(decisionConsequences[0]?.content?.map((pane) => pane.type)).toEqual([
+        "decisionPane",
+        "consequencePane",
+      ]);
+
+      // Save path before editing: editor JSON serializes to the same canonical
+      // Markdown as the importer projection (structural paragraph omitted).
+      expect(semanticMarkdownSerializationDiagnostics(editor.getJSON())).toEqual([]);
+      const exportedBeforeEdit = tiptapJsonToSemanticMarkdown(editor.getJSON());
+      expect(exportedBeforeEdit).toBe(tiptapJsonToSemanticMarkdown(imported.doc));
+      expect(exportedBeforeEdit).toContain("> [!DECISION-CONSEQUENCE]");
+
+      // Edit inside the decision pane through a real editor transaction.
+      let insertPos: number | null = null;
+      editor.state.doc.descendants((node, pos) => {
+        const text = node.text ?? "";
+        if (insertPos === null && node.isText && text.includes("Hold the gate")) {
+          insertPos = pos + text.length;
+        }
+        return true;
+      });
+      expect(insertPos).not.toBeNull();
+      editor.commands.insertContentAt(insertPos!, " Sentries rotate at dusk.");
+
+      // Save → reload: canonical Markdown carries the edit and reimports clean.
+      expect(semanticMarkdownSerializationDiagnostics(editor.getJSON())).toEqual([]);
+      const exportedAfterEdit = tiptapJsonToSemanticMarkdown(editor.getJSON());
+      expect(exportedAfterEdit).toContain("Sentries rotate at dusk.");
+      const reloaded = markdownToTiptapDoc(exportedAfterEdit);
+      expect(reloaded.diagnostics).toEqual([]);
+      expect(tiptapJsonToSemanticMarkdown(reloaded.doc)).toBe(exportedAfterEdit);
+
+      // The reloaded doc is again schema-valid in a fresh real editor.
+      const { editor: reloadedEditor, cleanup: cleanupReloaded } = createIntegrationEditor(reloaded.doc);
+      try {
+        expect(() => reloadedEditor.state.doc.check()).not.toThrow();
+      } finally {
+        cleanupReloaded();
+      }
+    } finally {
+      cleanup();
+    }
   });
 });

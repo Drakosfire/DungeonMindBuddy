@@ -22,6 +22,7 @@ import { normalizeMdast } from "../../test/normalizeMdast";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "./markdownToTiptap";
 import { parseMarkdownAst } from "./parseMarkdownAst";
+import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
 
 type AdversarialCase = {
   name: string;
@@ -47,7 +48,6 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   { name: "nested plain blockquote at root", markdown: ">> nested quote", blockedOnMain: true },
   { name: "blockquote nested in list item", markdown: "- Parent\n  > plain blockquote", blockedOnMain: true },
   { name: "heading nested in list item", markdown: "- Parent\n  ## Nested heading", blockedOnMain: true },
-  { name: "nested bullet list", markdown: "- Parent\n  - Child", blockedOnMain: true },
   {
     name: "nested callout via doubled quote marker",
     markdown: "> [!GM-NOTE]\n>> [!WARNING]\n>> nested",
@@ -216,6 +216,112 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     note: "was a hole (PR #535 cycle 2): empty action labels rewrite to refId on save",
   },
 
+  {
+    name: "decision-consequence missing consequence pane",
+    markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> A",
+    blockedOnMain: true,
+  },
+  {
+    name: "decision-consequence reversed panes",
+    markdown: "> [!DECISION-CONSEQUENCE]\n> ### Consequence\n> B\n>\n> ### Decision\n> A",
+    blockedOnMain: true,
+  },
+  {
+    name: "decision-consequence duplicate decision pane",
+    markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> A\n>\n> ### Decision\n> B\n>\n> ### Consequence\n> C",
+    blockedOnMain: true,
+  },
+  {
+    name: "decision-consequence marker label silently dropped",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE] Secret fork",
+      "> ### Decision",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 8): D/C schema has no label; serializer emits bare marker",
+  },
+  {
+    name: "list-item decision-consequence marker label silently dropped",
+    markdown: [
+      "- > [!DECISION-CONSEQUENCE] Secret fork",
+      "  > ### Decision",
+      "  > Hold",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 8): same label-drop class on the list-item path",
+  },
+  {
+    name: "decision-consequence bold pane heading",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### **Decision**",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): flattened **Decision** became a delimiter and lost bold on save",
+  },
+  {
+    name: "decision-consequence linked pane heading",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### [Decision](https://example.com)",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): link heading consumed as structure bypassed ordinary-link blocker",
+  },
+  {
+    name: "decision-consequence inline-code pane heading",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### `Decision`",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): inline-code Decision flattened into delimiter",
+  },
+  {
+    name: "list-item callout with preface before marker",
+    markdown: [
+      "- > preface that must survive",
+      "  > [!GM-NOTE]",
+      "  > body",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): nested findIndex discarded pre-marker content",
+  },
+  {
+    name: "pane callout with preface before marker",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > preface that must survive",
+      "> > [!GM-NOTE]",
+      "> > body",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 9): same pre-marker drop class inside D/C panes",
+  },
+
   // --- Headings / breaks / HTML -------------------------------------------
   {
     name: "non-canonical thematic break (stars)",
@@ -310,6 +416,95 @@ const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
   { name: "thematic break", markdown: "# Before\n\n---\n\n## After" },
   { name: "frontmatter lookalike without YAML keys is a thematic break", markdown: "---\n\n# Body" },
   { name: "bullet list", markdown: "- First\n- Second" },
+  { name: "nested bullet list", markdown: "- Parent\n  - Child" },
+  {
+    name: "top-level decision-consequence block",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> Hold the wall",
+      ">",
+      "> ### Consequence",
+      "> - Pressure stays at the gate.",
+    ].join("\n"),
+  },
+  {
+    name: "decision-consequence pane with supported callout",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > [!GM-NOTE]",
+      "> > Hold notes.",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 8): pane callouts must stay safety-clean",
+  },
+  {
+    name: "list-item decision-consequence with pane ATX subheading",
+    markdown: [
+      "- > [!DECISION-CONSEQUENCE]",
+      "  > ### Decision",
+      "  > #### Detail",
+      "  > Hold",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 8): nested D/C must reparse prefix-free body for source-form checks",
+  },
+  {
+    name: "list-item decision-consequence with pane thematic break",
+    markdown: [
+      "- > [!DECISION-CONSEQUENCE]",
+      "  > ### Decision",
+      "  > Before",
+      "  >",
+      "  > ---",
+      "  >",
+      "  > After",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 8): nested pane HR source-form uses relative body lines",
+  },
+  {
+    name: "list-item sibling callouts separated by blank line",
+    markdown: [
+      "- Choice",
+      "  > [!GM-NOTE]",
+      "  > First",
+      "",
+      "  > [!WARNING]",
+      "  > Second",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 10): serializer must emit blank boundaries so MDAST keeps sibling callouts",
+  },
+  {
+    name: "list-item gm-note callout",
+    markdown: "- Choice\n  > [!GM-NOTE]\n  > Something changes.",
+  },
+  {
+    name: "Session-26 nested prep with decision-consequence and list-item callout",
+    markdown: [
+      "## North Gate",
+      "",
+      "- If the party holds position:",
+      "  - > [!DECISION-CONSEQUENCE]",
+      "    > ### Decision",
+      "    > Hold the gate and keep the refugees behind the wall.",
+      "    >",
+      "    > ### Consequence",
+      "    > - The pressure remains concentrated at the gate.",
+      "    > - Lysandra can reposition the reserve.",
+      "",
+      "- If the party abandons the gate:",
+      "  > [!GM-NOTE]",
+      "  > Advance the breach clock.",
+    ].join("\n"),
+  },
   { name: "ordered list", markdown: "1. one\n2. two" },
   { name: "ordered list with paren markers", markdown: "1) one\n2) two", note: "serializer canonicalizes ) to ." },
   { name: "ordered list with non-1 start", markdown: "3. three\n4. four" },
@@ -348,6 +543,11 @@ describe("Markdown ingress corpus", () => {
       it(testCase.name, () => {
         const imported = markdownToTiptapDoc(testCase.markdown);
         expect(imported.diagnostics).toEqual([]);
+        // Clean import must imply clean Save/reload (admission ∩ safety).
+        expect(
+          semanticMarkdownSerializationDiagnostics(imported.doc),
+          `import-clean but safety-dirty: ${testCase.name}`,
+        ).toEqual([]);
         const exported = tiptapJsonToSemanticMarkdown(imported.doc);
         const reimported = markdownToTiptapDoc(exported);
         expect(reimported.diagnostics).toEqual([]);

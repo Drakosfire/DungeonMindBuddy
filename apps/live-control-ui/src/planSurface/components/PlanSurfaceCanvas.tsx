@@ -13,6 +13,7 @@ import {
 } from "../../graphReference";
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
+import { SemanticMarkdownPaste } from "../../tiptap/extensions/SemanticMarkdownPaste";
 import {
   toAppChromeToolsGeneration,
   type MarkdownEditorToolbarModel,
@@ -41,7 +42,7 @@ import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectio
 import { formatReviewCampaignLabel } from "../sessionCampaignContext";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
-import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
+import "../../tiptap/prepMarkdownThemes.css";
 import "../../tiptap/tiptapSpike.css";
 import "../../graphReference/graphReference.css";
 
@@ -152,6 +153,12 @@ export function PlanSurfaceCanvas({
     [editor],
   );
 
+  const insertDecisionConsequence = useCallback(() => {
+    editor?.chain().focus().insertDecisionConsequence().run();
+  }, [editor]);
+
+  const planPasteExtensions = useMemo(() => [SemanticMarkdownPaste], []);
+
   const insertRunbookReference = useCallback(
     (attrs: RunbookReferenceAttrs) => {
       insertMarkdownReference(editor, attrs);
@@ -245,7 +252,11 @@ export function PlanSurfaceCanvas({
   }, [editor]);
 
   const removeActiveBlock = useCallback(() => {
-    editor?.chain().focus().deleteActiveBlock().run();
+    if (!editor) return;
+    const removedPair = editor.chain().focus().deleteParentDecisionConsequence().run();
+    if (!removedPair) {
+      editor.chain().focus().deleteActiveBlock().run();
+    }
   }, [editor]);
 
   const handleChipActivate = useCallback(
@@ -324,13 +335,22 @@ export function PlanSurfaceCanvas({
         id: "plan-insert-blocks",
         title: "Insert blocks",
         defaultOpen: true,
-        actions: CALLOUT_KINDS.map((kind) => ({
-          id: `plan-insert-${kind}`,
-          eyebrow: "Insert",
-          label: defaultCalloutLabel(kind),
-          onClick: () => insertCallout(kind),
-          disabled: !editor || isLocked || !editorInteractive,
-        })),
+        actions: [
+          ...CALLOUT_KINDS.map((kind) => ({
+            id: `plan-insert-${kind}`,
+            eyebrow: "Insert",
+            label: defaultCalloutLabel(kind),
+            onClick: () => insertCallout(kind),
+            disabled: !editor || isLocked || !editorInteractive,
+          })),
+          {
+            id: "plan-insert-decision-consequence",
+            eyebrow: "Insert",
+            label: "Decision / Consequence",
+            onClick: insertDecisionConsequence,
+            disabled: !editor || isLocked || !editorInteractive,
+          },
+        ],
       },
       {
         id: "plan-edit-blocks",
@@ -386,6 +406,7 @@ export function PlanSurfaceCanvas({
     editorInteractive,
     graphRefSearchPanel,
     insertCallout,
+    insertDecisionConsequence,
     isLocked,
     removeActiveBlock,
     toggleLock,
@@ -444,6 +465,7 @@ export function PlanSurfaceCanvas({
         content={authoring.editorContent as Content}
         documentKey={authoring.documentKey}
         editable={canEdit}
+        extensions={planPasteExtensions}
         onEditorChange={handleEditorChange}
         onUpdate={authoring.handleEditorUpdate}
         dataTestId="plan-surface-canvas-editor"

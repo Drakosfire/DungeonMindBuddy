@@ -7,13 +7,14 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
-## [DOING] CommonMark-backed Markdown admission (not more regex edges) — captured 2026-08-09, dispatched 2026-08-09
-**Dispatched:** `Docs/Plans/HANDOFF-BUILD-unify-markdown-structural-analysis.md` on branch `agent/dogfood-polish-markdown-ast-admission` (base `c6eb77e5`). **PR opened 2026-08-09:** [#535](https://github.com/Drakosfire/DungeonMindBuddy/pull/535) (head `304bae70`) — AST admission visitor landed, all 11 characterized holes sealed, zero branch-only test failures vs `origin/main`. Move to DONE on merge; then execute §28 (rebase #529 onto the new boundary).
-**Context:** PR #529 review cycle 7 (`4892211756`). After seven cycles of handwritten fail-closed admission (nested indent, list whitelist, reference defs, zero-space/newline destinations), escaped `]` in `[foo\]]: /url` still bypasses `isReferenceLinkDefinitionLine`. Reviewer and handoff agree: stop patching spellings one regex at a time.
-**Insight:** Dual handwritten grammars (sourceSafetyDiagnostics + markdownToTiptap parse) cannot stay coincident with CommonMark/GFM at their edges. Admission and TipTap projection need one real parse representation; regex helpers will keep rediscovering escaped-label / whitespace / container holes.
-**Action:** Successor slice: adopt a CommonMark/GFM parser (e.g. micromark/mdast) as the single import/admission oracle; derive TipTap projection and Save-blocking diagnostics from that AST; keep #527 authority seal / re-import / YAML preserve. Do not absorb into #529 via another `isReferenceLinkDefinition*` tweak. Falsify: `[foo\]]: /url` and prior cycle repros block Save at root/list/callout; Session-26 DC + nested lists still round-trip.
-**Surfaces when:** PR #529, markdownToTiptap, reference definition, CommonMark, fail-closed Markdown, semantic prep authoring, sourceSafetyDiagnostics, DOGFOOD-POLISH
-**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-semantic-prep-authoring.md` §Stop conditions; `apps/live-control-ui/src/tiptap/markdown/markdownToTiptap.ts`; review `4892211756`
+
+## [DOING] Finish DOGFOOD-POLISH semantic prep authoring — captured 2026-08-09, dispatched 2026-08-09
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-finish-dogfood-polish-semantic-prep-authoring.md` on branch `agent/dogfood-polish-semantic-prep-authoring` rebuilt from `origin/main` / #535 merge `2fb059c3`. Target: rebuild PR #529 in place (feature port, not rebase of obsolete handwritten grammar).
+**Context:** PR #535 merged the CommonMark/GFM admission rescue. Nested lists, list-item callouts, Decision/Consequence, Plan semantic paste, and app-owned prep CSS remain false on main.
+**Insight:** #529's D/C nodes/UX/serializer/tests are donors; its `markdownToTiptap.ts` grammar must not survive. All nested prep admission must classify parser-established MDAST only.
+**Action:** Port D/C TipTap + AST admission for nested prep/D/C + serializer/safety + Plan paste/tools + move prep theme CSS out of `evals/`. Falsify: Session-26 nested prep round-trips; malformed D/C seals; semantic paste atomic; #535 corpus still sealed; #527 authority intact; no second Markdown grammar.
+**Surfaces when:** PR #529, Decision/Consequence, semantic paste, nested lists, prep authoring, DOGFOOD-POLISH, markdownAdmission
+**Refs:** `Docs/Plans/HANDOFF-BUILD-finish-dogfood-polish-semantic-prep-authoring.md`; PR #535; donor `62a24eb705f000e222b843995cde661d1f6d2b22`
 
 ## [IDEA] Statblock mechanics identity is campaign-agnostic — captured 2026-08-06
 **Context:** Dogfood Threat sheet hydration: operator could search the Threat but not load mechanics while DMS was down; separately asserted “statblocks should not be defined by the campaign they were created for or in.”
