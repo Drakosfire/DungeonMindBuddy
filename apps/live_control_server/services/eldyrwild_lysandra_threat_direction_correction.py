@@ -55,7 +55,7 @@ REPLACEMENT_ASSERTION_ID = "assertion:3668ba31192a37ad"
 
 LOCKED_CORRECTION_CONTRIBUTION_ID = "contribution:4c65f668dc95ef4f"
 LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256 = (
-    "754b5a6a1f91f1449b5d0ae44f92ede4ddc92851ae782c421f72eb3cbf817767"
+    "78d4d7118c3ba71ed0f930157bcd2343c675ccab8544580ff0aa506aa9ec0c5d"
 )
 LOCKED_SOURCE_ARTIFACT_ID = (
     "graph-native:eldyrwild-correction:lysandra-threat-direction-v1"

@@ -36,6 +36,7 @@
           {
             "source_artifact_id": "graph-native:eldyrwild-correction:lysandra-threat-direction-v1",
             "source_domain": "manual_seed",
+            "campaign_id": "longmont-c1",
             "uri": "graph-data://approved-graph-corrections/eldyrwild/lysandra-threat-direction-v1.json"
           }
         ],
