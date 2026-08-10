@@ -357,10 +357,28 @@ def create_workspace_document(
                 "worldbuilding metadata is only valid for kind=worldbuilding_source",
                 status_code=422,
             )
-        if kind == "plan" and (target_relpath is None or target_relpath == ""):
-            # Product Create New Prep omits path; server owns UUID workspace draft storage.
-            # Explicit caller-supplied Plan paths remain for fixtures/compat only.
-            resolved_target = _plan_workspace_target_relpath(document_id)
+        if kind == "plan":
+            if target_relpath is None or target_relpath == "":
+                # Product Create New Prep omits path; server owns UUID workspace draft storage.
+                # Explicit caller-supplied Plan paths remain for fixtures/compat only.
+                resolved_target = _plan_workspace_target_relpath(document_id)
+            else:
+                # Compatibility create must fail closed before append: illegal explicit
+                # paths cannot become active durable records that PATCH cannot repair.
+                from apps.live_control_server.services.tiptap_markdown_write import (
+                    TiptapMarkdownWriteError,
+                    require_legal_plan_target_relpath,
+                )
+
+                try:
+                    resolved_target = require_legal_plan_target_relpath(
+                        document_id, target_relpath
+                    )
+                except TiptapMarkdownWriteError as exc:
+                    raise WorkspaceDocumentRegistryError(
+                        str(exc),
+                        status_code=422,
+                    ) from exc
 
     now = _utc_now_iso()
     record = WorkspaceDocumentRecord(

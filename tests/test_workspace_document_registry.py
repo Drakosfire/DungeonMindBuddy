@@ -212,7 +212,6 @@ def test_mark_committed_sets_content_status_and_bumps_revision(root: Path) -> No
         title="Commit me",
         campaign_id="longmont-c2",
         kind="plan",
-        target_relpath="evals/c2_live_prep/mireward-prep/content/tiptap/spike.md",
     )
     assert created.content_status == "draft"
 
@@ -1115,6 +1114,76 @@ def test_plan_create_omitted_path_assigns_uuid_workspace_target(root: Path) -> N
     assert first.target_relpath == f"out/workspace/plan/{first.document_id}.md"
     assert second.target_relpath == f"out/workspace/plan/{second.document_id}.md"
     assert first.status == second.status == "active"
+
+
+def test_plan_create_explicit_canonical_path_remains_supported(root: Path) -> None:
+    canonical = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 50 Prep.md"
+    )
+    created = create_workspace_document(
+        root,
+        title="Canonical Session 50",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=50,
+        target_relpath=canonical,
+    )
+    assert created.target_relpath == canonical
+    assert created.status == "active"
+
+
+def test_plan_create_rejects_arbitrary_explicit_path_without_record(root: Path) -> None:
+    before = list_workspace_documents(root)
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        create_workspace_document(
+            root,
+            title="Illegal path",
+            campaign_id="longmont-c2",
+            kind="plan",
+            target_session=27,
+            target_relpath="corpus/eldyrwild-markdown/Longmont Campaign/escape.md",
+        )
+    assert exc_info.value.status_code == 422
+    assert "plan target_relpath must match" in str(exc_info.value)
+    assert list_workspace_documents(root) == before
+
+
+def test_plan_create_rejects_foreign_workspace_uuid_path_without_record(
+    root: Path,
+) -> None:
+    foreign = "out/workspace/plan/11111111-1111-4111-8111-111111111111.md"
+    before = list_workspace_documents(root)
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        create_workspace_document(
+            root,
+            title="Foreign workspace path",
+            campaign_id="longmont-c2",
+            kind="plan",
+            target_session=27,
+            target_relpath=foreign,
+        )
+    assert exc_info.value.status_code == 422
+    assert "plan target_relpath must match" in str(exc_info.value)
+    assert list_workspace_documents(root) == before
+
+
+def test_api_plan_create_rejects_illegal_explicit_path(
+    client: TestClient,
+    root: Path,
+) -> None:
+    response = client.post(
+        "/api/live/workspace-documents",
+        json={
+            "title": "API illegal Plan path",
+            "campaign_id": "longmont-c2",
+            "kind": "plan",
+            "target_session": 27,
+            "target_relpath": "out/workspace/plan/not-a-uuid.md",
+        },
+    )
+    assert response.status_code == 422
+    assert list_workspace_documents(root) == []
 
 
 def test_plan_workspace_create_ignores_discarded_canonical_owner(root: Path) -> None:
