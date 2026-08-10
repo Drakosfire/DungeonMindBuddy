@@ -34,8 +34,11 @@ For duplicated non-null `target_relpath` ownership:
    - survivor keeps the durable `target_relpath`
    - retiree stays in the registry as `discarded` with `target_relpath: null`
    - both identities remain addressable (local draft keys / history are not orphaned by registry deletion)
+   - mutation lock order: retiree `workspace_document_mutation_lock` → registry lock (same as ordinary metadata/status mutations)
 4. If an identity was already deleted incorrectly, **reinstate** it with `reinstate_workspace_document_record` as discarded + `target_relpath: null`, then verify the scan is empty.
 5. Never treat manual gitignored JSON edits or silent identity deletion as the migration.
+
+**Invariant seal:** `_require_unique_target_relpath` runs under the registry lock for **create**, **metadata update/PATCH**, and **reinstate**. A clean registry cannot be re-duplicated by PATCHing B onto A's path (active or discarded).
 
 ## This environment — applied reconciliation
 

@@ -968,3 +968,153 @@ def test_reinstate_workspace_document_record_restores_identity_without_path_coll
     assert reinstated.document_id == restored_id
     assert get_workspace_document(root, restored_id).status == "discarded"
     assert find_duplicate_target_relpath_ownership(root) == []
+
+
+def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: Path) -> None:
+    path_a = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 40 Prep.md"
+    )
+    path_b = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 41 Prep.md"
+    )
+    owner = create_workspace_document(
+        root,
+        title="Owner",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=40,
+        target_relpath=path_a,
+    )
+    other = create_workspace_document(
+        root,
+        title="Other",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=41,
+        target_relpath=path_b,
+    )
+    before = get_workspace_document(root, other.document_id)
+
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        update_workspace_document_metadata(
+            root,
+            other.document_id,
+            target_relpath=path_a,
+            expected_revision=before.revision,
+        )
+    assert exc_info.value.status_code == 409
+    assert owner.document_id in str(exc_info.value)
+
+    after = get_workspace_document(root, other.document_id)
+    assert after.revision == before.revision
+    assert after.target_relpath == path_b
+    assert after.updated_at == before.updated_at
+
+
+def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(root: Path) -> None:
+    path_a = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 42 Prep.md"
+    )
+    path_b = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 43 Prep.md"
+    )
+    owner = create_workspace_document(
+        root,
+        title="Discarded owner",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=42,
+        target_relpath=path_a,
+    )
+    discard_workspace_document(root, owner.document_id)
+    other = create_workspace_document(
+        root,
+        title="Other",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=43,
+        target_relpath=path_b,
+    )
+    before = get_workspace_document(root, other.document_id)
+
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        update_workspace_document_metadata(
+            root,
+            other.document_id,
+            target_relpath=path_a,
+            expected_revision=before.revision,
+        )
+    assert exc_info.value.status_code == 409
+    assert owner.document_id in str(exc_info.value)
+    after = get_workspace_document(root, other.document_id)
+    assert after.model_dump() == before.model_dump()
+
+
+def test_update_metadata_allows_restating_own_target_relpath(root: Path) -> None:
+    path = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 44 Prep.md"
+    )
+    created = create_workspace_document(
+        root,
+        title="Self path",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=44,
+        target_relpath=path,
+    )
+    updated = update_workspace_document_metadata(
+        root,
+        created.document_id,
+        target_relpath=path,
+        expected_revision=1,
+    )
+    assert updated.target_relpath == path
+    assert updated.revision == 2
+
+
+def test_api_patch_rejects_duplicate_target_relpath_including_discarded_owner(
+    client: TestClient,
+    root: Path,
+) -> None:
+    path_a = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 45 Prep.md"
+    )
+    path_b = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 46 Prep.md"
+    )
+    owner = create_workspace_document(
+        root,
+        title="Discarded owner",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=45,
+        target_relpath=path_a,
+    )
+    discard_workspace_document(root, owner.document_id)
+    other = create_workspace_document(
+        root,
+        title="Active other",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=46,
+        target_relpath=path_b,
+    )
+    before = get_workspace_document(root, other.document_id)
+
+    response = client.patch(
+        f"/api/live/workspace-documents/{other.document_id}",
+        json={"target_relpath": path_a, "expected_revision": before.revision},
+    )
+    assert response.status_code == 409
+    assert owner.document_id in response.json()["detail"]
+
+    after = get_workspace_document(root, other.document_id)
+    assert after.model_dump() == before.model_dump()
+    assert find_duplicate_target_relpath_ownership(root) == []
