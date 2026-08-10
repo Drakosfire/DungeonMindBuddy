@@ -2,19 +2,19 @@
   "schema_version": "dmb_dungeonmind_relationship_effective_conformance_v1",
   "world_id": "eldyrwild",
   "campaign_id": "longmont-c2",
-  "source_revision_id": "rev:3413bf6f5044cf2680233f5e37c90dcf",
-  "source_graph_payload_sha256": "346c1fbfb3cbbf6d0e5ded1453fdd7760264a5106022e398d6074679799ab0fa",
+  "source_revision_id": "rev:b90646fb5b135988bd7842cde858c96e",
+  "source_graph_payload_sha256": "9bec03ebf893c1c5aca592f283757d5f455f2e67cf0fef7f85852cb85b2d480c",
   "dungeonmind_dependency_ref": "2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4",
   "world_object_vocabulary_revision": "world-object-v4",
   "world_object_vocabulary_sha256": "552c59a3fa9a20e437294d1a77974c05e37b69ec95e5ea03337a7d010e4d287b",
   "continuity_report_schema": "dmb_dungeonmind_relationship_adjudication_continuity_v1",
-  "relationship_semantic_count": 346,
-  "relationship_effectively_represented_count": 294,
-  "relationship_effective_residual_count": 52,
-  "uses_statblock_mechanics_count": 2,
-  "base_relationship_represented_count": 291,
-  "base_relationship_residual_count": 55,
-  "pr29_interpretation_applied_count": 0,
+  "relationship_semantic_count": 369,
+  "relationship_effectively_represented_count": 311,
+  "relationship_effective_residual_count": 58,
+  "uses_statblock_mechanics_count": 3,
+  "base_relationship_represented_count": 305,
+  "base_relationship_residual_count": 64,
+  "pr29_interpretation_applied_count": 3,
   "explicit_adapter_applied_count": 3,
   "active_adjudicated_edge_ids": [
     "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
@@ -82,14 +82,19 @@
   "newly_represented_by_continuity_edge_ids": [
     "edge:item:session17:seed:located_in:pc:stafl",
     "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by",
-    "edge:node:pippa:leads_to:loc:stone_bridge"
+    "edge:node:fey_entity:present_at:pc:ephanna:appears-to-ephanna-in-prison",
+    "edge:node:pippa:leads_to:loc:stone_bridge",
+    "edge:pc:bonogo:defends_weakened_location:node:prisoners_session9:protects",
+    "edge:pc:caelynn:controls_comms_with:npc_grobnok"
   ],
   "remaining_residual_edge_ids": [
     "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+    "edge:faction:town-guards-mireward-gate:reports_threat_in:mystery:session25:west-wall-screaming-and-dark-shapes-below",
     "edge:group_session24_refugees_of_edge:part_of:loc_3",
     "edge:group_session24_refugees_of_edge:part_of_group:mystery_7",
     "edge:group_the_group:participates_in:location_007",
     "edge:item-001:located_in:pc:karsemine",
+    "edge:item:crossbow_bolt_light_source:controls_comms_with:loc:north-road",
     "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
     "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat",
     "edge:item:session11:paper-bird-summons:present_at:npc_grobnok",
@@ -117,9 +122,12 @@
     "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
     "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
     "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+    "edge:node:hesta-bramblewood:governs:organization:merchant-s-crossroads-apothecary",
+    "edge:node:orik:participates_in:organization:warehouse-gate-sheltering-group",
     "edge:node:pippa:travels_to:node:bubbles",
     "edge:node:session6_item_dead_horse:serves:pc:ephanna:served-for-ephanna",
     "edge:node:session6_item_runaway_cart:participates_in:pc:baergrom:stopped-by-baergrom",
+    "edge:node:thrin-branchborn:caused_by:mystery:session25:thrin-ambush-by-hybrid-creatures",
     "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
     "edge:node:torrin_flamescale:serves:loc:guilds:represents",
     "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree",
@@ -127,14 +135,15 @@
     "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms",
     "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate",
     "edge:npc_lysandra:leads:pc:caelynn",
-    "edge:npc_lysandra:threatens:node:cultists_of_longmont:is-threatened-by-cultists",
     "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward",
     "edge:obj:session9:oil:carries:obj:session9:meat_rack:applied-to",
     "edge:obj:session9:oil:identified_as:node:wolf",
     "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language",
+    "edge:organization:merchant-s-crossroads-apothecary:same_as:loc:crooked-retort",
     "edge:pc:bonogo:travels_to:pc:karsemine",
     "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
     "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso",
+    "edge:pc:ephanna:hires:node:thrin-branchborn",
     "edge:pc:ephanna:participates_in:node:shepherds_flock",
     "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party"
   ],
@@ -148,12 +157,24 @@
       "count": 1
     },
     {
+      "key": "caused_by",
+      "count": 1
+    },
+    {
       "key": "contains",
       "count": 2
     },
     {
       "key": "controls_comms_with",
-      "count": 2
+      "count": 3
+    },
+    {
+      "key": "governs",
+      "count": 1
+    },
+    {
+      "key": "hires",
+      "count": 1
     },
     {
       "key": "identified_as",
@@ -193,7 +214,7 @@
     },
     {
       "key": "participates_in",
-      "count": 6
+      "count": 7
     },
     {
       "key": "present_at",
@@ -201,7 +222,7 @@
     },
     {
       "key": "reports_threat_in",
-      "count": 1
+      "count": 2
     },
     {
       "key": "routes_to",
@@ -209,15 +230,11 @@
     },
     {
       "key": "same_as",
-      "count": 5
+      "count": 6
     },
     {
       "key": "serves",
       "count": 3
-    },
-    {
-      "key": "threatens",
-      "count": 1
     },
     {
       "key": "travels_to",
@@ -243,12 +260,16 @@
     },
     {
       "key": "SOURCE_CORRECTION_REQUIRED",
-      "count": 35
+      "count": 34
+    },
+    {
+      "key": "UNADJUDICATED",
+      "count": 7
     }
   ],
   "dungeonmind_owned_remaining_count": 0,
-  "dungeonmindbuddy_owned_remaining_count": 52,
-  "unadjudicated_remaining_count": 0,
+  "dungeonmindbuddy_owned_remaining_count": 51,
+  "unadjudicated_remaining_count": 7,
   "requires_readjudication_count": 0,
   "world_graph_digest_before": null,
   "world_graph_digest_after": null
