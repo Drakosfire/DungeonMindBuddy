@@ -1,7 +1,7 @@
 # HANDOFF — Eldyrwild Session-24 cube→Karsemine false-location correction
 
 **Created:** 2026-08-10
-**Status:** IMPLEMENTATION COMPLETE — awaiting review (canonical live apply is post-merge)
+**Status:** DONE — canonical P→Q live exit proven (`P=rev:b90646fb…` → `Q=rev:b8dfc063…`; delta `-1/0/-1/0`)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-session24-cube-karsemine-false-location-correction.md`
 **Conversation name:** `Eldyrwild Session 24 Cube-Karsemine False Location Correction`
 **Flow / agent:** `BUILD`
@@ -92,3 +92,33 @@ Formal fixture re-anchor is a separate post-merge successor after canonical Q ex
 Pre-merge: status/clone only. No `--allow-live-world` apply against canonical Eldyrwild.
 
 Post-merge DONE requires the explicit operator live-exit procedure in the design contract.
+
+## §6 Canonical live exit (DONE)
+
+```text
+merge #545:
+  78deef1c6046637b1bb46832d9bf26d41061256d
+
+P:
+  rev:b90646fb5b135988bd7842cde858c96e
+  E(P): 369 / 311 / 58 / 3
+
+Q:
+  rev:b8dfc063bc13a4fb297e83f5f9b313d9
+  parent(Q) == P
+  E(Q): 368 / 311 / 57 / 3
+
+delta:
+  semantic     -1
+  represented   0
+  residual     -1
+  mechanics     0
+
+post-apply status: already_applied
+exact retry on Q: published=false (noop)
+stale P retry: stale_expected_parent
+pinned + unpinned rebuild: equivalent
+siblings unchanged
+Session-24 recap SHA unchanged:
+  603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95
+```
