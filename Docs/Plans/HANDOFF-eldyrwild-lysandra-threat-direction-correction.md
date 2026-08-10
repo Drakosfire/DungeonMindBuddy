@@ -7,6 +7,8 @@ pr_body_template: |
   - Handoff: Docs/Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md
   - PR / branch: build/eldyrwild-lysandra-threat-direction-correction
   - Docs authority sync: post-#536 parent-relative contract; BUILD blocked until contribution-integrity heal for contribution:d3d244474789879c
+  - Merge-ready ≠ complete: implementation PR proves Q on a temp clone; slice DONE requires post-merge canonical apply exit proof
+  - Next DESIGN after this docs PR: bounded eldyrwild-contribution-integrity-heal handoff (forensic, not hash-patch)
 
   ## Verification pointer
   - Base/head: record exact implementation base and head in review handback
@@ -25,7 +27,7 @@ pr_body_template: |
 # HANDOFF — governed Eldyrwild Lysandra threat-direction correction
 
 **Created:** 2026-08-09.  
-**Status:** BLOCKED ON ELDYRWILD CONTRIBUTION-INTEGRITY HEAL — post-#536 parent-relative contract is canonical in this handoff; BUILD remains blocked until pinned contribution replay is healed for `contribution:d3d244474789879c` (separate predecessor slice), then Lysandra BUILD may dispatch.  
+**Status:** BLOCKED ON ELDYRWILD CONTRIBUTION-INTEGRITY HEAL — post-#536 parent-relative contract is canonical in this handoff; BUILD remains blocked until pinned contribution replay is healed for `contribution:d3d244474789879c` (separate forensic predecessor slice), then Lysandra BUILD may dispatch. Merging the correction package is not the same as completing the real Eldyrwild correction.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-lysandra-threat-direction-correction.md`  
 **Conversation name:** `Eldyrwild Lysandra Threat Direction Correction`  
 **Flow / agent:** `BUILD`  
@@ -34,7 +36,7 @@ pr_body_template: |
 **Code agent:** fresh BUILD code agent using the same conversation name  
 **PR title:** `BUILD: correct Eldyrwild Lysandra threat direction`
 
-> **Dispatch gate:** This docs-authority sync is a **prerequisite before BUILD**. The design/docs sync anchor is current `origin/main` at docs-dispatch (includes merged PR #536). Design predecessors to name: PR #536 merge `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`) plus the previous Lysandra handoff landing `551f9ce1b147fdeb6b1f79cdb9fe8082aef7eb19`. Tracker dependency chain for Lysandra: **#534 + #536 + contribution-integrity heal** for `contribution:d3d244474789879c`. Do **not** treat this slice as READY for BUILD until that heal lands. Before the first implementation change, record the exact `origin/main` SHA; prove it is a descendant of `413e8081…` and of the #534 merge `99f1d18d…`; prove this post-#536 handoff exists on that base; re-read the active Campaign Supergraph tracker; and prove it names `eldyrwild-lysandra-threat-direction-correction` as `READY` only after the contribution-integrity heal predecessor is done. The implementation PR must not invent the contract — it consumes this synced handoff.
+> **Dispatch gate:** This docs-authority sync is a **prerequisite before BUILD**. The repository/docs-dispatch anchor for this sync is `2fb059c3daf0644860eaac73bf05990c70dc2e8c` (PR #538 base on `origin/main`). Design predecessor to name separately: PR #536 merge `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`) plus the previous Lysandra handoff landing `551f9ce1b147fdeb6b1f79cdb9fe8082aef7eb19`. Tracker dependency chain for Lysandra: **#534 + #536 + contribution-integrity heal** for `contribution:d3d244474789879c`. Do **not** treat this slice as READY for BUILD until that heal lands. Before the first implementation change, record the exact `origin/main` SHA; prove it is a descendant of `2fb059c3…` (and therefore of `413e8081…`) and of the #534 merge `99f1d18d…`; prove this post-#536 handoff exists on that base; re-read the active Campaign Supergraph tracker; and prove it names `eldyrwild-lysandra-threat-direction-correction` as `READY` only after the contribution-integrity heal predecessor is done. The implementation PR must not invent the contract — it consumes this synced handoff.
 >
 > This is the first real use of the targeted structural edge-correction primitive. The slice owns **one exact Eldyrwild correction only**. It must not become a generic correction API, a Graph Review UI, a conformance exception, a global edge reversal, a source-prose rewrite, or an omnibus repair of the remaining source-correction ledger.
 
@@ -52,7 +54,7 @@ pr_body_template: |
 | **Corrected descendant Q** | The one immutable revision produced by applying C to eligible parent P with expected-parent/CAS publication. |
 | **Source seal** | The checked-in immutable source-grounding record for X, including Session-8 artifact SHA and paragraph-013 excerpt SHA. |
 | **Parent-relative conformance delta** | Lysandra BUILD acceptance observation against P→Q (post-#536 current-support-aware conformance): `semantic(Q) == semantic(P)`; `represented(Q) == represented(P) + 1`; `residual(Q) == residual(P) - 1`; `mechanics(Q) == mechanics(P)`; plus X remains historically materialized/inspectable, X is absent from Q's current effective residual set, X′ is current and represented, source seals unchanged, and Q is replay-equivalent (pinned rebuild reconstructs Q — **NOT WAIVABLE**). Absolute historical counts are not the merge gate. |
-| **Formal conformance re-anchor** | The successor slice `eldyrwild-effective-conformance-after-first-correction` that owns formal current-descendant fixture/tracker re-anchoring after Q. It must record the **actual current baseline** on the live head (do not force historical absolute counts onto an evolved live head). If and only if P is demonstrably the exact canonical historical `346/294/52/2` baseline, record the stronger exact result `346/295/51/2` as an optional strengthening observation — never as the sole Lysandra BUILD gate. This PR may observe the parent-relative delta read-only but must not alter conformance interpretation or its canonical fixtures to obtain it. |
+| **Formal conformance re-anchor** | The successor slice `eldyrwild-effective-conformance-after-first-correction` that owns formal current-descendant fixture/tracker re-anchoring after live `Q_live`. It becomes READY only when Lysandra is `DONE` — meaning the correction package is merged **and** the post-merge canonical apply exit proof succeeded. It must record the **actual current baseline** on the live head (do not force historical absolute counts onto an evolved live head). If and only if P is demonstrably the exact canonical historical `346/294/52/2` baseline, record the stronger exact result `346/295/51/2` as an optional strengthening observation — never as the sole Lysandra BUILD gate. This PR may observe the parent-relative delta read-only but must not alter conformance interpretation or its canonical fixtures to obtain it. |
 
 ## Agent flow and nano-commit contract
 
@@ -61,22 +63,26 @@ Use `BUILD` for this implementation. Keep the work in nano commits. Recommended 
 1. **Authority artifact:** capture the exact live target shape from an eligible parent and check in one canonical correction `GraphContribution`; lock its deterministic IDs, semantic source-payload digest, **and** raw artifact SHA256 in tests/service constants.
 2. **Guarded apply seam:** add the Eldyrwild-specific preflight/apply service and a headless operator CLI that delegates the semantic mutation to `graph_memory.kernel.correct_edge_assertion_support`; enforce `--allow-live-world` when apply targets canonical `world_graph_root()`.
 3. **Failure proofs:** prove stale parent, ineligible target (including missing effective residual / X′ already current from unrelated authority), source/ancestry drift, semantic and byte-level artifact tamper (`integrity_failure`), collision, canonical-root apply without opt-in, and exact retry all fail/no-op safely.
-4. **Real descendant proof:** on a clone of the real Eldyrwild store, publish Q and prove old/new projection, unrelated support preservation, source-history preservation, and pinned rebuild equivalence.
+4. **Real descendant proof (merge-ready package):** on a clone of the real Eldyrwild store, publish Q and prove old/new projection, unrelated support preservation, source-history preservation, and pinned rebuild equivalence. Do not mutate the canonical live root in the implementation PR.
 5. **Semantic observation:** run the existing effective-conformance analyzer read-only against both P and Q; require the parent-relative delta (`semantic` unchanged, `represented` +1, `residual` −1, `mechanics` unchanged) plus X/X′/seal/replay invariants without changing analyzer/catalog/fixture semantics. If and only if P is the exact canonical historical `346/294/52/2` baseline, also record the stronger exact `346/295/51/2` result.
+
+Post-merge operator work (not part of the implementation PR diff; required for slice `DONE`) is the canonical apply exit proof in §7.
 
 Do not modify the generic PR #534 correction machinery unless an existing-contract regression is proven. If this real use case requires changing the generic correction contract, stop and return to design instead of folding the redesign into this PR.
 
 ## Review and doc-sync contract
 
-Review the cumulative diff and nano-commit sequence against this handoff. The implementation PR must not update the roadmap, tracker, current-state guide, this handoff status, or effective-conformance anchor fixtures as part of the code/data mutation. Those are separate document/conformance sync operations after implementation review/merge.
+Review the cumulative diff and nano-commit sequence against this handoff. The implementation PR must not update the roadmap, tracker, current-state guide, this handoff status, or effective-conformance anchor fixtures as part of the code/data mutation. Those are separate document/conformance sync operations after implementation review/merge — including marking Lysandra `DONE` only after the post-merge canonical apply exit proof, and opening the formal conformance successor only then.
 
-This docs-authority sync (post-#536 parent-relative contract + operator/integrity requirements) lands on `main` as a prerequisite before BUILD dispatch. Docs/tracker edits stay out of the Lysandra implementation PR; this docs sync owns them. The implementation PR itself must remain bounded to §4 and must not invent the contract.
+This docs-authority sync (post-#536 parent-relative contract + operator/integrity requirements + merge-ready vs complete distinction) lands on `main` as a prerequisite before BUILD dispatch. Docs/tracker edits stay out of the Lysandra implementation PR; this docs sync owns them. The implementation PR itself must remain bounded to §4 and must not invent the contract. After this docs PR merges, the next DESIGN task is the bounded `eldyrwild-contribution-integrity-heal` handoff — not code directly.
 
 ## §1 Mission and merge-ready invariant
 
 **Mission:** An operator can publish the adjudicated Lysandra threat-direction correction through the governed Kernel correction seam so that current Eldyrwild truth says the cultists threaten Lysandra while the original Session-8 assertion and evidence remain historical authority.
 
-**Merge-ready invariant:** Against one exact eligible Eldyrwild parent revision P, the exact sole-active support `(contribution:86ea8a3d97dd18cc, assertion:1dc0fef6561c3282)` is atomically contradicted and one checked-in human-authored replacement `node:cultists_of_longmont --threatens--> npc_lysandra` becomes current in one immutable descendant Q, while the original recap/source seal/contribution/evidence and every unrelated assertion support remain unchanged, ancestry/source/identity drift and stale parents fail closed, exact retry publishes no second descendant, and pinned contribution replay reconstructs Q exactly.
+**Merge-ready invariant (correction package):** Against one exact eligible Eldyrwild parent revision P on a **temporary clone**, the exact sole-active support `(contribution:86ea8a3d97dd18cc, assertion:1dc0fef6561c3282)` is atomically contradicted and one checked-in human-authored replacement `node:cultists_of_longmont --threatens--> npc_lysandra` becomes current in one immutable descendant Q, while the original recap/source seal/contribution/evidence and every unrelated assertion support remain unchanged, ancestry/source/identity drift and stale parents fail closed, exact retry publishes no second descendant, and pinned contribution replay reconstructs Q exactly. The implementation PR publishes Q only on that temporary clone and proves canonical-root apply without `--allow-live-world` fails closed.
+
+**Real Eldyrwild correction complete (slice DONE exit proof):** After the implementation PR merges, an operator must preflight and apply C to the **canonical** world-graph root, capture `P_live → Q_live`, verify the same parent-relative delta, and prove exact retry/`already_applied`. Only then is this slice `DONE`, and only then does `eldyrwild-effective-conformance-after-first-correction` become READY. Merging a merge-ready correction package while the live Eldyrwild head still contains the old Lysandra assertion does **not** satisfy exit proof.
 
 ### Pre-dispatch critique
 
@@ -94,11 +100,11 @@ This docs-authority sync (post-#536 parent-relative contract + operator/integrit
 |---|---|
 | Parent authority | `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; `Docs/Plans/PR-TRACKER-campaign-supergraph.md`; `Docs/Design/STATUS-world-graph-continuity-spine.md`; adjudication/source-seal fixtures from PR #526/#531 |
 | Repository rules | Public graph mutation crosses `graph_memory.kernel`; one immutable revision + expected-parent CAS; source-derived and human-authored assertions stay distinguishable; graph corrections survive replay; diagnostic/adjudication code is not mutation authority; agents are not privileged writers |
-| Design anchor | Docs-dispatch `origin/main` (includes #536). Design predecessors: PR #536 merge `413e808112dc85499651cf232ff71614dc4b18b6` (current-support-aware conformance) + previous Lysandra handoff landing `551f9ce1b147fdeb6b1f79cdb9fe8082aef7eb19`; also requires merged PR #534 `99f1d18dffd48d7e46250d63892adfae97a654a8` |
-| Implementation base | Exact `origin/main` SHA at BUILD dispatch, recorded before code; must be a descendant of `413e8081…` and `99f1d18d…`, contain this post-#536 handoff, have the contribution-integrity heal for `contribution:d3d244474789879c` landed, and have tracker state synced so this slice is `READY` |
-| Predecessor contract | Merged PR #534: `GraphContributionAssertionCorrection`, `create_edge_assertion_correction_contribution`, `correct_edge_assertion_support`, contradicted support lineage, exact retry, replay, lifecycle/integrity fail-closed behavior. Merged PR #536: current-support-aware relationship conformance / parent-relative P→Q delta arithmetic. Separate predecessor: Eldyrwild contribution-integrity heal for `contribution:d3d244474789879c` digest mismatch (revision-bound seal vs ledger) — **blocking** until done. |
+| Design anchor | Docs-dispatch repository anchor `2fb059c3daf0644860eaac73bf05990c70dc2e8c` (PR #538 base; includes #536). Design predecessor: PR #536 merge `413e808112dc85499651cf232ff71614dc4b18b6` (current-support-aware conformance) + previous Lysandra handoff landing `551f9ce1b147fdeb6b1f79cdb9fe8082aef7eb19`; also requires merged PR #534 `99f1d18dffd48d7e46250d63892adfae97a654a8` |
+| Implementation base | Exact `origin/main` SHA at BUILD dispatch, recorded before code; must be a descendant of `2fb059c3…` (and therefore of `413e8081…`) and `99f1d18d…`, contain this post-#536 handoff, have the contribution-integrity heal for `contribution:d3d244474789879c` landed, and have tracker state synced so this slice is `READY` |
+| Predecessor contract | Merged PR #534: `GraphContributionAssertionCorrection`, `create_edge_assertion_correction_contribution`, `correct_edge_assertion_support`, contradicted support lineage, exact retry, replay, lifecycle/integrity fail-closed behavior. Merged PR #536: current-support-aware relationship conformance / parent-relative P→Q delta arithmetic. Separate predecessor: Eldyrwild contribution-integrity heal for `contribution:d3d244474789879c` — forensic DESIGN→CODE to determine why the current ledger differs from immutable revision-bound authority, recover the sealed payload if proven, restore ledger/replay integrity without rewriting immutable revisions, and stop if unrecoverable (**blocking**; not “change the hash until green”). |
 | Exact input consumed | One repository-approved correction `GraphContribution` C; one exact expected parent revision P; the built-in Eldyrwild adjudication/source-seal authority; the exact target IDs `contribution:86ea8a3d97dd18cc` / `assertion:1dc0fef6561c3282` / defective edge X |
-| Named successor | `eldyrwild-effective-conformance-after-first-correction` |
+| Named successor | `eldyrwild-effective-conformance-after-first-correction` — READY only after Lysandra `DONE` (merged package **and** post-merge canonical apply exit proof) |
 | What remains false | No generic Graph Review correction UX; no second source correction; no formal new effective-conformance anchor/fixture; remaining Buddy residuals are not repaired; correction lifecycle reversal remains unsupported; DungeonMind product-authority cutover remains blocked |
 | Explicit non-goals | Rewriting Session-8 recap prose; changing source seals/adjudication findings; adding a reverse adapter; changing `dnd5e:threatens`; global predicate/endpoint rewrite; changing generic Kernel correction semantics; new server route/API; UI; Hermes write path; Plan/Play mutation; identity/decomposition work; cleanup of other residuals |
 
@@ -495,7 +501,7 @@ Invented “close enough” target fixtures are not acceptable proof. If hermeti
 |---|---|---|---|---|---|
 | C is exactly one approved existing-schema correction | graph-data artifact/service | contract | focused owning test | `GraphContribution` validates; exactly one accepted edge + one correction; locked contribution ID/source-payload digest **and** raw artifact SHA256 match; exact target IDs; no supersession/identity/unresolved extras | new schema/manifest required; deterministic identity mismatch |
 | P is eligible only under historical adjudication/source authority | service | adversarial/contract | hermetic + real-clone status tests | ancestry proven; X continuity ANCHOR/CARRIED_FORWARD; source grounding and shape verified; X in P's effective residual; exact sole target support; X′ not already current from unrelated authority | any label/text fallback or unverifiable source seal |
-| One real correction publishes Q | service → Kernel | integration | clone current Eldyrwild store; run status then apply with exact P | one new revision Q, parent=P, published=true, C revision-bound | no descendant, extra revision, or canonical root mutated by test |
+| One real correction publishes Q (merge-ready package) | service → Kernel | integration | clone current Eldyrwild store; run status then apply with exact P | one new revision Q, parent=P, published=true, C revision-bound; **canonical root not mutated by the implementation PR / tests** | no descendant, extra revision, or canonical root mutated by test |
 | Old P stays historical truth | projection | regression | project P after Q exists | X is current in P; X′ absent/non-current | P behavior changes |
 | Q exposes corrected current truth | projection | contract | project Q | X non-current; X′ current with cultists→Lysandra `threatens` | old+new both current, neither current, wrong endpoint/predicate |
 | Only exact target support changes | assertion support | adversarial | fingerprint all support records whose active/history includes `contribution:86ea…` before/after | target moves to contradicted lineage; every sibling support/provenance exact-equal | any sibling drift |
@@ -551,23 +557,46 @@ Also execute the operator CLI against a **temporary clone** of the real Eldyrwil
 11. prove apply against canonical world_graph_root() without --allow-live-world fails closed; status remains readable
 ```
 
+### Post-merge canonical apply (slice DONE exit proof)
+
+The §7 temp-clone proof makes the **correction package merge-ready**. It does **not** by itself mark Lysandra `DONE` or make the formal conformance successor READY. After the implementation PR merges to `main`, an operator must complete this explicit exit proof against the live Eldyrwild root:
+
+```text
+implementation PR merges
+→ canonical status/preflight
+→ capture P_live
+→ apply --expected-parent P_live --allow-live-world
+→ capture Q_live
+→ verify 0/+1/−1/0 on canonical P_live→Q_live
+→ exact retry/status already_applied
+→ only now is Lysandra slice DONE
+→ conformance-reanchor successor becomes READY
+```
+
+Required capture for the exit proof: exact `P_live`, `Q_live`, eligibility evidence (including X in `P_live`'s effective residual), parent-relative effective-conformance delta on the live pair, projection proof that live head exposes X′ only, pinned rebuild of `Q_live` (**NOT WAIVABLE**), and exact retry/`already_applied` via revision-bound C.
+
+Until that canonical apply succeeds, tracker status may record the implementation PR as merged/merge-ready but must **not** advance Lysandra to `DONE` or open `eldyrwild-effective-conformance-after-first-correction`.
+
 ### Minimal live / dogfood proof
 
 ```text
 Existing surface used:
   Headless operator CLI + existing World Graph/Kernel; no new UI or route.
 
-Smallest realistic scenario:
+Smallest realistic scenario (merge-ready package):
   Copy the real configured Eldyrwild store to a temporary root, retain read access to the real sealed Session-8 source run, inspect eligibility, and apply the exact approved Lysandra correction once.
 
-Expected observation:
+Expected observation (merge-ready):
   P is eligible; one Q publishes; old P remains unchanged; Q projects cultists→threatens→Lysandra only; siblings/source history survive; rebuild equals Q (**NOT WAIVABLE**); existing effective analyzer observes the parent-relative P→Q delta (stronger absolute 346/295/51/2 only iff P is the exact historical 346/294/52/2 baseline).
 
-Evidence captured:
+Evidence captured (merge-ready):
   exact implementation SHA, P, Q, target assertion/contribution IDs, X′ assertion ID, C contribution ID/source-payload digest/raw artifact SHA256, status/apply results, projection assertions, sibling-support fingerprint, source-seal hash, rebuild diagnostic, P and Q effective-conformance counts and parent-relative delta.
+
+Slice DONE additionally requires:
+  the post-merge canonical apply exit proof above (`P_live`/`Q_live` on the configured live root with `--allow-live-world`).
 ```
 
-This real-clone proof is a merge gate for this **real data correction**. Do not weaken it to an optional/skip-only test. If the real Eldyrwild store or required source-run anchors are unavailable, stop and report missing acceptance authority; do not substitute a synthetic “equivalent” world for the real proof.
+This real-clone proof is a merge gate for this **real data correction package**. Do not weaken it to an optional/skip-only test. If the real Eldyrwild store or required source-run anchors are unavailable, stop and report missing acceptance authority; do not substitute a synthetic “equivalent” world for the real proof. The post-merge canonical apply is the separate exit proof that the live Eldyrwild head is actually corrected.
 
 ### Baseline failure protocol
 
@@ -586,7 +615,7 @@ The review handback, not the PR description, must include:
 
 1. Exact PR URL or branch/head SHA being reviewed.
 2. §1 Mission and merge-ready invariant copied exactly.
-3. Exact implementation-base SHA and proof it descends from `413e8081…` (PR #536) and `99f1d18d…` (PR #534); proof contribution-integrity heal for `contribution:d3d244474789879c` is landed.
+3. Exact implementation-base SHA and proof it descends from `2fb059c3…` (docs-dispatch / PR #538 base) and therefore from `413e8081…` (PR #536) and `99f1d18d…` (PR #534); proof contribution-integrity heal for `contribution:d3d244474789879c` is landed.
 4. Confirmation that tracker/handoff dispatch gates were satisfied before code began (this post-#536 docs sync is a prerequisite; status was not READY until heal + tracker sync).
 5. Nano-commit list and the discrete authority/apply/proof story for each.
 6. Actual changed paths and focused diff stat limited to §4 + approved test fixtures.
@@ -608,15 +637,16 @@ The review handback, not the PR description, must include:
 18. Explicit operator waivers; `none` when none exist.
 19. Paths outside §4; `none` or a stop report.
 20. Stop conditions encountered and resolution; `none` when none exist.
-21. Named successor `eldyrwild-effective-conformance-after-first-correction` remains unimplemented.
+21. Named successor `eldyrwild-effective-conformance-after-first-correction` remains unimplemented and is not READY until Lysandra `DONE` (merged package **and** post-merge canonical apply).
 22. Confirmation that no source prose, source-seal/adjudication fixture, adapter, DungeonMind vocabulary, or generic Kernel semantics changed; docs/tracker edits stayed out of the implementation PR.
 23. Proof that apply against canonical `world_graph_root()` without `--allow-live-world` fails closed.
+24. Explicit statement whether this review is for **merge-ready package** only, or also includes the post-merge canonical apply exit proof (`P_live`/`Q_live`). Package merge must not claim slice `DONE` without that exit proof.
 
 ## §9 Acceptance rubric
 
-The reviewer accepts only when every bullet is true:
+The reviewer accepts the **correction package as merge-ready** only when every bullet is true:
 
-- [ ] Exactly one real Eldyrwild assertion correction was delivered — proved by §7 real-clone publish.
+- [ ] Exactly one real Eldyrwild assertion correction was delivered on a temporary clone — proved by §7 real-clone publish.
 - [ ] C is a checked-in human-authored `GraphContribution`, not caller-injected semantics or a second correction schema — proved by artifact contract test/diff.
 - [ ] Approved artifact seals both semantic source-payload digest and raw checked-in SHA256; tamper covers byte-level seal — proved by integrity tests.
 - [ ] P eligibility is bound to exact ancestry + adjudication/source-seal continuity + X in effective residual + exact target support + X′ not already current from unrelated authority — proved by preflight tests and real-clone status.
@@ -634,13 +664,21 @@ The reviewer accepts only when every bullet is true:
 - [ ] Docs/tracker/handoff edits stayed out of the implementation PR — proved by changed-path audit.
 - [ ] Baseline failures are reported truthfully and any required waiver is explicit; rebuild failures are not waived.
 - [ ] The named formal conformance successor remains unimplemented and unclaimed.
+- [ ] Acceptance wording distinguishes **merge-ready package** from **real Eldyrwild correction complete**; the package PR does not claim slice `DONE` without the post-merge canonical apply exit proof.
+
+The tracker marks Lysandra `DONE` / opens the conformance successor only when the additional **post-merge canonical apply** bullets are also true:
+
+- [ ] Operator ran canonical status/preflight against the live root after the implementation PR merged.
+- [ ] Exact `P_live` was captured and apply used `--expected-parent P_live --allow-live-world`.
+- [ ] Exact `Q_live` published; parent-relative `0/+1/−1/0` verified on live `P_live→Q_live`.
+- [ ] Exact retry/status reports `already_applied` via revision-bound C on the live head.
 
 ## Stop conditions
 
 Stop and report rather than expanding if implementation discovers:
 
 - the active tracker does not make this slice dispatchable after the post-#536 docs sync and contribution-integrity heal for `contribution:d3d244474789879c`;
-- `origin/main` is not a descendant of the #536 merge (`413e8081…`) / #534 merge (`99f1d18d…`) anchors, or the predecessor correction/conformance API materially changed;
+- `origin/main` is not a descendant of the docs-dispatch anchor (`2fb059c3…`) / #536 merge (`413e8081…`) / #534 merge (`99f1d18d…`) anchors, or the predecessor correction/conformance API materially changed;
 - `contribution:86ea8a3d97dd18cc` / `assertion:1dc0fef6561c3282` no longer identify the adjudicated target;
 - the exact target has zero or multiple active supporters;
 - P is not the adjudication anchor/descendant or X is not `ANCHOR`/`CARRIED_FORWARD` with verified source grounding/durable shape;
@@ -669,8 +707,8 @@ Proposed successor slice:
 Tracker or authority update needed:
 ```
 
-## Named successor — remains false in this PR
+## Named successor — remains false until Lysandra DONE
 
 `eldyrwild-effective-conformance-after-first-correction`
 
-That successor owns the durable/documented descendant semantic re-anchor after Q exists. It should consume the exact Q revision and correction IDs from the Lysandra BUILD PR, prove continuity behavior for the old finding and ordinary DungeonMind representation for X′, and update the canonical effective-conformance evidence while leaving the original adjudication revision/source seals immutable. It owns formal current-descendant fixture/tracker re-anchoring and **must record the actual current baseline** on the live head — do not force historical absolute counts onto an evolved live head. If and only if the eligible parent was demonstrably the exact canonical historical `346/294/52/2` baseline, the stronger exact result `346/295/51/2` may be recorded; otherwise re-anchor to the observed post-correction counts. It must not retroactively become part of this correction PR.
+That successor owns the durable/documented descendant semantic re-anchor after live `Q_live` exists. It becomes READY only when Lysandra is `DONE`: the correction package is merged **and** the post-merge canonical apply exit proof succeeded. It should consume the exact `Q_live` revision and correction IDs from that exit proof, prove continuity behavior for the old finding and ordinary DungeonMind representation for X′, and update the canonical effective-conformance evidence while leaving the original adjudication revision/source seals immutable. It owns formal current-descendant fixture/tracker re-anchoring and **must record the actual current baseline** on the live head — do not force historical absolute counts onto an evolved live head. If and only if the eligible parent was demonstrably the exact canonical historical `346/294/52/2` baseline, the stronger exact result `346/295/51/2` may be recorded; otherwise re-anchor to the observed post-correction counts. It must not retroactively become part of this correction PR, and it must not start merely because the merge-ready package landed while the live Eldyrwild head still carried the old Lysandra assertion.

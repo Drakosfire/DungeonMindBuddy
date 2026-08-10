@@ -1,8 +1,9 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-09 — PR #536 is merged (current-support-aware relationship conformance); Lysandra handoff is re-anchored to parent-relative gates and blocked on Eldyrwild contribution-integrity heal for `contribution:d3d244474789879c`. Historical adjudication-domain effective conformance remains `294 represented / 52 residual`.  
-**Repository anchor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
+**Updated:** 2026-08-09 — post-#536 Lysandra docs authority sync (PR #538) on docs-dispatch base `2fb059c3…`; Lysandra blocked on forensic Eldyrwild contribution-integrity heal for `contribution:d3d244474789879c`. Historical adjudication-domain effective conformance remains `294 represented / 52 residual`.  
+**Repository anchor:** `2fb059c3daf0644860eaac73bf05990c70dc2e8c`  
+**#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
@@ -99,25 +100,35 @@ The remaining relationship debt is Buddy-owned. The adjudication ledger distingu
 
 ```text
 READY   eldyrwild-contribution-integrity-heal
-        Restore contribution:d3d244474789879c ledger source-payload digest to the
-        revision-bound seal so pinned rebuild_from_contributions succeeds.
-        Do not rewrite immutable revision history; pinned rebuild is not waivable.
+        DESIGN first (not code): determine why contribution:d3d244474789879c's
+        current ledger differs from immutable revision-bound contribution
+        authority; recover the exact sealed payload if proven; restore
+        ledger/replay integrity without rewriting immutable revisions; stop if
+        unrecoverable. Exit proof: before/after byte/semantic forensics, exact
+        expected vs actual digests, drifted fields, recovery provenance, and
+        successful pinned rebuild. Do not “change the hash until green.”
 
 BLOCKED eldyrwild-lysandra-threat-direction-correction
         Depends on the integrity heal above, plus merged #534+#536.
-        Parent-relative gate: semantic unchanged / represented +1 / residual −1 /
-        mechanics unchanged. Live-write fence, complete preflight, dual artifact
-        seals, integrity_failure status, and successful pinned rebuild of Q.
+        Merge-ready package: parent-relative gate on a temp clone
+        (semantic unchanged / represented +1 / residual −1 / mechanics unchanged);
+        live-write fence, complete preflight, dual artifact seals,
+        integrity_failure status, and successful pinned rebuild of Q.
+        Slice DONE additionally requires post-merge canonical apply:
+        status/preflight → P_live → apply --allow-live-world → Q_live →
+        verify 0/+1/−1/0 → already_applied. Only then is the real Eldyrwild
+        correction complete.
 
 BLOCKED effective-conformance-after-first-correction
-        Re-anchor descendant fixtures/tracker on the actual post-Q baseline.
+        READY only after Lysandra DONE (merged package and live Q_live).
+        Re-anchor descendant fixtures/tracker on the actual post-Q_live baseline.
         Do not force historical absolute counts onto an evolved live head.
         The original adjudication anchor and historical analyzers remain unchanged.
 
 BLOCKED remaining-buddy-semantic-correction-slices
         Select the next bounded correction/decomposition/identity/evidence slice
         from the residual ledger only after the first real correction proves the
-        write/replay pattern.
+        write/replay pattern on the live Eldyrwild head.
 
 BLOCKED DungeonMind whole-world authority cutover
         Requires Buddy semantic closure plus a public governed DungeonMind
