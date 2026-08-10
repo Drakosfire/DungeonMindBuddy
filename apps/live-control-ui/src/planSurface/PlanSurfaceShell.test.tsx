@@ -3351,6 +3351,91 @@ describe("PlanSurfaceShell", () => {
         expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 26 Prep"));
       expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_B);
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "plan",
+          campaign_id: "longmont-c2",
+          target_session: expect.any(Number),
+        }),
+      );
+      const createArg = vi.mocked(liveApi.createWorkspaceDocument).mock.calls[0]?.[0];
+      expect(createArg).not.toHaveProperty("target_relpath");
+    });
+
+    it("allows a second same-session prep with a distinct title", async () => {
+      await useActualResolvePlanningDocument();
+      vi.mocked(liveApi.getWorkspaceDocument).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentRecord({
+          document_id: id,
+          title:
+            id === DOC_B
+              ? "If the siege breaks"
+              : id === DOC_A
+                ? "If the party goes north"
+                : (TITLES[id] ?? "C2 Session 23 Prep"),
+          target_session: id === DOC_B || id === DOC_A ? 27 : (SESSIONS[id] ?? 23),
+          target_relpath: `out/workspace/plan/${id}.md`,
+        }),
+      );
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: id,
+            title:
+              id === DOC_B
+                ? "If the siege breaks"
+                : id === DOC_A
+                  ? "If the party goes north"
+                  : (TITLES[id] ?? "C2 Session 23 Prep"),
+            target_session: id === DOC_B || id === DOC_A ? 27 : (SESSIONS[id] ?? 23),
+            target_relpath: `out/workspace/plan/${id}.md`,
+          }),
+        }),
+      );
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_A,
+            title: "If the party goes north",
+            target_session: 27,
+            target_relpath: `out/workspace/plan/${DOC_A}.md`,
+          }),
+        ],
+      });
+      vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_B,
+          title: "If the siege breaks",
+          target_session: 27,
+          target_relpath: `out/workspace/plan/${DOC_B}.md`,
+        }),
+      );
+      window.history.pushState({}, "", `/plan?campaigns=longmont-c1,longmont-c2&documentId=${DOC_A}`);
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+
+      const user = userEvent.setup();
+      await openCreateForm(user);
+      fireEvent.change(screen.getByTestId("plan-document-create-session"), {
+        target: { value: "27" },
+      });
+      expect(screen.getByTestId("plan-document-create-same-session")).toBeInTheDocument();
+      await user.clear(screen.getByTestId("plan-document-create-title"));
+      await user.type(screen.getByTestId("plan-document-create-title"), "If the siege breaks");
+      await submitCreateForm(user);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("If the siege breaks"));
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "If the siege breaks",
+          target_session: 27,
+          kind: "plan",
+        }),
+      );
+      const createArg = vi.mocked(liveApi.createWorkspaceDocument).mock.calls[0]?.[0];
+      expect(createArg).not.toHaveProperty("target_relpath");
     });
 
     it("keeps the current document authoritative when create POST fails", async () => {

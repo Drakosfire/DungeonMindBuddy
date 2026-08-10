@@ -7,6 +7,15 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Generalized intentional workspace-document create — captured 2026-08-10, done 2026-08-10
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-generalized-workspace-document-create.md` on branch `agent/dogfood-polish-workspace-document-create`.
+**Context:** PR #541 dogfood. Selector without intentional create was incomplete; create needed a generalized kind-aware lifecycle with Plan as consumer #1.
+**Insight:** Shared create→activate (intent, single POST, exact documentId, supersession fencing, path uniqueness) is the product primitive; Plan “Create New Prep” is the first surface, not a one-off button.
+**Action:** Implemented and merged. Successor: decouple Plan session affinity from draft storage (Shape B workspace drafts).
+**Surfaces when:** Create New Prep, createWorkspaceDocument, workspace document creation controller, target_relpath uniqueness, PR #543
+**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-generalized-workspace-document-create.md`; PR #543
+**Outcome:** Merged as PR #543 (`b8e4dd214b1171793051ce507c0b93c6d87efa91`). Intentional create lifecycle + empty-state Create New Prep + `target_relpath` uniqueness across create/PATCH + governed duplicate repair. Remaining product gap: Plan still derived canonical Session Prep path from session affinity (addressed by multi-prep Shape B handoff).
+
 ## [DONE] Finish DOGFOOD-POLISH semantic prep authoring — captured 2026-08-09, done 2026-08-10
 **Dispatched:** `Docs/Plans/HANDOFF-BUILD-finish-dogfood-polish-semantic-prep-authoring.md` on branch `agent/dogfood-polish-semantic-prep-authoring` rebuilt from `origin/main` / #535 merge `2fb059c3`. Target: rebuild PR #529 in place (feature port, not rebase of obsolete handwritten grammar).
 **Context:** PR #535 merged the CommonMark/GFM admission rescue. Nested lists, list-item callouts, Decision/Consequence, Plan semantic paste, and app-owned prep CSS remain false on main.

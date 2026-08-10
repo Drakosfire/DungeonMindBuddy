@@ -32,6 +32,10 @@ _ALLOWED_WORLDBUILDING_WORKSPACE_RE = re.compile(
     r"^out/workspace/worldbuilding/"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.md$"
 )
+_ALLOWED_PLAN_WORKSPACE_RE = re.compile(
+    r"^out/workspace/plan/"
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.md$"
+)
 _LOSSY_MARKDOWN_LINE_RE = re.compile(r"^\s*(?:\||<|!\[|---\s*$)")
 
 
@@ -40,6 +44,7 @@ def _is_allowed_tiptap_target_relpath(value: str) -> bool:
         _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE.fullmatch(value)
         or _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(value)
         or _ALLOWED_WORLDBUILDING_WORKSPACE_RE.fullmatch(value)
+        or _ALLOWED_PLAN_WORKSPACE_RE.fullmatch(value)
     )
 
 
@@ -71,6 +76,32 @@ class TiptapMarkdownWriteConflictError(TiptapMarkdownWriteError):
     status_code = 409
 
 
+def require_legal_plan_target_relpath(document_id: str, relpath: str) -> str:
+    """Authorize a Plan path against identity-bound workspace or Session Prep policy.
+
+    Legal targets:
+    - ``out/workspace/plan/<document_id>.md`` (own UUID workspace draft)
+    - allowlisted canonical ``Session N Prep.md`` corpus path
+
+    Foreign workspace UUID paths and arbitrary paths are rejected. Used by both
+    the writer and registry create so an illegal explicit create path cannot
+    persist a permanently unopenable record.
+    """
+    if relpath != relpath.strip():
+        raise TiptapMarkdownWriteError(
+            "target_relpath must be a normalized repo-relative path"
+        )
+    expected_workspace = f"out/workspace/plan/{document_id}.md"
+    if relpath == expected_workspace:
+        return normalize_tiptap_target_relpath(relpath)
+    if _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(relpath):
+        return normalize_tiptap_target_relpath(relpath)
+    raise TiptapMarkdownWriteError(
+        "plan target_relpath must match the document's workspace path "
+        "or an allowed Session Prep path"
+    )
+
+
 def authorize_target_for_record(record: WorkspaceDocumentRecord) -> str:
     """Authorize and normalize the registry target for this document kind.
 
@@ -96,11 +127,7 @@ def authorize_target_for_record(record: WorkspaceDocumentRecord) -> str:
         return normalize_tiptap_target_relpath(relpath)
 
     if record.kind == "plan":
-        if not _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(relpath):
-            raise TiptapMarkdownWriteError(
-                "plan target_relpath must match an allowed Session Prep path"
-            )
-        return normalize_tiptap_target_relpath(relpath)
+        return require_legal_plan_target_relpath(record.document_id, relpath)
 
     if record.kind == "runbook":
         if not _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE.fullmatch(relpath):

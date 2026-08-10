@@ -82,12 +82,16 @@ describe("planSessionDescriptor", () => {
 });
 
 describe("suggestNextPlanTargetSession", () => {
-  it("starts at liveSession + 1 when unused", () => {
-    expect(suggestNextPlanTargetSession(22, [23, 25])).toBe(24);
+  it("suggests liveSession + 1 when no active affinities exist", () => {
+    expect(suggestNextPlanTargetSession(22, [])).toBe(23);
   });
 
-  it("skips occupied sessions upward", () => {
-    expect(suggestNextPlanTargetSession(22, [23, 24, 25])).toBe(26);
+  it("uses the prep frontier beyond the highest active affinity", () => {
+    expect(suggestNextPlanTargetSession(22, [23, 27])).toBe(28);
+  });
+
+  it("uses live session when it is ahead of active affinities", () => {
+    expect(suggestNextPlanTargetSession(25, [23])).toBe(26);
   });
 
   it("ignores nullish occupied entries", () => {

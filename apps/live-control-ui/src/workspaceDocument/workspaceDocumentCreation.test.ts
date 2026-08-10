@@ -30,13 +30,12 @@ function fixtureRecord(
 }
 
 describe("createWorkspaceDocumentRequestFromIntent", () => {
-  it("maps plan intent without worldbuilding metadata", () => {
+  it("maps plan intent without caller path or worldbuilding metadata", () => {
     const intent: WorkspaceDocumentCreateIntent = {
       kind: "plan",
       campaignId: "longmont-c2",
       title: "C2 Session 28 Prep",
       targetSession: 28,
-      targetRelpath: "corpus/path/Session 28 Prep.md",
     };
     const request = createWorkspaceDocumentRequestFromIntent(intent);
     expect(request).toEqual({
@@ -44,8 +43,8 @@ describe("createWorkspaceDocumentRequestFromIntent", () => {
       campaign_id: "longmont-c2",
       kind: "plan",
       target_session: 28,
-      target_relpath: "corpus/path/Session 28 Prep.md",
     });
+    expect(request).not.toHaveProperty("target_relpath");
     expect(request).not.toHaveProperty("source_domain");
     expect(request).not.toHaveProperty("document_class");
     expect(request).not.toHaveProperty("authority_state");
@@ -95,7 +94,6 @@ describe("createWorkspaceDocumentCreationController", () => {
     campaignId: "longmont-c2",
     title: "C2 Session 28 Prep",
     targetSession: 28,
-    targetRelpath: "corpus/path/Session 28 Prep.md",
   };
 
   it("exposes the exact server document_id after create", async () => {
@@ -220,7 +218,6 @@ describe("createWorkspaceDocumentCreationController", () => {
       ...planIntent,
       title: "C2 Session 29 Prep",
       targetSession: 29,
-      targetRelpath: "corpus/path/Session 29 Prep.md",
     });
     expect(createdC.record.document_id).toBe("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
     expect(create).toHaveBeenCalledTimes(2);
@@ -267,7 +264,6 @@ describe("createWorkspaceDocumentCreationController", () => {
       ...planIntent,
       title: "C2 Session 29 Prep",
       targetSession: 29,
-      targetRelpath: "corpus/path/Session 29 Prep.md",
     });
     expect(result.record.document_id).toBe("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
     expect(create).toHaveBeenCalledTimes(2);
