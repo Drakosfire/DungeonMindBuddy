@@ -1,0 +1,76 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3668ba31192a37ad",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:4c65f668dc95ef4f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:graph-review:eldyrwild:lysandra-threat-direction-v1"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "threatens",
+      "predicate": "threatens",
+      "source_artifact_id": "graph-native:eldyrwild-correction:lysandra-threat-direction-v1",
+      "source_revision_id": "correction:eldyrwild:lysandra-threat-direction-v1",
+      "subject_node_id": "node:cultists_of_longmont",
+      "target_node_id": "npc_lysandra",
+      "temporal_scope": {
+        "session_id": "session-8"
+      },
+      "value": {
+        "canon_state": "canonical",
+        "edge_id": "edge:node:cultists_of_longmont:threatens:npc_lysandra",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:graph-review:eldyrwild:lysandra-threat-direction-v1",
+            "source_artifact_id": "graph-native:eldyrwild-correction:lysandra-threat-direction-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-graph-corrections/eldyrwild/lysandra-threat-direction-v1.json"
+          }
+        ],
+        "predicate": "threatens",
+        "source_artifacts": [
+          {
+            "source_artifact_id": "graph-native:eldyrwild-correction:lysandra-threat-direction-v1",
+            "source_domain": "manual_seed",
+            "campaign_id": "longmont-c1",
+            "uri": "graph-data://approved-graph-corrections/eldyrwild/lysandra-threat-direction-v1.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "node:cultists_of_longmont",
+        "target_node_id": "npc_lysandra"
+      },
+      "visibility": "gm"
+    }
+  ],
+  "assertion_corrections": [
+    {
+      "correction_kind": "contradicts_and_replaces",
+      "replacement_assertion_id": "assertion:3668ba31192a37ad",
+      "target_assertion_id": "assertion:1dc0fef6561c3282",
+      "target_contribution_id": "contribution:86ea8a3d97dd18cc"
+    }
+  ],
+  "authored_by": "gm",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:4c65f668dc95ef4f",
+  "diagnostics": [],
+  "extraction_profile": null,
+  "identity_decision_ids": [],
+  "produced_at": "2026-08-09T18:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-correction:lysandra-threat-direction-v1",
+  "source_kind": "graph_review_authored_assertion",
+  "source_revision_id": "correction:eldyrwild:lysandra-threat-direction-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}
