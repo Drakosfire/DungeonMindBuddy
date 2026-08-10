@@ -23,10 +23,14 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_resid
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
     snapshot_world_graph_tree_digest,
 )
+from apps.live_control_server.services import (
+    eldyrwild_lysandra_threat_direction_correction as svc,
+)
 from apps.live_control_server.services.eldyrwild_lysandra_threat_direction_correction import (
     APPROVED_CORRECTION_RELPATH,
     CAMPAIGN_ID,
     LOCKED_CORRECTION_CONTRIBUTION_ID,
+    LOCKED_CORRECTION_RAW_ARTIFACT_SHA256,
     LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256,
     LOCKED_SOURCE_ARTIFACT_ID,
     REPLACEMENT_ASSERTION_ID,
@@ -51,6 +55,10 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRequest,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphNode
+from graph_memory.world_supergraph.contribution_store import (
+    load_contribution_record,
+    write_contribution_record,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 SOURCE_SEAL_PATH = (
@@ -61,7 +69,6 @@ ADJUDICATION_PATH = (
     REPO
     / "tests/fixtures/dungeonmind_kernel/eldyrwild_relationship_residual_adjudication_v1.json"
 )
-BASELINE_REBUILD_DIGEST_MISMATCH_CONTRIBUTION = "contribution:d3d244474789879c"
 
 
 def _clone_eldyrwild(tmp_path: Path) -> Path:
@@ -115,9 +122,33 @@ def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _assert_rebuild_equivalent(root: Path, revision_id: str) -> list[str]:
+    pinned = kernel.rebuild_from_contributions(
+        root,
+        world_id=ELDYRWILD_WORLD_ID,
+        compare_revision_id=revision_id,
+        publish=False,
+    )
+    unpinned = kernel.rebuild_from_contributions(
+        root,
+        world_id=ELDYRWILD_WORLD_ID,
+        publish=False,
+    )
+    pinned_diag = list(getattr(pinned, "diagnostics", []) or [])
+    unpinned_diag = list(getattr(unpinned, "diagnostics", []) or [])
+    assert "rebuild_equivalent_to_pinned_revision" in pinned_diag
+    assert (
+        "rebuild_equivalent_to_head" in unpinned_diag
+        or "rebuild_equivalent_to_published_head" in unpinned_diag
+    )
+    return pinned_diag + unpinned_diag
+
+
 def test_approved_correction_artifact_locks_identity_and_target() -> None:
     contribution = load_approved_lysandra_threat_direction_correction(repo=REPO)
     digest = kernel.compute_contribution_source_payload_sha256(contribution)
+    raw = (REPO / APPROVED_CORRECTION_RELPATH).read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == LOCKED_CORRECTION_RAW_ARTIFACT_SHA256
     assert contribution.contribution_id == LOCKED_CORRECTION_CONTRIBUTION_ID
     assert digest == LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
     assert len(contribution.accepted_assertions) == 1
@@ -138,7 +169,7 @@ def test_approved_correction_artifact_locks_identity_and_target() -> None:
     assert artifacts and artifacts[0].get("campaign_id") == CAMPAIGN_ID
 
 
-def test_tampered_correction_artifact_fails_closed(tmp_path: Path) -> None:
+def test_semantic_tamper_fails_as_integrity_failure(tmp_path: Path) -> None:
     src = REPO / APPROVED_CORRECTION_RELPATH
     dst_repo = tmp_path / "repo"
     dst = dst_repo / APPROVED_CORRECTION_RELPATH
@@ -148,7 +179,25 @@ def test_tampered_correction_artifact_fails_closed(tmp_path: Path) -> None:
     dst.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     with pytest.raises(LysandraThreatDirectionCorrectionError) as exc:
         load_approved_lysandra_threat_direction_correction(repo=dst_repo)
-    assert exc.value.code == "correction_artifact_tampered"
+    assert exc.value.code == "integrity_failure"
+    st = get_lysandra_threat_direction_correction_status(root=tmp_path, repo=dst_repo)
+    assert st.eligibility == "integrity_failure"
+
+
+def test_raw_byte_tamper_fails_as_integrity_failure(tmp_path: Path) -> None:
+    src = REPO / APPROVED_CORRECTION_RELPATH
+    dst_repo = tmp_path / "repo"
+    dst = dst_repo / APPROVED_CORRECTION_RELPATH
+    dst.parent.mkdir(parents=True)
+    # Preserve semantic JSON while changing raw bytes (trailing spaces).
+    payload = json.loads(src.read_text(encoding="utf-8"))
+    dst.write_text(json.dumps(payload, indent=2) + "\n  \n", encoding="utf-8")
+    assert hashlib.sha256(dst.read_bytes()).hexdigest() != (
+        LOCKED_CORRECTION_RAW_ARTIFACT_SHA256
+    )
+    with pytest.raises(LysandraThreatDirectionCorrectionError) as exc:
+        load_approved_lysandra_threat_direction_correction(repo=dst_repo)
+    assert exc.value.code == "integrity_failure"
 
 
 def test_real_clone_status_is_eligible(tmp_path: Path) -> None:
@@ -192,9 +241,182 @@ def test_stale_parent_fails_closed(tmp_path: Path) -> None:
             root=root,
             repo=REPO,
         )
-    assert exc.value.code == "ineligible_parent"
+    assert exc.value.code == "stale_expected_parent"
     head, _, _ = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
     assert head.head_revision_id == advanced
+
+
+def test_live_root_apply_requires_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    head = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)[0].head_revision_id
+    monkeypatch.setattr(svc, "live_world_graph_root", lambda: root)
+    monkeypatch.setattr(svc, "world_graph_root", lambda: root)
+    with pytest.raises(LysandraThreatDirectionCorrectionError) as exc:
+        apply_lysandra_threat_direction_correction(
+            expected_parent_revision_id=head,
+            root=root,
+            repo=REPO,
+            allow_live_world=False,
+        )
+    assert exc.value.code == "live_world_opt_in_required"
+    # status remains allowed on live root
+    st = get_lysandra_threat_direction_correction_status(root=root, repo=REPO)
+    assert st.eligibility == "eligible"
+
+
+def test_multi_support_is_ineligible(tmp_path: Path) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    parent = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)[0].head_revision_id
+    store = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
+    support = dict(store.assertion_support[TARGET_ASSERTION_ID])
+    fake = "contribution:fake-second-support"
+    support["active_contribution_ids"] = [TARGET_CONTRIBUTION_ID, fake]
+    per_ev = dict(support.get("per_contribution_evidence_ref_ids") or {})
+    per_art = dict(support.get("per_contribution_source_artifact_ids") or {})
+    per_ev[fake] = list(per_ev.get(TARGET_CONTRIBUTION_ID) or support.get("evidence_ref_ids") or [])
+    per_art[fake] = list(
+        per_art.get(TARGET_CONTRIBUTION_ID) or support.get("source_artifact_ids") or []
+    )
+    support["per_contribution_evidence_ref_ids"] = per_ev
+    support["per_contribution_source_artifact_ids"] = per_art
+    store.assertion_support[TARGET_ASSERTION_ID] = support
+    advanced = kernel.publish_world_revision(
+        root,
+        ELDYRWILD_WORLD_ID,
+        store,
+        operation_ids=["op:lysandra-multi-support-probe"],
+    ).revision.revision_id
+    st = get_lysandra_threat_direction_correction_status(
+        root=root, expected_parent_revision_id=advanced, repo=REPO
+    )
+    assert st.eligibility == "ineligible"
+    assert "target_support_not_sole" in st.diagnostics
+
+
+def test_x_not_effective_residual_is_ineligible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _clone_eldyrwild(tmp_path)
+
+    class _Eff:
+        remaining_residual_edge_ids: list[str] = []
+
+    monkeypatch.setattr(
+        svc,
+        "analyze_relationship_effective_conformance_v1",
+        lambda **kwargs: _Eff(),
+    )
+    st = get_lysandra_threat_direction_correction_status(root=root, repo=REPO)
+    assert st.eligibility == "ineligible"
+    assert "target_not_effective_residual" in st.diagnostics
+
+
+def test_unrelated_current_xprime_is_ineligible(tmp_path: Path) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    parent = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)[0].head_revision_id
+    store = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
+    unrelated = "contribution:unrelated-xprime-authority"
+    target = dict(store.assertion_support[TARGET_ASSERTION_ID])
+    evidence_ids = list(target.get("evidence_ref_ids") or [])
+    artifact_ids = list(target.get("source_artifact_ids") or [])
+    store.edges[REPLACEMENT_EDGE_ID] = store.edges[TARGET_EDGE_ID].model_copy(
+        update={
+            "edge_id": REPLACEMENT_EDGE_ID,
+            "source_node_id": REPLACEMENT_SOURCE_NODE_ID,
+            "target_node_id": REPLACEMENT_TARGET_NODE_ID,
+            "predicate": REPLACEMENT_PREDICATE,
+        }
+    )
+    store.assertion_support[REPLACEMENT_ASSERTION_ID] = {
+        "assertion_id": REPLACEMENT_ASSERTION_ID,
+        "assertion_kind": "edge",
+        "graph_object_id": REPLACEMENT_EDGE_ID,
+        "support_state": "supported",
+        "active_contribution_ids": [unrelated],
+        "contradicted_contribution_ids": [],
+        "superseded_contribution_ids": [],
+        "retracted_contribution_ids": [],
+        "introduced_by_contribution_id": unrelated,
+        "evidence_ref_ids": evidence_ids,
+        "source_artifact_ids": artifact_ids,
+        "provenance_lineage_version": 1,
+        "per_contribution_evidence_ref_ids": {unrelated: evidence_ids},
+        "per_contribution_source_artifact_ids": {unrelated: artifact_ids},
+    }
+    advanced = kernel.publish_world_revision(
+        root,
+        ELDYRWILD_WORLD_ID,
+        store,
+        operation_ids=["op:lysandra-unrelated-xprime-probe"],
+    ).revision.revision_id
+    st = get_lysandra_threat_direction_correction_status(
+        root=root, expected_parent_revision_id=advanced, repo=REPO
+    )
+    assert st.eligibility == "ineligible"
+    assert "replacement_unrelated_current_authority" in st.diagnostics
+
+
+def test_false_positive_already_applied_without_revision_bound_c(
+    tmp_path: Path,
+) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    parent = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)[0].head_revision_id
+    store = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
+    # Shape looks corrected, but C is not revision-bound.
+    target = dict(store.assertion_support[TARGET_ASSERTION_ID])
+    evidence_ids = list(target.get("evidence_ref_ids") or [])
+    artifact_ids = list(target.get("source_artifact_ids") or [])
+    store.assertion_support[TARGET_ASSERTION_ID] = {
+        **target,
+        "support_state": "contradicted",
+        "active_contribution_ids": [],
+        "contradicted_contribution_ids": [TARGET_CONTRIBUTION_ID],
+        "per_contribution_evidence_ref_ids": {},
+        "per_contribution_source_artifact_ids": {},
+        "evidence_ref_ids": evidence_ids,
+        "source_artifact_ids": artifact_ids,
+    }
+    store.edges[REPLACEMENT_EDGE_ID] = store.edges[TARGET_EDGE_ID].model_copy(
+        update={
+            "edge_id": REPLACEMENT_EDGE_ID,
+            "source_node_id": REPLACEMENT_SOURCE_NODE_ID,
+            "target_node_id": REPLACEMENT_TARGET_NODE_ID,
+            "predicate": REPLACEMENT_PREDICATE,
+        }
+    )
+    store.assertion_support[REPLACEMENT_ASSERTION_ID] = {
+        "assertion_id": REPLACEMENT_ASSERTION_ID,
+        "assertion_kind": "edge",
+        "graph_object_id": REPLACEMENT_EDGE_ID,
+        "support_state": "supported",
+        "active_contribution_ids": [LOCKED_CORRECTION_CONTRIBUTION_ID],
+        "contradicted_contribution_ids": [],
+        "superseded_contribution_ids": [],
+        "retracted_contribution_ids": [],
+        "introduced_by_contribution_id": LOCKED_CORRECTION_CONTRIBUTION_ID,
+        "evidence_ref_ids": evidence_ids,
+        "source_artifact_ids": artifact_ids,
+        "provenance_lineage_version": 1,
+        "per_contribution_evidence_ref_ids": {
+            LOCKED_CORRECTION_CONTRIBUTION_ID: evidence_ids
+        },
+        "per_contribution_source_artifact_ids": {
+            LOCKED_CORRECTION_CONTRIBUTION_ID: artifact_ids
+        },
+    }
+    advanced = kernel.publish_world_revision(
+        root,
+        ELDYRWILD_WORLD_ID,
+        store,
+        operation_ids=["op:lysandra-false-already-applied-probe"],
+    ).revision.revision_id
+    st = get_lysandra_threat_direction_correction_status(
+        root=root, expected_parent_revision_id=advanced, repo=REPO
+    )
+    assert st.eligibility == "integrity_failure"
+    assert st.eligibility != "already_applied"
 
 
 def test_real_clone_apply_preserves_history_and_parent_relative_conformance(
@@ -209,14 +431,8 @@ def test_real_clone_apply_preserves_history_and_parent_relative_conformance(
     parent = status.head_revision_id
     assert parent
 
-    # Baseline: full-world rebuild already fails on this Eldyrwild store.
-    with pytest.raises(ValueError, match=BASELINE_REBUILD_DIGEST_MISMATCH_CONTRIBUTION):
-        kernel.rebuild_from_contributions(
-            root,
-            world_id=ELDYRWILD_WORLD_ID,
-            compare_revision_id=parent,
-            publish=False,
-        )
+    # Healed baseline: pinned + unpinned rebuild of P must succeed.
+    _assert_rebuild_equivalent(root, parent)
 
     store_p = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
     siblings_p = _sibling_support_fingerprint(store_p)
@@ -266,6 +482,18 @@ def test_real_clone_apply_preserves_history_and_parent_relative_conformance(
     artifact = store_q.source_artifacts[LOCKED_SOURCE_ARTIFACT_ID]
     assert artifact.campaign_id == CAMPAIGN_ID
 
+    digests = store_q.contribution_source_payload_sha256 or {}
+    assert digests.get(LOCKED_CORRECTION_CONTRIBUTION_ID) == (
+        LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    ledger_c = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    )
+    assert (
+        kernel.compute_contribution_source_payload_sha256(ledger_c)
+        == LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+
     siblings_q = _sibling_support_fingerprint(store_q)
     for assertion_id, before_row in siblings_p.items():
         if assertion_id == TARGET_ASSERTION_ID:
@@ -309,32 +537,33 @@ def test_real_clone_apply_preserves_history_and_parent_relative_conformance(
     assert TARGET_EDGE_ID not in eff_q.remaining_residual_edge_ids
     assert REPLACEMENT_EDGE_ID not in eff_q.remaining_residual_edge_ids
 
-    # Exact retry is idempotent.
+    # Non-waivable: Q pinned + unpinned rebuild must succeed.
+    _assert_rebuild_equivalent(root, child)
+
+    # Exact retry on Q is idempotent.
     retry = apply_lysandra_threat_direction_correction(
         expected_parent_revision_id=child,
         root=root,
         repo=REPO,
     )
     assert retry.published is False
+    assert retry.eligibility == "already_applied"
     assert retry.revision_id == child
     head, _, _ = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
     assert head.head_revision_id == child
     status_after = get_lysandra_threat_direction_correction_status(root=root, repo=REPO)
     assert status_after.eligibility == "already_applied"
 
-    # Correction C is revision-bound with locked digest even though full-world
-    # rebuild remains blocked by a pre-existing unrelated contribution mismatch.
-    digests = store_q.contribution_source_payload_sha256 or {}
-    assert digests.get(LOCKED_CORRECTION_CONTRIBUTION_ID) == (
-        LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
-    )
-    with pytest.raises(ValueError, match=BASELINE_REBUILD_DIGEST_MISMATCH_CONTRIBUTION):
-        kernel.rebuild_from_contributions(
-            root,
-            world_id=ELDYRWILD_WORLD_ID,
-            compare_revision_id=child,
-            publish=False,
+    # Stale P retry after Q must not publish and must not claim already_applied.
+    with pytest.raises(LysandraThreatDirectionCorrectionError) as stale_exc:
+        apply_lysandra_threat_direction_correction(
+            expected_parent_revision_id=parent,
+            root=root,
+            repo=REPO,
         )
+    assert stale_exc.value.code == "stale_expected_parent"
+    head2, _, _ = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
+    assert head2.head_revision_id == child
 
     assert _file_sha256(SOURCE_SEAL_PATH) == seal_before
     assert _file_sha256(ADJUDICATION_PATH) == adj_before
@@ -412,3 +641,26 @@ def test_cli_status_and_apply_round_trip(tmp_path: Path) -> None:
     assert (
         store.assertion_support[REPLACEMENT_ASSERTION_ID]["support_state"] == "supported"
     )
+
+
+def test_mutable_c_tamper_after_apply_is_integrity_failure(tmp_path: Path) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    parent = get_lysandra_threat_direction_correction_status(
+        root=root, repo=REPO
+    ).head_revision_id
+    assert parent
+    result = apply_lysandra_threat_direction_correction(
+        expected_parent_revision_id=parent,
+        root=root,
+        repo=REPO,
+    )
+    child = result.revision_id
+    assert child
+    ledger = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+    )
+    tampered = ledger.model_copy(update={"produced_at": "2099-01-01T00:00:00Z"})
+    write_contribution_record(root, ELDYRWILD_WORLD_ID, tampered)
+    st = get_lysandra_threat_direction_correction_status(root=root, repo=REPO)
+    assert st.eligibility == "integrity_failure"
+    assert st.head_revision_id == child
