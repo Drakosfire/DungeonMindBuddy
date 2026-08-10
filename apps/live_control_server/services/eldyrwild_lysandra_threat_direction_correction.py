@@ -10,6 +10,7 @@ replacement semantics.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Literal
@@ -17,10 +18,17 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 import graph_memory.kernel as kernel
-from apps.live_control_server.config import repo_root, world_graph_root
+from apps.live_control_server.config import (
+    live_world_graph_root,
+    repo_root,
+    world_graph_root,
+)
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_continuity_v1 import (
     analyze_relationship_adjudication_continuity_v1,
     prove_revision_is_anchor_or_descendant_v1,
+)
+from apps.live_control_server.integrations.dungeonmind_kernel.relationship_effective_conformance_v1 import (
+    analyze_relationship_effective_conformance_v1,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_residual_adjudication import (
     ELDYRWILD_REVISION_ID,
@@ -57,12 +65,17 @@ LOCKED_CORRECTION_CONTRIBUTION_ID = "contribution:4c65f668dc95ef4f"
 LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256 = (
     "78d4d7118c3ba71ed0f930157bcd2343c675ccab8544580ff0aa506aa9ec0c5d"
 )
+LOCKED_CORRECTION_RAW_ARTIFACT_SHA256 = (
+    "ff0e07b1eee2085f8a6e8280e431e4d8d1eefa809b929538afe9f3f79a2c2518"
+)
 LOCKED_SOURCE_ARTIFACT_ID = (
     "graph-native:eldyrwild-correction:lysandra-threat-direction-v1"
 )
 LOCKED_SOURCE_REVISION_ID = "correction:eldyrwild:lysandra-threat-direction-v1"
 
-EligibilityState = Literal["eligible", "already_applied", "ineligible"]
+EligibilityState = Literal[
+    "eligible", "already_applied", "ineligible", "integrity_failure"
+]
 
 
 class _Model(BaseModel):
@@ -86,6 +99,7 @@ class LysandraThreatDirectionCorrectionStatus(_Model):
     replacement_assertion_id: str = REPLACEMENT_ASSERTION_ID
     correction_contribution_id: str = LOCKED_CORRECTION_CONTRIBUTION_ID
     correction_source_payload_sha256: str = LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
+    correction_raw_artifact_sha256: str = LOCKED_CORRECTION_RAW_ARTIFACT_SHA256
     continuity_state: str | None = None
     source_grounding_verified: bool | None = None
     durable_shape_verified: bool | None = None
@@ -126,6 +140,37 @@ def _resolve_root(root: Path | None) -> Path:
     return (root or world_graph_root()).resolve()
 
 
+def _is_canonical_live_root(resolved: Path) -> bool:
+    return resolved == live_world_graph_root().resolve()
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _status(
+    *,
+    eligibility: EligibilityState,
+    reason: str | None,
+    diagnostics: list[str],
+    head_revision_id: str | None = None,
+    continuity_state: str | None = None,
+    source_grounding_verified: bool | None = None,
+    durable_shape_verified: bool | None = None,
+) -> LysandraThreatDirectionCorrectionStatus:
+    return LysandraThreatDirectionCorrectionStatus(
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        head_revision_id=head_revision_id,
+        eligibility=eligibility,
+        reason=reason,
+        continuity_state=continuity_state,
+        source_grounding_verified=source_grounding_verified,
+        durable_shape_verified=durable_shape_verified,
+        diagnostics=diagnostics,
+    )
+
+
 def load_approved_lysandra_threat_direction_correction(
     *,
     repo: Path | None = None,
@@ -138,8 +183,10 @@ def load_approved_lysandra_threat_direction_correction(
             code="correction_artifact_missing",
             status_code=500,
         )
+    raw = path.read_bytes()
+    raw_sha = _sha256_bytes(raw)
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(raw.decode("utf-8"))
         contribution = GraphContribution.model_validate(payload)
     except Exception as exc:  # noqa: BLE001 - surface as integrity failure
         raise LysandraThreatDirectionCorrectionError(
@@ -150,6 +197,8 @@ def load_approved_lysandra_threat_direction_correction(
 
     digest = kernel.compute_contribution_source_payload_sha256(contribution)
     errors: list[str] = []
+    if raw_sha != LOCKED_CORRECTION_RAW_ARTIFACT_SHA256:
+        errors.append("raw artifact sha256 mismatch vs locked authority")
     if contribution.contribution_id != LOCKED_CORRECTION_CONTRIBUTION_ID:
         errors.append("contribution_id mismatch vs locked authority")
     if digest != LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256:
@@ -208,13 +257,13 @@ def load_approved_lysandra_threat_direction_correction(
     if errors:
         raise LysandraThreatDirectionCorrectionError(
             "approved correction artifact integrity failure: " + "; ".join(errors),
-            code="correction_artifact_tampered",
+            code="integrity_failure",
             status_code=400,
         )
     return contribution
 
 
-def _already_applied(store: Any, contribution: GraphContribution) -> bool:
+def _support_shape_suggests_applied(store: Any) -> bool:
     support = store.assertion_support.get(TARGET_ASSERTION_ID)
     if not isinstance(support, dict):
         return False
@@ -228,9 +277,6 @@ def _already_applied(store: Any, contribution: GraphContribution) -> bool:
         return False
     if replacement_support.get("support_state") != "supported":
         return False
-    active = set(replacement_support.get("active_contribution_ids") or [])
-    if contribution.contribution_id not in active:
-        return False
     edge = store.edges.get(REPLACEMENT_EDGE_ID)
     if edge is None:
         return False
@@ -241,19 +287,164 @@ def _already_applied(store: Any, contribution: GraphContribution) -> bool:
     )
 
 
+def _manifest_entry(store: Any, contribution_id: str) -> Any | None:
+    for entry in store.contribution_replay_manifest or []:
+        cid = getattr(entry, "contribution_id", None)
+        if cid is None and isinstance(entry, dict):
+            cid = entry.get("contribution_id")
+        if cid == contribution_id:
+            return entry
+    return None
+
+
+def _revision_bound_correction_authority(
+    *,
+    root: Path,
+    store: Any,
+) -> tuple[bool, list[str]]:
+    """Exact revision-bound + mutable-ledger proof that C is the active correction."""
+    diagnostics: list[str] = []
+    digests = store.contribution_source_payload_sha256 or {}
+    bound = digests.get(LOCKED_CORRECTION_CONTRIBUTION_ID)
+    if bound != LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256:
+        diagnostics.append("revision_digest_mismatch_or_missing")
+        return False, diagnostics
+
+    entry = _manifest_entry(store, LOCKED_CORRECTION_CONTRIBUTION_ID)
+    if entry is None:
+        diagnostics.append("replay_manifest_missing_C")
+        return False, diagnostics
+    status = getattr(entry, "status", None)
+    if status is None and isinstance(entry, dict):
+        status = entry.get("status")
+    digest = getattr(entry, "source_payload_sha256", None)
+    if digest is None and isinstance(entry, dict):
+        digest = entry.get("source_payload_sha256")
+    if status != "active":
+        diagnostics.append("replay_manifest_C_not_active")
+        return False, diagnostics
+    if digest != LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256:
+        diagnostics.append("replay_manifest_C_digest_mismatch")
+        return False, diagnostics
+
+    try:
+        ledger = load_contribution_record(
+            root, WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
+        )
+    except FileNotFoundError:
+        diagnostics.append("mutable_C_ledger_missing")
+        return False, diagnostics
+    if ledger.contribution_id != LOCKED_CORRECTION_CONTRIBUTION_ID:
+        diagnostics.append("mutable_C_id_mismatch")
+        return False, diagnostics
+    ledger_digest = kernel.compute_contribution_source_payload_sha256(ledger)
+    if ledger_digest != LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256:
+        diagnostics.append("mutable_C_digest_mismatch")
+        return False, diagnostics
+    if ledger.status not in {"active", "superseded", "retracted"}:
+        diagnostics.append("mutable_C_lifecycle_incoherent")
+        return False, diagnostics
+    if ledger.status != "active":
+        # Current-head replay requires active; superseded/retracted ledger is
+        # incompatible with an active manifest entry for already_applied.
+        diagnostics.append("mutable_C_not_active")
+        return False, diagnostics
+
+    replacement_support = store.assertion_support.get(REPLACEMENT_ASSERTION_ID)
+    if not isinstance(replacement_support, dict):
+        diagnostics.append("replacement_support_missing")
+        return False, diagnostics
+    active = set(replacement_support.get("active_contribution_ids") or [])
+    if LOCKED_CORRECTION_CONTRIBUTION_ID not in active:
+        diagnostics.append("replacement_support_missing_C")
+        return False, diagnostics
+
+    if not _support_shape_suggests_applied(store):
+        diagnostics.append("support_shape_incomplete")
+        return False, diagnostics
+
+    return True, ["revision_bound_C_authority"]
+
+
+def _classify_applied_state(
+    *,
+    root: Path,
+    store: Any,
+    head_revision_id: str,
+) -> LysandraThreatDirectionCorrectionStatus | None:
+    authority_ok, auth_diag = _revision_bound_correction_authority(
+        root=root, store=store
+    )
+    if authority_ok:
+        return _status(
+            eligibility="already_applied",
+            reason="exact approved correction already revision-bound on head",
+            diagnostics=["already_applied", *auth_diag],
+            head_revision_id=head_revision_id,
+        )
+
+    shape = _support_shape_suggests_applied(store)
+    digests = store.contribution_source_payload_sha256 or {}
+    bound = digests.get(LOCKED_CORRECTION_CONTRIBUTION_ID)
+    if shape or bound is not None:
+        return _status(
+            eligibility="integrity_failure",
+            reason=(
+                "correction-shaped support or C digest present without exact "
+                "revision-bound C authority"
+            ),
+            diagnostics=["integrity_failure", *auth_diag],
+            head_revision_id=head_revision_id,
+        )
+    return None
+
+
+def _replacement_has_unrelated_current_authority(store: Any) -> bool:
+    edge = store.edges.get(REPLACEMENT_EDGE_ID)
+    if edge is None:
+        return False
+    if (
+        edge.source_node_id != REPLACEMENT_SOURCE_NODE_ID
+        or edge.target_node_id != REPLACEMENT_TARGET_NODE_ID
+        or edge.predicate != REPLACEMENT_PREDICATE
+    ):
+        return False
+    support = store.assertion_support.get(REPLACEMENT_ASSERTION_ID)
+    if not isinstance(support, dict):
+        # Edge exists with correct fingerprint but no replacement assertion
+        # support — treat structural presence alone as not "current authority".
+        # Also check any assertion_support rows that currently support this edge.
+        for assertion_id, row in (store.assertion_support or {}).items():
+            if not isinstance(row, dict):
+                continue
+            if row.get("support_state") != "supported":
+                continue
+            active = list(row.get("active_contribution_ids") or [])
+            if not active:
+                continue
+            # Heuristic: edge materialization with other supported assertions
+            # sharing this edge id via value is rare; fall through.
+            _ = assertion_id
+        return False
+    if support.get("support_state") != "supported":
+        return False
+    active = set(support.get("active_contribution_ids") or [])
+    if not active:
+        return False
+    # Any active current authority that is not exactly our locked C is unrelated.
+    return active != {LOCKED_CORRECTION_CONTRIBUTION_ID}
+
+
 def _preflight(
     *,
     root: Path,
     contribution: GraphContribution,
     expected_parent_revision_id: str | None,
 ) -> LysandraThreatDirectionCorrectionStatus:
-    diagnostics: list[str] = []
     try:
         head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
     except WorldGraphNotFoundError as exc:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
+        return _status(
             eligibility="ineligible",
             reason=f"world missing: {exc}",
             diagnostics=["world_missing"],
@@ -261,37 +452,32 @@ def _preflight(
 
     head_revision_id = head.head_revision_id
     if not head_revision_id:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
+        return _status(
             eligibility="ineligible",
             reason="Eldyrwild head revision is blank",
             diagnostics=["blank_head"],
         )
 
-    if _already_applied(store, contribution):
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
-            eligibility="already_applied",
-            reason="exact approved correction already current on head",
-            diagnostics=["already_applied"],
-        )
-
-    parent_for_proof = expected_parent_revision_id or head_revision_id
+    # Exact-head fence before already_applied so stale expected parents cannot
+    # masquerade as successful retries.
     if expected_parent_revision_id and expected_parent_revision_id != head_revision_id:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=(
                 f"expected parent {expected_parent_revision_id!r} is stale; "
                 f"current head is {head_revision_id!r}"
             ),
             diagnostics=["stale_expected_parent"],
+            head_revision_id=head_revision_id,
         )
+
+    applied = _classify_applied_state(
+        root=root, store=store, head_revision_id=head_revision_id
+    )
+    if applied is not None:
+        return applied
+
+    parent_for_proof = expected_parent_revision_id or head_revision_id
 
     ok, diagnostic, detail = prove_revision_is_anchor_or_descendant_v1(
         root=root,
@@ -301,16 +487,14 @@ def _preflight(
         anchor_world_id=WORLD_ID,
     )
     if not ok:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=detail or "parent is not adjudication anchor or descendant",
             diagnostics=[
                 "ancestry_unproven",
-                *( [str(diagnostic)] if diagnostic else [] ),
+                *([str(diagnostic)] if diagnostic else []),
             ],
+            head_revision_id=head_revision_id,
         )
 
     continuity = analyze_relationship_adjudication_continuity_v1(
@@ -323,40 +507,34 @@ def _preflight(
         None,
     )
     if row is None:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason="target edge missing from continuity report",
             diagnostics=["continuity_row_missing"],
+            head_revision_id=head_revision_id,
         )
     if row.continuity_state not in {"ANCHOR", "CARRIED_FORWARD"}:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=(
                 f"target continuity_state is {row.continuity_state!r}, "
                 "expected ANCHOR or CARRIED_FORWARD"
             ),
+            diagnostics=["continuity_inactive", row.continuity_state],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=row.source_grounding_verified,
             durable_shape_verified=row.durable_shape_verified,
-            diagnostics=["continuity_inactive", row.continuity_state],
         )
     if not row.source_grounding_verified or not row.durable_shape_verified:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason="target source grounding or durable shape not verified",
+            diagnostics=["continuity_unverified"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=row.source_grounding_verified,
             durable_shape_verified=row.durable_shape_verified,
-            diagnostics=["continuity_unverified"],
         )
 
     try:
@@ -364,31 +542,27 @@ def _preflight(
             root, WORLD_ID, TARGET_CONTRIBUTION_ID
         )
     except FileNotFoundError:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=f"target contribution missing: {TARGET_CONTRIBUTION_ID}",
+            diagnostics=["target_contribution_missing"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["target_contribution_missing"],
         )
     if target_contribution.status != "active":
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=(
                 f"target contribution status is {target_contribution.status!r}, "
                 "expected active"
             ),
+            diagnostics=["target_contribution_inactive"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["target_contribution_inactive"],
         )
 
     target_assertion = next(
@@ -400,80 +574,70 @@ def _preflight(
         None,
     )
     if target_assertion is None or target_assertion.assertion_kind != "edge":
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason="target assertion missing or not an accepted edge assertion",
+            diagnostics=["target_assertion_missing"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["target_assertion_missing"],
         )
 
     support = store.assertion_support.get(TARGET_ASSERTION_ID)
     if not isinstance(support, dict) or support.get("support_state") != "supported":
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason="target assertion support is not currently supported",
+            diagnostics=["target_support_not_supported"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["target_support_not_supported"],
         )
     active_ids = list(support.get("active_contribution_ids") or [])
     if active_ids != [TARGET_CONTRIBUTION_ID]:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=(
                 "target assertion must have exactly one active supporting "
                 f"contribution {TARGET_CONTRIBUTION_ID}; got {active_ids!r}"
             ),
+            diagnostics=["target_support_not_sole"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["target_support_not_sole"],
         )
 
     live_edge = store.edges.get(TARGET_EDGE_ID)
     if live_edge is None:
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=f"live defective edge missing: {TARGET_EDGE_ID}",
+            diagnostics=["live_edge_missing"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["live_edge_missing"],
         )
     if (
         live_edge.source_node_id != TARGET_SOURCE_NODE_ID
         or live_edge.target_node_id != TARGET_TARGET_NODE_ID
         or live_edge.predicate != TARGET_PREDICATE
     ):
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=(
                 "live defective edge shape drifted: "
                 f"{live_edge.source_node_id} --{live_edge.predicate}--> "
                 f"{live_edge.target_node_id}"
             ),
+            diagnostics=["live_edge_shape_drift"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["live_edge_shape_drift"],
         )
 
     existing_replacement = store.edges.get(REPLACEMENT_EDGE_ID)
@@ -482,21 +646,49 @@ def _preflight(
         or existing_replacement.target_node_id != REPLACEMENT_TARGET_NODE_ID
         or existing_replacement.predicate != REPLACEMENT_PREDICATE
     ):
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason=(
                 f"replacement edge id {REPLACEMENT_EDGE_ID} already exists with "
                 "conflicting structural fingerprint"
             ),
+            diagnostics=["replacement_edge_collision"],
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=["replacement_edge_collision"],
         )
 
+    if _replacement_has_unrelated_current_authority(store):
+        return _status(
+            eligibility="ineligible",
+            reason=(
+                "replacement edge already current from unrelated active authority"
+            ),
+            diagnostics=["replacement_unrelated_current_authority"],
+            head_revision_id=head_revision_id,
+            continuity_state=row.continuity_state,
+            source_grounding_verified=True,
+            durable_shape_verified=True,
+        )
+
+    eff = analyze_relationship_effective_conformance_v1(
+        root=root,
+        world_id=WORLD_ID,
+        revision_id=parent_for_proof,
+    )
+    if TARGET_EDGE_ID not in eff.remaining_residual_edge_ids:
+        return _status(
+            eligibility="ineligible",
+            reason="target edge is not in the parent's effective residual set",
+            diagnostics=["target_not_effective_residual"],
+            head_revision_id=head_revision_id,
+            continuity_state=row.continuity_state,
+            source_grounding_verified=True,
+            durable_shape_verified=True,
+        )
+
+    diagnostics: list[str] = []
     if target_assertion.campaign_scope != contribution.accepted_assertions[0].campaign_scope:
         diagnostics.append("scope_campaign_mismatch")
     if target_assertion.visibility != contribution.accepted_assertions[0].visibility:
@@ -506,28 +698,24 @@ def _preflight(
     if target_assertion.temporal_scope != contribution.accepted_assertions[0].temporal_scope:
         diagnostics.append("scope_temporal_mismatch")
     if any(d.startswith("scope_") for d in diagnostics):
-        return LysandraThreatDirectionCorrectionStatus(
-            world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            head_revision_id=head_revision_id,
+        return _status(
             eligibility="ineligible",
             reason="replacement scope fields do not match the exact target assertion",
+            diagnostics=diagnostics,
+            head_revision_id=head_revision_id,
             continuity_state=row.continuity_state,
             source_grounding_verified=True,
             durable_shape_verified=True,
-            diagnostics=diagnostics,
         )
 
-    return LysandraThreatDirectionCorrectionStatus(
-        world_id=WORLD_ID,
-        campaign_id=CAMPAIGN_ID,
-        head_revision_id=head_revision_id,
+    return _status(
         eligibility="eligible",
         reason="parent is eligible for the locked Lysandra threat-direction correction",
+        diagnostics=["eligible", *diagnostics],
+        head_revision_id=head_revision_id,
         continuity_state=row.continuity_state,
         source_grounding_verified=True,
         durable_shape_verified=True,
-        diagnostics=["eligible", *diagnostics],
     )
 
 
@@ -538,7 +726,21 @@ def get_lysandra_threat_direction_correction_status(
     repo: Path | None = None,
 ) -> LysandraThreatDirectionCorrectionStatus:
     """Read-only eligibility/status against the locked correction artifact."""
-    contribution = load_approved_lysandra_threat_direction_correction(repo=repo)
+    try:
+        contribution = load_approved_lysandra_threat_direction_correction(repo=repo)
+    except LysandraThreatDirectionCorrectionError as exc:
+        if exc.code in {
+            "integrity_failure",
+            "correction_artifact_invalid",
+            "correction_artifact_missing",
+            "correction_artifact_tampered",
+        }:
+            return _status(
+                eligibility="integrity_failure",
+                reason=str(exc),
+                diagnostics=["integrity_failure", exc.code],
+            )
+        raise
     return _preflight(
         root=_resolve_root(root),
         contribution=contribution,
@@ -551,6 +753,7 @@ def apply_lysandra_threat_direction_correction(
     expected_parent_revision_id: str,
     root: Path | None = None,
     repo: Path | None = None,
+    allow_live_world: bool = False,
 ) -> LysandraThreatDirectionCorrectionResult:
     """Apply the locked correction to an exact eligible Eldyrwild parent."""
     if not expected_parent_revision_id or not expected_parent_revision_id.strip():
@@ -560,16 +763,66 @@ def apply_lysandra_threat_direction_correction(
         )
     expected = expected_parent_revision_id.strip()
     world_root = _resolve_root(root)
+    if _is_canonical_live_root(world_root) and not allow_live_world:
+        raise LysandraThreatDirectionCorrectionError(
+            "canonical live world root requires allow_live_world=True",
+            code="live_world_opt_in_required",
+        )
+
     contribution = load_approved_lysandra_threat_direction_correction(repo=repo)
+
+    # Exact-head fence is an apply precondition, including already_applied retries.
+    try:
+        head_probe, _, _ = kernel.open_current_world_graph(world_root, WORLD_ID)
+    except WorldGraphNotFoundError as exc:
+        raise LysandraThreatDirectionCorrectionError(
+            f"world missing: {exc}",
+            code="ineligible_parent",
+        ) from exc
+    if head_probe.head_revision_id != expected:
+        raise LysandraThreatDirectionCorrectionError(
+            (
+                f"expected parent {expected!r} is stale; "
+                f"current head is {head_probe.head_revision_id!r}"
+            ),
+            code="stale_expected_parent",
+        )
+
     status = _preflight(
         root=world_root,
         contribution=contribution,
         expected_parent_revision_id=expected,
     )
-    if status.eligibility not in {"eligible", "already_applied"}:
+    if status.eligibility == "already_applied":
+        return LysandraThreatDirectionCorrectionResult(
+            world_id=WORLD_ID,
+            expected_parent_revision_id=expected,
+            parent_revision_id=expected,
+            revision_id=status.head_revision_id,
+            published=False,
+            eligibility="already_applied",
+            diagnostics=[*status.diagnostics, "already_applied_noop"],
+        )
+    if status.eligibility == "integrity_failure":
+        raise LysandraThreatDirectionCorrectionError(
+            status.reason or "integrity failure",
+            code="integrity_failure",
+        )
+    if status.eligibility != "eligible":
         raise LysandraThreatDirectionCorrectionError(
             status.reason or "parent is ineligible for Lysandra correction",
             code="ineligible_parent",
+        )
+
+    # Re-read head immediately before Kernel publication.
+    head_now, _, _ = kernel.open_current_world_graph(world_root, WORLD_ID)
+    if head_now.head_revision_id != expected:
+        raise LysandraThreatDirectionCorrectionError(
+            (
+                f"expected parent {expected!r} is stale; "
+                f"current head is {head_now.head_revision_id!r}"
+            ),
+            code="stale_expected_parent",
         )
 
     try:

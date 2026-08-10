@@ -4,7 +4,7 @@
 Usage:
   python scripts/apply_eldyrwild_lysandra_threat_direction_correction.py status [--root PATH]
   python scripts/apply_eldyrwild_lysandra_threat_direction_correction.py apply \\
-      --expected-parent-revision-id REV [--root PATH]
+      --expected-parent-revision-id REV [--root PATH] [--allow-live-world]
 """
 
 from __future__ import annotations
@@ -46,6 +46,11 @@ def main(argv: list[str] | None = None) -> int:
     apply = sub.add_parser("apply")
     apply.add_argument("--root", type=Path)
     apply.add_argument("--expected-parent-revision-id", required=True)
+    apply.add_argument(
+        "--allow-live-world",
+        action="store_true",
+        help="Required when --root resolves to the canonical live world root",
+    )
 
     args = parser.parse_args(argv)
     try:
@@ -61,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
             apply_lysandra_threat_direction_correction(
                 expected_parent_revision_id=args.expected_parent_revision_id,
                 root=args.root,
+                allow_live_world=bool(args.allow_live_world),
             )
         )
         return 0
