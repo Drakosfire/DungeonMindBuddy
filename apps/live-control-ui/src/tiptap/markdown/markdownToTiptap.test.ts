@@ -786,6 +786,45 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
+  it("round-trips sibling callouts inside one list item through blank-line boundaries", () => {
+    const doc = {
+      type: "doc",
+      content: [{
+        type: "bulletList",
+        content: [{
+          type: "listItem",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Choice" }] },
+            {
+              type: "callout",
+              attrs: { kind: "gm-note" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "First" }] }],
+            },
+            {
+              type: "callout",
+              attrs: { kind: "warning" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Second" }] }],
+            },
+          ],
+        }],
+      }],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(doc)).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(doc);
+    expect(exported).toBe([
+      "- Choice",
+      "  > [!GM-NOTE]",
+      "  > First",
+      "",
+      "  > [!WARNING]",
+      "  > Second",
+      "",
+    ].join("\n"));
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(doc);
+  });
+
   it("imports list-item Decision/Consequence pane ATX headings without false source-form diagnostics", () => {
     const markdown = [
       "- > [!DECISION-CONSEQUENCE]",

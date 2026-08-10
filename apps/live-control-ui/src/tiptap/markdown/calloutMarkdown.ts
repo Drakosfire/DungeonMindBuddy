@@ -203,7 +203,12 @@ function serializeListItem(node: JsonNode, marker: string): string {
   };
   const [first, ...rest] = parts;
   const head = serializeFirst(first);
-  const continuation = rest.length > 0 ? `\n${indentLines(rest.join("\n"), indent)}` : "";
+  // Sibling blocks need a true blank line between them so MDAST parses adjacent
+  // callouts/D/C as separate blockquotes. Indent each block first, then join
+  // with `\n\n` — indenting after join would turn the blank into spaces.
+  const continuation = rest.length > 0
+    ? `\n${rest.map((part) => indentLines(part, indent)).join("\n\n")}`
+    : "";
   return `${head}${continuation}`;
 }
 

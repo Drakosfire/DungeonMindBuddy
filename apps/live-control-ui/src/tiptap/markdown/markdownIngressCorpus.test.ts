@@ -471,6 +471,18 @@ const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
     note: "was a hole (PR #529 cycle 8): nested pane HR source-form uses relative body lines",
   },
   {
+    name: "list-item sibling callouts separated by blank line",
+    markdown: [
+      "- Choice",
+      "  > [!GM-NOTE]",
+      "  > First",
+      "",
+      "  > [!WARNING]",
+      "  > Second",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 10): serializer must emit blank boundaries so MDAST keeps sibling callouts",
+  },
+  {
     name: "list-item gm-note callout",
     markdown: "- Choice\n  > [!GM-NOTE]\n  > Something changes.",
   },

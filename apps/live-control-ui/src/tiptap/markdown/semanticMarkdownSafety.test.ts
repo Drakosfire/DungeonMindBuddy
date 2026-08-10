@@ -137,6 +137,31 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     expect(diagnostics.some((diagnostic) => diagnostic.message.includes("List item child table"))).toBe(true);
   });
 
+  it("accepts multiple sibling callouts inside one list item", () => {
+    expect(semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{
+        type: "bulletList",
+        content: [{
+          type: "listItem",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Choice" }] },
+            {
+              type: "callout",
+              attrs: { kind: "gm-note" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "First" }] }],
+            },
+            {
+              type: "callout",
+              attrs: { kind: "warning" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Second" }] }],
+            },
+          ],
+        }],
+      }],
+    })).toEqual([]);
+  });
+
   it("rejects orphan decision panes outside a paired block", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",
