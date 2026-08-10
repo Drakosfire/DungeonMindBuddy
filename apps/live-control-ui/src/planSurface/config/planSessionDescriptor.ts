@@ -7,6 +7,7 @@ import {
 } from "../../api/liveApi";
 import type { PlanViewProjection, WorkspaceDocumentRecord } from "../../api/types";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
+import { workspaceDocumentSelectionSearch } from "../../workspaceDocument/workspaceDocumentNavigation";
 import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../sessionCampaignContext";
 import type {
   PlanContextDescriptor,
@@ -34,19 +35,14 @@ export function workspaceDocumentStorageKey(documentId: string): string {
 }
 
 /**
- * Search string for switching the active Plan document. Sets `documentId` to
- * the exact opaque id and preserves every unrelated query parameter (graph
- * lens, session focus, tool state, dogfood flags). Never infers session or
- * campaign state from the document.
+ * Plan-facing alias for exact opaque `documentId` URL selection.
+ * Owned implementation: `workspaceDocumentSelectionSearch`.
  */
 export function planDocumentSelectionSearch(
   currentSearch: string | null | undefined,
   documentId: string,
 ): string {
-  const params = new URLSearchParams(currentSearch ?? "");
-  params.set("documentId", documentId);
-  const query = params.toString();
-  return query ? `?${query}` : "";
+  return workspaceDocumentSelectionSearch(currentSearch, documentId);
 }
 
 /**
