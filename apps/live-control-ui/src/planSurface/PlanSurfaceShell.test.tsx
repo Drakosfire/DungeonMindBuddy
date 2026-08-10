@@ -3479,5 +3479,164 @@ describe("PlanSurfaceShell", () => {
         }),
       );
     });
+
+    it("preserves unrelated query parameters when creating a prep", async () => {
+      await useActualResolvePlanningDocument();
+      vi.mocked(liveApi.getWorkspaceDocument).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentRecord({
+          document_id: id,
+          title: TITLES[id] ?? "C2 Session 23 Prep",
+          target_session: SESSIONS[id] ?? 23,
+        }),
+      );
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_A,
+            title: TITLES[DOC_A],
+            target_session: SESSIONS[DOC_A],
+          }),
+        ],
+      });
+      vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_B,
+          title: TITLES[DOC_B],
+          target_session: SESSIONS[DOC_B],
+        }),
+      );
+      window.history.pushState(
+        {},
+        "",
+        `/plan?dogfood=1&tool=recap&campaigns=longmont-c1,longmont-c2&documentId=${DOC_A}`,
+      );
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+
+      const user = userEvent.setup();
+      await openCreateForm(user);
+      await submitCreateForm(user);
+
+      await waitFor(() =>
+        expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_B));
+      const params = new URL(window.location.href).searchParams;
+      expect(params.get("dogfood")).toBe("1");
+      expect(params.get("tool")).toBe("recap");
+      expect(params.get("campaigns")).toBe("longmont-c1,longmont-c2");
+    });
+
+    it("restores the previous document on browser back after create", async () => {
+      await useActualResolvePlanningDocument();
+      vi.mocked(liveApi.getWorkspaceDocument).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentRecord({
+          document_id: id,
+          title: TITLES[id] ?? "C2 Session 23 Prep",
+          target_session: SESSIONS[id] ?? 23,
+        }),
+      );
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_A,
+            title: TITLES[DOC_A],
+            target_session: SESSIONS[DOC_A],
+          }),
+        ],
+      });
+      vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_B,
+          title: TITLES[DOC_B],
+          target_session: SESSIONS[DOC_B],
+        }),
+      );
+      window.history.pushState({}, "", `/plan?documentId=${DOC_A}`);
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+
+      const user = userEvent.setup();
+      await openCreateForm(user);
+      await submitCreateForm(user);
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 26 Prep"));
+
+      await act(async () => {
+        const popped = new Promise<void>((resolve) => {
+          window.addEventListener("popstate", () => resolve(), { once: true });
+        });
+        window.history.back();
+        await popped;
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep"));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_A);
+    });
+
+    it("recovers a dirty local draft after creating another prep and returning", async () => {
+      await useActualResolvePlanningDocument();
+      vi.mocked(liveApi.getWorkspaceDocument).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentRecord({
+          document_id: id,
+          title: TITLES[id] ?? "C2 Session 23 Prep",
+          target_session: SESSIONS[id] ?? 23,
+        }),
+      );
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+        fixtureWorkspaceDocumentSnapshot({
+          record: fixtureWorkspaceDocumentRecord({
+            document_id: id,
+            title: TITLES[id] ?? "C2 Session 23 Prep",
+            target_session: SESSIONS[id] ?? 23,
+          }),
+        }),
+      );
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_A,
+            title: TITLES[DOC_A],
+            target_session: SESSIONS[DOC_A],
+          }),
+        ],
+      });
+      vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_B,
+          title: TITLES[DOC_B],
+          target_session: SESSIONS[DOC_B],
+        }),
+      );
+      window.history.pushState({}, "", `/plan?documentId=${DOC_A}`);
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveAttribute(
+          "data-markdown-editor-status",
+          "ready",
+        ));
+      await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+      act(() => {
+        planShellTestEditor?.commands.insertContent(" Alpha draft before create");
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(
+          /Unsaved local changes/i,
+        ));
+
+      const user = userEvent.setup();
+      await openCreateForm(user);
+      await submitCreateForm(user);
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 26 Prep"));
+
+      await user.selectOptions(screen.getByTestId("plan-document-select"), DOC_A);
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep"));
+      await waitFor(() =>
+        expect(planShellTestEditor?.getText()).toContain("Alpha draft before create"));
+    });
   });
 });
