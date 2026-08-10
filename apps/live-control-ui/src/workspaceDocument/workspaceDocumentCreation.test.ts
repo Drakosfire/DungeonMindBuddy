@@ -102,8 +102,9 @@ describe("createWorkspaceDocumentCreationController", () => {
     const created = fixtureRecord();
     const create = vi.fn(async (_request: CreateWorkspaceDocumentRequest) => created);
     const controller = createWorkspaceDocumentCreationController({ create });
-    const record = await controller.create(planIntent);
-    expect(record.document_id).toBe(created.document_id);
+    const result = await controller.create(planIntent);
+    expect(result.record.document_id).toBe(created.document_id);
+    expect(result.intentCurrent).toBe(true);
     expect(controller.getState().phase).toBe("created");
     expect(create).toHaveBeenCalledTimes(1);
   });
@@ -161,7 +162,8 @@ describe("createWorkspaceDocumentCreationController", () => {
     })).rejects.toThrow(/open failed/);
 
     const again = await controller.create(planIntent);
-    expect(again.document_id).toBe(created.document_id);
+    expect(again.record.document_id).toBe(created.document_id);
+    expect(again.intentCurrent).toBe(true);
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -175,8 +177,8 @@ describe("createWorkspaceDocumentCreationController", () => {
     await expect(controller.create(planIntent)).rejects.toMatchObject({ code: "create_failed" });
     expect(controller.getState().record).toBeNull();
 
-    const record = await controller.create(planIntent);
-    expect(record.document_id).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    const result = await controller.create(planIntent);
+    expect(result.record.document_id).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
     expect(create).toHaveBeenCalledTimes(2);
   });
 
@@ -189,5 +191,95 @@ describe("createWorkspaceDocumentCreationController", () => {
     expect(result.applied).toBe(false);
     expect(controller.getState().phase).toBe("created");
     expect(controller.getState().error).toBeNull();
+  });
+
+  it("delayed create POST after supersede returns intentCurrent=false and does not retain reuse", async () => {
+    let resolveCreate: ((value: WorkspaceDocumentRecord) => void) | null = null;
+    const create = vi.fn(
+      () =>
+        new Promise<WorkspaceDocumentRecord>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    const controller = createWorkspaceDocumentCreationController({ create });
+    const pending = controller.create(planIntent);
+    controller.supersedePendingCreateIntent();
+    resolveCreate?.(fixtureRecord({ document_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }));
+    const result = await pending;
+    expect(result.intentCurrent).toBe(false);
+    expect(result.record.document_id).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    expect(controller.getState().phase).toBe("idle");
+    expect(controller.getState().record).toBeNull();
+
+    const next = fixtureRecord({
+      document_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      title: "C2 Session 29 Prep",
+    });
+    create.mockResolvedValueOnce(next);
+    const createdC = await controller.create({
+      ...planIntent,
+      title: "C2 Session 29 Prep",
+      targetSession: 29,
+      targetRelpath: "corpus/path/Session 29 Prep.md",
+    });
+    expect(createdC.record.document_id).toBe("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("createThenActivate skips activation when create intent was superseded during POST", async () => {
+    let resolveCreate: ((value: WorkspaceDocumentRecord) => void) | null = null;
+    const create = vi.fn(
+      () =>
+        new Promise<WorkspaceDocumentRecord>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    const activateExact = vi.fn(async () => true);
+    const controller = createWorkspaceDocumentCreationController({ create });
+    const pending = controller.createThenActivate(planIntent, activateExact);
+    controller.supersedePendingCreateIntent();
+    resolveCreate?.(fixtureRecord());
+    const result = await pending;
+    expect(result.applied).toBe(false);
+    expect(activateExact).not.toHaveBeenCalled();
+  });
+
+  it("reconcileActivatedDocument retires activation_failed retention so later create POSTs", async () => {
+    const createdB = fixtureRecord({ document_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" });
+    const createdC = fixtureRecord({
+      document_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      title: "C2 Session 29 Prep",
+    });
+    const create = vi.fn().mockResolvedValueOnce(createdB).mockResolvedValueOnce(createdC);
+    const controller = createWorkspaceDocumentCreationController({ create });
+    await controller.create(planIntent);
+    await expect(
+      controller.activate(async () => {
+        throw new Error("activation failed");
+      }),
+    ).rejects.toMatchObject({ code: "activation_failed" });
+
+    controller.reconcileActivatedDocument("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    expect(controller.getState().phase).toBe("idle");
+    expect(controller.getState().record).toBeNull();
+
+    const result = await controller.create({
+      ...planIntent,
+      title: "C2 Session 29 Prep",
+      targetSession: 29,
+      targetRelpath: "corpus/path/Session 29 Prep.md",
+    });
+    expect(result.record.document_id).toBe("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("reconcileActivatedDocument marks the retained created document activated", async () => {
+    const created = fixtureRecord();
+    const create = vi.fn(async () => created);
+    const controller = createWorkspaceDocumentCreationController({ create });
+    await controller.create(planIntent);
+    controller.reconcileActivatedDocument(created.document_id);
+    expect(controller.getState().phase).toBe("activated");
+    expect(controller.getState().record?.document_id).toBe(created.document_id);
   });
 });

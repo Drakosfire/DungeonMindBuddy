@@ -47,6 +47,23 @@ export interface WorkspaceDocumentCreationState {
   phase: WorkspaceDocumentCreationPhase;
   record: WorkspaceDocumentRecord | null;
   error: string | null;
+  /** Monotonic create-intent epoch; bumps on each new create and on supersession. */
+  intentEpoch: number;
+}
+
+export interface WorkspaceDocumentCreateResult {
+  record: WorkspaceDocumentRecord;
+  intentToken: number;
+  /**
+   * False when a newer navigation/create intent superseded this create during the POST.
+   * Callers must not auto-activate a non-current result.
+   */
+  intentCurrent: boolean;
+}
+
+export interface WorkspaceDocumentActivateResult {
+  record: WorkspaceDocumentRecord;
+  applied: boolean;
 }
 
 export class WorkspaceDocumentCreationError extends Error {
@@ -89,11 +106,14 @@ export interface WorkspaceDocumentCreationDeps {
 }
 
 /**
- * Shared intentional-create lifecycle with a single in-flight latch.
+ * Shared intentional-create lifecycle with intent-epoch supersession.
  *
  * - One POST per successful create intent.
- * - After create succeeds, activation retry never POSTs again.
+ * - After create succeeds, activation retry never POSTs again (while intent remains current).
  * - Concurrent create while busy is rejected (does not queue a second POST).
+ * - {@link supersedePendingCreateIntent} / {@link reconcileActivatedDocument} invalidate
+ *   auto-activation of a late POST and retire retained create state when another document
+ *   becomes authoritative through normal navigation.
  */
 export function createWorkspaceDocumentCreationController(
   deps: WorkspaceDocumentCreationDeps = {},
@@ -103,41 +123,111 @@ export function createWorkspaceDocumentCreationController(
   let record: WorkspaceDocumentRecord | null = null;
   let error: string | null = null;
   let inFlight = false;
+  let intentEpoch = 0;
+  /** Token of the create that currently owns retained created/activation_failed state. */
+  let retainedIntentToken = 0;
 
   const snapshot = (): WorkspaceDocumentCreationState => ({
     phase,
     record,
     error,
+    intentEpoch,
   });
+
+  function clearRetainedCreateState(): void {
+    phase = "idle";
+    record = null;
+    error = null;
+    retainedIntentToken = 0;
+  }
+
+  /**
+   * Invalidate any in-flight or retained create intent so a late POST cannot
+   * auto-activate, and so a later distinct create POSTs fresh.
+   */
+  function supersedePendingCreateIntent(): void {
+    intentEpoch += 1;
+    if (inFlight) {
+      // Create/activate completion observes the epoch mismatch.
+      return;
+    }
+    if (phase === "created" || phase === "activation_failed" || phase === "activating") {
+      clearRetainedCreateState();
+    }
+  }
+
+  /**
+   * Reconcile create-controller state after an exact document becomes authoritative
+   * through any path (selector, history, or create activation).
+   */
+  function reconcileActivatedDocument(documentId: string): void {
+    intentEpoch += 1;
+    if (inFlight) {
+      return;
+    }
+    if (record != null && record.document_id === documentId) {
+      phase = "activated";
+      error = null;
+      retainedIntentToken = 0;
+      return;
+    }
+    if (phase === "created" || phase === "activation_failed" || phase === "activating") {
+      clearRetainedCreateState();
+    }
+  }
 
   async function create(
     intent: WorkspaceDocumentCreateIntent,
-  ): Promise<WorkspaceDocumentRecord> {
+  ): Promise<WorkspaceDocumentCreateResult> {
     if (inFlight) {
       throw new WorkspaceDocumentCreationError(
         "busy",
         "A workspace document create is already in flight",
       );
     }
-    // Created-but-not-activated: never mint a replacement document.
-    if (record != null && (phase === "created" || phase === "activation_failed" || phase === "activating")) {
-      return record;
+    // Created-but-not-activated for the *current* intent: never mint a replacement.
+    if (
+      record != null &&
+      retainedIntentToken === intentEpoch &&
+      (phase === "created" || phase === "activation_failed")
+    ) {
+      return {
+        record,
+        intentToken: retainedIntentToken,
+        intentCurrent: true,
+      };
     }
 
+    const token = ++intentEpoch;
+    retainedIntentToken = token;
     inFlight = true;
     phase = "creating";
     error = null;
     try {
       const request = createWorkspaceDocumentRequestFromIntent(intent);
       const created = await createFn(request);
+      const intentCurrent = token === intentEpoch;
+      if (!intentCurrent) {
+        // Superseded during POST: registry/selector still discover the new record;
+        // do not retain it for auto-activate or reuse-as-next-create.
+        clearRetainedCreateState();
+        return { record: created, intentToken: token, intentCurrent: false };
+      }
       record = created;
       phase = "created";
       error = null;
-      return created;
+      retainedIntentToken = token;
+      return { record: created, intentToken: token, intentCurrent: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create workspace document";
-      phase = "create_failed";
-      error = message;
+      if (token === intentEpoch) {
+        phase = "create_failed";
+        error = message;
+        record = null;
+        retainedIntentToken = 0;
+      } else {
+        clearRetainedCreateState();
+      }
       throw new WorkspaceDocumentCreationError("create_failed", message);
     } finally {
       inFlight = false;
@@ -146,12 +236,12 @@ export function createWorkspaceDocumentCreationController(
 
   /**
    * Admit/activate an already-created record. Does not POST.
-   * `activate` should resolve/admit the exact `documentId` and return whether
+   * `activateExact` should resolve/admit the exact `documentId` and return whether
    * activation applied (false = superseded/stale; not an activation failure).
    */
   async function activate(
     activateExact: (created: WorkspaceDocumentRecord) => Promise<boolean>,
-  ): Promise<{ applied: boolean; record: WorkspaceDocumentRecord }> {
+  ): Promise<WorkspaceDocumentActivateResult> {
     if (record == null) {
       throw new WorkspaceDocumentCreationError(
         "activation_failed",
@@ -165,22 +255,39 @@ export function createWorkspaceDocumentCreationController(
       );
     }
 
+    const token = retainedIntentToken;
+    if (token !== intentEpoch) {
+      return { applied: false, record };
+    }
+
     inFlight = true;
     phase = "activating";
     error = null;
     const exact = record;
     try {
       const applied = await activateExact(exact);
+      if (token !== intentEpoch) {
+        // Superseded while activating — do not claim activation or failure.
+        if (phase === "activating") {
+          clearRetainedCreateState();
+        }
+        return { applied: false, record: exact };
+      }
       if (applied) {
         phase = "activated";
         error = null;
+        retainedIntentToken = 0;
       } else {
-        // Stale / superseded — keep created record; do not claim activation failure.
+        // Stale / superseded at the load layer — keep created record for retry.
         phase = "created";
       }
       return { applied, record: exact };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to open created workspace document";
+      if (token !== intentEpoch) {
+        clearRetainedCreateState();
+        return { applied: false, record: exact };
+      }
       phase = "activation_failed";
       error = message;
       throw new WorkspaceDocumentCreationError("activation_failed", message);
@@ -189,12 +296,15 @@ export function createWorkspaceDocumentCreationController(
     }
   }
 
-  /** Convenience: create once, then activate. Activation retry uses {@link activate}. */
+  /** Convenience: create once, then activate only while the create intent remains current. */
   async function createThenActivate(
     intent: WorkspaceDocumentCreateIntent,
     activateExact: (created: WorkspaceDocumentRecord) => Promise<boolean>,
-  ): Promise<{ applied: boolean; record: WorkspaceDocumentRecord }> {
+  ): Promise<WorkspaceDocumentActivateResult> {
     const created = await create(intent);
+    if (!created.intentCurrent) {
+      return { applied: false, record: created.record };
+    }
     return activate(activateExact);
   }
 
@@ -205,9 +315,8 @@ export function createWorkspaceDocumentCreationController(
         "Cannot reset while create/activate is in flight",
       );
     }
-    phase = "idle";
-    record = null;
-    error = null;
+    intentEpoch += 1;
+    clearRetainedCreateState();
   }
 
   return {
@@ -215,6 +324,8 @@ export function createWorkspaceDocumentCreationController(
     create,
     activate,
     createThenActivate,
+    supersedePendingCreateIntent,
+    reconcileActivatedDocument,
     reset,
   };
 }

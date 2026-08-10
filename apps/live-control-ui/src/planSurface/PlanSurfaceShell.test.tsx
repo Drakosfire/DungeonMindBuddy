@@ -3638,5 +3638,161 @@ describe("PlanSurfaceShell", () => {
       await waitFor(() =>
         expect(planShellTestEditor?.getText()).toContain("Alpha draft before create"));
     });
+
+    it("keeps C authoritative when delayed create B completes after navigating to C", async () => {
+      const DOC_C = "33333333-3333-4333-8333-333333333333";
+      let resolveCreate: ((value: ReturnType<typeof fixtureWorkspaceDocumentRecord>) => void) | null =
+        null;
+      vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementation(
+        async ({ locationSearch }) => {
+          const id = new URLSearchParams(locationSearch ?? "").get("documentId") ?? DOC_A;
+          if (id === DOC_B) return descriptorFor(DOC_B);
+          if (id === DOC_C) {
+            return fixturePlanDocumentDescriptor({
+              documentId: DOC_C,
+              title: "C2 Session 27 Prep",
+              targetSession: 27,
+            });
+          }
+          return descriptorFor(DOC_A);
+        },
+      );
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_A,
+            title: TITLES[DOC_A],
+            target_session: SESSIONS[DOC_A],
+          }),
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_C,
+            title: "C2 Session 27 Prep",
+            target_session: 27,
+          }),
+        ],
+      });
+      vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveCreate = resolve;
+          }),
+      );
+      window.history.pushState({}, "", `/plan?documentId=${DOC_A}`);
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+
+      const user = userEvent.setup();
+      await openCreateForm(user);
+      await submitCreateForm(user);
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+
+      await user.selectOptions(screen.getByTestId("plan-document-select"), DOC_C);
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 27 Prep"));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_C);
+
+      await act(async () => {
+        resolveCreate?.(
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_B,
+            title: TITLES[DOC_B],
+            target_session: SESSIONS[DOC_B],
+          }),
+        );
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 27 Prep"));
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_C);
+      expect(screen.queryByTestId("plan-document-create-activation-error")).not.toBeInTheDocument();
+    });
+
+    it("POSTs a fresh Create C after activation-failed B and normal navigation", async () => {
+      const DOC_NAV = "44444444-4444-4444-8444-444444444444";
+      const DOC_C = "33333333-3333-4333-8333-333333333333";
+      vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementation(
+        async ({ locationSearch }) => {
+          const id = new URLSearchParams(locationSearch ?? "").get("documentId") ?? DOC_A;
+          if (id === DOC_B) {
+            throw new Error("Workspace document not found");
+          }
+          if (id === DOC_NAV) {
+            return fixturePlanDocumentDescriptor({
+              documentId: DOC_NAV,
+              title: "C2 Session 25 Prep",
+              targetSession: 25,
+            });
+          }
+          if (id === DOC_C) {
+            return fixturePlanDocumentDescriptor({
+              documentId: DOC_C,
+              title: "C2 Session 27 Prep",
+              targetSession: 27,
+            });
+          }
+          return descriptorFor(id);
+        },
+      );
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_A,
+            title: TITLES[DOC_A],
+            target_session: SESSIONS[DOC_A],
+          }),
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_NAV,
+            title: "C2 Session 25 Prep",
+            target_session: 25,
+          }),
+        ],
+      });
+      vi.mocked(liveApi.createWorkspaceDocument)
+        .mockResolvedValueOnce(
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_B,
+            title: TITLES[DOC_B],
+            target_session: SESSIONS[DOC_B],
+          }),
+        )
+        .mockResolvedValueOnce(
+          fixtureWorkspaceDocumentRecord({
+            document_id: DOC_C,
+            title: "C2 Session 27 Prep",
+            target_session: 27,
+          }),
+        );
+      window.history.pushState({}, "", `/plan?documentId=${DOC_A}`);
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+
+      const user = userEvent.setup();
+      await openCreateForm(user);
+      await submitCreateForm(user);
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-document-create-activation-error")).toHaveTextContent(
+          "Created but could not open",
+        ));
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+
+      await user.selectOptions(screen.getByTestId("plan-document-select"), DOC_NAV);
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 25 Prep"));
+      expect(screen.queryByTestId("plan-document-create-activation-error")).not.toBeInTheDocument();
+
+      if (screen.queryByTestId("plan-document-create-open")) {
+        await openCreateForm(user);
+      }
+      await user.clear(screen.getByTestId("plan-document-create-session"));
+      await user.type(screen.getByTestId("plan-document-create-session"), "27");
+      await submitCreateForm(user);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 27 Prep"));
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
+      expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_C);
+    });
   });
 });

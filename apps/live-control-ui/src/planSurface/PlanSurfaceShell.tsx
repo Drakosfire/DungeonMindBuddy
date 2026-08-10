@@ -126,6 +126,13 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         setDocumentLoadStatus("ready");
         setDocumentSwitching(false);
         setDocumentSwitchError(null);
+        // Selector/history activation retires superseded create intent. Create-activation
+        // owns controller phase itself and must not bump the intent epoch mid-activate.
+        if (purpose !== "create_activate") {
+          createControllerRef.current.reconcileActivatedDocument(document.documentId);
+          setCreateError(null);
+          setCreateActivationError(null);
+        }
         void loadSelectorDocuments();
 
         if (typeof window !== "undefined") {
@@ -190,6 +197,9 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sync = () => {
+      // History navigation is an operator decision: invalidate pending create auto-activation
+      // before the resolve completes so a late POST cannot win the race.
+      createControllerRef.current.supersedePendingCreateIntent();
       void loadPlanningDocument(window.location.search, { mode: "history" });
     };
     sync();
@@ -203,6 +213,10 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     (documentId: string) => {
       if (typeof window === "undefined") return;
       if (documentId === planningDocumentRef.current?.documentId) return;
+      // Supersede at request time so a late create POST cannot auto-activate over C.
+      createControllerRef.current.supersedePendingCreateIntent();
+      setCreateError(null);
+      setCreateActivationError(null);
       const search = planDocumentSelectionSearch(window.location.search, documentId);
       void loadPlanningDocument(search, { mode: "push", search });
     },
@@ -261,8 +275,12 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
           targetRelpath,
         });
         void loadSelectorDocuments();
+        if (!created.intentCurrent) {
+          // Operator navigated elsewhere while POST was in flight — do not activate.
+          return;
+        }
         try {
-          await activateCreatedRecord(created);
+          await activateCreatedRecord(created.record);
         } catch (error) {
           const message =
             error instanceof WorkspaceDocumentCreationError
