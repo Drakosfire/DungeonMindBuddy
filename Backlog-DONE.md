@@ -7,6 +7,15 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] CommonMark-backed Markdown admission (not more regex edges) — captured 2026-08-09, done 2026-08-09
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-unify-markdown-structural-analysis.md` on branch `agent/dogfood-polish-markdown-ast-admission` (base `c6eb77e5`). **PR opened 2026-08-09:** [#535](https://github.com/Drakosfire/DungeonMindBuddy/pull/535) (head `304bae70`) — AST admission visitor landed, all 11 characterized holes sealed, zero branch-only test failures vs `origin/main`. Move to DONE on merge; then execute §28 (rebase #529 onto the new boundary).
+**Context:** PR #529 review cycle 7 (`4892211756`). After seven cycles of handwritten fail-closed admission (nested indent, list whitelist, reference defs, zero-space/newline destinations), escaped `]` in `[foo\]]: /url` still bypasses `isReferenceLinkDefinitionLine`. Reviewer and handoff agree: stop patching spellings one regex at a time.
+**Insight:** Dual handwritten grammars (sourceSafetyDiagnostics + markdownToTiptap parse) cannot stay coincident with CommonMark/GFM at their edges. Admission and TipTap projection need one real parse representation; regex helpers will keep rediscovering escaped-label / whitespace / container holes.
+**Action:** Successor slice: adopt a CommonMark/GFM parser (e.g. micromark/mdast) as the single import/admission oracle; derive TipTap projection and Save-blocking diagnostics from that AST; keep #527 authority seal / re-import / YAML preserve. Do not absorb into #529 via another `isReferenceLinkDefinition*` tweak. Falsify: `[foo\]]: /url` and prior cycle repros block Save at root/list/callout; Session-26 DC + nested lists still round-trip.
+**Surfaces when:** PR #529, markdownToTiptap, reference definition, CommonMark, fail-closed Markdown, semantic prep authoring, sourceSafetyDiagnostics, DOGFOOD-POLISH
+**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-semantic-prep-authoring.md` §Stop conditions; `apps/live-control-ui/src/tiptap/markdown/markdownToTiptap.ts`; review `4892211756`
+**Outcome:** Merged as PR #535 (`2fb059c3`). Parser-backed `markdownAdmission.ts` is the single structural boundary. Successor: finish semantic prep authoring on that foundation (`HANDOFF-BUILD-finish-dogfood-polish-semantic-prep-authoring.md`, rebuild PR #529).
+
 ## [DONE] Graph edge recall — comparator node alias for Edge Survivors ↔ Edge refugees — captured 2026-06-29, done 2026-08-08
 
 **Context:** S23 staged-edge work. After cross-class node dedup landed, an "ideal Tier-1 edges" comparator probe (perfect observation+binding) showed edge recall would rise 0.381 → 0.619 (8 → 13/21). The two Tier-1 edges that *still* missed at the ceiling were `Brin leads Edge refugees` and `Edge refugees displaced_from Edge`, both `best_score 0.0` — pure label divergence at the comparator (live `group_edge_survivors` "Edge Survivors" vs gold `node:edge-refugees` "Edge refugees", `label_similarity` ≈ 0.33).
