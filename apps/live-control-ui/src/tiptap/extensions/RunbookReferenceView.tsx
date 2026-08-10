@@ -19,7 +19,10 @@ import {
  * Graph-native chips get the shared CSS hover glance; corpus chips stay md-ref spans.
  */
 export function RunbookReferenceView({ node }: NodeViewProps) {
-  const attrs = normalizeRunbookReferenceAttrs(node.attrs as Partial<RunbookReferenceAttrs>);
+  // In-memory attrs are semantic after versioned load migration.
+  const attrs = normalizeRunbookReferenceAttrs(node.attrs as Partial<RunbookReferenceAttrs>, {
+    labelSource: "semantic",
+  });
   const { nodeViews, activeNodeId, onSelectNode } = useGraphNodeChipRuntime();
   const supported = isSupportedRunbookReference(attrs);
   const isGraphNode = supported && attrs.refType === GRAPH_NODE_REF_TYPE;

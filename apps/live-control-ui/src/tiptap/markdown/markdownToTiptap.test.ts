@@ -99,6 +99,130 @@ describe("markdownToTiptapDoc", () => {
     ]);
   });
 
+  it("fails closed on graph node links with an empty node id instead of dropping the link on save", () => {
+    const markdown = "See [x](dmb-node:) here.";
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        line: 1,
+        message: "Graph node links must target a valid, non-empty node id.",
+      }),
+    ]));
+    // Sealed projection: literal source text, no opaque reference node.
+    expect(JSON.stringify(imported.doc)).not.toContain("graphNodeReference");
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toContain("dmb-node:");
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.doc).toEqual(imported.doc);
+  });
+
+  it("fails closed on reference labels whose formatting the opaque nodes cannot preserve", () => {
+    const cases = [
+      "Inspect [**Caelynn**](dmb-node:pc_caelynn).",
+      "Talk to [**Lysandro**](#dmb-ref:npc:lysandro-ironveil).",
+      "Launch [`North Gate`](#dmb-action:combat:north-gate-combat).",
+    ];
+    for (const markdown of cases) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: 1,
+          message: "Formatted link labels are not represented by DungeonBuddy reference nodes.",
+        }),
+      ]));
+      const serialized = JSON.stringify(imported.doc);
+      expect(serialized).not.toContain("graphNodeReference");
+      expect(serialized).not.toContain("runbookReference");
+      // The sealed source spelling survives export as escaped literal text.
+      const reimported = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(imported.doc));
+      expect(reimported.doc).toEqual(imported.doc);
+    }
+  });
+
+  it("fails closed on empty or whitespace-only reference labels instead of inventing an id label", () => {
+    const cases = [
+      "[](dmb-node:pc_caelynn)",
+      "[ ](dmb-node:pc_caelynn)",
+      "[](#dmb-ref:npc:lysandro-ironveil)",
+      "[  ](#dmb-ref:npc:lysandro-ironveil)",
+      "[](#dmb-action:combat:north-gate-combat)",
+    ];
+    for (const markdown of cases) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: 1,
+          message: "Empty reference labels are not preserved by DungeonBuddy reference nodes.",
+        }),
+      ]));
+      const serialized = JSON.stringify(imported.doc);
+      expect(serialized).not.toContain("graphNodeReference");
+      expect(serialized).not.toContain("runbookReference");
+      // Empty-label rewrite class: without sealing, save would emit [id](...).
+      const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+      expect(exported).not.toMatch(/\[pc_caelynn\]\(dmb-node:pc_caelynn\)/);
+      expect(exported).not.toMatch(/\[lysandro-ironveil\]\(#dmb-ref:npc:lysandro-ironveil\)/);
+      expect(exported).not.toMatch(/\[north-gate-combat\]\(#dmb-action:combat:north-gate-combat\)/);
+      const reimported = markdownToTiptapDoc(exported);
+      expect(reimported.doc).toEqual(imported.doc);
+    }
+  });
+
+  it("preserves parser-decoded literal emphasis characters in reference labels", () => {
+    const cases = [
+      {
+        markdown: String.raw`Inspect [\*\*Meat Mind\*\*](dmb-node:threat:meat-mind).`,
+        expectedLabel: "**Meat Mind**",
+        nodeType: "graphNodeReference",
+      },
+      {
+        markdown: String.raw`Inspect [\_\_Meat Mind\_\_](dmb-node:threat:meat-mind).`,
+        expectedLabel: "__Meat Mind__",
+        nodeType: "graphNodeReference",
+      },
+      {
+        markdown: String.raw`Talk to [\*\*Lysandro\*\*](#dmb-ref:npc:lysandro-ironveil).`,
+        expectedLabel: "**Lysandro**",
+        nodeType: "runbookReference",
+      },
+      {
+        markdown: String.raw`Talk to [\_\_Lysandro\_\_](#dmb-ref:npc:lysandro-ironveil).`,
+        expectedLabel: "__Lysandro__",
+        nodeType: "runbookReference",
+      },
+      {
+        markdown: String.raw`Launch [\*\*North Gate\*\*](#dmb-action:combat:north-gate-combat).`,
+        expectedLabel: "**North Gate**",
+        nodeType: "runbookReference",
+      },
+      {
+        markdown: String.raw`Launch [\_\_North Gate\_\_](#dmb-action:combat:north-gate-combat).`,
+        expectedLabel: "__North Gate__",
+        nodeType: "runbookReference",
+      },
+    ] as const;
+
+    for (const { markdown, expectedLabel, nodeType } of cases) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual([]);
+      const paragraph = imported.doc.content?.[0] as {
+        content?: Array<{ type?: string; attrs?: { label?: string } }>;
+      };
+      const ref = paragraph.content?.find((node) => node.type === nodeType);
+      expect(ref?.attrs?.label).toBe(expectedLabel);
+      // Serializer must re-escape literal * / _ rather than dropping them.
+      const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+      expect(exported).toContain(expectedLabel.replaceAll("*", "\\*").replaceAll("_", "\\_"));
+      expect(exported).not.toContain(`[${expectedLabel.replace(/^\*+|\*+$/g, "").replace(/^_+|_+$/g, "")}]`);
+      const reimported = markdownToTiptapDoc(exported);
+      expect(reimported.doc).toEqual(imported.doc);
+      expect(reimported.diagnostics).toEqual([]);
+    }
+  });
+
   it("keeps snake_case identifiers as literal text without intraword underscore emphasis", () => {
     const markdown = "Use snake_case_value here and _italic_ emphasis.";
     const imported = markdownToTiptapDoc(markdown);
@@ -202,6 +326,26 @@ describe("markdownToTiptapDoc", () => {
     expect(imported.diagnostics).toEqual([]);
     expect(imported.doc.content?.[1]).toEqual({ type: "horizontalRule" });
     expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe(markdown);
+  });
+
+  it("fails closed on non-canonical thematic break spellings instead of reinterpreting them as prose", () => {
+    for (const markdown of ["***", "___", "- - -"]) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: 1,
+          message: "Only --- thematic breaks are supported by this editor slice.",
+        }),
+      ]));
+      // Sealed projection: literal source text, never a horizontalRule.
+      expect(imported.doc.content).toEqual([
+        { type: "paragraph", content: [{ type: "text", text: markdown }] },
+      ]);
+      // The serializer escapes the sealed text so it reimports stably as text.
+      const reimported = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(imported.doc));
+      expect(reimported.doc).toEqual(imported.doc);
+    }
   });
 
   it("round-trips GFM tables without splitting escaped pipes", () => {
@@ -319,6 +463,8 @@ describe("markdownToTiptapDoc", () => {
   });
 
   it("fails closed on Session-26 structures owned by the next semantic polish slice", () => {
+    // The AST classifies this as a nested list (line 2) containing a callout
+    // (line 2); both structural diagnostics fire at the container boundary.
     const imported = markdownToTiptapDoc([
       "- Decision forks",
       "  - > [!DECISION-CONSEQUENCE]",
@@ -327,8 +473,8 @@ describe("markdownToTiptapDoc", () => {
       "",
     ].join("\n"));
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 2 }),
-      expect.objectContaining({ level: "warning", line: 3 }),
+      expect.objectContaining({ level: "warning", line: 2, message: "Nested lists are not supported yet." }),
+      expect.objectContaining({ level: "warning", line: 2, message: "Callouts nested in list items are not supported yet." }),
     ]));
   });
 

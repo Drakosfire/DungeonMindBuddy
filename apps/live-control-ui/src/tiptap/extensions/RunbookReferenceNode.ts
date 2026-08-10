@@ -34,7 +34,8 @@ export const RunbookReferenceNode = Node.create({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const attrs = normalizeRunbookReferenceAttrs(node.attrs);
+    // In-memory attrs are semantic after versioned load migration.
+    const attrs = normalizeRunbookReferenceAttrs(node.attrs, { labelSource: "semantic" });
     const hasKnownKind = node.attrs.kind === "ref" || node.attrs.kind === "action";
     const isSupported = hasKnownKind && isSupportedRunbookReference(attrs);
     return [
@@ -62,7 +63,8 @@ export const RunbookReferenceNode = Node.create({
         ({ commands }) =>
           commands.insertContent({
             type: this.name,
-            attrs: normalizeRunbookReferenceAttrs(attrs),
+            // Authoring path: labels are already semantic chip text.
+            attrs: normalizeRunbookReferenceAttrs(attrs, { labelSource: "semantic" }),
           }),
     };
   },

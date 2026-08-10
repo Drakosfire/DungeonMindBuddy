@@ -48,6 +48,8 @@ function chooseEditorContent(args: {
     ) {
       // Keep local TipTap projection edits; save admission still uses the
       // authoritative source markdown (fail closed on durable write).
+      // Reference labels are already semantic: v5+ local state migrates them
+      // once at read time (schema provenance), never here.
       return {
         tiptapJson: localState.tiptap_json,
         exportedMarkdown: localState.exported_markdown_authoritative

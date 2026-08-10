@@ -1,8 +1,10 @@
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics } from "../markdown/markdownToTiptap";
+import { migrateLegacyTiptapReferenceLabels } from "../references/runbookReferences";
 import { preserveLeadingYamlFrontmatter } from "../markdown/stripLeadingYamlFrontmatter";
 
-export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v4" as const;
+export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v5" as const;
+const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V4 = "dmb_workspace_document_local_state_v4" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V3 = "dmb_workspace_document_local_state_v3" as const;
 const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V2 = "dmb_workspace_document_local_state_v2" as const;
 
@@ -78,7 +80,8 @@ function migrateV2LocalState(value: Record<string, unknown>): WorkspaceDocumentL
     surface,
     base_revision: 0,
     base_content_sha256: "",
-    tiptap_json: value.tiptap_json,
+    // v2→v5: heal dirty escaped-emphasis reference labels once.
+    tiptap_json: migrateLegacyTiptapReferenceLabels(value.tiptap_json),
     exported_markdown: value.exported_markdown,
     exported_markdown_authoritative: hasBlockingMarkdownImportDiagnostics(value.exported_markdown),
     dirty: value.dirty,
@@ -115,11 +118,52 @@ function migrateV3LocalState(value: Record<string, unknown>): WorkspaceDocumentL
     surface: value.surface,
     base_revision: value.base_revision,
     base_content_sha256: value.base_content_sha256,
-    tiptap_json: value.tiptap_json,
+    // v3→v5: heal dirty escaped-emphasis reference labels once.
+    tiptap_json: migrateLegacyTiptapReferenceLabels(value.tiptap_json),
     exported_markdown: value.exported_markdown,
     // Seal authority from the diagnostics at migration time so a later parser
     // upgrade cannot flip the guard and re-derive from lossy TipTap JSON.
     exported_markdown_authoritative: hasBlockingMarkdownImportDiagnostics(value.exported_markdown),
+    dirty: value.dirty,
+    created_at: value.created_at,
+    updated_at: value.updated_at,
+    last_local_save_at: value.last_local_save_at,
+  };
+}
+
+function migrateV4LocalState(value: Record<string, unknown>): WorkspaceDocumentLocalState | null {
+  if (value.schema_version !== WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V4) return null;
+  if (typeof value.document_id !== "string") return null;
+  if (typeof value.title !== "string") return null;
+  if (typeof value.campaign_id !== "string") return null;
+  if (!isWorkspaceDocumentLocalKind(value.kind)) return null;
+  if (!(value.target_session === null || typeof value.target_session === "number")) return null;
+  if (!isWorkspaceDocumentLocalSurface(value.surface)) return null;
+  if (typeof value.base_revision !== "number") return null;
+  if (typeof value.base_content_sha256 !== "string") return null;
+  if (!isObject(value.tiptap_json)) return null;
+  if (typeof value.exported_markdown !== "string") return null;
+  if (typeof value.exported_markdown_authoritative !== "boolean") return null;
+  if (typeof value.dirty !== "boolean") return null;
+  if (typeof value.created_at !== "string") return null;
+  if (typeof value.updated_at !== "string") return null;
+  if (typeof value.last_local_save_at !== "string") return null;
+
+  return {
+    schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA,
+    document_id: value.document_id,
+    title: value.title,
+    campaign_id: value.campaign_id,
+    kind: value.kind,
+    target_session: value.target_session,
+    surface: value.surface,
+    base_revision: value.base_revision,
+    base_content_sha256: value.base_content_sha256,
+    // v4→v5: v4 is mixed provenance (promoted dirty attrs + native semantic
+    // starterContent). Heal only the dirty escaped-emphasis pattern.
+    tiptap_json: migrateLegacyTiptapReferenceLabels(value.tiptap_json),
+    exported_markdown: value.exported_markdown,
+    exported_markdown_authoritative: value.exported_markdown_authoritative,
     dirty: value.dirty,
     created_at: value.created_at,
     updated_at: value.updated_at,
@@ -235,7 +279,9 @@ function parseStoredWorkspaceDocumentLocalState(parsed: unknown): WorkspaceDocum
     return deriveWorkspaceDocumentMarkdown(parsed);
   }
   if (isObject(parsed)) {
-    const migrated = migrateV3LocalState(parsed) ?? migrateV2LocalState(parsed);
+    const migrated = migrateV4LocalState(parsed)
+      ?? migrateV3LocalState(parsed)
+      ?? migrateV2LocalState(parsed);
     if (migrated) return deriveWorkspaceDocumentMarkdown(migrated);
   }
   return null;
