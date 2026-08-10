@@ -316,7 +316,10 @@ def _canonicalize_graph_contribution_assertions(
     corrections: list[GraphContributionAssertionCorrection] = []
     for correction in contribution.assertion_corrections:
         replacement_id = correction.replacement_assertion_id
-        if replacement_id in accepted_rekey_map:
+        if (
+            replacement_id is not None
+            and replacement_id in accepted_rekey_map
+        ):
             replacement_id = accepted_rekey_map[replacement_id]
         corrections.append(
             correction.model_copy(update={"replacement_assertion_id": replacement_id})
@@ -402,7 +405,10 @@ def create_graph_contribution(
     corrections: list[GraphContributionAssertionCorrection] = []
     for correction in list(assertion_corrections or []):
         replacement_id = correction.replacement_assertion_id
-        if replacement_id in accepted_rekey_map:
+        if (
+            replacement_id is not None
+            and replacement_id in accepted_rekey_map
+        ):
             replacement_id = accepted_rekey_map[replacement_id]
         corrections.append(
             correction.model_copy(update={"replacement_assertion_id": replacement_id})
@@ -508,6 +514,58 @@ def create_edge_assertion_correction_contribution(
         campaign_scope=campaign_scope,
         accepted_assertions=[replacement_assertion],
         assertion_corrections=[correction],
+        authored_by=authored_by.strip(),
+        produced_at=produced_at,
+        diagnostics=diagnostics,
+    )
+
+
+def create_edge_assertion_contradiction_contribution(
+    *,
+    world_id: str,
+    authored_by: str,
+    target_assertion_id: str,
+    target_contribution_ids: list[str],
+    source_artifact_id: str | None = None,
+    source_revision_id: str | None = None,
+    campaign_scope: str | None = None,
+    produced_at: str | None = None,
+    diagnostics: list[str] | None = None,
+) -> GraphContribution:
+    """Build a human-authored edge contradiction with no replacement.
+
+    Emits one ``contradicts`` link per exact active supporting contribution for
+    a single target assertion. Does not publish; callers must use
+    ``contradict_edge_assertion_support`` with expected-parent CAS.
+    """
+    if not authored_by or not authored_by.strip():
+        raise ValueError(
+            "authored_by must be non-blank for edge assertion contradiction"
+        )
+    if not target_assertion_id or not str(target_assertion_id).strip():
+        raise ValueError("target_assertion_id must be non-blank")
+    if not target_contribution_ids:
+        raise ValueError("target_contribution_ids must be non-empty")
+    if len(target_contribution_ids) != len(set(target_contribution_ids)):
+        raise ValueError("target_contribution_ids must be unique")
+
+    corrections = [
+        GraphContributionAssertionCorrection(
+            correction_kind="contradicts",
+            target_contribution_id=contribution_id,
+            target_assertion_id=target_assertion_id,
+            replacement_assertion_id=None,
+        )
+        for contribution_id in target_contribution_ids
+    ]
+    return create_graph_contribution(
+        world_id=world_id,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id=source_artifact_id,
+        source_revision_id=source_revision_id,
+        campaign_scope=campaign_scope,
+        accepted_assertions=[],
+        assertion_corrections=corrections,
         authored_by=authored_by.strip(),
         produced_at=produced_at,
         diagnostics=diagnostics,

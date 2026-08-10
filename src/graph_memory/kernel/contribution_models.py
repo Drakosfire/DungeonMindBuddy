@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from graph_memory.evidence.assertion_support import (
     ContributionAssertionKind,
@@ -91,16 +91,36 @@ class GraphContributionAssertion(_ContributionModel):
 
 
 class GraphContributionAssertionCorrection(_ContributionModel):
-    """Durable link from one exact target assertion support to its replacement.
+    """Durable link from one exact target assertion support to a correction.
 
-    First contract: exactly one ``contradicts_and_replaces`` link per correction
-    contribution, bound into contribution identity and lifecycle-neutral digest.
+    ``contradicts_and_replaces`` requires a nonblank ``replacement_assertion_id``.
+    ``contradicts`` requires explicit ``replacement_assertion_id=null`` and does
+    not author replacement graph truth. The field remains required in the
+    serialized shape so historical replacement corrections stay compatible.
     """
 
-    correction_kind: Literal["contradicts_and_replaces"]
+    correction_kind: Literal["contradicts_and_replaces", "contradicts"]
     target_contribution_id: str
     target_assertion_id: str
-    replacement_assertion_id: str
+    replacement_assertion_id: str | None
+
+    @model_validator(mode="after")
+    def _replacement_id_matches_kind(self) -> GraphContributionAssertionCorrection:
+        if self.correction_kind == "contradicts_and_replaces":
+            if (
+                self.replacement_assertion_id is None
+                or not str(self.replacement_assertion_id).strip()
+            ):
+                raise ValueError(
+                    "contradicts_and_replaces requires a nonblank "
+                    "replacement_assertion_id"
+                )
+        elif self.correction_kind == "contradicts":
+            if self.replacement_assertion_id is not None:
+                raise ValueError(
+                    "contradicts requires replacement_assertion_id to be null"
+                )
+        return self
 
 
 class GraphContribution(_ContributionModel):
