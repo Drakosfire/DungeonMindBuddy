@@ -33,6 +33,36 @@ export function workspaceDocumentStorageKey(documentId: string): string {
   return `dmb.workspaceDocument.${documentId}`;
 }
 
+/**
+ * Search string for switching the active Plan document. Sets `documentId` to
+ * the exact opaque id and preserves every unrelated query parameter (graph
+ * lens, session focus, tool state, dogfood flags). Never infers session or
+ * campaign state from the document.
+ */
+export function planDocumentSelectionSearch(
+  currentSearch: string | null | undefined,
+  documentId: string,
+): string {
+  const params = new URLSearchParams(currentSearch ?? "");
+  params.set("documentId", documentId);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+/**
+ * Human-facing selector option label. The document title is primary; target
+ * session is presentation metadata appended only when the title does not
+ * already name it. Identity stays in the option value (`document_id`).
+ */
+export function planDocumentOptionLabel(record: WorkspaceDocumentRecord): string {
+  const title = record.title.trim() || "Untitled prep document";
+  const session = record.target_session;
+  if (session != null && !title.toLowerCase().includes(`session ${session}`)) {
+    return `${title} · Session ${session}`;
+  }
+  return title;
+}
+
 export function workspaceRecordToPlanDocumentDescriptor(
   record: WorkspaceDocumentRecord,
 ): PlanDocumentDescriptor {
