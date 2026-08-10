@@ -47,7 +47,6 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   { name: "nested plain blockquote at root", markdown: ">> nested quote", blockedOnMain: true },
   { name: "blockquote nested in list item", markdown: "- Parent\n  > plain blockquote", blockedOnMain: true },
   { name: "heading nested in list item", markdown: "- Parent\n  ## Nested heading", blockedOnMain: true },
-  { name: "nested bullet list", markdown: "- Parent\n  - Child", blockedOnMain: true },
   {
     name: "nested callout via doubled quote marker",
     markdown: "> [!GM-NOTE]\n>> [!WARNING]\n>> nested",
@@ -216,6 +215,22 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     note: "was a hole (PR #535 cycle 2): empty action labels rewrite to refId on save",
   },
 
+  {
+    name: "decision-consequence missing consequence pane",
+    markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> A",
+    blockedOnMain: true,
+  },
+  {
+    name: "decision-consequence reversed panes",
+    markdown: "> [!DECISION-CONSEQUENCE]\n> ### Consequence\n> B\n>\n> ### Decision\n> A",
+    blockedOnMain: true,
+  },
+  {
+    name: "decision-consequence duplicate decision pane",
+    markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> A\n>\n> ### Decision\n> B\n>\n> ### Consequence\n> C",
+    blockedOnMain: true,
+  },
+
   // --- Headings / breaks / HTML -------------------------------------------
   {
     name: "non-canonical thematic break (stars)",
@@ -310,6 +325,7 @@ const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
   { name: "thematic break", markdown: "# Before\n\n---\n\n## After" },
   { name: "frontmatter lookalike without YAML keys is a thematic break", markdown: "---\n\n# Body" },
   { name: "bullet list", markdown: "- First\n- Second" },
+  { name: "nested bullet list", markdown: "- Parent\n  - Child" },
   { name: "ordered list", markdown: "1. one\n2. two" },
   { name: "ordered list with paren markers", markdown: "1) one\n2) two", note: "serializer canonicalizes ) to ." },
   { name: "ordered list with non-1 start", markdown: "3. three\n4. four" },

@@ -462,24 +462,162 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
-  it("fails closed on Session-26 structures owned by the next semantic polish slice", () => {
-    // The AST classifies this as a nested list (line 2) containing a callout
-    // (line 2); both structural diagnostics fire at the container boundary.
+  it("imports canonical top-level Decision/Consequence with two ordered panes", () => {
+    const imported = markdownToTiptapDoc([
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> Hold the wall",
+      ">",
+      "> ### Consequence",
+      "> - Pressure stays at the gate.",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content).toEqual([
+      {
+        type: "decisionConsequence",
+        content: [
+          {
+            type: "decisionPane",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "Hold the wall" }] }],
+          },
+          {
+            type: "consequencePane",
+            content: [{
+              type: "bulletList",
+              content: [{
+                type: "listItem",
+                content: [{ type: "paragraph", content: [{ type: "text", text: "Pressure stays at the gate." }] }],
+              }],
+            }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("fails closed on malformed Decision/Consequence blocks", () => {
+    const malformedMessage =
+      "Decision/Consequence blocks must contain exactly one Decision pane and one Consequence pane.";
+    const cases: Array<{ name: string; markdown: string; message: string }> = [
+      {
+        name: "missing Consequence",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> Hold the wall\n",
+        message: malformedMessage,
+      },
+      {
+        name: "missing Decision",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Consequence\n> Fall back\n",
+        message: malformedMessage,
+      },
+      {
+        name: "reversed panes",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Consequence\n> B\n>\n> ### Decision\n> A\n",
+        message: "Decision must precede Consequence in Decision/Consequence blocks.",
+      },
+      {
+        name: "duplicate Decision",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> A\n>\n> ### Decision\n> B\n>\n> ### Consequence\n> C\n",
+        message: malformedMessage,
+      },
+      {
+        name: "wrong heading level",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ## Decision\n> A\n>\n> ### Consequence\n> B\n",
+        message: "Decision/Consequence pane headings must be level-3 headings with exact labels.",
+      },
+      {
+        name: "near-match heading",
+        markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision-ish\n> A\n>\n> ### Consequence\n> B\n",
+        message: "Decision/Consequence pane headings must be level-3 headings with exact labels.",
+      },
+    ];
+    for (const testCase of cases) {
+      const imported = markdownToTiptapDoc(testCase.markdown);
+      expect(imported.diagnostics, testCase.name).toEqual(expect.arrayContaining([
+        expect.objectContaining({ level: "warning", message: testCase.message }),
+      ]));
+      expect(JSON.stringify(imported.doc), testCase.name).not.toContain('"type":"decisionConsequence"');
+    }
+  });
+
+  it("imports nested bullet lists inside list items cleanly", () => {
+    const imported = markdownToTiptapDoc("- Parent\n  - Child\n");
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content).toEqual([{
+      type: "bulletList",
+      content: [{
+        type: "listItem",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "Parent" }] },
+          {
+            type: "bulletList",
+            content: [{
+              type: "listItem",
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Child" }] }],
+            }],
+          },
+        ],
+      }],
+    }]);
+  });
+
+  it("imports supported GM-NOTE callout inside list item cleanly", () => {
+    const imported = markdownToTiptapDoc("- Choice\n  > [!GM-NOTE]\n  > Something changes.\n");
+    expect(imported.diagnostics).toEqual([]);
+    const listItem = (imported.doc.content?.[0] as { content?: unknown[] }).content?.[0] as { content?: unknown[] };
+    const callout = listItem.content?.[1] as { type?: string; attrs?: unknown };
+    expect(callout.type).toBe("callout");
+    expect(callout.attrs).toMatchObject({ kind: "gm-note" });
+  });
+
+  it("still blocks plain blockquote inside list item", () => {
+    const imported = markdownToTiptapDoc("- Parent\n  > plain blockquote\n");
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message: "Plain blockquotes are not supported yet." }),
+    ]));
+  });
+
+  it("still blocks nested callout inside callout", () => {
+    const imported = markdownToTiptapDoc("> [!GM-NOTE]\n>> [!WARNING]\n>> nested\n");
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message: "Nested callouts are not supported yet." }),
+    ]));
+  });
+
+  it("imports Session-26 nested list + Decision/Consequence structure cleanly", () => {
     const imported = markdownToTiptapDoc([
       "- Decision forks",
       "  - > [!DECISION-CONSEQUENCE]",
       "    > ### Decision",
       "    > Hold the wall",
+      "    >",
+      "    > ### Consequence",
+      "    > - Pressure stays at the gate.",
       "",
     ].join("\n"));
+    expect(imported.diagnostics).toEqual([]);
+    const outerItem = (imported.doc.content?.[0] as { content?: unknown[] }).content?.[0] as { content?: unknown[] };
+    const innerList = outerItem.content?.[1] as { content?: unknown[] };
+    const innerItem = innerList?.content?.[0] as { content?: unknown[] };
+    const dc = innerItem?.content?.[0] as { type?: string; content?: unknown[] };
+    expect(dc?.type).toBe("decisionConsequence");
+    expect(dc?.content?.map((pane) => (pane as { type?: string }).type)).toEqual(["decisionPane", "consequencePane"]);
+  });
+
+  it("fails closed on Decision/Consequence with only the Decision pane", () => {
+    const imported = markdownToTiptapDoc("> [!DECISION-CONSEQUENCE]\n> ### Decision\n> Hold the wall\n");
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 2, message: "Nested lists are not supported yet." }),
-      expect.objectContaining({ level: "warning", line: 2, message: "Callouts nested in list items are not supported yet." }),
+      expect.objectContaining({
+        level: "warning",
+        line: 1,
+        message: "Decision/Consequence blocks must contain exactly one Decision pane and one Consequence pane.",
+      }),
     ]));
+    expect(JSON.stringify(imported.doc)).not.toContain('"type":"decisionConsequence"');
   });
 
   it("fails closed on an unknown top-level callout marker", () => {
-    const imported = markdownToTiptapDoc("> [!DECISION-CONSEQUENCE]\n> ### Decision\n> Hold the wall\n");
+    const imported = markdownToTiptapDoc("> [!UNKNOWN-MARKER]\n> Body text\n");
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ level: "warning", line: 1 }),
     ]));

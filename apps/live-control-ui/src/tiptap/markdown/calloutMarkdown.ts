@@ -50,6 +50,16 @@ export function normalizeCalloutKind(input: unknown): CalloutKind {
   return KIND_ALIASES[key] ?? "warning";
 }
 
+/** Canonical marker spelling for Decision/Consequence blockquotes (trim, lower, spaces/underscores → hyphens). */
+export function normalizeDecisionConsequenceMarker(input: unknown): string {
+  if (typeof input !== "string") return "";
+  return input.trim().toLowerCase().replace(/[\s_]+/g, "-");
+}
+
+export function isDecisionConsequenceMarker(input: unknown): boolean {
+  return normalizeDecisionConsequenceMarker(input) === "decision-consequence";
+}
+
 export function defaultCalloutLabel(kind: CalloutKind): string {
   return {
     "read-aloud": "Read aloud",
