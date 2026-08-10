@@ -2820,3 +2820,189 @@ def test_edge_assertion_correction_ledger_status_contradiction_blocks_lifecycle(
     assert _head.head_revision_id == corrected_rev
     assert store.assertion_support[edge_x.assertion_id]["support_state"] == "contradicted"
     assert store.assertion_support[edge_xp.assertion_id]["support_state"] == "supported"
+
+
+def _fingerprint_world_mutable(root: Path, world_id: str, contribution_id: str) -> dict[str, object]:
+    from graph_memory.world_supergraph import paths as world_paths
+
+    head = kernel.open_world_graph_head(root, world_id)
+    ledger = world_paths.contribution_path(root, world_id, contribution_id)
+    index = world_paths.contribution_index_path(root, world_id)
+    return {
+        "head": head.head_revision_id,
+        "ledger_sha": ledger.read_bytes() if ledger.is_file() else None,
+        "index_sha": index.read_bytes() if index.is_file() else None,
+    }
+
+
+def test_supersede_same_id_different_source_digest_does_not_mutate_ledger(
+    seeded_root,
+) -> None:
+    """Pre-write guard: already-bound ID + different produced_at must not overwrite."""
+    root, _ = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_bound",
+        label="Bound",
+        source_artifact_id="artifact:bound-src",
+    )
+    first = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:bound-src",
+        source_revision_id="src-bound-1",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        produced_at="2026-08-01T00:00:00Z",
+    )
+    merged = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=first
+    )
+    assert merged.published is True
+
+    # Same identity fields → same contribution_id; different produced_at → different source digest.
+    colliding = first.model_copy(
+        update={
+            "produced_at": "2026-08-01T00:00:01Z",
+            "supersedes_contribution_id": first.contribution_id,
+        }
+    )
+    assert colliding.contribution_id == first.contribution_id
+    assert kernel.compute_contribution_source_payload_sha256(
+        colliding
+    ) != kernel.compute_contribution_source_payload_sha256(first)
+
+    before = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+    result = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=colliding,
+        superseded_contribution_id=first.contribution_id,
+    )
+    after = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+
+    assert result.published is False
+    assert result.failure_code == "source_bound_digest_collision"
+    assert after["head"] == before["head"]
+    assert after["ledger_sha"] == before["ledger_sha"]
+    assert after["index_sha"] == before["index_sha"]
+
+
+def test_merge_same_id_different_source_digest_does_not_mutate_ledger(
+    seeded_root,
+) -> None:
+    root, _ = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_merge_bound",
+        label="MergeBound",
+        source_artifact_id="artifact:merge-bound",
+    )
+    first = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:merge-bound",
+        source_revision_id="src-merge-1",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        produced_at="2026-08-02T00:00:00Z",
+    )
+    assert kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=first
+    ).published is True
+
+    colliding = first.model_copy(update={"produced_at": "2026-08-02T00:00:01Z"})
+    before = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+    result = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=colliding
+    )
+    after = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+    assert result.published is False
+    assert result.failure_code == "source_bound_digest_collision"
+    assert after == before
+
+
+def test_bound_ledger_digest_mismatch_not_reconstructed_from_caller(
+    seeded_root,
+) -> None:
+    root, _ = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_mismatch",
+        label="Mismatch",
+        source_artifact_id="artifact:mismatch",
+    )
+    first = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:mismatch",
+        source_revision_id="src-mismatch-1",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        produced_at="2026-08-03T00:00:00Z",
+    )
+    assert kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=first
+    ).published is True
+
+    # Corrupt mutable ledger source body while revision still binds first digest.
+    corrupt = first.model_copy(update={"produced_at": "2026-08-03T00:00:99Z", "status": "failed"})
+    write_contribution_record(root, WORLD_ID, corrupt)
+
+    # Exact-source retry must not overwrite/synthesize from caller either.
+    retry = first.model_copy(update={"status": "active"})
+    before = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+    result = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=retry
+    )
+    after = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+    assert result.published is False
+    assert result.failure_code == "bound_ledger_integrity_failure"
+    assert after["ledger_sha"] == before["ledger_sha"]
+    assert after["head"] == before["head"]
+
+
+def test_bound_ledger_missing_not_reconstructed_from_caller(seeded_root) -> None:
+    """Failed + missing ledger (Eldyrwild-like) must not be rebuilt from caller."""
+    root, _ = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_missing_ledger",
+        label="MissingLedger",
+        source_artifact_id="artifact:missing-ledger",
+    )
+    first = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:missing-ledger",
+        source_revision_id="src-missing-1",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        produced_at="2026-08-04T00:00:00Z",
+    )
+    assert kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=first
+    ).published is True
+
+    from graph_memory.world_supergraph import paths as world_paths
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        save_contribution_index,
+        upsert_contribution_in_index,
+    )
+
+    # Mark failed so source-authority scan skips this ID (as with live D), then
+    # delete the ledger. Same-source retry must still refuse synthesis.
+    failed = first.model_copy(update={"status": "failed"})
+    write_contribution_record(root, WORLD_ID, failed)
+    index = upsert_contribution_in_index(load_contribution_index(root, WORLD_ID), failed)
+    save_contribution_index(root, WORLD_ID, index)
+    ledger_path = world_paths.contribution_path(root, WORLD_ID, first.contribution_id)
+    ledger_path.unlink()
+
+    before = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+    result = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=first.model_copy(update={"status": "active"})
+    )
+    after = _fingerprint_world_mutable(root, WORLD_ID, first.contribution_id)
+    assert result.published is False
+    assert result.failure_code == "bound_ledger_integrity_failure"
+    assert not ledger_path.is_file()
+    assert after["head"] == before["head"]
+    assert after["index_sha"] == before["index_sha"]
