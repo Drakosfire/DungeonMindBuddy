@@ -21,6 +21,7 @@ import {
 } from "./agentInteraction/surfaceInteractionCompat";
 import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "./surfaceInteraction/toolHost/ToolHost";
+import { SurfaceContextProvider } from "./surfaceInteraction/contextHost";
 import { AppChrome, type AppChromeToolsGeneration } from "./chrome/AppChrome";
 import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./chrome/appChromeConfig";
 import {
@@ -292,10 +293,12 @@ export function App() {
       <AskPluginSlotProvider>
         <WorldGraphLensProvider planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
           <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
-            {content}
-            <ToolHost />
-            <LegacyProjectionHostAdapter />
-            <AgentInteractionChrome />
+            <SurfaceContextProvider>
+              {content}
+              <ToolHost />
+              <LegacyProjectionHostAdapter />
+              <AgentInteractionChrome />
+            </SurfaceContextProvider>
           </WorldGraphLensProjectionProvider>
         </WorldGraphLensProvider>
       </AskPluginSlotProvider>

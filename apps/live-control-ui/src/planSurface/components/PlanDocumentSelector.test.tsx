@@ -17,6 +17,7 @@ function renderSelector(overrides: Partial<Parameters<typeof PlanDocumentSelecto
   const onRetryList = vi.fn();
   render(
     <PlanDocumentSelector
+      variant="toolbar"
       documents={[
         fixtureWorkspaceDocumentRecord({ document_id: DOC_A, title: "C2 Session 23 Prep", target_session: 23 }),
         fixtureWorkspaceDocumentRecord({ document_id: DOC_B, title: "C2 Session 26 Prep", target_session: 26 }),

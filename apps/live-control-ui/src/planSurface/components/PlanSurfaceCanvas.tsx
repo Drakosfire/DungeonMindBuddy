@@ -481,16 +481,6 @@ export function PlanSurfaceCanvas({
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
-      <header className="plan-canvas-heading" aria-label="Plan Board">
-        <div className="plan-canvas-heading__identity">
-          <p className="plan-surface-kicker">Plan Board</p>
-          <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
-          <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
-            {authoring.statusLabel}
-          </p>
-        </div>
-      </header>
-
       <div
         ref={editorShellRef}
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}

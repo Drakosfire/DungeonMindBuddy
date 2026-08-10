@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, type ChangeEvent } from "react";
 
 import type { WorkspaceDocumentRecord } from "../../api/types";
+import { SurfaceContextSelect } from "../../surfaceInteraction/contextHost";
 import { planDocumentOptionLabel } from "../config/planSessionDescriptor";
 import type { PlanDocumentDescriptor } from "../types";
 
@@ -16,6 +17,7 @@ interface PlanDocumentSelectorProps {
   switchError: string | null;
   onSelect: (documentId: string) => void;
   onRetryList: () => void;
+  variant?: "toolbar" | "context";
 }
 
 /**
@@ -31,6 +33,7 @@ export function PlanDocumentSelector({
   switchError,
   onSelect,
   onRetryList,
+  variant = "context",
 }: PlanDocumentSelectorProps) {
   const options = useMemo(() => {
     if (listStatus !== "ready" || documents == null) {
@@ -52,6 +55,33 @@ export function PlanDocumentSelector({
     return listed;
   }, [documents, listStatus, activeDocument.documentId, activeDocument.title]);
 
+  const selectProps = {
+    id: "plan-document-select",
+    "data-testid": "plan-document-select",
+    "aria-label": "Prep document",
+    value: activeDocument.documentId,
+    onChange: (event: ChangeEvent<HTMLSelectElement>) => onSelect(event.target.value),
+    disabled: listStatus !== "ready",
+  };
+
+  if (variant === "context") {
+    return (
+      <div
+        className="plan-document-selector plan-document-selector--context"
+        data-testid="plan-document-selector"
+        aria-busy={switching}
+      >
+        <SurfaceContextSelect {...selectProps}>
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </SurfaceContextSelect>
+      </div>
+    );
+  }
+
   return (
     <div
       className="plan-document-selector"
@@ -61,13 +91,7 @@ export function PlanDocumentSelector({
       <label className="plan-document-selector__label" htmlFor="plan-document-select">
         Prep document
       </label>
-      <select
-        id="plan-document-select"
-        data-testid="plan-document-select"
-        value={activeDocument.documentId}
-        onChange={(event) => onSelect(event.target.value)}
-        disabled={listStatus !== "ready"}
-      >
+      <select {...selectProps}>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.label}

@@ -11,12 +11,11 @@ import {
 } from "../workspaceDocument/workspaceDocumentCreation";
 import { workspaceDocumentSelectionSearch } from "../workspaceDocument/workspaceDocumentNavigation";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
-import { PlanDocumentCreateControl } from "./components/PlanDocumentCreateControl";
-import { PlanDocumentSelector } from "./components/PlanDocumentSelector";
+import { PlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { PlanDogfoodPanel } from "./dogfood/PlanDogfoodPanel";
 import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
-import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
+import { createPlanSurfaceConfig, planLocationOverridesFromSearch } from "./config/planSurfaceConfig";
 import {
   defaultSessionPrepTitle,
   NoActivePlanningDocumentsError,
@@ -325,23 +324,43 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     }
   }, [activateCreatedRecord]);
 
-  const createControlProps = {
-    campaignId: planView.campaign_id,
-    campaignLabel,
-    suggestedSession: suggestedCreateSession,
-    suggestedTitle: suggestedCreateTitle,
-    activeDocuments:
+  const activeDocumentsForCreate = useMemo(
+    () =>
       selectorRecords?.map((record) => ({
         title: record.title,
         targetSession: record.target_session,
       })) ?? [],
-    creating: creatingDocument,
-    createError,
-    activationError: createActivationError,
-    onSubmit: handleCreatePlanningDocument,
-    onRetryOpen: createActivationError ? handleRetryOpenCreatedDocument : undefined,
-    disabled: documentSwitching,
-  };
+    [selectorRecords],
+  );
+
+  const createControlProps = useMemo(
+    () => ({
+      campaignId: planView.campaign_id,
+      campaignLabel,
+      suggestedSession: suggestedCreateSession,
+      suggestedTitle: suggestedCreateTitle,
+      activeDocuments: activeDocumentsForCreate,
+      creating: creatingDocument,
+      createError,
+      activationError: createActivationError,
+      onSubmit: handleCreatePlanningDocument,
+      onRetryOpen: createActivationError ? handleRetryOpenCreatedDocument : undefined,
+      disabled: documentSwitching,
+    }),
+    [
+      activeDocumentsForCreate,
+      createActivationError,
+      campaignLabel,
+      createError,
+      creatingDocument,
+      documentSwitching,
+      handleCreatePlanningDocument,
+      handleRetryOpenCreatedDocument,
+      planView.campaign_id,
+      suggestedCreateSession,
+      suggestedCreateTitle,
+    ],
+  );
 
   const config = useMemo(
     () => (planningDocument ? createPlanSurfaceConfig(planView, planningDocument, locationSearch) : null),
@@ -386,6 +405,42 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
 
+  const memorySession = useMemo(
+    () => planLocationOverridesFromSearch(locationSearch).memorySession ?? null,
+    [locationSearch],
+  );
+
+  const planSurfaceContextProps = useMemo(
+    () => ({
+      campaignId: planView.campaign_id,
+      liveSession: planView.session,
+      memorySession,
+      documents: selectorRecords,
+      listStatus: selectorListStatus,
+      activeDocument: planningDocument,
+      switching: documentSwitching,
+      switchError: documentSwitchError,
+      saveStatusLabel: planningDocument ? saveStatusLabel : null,
+      onSelect: handleSelectPlanningDocument,
+      onRetryList: () => void loadSelectorDocuments(),
+      createControlProps,
+    }),
+    [
+      createControlProps,
+      documentSwitchError,
+      documentSwitching,
+      handleSelectPlanningDocument,
+      loadSelectorDocuments,
+      memorySession,
+      planView.campaign_id,
+      planView.session,
+      planningDocument,
+      saveStatusLabel,
+      selectorListStatus,
+      selectorRecords,
+    ],
+  );
+
   if (documentLoadStatus === "loading") {
     return (
       <main className="app-status">
@@ -396,11 +451,13 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   if (documentLoadStatus === "empty") {
     return (
-      <main className="plan-surface-empty" data-testid="plan-surface-empty">
-        <h1>Plan</h1>
-        <p>No prep documents yet</p>
-        <PlanDocumentCreateControl {...createControlProps} />
-      </main>
+      <>
+        <PlanSurfaceContext {...planSurfaceContextProps} />
+        <main className="plan-surface-empty" data-testid="plan-surface-empty">
+          <h1>Plan</h1>
+          <p>No prep documents yet</p>
+        </main>
+      </>
     );
   }
 
@@ -415,6 +472,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   return (
     <EditCapabilityProvider>
+      <PlanSurfaceContext {...planSurfaceContextProps} />
       <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
         <PlanReferenceProjectionBinding />
         <div
@@ -431,18 +489,6 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
           ) : null}
           <div className="plan-surface-layout">
             <div className="plan-surface-main">
-              <div className="plan-document-toolbar" data-testid="plan-document-toolbar">
-                <PlanDocumentSelector
-                  documents={selectorRecords}
-                  listStatus={selectorListStatus}
-                  activeDocument={config.sessionDescriptor.planningDocument}
-                  switching={documentSwitching}
-                  switchError={documentSwitchError}
-                  onSelect={handleSelectPlanningDocument}
-                  onRetryList={() => void loadSelectorDocuments()}
-                />
-                <PlanDocumentCreateControl {...createControlProps} />
-              </div>
               <PlanSurfaceCanvas
                 sessionDescriptor={config.sessionDescriptor}
                 theme={config.theme}

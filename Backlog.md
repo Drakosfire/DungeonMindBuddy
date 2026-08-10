@@ -16,13 +16,13 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** Create New Prep, target_session, Session N Prep.md, multi-prep, contingent prep, prep frontier, out/workspace/plan, PR #543, Shape B
 **Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md`; `Docs/Plans/HANDOFF-BUILD-plan-multi-prep-per-session-design.md`; `Docs/Design/DECISION-workspace-document-target-relpath-duplicate-repair.md`
 
-## [READY] Surface context bar (prep doc + always graph load) — captured 2026-08-10
-**Depends on:** generalized intentional create (PR #543 merged). Can proceed independently of multi-prep workspace drafts; prefer shipping multi-prep first only if Create New Prep UX is still changing under this DOING item.
-**Context:** PR #541 Plan prep-document selector dogfood. Selector works but sits as a floating control above the Canvas; operator wants it in the existing graph-info strip (`app-chrome-graph-lens` / `GraphLoadPanel`). Broader product intent: that strip becomes a developed **surface-you-are-on** info bar, not graph-only chrome.
-**Insight:** Document identity and graph load status are both “where am I on this surface?” signals. Graph load status must remain always visible; prep-document selection belongs in the same bar on Plan. Expanding the shared Plan+Build nav strip into a true surface-context bar is a chrome composition slice, not a one-line CSS move of the current dropdown.
-**Action:** Design/implement a surface context bar owned by App chrome (or a shared surface-info host) that (1) always shows graph load status, (2) hosts Plan prep-document selection + Create New Prep when on Plan, (3) can later carry other surface-identity facts without becoming a document-management dashboard. Keep opaque `documentId` selection contracts from #541/#543. Falsify: on Plan, prep selector and graph status read as one quiet bar; Build keeps graph status without Plan doc chrome; selector never lives as a competing Canvas header.
-**Surfaces when:** Plan document selector, AppChromeGraphLens, GraphLoadPanel, surface context, graph load status, dogfood polish placement, PR #541, Create New Prep
-**Refs:** `apps/live-control-ui/src/chrome/AppChromeGraphLens.tsx`; `apps/live-control-ui/src/graphLens/GraphLoadPanel.tsx`; `apps/live-control-ui/src/planSurface/components/PlanDocumentSelector.tsx`; PR #541; PR #543
+## [DOING] Surface context layer + global World Graph status — captured 2026-08-10
+**Depends on:** PR #543 create + PR #546/#548 multi-prep form polish (merged).
+**Context:** Dogfood: prep selector floated above Canvas; graph strip was Plan+Build-only. Product split: World Graph = app chrome; surface-loaded context = generic host under nav.
+**Insight:** Graph lens ≠ document identity; surface context ≠ persistence; AppChrome ≠ Plan. Host is an ordered module composition seam (sibling to SIH), not a universal DocumentContext schema.
+**Action:** Ship `SURFACE: add global World Graph status and generic context bar` on `agent/surface-context-layer-foundation`. Plan is first PREP adopter; remove canvas `.plan-document-toolbar`. Falsify: Plan→Build keeps World Graph in the same nav place while Plan modules disappear; no extra graph loads from the indicator alone.
+**Surfaces when:** SurfaceContextHost, AppChromeWorldGraphStatus, Plan prep context, GraphLoadPanel, AppChromeGraphLens, PR #541, Create New Prep
+**Refs:** `Docs/Plans/HANDOFF-BUILD-surface-context-layer-foundation.md`; `apps/live-control-ui/src/surfaceInteraction/contextHost/`; `apps/live-control-ui/src/chrome/AppChrome.tsx`
 
 ## [IDEA] Statblock mechanics identity is campaign-agnostic — captured 2026-08-06
 **Context:** Dogfood Threat sheet hydration: operator could search the Threat but not load mechanics while DMS was down; separately asserted “statblocks should not be defined by the campaign they were created for or in.”

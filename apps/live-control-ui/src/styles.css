@@ -63,20 +63,33 @@ code {
   line-height: 1;
 }
 
-.app-site-nav {
+.app-chrome-header {
   position: sticky;
   top: 10px;
   z-index: 20;
+  margin-bottom: 20px;
+  overflow: visible;
+}
+
+.app-site-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
   padding: 10px;
   border: 1px solid #2a3142;
   border-radius: 10px;
-  margin-bottom: 20px;
   background: rgba(18, 20, 26, 0.94);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(10px);
+}
+
+.app-site-nav__routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
 }
 
 .app-site-nav a {
@@ -99,29 +112,147 @@ code {
   background: rgba(122, 162, 247, 0.08);
 }
 
-.app-site-nav__graph-lens {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.75rem 1.25rem;
-  padding: 0.65rem 0.85rem 0.85rem;
-  margin: -12px 0 20px;
-  border: 1px solid #2a3142;
-  border-top: none;
-  border-radius: 0 0 10px 10px;
-  background: rgba(18, 20, 26, 0.94);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+.app-chrome-header:has(.surface-context-host) .app-site-nav {
+  border-radius: 10px 10px 0 0;
+  box-shadow: none;
 }
 
-.app-site-nav__graph-lens .plan-graph-load-panel {
-  margin: 0;
-  max-width: none;
+.app-chrome-header .surface-context-host {
+  margin-bottom: 0;
+  border-radius: 0 0 10px 10px;
+  border-top: none;
+  background: rgba(18, 20, 26, 0.88);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  overflow: visible;
+}
+
+.app-world-graph-status {
+  margin-left: auto;
+  min-width: 0;
+}
+
+.app-world-graph-status .surface-context-popover {
+  display: flex;
+  justify-content: flex-end;
   width: 100%;
 }
 
-.app-wrap:has(.app-site-nav__graph-lens) .app-site-nav {
-  margin-bottom: 0;
-  border-radius: 10px 10px 0 0;
+.app-world-graph-status__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: min(22rem, 100%);
+  min-width: 0;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid #2a3142;
+  border-radius: 999px;
+  background: rgba(24, 28, 38, 0.9);
+  color: #c0caf5;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.app-world-graph-status__trigger:hover {
+  border-color: #565f89;
+  color: #e8eaef;
+}
+
+.app-world-graph-status__trigger--warning {
+  color: #e0af68;
+  border-color: rgba(224, 175, 104, 0.45);
+}
+
+.app-world-graph-status__trigger--error {
+  color: #f7768e;
+  border-color: rgba(247, 118, 142, 0.45);
+}
+
+.app-world-graph-status__trigger--loading {
+  color: #9aa3b5;
+}
+
+.app-world-graph-status__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-world-graph-status__label--compact {
+  display: none;
+}
+
+.app-world-graph-status__glyph {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.app-world-graph-status__edge {
+  stroke: currentColor;
+  stroke-width: 1.2;
+  opacity: 0.7;
+}
+
+.app-world-graph-status__node {
+  fill: currentColor;
+}
+
+.app-world-graph-status__glyph--pulse .app-world-graph-status__node--a,
+.app-world-graph-status__glyph--pulse .app-world-graph-status__node--b,
+.app-world-graph-status__glyph--pulse .app-world-graph-status__node--c {
+  animation: app-world-graph-node-pulse 1.2s ease-in-out infinite;
+}
+
+.app-world-graph-status__glyph--pulse .app-world-graph-status__node--b {
+  animation-delay: 0.2s;
+}
+
+.app-world-graph-status__glyph--pulse .app-world-graph-status__node--c {
+  animation-delay: 0.4s;
+}
+
+@keyframes app-world-graph-node-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.app-world-graph-status__detail {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  color: #9aa3b5;
+}
+
+.app-world-graph-status .plan-graph-load-panel {
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.app-world-graph-status .plan-graph-load-panel__status {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .app-world-graph-status__label--full {
+    display: none;
+  }
+
+  .app-world-graph-status__label--compact {
+    display: inline;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-world-graph-status__glyph--pulse .app-world-graph-status__node--a,
+  .app-world-graph-status__glyph--pulse .app-world-graph-status__node--b,
+  .app-world-graph-status__glyph--pulse .app-world-graph-status__node--c {
+    animation: none;
+  }
 }
 
 .app-edit-actions button span,
@@ -1913,7 +2044,7 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
-  .app-site-nav {
+  .app-chrome-header {
     position: static;
   }
 
