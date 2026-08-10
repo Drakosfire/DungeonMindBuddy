@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { markdownToTiptapDoc } from "./markdownToTiptap";
+import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
 
 describe("markdownToTiptapDoc", () => {
   it("imports headings and paragraphs", () => {
@@ -651,16 +652,89 @@ describe("markdownToTiptapDoc", () => {
     expect(reimported.doc).toEqual(imported.doc);
   });
 
-  it("fails closed on Decision/Consequence with only the Decision pane", () => {
-    const imported = markdownToTiptapDoc("> [!DECISION-CONSEQUENCE]\n> ### Decision\n> Hold the wall\n");
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        level: "warning",
+  it("fails closed on Decision/Consequence marker labels that the schema cannot preserve", () => {
+    const cases = [
+      {
+        name: "top-level",
+        markdown: [
+          "> [!DECISION-CONSEQUENCE] Secret fork",
+          "> ### Decision",
+          "> Hold",
+          ">",
+          "> ### Consequence",
+          "> Fall back",
+          "",
+        ].join("\n"),
         line: 1,
-        message: "Decision/Consequence blocks must contain exactly one Decision pane and one Consequence pane.",
-      }),
-    ]));
-    expect(JSON.stringify(imported.doc)).not.toContain('"type":"decisionConsequence"');
+      },
+      {
+        name: "list-item",
+        markdown: [
+          "- > [!DECISION-CONSEQUENCE] Secret fork",
+          "  > ### Decision",
+          "  > Hold",
+          "  >",
+          "  > ### Consequence",
+          "  > Fall back",
+          "",
+        ].join("\n"),
+        line: 1,
+      },
+    ];
+    for (const testCase of cases) {
+      const imported = markdownToTiptapDoc(testCase.markdown);
+      expect(imported.diagnostics, testCase.name).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          level: "warning",
+          line: testCase.line,
+          message: "Decision/Consequence marker labels are not preserved by this editor slice.",
+        }),
+      ]));
+      expect(JSON.stringify(imported.doc), testCase.name).not.toContain('"type":"decisionConsequence"');
+    }
+  });
+
+  it("imports list-item Decision/Consequence pane ATX headings without false source-form diagnostics", () => {
+    const markdown = [
+      "- > [!DECISION-CONSEQUENCE]",
+      "  > ### Decision",
+      "  > #### Detail",
+      "  > Hold",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const listItem = (imported.doc.content?.[0] as { content?: unknown[] }).content?.[0] as {
+      content?: Array<{ type?: string; content?: Array<{ type?: string; content?: unknown[] }> }>;
+    };
+    const dc = listItem.content?.[0];
+    expect(dc?.type).toBe("decisionConsequence");
+    const decisionPane = dc?.content?.[0];
+    expect(decisionPane?.content?.map((node) => node.type)).toEqual(["heading", "paragraph"]);
+    expect((decisionPane?.content?.[0] as { attrs?: { level?: number } }).attrs?.level).toBe(4);
+  });
+
+  it("imports supported callout inside Decision pane cleanly and keeps Save safety green", () => {
+    const markdown = [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > [!GM-NOTE]",
+      "> > Hold notes.",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+      "",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    expect(semanticMarkdownSerializationDiagnostics(imported.doc)).toEqual([]);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc).toEqual(imported.doc);
   });
 
   it("fails closed on an unknown top-level callout marker", () => {

@@ -549,22 +549,6 @@ function classifyDecisionConsequencePanes(children: RootContent[]): DecisionCons
   };
 }
 
-function blockquoteMarkerInfo(node: Blockquote): { marker: string; label: string } | null {
-  const first = node.children?.[0];
-  if (first?.type !== "paragraph") return null;
-  const text = collectLabelText(first.children as PhrasingContent[]);
-  const match = text.match(/^\s{0,3}\[!([^\]]+)\]\s*(.*)$/);
-  if (!match) return null;
-  return { marker: match[1].trim(), label: (match[2] ?? "").trim() };
-}
-
-/** Body nodes after stripping a marker-only first paragraph from a parsed blockquote. */
-function blockquoteBodyChildren(node: Blockquote): RootContent[] {
-  const info = blockquoteMarkerInfo(node);
-  if (info === null) return node.children ?? [];
-  return node.children?.slice(1) ?? [];
-}
-
 function emptyPaneContent(): TiptapNode[] {
   return [{ type: "paragraph", content: [] }];
 }
@@ -632,11 +616,20 @@ function visitCalloutBody(
   };
 }
 
+const DECISION_CONSEQUENCE_LABEL_UNSUPPORTED =
+  "Decision/Consequence marker labels are not preserved by this editor slice.";
+
 function visitCalloutSegment(segment: CalloutSegment, state: VisitorState): TiptapNode {
   if (isDecisionConsequenceMarker(segment.marker)) {
+    const sealed = [`[!${segment.marker}]${segment.label ? ` ${segment.label}` : ""}`, ...segment.bodyLines].join("\n");
+    // Canonical D/C TipTap schema has no label attr; serializer always emits the
+    // bare marker. Non-empty trailing marker text would be silently dropped.
+    if (segment.label) {
+      warn(state, DECISION_CONSEQUENCE_LABEL_UNSUPPORTED, segment.markerLine);
+      return paragraphFromText(sealed);
+    }
     const bodyText = segment.bodyLines.join("\n");
     const bodyAst = parseMarkdownAst(bodyText);
-    const sealed = [`[!${segment.marker}]${segment.label ? ` ${segment.label}` : ""}`, ...segment.bodyLines].join("\n");
     return visitDecisionConsequenceBody(
       bodyText,
       bodyAst.children,
@@ -683,31 +676,79 @@ function listItemBlockquoteSealedText(node: Blockquote, state: VisitorState): st
     .trim();
 }
 
-function visitListItemBlockquote(node: Blockquote, state: VisitorState): TiptapNode[] {
-  const info = blockquoteMarkerInfo(node);
-  const markerLine = nodeStartLine(node);
-  const bodyChildren = blockquoteBodyChildren(node);
-  const sealed = listItemBlockquoteSealedText(node, state);
+/**
+ * Strip list-item and blockquote source prefixes so nested callout/D/C bodies
+ * can be reparsed as prefix-free Markdown (same contract as top-level segments).
+ *
+ * List-nested blockquote opening lines often look like `- > [!MARKER]`;
+ * continuation lines look like `  > body`. Both must become marker/body text
+ * without structural prefixes before `parseMarkdownAst`.
+ */
+function stripListItemBlockquoteSourceLine(line: string): string {
+  return line
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+    .replace(/^[\t ]*> ?/, "");
+}
 
-  if (info !== null) {
-    if (isDecisionConsequenceMarker(info.marker)) {
-      const bodyStartLine = bodyChildren[0] ? nodeStartLine(bodyChildren[0]) : markerLine + 1;
-      const bodyText = bodyChildren
-        .map((child) => sourceSlice(child as RootContent & PhrasingContent, state))
-        .join("\n");
-      return [visitDecisionConsequenceBody(bodyText, bodyChildren, markerLine, bodyStartLine, sealed, state)];
+type StrippedCalloutSource = {
+  marker: string | null;
+  label: string;
+  bodyText: string;
+  bodyStartLine: number;
+};
+
+function calloutSourceFromStrippedLines(
+  stripped: string[],
+  blockStartLine: number,
+): StrippedCalloutSource {
+  const markerLineIndex = stripped.findIndex((line) => CALLOUT_MARKER_LINE_PATTERN.test(line));
+  if (markerLineIndex < 0) {
+    return {
+      marker: null,
+      label: "",
+      bodyText: stripped.join("\n"),
+      bodyStartLine: blockStartLine,
+    };
+  }
+  const match = stripped[markerLineIndex]!.match(CALLOUT_MARKER_LINE_PATTERN)!;
+  return {
+    marker: match[1]!.trim(),
+    // Label comes from the marker LINE only. Soft-broken first paragraphs can
+    // otherwise pull body prose into the label and duplicate it on serialize.
+    label: (match[2] ?? "").trim(),
+    bodyText: stripped.slice(markerLineIndex + 1).join("\n"),
+    bodyStartLine: blockStartLine + markerLineIndex + 1,
+  };
+}
+
+function listItemBlockquoteStrippedSource(node: Blockquote, state: VisitorState): StrippedCalloutSource {
+  const stripped = spanLines(node, state).map(stripListItemBlockquoteSourceLine);
+  return calloutSourceFromStrippedLines(stripped, nodeStartLine(node));
+}
+
+function visitListItemBlockquote(node: Blockquote, state: VisitorState): TiptapNode[] {
+  const markerLine = nodeStartLine(node);
+  const sealed = listItemBlockquoteSealedText(node, state);
+  const { marker, label, bodyText, bodyStartLine } = listItemBlockquoteStrippedSource(node, state);
+
+  if (marker !== null) {
+    if (isDecisionConsequenceMarker(marker)) {
+      if (label) {
+        warn(state, DECISION_CONSEQUENCE_LABEL_UNSUPPORTED, markerLine);
+        return [paragraphFromText(sealed)];
+      }
+      // Reparse the stripped body so pane children carry relative positions that
+      // align with bodyState.lines — same contract as visitCalloutSegment.
+      const bodyAst = parseMarkdownAst(bodyText);
+      return [visitDecisionConsequenceBody(bodyText, bodyAst.children, markerLine, bodyStartLine, sealed, state)];
     }
-    const kind = SUPPORTED_CALLOUT_MARKERS.has(info.marker.toUpperCase())
-      ? normalizeCalloutKind(info.marker)
+    const kind = SUPPORTED_CALLOUT_MARKERS.has(marker.toUpperCase())
+      ? normalizeCalloutKind(marker)
       : null;
     if (kind !== null) {
-      const bodyStartLine = bodyChildren[0] ? nodeStartLine(bodyChildren[0]) : markerLine + 1;
-      const bodyText = bodyChildren
-        .map((child) => sourceSlice(child as RootContent & PhrasingContent, state))
-        .join("\n");
-      return [visitCalloutBody(bodyText, kind, info.label, bodyStartLine, state)];
+      return [visitCalloutBody(bodyText, kind, label, bodyStartLine, state)];
     }
-    warn(state, `Callout marker ${info.marker} is not supported by this editor slice.`, markerLine);
+    warn(state, `Callout marker ${marker} is not supported by this editor slice.`, markerLine);
   } else {
     warn(state, "Plain blockquotes are not supported yet.", markerLine);
   }
@@ -715,28 +756,24 @@ function visitListItemBlockquote(node: Blockquote, state: VisitorState): TiptapN
   return content.length > 0 ? content : [{ type: "paragraph", content: [] }];
 }
 
-function blockquoteStrippedBody(node: Blockquote, state: VisitorState): { bodyText: string; bodyStartLine: number } {
+function blockquoteStrippedBody(node: Blockquote, state: VisitorState): StrippedCalloutSource {
   const stripped = spanLines(node, state).map((line) => line.replace(/^\s{0,3}> ?/, ""));
-  const markerLineIndex = stripped.findIndex((line) => CALLOUT_MARKER_LINE_PATTERN.test(line));
-  const bodyLines = markerLineIndex >= 0 ? stripped.slice(markerLineIndex + 1) : stripped;
-  return {
-    bodyText: bodyLines.join("\n"),
-    bodyStartLine: nodeStartLine(node) + markerLineIndex + 1,
-  };
+  return calloutSourceFromStrippedLines(stripped, nodeStartLine(node));
 }
 
 function visitPaneBlockquote(node: Blockquote, state: VisitorState): TiptapNode[] {
-  const info = blockquoteMarkerInfo(node);
   const markerLine = nodeStartLine(node);
-  const { bodyText, bodyStartLine } = blockquoteStrippedBody(node, state);
+  // Prefer line-split marker/label over AST first-paragraph text so soft-broken
+  // body lines never become a spurious callout label.
+  const { marker, label, bodyText, bodyStartLine } = blockquoteStrippedBody(node, state);
 
-  if (info !== null) {
-    if (isDecisionConsequenceMarker(info.marker)) {
+  if (marker !== null) {
+    if (isDecisionConsequenceMarker(marker)) {
       warn(state, "Nested Decision/Consequence blocks are not supported yet.", markerLine);
-    } else if (SUPPORTED_CALLOUT_MARKERS.has(info.marker.toUpperCase())) {
-      return [visitCalloutBody(bodyText, normalizeCalloutKind(info.marker), info.label, bodyStartLine, state)];
+    } else if (SUPPORTED_CALLOUT_MARKERS.has(marker.toUpperCase())) {
+      return [visitCalloutBody(bodyText, normalizeCalloutKind(marker), label, bodyStartLine, state)];
     } else {
-      warn(state, `Callout marker ${info.marker} is not supported by this editor slice.`, markerLine);
+      warn(state, `Callout marker ${marker} is not supported by this editor slice.`, markerLine);
     }
   } else {
     warn(state, "Plain blockquotes are not supported yet.", markerLine);

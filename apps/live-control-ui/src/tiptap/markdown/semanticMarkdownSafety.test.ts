@@ -87,6 +87,56 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     })).toEqual([]);
   });
 
+  it("accepts supported callouts inside Decision/Consequence panes", () => {
+    expect(semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{
+        type: "decisionConsequence",
+        content: [
+          {
+            type: "decisionPane",
+            content: [{
+              type: "callout",
+              attrs: { kind: "gm-note" },
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Hold notes." }] }],
+            }],
+          },
+          {
+            type: "consequencePane",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "Fall back" }] }],
+          },
+        ],
+      }],
+    })).toEqual([]);
+  });
+
+  it("rejects tables nested inside list items (importer also blocks them)", () => {
+    const diagnostics = semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{
+        type: "bulletList",
+        content: [{
+          type: "listItem",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Parent" }] },
+            {
+              type: "table",
+              content: [{
+                type: "tableRow",
+                content: [{
+                  type: "tableCell",
+                  attrs: { colspan: 1, rowspan: 1, colwidth: null },
+                  content: [{ type: "paragraph", content: [{ type: "text", text: "Cell" }] }],
+                }],
+              }],
+            },
+          ],
+        }],
+      }],
+    });
+    expect(diagnostics.some((diagnostic) => diagnostic.message.includes("List item child table"))).toBe(true);
+  });
+
   it("rejects orphan decision panes outside a paired block", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",

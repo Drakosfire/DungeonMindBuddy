@@ -31,7 +31,7 @@ const LIST_ITEM_CHILD_TYPES = new Set([
   "orderedList",
   "callout",
   "decisionConsequence",
-  "table",
+  // Tables stay out: markdownAdmission.visitTable blocks list-item tables.
 ]);
 const DECISION_CONSEQUENCE_CHILD_TYPES = new Set(["decisionPane", "consequencePane"]);
 const PANE_CHILD_TYPES = new Set([
@@ -41,6 +41,8 @@ const PANE_CHILD_TYPES = new Set([
   "bulletList",
   "orderedList",
   "table",
+  // Matches visitPaneBlockquote admitting supported callouts inside panes.
+  "callout",
 ]);
 const SUPPORTED_MARK_TYPES = new Set(["bold", "italic", "strike", "code"]);
 

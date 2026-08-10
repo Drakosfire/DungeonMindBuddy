@@ -22,6 +22,7 @@ import { normalizeMdast } from "../../test/normalizeMdast";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "./markdownToTiptap";
 import { parseMarkdownAst } from "./parseMarkdownAst";
+import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
 
 type AdversarialCase = {
   name: string;
@@ -230,6 +231,32 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     markdown: "> [!DECISION-CONSEQUENCE]\n> ### Decision\n> A\n>\n> ### Decision\n> B\n>\n> ### Consequence\n> C",
     blockedOnMain: true,
   },
+  {
+    name: "decision-consequence marker label silently dropped",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE] Secret fork",
+      "> ### Decision",
+      "> Hold",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 8): D/C schema has no label; serializer emits bare marker",
+  },
+  {
+    name: "list-item decision-consequence marker label silently dropped",
+    markdown: [
+      "- > [!DECISION-CONSEQUENCE] Secret fork",
+      "  > ### Decision",
+      "  > Hold",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+    ].join("\n"),
+    blockedOnMain: true,
+    note: "was a hole (PR #529 cycle 8): same label-drop class on the list-item path",
+  },
 
   // --- Headings / breaks / HTML -------------------------------------------
   {
@@ -338,6 +365,48 @@ const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
     ].join("\n"),
   },
   {
+    name: "decision-consequence pane with supported callout",
+    markdown: [
+      "> [!DECISION-CONSEQUENCE]",
+      "> ### Decision",
+      "> > [!GM-NOTE]",
+      "> > Hold notes.",
+      ">",
+      "> ### Consequence",
+      "> Fall back",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 8): pane callouts must stay safety-clean",
+  },
+  {
+    name: "list-item decision-consequence with pane ATX subheading",
+    markdown: [
+      "- > [!DECISION-CONSEQUENCE]",
+      "  > ### Decision",
+      "  > #### Detail",
+      "  > Hold",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 8): nested D/C must reparse prefix-free body for source-form checks",
+  },
+  {
+    name: "list-item decision-consequence with pane thematic break",
+    markdown: [
+      "- > [!DECISION-CONSEQUENCE]",
+      "  > ### Decision",
+      "  > Before",
+      "  >",
+      "  > ---",
+      "  >",
+      "  > After",
+      "  >",
+      "  > ### Consequence",
+      "  > Fall back",
+    ].join("\n"),
+    note: "was a hole (PR #529 cycle 8): nested pane HR source-form uses relative body lines",
+  },
+  {
     name: "list-item gm-note callout",
     markdown: "- Choice\n  > [!GM-NOTE]\n  > Something changes.",
   },
@@ -398,6 +467,11 @@ describe("Markdown ingress corpus", () => {
       it(testCase.name, () => {
         const imported = markdownToTiptapDoc(testCase.markdown);
         expect(imported.diagnostics).toEqual([]);
+        // Clean import must imply clean Save/reload (admission ∩ safety).
+        expect(
+          semanticMarkdownSerializationDiagnostics(imported.doc),
+          `import-clean but safety-dirty: ${testCase.name}`,
+        ).toEqual([]);
         const exported = tiptapJsonToSemanticMarkdown(imported.doc);
         const reimported = markdownToTiptapDoc(exported);
         expect(reimported.diagnostics).toEqual([]);
