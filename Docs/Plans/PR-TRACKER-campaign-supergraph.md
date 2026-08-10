@@ -1,15 +1,15 @@
 # PR Tracker — Campaign Supergraph
 
-**Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices  
-**Updated:** 2026-08-10 — after #537 merge `9b4f02ab…` and canonical Lysandra `P_live→Q_live` exit; re-anchor current effective conformance to `R_current = Q_live`  
-**Repository anchor:** `81e7b5d71ff647e17fe806bb4ab851f6800b478c` (`origin/main` at BUILD dispatch; #537 merge `9b4f02ab…` is a proven ancestor)  
-**#538 design predecessor / docs base:** PR #538 merge  
-**#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)  
-**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
-**Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
-**Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)  
-**Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
-**Integration roadmap:** [`Docs/Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)  
+**Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
+**Updated:** 2026-08-10 — after #545 merge `78deef1c…` + Session-24 canonical P→Q live exit; re-anchor current effective conformance to `R_current = Q`
+**Repository anchor:** `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde` (`origin/main` at BUILD dispatch; #545 merge `78deef1c…` is a proven ancestor)
+**#538 design predecessor / docs base:** PR #538 merge
+**#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
+**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
+**Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
+**Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
+**Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)
+**Integration roadmap:** [`Docs/Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)
 **UI shell (cross-boundary):** [`Docs/Design/ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md)
 
 This tracker records only current sequence, dependencies, and exit proofs. Completed implementation narrative belongs in merged PRs, archived handoffs, and acceptance reports.
@@ -17,11 +17,11 @@ This tracker records only current sequence, dependencies, and exit proofs. Compl
 At the immutable adjudication domain, historical Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. The formal **current** effective-conformance baseline is now anchored to exact live descendant:
 
 ```text
-R_current = Q_live = rev:b90646fb5b135988bd7842cde858c96e
-369 semantic / 311 represented / 58 residual / 3 uses_statblock
+R_current = Q = rev:b8dfc063bc13a4fb297e83f5f9b313d9
+368 semantic / 311 represented / 57 residual / 3 uses_statblock
 ```
 
-after integrity heal `DONE`, #537 merge, and canonical Lysandra `P_live → Q_live` exit (`P_live = rev:dfdf38edbefd734d108832e92467b208`). Parent-relative Lysandra delta was `0 / +1 / −1 / 0`. The next dispatchable work is bounded Buddy residual selection by correction class (`buddy-remaining-relationship-correction-slices`), not an omnibus residual zeroing PR.
+after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live exit (`P = rev:b90646fb5b135988bd7842cde858c96e` → `Q` above, parent-relative `-1 / 0 / −1 / 0`), and this re-anchor. The next dispatchable work is bounded Buddy residual selection by correction class from the **Q residual ledger** (`buddy-remaining-relationship-correction-slices`), not an omnibus residual zeroing PR.
 
 ## Rules
 
@@ -74,8 +74,10 @@ after integrity heal `DONE`, #537 merge, and canonical Lysandra `P_live → Q_li
 | `dungeonmind-current-relationship-authority-conformance` / #536 | DONE | #534 | Count only current assertion-supported edges in v4/effective relationship inventory so contradicted history is not current residual |
 | `eldyrwild-contribution-integrity-heal` (`contribution:d3d244474789879c`) | DONE | #536 / #538 / #540 | Forensic heal + Kernel same-ID/different-source guard landed; canonical live heal exit proven (`already_healed`, head unchanged through heal) |
 | `eldyrwild-lysandra-threat-direction-correction` / #537 | DONE | #534 + #536 + contribution-integrity heal `DONE` | Merged correction package + canonical `P_live→Q_live` exit proven (`P_live=rev:dfdf38edbefd734d108832e92467b208`, `Q_live=rev:b90646fb5b135988bd7842cde858c96e`, parent-relative `0/+1/−1/0`, retry `already_applied`) |
-| `eldyrwild-effective-conformance-after-first-correction` | DONE | Lysandra correction `DONE` (merged package **and** canonical apply exit proof) | Current effective fixture/replay baseline re-anchored to exact `R_current = Q_live`; adjudication anchor/source seals unchanged |
-| `buddy-remaining-relationship-correction-slices` | READY | first real correction proof + current effective baseline | Select one bounded correction/decomposition/identity/evidence slice from the R_current residual ledger by adjudicated correction class; never zero the ledger in one omnibus PR |
+| `eldyrwild-effective-conformance-after-first-correction` | DONE | Lysandra correction `DONE` (merged package **and** canonical apply exit proof) | Current effective fixture/replay baseline re-anchored to exact post-Lysandra `R_current`; adjudication anchor/source seals unchanged |
+| `eldyrwild-session24-cube-karsemine-false-location-correction` / #545 | DONE | Kernel contradiction `#544` + first effective re-anchor | Merged contradiction package + canonical `P→Q` exit proven (`P=rev:b90646fb5b135988bd7842cde858c96e`, `Q=rev:b8dfc063bc13a4fb297e83f5f9b313d9`, parent-relative `-1/0/−1/0`, retry `already_applied`) |
+| `eldyrwild-effective-conformance-after-second-correction` | DOING | Session-24 correction `DONE` (merged package **and** canonical apply exit proof) | Re-anchor current effective fixture/replay baseline to exact `R_current = Q`; both C₁/C₂ authorities preserved; adjudication/source seals unchanged |
+| `buddy-remaining-relationship-correction-slices` | READY | second real correction proof + current effective baseline at Q | Select one bounded correction/decomposition/identity/evidence slice from the **Q** residual ledger by adjudicated correction class; never zero the ledger in one omnibus PR |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | Buddy semantic closure + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until whole-world conformance and durable adoption both prove READY |
 
 ### Parallel product backlog retained from the July sequence
@@ -96,19 +98,20 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Select one bounded Buddy-owned residual slice from the R_current residual ledger by correction class (`SOURCE_CORRECTION_REQUIRED`, `COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP`, `IDENTITY_NOT_RELATIONSHIP`, or `INSUFFICIENT_EVIDENCE`); keep authority models distinct.
+1. Merge this re-anchor, then select one bounded Buddy-owned residual slice from the **Q** residual ledger by correction class (`SOURCE_CORRECTION_REQUIRED`, `COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP`, `IDENTITY_NOT_RELATIONSHIP`, `INSUFFICIENT_EVIDENCE`, or `UNADJUDICATED`); keep authority models distinct.
 2. Do not schedule an omnibus residual-zeroing PR or another automatic “fix the rest” correction batch.
 3. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
 4. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
-The following remain true after the first governed correction sequence closed:
+The following remain true after the second governed correction sequence:
 
 - Integrity heal for `contribution:d3d244474789879c` is `DONE` (merged #540 + canonical live heal exit).
 - Lysandra threat-direction correction is `DONE` (merged #537 + canonical `P_live→Q_live` exit).
-- Formal current effective conformance is anchored to `R_current = rev:b90646fb5b135988bd7842cde858c96e` (`369 / 311 / 58 / 3`); historical adjudication anchor `rev:3413bf6f5044cf2680233f5e37c90dcf` remains `346 / 294 / 52 / 2`.
-- Remaining Buddy residuals must be selected by correction class from the R_current ledger; diagnostics and adapters still do not mutate the World Graph.
+- Session-24 cube→Karsemine false-location contradiction is `DONE` (merged #545 + canonical `P→Q` exit).
+- Formal current effective conformance is anchored to `R_current = rev:b8dfc063bc13a4fb297e83f5f9b313d9` (`368 / 311 / 57 / 3`); previous formal baseline `rev:b90646fb5b135988bd7842cde858c96e` remains `369 / 311 / 58 / 3`; historical adjudication anchor `rev:3413bf6f5044cf2680233f5e37c90dcf` remains `346 / 294 / 52 / 2`.
+- Remaining Buddy residuals (**57**) must be selected by correction class from the Q ledger; diagnostics and adapters still do not mutate the World Graph.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.

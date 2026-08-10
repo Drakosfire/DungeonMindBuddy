@@ -74,17 +74,61 @@ ADJUDICATION_PATH = (
 )
 
 # Locked eligible parent used by the canonical Lysandra live exit. Real-clone
-# proofs must start here even after canonical head has advanced to Q_live.
+# proofs must start here even after canonical head has advanced past Q_live.
 PRE_C_PARENT_REVISION_ID = "rev:dfdf38edbefd734d108832e92467b208"
 POST_C_CHILD_REVISION_ID = "rev:b90646fb5b135988bd7842cde858c96e"
+# Later Session-24 correction descendant + contribution must also be stripped so
+# the pre-Lysandra clone is not mixed with post-Lysandra mutable authority.
+SESSION24_POST_C_CHILD_REVISION_ID = "rev:b8dfc063bc13a4fb297e83f5f9b313d9"
+SESSION24_CORRECTION_CONTRIBUTION_ID = "contribution:6c13bc0f8edf4377"
+
+
+def _strip_contribution_from_clone(root: Path, contribution_id: str) -> None:
+    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    if contribution_id in set(index.all_contribution_ids) or contribution_id in set(
+        index.active_contribution_ids
+    ):
+        index = index.model_copy(
+            update={
+                "all_contribution_ids": [
+                    x for x in index.all_contribution_ids if x != contribution_id
+                ],
+                "active_contribution_ids": [
+                    x for x in index.active_contribution_ids if x != contribution_id
+                ],
+                "superseded_contribution_ids": [
+                    x for x in index.superseded_contribution_ids if x != contribution_id
+                ],
+                "retracted_contribution_ids": [
+                    x for x in index.retracted_contribution_ids if x != contribution_id
+                ],
+                "failed_contribution_ids": [
+                    x for x in index.failed_contribution_ids if x != contribution_id
+                ],
+            }
+        )
+        save_contribution_index(root, ELDYRWILD_WORLD_ID, index)
+
+    contrib_path = world_paths.contribution_path(
+        root, ELDYRWILD_WORLD_ID, contribution_id
+    )
+    if contrib_path.is_file():
+        contrib_path.unlink()
+
+
+def _drop_revision_material(root: Path, revision_id: str) -> None:
+    post_c_dir = world_paths.revision_dir(root, ELDYRWILD_WORLD_ID, revision_id)
+    if post_c_dir.is_dir():
+        shutil.rmtree(post_c_dir)
 
 
 def _ensure_pre_c_eligible_root(root: Path) -> None:
     """Force a clone onto explicit pre-C parent P with C absent from the ledger.
 
-    Copying canonical Eldyrwild after the live cutover inherits Q_live and a
-    mutable store that already contains locked C. Eligible/apply/replay proofs
-    require the pre-C parent instead, so restore that state inside the clone.
+    Copying canonical Eldyrwild after later live cutovers inherits descendants and
+    mutable stores that already contain locked C (and later Session-24 C₂).
+    Eligible/apply/replay proofs require the pre-C parent instead, so restore
+    that state inside the clone.
     """
     try:
         kernel.load_world_graph_revision(
@@ -97,41 +141,13 @@ def _ensure_pre_c_eligible_root(root: Path) -> None:
         root, ELDYRWILD_WORLD_ID, PRE_C_PARENT_REVISION_ID
     )
 
-    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
-    cid = LOCKED_CORRECTION_CONTRIBUTION_ID
-    if cid in set(index.all_contribution_ids) or cid in set(index.active_contribution_ids):
-        index = index.model_copy(
-            update={
-                "all_contribution_ids": [
-                    x for x in index.all_contribution_ids if x != cid
-                ],
-                "active_contribution_ids": [
-                    x for x in index.active_contribution_ids if x != cid
-                ],
-                "superseded_contribution_ids": [
-                    x for x in index.superseded_contribution_ids if x != cid
-                ],
-                "retracted_contribution_ids": [
-                    x for x in index.retracted_contribution_ids if x != cid
-                ],
-                "failed_contribution_ids": [
-                    x for x in index.failed_contribution_ids if x != cid
-                ],
-            }
-        )
-        save_contribution_index(root, ELDYRWILD_WORLD_ID, index)
-
-    contrib_path = world_paths.contribution_path(root, ELDYRWILD_WORLD_ID, cid)
-    if contrib_path.is_file():
-        contrib_path.unlink()
+    _strip_contribution_from_clone(root, LOCKED_CORRECTION_CONTRIBUTION_ID)
+    _strip_contribution_from_clone(root, SESSION24_CORRECTION_CONTRIBUTION_ID)
 
     # Drop post-C descendant material so the clone is not a mixed P-head/Q-history
     # store. Eligible apply must publish a fresh child from P.
-    post_c_dir = world_paths.revision_dir(
-        root, ELDYRWILD_WORLD_ID, POST_C_CHILD_REVISION_ID
-    )
-    if post_c_dir.is_dir():
-        shutil.rmtree(post_c_dir)
+    _drop_revision_material(root, POST_C_CHILD_REVISION_ID)
+    _drop_revision_material(root, SESSION24_POST_C_CHILD_REVISION_ID)
 
     rebuild_latest = world_paths.contribution_rebuild_latest_path(
         root, ELDYRWILD_WORLD_ID
