@@ -241,6 +241,10 @@ def _worldbuilding_target_relpath(document_id: str) -> str:
     return f"out/workspace/worldbuilding/{document_id}.md"
 
 
+def _plan_workspace_target_relpath(document_id: str) -> str:
+    return f"out/workspace/plan/{document_id}.md"
+
+
 def _require_unique_target_relpath(
     document: WorkspaceDocumentRegistryDocument,
     target_relpath: str | None,
@@ -353,6 +357,10 @@ def create_workspace_document(
                 "worldbuilding metadata is only valid for kind=worldbuilding_source",
                 status_code=422,
             )
+        if kind == "plan" and (target_relpath is None or target_relpath == ""):
+            # Product Create New Prep omits path; server owns UUID workspace draft storage.
+            # Explicit caller-supplied Plan paths remain for fixtures/compat only.
+            resolved_target = _plan_workspace_target_relpath(document_id)
 
     now = _utc_now_iso()
     record = WorkspaceDocumentRecord(
@@ -542,6 +550,12 @@ def _update_workspace_document_metadata_unlocked(
             else:
                 raise WorkspaceDocumentRegistryError(
                     "target_relpath must be a string or null",
+                    status_code=422,
+                )
+            if existing.kind == "plan" and resolved_update_target != existing.target_relpath:
+                # Generic PATCH must not act as hidden workspace→canonical promotion.
+                raise WorkspaceDocumentRegistryError(
+                    "plan target_relpath cannot be changed via metadata update",
                     status_code=422,
                 )
             _require_unique_target_relpath(

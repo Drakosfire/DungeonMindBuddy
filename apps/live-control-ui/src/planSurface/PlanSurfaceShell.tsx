@@ -19,7 +19,6 @@ import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import {
   defaultSessionPrepTitle,
-  durablePlanTargetRelpath,
   NoActivePlanningDocumentsError,
   planDocumentSelectionSearch,
   resolvePlanningDocument,
@@ -260,9 +259,6 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   const handleCreatePlanningDocument = useCallback(
     async ({ title, targetSession }: { title: string; targetSession: number }) => {
-      const targetRelpath = durablePlanTargetRelpath(planView.campaign_id, targetSession);
-      if (targetRelpath == null) return;
-
       setCreatingDocument(true);
       setCreateError(null);
       setCreateActivationError(null);
@@ -272,7 +268,6 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
           campaignId: planView.campaign_id,
           title,
           targetSession,
-          targetRelpath,
         });
         void loadSelectorDocuments();
         if (!created.intentCurrent) {
@@ -335,6 +330,11 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     campaignLabel,
     suggestedSession: suggestedCreateSession,
     suggestedTitle: suggestedCreateTitle,
+    activeDocuments:
+      selectorRecords?.map((record) => ({
+        title: record.title,
+        targetSession: record.target_session,
+      })) ?? [],
     creating: creatingDocument,
     createError,
     activationError: createActivationError,

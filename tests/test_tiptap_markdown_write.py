@@ -29,6 +29,12 @@ def test_normalize_allows_worldbuilding_workspace_target() -> None:
     assert normalize_tiptap_target_relpath(relpath) == relpath
 
 
+def test_normalize_allows_plan_workspace_target() -> None:
+    document_id = "11111111-1111-4111-8111-111111111111"
+    relpath = f"out/workspace/plan/{document_id}.md"
+    assert normalize_tiptap_target_relpath(relpath) == relpath
+
+
 def test_normalize_rejects_traversal_and_escape() -> None:
     with pytest.raises(TiptapMarkdownWriteError):
         normalize_tiptap_target_relpath("../secrets.md")
@@ -36,6 +42,66 @@ def test_normalize_rejects_traversal_and_escape() -> None:
         normalize_tiptap_target_relpath("/tmp/escape.md")
     with pytest.raises(TiptapMarkdownWriteError):
         normalize_tiptap_target_relpath("out/workspace/worldbuilding/not-a-uuid.md")
+    with pytest.raises(TiptapMarkdownWriteError):
+        normalize_tiptap_target_relpath("out/workspace/plan/not-a-uuid.md")
+
+
+def test_authorize_target_binds_plan_workspace_to_own_document_id() -> None:
+    own_id = "11111111-1111-4111-8111-111111111111"
+    other_id = "22222222-2222-4222-8222-222222222222"
+    record = WorkspaceDocumentRecord(
+        document_id=own_id,
+        title="Plan draft",
+        campaign_id="eldyrwild",
+        kind="plan",
+        target_relpath=f"out/workspace/plan/{other_id}.md",
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+    )
+    with pytest.raises(TiptapMarkdownWriteError):
+        authorize_target_for_record(record)
+
+
+def test_plan_workspace_prepare_commit_round_trip(tmp_path: Path) -> None:
+    record = create_workspace_document(
+        tmp_path,
+        title="If the party goes north",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=27,
+    )
+    assert record.target_relpath == f"out/workspace/plan/{record.document_id}.md"
+    markdown = "# North fork\n\nBody.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+        ),
+    )
+    assert prepared.writer_ok is True
+    assert prepared.writer_confirm_token
+    assert prepared.target_relpath == record.target_relpath
+
+    committed = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            writer_confirm_token=prepared.writer_confirm_token,
+            expected_revision=1,
+        ),
+    )
+    assert committed.writer_ok is True
+    assert committed.bytes_written
+    assert "corpus was not mutated" in committed.diagnostics
+    target = tmp_path / (record.target_relpath or "")
+    assert target.is_file()
+    assert target.read_text(encoding="utf-8") == markdown
+    assert not str(record.target_relpath).startswith("corpus/")
+    loaded = get_workspace_document(tmp_path, record.document_id)
+    assert loaded.content_status == "committed"
 
 
 def test_lossy_markdown_diagnostics_block_tables_and_html() -> None:
@@ -165,51 +231,25 @@ def test_lossy_markdown_is_advisory_for_plan_and_runbook(tmp_path: Path, kind: s
     assert (tmp_path / target).read_text(encoding="utf-8") == markdown
 
 
-def test_plan_and_runbook_cannot_target_foreign_worldbuilding_path(tmp_path: Path) -> None:
-    worldbuilding = create_workspace_document(
-        tmp_path,
-        title="World Lore",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
+def test_plan_and_runbook_cannot_authorize_foreign_worldbuilding_path() -> None:
+    foreign_target = (
+        "out/workspace/worldbuilding/11111111-1111-4111-8111-111111111111.md"
     )
-    foreign_target = worldbuilding.target_relpath
-    assert foreign_target
-    original = tmp_path / foreign_target
-    original.parent.mkdir(parents=True, exist_ok=True)
-    original.write_text("# owned by worldbuilding\n", encoding="utf-8")
-
-    for kind in ("plan", "runbook"):
-        record = create_workspace_document(
-            tmp_path,
+    for kind, document_id in (
+        ("plan", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+        ("runbook", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+    ):
+        record = WorkspaceDocumentRecord(
+            document_id=document_id,
             title=f"Cross-kind {kind}",
             campaign_id="eldyrwild",
             kind=kind,  # type: ignore[arg-type]
             target_relpath=foreign_target,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
         )
         with pytest.raises(TiptapMarkdownWriteError):
-            prepare_tiptap_markdown_write(
-                root=tmp_path,
-                request=TiptapMarkdownWritePrepareRequest(
-                    document_id=record.document_id,
-                    markdown="# hijack\n",
-                    expected_revision=1,
-                ),
-            )
-        with pytest.raises(TiptapMarkdownWriteError):
-            commit_tiptap_markdown_write(
-                root=tmp_path,
-                request=TiptapMarkdownWriteCommitRequest(
-                    document_id=record.document_id,
-                    markdown="# hijack\n",
-                    writer_confirm_token="deadbeef",
-                    expected_revision=1,
-                ),
-            )
-        assert original.read_text(encoding="utf-8") == "# owned by worldbuilding\n"
+            authorize_target_for_record(record)
 
 
 def test_authorize_target_binds_worldbuilding_to_own_document_id() -> None:

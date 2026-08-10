@@ -32,6 +32,10 @@ _ALLOWED_WORLDBUILDING_WORKSPACE_RE = re.compile(
     r"^out/workspace/worldbuilding/"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.md$"
 )
+_ALLOWED_PLAN_WORKSPACE_RE = re.compile(
+    r"^out/workspace/plan/"
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.md$"
+)
 _LOSSY_MARKDOWN_LINE_RE = re.compile(r"^\s*(?:\||<|!\[|---\s*$)")
 
 
@@ -40,6 +44,7 @@ def _is_allowed_tiptap_target_relpath(value: str) -> bool:
         _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE.fullmatch(value)
         or _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(value)
         or _ALLOWED_WORLDBUILDING_WORKSPACE_RE.fullmatch(value)
+        or _ALLOWED_PLAN_WORKSPACE_RE.fullmatch(value)
     )
 
 
@@ -96,9 +101,13 @@ def authorize_target_for_record(record: WorkspaceDocumentRecord) -> str:
         return normalize_tiptap_target_relpath(relpath)
 
     if record.kind == "plan":
+        expected_workspace = f"out/workspace/plan/{record.document_id}.md"
+        if relpath == expected_workspace:
+            return normalize_tiptap_target_relpath(relpath)
         if not _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(relpath):
             raise TiptapMarkdownWriteError(
-                "plan target_relpath must match an allowed Session Prep path"
+                "plan target_relpath must match the document's workspace path "
+                "or an allowed Session Prep path"
             )
         return normalize_tiptap_target_relpath(relpath)
 

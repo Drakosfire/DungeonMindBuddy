@@ -142,10 +142,18 @@
 }
 
 .plan-document-create__path-warning,
+.plan-document-create__title-warning,
 .plan-document-create__error {
   margin: 0;
   flex-basis: 100%;
   color: #f2a6a6;
+}
+
+.plan-document-create__same-session {
+  margin: 0;
+  flex-basis: 100%;
+  color: var(--muted, #9aa3b5);
+  font-size: 0.85rem;
 }
 
 .plan-document-create__actions {

@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  defaultSessionPrepTitle,
-  durablePlanTargetRelpath,
-} from "../config/planSessionDescriptor";
+import { defaultSessionPrepTitle } from "../config/planSessionDescriptor";
 
 export interface PlanDocumentCreateSubmitPayload {
   title: string;
   targetSession: number;
+}
+
+export interface PlanDocumentCreateActiveDocument {
+  title: string;
+  targetSession: number | null;
 }
 
 interface PlanDocumentCreateControlProps {
@@ -15,6 +17,8 @@ interface PlanDocumentCreateControlProps {
   campaignLabel: string;
   suggestedSession: number;
   suggestedTitle: string;
+  /** Active Plan documents used for same-session copy and distinct-title gate. */
+  activeDocuments?: PlanDocumentCreateActiveDocument[];
   creating?: boolean;
   createError?: string | null;
   activationError?: string | null;
@@ -23,15 +27,19 @@ interface PlanDocumentCreateControlProps {
   disabled?: boolean;
 }
 
+function normalizePlanTitle(title: string): string {
+  return title.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 /**
  * Quiet intentional-create control for Plan prep documents. Opens an inline
  * form; management (rename/archive) stays out of scope.
  */
 export function PlanDocumentCreateControl({
-  campaignId,
   campaignLabel,
   suggestedSession,
   suggestedTitle,
+  activeDocuments = [],
   creating = false,
   createError = null,
   activationError = null,
@@ -60,8 +68,21 @@ export function PlanDocumentCreateControl({
     }
   }, [createError, activationError]);
 
-  const durablePathAvailable =
-    durablePlanTargetRelpath(campaignId, targetSession) != null;
+  const sameSessionActive = useMemo(
+    () =>
+      activeDocuments.filter(
+        (document) => document.targetSession != null && document.targetSession === targetSession,
+      ),
+    [activeDocuments, targetSession],
+  );
+
+  const titleConflicts = useMemo(() => {
+    const normalized = normalizePlanTitle(title);
+    if (!normalized) return false;
+    return sameSessionActive.some(
+      (document) => normalizePlanTitle(document.title) === normalized,
+    );
+  }, [sameSessionActive, title]);
 
   const handleOpen = () => {
     titleManuallyEditedRef.current = false;
@@ -86,11 +107,13 @@ export function PlanDocumentCreateControl({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (disabled || creating || !durablePathAvailable) return;
+    if (disabled || creating || titleConflicts) return;
     const trimmed = title.trim();
     if (!trimmed) return;
     onSubmit({ title: trimmed, targetSession });
   };
+
+  const canSubmit = !disabled && !creating && !titleConflicts && Boolean(title.trim());
 
   return (
     <div className="plan-document-create" data-testid="plan-document-create">
@@ -107,7 +130,7 @@ export function PlanDocumentCreateControl({
       ) : (
         <form className="plan-document-create__form" onSubmit={handleSubmit}>
           <label className="plan-document-create__field">
-            <span>Target session</span>
+            <span>For session</span>
             <input
               type="number"
               min={1}
@@ -127,14 +150,24 @@ export function PlanDocumentCreateControl({
               disabled={disabled || creating}
             />
           </label>
-          {!durablePathAvailable ? (
+          {sameSessionActive.length > 0 ? (
             <p
-              className="plan-document-create__path-warning"
-              role="alert"
-              data-testid="plan-document-create-path-error"
+              className="plan-document-create__same-session"
+              data-testid="plan-document-create-same-session"
             >
-              A durable Plan path cannot be derived for this campaign and session.
-              Choose a supported campaign or adjust the target session.
+              {sameSessionActive.length === 1
+                ? `1 other prep is already aimed at Session ${targetSession}.`
+                : `${sameSessionActive.length} other preps are already aimed at Session ${targetSession}.`}{" "}
+              This will create another alternative.
+            </p>
+          ) : null}
+          {titleConflicts ? (
+            <p
+              className="plan-document-create__title-warning"
+              role="alert"
+              data-testid="plan-document-create-title-error"
+            >
+              Give this alternative a distinct title, such as &quot;If the party goes north&quot;.
             </p>
           ) : null}
           {createError ? (
@@ -159,7 +192,7 @@ export function PlanDocumentCreateControl({
             <button
               type="submit"
               data-testid="plan-document-create-submit"
-              disabled={disabled || creating || !durablePathAvailable || !title.trim()}
+              disabled={!canSubmit}
             >
               {creating ? "Creating…" : "Create prep"}
             </button>

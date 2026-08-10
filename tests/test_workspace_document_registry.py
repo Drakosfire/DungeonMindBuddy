@@ -971,19 +971,14 @@ def test_reinstate_workspace_document_record_restores_identity_without_path_coll
 
 
 def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: Path) -> None:
-    path_a = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 40 Prep.md"
-    )
-    path_b = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 41 Prep.md"
-    )
+    """Runbook still allows path rebinding; uniqueness must reject a taken path."""
+    path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-a.md"
+    path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-b.md"
     owner = create_workspace_document(
         root,
         title="Owner",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=40,
         target_relpath=path_a,
     )
@@ -991,7 +986,7 @@ def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: P
         root,
         title="Other",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=41,
         target_relpath=path_b,
     )
@@ -1014,19 +1009,13 @@ def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: P
 
 
 def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(root: Path) -> None:
-    path_a = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 42 Prep.md"
-    )
-    path_b = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 43 Prep.md"
-    )
+    path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-discarded-a.md"
+    path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-discarded-b.md"
     owner = create_workspace_document(
         root,
         title="Discarded owner",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=42,
         target_relpath=path_a,
     )
@@ -1035,7 +1024,7 @@ def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(root
         root,
         title="Other",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=43,
         target_relpath=path_b,
     )
@@ -1077,23 +1066,122 @@ def test_update_metadata_allows_restating_own_target_relpath(root: Path) -> None
     assert updated.revision == 2
 
 
+def test_plan_metadata_rejects_target_relpath_transition(root: Path) -> None:
+    workspace = create_workspace_document(
+        root,
+        title="If the party goes north",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=27,
+    )
+    assert workspace.target_relpath == f"out/workspace/plan/{workspace.document_id}.md"
+    before = get_workspace_document(root, workspace.document_id)
+    canonical = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 27 Prep.md"
+    )
+
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        update_workspace_document_metadata(
+            root,
+            workspace.document_id,
+            target_relpath=canonical,
+            expected_revision=before.revision,
+        )
+    assert exc_info.value.status_code == 422
+    assert "cannot be changed via metadata update" in str(exc_info.value)
+
+    after = get_workspace_document(root, workspace.document_id)
+    assert after.model_dump() == before.model_dump()
+
+
+def test_plan_create_omitted_path_assigns_uuid_workspace_target(root: Path) -> None:
+    first = create_workspace_document(
+        root,
+        title="If the party goes north",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=27,
+    )
+    second = create_workspace_document(
+        root,
+        title="If the siege breaks",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=27,
+    )
+    assert first.document_id != second.document_id
+    assert first.target_session == second.target_session == 27
+    assert first.target_relpath == f"out/workspace/plan/{first.document_id}.md"
+    assert second.target_relpath == f"out/workspace/plan/{second.document_id}.md"
+    assert first.status == second.status == "active"
+
+
+def test_plan_workspace_create_ignores_discarded_canonical_owner(root: Path) -> None:
+    canonical = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 23 Prep.md"
+    )
+    discarded = create_workspace_document(
+        root,
+        title="Old Session 23",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=23,
+        target_relpath=canonical,
+    )
+    discard_workspace_document(root, discarded.document_id)
+
+    created = create_workspace_document(
+        root,
+        title="Workspace Session 23 sketch",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=23,
+    )
+    assert created.target_relpath == f"out/workspace/plan/{created.document_id}.md"
+    assert created.status == "active"
+
+
+def test_api_patch_rejects_plan_target_relpath_promotion(
+    client: TestClient,
+    root: Path,
+) -> None:
+    created = create_workspace_document(
+        root,
+        title="Workspace draft",
+        campaign_id="longmont-c2",
+        kind="plan",
+        target_session=27,
+    )
+    before = get_workspace_document(root, created.document_id)
+    canonical = (
+        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
+        "Session Prep/Session 27 Prep.md"
+    )
+
+    response = client.patch(
+        f"/api/live/workspace-documents/{created.document_id}",
+        json={"target_relpath": canonical, "expected_revision": before.revision},
+    )
+    assert response.status_code == 422
+    assert "cannot be changed via metadata update" in response.json()["detail"]
+
+    after = get_workspace_document(root, created.document_id)
+    assert after.model_dump() == before.model_dump()
+
+
 def test_api_patch_rejects_duplicate_target_relpath_including_discarded_owner(
     client: TestClient,
     root: Path,
 ) -> None:
-    path_a = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 45 Prep.md"
-    )
-    path_b = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 46 Prep.md"
-    )
+    path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/api-unique-a.md"
+    path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/api-unique-b.md"
     owner = create_workspace_document(
         root,
         title="Discarded owner",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=45,
         target_relpath=path_a,
     )
@@ -1102,7 +1190,7 @@ def test_api_patch_rejects_duplicate_target_relpath_including_discarded_owner(
         root,
         title="Active other",
         campaign_id="longmont-c2",
-        kind="plan",
+        kind="runbook",
         target_session=46,
         target_relpath=path_b,
     )

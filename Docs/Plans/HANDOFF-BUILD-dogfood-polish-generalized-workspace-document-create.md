@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-POLISH: generalized intentional workspace-document create
 
 **Created:** 2026-08-10
-**Status:** READY FOR IMPLEMENTATION
+**Status:** MERGED — PR #543 (`b8e4dd214b1171793051ce507c0b93c6d87efa91`). Successor: `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Observed `main` anchor:** `81e7b5d71ff647e17fe806bb4ab851f6800b478c`
 **Suggested branch:** `agent/dogfood-polish-workspace-document-create`

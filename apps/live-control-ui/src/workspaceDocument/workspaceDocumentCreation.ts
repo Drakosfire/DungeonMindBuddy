@@ -15,8 +15,8 @@ export type WorkspaceDocumentCreateIntent =
       kind: "plan";
       campaignId: string;
       title: string;
-      targetSession: number | null;
-      targetRelpath: string | null;
+      /** Session affinity only — storage path is server-owned. */
+      targetSession: number;
     }
   | {
       kind: "runbook";
@@ -89,6 +89,15 @@ export function createWorkspaceDocumentRequestFromIntent(
       document_class: intent.documentClass,
       authority_state: intent.authorityState,
       visibility_state: intent.visibilityState,
+    };
+  }
+
+  if (intent.kind === "plan") {
+    return {
+      title: intent.title,
+      campaign_id: intent.campaignId,
+      kind: "plan",
+      target_session: intent.targetSession,
     };
   }
 

@@ -176,19 +176,19 @@ export function suggestedPlanCreatePayload(campaignId: string, liveSession: numb
   };
 }
 
-/** Next unused target session at or above liveSession + 1. */
+/** Next session after the prep frontier (live cursor and highest active affinity). */
 export function suggestNextPlanTargetSession(
   liveSession: number,
   occupiedSessions: Array<number | null | undefined>,
 ): number {
-  const occupied = new Set(
-    occupiedSessions.filter((session): session is number => session != null),
+  const activeAffinities = occupiedSessions.filter(
+    (session): session is number => session != null,
   );
-  let candidate = liveSession + 1;
-  while (occupied.has(candidate)) {
-    candidate += 1;
-  }
-  return candidate;
+  const highestActiveAffinity =
+    activeAffinities.length > 0 ? Math.max(...activeAffinities) : null;
+  const prepFrontier =
+    highestActiveAffinity == null ? liveSession : Math.max(liveSession, highestActiveAffinity);
+  return prepFrontier + 1;
 }
 
 /** Durable corpus path when known; null when the campaign layout is not derivable. */
