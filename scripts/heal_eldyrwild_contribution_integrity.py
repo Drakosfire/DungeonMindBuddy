@@ -52,6 +52,12 @@ from graph_memory.world_supergraph.storage import (  # noqa: E402
 
 WORLD_ID = "eldyrwild"
 CONTRIBUTION_ID = "contribution:d3d244474789879c"
+PARENT_CONTRIBUTION_ID = "contribution:2807888820d76c78"
+REJECTED_ASSERTION_ID = "assertion:134135a4f3a2487b"
+# Immutable revision-bound source digest for D (current head + historical maps).
+IMMUTABLE_E = (
+    "f312aa5895c9d9a8bfd77b815f47278a4abaffbe699fd6c401adf723fefaf1e5"
+)
 HISTORICAL_REVISIONS = (
     "rev:4d0636a05841efd6958014b655ccf40e",
     "rev:bbf29b974f0162dc8b8fbe080d93ae00",
@@ -144,7 +150,11 @@ def _historical_digest_report(root: Path) -> dict[str, Any]:
             }
         )
     coherent = bool(digests) and all(d and d == digests[0] for d in digests)
-    return {"revisions": rows, "digest_coherent": coherent, "E_historical": digests[0] if coherent else None}
+    return {
+        "revisions": rows,
+        "digest_coherent": coherent,
+        "E_historical": digests[0] if coherent else None,
+    }
 
 
 def _ledger_path(root: Path) -> Path:
@@ -179,6 +189,98 @@ def _revision_tree_digest(root: Path) -> str:
     return h.hexdigest()
 
 
+def _index_bucket(index: Any, contribution_id: str) -> str | None:
+    if contribution_id in index.active_contribution_ids:
+        return "active"
+    if contribution_id in index.failed_contribution_ids:
+        return "failed"
+    if contribution_id in index.superseded_contribution_ids:
+        return "superseded"
+    if contribution_id in index.retracted_contribution_ids:
+        return "retracted"
+    return None
+
+
+def _is_known_corrupt_state(
+    *,
+    A_now: str | None,
+    E_map: str,
+    ledger_status: str | None,
+    index_bucket: str | None,
+    L_head: str,
+) -> bool:
+    """Exact live corruption fingerprint for D (digest drift + failed/failed)."""
+    return (
+        A_now is not None
+        and A_now != E_map
+        and ledger_status == "failed"
+        and index_bucket == "failed"
+        and L_head == "active"
+    )
+
+
+def _classify_heal_state(
+    *,
+    A_now: str | None,
+    E_map: str,
+    ledger_status: str | None,
+    index_bucket: str | None,
+    L_head: str,
+    dstar_digest: str | None,
+    E_manifest: str | None,
+    historical: dict[str, Any],
+) -> tuple[HealStatusName, list[str]]:
+    reasons: list[str] = []
+
+    if not E_map or E_map != E_manifest:
+        return "integrity_failure", ["current_head_digest_map_manifest_disagree"]
+    if E_map != IMMUTABLE_E:
+        return "integrity_failure", ["unexpected_immutable_E"]
+    if not historical["digest_coherent"] or historical["E_historical"] != E_map:
+        return "integrity_failure", ["historical_digest_disagreement"]
+    if L_head is None:
+        return "integrity_failure", ["current_head_missing_manifest_lifecycle"]
+    if dstar_digest is None:
+        return "ineligible", ["dstar_unavailable"]
+    if dstar_digest != E_map:
+        return "integrity_failure", ["dstar_digest_mismatch"]
+    if A_now is None or ledger_status is None or index_bucket is None:
+        return "integrity_failure", ["d_ledger_or_index_missing"]
+
+    # Fully healed: source digest + ledger lifecycle + index bucket all match.
+    if (
+        A_now == E_map
+        and ledger_status == L_head
+        and index_bucket == L_head
+    ):
+        return "already_healed", []
+
+    # Recognized partial: source healed, ledger lifecycle matches, index lagging.
+    if A_now == E_map and ledger_status == L_head and index_bucket != L_head:
+        return "eligible", ["partial_state:ledger_healed_index_stale"]
+
+    # Recognized partial: source healed but ledger lifecycle not yet restored.
+    if A_now == E_map and ledger_status != L_head:
+        return "eligible", ["partial_state:ledger_lifecycle_stale"]
+
+    # Known corrupt live fingerprint.
+    if _is_known_corrupt_state(
+        A_now=A_now,
+        E_map=E_map,
+        ledger_status=ledger_status,
+        index_bucket=index_bucket,
+        L_head=L_head,
+    ):
+        return "eligible", ["known_corrupt_state"]
+
+    # Recognized inverse partial: index already at L_head, ledger still wrong.
+    if A_now != E_map and index_bucket == L_head:
+        return "eligible", ["partial_state:index_ok_ledger_corrupt"]
+
+    reasons.append("unknown_d_drift")
+    return "integrity_failure", reasons
+
+
 def status(*, root: Path | None = None) -> dict[str, Any]:
     resolved = _resolve_root(root)
     head = open_world_graph_head(resolved, WORLD_ID)
@@ -198,15 +300,7 @@ def status(*, root: Path | None = None) -> dict[str, Any]:
         ledger_status = ledger.status
 
     index = load_contribution_index(resolved, WORLD_ID)
-    index_bucket = None
-    if CONTRIBUTION_ID in index.active_contribution_ids:
-        index_bucket = "active"
-    elif CONTRIBUTION_ID in index.failed_contribution_ids:
-        index_bucket = "failed"
-    elif CONTRIBUTION_ID in index.superseded_contribution_ids:
-        index_bucket = "superseded"
-    elif CONTRIBUTION_ID in index.retracted_contribution_ids:
-        index_bucket = "retracted"
+    index_bucket = _index_bucket(index, CONTRIBUTION_ID)
 
     dstar_info: dict[str, Any] | None = None
     dstar_digest = None
@@ -221,40 +315,16 @@ def status(*, root: Path | None = None) -> dict[str, Any]:
     except HealError as exc:
         dstar_info = {"error": exc.code, "message": str(exc)}
 
-    state: HealStatusName = "ineligible"
-    reasons: list[str] = []
-
-    if not E_map or E_map != E_manifest:
-        state = "integrity_failure"
-        reasons.append("current_head_digest_map_manifest_disagree")
-    elif not historical["digest_coherent"] or historical["E_historical"] != E_map:
-        state = "integrity_failure"
-        reasons.append("historical_digest_disagreement")
-    elif L_head is None:
-        state = "integrity_failure"
-        reasons.append("current_head_missing_manifest_lifecycle")
-    elif dstar_digest is None:
-        state = "ineligible"
-        reasons.append("dstar_unavailable")
-    elif dstar_digest != E_map:
-        state = "integrity_failure"
-        reasons.append("dstar_digest_mismatch")
-    elif A_now == E_map and index_bucket == L_head:
-        state = "already_healed"
-    elif A_now != E_map or index_bucket != L_head:
-        # partial or corrupt
-        if A_now == E_map and index_bucket != L_head:
-            state = "eligible"  # converge partial
-            reasons.append("partial_state:ledger_healed_index_stale")
-        elif A_now != E_map and index_bucket == L_head:
-            state = "eligible"
-            reasons.append("partial_state:index_ok_ledger_corrupt")
-        else:
-            state = "eligible"
-            reasons.append("corrupt_ledger_or_index")
-    else:
-        state = "ineligible"
-        reasons.append("unrecognized_state")
+    state, reasons = _classify_heal_state(
+        A_now=A_now,
+        E_map=E_map or "",
+        ledger_status=ledger_status,
+        index_bucket=index_bucket,
+        L_head=L_head or "",
+        dstar_digest=dstar_digest,
+        E_manifest=E_manifest,
+        historical=historical,
+    )
 
     return {
         "world_id": WORLD_ID,
@@ -278,6 +348,20 @@ def status(*, root: Path | None = None) -> dict[str, Any]:
     }
 
 
+def _restore_preheal_mutable(
+    *,
+    ledger_path: Path,
+    index_path: Path,
+    pre_ledger: bytes | None,
+    pre_index: bytes | None,
+) -> None:
+    """Byte-exact restore of captured pre-heal mutable surfaces (caller holds lock)."""
+    if pre_ledger is not None:
+        ledger_path.write_bytes(pre_ledger)
+    if pre_index is not None:
+        index_path.write_bytes(pre_index)
+
+
 def apply(
     *,
     expected_head_revision_id: str,
@@ -292,6 +376,15 @@ def apply(
         )
 
     pre = status(root=resolved)
+
+    # Exact-head fence is an apply precondition, including already_healed retries.
+    if pre["head_revision_id"] != expected_head_revision_id:
+        raise HealError(
+            "stale_head",
+            f"stale head: expected {expected_head_revision_id!r}, "
+            f"head is {pre['head_revision_id']!r}",
+        )
+
     if pre["state"] == "already_healed":
         return {**pre, "applied": False, "result": "already_healed"}
     if pre["state"] != "eligible":
@@ -312,33 +405,33 @@ def apply(
     pre_baseline = pre["index_baseline_revision_id"]
     pre_all_ids = list(load_contribution_index(resolved, WORLD_ID).all_contribution_ids)
 
-    try:
-        with _exclusive_contribution_index_lock(resolved, WORLD_ID):
-            head = open_world_graph_head(resolved, WORLD_ID)
-            if head.head_revision_id != expected_head_revision_id:
-                raise HealError(
-                    "stale_head",
-                    f"stale head: expected {expected_head_revision_id!r}, "
-                    f"head is {head.head_revision_id!r}",
-                )
-            store = load_world_graph_revision(
-                resolved, WORLD_ID, head.head_revision_id
-            )
-            E_now = (store.contribution_source_payload_sha256 or {}).get(CONTRIBUTION_ID)
-            L_now = _manifest_lifecycle(store, CONTRIBUTION_ID)
-            if E_now != E or L_now != L_head:
-                raise HealError(
-                    "integrity_failure",
-                    "head digest/lifecycle changed under lock",
-                )
+    pinned_diag: list[str] = []
+    unpinned_diag: list[str] = []
 
+    with _exclusive_contribution_index_lock(resolved, WORLD_ID):
+        head = open_world_graph_head(resolved, WORLD_ID)
+        if head.head_revision_id != expected_head_revision_id:
+            raise HealError(
+                "stale_head",
+                f"stale head: expected {expected_head_revision_id!r}, "
+                f"head is {head.head_revision_id!r}",
+            )
+        store = load_world_graph_revision(resolved, WORLD_ID, head.head_revision_id)
+        E_now = (store.contribution_source_payload_sha256 or {}).get(CONTRIBUTION_ID)
+        L_now = _manifest_lifecycle(store, CONTRIBUTION_ID)
+        if E_now != E or L_now != L_head:
+            raise HealError(
+                "integrity_failure",
+                "head digest/lifecycle changed under lock",
+            )
+
+        wrote = False
+        try:
             healed = dstar.model_copy(update={"status": L_now})
             write_contribution_record(resolved, WORLD_ID, healed)
             index = load_contribution_index(resolved, WORLD_ID)
             index = upsert_contribution_in_index(index, healed)
-            # preserve ordering: all_contribution_ids must remain equal
             if list(index.all_contribution_ids) != pre_all_ids:
-                # upsert may append if missing; restore exact order
                 if set(index.all_contribution_ids) == set(pre_all_ids):
                     index = index.model_copy(
                         update={"all_contribution_ids": list(pre_all_ids)}
@@ -354,48 +447,76 @@ def apply(
                     "baseline_revision_id changed unexpectedly",
                 )
             save_contribution_index(resolved, WORLD_ID, index)
-    except Exception:
-        # best-effort restore on failure after capture
-        if pre_ledger is not None:
-            ledger_path.write_bytes(pre_ledger)
-        if pre_index is not None:
-            index_path.write_bytes(pre_index)
-        raise
+            wrote = True
+
+            # Post-write verification under the same lock; restore on any failure.
+            if open_world_graph_head(resolved, WORLD_ID).head_revision_id != (
+                expected_head_revision_id
+            ):
+                raise HealError("integrity_failure", "head moved during heal")
+            if _revision_tree_digest(resolved) != pre_tree:
+                raise HealError(
+                    "integrity_failure", "revision tree changed during heal"
+                )
+            if _fingerprint_non_d_ledgers(resolved) != pre_other:
+                raise HealError(
+                    "integrity_failure", "non-D contribution records changed"
+                )
+
+            post_ledger = load_contribution_record(resolved, WORLD_ID, CONTRIBUTION_ID)
+            post_digest = compute_contribution_source_payload_sha256(post_ledger)
+            post_index = load_contribution_index(resolved, WORLD_ID)
+            post_bucket = _index_bucket(post_index, CONTRIBUTION_ID)
+            if (
+                post_digest != E
+                or post_ledger.status != L_head
+                or post_bucket != L_head
+            ):
+                raise HealError(
+                    "integrity_failure",
+                    "post-heal digest/lifecycle mismatch",
+                )
+
+            pinned = rebuild_from_contributions(
+                resolved,
+                world_id=WORLD_ID,
+                compare_revision_id=expected_head_revision_id,
+                publish=False,
+            )
+            unpinned = rebuild_from_contributions(
+                resolved,
+                world_id=WORLD_ID,
+                publish=False,
+            )
+            pinned_diag = list(getattr(pinned, "diagnostics", []) or [])
+            unpinned_diag = list(getattr(unpinned, "diagnostics", []) or [])
+            if "rebuild_equivalent_to_pinned_revision" not in pinned_diag:
+                raise HealError(
+                    "pinned_rebuild_failed",
+                    f"pinned rebuild not equivalent: {pinned_diag}",
+                )
+            if "rebuild_equivalent_to_head" not in unpinned_diag and (
+                "rebuild_equivalent_to_published_head" not in unpinned_diag
+            ):
+                raise HealError(
+                    "unpinned_rebuild_failed",
+                    f"unpinned rebuild not equivalent: {unpinned_diag}",
+                )
+        except Exception:
+            if wrote:
+                _restore_preheal_mutable(
+                    ledger_path=ledger_path,
+                    index_path=index_path,
+                    pre_ledger=pre_ledger,
+                    pre_index=pre_index,
+                )
+            raise
 
     post = status(root=resolved)
-    if post["head_revision_id"] != expected_head_revision_id:
-        raise HealError("integrity_failure", "head moved during heal")
-    if post["revision_tree_digest"] != pre_tree:
-        raise HealError("integrity_failure", "revision tree changed during heal")
-    if post["A_now"] != E or post["index_bucket"] != L_head:
-        raise HealError("integrity_failure", "post-heal digest/lifecycle mismatch")
-    if _fingerprint_non_d_ledgers(resolved) != pre_other:
-        raise HealError("integrity_failure", "non-D contribution records changed")
-
-    pinned = rebuild_from_contributions(
-        resolved,
-        world_id=WORLD_ID,
-        compare_revision_id=expected_head_revision_id,
-        publish=False,
-    )
-    unpinned = rebuild_from_contributions(
-        resolved,
-        world_id=WORLD_ID,
-        publish=False,
-    )
-    pinned_diag = list(getattr(pinned, "diagnostics", []) or [])
-    unpinned_diag = list(getattr(unpinned, "diagnostics", []) or [])
-    if "rebuild_equivalent_to_pinned_revision" not in pinned_diag:
+    if post["state"] != "already_healed":
         raise HealError(
-            "pinned_rebuild_failed",
-            f"pinned rebuild not equivalent: {pinned_diag}",
-        )
-    if "rebuild_equivalent_to_head" not in unpinned_diag and (
-        "rebuild_equivalent_to_published_head" not in unpinned_diag
-    ):
-        raise HealError(
-            "unpinned_rebuild_failed",
-            f"unpinned rebuild not equivalent: {unpinned_diag}",
+            "integrity_failure",
+            f"post-heal status not already_healed: {post['state']} {post['reasons']}",
         )
 
     return {
