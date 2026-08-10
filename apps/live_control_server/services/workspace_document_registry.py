@@ -241,6 +241,36 @@ def _worldbuilding_target_relpath(document_id: str) -> str:
     return f"out/workspace/worldbuilding/{document_id}.md"
 
 
+def _require_unique_target_relpath(
+    document: WorkspaceDocumentRegistryDocument,
+    target_relpath: str | None,
+    *,
+    exclude_document_id: str | None = None,
+) -> None:
+    """Fail closed when another record already owns a non-null target_relpath.
+
+    Call only while holding the registry mutation lock. Null/empty paths are
+    unrestricted. ``exclude_document_id`` lets an update keep or restate its own path.
+    """
+    if target_relpath is None or target_relpath == "":
+        return
+    conflict = next(
+        (
+            existing
+            for existing in document.records
+            if existing.target_relpath == target_relpath
+            and (exclude_document_id is None or existing.document_id != exclude_document_id)
+        ),
+        None,
+    )
+    if conflict is not None:
+        raise WorkspaceDocumentRegistryError(
+            "target_relpath is already owned by another workspace document: "
+            f"{conflict.document_id}",
+            status_code=409,
+        )
+
+
 def _validate_worldbuilding_metadata(
     *,
     source_domain: Literal["worldbuilding"] | None,
@@ -339,6 +369,7 @@ def create_workspace_document(
     path = workspace_documents_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
+        _require_unique_target_relpath(document, resolved_target)
         document.records.append(record)
         _save_cas(root, document, expected_token=token)
     return record
@@ -503,7 +534,22 @@ def _update_workspace_document_metadata_unlocked(
                     "target_relpath is registry-owned for worldbuilding_source",
                     status_code=422,
                 )
-            updates["target_relpath"] = target_relpath
+            resolved_update_target: str | None
+            if target_relpath is None:
+                resolved_update_target = None
+            elif isinstance(target_relpath, str):
+                resolved_update_target = target_relpath
+            else:
+                raise WorkspaceDocumentRegistryError(
+                    "target_relpath must be a string or null",
+                    status_code=422,
+                )
+            _require_unique_target_relpath(
+                document,
+                resolved_update_target,
+                exclude_document_id=existing.document_id,
+            )
+            updates["target_relpath"] = resolved_update_target
         if document_class is not _UNSET:
             if existing.kind != "worldbuilding_source":
                 raise WorkspaceDocumentRegistryError(
@@ -666,3 +712,113 @@ def _set_workspace_document_status_unlocked(
         _replace_record(document, updated)
         _save_cas(root, document, expected_token=token)
         return updated
+
+
+def find_duplicate_target_relpath_ownership(
+    root: Path,
+) -> list[tuple[str, list[WorkspaceDocumentRecord]]]:
+    """Read-only scan: non-null target_relpath values owned by more than one record."""
+    document = _load_registry_document(root)
+    by_path: dict[str, list[WorkspaceDocumentRecord]] = {}
+    for record in document.records:
+        path = record.target_relpath
+        if path is None or path == "":
+            continue
+        by_path.setdefault(path, []).append(record)
+    return sorted(
+        ((path, owners) for path, owners in by_path.items() if len(owners) > 1),
+        key=lambda item: item[0],
+    )
+
+
+def reinstate_workspace_document_record(
+    root: Path,
+    record: WorkspaceDocumentRecord,
+) -> WorkspaceDocumentRecord:
+    """Re-insert a previously removed registry identity under the mutation lock.
+
+    Fails closed when the document_id already exists or a non-null target_relpath
+    collides with an existing owner. Used for bounded duplicate-repair restoration
+    only — not a general create path.
+    """
+    cleaned_id = _validate_document_id(record.document_id)
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        if _find_record(document, cleaned_id) is not None:
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document already exists: {cleaned_id}",
+                status_code=409,
+            )
+        _require_unique_target_relpath(document, record.target_relpath)
+        document.records.append(record)
+        _save_cas(root, document, expected_token=token)
+        return record
+
+
+def release_target_relpath_from_discarded_duplicate(
+    root: Path,
+    *,
+    survivor_document_id: str,
+    retire_document_id: str,
+) -> WorkspaceDocumentRecord:
+    """Bounded duplicate repair: keep both identities; only survivor retains the path.
+
+    Preconditions (fail closed otherwise):
+    - both records exist
+    - they share the same non-null target_relpath
+    - retiree is discarded (survivor may be active or discarded)
+
+    Lock order matches ordinary document mutations: retiree document lock → registry lock.
+    """
+    survivor_id = _validate_document_id(survivor_document_id)
+    retire_id = _validate_document_id(retire_document_id)
+    if survivor_id == retire_id:
+        raise WorkspaceDocumentRegistryError(
+            "survivor and retire document ids must differ",
+            status_code=422,
+        )
+
+    with workspace_document_mutation_lock(root, retire_id):
+        path = workspace_documents_path(root)
+        with registry_mutation_lock(path):
+            document, token = _load_unlocked(root)
+            survivor = _find_record(document, survivor_id)
+            retire = _find_record(document, retire_id)
+            if survivor is None:
+                raise WorkspaceDocumentRegistryError(
+                    f"workspace document not found: {survivor_id}",
+                    status_code=404,
+                )
+            if retire is None:
+                raise WorkspaceDocumentRegistryError(
+                    f"workspace document not found: {retire_id}",
+                    status_code=404,
+                )
+            if retire.status != "discarded":
+                raise WorkspaceDocumentRegistryError(
+                    "retire document must already be discarded before releasing target_relpath",
+                    status_code=422,
+                )
+            shared = survivor.target_relpath
+            if shared is None or shared == "":
+                raise WorkspaceDocumentRegistryError(
+                    "survivor must own a non-null target_relpath",
+                    status_code=422,
+                )
+            if retire.target_relpath != shared:
+                raise WorkspaceDocumentRegistryError(
+                    "survivor and retire documents do not share the same target_relpath",
+                    status_code=422,
+                )
+
+            updated = retire.model_copy(
+                update={
+                    "target_relpath": None,
+                    "revision": retire.revision + 1,
+                    "updated_at": _utc_now_iso(),
+                }
+            )
+            _replace_record(document, updated)
+            _save_cas(root, document, expected_token=token)
+            return updated

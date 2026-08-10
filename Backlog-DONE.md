@@ -7,6 +7,15 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Finish DOGFOOD-POLISH semantic prep authoring — captured 2026-08-09, done 2026-08-10
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-finish-dogfood-polish-semantic-prep-authoring.md` on branch `agent/dogfood-polish-semantic-prep-authoring` rebuilt from `origin/main` / #535 merge `2fb059c3`. Target: rebuild PR #529 in place (feature port, not rebase of obsolete handwritten grammar).
+**Context:** PR #535 merged the CommonMark/GFM admission rescue. Nested lists, list-item callouts, Decision/Consequence, Plan semantic paste, and app-owned prep CSS remain false on main.
+**Insight:** #529's D/C nodes/UX/serializer/tests are donors; its `markdownToTiptap.ts` grammar must not survive. All nested prep admission must classify parser-established MDAST only.
+**Action:** Port D/C TipTap + AST admission for nested prep/D/C + serializer/safety + Plan paste/tools + move prep theme CSS out of `evals/`. Falsify: Session-26 nested prep round-trips; malformed D/C seals; semantic paste atomic; #535 corpus still sealed; #527 authority intact; no second Markdown grammar.
+**Surfaces when:** PR #529, Decision/Consequence, semantic paste, nested lists, prep authoring, DOGFOOD-POLISH, markdownAdmission
+**Refs:** `Docs/Plans/HANDOFF-BUILD-finish-dogfood-polish-semantic-prep-authoring.md`; PR #535; donor `62a24eb705f000e222b843995cde661d1f6d2b22`
+**Outcome:** Merged as PR #529 (`95a2fbc7725ce2f65e6d63ccaa11a1db5458baf9`). Nested prep + Decision/Consequence admitted on the #535 MDAST boundary; Plan owns insert/paste/tools; production prep theme CSS is app-owned.
+
 ## [DONE] CommonMark-backed Markdown admission (not more regex edges) — captured 2026-08-09, done 2026-08-09
 **Dispatched:** `Docs/Plans/HANDOFF-BUILD-unify-markdown-structural-analysis.md` on branch `agent/dogfood-polish-markdown-ast-admission` (base `c6eb77e5`). **PR opened 2026-08-09:** [#535](https://github.com/Drakosfire/DungeonMindBuddy/pull/535) (head `304bae70`) — AST admission visitor landed, all 11 characterized holes sealed, zero branch-only test failures vs `origin/main`. Move to DONE on merge; then execute §28 (rebase #529 onto the new boundary).
 **Context:** PR #529 review cycle 7 (`4892211756`). After seven cycles of handwritten fail-closed admission (nested indent, list whitelist, reference defs, zero-space/newline destinations), escaped `]` in `[foo\]]: /url` still bypasses `isReferenceLinkDefinitionLine`. Reviewer and handoff agree: stop patching spellings one regex at a time.

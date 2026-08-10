@@ -5,11 +5,14 @@ import {
   buildPlanContextFromPlanView,
   createPlanSessionDescriptor,
   defaultPlanTargetRelpath,
+  durablePlanTargetRelpath,
   fixturePlanDocumentDescriptor,
   fixturePlanSessionDescriptor,
   FIXTURE_DOC_ID,
+  NoActivePlanningDocumentsError,
   planDocumentOptionLabel,
   planDocumentSelectionSearch,
+  suggestNextPlanTargetSession,
   suggestedPlanCreatePayload,
   workspaceDocumentStorageKey,
   workspaceRecordToPlanDocumentDescriptor,
@@ -75,6 +78,40 @@ describe("planSessionDescriptor", () => {
   it("provides a reusable fixture session descriptor", () => {
     const sessionDescriptor = fixturePlanSessionDescriptor();
     expect(sessionDescriptor.planningDocument.documentId).toBe(FIXTURE_DOC_ID);
+  });
+});
+
+describe("suggestNextPlanTargetSession", () => {
+  it("starts at liveSession + 1 when unused", () => {
+    expect(suggestNextPlanTargetSession(22, [23, 25])).toBe(24);
+  });
+
+  it("skips occupied sessions upward", () => {
+    expect(suggestNextPlanTargetSession(22, [23, 24, 25])).toBe(26);
+  });
+
+  it("ignores nullish occupied entries", () => {
+    expect(suggestNextPlanTargetSession(10, [null, undefined, 11])).toBe(12);
+  });
+});
+
+describe("durablePlanTargetRelpath", () => {
+  it("returns the default corpus path for known Longmont campaigns", () => {
+    expect(durablePlanTargetRelpath("longmont-c2", 23)).toBe(
+      defaultPlanTargetRelpath("longmont-c2", 23),
+    );
+  });
+
+  it("returns null when the durable path cannot be derived", () => {
+    expect(durablePlanTargetRelpath("unknown-campaign", 5)).toBeNull();
+  });
+});
+
+describe("NoActivePlanningDocumentsError", () => {
+  it("names the error class for empty active Plan lists", () => {
+    const error = new NoActivePlanningDocumentsError("longmont-c2");
+    expect(error.name).toBe("NoActivePlanningDocumentsError");
+    expect(error.message).toContain("longmont-c2");
   });
 });
 

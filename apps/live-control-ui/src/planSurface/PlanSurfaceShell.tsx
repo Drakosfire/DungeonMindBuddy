@@ -1,17 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
+import { listWorkspaceDocuments } from "../api/liveApi";
+import type { PlanViewProjection, WorkspaceDocumentRecord } from "../api/types";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { buildPlanSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
-import { listWorkspaceDocuments } from "../api/liveApi";
-import type { PlanViewProjection, WorkspaceDocumentRecord } from "../api/types";
+import {
+  createWorkspaceDocumentCreationController,
+  WorkspaceDocumentCreationError,
+} from "../workspaceDocument/workspaceDocumentCreation";
+import { workspaceDocumentSelectionSearch } from "../workspaceDocument/workspaceDocumentNavigation";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
+import { PlanDocumentCreateControl } from "./components/PlanDocumentCreateControl";
 import { PlanDocumentSelector } from "./components/PlanDocumentSelector";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { PlanDogfoodPanel } from "./dogfood/PlanDogfoodPanel";
 import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
-import { planDocumentSelectionSearch, resolvePlanningDocument } from "./config/planSessionDescriptor";
+import {
+  defaultSessionPrepTitle,
+  durablePlanTargetRelpath,
+  NoActivePlanningDocumentsError,
+  planDocumentSelectionSearch,
+  resolvePlanningDocument,
+  suggestNextPlanTargetSession,
+} from "./config/planSessionDescriptor";
+import { formatReviewCampaignLabel } from "./sessionCampaignContext";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
@@ -37,12 +51,19 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     () => (typeof window !== "undefined" ? window.location.search : ""),
   );
   const [planningDocument, setPlanningDocument] = useState<PlanDocumentDescriptor | null>(null);
-  const [documentLoadStatus, setDocumentLoadStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [documentLoadStatus, setDocumentLoadStatus] = useState<
+    "loading" | "ready" | "error" | "empty"
+  >("loading");
   const [documentLoadError, setDocumentLoadError] = useState<string | null>(null);
   const [documentSwitching, setDocumentSwitching] = useState(false);
   const [documentSwitchError, setDocumentSwitchError] = useState<string | null>(null);
   const [selectorRecords, setSelectorRecords] = useState<WorkspaceDocumentRecord[] | null>(null);
   const [selectorListStatus, setSelectorListStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [creatingDocument, setCreatingDocument] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createActivationError, setCreateActivationError] = useState<string | null>(null);
+
+  const createControllerRef = useRef(createWorkspaceDocumentCreationController());
 
   const planningDocumentRef = useRef<PlanDocumentDescriptor | null>(null);
   planningDocumentRef.current = planningDocument;
@@ -83,14 +104,18 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
    * back to a different record.
    */
   const loadPlanningDocument = useCallback(
-    async (search: string, urlCommit: DocumentUrlCommit): Promise<boolean> => {
+    async (
+      search: string,
+      urlCommit: DocumentUrlCommit,
+      purpose: "default" | "create_activate" = "default",
+    ): Promise<boolean> => {
       const generation = ++documentLoadGenerationRef.current;
-      const switching = planningDocumentRef.current != null;
+      const switching = planningDocumentRef.current != null && purpose !== "create_activate";
       const retainedSearch = locationSearchRef.current;
       if (switching) {
         setDocumentSwitching(true);
         setDocumentSwitchError(null);
-      } else {
+      } else if (purpose !== "create_activate") {
         setDocumentLoadStatus("loading");
         setDocumentLoadError(null);
       }
@@ -101,6 +126,13 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         setDocumentLoadStatus("ready");
         setDocumentSwitching(false);
         setDocumentSwitchError(null);
+        // Selector/history activation retires superseded create intent. Create-activation
+        // owns controller phase itself and must not bump the intent epoch mid-activate.
+        if (purpose !== "create_activate") {
+          createControllerRef.current.reconcileActivatedDocument(document.documentId);
+          setCreateError(null);
+          setCreateActivationError(null);
+        }
         void loadSelectorDocuments();
 
         if (typeof window !== "undefined") {
@@ -124,7 +156,20 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         return true;
       } catch (error) {
         if (generation !== documentLoadGenerationRef.current) return false;
+        if (!switching && error instanceof NoActivePlanningDocumentsError) {
+          setPlanningDocument(null);
+          setDocumentLoadStatus("empty");
+          setDocumentLoadError(null);
+          setDocumentSwitching(false);
+          setDocumentSwitchError(null);
+          void loadSelectorDocuments();
+          return false;
+        }
         const message = error instanceof Error ? error.message : "Failed to load planning document";
+        if (purpose === "create_activate") {
+          setDocumentSwitching(false);
+          throw error instanceof Error ? error : new Error(message);
+        }
         if (switching) {
           setDocumentSwitching(false);
           setDocumentSwitchError(message);
@@ -152,6 +197,9 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sync = () => {
+      // History navigation is an operator decision: invalidate pending create auto-activation
+      // before the resolve completes so a late POST cannot win the race.
+      createControllerRef.current.supersedePendingCreateIntent();
       void loadPlanningDocument(window.location.search, { mode: "history" });
     };
     sync();
@@ -165,11 +213,135 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     (documentId: string) => {
       if (typeof window === "undefined") return;
       if (documentId === planningDocumentRef.current?.documentId) return;
+      // Supersede at request time so a late create POST cannot auto-activate over C.
+      createControllerRef.current.supersedePendingCreateIntent();
+      setCreateError(null);
+      setCreateActivationError(null);
       const search = planDocumentSelectionSearch(window.location.search, documentId);
       void loadPlanningDocument(search, { mode: "push", search });
     },
     [loadPlanningDocument],
   );
+
+  const campaignLabel = useMemo(
+    () => formatReviewCampaignLabel(planView.campaign_id),
+    [planView.campaign_id],
+  );
+
+  const occupiedTargetSessions = useMemo(
+    () => selectorRecords?.map((record) => record.target_session) ?? [],
+    [selectorRecords],
+  );
+
+  const suggestedCreateSession = useMemo(
+    () => suggestNextPlanTargetSession(planView.session, occupiedTargetSessions),
+    [occupiedTargetSessions, planView.session],
+  );
+
+  const suggestedCreateTitle = useMemo(
+    () => defaultSessionPrepTitle(campaignLabel, suggestedCreateSession),
+    [campaignLabel, suggestedCreateSession],
+  );
+
+  const activateCreatedRecord = useCallback(
+    async (record: WorkspaceDocumentRecord): Promise<boolean> => {
+      if (typeof window === "undefined") return false;
+      const search = workspaceDocumentSelectionSearch(window.location.search, record.document_id);
+      const { applied } = await createControllerRef.current.activate(async () =>
+        loadPlanningDocument(search, { mode: "push", search }, "create_activate"),
+      );
+      if (applied) {
+        setCreateActivationError(null);
+      }
+      return applied;
+    },
+    [loadPlanningDocument],
+  );
+
+  const handleCreatePlanningDocument = useCallback(
+    async ({ title, targetSession }: { title: string; targetSession: number }) => {
+      const targetRelpath = durablePlanTargetRelpath(planView.campaign_id, targetSession);
+      if (targetRelpath == null) return;
+
+      setCreatingDocument(true);
+      setCreateError(null);
+      setCreateActivationError(null);
+      try {
+        const created = await createControllerRef.current.create({
+          kind: "plan",
+          campaignId: planView.campaign_id,
+          title,
+          targetSession,
+          targetRelpath,
+        });
+        void loadSelectorDocuments();
+        if (!created.intentCurrent) {
+          // Operator navigated elsewhere while POST was in flight — do not activate.
+          return;
+        }
+        try {
+          await activateCreatedRecord(created.record);
+        } catch (error) {
+          const message =
+            error instanceof WorkspaceDocumentCreationError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : "Failed to open created planning document";
+          setCreateActivationError(message);
+        }
+      } catch (error) {
+        if (error instanceof WorkspaceDocumentCreationError) {
+          if (error.code === "create_failed") {
+            setCreateError(error.message);
+          }
+        } else if (error instanceof Error) {
+          setCreateError(error.message);
+        } else {
+          setCreateError("Failed to create planning document");
+        }
+      } finally {
+        setCreatingDocument(false);
+      }
+    },
+    [activateCreatedRecord, loadSelectorDocuments, planView.campaign_id],
+  );
+
+  const handleRetryOpenCreatedDocument = useCallback(async () => {
+    const record = createControllerRef.current.getState().record;
+    if (record == null) {
+      setCreateActivationError("No created planning document is available to open");
+      return;
+    }
+    setCreatingDocument(true);
+    setCreateActivationError(null);
+    try {
+      await activateCreatedRecord(record);
+    } catch (error) {
+      const message =
+        error instanceof WorkspaceDocumentCreationError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to open created planning document";
+      setCreateActivationError(message);
+    } finally {
+      setCreatingDocument(false);
+    }
+  }, [activateCreatedRecord]);
+
+  const createControlProps = {
+    campaignId: planView.campaign_id,
+    campaignLabel,
+    suggestedSession: suggestedCreateSession,
+    suggestedTitle: suggestedCreateTitle,
+    creating: creatingDocument,
+    createError,
+    activationError: createActivationError,
+    onSubmit: handleCreatePlanningDocument,
+    onRetryOpen: createActivationError ? handleRetryOpenCreatedDocument : undefined,
+    disabled: documentSwitching,
+  };
 
   const config = useMemo(
     () => (planningDocument ? createPlanSurfaceConfig(planView, planningDocument, locationSearch) : null),
@@ -214,7 +386,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
 
-  if (documentLoadStatus === "loading" || !config) {
+  if (documentLoadStatus === "loading") {
     return (
       <main className="app-status">
         <p>Loading planning document…</p>
@@ -222,7 +394,17 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     );
   }
 
-  if (documentLoadStatus === "error") {
+  if (documentLoadStatus === "empty") {
+    return (
+      <main className="plan-surface-empty" data-testid="plan-surface-empty">
+        <h1>Plan</h1>
+        <p>No prep documents yet</p>
+        <PlanDocumentCreateControl {...createControlProps} />
+      </main>
+    );
+  }
+
+  if (documentLoadStatus === "error" || !config) {
     return (
       <main className="app-status app-error">
         <h1>Plan</h1>
@@ -249,15 +431,18 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
           ) : null}
           <div className="plan-surface-layout">
             <div className="plan-surface-main">
-              <PlanDocumentSelector
-                documents={selectorRecords}
-                listStatus={selectorListStatus}
-                activeDocument={config.sessionDescriptor.planningDocument}
-                switching={documentSwitching}
-                switchError={documentSwitchError}
-                onSelect={handleSelectPlanningDocument}
-                onRetryList={() => void loadSelectorDocuments()}
-              />
+              <div className="plan-document-toolbar" data-testid="plan-document-toolbar">
+                <PlanDocumentSelector
+                  documents={selectorRecords}
+                  listStatus={selectorListStatus}
+                  activeDocument={config.sessionDescriptor.planningDocument}
+                  switching={documentSwitching}
+                  switchError={documentSwitchError}
+                  onSelect={handleSelectPlanningDocument}
+                  onRetryList={() => void loadSelectorDocuments()}
+                />
+                <PlanDocumentCreateControl {...createControlProps} />
+              </div>
               <PlanSurfaceCanvas
                 sessionDescriptor={config.sessionDescriptor}
                 theme={config.theme}

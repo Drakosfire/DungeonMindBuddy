@@ -1,12 +1,12 @@
 import type { JSONContent } from "@tiptap/core";
 
 import {
-  createWorkspaceDocument,
   getWorkspaceDocument,
   listWorkspaceDocuments,
 } from "../../api/liveApi";
 import type { PlanViewProjection, WorkspaceDocumentRecord } from "../../api/types";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
+import { workspaceDocumentSelectionSearch } from "../../workspaceDocument/workspaceDocumentNavigation";
 import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../sessionCampaignContext";
 import type {
   PlanContextDescriptor,
@@ -34,19 +34,14 @@ export function workspaceDocumentStorageKey(documentId: string): string {
 }
 
 /**
- * Search string for switching the active Plan document. Sets `documentId` to
- * the exact opaque id and preserves every unrelated query parameter (graph
- * lens, session focus, tool state, dogfood flags). Never infers session or
- * campaign state from the document.
+ * Plan-facing alias for exact opaque `documentId` URL selection.
+ * Owned implementation: `workspaceDocumentSelectionSearch`.
  */
 export function planDocumentSelectionSearch(
   currentSearch: string | null | undefined,
   documentId: string,
 ): string {
-  const params = new URLSearchParams(currentSearch ?? "");
-  params.set("documentId", documentId);
-  const query = params.toString();
-  return query ? `?${query}` : "";
+  return workspaceDocumentSelectionSearch(currentSearch, documentId);
 }
 
 /**
@@ -181,6 +176,37 @@ export function suggestedPlanCreatePayload(campaignId: string, liveSession: numb
   };
 }
 
+/** Next unused target session at or above liveSession + 1. */
+export function suggestNextPlanTargetSession(
+  liveSession: number,
+  occupiedSessions: Array<number | null | undefined>,
+): number {
+  const occupied = new Set(
+    occupiedSessions.filter((session): session is number => session != null),
+  );
+  let candidate = liveSession + 1;
+  while (occupied.has(candidate)) {
+    candidate += 1;
+  }
+  return candidate;
+}
+
+/** Durable corpus path when known; null when the campaign layout is not derivable. */
+export function durablePlanTargetRelpath(
+  campaignId: string,
+  targetSession: number,
+): string | null {
+  const relpath = defaultPlanTargetRelpath(campaignId, targetSession);
+  return relpath === "TBD durable planning path" ? null : relpath;
+}
+
+export class NoActivePlanningDocumentsError extends Error {
+  constructor(campaignId: string) {
+    super(`No active planning documents for campaign ${campaignId}`);
+    this.name = "NoActivePlanningDocumentsError";
+  }
+}
+
 export async function resolvePlanningDocument(args: {
   planView: PlanViewProjection;
   locationSearch?: string | null;
@@ -203,15 +229,7 @@ export async function resolvePlanningDocument(args: {
     return workspaceRecordToPlanDocumentDescriptor(list.records[0]);
   }
 
-  const suggested = suggestedPlanCreatePayload(campaignId, planView.session);
-  const created = await createWorkspaceDocument({
-    title: suggested.title,
-    campaign_id: campaignId,
-    kind: "plan",
-    target_session: suggested.target_session,
-    target_relpath: suggested.target_relpath,
-  });
-  return workspaceRecordToPlanDocumentDescriptor(created);
+  throw new NoActivePlanningDocumentsError(campaignId);
 }
 
 export function createPlanSessionDescriptor(
