@@ -2,7 +2,7 @@
 @import "../tiptap/tiptapSpike.css";
 @import "../graphReference/graphReference.css";
 
-.build-surface-opening {
+.build-surface-empty {
   width: min(720px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 1.5rem 0 7rem;
@@ -11,25 +11,64 @@
   color: var(--fg, #e8eaef);
 }
 
-.build-surface-opening button {
-  justify-self: start;
-  padding: 0.55rem 0.85rem;
-  border: 1px solid rgba(122, 162, 247, 0.45);
-  border-radius: 7px;
-  background: rgba(18, 20, 26, 0.85);
-  color: var(--fg, #e8eaef);
-  cursor: pointer;
+.build-surface-context__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.build-surface-campaign-pick {
+.build-surface-context__save-status {
+  max-width: 16rem;
+}
+
+.build-surface-context__retry {
+  border: none;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.build-document-selector--context .surface-context-select {
+  min-width: 10rem;
+  max-width: 18rem;
+}
+
+.build-document-create--context .build-document-create__form {
   display: grid;
   gap: 0.75rem;
 }
 
-.build-surface-campaign-pick__actions {
+.build-document-create--context .build-document-create__controls {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.build-document-create--context .build-document-create__field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.build-document-create--context .build-document-create__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.build-document-create__field input,
+.build-document-create__field select {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(18, 20, 26, 0.85);
+  color: var(--fg, #e8eaef);
+}
+
+.build-document-create__error {
+  color: #f7768e;
+  margin: 0;
 }
 
 .build-surface-with-graph-context {

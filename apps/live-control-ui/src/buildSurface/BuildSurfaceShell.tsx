@@ -15,7 +15,11 @@ export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build aut
  * Build document chrome: Agent Interaction publication + shared MarkdownCanvas.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  */
-export function BuildSurfaceShell() {
+interface BuildSurfaceShellProps {
+  onAuthoringStatusChange?: (label: string | null) => void;
+}
+
+export function BuildSurfaceShell({ onAuthoringStatusChange }: BuildSurfaceShellProps) {
   const session = useMarkdownCanvasSession();
   const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
@@ -23,6 +27,10 @@ export function BuildSurfaceShell() {
   );
   const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave });
   const lastAcceptedCampaignRef = useRef<string>("build");
+
+  useEffect(() => {
+    onAuthoringStatusChange?.(session.statusLabel);
+  }, [onAuthoringStatusChange, session.statusLabel]);
 
   useEffect(() => {
     if (session.record?.campaign_id) {

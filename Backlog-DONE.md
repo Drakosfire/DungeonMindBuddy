@@ -7,6 +7,15 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Surface context layer + global World Graph status — captured 2026-08-10, done 2026-08-10
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-surface-context-layer-foundation.md` on `agent/surface-context-layer-foundation`.
+**Context:** Prep selector floated above Canvas; graph strip Plan+Build-only.
+**Insight:** Graph lens ≠ document identity; SurfaceContextHost is ordered module composition, not a DocumentContext schema.
+**Action:** Shipped global World Graph nav status + generic SurfaceContextHost; Plan PREP first adopter.
+**Surfaces when:** SurfaceContextHost, AppChromeWorldGraphStatus, Plan prep context
+**Refs:** `Docs/Plans/HANDOFF-BUILD-surface-context-layer-foundation.md`; PR #551
+**Outcome:** Merged as PR #551 (`721bf3211f1173241c09bbdb86007328a6c58a70`). Successor: Build DOCUMENT context adopter.
+
 ## [DONE] Generalized intentional workspace-document create — captured 2026-08-10, done 2026-08-10
 **Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-generalized-workspace-document-create.md` on branch `agent/dogfood-polish-workspace-document-create`.
 **Context:** PR #541 dogfood. Selector without intentional create was incomplete; create needed a generalized kind-aware lifecycle with Plan as consumer #1.

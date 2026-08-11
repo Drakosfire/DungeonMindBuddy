@@ -9,6 +9,7 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
 import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
@@ -20,10 +21,7 @@ import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID, BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { writeBuildLastCampaignId } from "./buildBareEntryCampaign";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
-import {
-  BuildSurfacePage,
-  resetBuildBareEntryAutoCreateForTests,
-} from "./BuildSurfacePage";
+import { BuildSurfacePage } from "./BuildSurfacePage";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 import type { BuildReferenceContextBinding } from "./reference/buildBuildSurfaceInteractionPublication";
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
@@ -32,9 +30,11 @@ import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 function renderBuildPage() {
   return render(
     <AgentInteractionProvider>
-      <BuildSurfacePage />
-      <ToolHost />
-      <LegacyProjectionHostAdapter />
+      <SurfaceContextProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </SurfaceContextProvider>
     </AgentInteractionProvider>,
   );
 }
@@ -101,6 +101,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     createWorkspaceDocument: vi.fn(),
+    listWorkspaceDocuments: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
@@ -190,40 +191,66 @@ describe("BuildSurfacePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    resetBuildBareEntryAutoCreateForTests();
     window.history.pushState({}, "", "/build");
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [],
+    });
   });
 
-  it("E2: bare /build without campaign shows picker and does not create", async () => {
+  it("E2: bare /build shows DOCUMENT context and empty state without creating", async () => {
     mockUntitledDraftCreate();
     renderBuildPage();
 
-    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
+    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
+    expect(screen.getByText("DOCUMENT")).toBeInTheDocument();
+    expect(screen.getByTestId("build-document-create-open")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
   });
 
-  it("E2: bare /build auto-creates one untitled draft and admits the Canvas", async () => {
+  it("E2: /build?campaign=longmont-c2 still does not auto-create", async () => {
     mockUntitledDraftCreate();
     window.history.pushState({}, "", "/build?campaign=longmont-c2");
+    renderBuildPage();
 
-    render(
-      <AgentInteractionProvider>
-        <BuildSurfacePage />
-        <ToolHost />
-        <LegacyProjectionHostAdapter />
-        <BuildPublicationProbe />
-      </AgentInteractionProvider>,
-    );
+    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+  });
 
-    expect(screen.getByTestId("build-opening-draft")).toBeInTheDocument();
-    expect(screen.getByTestId("build-projection-enabled")).toHaveTextContent("inactive");
+  it("E2: create via context performs one POST and opens canvas", async () => {
+    const user = userEvent.setup();
+    mockUntitledDraftCreate();
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
+      schema_version: "dmb_workspace_document_record_v1",
+      document_id: DOC_ID,
+      title: "Ironveil Property",
+      campaign_id: "longmont-c2",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
+      status: "active",
+      content_status: "draft",
+      revision: 1,
+      created_at: "2026-07-22T00:00:00Z",
+      updated_at: "2026-07-22T00:00:00Z",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    });
+
+    renderBuildPage();
+    await user.click(screen.getByTestId("build-document-create-open"));
+    await user.selectOptions(screen.getByTestId("build-document-create-campaign"), "longmont-c2");
+    await user.type(screen.getByTestId("build-document-create-title"), "Ironveil Property");
+    await user.click(screen.getByTestId("build-document-create-submit"));
 
     await waitFor(() => {
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
     });
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith({
-      title: "Untitled worldbuilding source",
+      title: "Ironveil Property",
       campaign_id: "longmont-c2",
       kind: "worldbuilding_source",
       source_domain: "worldbuilding",
@@ -231,235 +258,8 @@ describe("BuildSurfacePage", () => {
       authority_state: "draft",
       visibility_state: "internal",
     });
-
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Untitled worldbuilding source" })).toBeInTheDocument();
-    expect(screen.queryByTestId("build-opening-draft")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("build-new-source-form")).not.toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
-    expect(new URL(window.location.href).searchParams.get("campaign")).toBe("longmont-c2");
-  });
-
-  it("E2 StrictMode: bare /build creates at most one document", async () => {
-    mockUntitledDraftCreate();
-    window.history.pushState({}, "", "/build?campaign=longmont-c2");
-
-    render(
-      <StrictMode>
-        <AgentInteractionProvider>
-          <BuildSurfacePage />
-          <ToolHost />
-          <LegacyProjectionHostAdapter />
-        </AgentInteractionProvider>
-      </StrictMode>,
-    );
-
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
-  });
-
-  it("E2: browser Back after admit does not create another document", async () => {
-    mockUntitledDraftCreate();
-    const pushSpy = vi.spyOn(window.history, "pushState");
-    const replaceSpy = vi.spyOn(window.history, "replaceState");
-
-    // Simulate Command Board → Build entry, then campaign-resolved auto-create.
-    window.history.replaceState({}, "", "/");
-    pushSpy.mockClear();
-    replaceSpy.mockClear();
-    window.history.pushState({}, "", "/build?campaign=longmont-c2");
-
-    const view = renderBuildPage();
-
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
-    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
-
-    const admissionReplaces = replaceSpy.mock.calls.filter((call) =>
-      String(call[2] ?? "").includes("documentId="),
-    );
-    expect(admissionReplaces.length).toBeGreaterThanOrEqual(1);
-    const admissionPushes = pushSpy.mock.calls.filter((call) =>
-      String(call[2] ?? "").includes("documentId="),
-    );
-    expect(admissionPushes).toHaveLength(0);
-
-    await act(async () => {
-      const popped = new Promise<void>((resolve) => {
-        window.addEventListener("popstate", () => resolve(), { once: true });
-      });
-      window.history.back();
-      await popped;
-    });
-
-    // Transient campaign/document URLs were replaced, so Back leaves Build.
-    expect(window.location.pathname.replace(/\/+$/, "") || "/").toBe("/");
-    expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
-
-    // App chrome would unmount Build off-route; mirror that so last-campaign
-    // memory cannot replay create while a stale page instance remains mounted.
-    view.unmount();
-    resetBuildBareEntryAutoCreateForTests();
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
-  });
-
-  it("E2: unknown route campaign fails closed to picker without create", async () => {
-    mockUntitledDraftCreate();
-    window.history.pushState({}, "", "/build?campaign=eldyrwild");
-
-    renderBuildPage();
-
-    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
-  });
-
-  it("E2: blank route campaign without memory shows picker", async () => {
-    mockUntitledDraftCreate();
-    window.history.pushState({}, "", "/build?campaign=");
-
-    renderBuildPage();
-
-    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-  });
-
-  it("E2: blank route campaign with remembered campaign still fails closed to picker", async () => {
-    mockUntitledDraftCreate();
-    writeBuildLastCampaignId("longmont-c2");
-    window.history.pushState({}, "", "/build?campaign=");
-
-    renderBuildPage();
-
-    expect(await screen.findByTestId("build-campaign-pick")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
-  });
-
-  it("E2: bare /build create failure shows retry without navigating", async () => {
-    const user = userEvent.setup();
-    mockUntitledDraftCreate();
-    vi.mocked(liveApi.createWorkspaceDocument).mockRejectedValueOnce(new Error("create failed"));
-    window.history.pushState({}, "", "/build?campaign=longmont-c2");
-
-    renderBuildPage();
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("create failed");
-    expect(screen.getByTestId("build-opening-draft")).toBeInTheDocument();
-    expect(new URL(window.location.href).searchParams.get("documentId")).toBeNull();
-
-    await user.click(screen.getByTestId("build-opening-retry"));
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
-  });
-
-  it("E2: delayed create for campaign A is ignored after route switches to campaign B", async () => {
-    const docA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    const docB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-    let resolveA: ((value: Awaited<ReturnType<typeof liveApi.createWorkspaceDocument>>) => void) | null = null;
-    const deferredA = new Promise<Awaited<ReturnType<typeof liveApi.createWorkspaceDocument>>>((resolve) => {
-      resolveA = resolve;
-    });
-
-    vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(async (payload) => {
-      const record = {
-        schema_version: "dmb_workspace_document_record_v1" as const,
-        document_id: payload.campaign_id === "longmont-c1" ? docA : docB,
-        title: "Untitled worldbuilding source",
-        campaign_id: payload.campaign_id,
-        target_session: null,
-        kind: "worldbuilding_source" as const,
-        target_relpath: `out/workspace/worldbuilding/${payload.campaign_id === "longmont-c1" ? docA : docB}.md`,
-        status: "active" as const,
-        content_status: "draft" as const,
-        revision: 1,
-        created_at: "2026-07-22T00:00:00Z",
-        updated_at: "2026-07-22T00:00:00Z",
-        source_domain: "worldbuilding" as const,
-        document_class: "lore",
-        authority_state: "draft" as const,
-        visibility_state: "internal" as const,
-      };
-      if (payload.campaign_id === "longmont-c1") {
-        return deferredA;
-      }
-      return record;
-    });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) => ({
-      schema_version: "dmb_workspace_document_snapshot_v1",
-      record: {
-        schema_version: "dmb_workspace_document_record_v1",
-        document_id: id,
-        title: "Untitled worldbuilding source",
-        campaign_id: id === docA ? "longmont-c1" : "longmont-c2",
-        target_session: null,
-        kind: "worldbuilding_source",
-        target_relpath: `out/workspace/worldbuilding/${id}.md`,
-        status: "active",
-        content_status: "draft",
-        revision: 1,
-        created_at: "2026-07-22T00:00:00Z",
-        updated_at: "2026-07-22T00:00:00Z",
-        source_domain: "worldbuilding",
-        document_class: "lore",
-        authority_state: "draft",
-        visibility_state: "internal",
-      },
-      markdown: "",
-      content_sha256: `sha-${id}`,
-      file_fingerprint: "absent",
-      file_exists: false,
-      loaded_revision: 1,
-    }));
-
-    window.history.pushState({}, "", "/build?campaign=longmont-c1");
-    renderBuildPage();
-
-    await waitFor(() => {
-      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
-        expect.objectContaining({ campaign_id: "longmont-c1" }),
-      );
-    });
-
-    await act(async () => {
-      window.history.pushState({}, "", "/build?campaign=longmont-c2");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-
-    await waitFor(() => {
-      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
-        expect.objectContaining({ campaign_id: "longmont-c2" }),
-      );
-    });
-
-    await act(async () => {
-      resolveA?.({
-        schema_version: "dmb_workspace_document_record_v1",
-        document_id: docA,
-        title: "Untitled worldbuilding source",
-        campaign_id: "longmont-c1",
-        target_session: null,
-        kind: "worldbuilding_source",
-        target_relpath: `out/workspace/worldbuilding/${docA}.md`,
-        status: "active",
-        content_status: "draft",
-        revision: 1,
-        created_at: "2026-07-22T00:00:00Z",
-        updated_at: "2026-07-22T00:00:00Z",
-        source_domain: "worldbuilding",
-        document_class: "lore",
-        authority_state: "draft",
-        visibility_state: "internal",
-      });
-    });
-
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(docB);
-    expect(new URL(window.location.href).searchParams.get("campaign")).toBe("longmont-c2");
   });
 
   it("loads snapshot markdown when reopening with documentId", async () => {
@@ -497,7 +297,9 @@ describe("BuildSurfacePage", () => {
       expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
     });
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
-    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+    });
   });
 
   it("follows browser back/forward documentId changes", async () => {
@@ -537,22 +339,19 @@ describe("BuildSurfacePage", () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(await screen.findByText("Doc B")).toBeInTheDocument();
 
-    const draftId = "33333333-3333-4333-8333-333333333333";
-    mockUntitledDraftCreate(draftId);
     await act(async () => {
-      window.history.pushState({}, "", "/build?campaign=longmont-c2");
+      window.history.pushState({}, "", "/build");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Untitled worldbuilding source" })).toBeInTheDocument();
-    expect(new URL(window.location.href).searchParams.get("documentId")).toBe(draftId);
+    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
   });
 
-  it("PR380B: preserves graph pointer campaign when auto-creating from bare /build", async () => {
+  it("PR380B: preserves graph pointer params when opening document from URL", async () => {
     window.history.pushState(
       {},
       "",
-      `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
+      `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
     mockUntitledDraftCreate(DOC_ID, "longmont-c2");
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
@@ -575,9 +374,8 @@ describe("BuildSurfacePage", () => {
     });
     renderBuildPage();
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ campaign_id: "longmont-c2" }),
-    );
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    expect(new URLSearchParams(window.location.search).get("graphNodeId")).toBe("pc_caelynn");
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });
 
@@ -930,10 +728,11 @@ describe("BuildSurfacePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+      expect(JSON.parse(screen.getByTestId("authority-probe").textContent || "{}").statusLabel).toBe(
+        "Unsaved local changes",
+      );
     });
     const before = readAuthoritySnapshot();
-    expect(before.documentId).toBe(DOC_ID);
     expect(before.dirty).toBe(true);
     expect(before.baseRevision).toBe(2);
     expect(before.baseDigest).toBe("sha-faction-e11");
@@ -1204,9 +1003,11 @@ describe("BuildSurfacePage", () => {
     render(
       <StrictMode>
         <AgentInteractionProvider>
-          <BuildSurfacePage />
-          <ToolHost />
-          <LegacyProjectionHostAdapter />
+          <SurfaceContextProvider>
+            <BuildSurfacePage />
+            <ToolHost />
+            <LegacyProjectionHostAdapter />
+          </SurfaceContextProvider>
         </AgentInteractionProvider>
       </StrictMode>,
     );
@@ -1310,10 +1111,12 @@ describe("BuildSurfacePage", () => {
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
     render(
       <AgentInteractionProvider>
-        <BuildSurfacePage />
-        <ToolHost />
-        <LegacyProjectionHostAdapter />
-        <PublicationProbe />
+        <SurfaceContextProvider>
+          <BuildSurfacePage />
+          <ToolHost />
+          <LegacyProjectionHostAdapter />
+          <PublicationProbe />
+        </SurfaceContextProvider>
       </AgentInteractionProvider>,
     );
 

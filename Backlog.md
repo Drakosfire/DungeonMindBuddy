@@ -8,6 +8,15 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
 
+## [DOING] Intentional Build document context via Surface Context — captured 2026-08-10, dispatched 2026-08-10
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-context.md` (branch `agent/dogfood-polish-build-document-context`, base main after PR #551).
+**Depends on:** PR #551 Surface Context Host + World Graph chrome (merged).
+**Context:** Build still silent-creates Untitled worldbuilding sources on bare `/build`; Plan already publishes PREP into SurfaceContextHost. Build must be the second adopter with intentional load/create/switch.
+**Insight:** Opening Build must be read-only for document creation until New source; exact opaque documentId is identity; host stays generic.
+**Action:** Retire bare auto-create; Build DOCUMENT module + controller (resolve-before-navigate, shared create controller); MarkdownCanvas hideReadyHeader; falsify empty entry 0 POSTs + switch/history/create proofs.
+**Surfaces when:** Build Surface Context, DOCUMENT, Untitled worldbuilding source, bare /build auto-create, PR #551, MarkdownCanvas header
+**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-context.md`; `apps/live-control-ui/src/buildSurface/`
+
 ## [DOING] Decouple Plan session affinity from draft storage (multi-prep) — captured 2026-08-10, dispatched 2026-08-10
 **Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md` (branch `agent/dogfood-polish-plan-session-affinity-workspace-drafts`, base PR #543 merge `b8e4dd21`). Design: Shape B — every Create New Prep gets server-owned `out/workspace/plan/<documentId>.md`; `target_session` is affinity only.
 **Context:** PR #543 Create New Prep dogfood. Operator needs ahead-of-time and contingent preps for the same upcoming session. #543 correctly generalized create/identity/path uniqueness but incorrectly assumed Plan `target_session` implies canonical `Session N Prep.md`.
@@ -15,14 +24,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** Implement the Shape B handoff: server Plan workspace path on create; authorize identity-bound Plan workspace writes; seal Plan PATCH against path rebinding; client intent omits path; prep-frontier suggestion; For session + same-session distinct-title UX. Preserve #543 create lifecycle. Falsify: two Session-27 alternatives both writable under distinct workspace paths; corpus Session Prep untouched; PATCH cannot promote.
 **Surfaces when:** Create New Prep, target_session, Session N Prep.md, multi-prep, contingent prep, prep frontier, out/workspace/plan, PR #543, Shape B
 **Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md`; `Docs/Plans/HANDOFF-BUILD-plan-multi-prep-per-session-design.md`; `Docs/Design/DECISION-workspace-document-target-relpath-duplicate-repair.md`
-
-## [DOING] Surface context layer + global World Graph status — captured 2026-08-10
-**Depends on:** PR #543 create + PR #546/#548 multi-prep form polish (merged).
-**Context:** Dogfood: prep selector floated above Canvas; graph strip was Plan+Build-only. Product split: World Graph = app chrome; surface-loaded context = generic host under nav.
-**Insight:** Graph lens ≠ document identity; surface context ≠ persistence; AppChrome ≠ Plan. Host is an ordered module composition seam (sibling to SIH), not a universal DocumentContext schema.
-**Action:** Ship `SURFACE: add global World Graph status and generic context bar` on `agent/surface-context-layer-foundation`. Plan is first PREP adopter; remove canvas `.plan-document-toolbar`. Falsify: Plan→Build keeps World Graph in the same nav place while Plan modules disappear; no extra graph loads from the indicator alone.
-**Surfaces when:** SurfaceContextHost, AppChromeWorldGraphStatus, Plan prep context, GraphLoadPanel, AppChromeGraphLens, PR #541, Create New Prep
-**Refs:** `Docs/Plans/HANDOFF-BUILD-surface-context-layer-foundation.md`; `apps/live-control-ui/src/surfaceInteraction/contextHost/`; `apps/live-control-ui/src/chrome/AppChrome.tsx`
 
 ## [IDEA] Statblock mechanics identity is campaign-agnostic — captured 2026-08-06
 **Context:** Dogfood Threat sheet hydration: operator could search the Threat but not load mechanics while DMS was down; separately asserted “statblocks should not be defined by the campaign they were created for or in.”
@@ -46,6 +47,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Refs:** `Docs/Design/DESIGN-authored-threat-statblock-domain-contract.md` §9–§10; `Docs/Plans/HANDOFF-STATBLOCK-ux-ui-world-object-reboot.md`; `LandingPage/src/styles/StatblockComponents.css`; `apps/live-control-ui/src/tiptap/tiptapSpike.css`
 
 ## [READY] Build Plan-parity chrome after composition — captured 2026-08-05
+**Note:** Untitled/auto-create on bare `/build` is addressed by DOING *Intentional Build document context*; graph-insert/Statblock remain successors.
 **Context:** PR #507 Build workspace composition dogfood: Canvas-first bare `/build` passed (create → edit → Save → reload → Find Existing → ANything). Operator then reported the authoring chrome still feels empty vs Plan: cannot load/insert node chips; Edit/Tools inventories thin; wants Save/Load on a top bar like Plan; Tools should include Statblock generator. Follow-up review: every auto-created source is named “Untitled worldbuilding source” and the Canvas title is display-only — no rename/metadata-edit path after the form was removed.
 **Insight:** Composition (Canvas + hosts exist) is not Plan-parity authoring UX. Build currently publishes only Document→Save into Edit Host and Find Existing into Tool Host. Plan publishes rich Edit toolbar (lock, World Graph object search/insert chips, callouts, Copy Markdown, Save) plus Tools `{recap, party-registry, statblock}` and chip runtime on the canvas. Graph-reference insert/save/reload/reopen is already the named #507 successor; Statblock-on-Build and a visible top Save/Reload/Discard bar are additional product slices. Untitled-only identity makes repeated Canvas-first entry produce indistinguishable durable sources.
 **Action:** After #507 merges, sequence successors: (1) `BUILD: insert exact World Graph reference into Canvas` (chips); (2) Build canvas heading bar with Save / Reload / Discard **and document rename / light metadata edit** (title at minimum); (3) publish Statblock (and any other Plan tools Build should share) into Tool Host without forking Plan ownership. Do not fold these into the composition PR’s merge gate.
