@@ -2,18 +2,18 @@
   "schema_version": "dmb_dungeonmind_relationship_effective_conformance_v1",
   "world_id": "eldyrwild",
   "campaign_id": "longmont-c2",
-  "source_revision_id": "rev:b8dfc063bc13a4fb297e83f5f9b313d9",
-  "source_graph_payload_sha256": "4539afb0e25ccca42f4a2ec479ab470f7c14cf31803f6caa581e0d03a1f0c776",
+  "source_revision_id": "rev:ba3abde1bfc3659795bcd77bb55eb9f7",
+  "source_graph_payload_sha256": "8aa2b90bd6d16fce4b034417e72b5e613deb0ec3baf029aeea5a426ffed7a7b4",
   "dungeonmind_dependency_ref": "2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4",
   "world_object_vocabulary_revision": "world-object-v4",
   "world_object_vocabulary_sha256": "552c59a3fa9a20e437294d1a77974c05e37b69ec95e5ea03337a7d010e4d287b",
   "continuity_report_schema": "dmb_dungeonmind_relationship_adjudication_continuity_v1",
-  "relationship_semantic_count": 368,
+  "relationship_semantic_count": 367,
   "relationship_effectively_represented_count": 311,
-  "relationship_effective_residual_count": 57,
+  "relationship_effective_residual_count": 56,
   "uses_statblock_mechanics_count": 3,
   "base_relationship_represented_count": 305,
-  "base_relationship_residual_count": 63,
+  "base_relationship_residual_count": 62,
   "pr29_interpretation_applied_count": 3,
   "explicit_adapter_applied_count": 3,
   "active_adjudicated_edge_ids": [
@@ -133,7 +133,6 @@
     "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
     "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms",
     "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate",
-    "edge:npc_lysandra:leads:pc:caelynn",
     "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward",
     "edge:obj:session9:oil:carries:obj:session9:meat_rack:applied-to",
     "edge:obj:session9:oil:identified_as:node:wolf",
@@ -181,7 +180,7 @@
     },
     {
       "key": "leads",
-      "count": 2
+      "count": 1
     },
     {
       "key": "leads_to",
@@ -259,7 +258,7 @@
     },
     {
       "key": "SOURCE_CORRECTION_REQUIRED",
-      "count": 33
+      "count": 32
     },
     {
       "key": "UNADJUDICATED",
@@ -267,7 +266,7 @@
     }
   ],
   "dungeonmind_owned_remaining_count": 0,
-  "dungeonmindbuddy_owned_remaining_count": 50,
+  "dungeonmindbuddy_owned_remaining_count": 49,
   "unadjudicated_remaining_count": 7,
   "requires_readjudication_count": 0,
   "world_graph_digest_before": null,

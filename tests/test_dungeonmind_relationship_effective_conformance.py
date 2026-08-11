@@ -78,23 +78,32 @@ APPROVED_SESSION24_CORRECTION_PATH = (
     / "eldyrwild"
     / "session24-cube-karsemine-false-location-v1.json"
 )
-
-# Previous formal current baseline (post-Lysandra / #545 parent P).
-R_PREV_REVISION_ID = "rev:b90646fb5b135988bd7842cde858c96e"
-R_PREV_PAYLOAD_SHA256 = (
-    "9bec03ebf893c1c5aca592f283757d5f455f2e67cf0fef7f85852cb85b2d480c"
+APPROVED_SESSION24_FALSE_LEADS_CORRECTION_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "graph_data"
+    / "approved_graph_corrections"
+    / "eldyrwild"
+    / "session24-lysandra-caelynn-false-leads-v1.json"
 )
-# Current effective-conformance baseline after Session-24 live exit (Q).
-# Distinct from immutable adjudication anchor ELDYRWILD_REVISION_ID (A).
-R_CURRENT_REVISION_ID = "rev:b8dfc063bc13a4fb297e83f5f9b313d9"
-R_CURRENT_PAYLOAD_SHA256 = (
+
+# Previous formal current baseline (after #549 / #550 parent P).
+R_PREV_REVISION_ID = "rev:b8dfc063bc13a4fb297e83f5f9b313d9"
+R_PREV_PAYLOAD_SHA256 = (
     "4539afb0e25ccca42f4a2ec479ab470f7c14cf31803f6caa581e0d03a1f0c776"
+)
+# Current effective-conformance baseline after C₃ live exit (Q₃).
+# Distinct from immutable adjudication anchor ELDYRWILD_REVISION_ID (A).
+R_CURRENT_REVISION_ID = "rev:ba3abde1bfc3659795bcd77bb55eb9f7"
+R_CURRENT_PAYLOAD_SHA256 = (
+    "8aa2b90bd6d16fce4b034417e72b5e613deb0ec3baf029aeea5a426ffed7a7b4"
 )
 Q_REVISION_ID = R_CURRENT_REVISION_ID
 P_REVISION_ID = R_PREV_REVISION_ID
-# Lysandra live-exit chain (still required ancestry/authority at Q).
+# Lysandra live-exit chain (still required ancestry/authority at Q₃).
 LYSANDRA_P_LIVE_REVISION_ID = "rev:dfdf38edbefd734d108832e92467b208"
-LYSANDRA_Q_LIVE_REVISION_ID = R_PREV_REVISION_ID
+LYSANDRA_Q_LIVE_REVISION_ID = "rev:b90646fb5b135988bd7842cde858c96e"
+# Session-24 C₂ child (= R_prev / P_C₃).
+SESSION24_C2_REVISION_ID = R_PREV_REVISION_ID
 # Back-compat aliases used by older R_current proof names.
 Q_LIVE_REVISION_ID = Q_REVISION_ID
 P_LIVE_REVISION_ID = P_REVISION_ID
@@ -121,6 +130,15 @@ SESSION24_TARGET_EDGE_ID = "edge:item-001:located_in:pc:karsemine"
 SESSION24_TARGET_CONTRIBUTION_ID = "contribution:fe483d91c47590a1"
 SESSION24_NEIGHBOR_EDGE_ID = "edge:mystery_1:within:item-001"
 
+# C₃ — Session-24 Lysandra→Caelynn false-leads contradiction (no replacement)
+SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID = "contribution:222c55dadacfa67f"
+SESSION24_FALSE_LEADS_CORRECTION_SOURCE_PAYLOAD_SHA256 = (
+    "96a874b4d1b29274f38b616318379ebae9c8af62729ba7f053005c1b13dc05e1"
+)
+SESSION24_FALSE_LEADS_TARGET_ASSERTION_ID = "assertion:fed9280859610fd0"
+SESSION24_FALSE_LEADS_TARGET_EDGE_ID = "edge:npc_lysandra:leads:pc:caelynn"
+SESSION24_FALSE_LEADS_TARGET_CONTRIBUTION_ID = "contribution:fe483d91c47590a1"
+
 _HISTORICAL_ADJUDICATION_FIXTURE_SHA256 = (
     "9aeade076defff7258a0cc25b93c18dcb64e6cdf94533d1b9b8f8ca409a6fbd8"
 )
@@ -133,6 +151,9 @@ _LOCKED_CORRECTION_RAW_ARTIFACT_SHA256 = (
 _LOCKED_SESSION24_CORRECTION_RAW_ARTIFACT_SHA256 = (
     "a06a12f75c0d1ca1e8659aa0ad5fbfa01214c6b3b7d8db6638d7706f634da159"
 )
+_LOCKED_SESSION24_FALSE_LEADS_CORRECTION_RAW_ARTIFACT_SHA256 = (
+    "2c2c8a6809e3909ece077d4453e4ed6c501ef8339e85c4ae02cba187530d7aae"
+)
 
 _SYNTH_EFFECTIVE_WORLD = "synth-effective-domain"
 _SYNTH_EFFECTIVE_CAMPAIGN = "synth-effective-campaign"
@@ -141,7 +162,7 @@ _SEVENTH_EDGE_ID = (
 )
 
 _EXPECTED_CURRENT_REMAINING_DISPOSITIONS = {
-    "SOURCE_CORRECTION_REQUIRED": 33,
+    "SOURCE_CORRECTION_REQUIRED": 32,
     "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 10,
     "IDENTITY_NOT_RELATIONSHIP": 6,
     "INSUFFICIENT_EVIDENCE": 1,
@@ -543,20 +564,24 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
     assert payload["world_id"] == ELDYRWILD_WORLD_ID
     assert payload["source_revision_id"] == R_CURRENT_REVISION_ID
     assert payload["source_graph_payload_sha256"] == R_CURRENT_PAYLOAD_SHA256
-    assert payload["relationship_semantic_count"] == 368
+    assert payload["relationship_semantic_count"] == 367
     assert payload["relationship_effectively_represented_count"] == 311
-    assert payload["relationship_effective_residual_count"] == 57
+    assert payload["relationship_effective_residual_count"] == 56
     assert payload["uses_statblock_mechanics_count"] == 3
     assert payload["base_relationship_represented_count"] == 305
-    assert payload["base_relationship_residual_count"] == 63
+    assert payload["base_relationship_residual_count"] == 62
     assert payload["dungeonmind_owned_remaining_count"] == 0
-    assert payload["dungeonmindbuddy_owned_remaining_count"] == 50
+    assert payload["dungeonmindbuddy_owned_remaining_count"] == 49
     assert payload["unadjudicated_remaining_count"] == 7
     assert payload["requires_readjudication_count"] == 0
     assert len(payload["active_adjudicated_edge_ids"]) == 59
     assert TARGET_EDGE_ID not in payload["remaining_residual_edge_ids"]
     assert REPLACEMENT_EDGE_ID not in payload["remaining_residual_edge_ids"]
     assert SESSION24_TARGET_EDGE_ID not in payload["remaining_residual_edge_ids"]
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID not in payload[
+        "remaining_residual_edge_ids"
+    ]
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in payload["active_adjudicated_edge_ids"]
     assert payload["explicit_adapter_applied_count"] == 3
     assert payload["pr29_interpretation_applied_count"] == 3
     assert set(payload["newly_represented_by_continuity_edge_ids"]) == _SPECIAL_SIX
@@ -564,6 +589,7 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
         row["key"]: row["count"] for row in payload["remaining_residual_by_predicate"]
     }
     assert residual_by_predicate.get("located_in") == 3
+    assert residual_by_predicate.get("leads") == 1
 
     dispositions = {
         row["key"]: row["count"]
@@ -918,9 +944,12 @@ def test_eldyrwild_effective_conformance_integration_when_present() -> None:
     assert TARGET_EDGE_ID not in compact["remaining_residual_edge_ids"]
     assert REPLACEMENT_EDGE_ID not in compact["remaining_residual_edge_ids"]
     assert SESSION24_TARGET_EDGE_ID not in compact["remaining_residual_edge_ids"]
-    assert compact["relationship_semantic_count"] == 368
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID not in compact[
+        "remaining_residual_edge_ids"
+    ]
+    assert compact["relationship_semantic_count"] == 367
     assert compact["relationship_effectively_represented_count"] == 311
-    assert compact["relationship_effective_residual_count"] == 57
+    assert compact["relationship_effective_residual_count"] == 56
     assert compact["uses_statblock_mechanics_count"] == 3
 
 
@@ -1144,6 +1173,13 @@ def test_r_current_ancestry_includes_adjudication_anchor_and_q_live(
         anchor_revision_id=LYSANDRA_P_LIVE_REVISION_ID,
     )
     assert ok_lys is True, diag_lys
+    ok_c2, diag_c2, _ = prove_revision_is_anchor_or_descendant_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        requested_revision_id=R_CURRENT_REVISION_ID,
+        anchor_revision_id=SESSION24_C2_REVISION_ID,
+    )
+    assert ok_c2 is True, diag_c2
     from graph_memory.world_supergraph.storage import load_world_graph_revision_manifest
 
     q_manifest = load_world_graph_revision_manifest(
@@ -1151,6 +1187,7 @@ def test_r_current_ancestry_includes_adjudication_anchor_and_q_live(
     )
     assert q_manifest.parent_revision_id == P_REVISION_ID
     assert Q_REVISION_ID == R_CURRENT_REVISION_ID
+    assert SESSION24_C2_REVISION_ID == R_PREV_REVISION_ID
 
 
 def test_r_current_retains_lysandra_correction_authority(tmp_path: Path) -> None:
@@ -1284,6 +1321,112 @@ def test_r_current_retains_session24_correction_authority(tmp_path: Path) -> Non
     assert SESSION24_TARGET_EDGE_ID not in report.remaining_residual_edge_ids
 
 
+def test_r_current_retains_session24_false_leads_correction_authority(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.eldyrwild_session24_lysandra_caelynn_false_leads_correction import (
+        get_session24_lysandra_caelynn_false_leads_correction_status,
+    )
+    from graph_memory.kernel.contributions import (
+        compute_contribution_source_payload_sha256,
+    )
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        load_contribution_record,
+    )
+
+    root = _clone_eldyrwild_world(tmp_path)
+    store = kernel.load_world_graph_revision(
+        root, ELDYRWILD_WORLD_ID, R_CURRENT_REVISION_ID
+    )
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in store.edges
+    x3 = store.assertion_support[SESSION24_FALSE_LEADS_TARGET_ASSERTION_ID]
+    assert x3["support_state"] == "contradicted"
+    assert not (x3.get("active_contribution_ids") or [])
+    assert SESSION24_FALSE_LEADS_TARGET_CONTRIBUTION_ID in set(
+        x3.get("contradicted_contribution_ids") or []
+    )
+    # No replacement assertion for X₃ may appear under C₃ authority.
+    for row in store.assertion_support.values():
+        if not isinstance(row, dict):
+            continue
+        if (
+            row.get("introduced_by_contribution_id")
+            != SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID
+        ):
+            continue
+        assert row.get("support_state") != "supported" or row.get(
+            "assertion_id"
+        ) == SESSION24_FALSE_LEADS_TARGET_ASSERTION_ID
+
+    ledger = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID
+    )
+    assert ledger.status == "active"
+    assert (
+        compute_contribution_source_payload_sha256(ledger)
+        == SESSION24_FALSE_LEADS_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    digests = getattr(store, "contribution_source_payload_sha256", {}) or {}
+    assert digests.get(SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID) == (
+        SESSION24_FALSE_LEADS_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    assert SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID in set(
+        index.all_contribution_ids
+    )
+    assert SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID in set(
+        index.active_contribution_ids
+    )
+    assert SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID not in set(
+        index.superseded_contribution_ids
+    )
+    assert SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID not in set(
+        index.retracted_contribution_ids
+    )
+    assert SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID not in set(
+        index.failed_contribution_ids
+    )
+    manifest = list(getattr(store, "contribution_replay_manifest", []) or [])
+    c3_entries = [
+        entry
+        for entry in manifest
+        if (
+            getattr(entry, "contribution_id", None)
+            if not isinstance(entry, dict)
+            else entry.get("contribution_id")
+        )
+        == SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID
+    ]
+    assert c3_entries
+    for entry in c3_entries:
+        status = (
+            getattr(entry, "status", None)
+            if not isinstance(entry, dict)
+            else entry.get("status")
+        )
+        digest = (
+            getattr(entry, "source_payload_sha256", None)
+            if not isinstance(entry, dict)
+            else entry.get("source_payload_sha256")
+        )
+        assert status == "active"
+        assert digest == SESSION24_FALSE_LEADS_CORRECTION_SOURCE_PAYLOAD_SHA256
+
+    st = get_session24_lysandra_caelynn_false_leads_correction_status(
+        root=root, expected_parent_revision_id=R_CURRENT_REVISION_ID
+    )
+    assert st.eligibility == "already_applied"
+
+    report = analyze_relationship_effective_conformance_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=R_CURRENT_REVISION_ID,
+    )
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID not in report.remaining_residual_edge_ids
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in report.active_adjudicated_edge_ids
+
+
 def test_historical_x_continuity_remains_source_grounded(tmp_path: Path) -> None:
     from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_continuity_v1 import (
         analyze_relationship_adjudication_continuity_v1,
@@ -1304,11 +1447,16 @@ def test_historical_x_continuity_remains_source_grounded(tmp_path: Path) -> None
     x2_row = rows[SESSION24_TARGET_EDGE_ID]
     assert x2_row.source_grounding_verified is True
     assert x2_row.durable_shape_verified is True
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in rows
+    x3_row = rows[SESSION24_FALSE_LEADS_TARGET_EDGE_ID]
+    assert x3_row.source_grounding_verified is True
+    assert x3_row.durable_shape_verified is True
     store = kernel.load_world_graph_revision(
         root, ELDYRWILD_WORLD_ID, R_CURRENT_REVISION_ID
     )
     assert TARGET_EDGE_ID in store.edges
     assert SESSION24_TARGET_EDGE_ID in store.edges
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in store.edges
     report = analyze_relationship_effective_conformance_v1(
         root=root,
         world_id=ELDYRWILD_WORLD_ID,
@@ -1316,6 +1464,8 @@ def test_historical_x_continuity_remains_source_grounded(tmp_path: Path) -> None
     )
     assert TARGET_EDGE_ID not in report.remaining_residual_edge_ids
     assert SESSION24_TARGET_EDGE_ID not in report.remaining_residual_edge_ids
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID not in report.remaining_residual_edge_ids
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in report.active_adjudicated_edge_ids
 
 
 def test_source_and_adjudication_seals_unchanged_by_reanchor() -> None:
@@ -1334,6 +1484,12 @@ def test_source_and_adjudication_seals_unchanged_by_reanchor() -> None:
     assert (
         hashlib.sha256(APPROVED_SESSION24_CORRECTION_PATH.read_bytes()).hexdigest()
         == _LOCKED_SESSION24_CORRECTION_RAW_ARTIFACT_SHA256
+    )
+    assert (
+        hashlib.sha256(
+            APPROVED_SESSION24_FALSE_LEADS_CORRECTION_PATH.read_bytes()
+        ).hexdigest()
+        == _LOCKED_SESSION24_FALSE_LEADS_CORRECTION_RAW_ARTIFACT_SHA256
     )
     adjudication = json.loads(ADJUDICATION_FIXTURE_PATH.read_text(encoding="utf-8"))
     assert adjudication["revision_id"] == ELDYRWILD_REVISION_ID
@@ -1380,6 +1536,19 @@ def test_r_current_rebuilds_pinned_and_unpinned(tmp_path: Path) -> None:
         or []
     )
     assert SESSION24_TARGET_EDGE_ID in store.edges
+    assert (
+        store.assertion_support[SESSION24_FALSE_LEADS_TARGET_ASSERTION_ID][
+            "support_state"
+        ]
+        == "contradicted"
+    )
+    assert not (
+        store.assertion_support[SESSION24_FALSE_LEADS_TARGET_ASSERTION_ID].get(
+            "active_contribution_ids"
+        )
+        or []
+    )
+    assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in store.edges
 
 
 def test_effective_reanchor_tests_do_not_mutate_canonical_world() -> None:

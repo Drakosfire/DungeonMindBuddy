@@ -1,7 +1,7 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-10 — after #545 Session-24 live exit; current effective baseline is `R_current = Q`
+**Updated:** 2026-08-10 — after #545 Session-24 live exit and third effective re-anchor; current effective baseline is `R_current = Q₃`
 **Repository anchor:** `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde`
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
@@ -188,15 +188,15 @@ Two governed real-world corrections have now crossed the full design → Kernel 
 - retained `uses_statblock` mechanics attachments: `3`;
 - parent-relative Lysandra exit delta from Lysandra `P_live`: semantic `0` / represented `+1` / residual `−1` / mechanics `0`.
 
-**Current formal effective-conformance baseline** (`R_current = Q = rev:b8dfc063bc13a4fb297e83f5f9b313d9`):
+**Current formal effective-conformance baseline** (`R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7`):
 
-- relationship semantic count: `368`;
+- relationship semantic count: `367`;
 - effectively represented: `311`;
-- effective relationship residuals: `57`;
+- effective relationship residuals: `56`;
 - retained `uses_statblock` mechanics attachments: `3`;
-- parent-relative Session-24 exit delta from `P`: semantic `−1` / represented `0` / residual `−1` / mechanics `0`.
+- parent-relative C₃ exit delta from `R_prev`: semantic `−1` / represented `0` / residual `−1` / mechanics `0`.
 
-Do not carry historical `346 / 294 / 52 / 2` or previous `369 / 311 / 58 / 3` forward as though they were the live baseline. Remaining residual work must be selected by correction class from the Q ledger.
+Previous formal baseline after #549 (`rev:b8dfc063bc13a4fb297e83f5f9b313d9`) remains `368 / 311 / 57 / 3`. Do not carry historical `346 / 294 / 52 / 2` or previous `369 / 311 / 58 / 3` forward as though they were the live baseline. Remaining residual work must be selected by correction class from the Q₃ ledger.
 
 The residual classes still distinguish Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, insufficient-evidence cases, and unadjudicated residuals. Different classes may require different write authority and therefore different PRs.
 
@@ -225,10 +225,24 @@ replacement:
 
 C₂: contribution:6c13bc0f8edf4377
 P: rev:b90646fb5b135988bd7842cde858c96e
-Q / R_current: rev:b8dfc063bc13a4fb297e83f5f9b313d9
+Q: rev:b8dfc063bc13a4fb297e83f5f9b313d9
 ```
 
-Integrity heal, Lysandra, and Session-24 live exits are complete. The next step is one bounded Buddy residual slice by correction class from the 57-edge Q ledger — not batch repair.
+### Third real correction — closed
+
+```text
+historical defective edge X₃:
+  npc_lysandra --leads--> pc:caelynn
+
+replacement:
+  none (contradiction without replacement)
+
+C₃: contribution:222c55dadacfa67f
+P: rev:b8dfc063bc13a4fb297e83f5f9b313d9
+Q₃ / R_current: rev:ba3abde1bfc3659795bcd77bb55eb9f7
+```
+
+Integrity heal, Lysandra, Session-24 cube, and Session-24 false-leads live exits are complete. The next step is one bounded Buddy residual slice by correction class from the 56-edge Q₃ ledger — not batch repair.
 
 ## Current surface state
 
@@ -274,7 +288,7 @@ The PR tracker is the sequencing authority. At this anchor the current gates are
 2. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
 3. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor to `R_current = Q` in progress / DONE on merge.
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` DONE on merge.
 
 ## Fast diagnostic questions
 
