@@ -4,10 +4,6 @@ import {
   SurfaceContextAction,
   SurfaceContextPopover,
 } from "../surfaceInteraction/contextHost";
-import {
-  BUILD_KNOWN_CAMPAIGN_IDS,
-  isBuildKnownCampaignId,
-} from "./buildBareEntryCampaign";
 
 export interface BuildDocumentCreateSubmitPayload {
   title: string;
@@ -15,6 +11,8 @@ export interface BuildDocumentCreateSubmitPayload {
 }
 
 export interface BuildDocumentCreateControlProps {
+  /** Campaigns the operator may create into — must match controller validation. */
+  creatableCampaignIds: readonly string[];
   suggestedCampaignId: string | null;
   creating?: boolean;
   createError?: string | null;
@@ -24,11 +22,16 @@ export interface BuildDocumentCreateControlProps {
   disabled?: boolean;
 }
 
-function normalizeCreateCampaignId(value: string | null | undefined): string {
-  return isBuildKnownCampaignId(value) ? value : "";
+function normalizeCreateCampaignId(
+  value: string | null | undefined,
+  creatable: ReadonlySet<string>,
+): string {
+  const trimmed = value?.trim() ?? "";
+  return trimmed && creatable.has(trimmed) ? trimmed : "";
 }
 
 export function BuildDocumentCreateControl({
+  creatableCampaignIds,
   suggestedCampaignId,
   creating = false,
   createError = null,
@@ -37,21 +40,24 @@ export function BuildDocumentCreateControl({
   onRetryOpen,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
+  const creatable = new Set(
+    creatableCampaignIds.map((id) => id.trim()).filter(Boolean),
+  );
   const [open, setOpen] = useState(false);
   const [campaignId, setCampaignId] = useState(() =>
-    normalizeCreateCampaignId(suggestedCampaignId),
+    normalizeCreateCampaignId(suggestedCampaignId, creatable),
   );
   const [title, setTitle] = useState("");
 
   useEffect(() => {
-    const next = normalizeCreateCampaignId(suggestedCampaignId);
+    const next = normalizeCreateCampaignId(suggestedCampaignId, creatable);
     if (next) {
       setCampaignId(next);
       return;
     }
-    // Suggestion cleared or foreign: keep only a still-visible selection.
-    setCampaignId((current) => normalizeCreateCampaignId(current));
-  }, [suggestedCampaignId]);
+    // Suggestion cleared or not creatable: keep only a still-visible selection.
+    setCampaignId((current) => normalizeCreateCampaignId(current, creatable));
+  }, [creatableCampaignIds, suggestedCampaignId]);
 
   useEffect(() => {
     if (createError || activationError) {
@@ -73,15 +79,12 @@ export function BuildDocumentCreateControl({
     if (disabled || creating) return;
     const trimmed = title.trim();
     const campaign = campaignId.trim();
-    if (!trimmed || !isBuildKnownCampaignId(campaign)) return;
+    if (!trimmed || !creatable.has(campaign)) return;
     onSubmit({ title: trimmed, campaignId: campaign });
   };
 
   const canSubmit =
-    !disabled &&
-    !creating &&
-    Boolean(title.trim()) &&
-    isBuildKnownCampaignId(campaignId);
+    !disabled && !creating && Boolean(title.trim()) && creatable.has(campaignId.trim());
   const createForm = (
     <form
       className="build-document-create__form"
@@ -103,7 +106,7 @@ export function BuildDocumentCreateControl({
                 Choose campaign
               </option>
             ) : null}
-            {BUILD_KNOWN_CAMPAIGN_IDS.map((id) => (
+            {creatableCampaignIds.map((id) => (
               <option key={id} value={id}>
                 {id}
               </option>

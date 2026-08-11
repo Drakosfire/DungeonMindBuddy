@@ -29,6 +29,7 @@ export type BuildSurfaceContextProps = Pick<
   | "createDocument"
   | "retryCreatedDocument"
   | "refreshDocuments"
+  | "creatableCampaignIds"
   | "suggestedCreateCampaignId"
   | "authoringStatusLabel"
 >;
@@ -47,6 +48,7 @@ export function BuildSurfaceContext({
   createDocument,
   retryCreatedDocument,
   refreshDocuments,
+  creatableCampaignIds,
   suggestedCreateCampaignId,
   authoringStatusLabel,
 }: BuildSurfaceContextProps) {
@@ -118,6 +120,7 @@ export function BuildSurfaceContext({
             </>
           )}
           <BuildDocumentCreateControl
+            creatableCampaignIds={creatableCampaignIds}
             suggestedCampaignId={suggestedCreateCampaignId}
             creating={creating}
             createError={createError}
@@ -147,6 +150,7 @@ export function BuildSurfaceContext({
       activationError,
       authoringStatusLabel,
       campaignBadge,
+      creatableCampaignIds,
       createDocument,
       createError,
       creating,

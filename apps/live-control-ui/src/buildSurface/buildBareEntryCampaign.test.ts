@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  BUILD_KNOWN_CAMPAIGN_IDS,
   BUILD_LAST_CAMPAIGN_STORAGE_KEY,
   bareBuildAutoCreateKey,
   resolveBareBuildCampaignId,
+  resolveBuildCreateCampaignChoices,
   resolveSuggestedBuildCreateCampaignId,
   writeBuildLastCampaignId,
 } from "./buildBareEntryCampaign";
@@ -42,32 +44,58 @@ describe("buildBareEntryCampaign", () => {
     expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBeNull();
   });
 
-  it("suggests only known create campaigns and honors campaign= fail-closed", () => {
+  it("derives create choices from known entry defaults plus admissible Build scope", () => {
+    expect(resolveBuildCreateCampaignChoices({ documents: null })).toEqual([
+      ...BUILD_KNOWN_CAMPAIGN_IDS,
+    ]);
+    expect(
+      resolveBuildCreateCampaignChoices({
+        documents: [{ campaign_id: "eldyrwild" }, { campaign_id: "longmont-c1" }],
+        activeCampaignId: "shadow-campaign",
+      }),
+    ).toEqual(["longmont-c1", "longmont-c2", "eldyrwild", "shadow-campaign"]);
+  });
+
+  it("suggests creatable active campaigns and honors campaign= fail-closed", () => {
     writeBuildLastCampaignId("longmont-c2");
+    const withEldyrwild = resolveBuildCreateCampaignChoices({
+      documents: [{ campaign_id: "eldyrwild" }],
+    });
     expect(
       resolveSuggestedBuildCreateCampaignId({
         activeCampaignId: "eldyrwild",
         search: "",
+        creatableCampaignIds: withEldyrwild,
       }),
-    ).toBe("longmont-c2");
+    ).toBe("eldyrwild");
     expect(
       resolveSuggestedBuildCreateCampaignId({
-        activeCampaignId: "eldyrwild",
+        activeCampaignId: null,
         search: "?campaign=",
+        creatableCampaignIds: withEldyrwild,
       }),
     ).toBeNull();
     expect(
       resolveSuggestedBuildCreateCampaignId({
-        activeCampaignId: "eldyrwild",
+        activeCampaignId: null,
         search: "?campaign=typo",
+        creatableCampaignIds: withEldyrwild,
       }),
     ).toBeNull();
     expect(
       resolveSuggestedBuildCreateCampaignId({
         activeCampaignId: "longmont-c1",
         search: "?campaign=",
+        creatableCampaignIds: withEldyrwild,
       }),
     ).toBe("longmont-c1");
+    expect(
+      resolveSuggestedBuildCreateCampaignId({
+        activeCampaignId: "foreign-only",
+        search: "",
+        creatableCampaignIds: [...BUILD_KNOWN_CAMPAIGN_IDS],
+      }),
+    ).toBe("longmont-c2");
   });
 
   it("uses shared-lens campaigns when Build campaign param is absent", () => {

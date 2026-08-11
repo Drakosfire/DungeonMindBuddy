@@ -206,7 +206,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     );
   });
 
-  it("rejects unknown create campaign without POSTing", async () => {
+  it("rejects create campaigns outside admissible Build scope without POSTing", async () => {
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
     await waitFor(() => expect(result.current.listStatus).toBe("ready"));
 
@@ -218,7 +218,45 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(result.current.createError).toMatch(/Choose a campaign/i);
   });
 
-  it("does not suggest foreign active campaigns for New Source prefill", async () => {
+  it("allows create into an admissible loadable campaign such as eldyrwild", async () => {
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [
+        buildRecord(DOC_A),
+        buildRecord(DOC_B, { campaign_id: "eldyrwild", title: "Eldyrwild Source" }),
+      ],
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+      buildRecord("33333333-3333-4333-8333-333333333333", {
+        title: "Eldyrwild Lore",
+        campaign_id: "eldyrwild",
+      }),
+    );
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, { title: "Eldyrwild Lore", campaign_id: "eldyrwild" }),
+    );
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+    expect(result.current.creatableCampaignIds).toContain("eldyrwild");
+
+    await act(async () => {
+      result.current.createDocument({ title: "Eldyrwild Lore", campaignId: "eldyrwild" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.campaign_id).toBe("eldyrwild");
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Eldyrwild Lore",
+        campaign_id: "eldyrwild",
+        kind: "worldbuilding_source",
+      }),
+    );
+  });
+
+  it("suggests admitted loadable campaigns for New Source prefill", async () => {
     writeBuildLastCampaignId("longmont-c2");
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       mockSnapshot(DOC_A, { campaign_id: "eldyrwild" }),
@@ -227,6 +265,17 @@ describe("useBuildWorkspaceDocumentController", () => {
 
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
     await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+
+    expect(result.current.creatableCampaignIds).toContain("eldyrwild");
+    expect(result.current.suggestedCreateCampaignId).toBe("eldyrwild");
+  });
+
+  it("does not suggest campaigns outside creatable choices on blank campaign=", async () => {
+    writeBuildLastCampaignId("longmont-c2");
+    window.history.pushState({}, "", "/build?campaign=");
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
 
     expect(result.current.suggestedCreateCampaignId).toBeNull();
   });
@@ -374,5 +423,29 @@ describe("useBuildWorkspaceDocumentController", () => {
       await Promise.resolve();
     });
     await waitFor(() => expect(result.current.activeDocumentId).toBe(DOC_A));
+  });
+
+  it("rejects direct-link discarded records without mounting Canvas", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      mockSnapshot(DOC_A, { status: "discarded" }),
+    );
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.loadStatus).toBe("error"));
+    expect(result.current.activeDocumentId).toBeNull();
+    expect(result.current.activeRecord).toBeNull();
+  });
+
+  it("rejects direct-link non-worldbuilding records without mounting Canvas", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      mockSnapshot(DOC_A, { kind: "plan", target_relpath: "out/workspace/plan/x.md" }),
+    );
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.loadStatus).toBe("error"));
+    expect(result.current.activeDocumentId).toBeNull();
+    expect(result.current.activeRecord).toBeNull();
   });
 });

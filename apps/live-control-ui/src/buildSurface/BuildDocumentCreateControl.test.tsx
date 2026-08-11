@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { BUILD_KNOWN_CAMPAIGN_IDS } from "./buildBareEntryCampaign";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 
 describe("BuildDocumentCreateControl", () => {
@@ -9,7 +10,11 @@ describe("BuildDocumentCreateControl", () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(
-      <BuildDocumentCreateControl suggestedCampaignId="longmont-c2" onSubmit={onSubmit} />,
+      <BuildDocumentCreateControl
+        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
+        suggestedCampaignId="longmont-c2"
+        onSubmit={onSubmit}
+      />,
     );
 
     await user.click(screen.getByTestId("build-document-create-open"));
@@ -30,7 +35,13 @@ describe("BuildDocumentCreateControl", () => {
   it("requires an explicit campaign when none is suggested", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
-    render(<BuildDocumentCreateControl suggestedCampaignId={null} onSubmit={onSubmit} />);
+    render(
+      <BuildDocumentCreateControl
+        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
+        suggestedCampaignId={null}
+        onSubmit={onSubmit}
+      />,
+    );
 
     await user.click(screen.getByTestId("build-document-create-open"));
     await user.type(screen.getByTestId("build-document-create-title"), "Stormspire Notes");
@@ -48,6 +59,7 @@ describe("BuildDocumentCreateControl", () => {
     const user = userEvent.setup();
     render(
       <BuildDocumentCreateControl
+        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
         suggestedCampaignId="longmont-c1"
         activationError="network"
         onSubmit={vi.fn()}
@@ -59,10 +71,14 @@ describe("BuildDocumentCreateControl", () => {
     expect(screen.getByTestId("build-document-create-retry-open")).toBeInTheDocument();
   });
 
-  it("does not adopt a foreign suggested campaign into the visible select", async () => {
+  it("does not adopt a suggested campaign absent from creatable choices", async () => {
     const user = userEvent.setup();
     render(
-      <BuildDocumentCreateControl suggestedCampaignId="eldyrwild" onSubmit={vi.fn()} />,
+      <BuildDocumentCreateControl
+        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
+        suggestedCampaignId="eldyrwild"
+        onSubmit={vi.fn()}
+      />,
     );
 
     await user.click(screen.getByTestId("build-document-create-open"));
@@ -71,5 +87,31 @@ describe("BuildDocumentCreateControl", () => {
     expect(
       Array.from(campaignSelect.querySelectorAll("option")).map((option) => option.value),
     ).not.toContain("eldyrwild");
+  });
+
+  it("offers admissible Build-scope campaigns beyond known entry defaults", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <BuildDocumentCreateControl
+        creatableCampaignIds={[...BUILD_KNOWN_CAMPAIGN_IDS, "eldyrwild"]}
+        suggestedCampaignId="eldyrwild"
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.click(screen.getByTestId("build-document-create-open"));
+    const campaignSelect = screen.getByTestId("build-document-create-campaign");
+    expect(campaignSelect).toHaveValue("eldyrwild");
+    expect(
+      Array.from(campaignSelect.querySelectorAll("option")).map((option) => option.value),
+    ).toContain("eldyrwild");
+
+    await user.type(screen.getByTestId("build-document-create-title"), "Eldyrwild Lore");
+    await user.click(screen.getByTestId("build-document-create-submit"));
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: "Eldyrwild Lore",
+      campaignId: "eldyrwild",
+    });
   });
 });

@@ -8,9 +8,9 @@ import {
 } from "../workspaceDocument/workspaceDocumentCreation";
 import { buildDocumentSelectionSearch } from "./buildDocumentNavigation";
 import {
-  isBuildKnownCampaignId,
   readBuildLastCampaignId,
   resolveBareBuildCampaignId,
+  resolveBuildCreateCampaignChoices,
   resolveSuggestedBuildCreateCampaignId,
   writeBuildLastCampaignId,
 } from "./buildBareEntryCampaign";
@@ -61,6 +61,8 @@ export interface BuildWorkspaceDocumentController {
   createDocument: (payload: { title: string; campaignId: string }) => void;
   retryCreatedDocument: () => void;
   refreshDocuments: () => void;
+  /** Campaigns New Source may create into (visible select == POST validation). */
+  creatableCampaignIds: string[];
   suggestedCreateCampaignId: string | null;
   setAuthoringStatusLabel: (label: string | null) => void;
   authoringStatusLabel: string | null;
@@ -286,9 +288,21 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     [loadBuildDocument],
   );
 
+  const creatableCampaignIds = useMemo(
+    () =>
+      resolveBuildCreateCampaignChoices({
+        documents,
+        activeCampaignId: activeRecord?.campaign_id,
+      }),
+    [activeRecord?.campaign_id, documents],
+  );
+  const creatableCampaignIdsRef = useRef(creatableCampaignIds);
+  creatableCampaignIdsRef.current = creatableCampaignIds;
+
   const createDocument = useCallback(
     async ({ title, campaignId }: { title: string; campaignId: string }) => {
-      if (!isBuildKnownCampaignId(campaignId)) {
+      const campaign = campaignId.trim();
+      if (!creatableCampaignIdsRef.current.includes(campaign)) {
         setCreateError("Choose a campaign from the list");
         return;
       }
@@ -298,7 +312,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       try {
         const created = await createControllerRef.current.create({
           kind: "worldbuilding_source",
-          campaignId,
+          campaignId: campaign,
           title,
           documentClass: "lore",
           authorityState: "draft",
@@ -364,8 +378,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       resolveSuggestedBuildCreateCampaignId({
         activeCampaignId: activeRecord?.campaign_id,
         search: locationSearch,
+        creatableCampaignIds,
       }),
-    [activeRecord?.campaign_id, locationSearch],
+    [activeRecord?.campaign_id, creatableCampaignIds, locationSearch],
   );
   return {
     activeRecord,
@@ -382,6 +397,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     createDocument: (payload) => void createDocument(payload),
     retryCreatedDocument: () => void retryCreatedDocument(),
     refreshDocuments: () => void refreshDocuments(),
+    creatableCampaignIds,
     suggestedCreateCampaignId,
     setAuthoringStatusLabel,
     authoringStatusLabel,
