@@ -1,13 +1,14 @@
 # HANDOFF — Eldyrwild Session-24 Lysandra→Caelynn false `leads` correction
 
 **Created:** 2026-08-10
-**Status:** IMPLEMENTATION COMPLETE — awaiting review (canonical live exit still required before DONE)
+**Status:** DONE — canonical P→Q₃ live exit proven (`P=rev:b8dfc063…` → `Q₃=rev:ba3abde1…`; delta `-1/0/-1/0`)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-session24-lysandra-caelynn-false-leads-correction.md`
-**Conversation name:** `Eldyrwild Session 24 Lysandra-Caelynn False Leads Correction`
+**Conversation name:** `DUNGEONMIND-CUTOVER`
 **Flow / agent:** `BUILD`
 **Handoff direction:** `DESIGN → CODE`
 **PR title:** `BUILD: contradict false Lysandra→Caelynn leads edge`
 **Branch:** `build/eldyrwild-session24-lysandra-caelynn-false-leads-correction`
+**Merge:** `#550` / `425333d03cd23007ed2ab7fe0392c45a3c7c9412`
 
 **Required predecessor:** PR #549 merge
 `bd1e4922a8b6f901d1671c04fdd2ceaa0f9b336f`
@@ -76,7 +77,7 @@ scripts/apply_eldyrwild_session24_lysandra_caelynn_false_leads_correction.py
 tests/test_eldyrwild_session24_lysandra_caelynn_false_leads_correction.py
 ```
 
-Kernel paths unchanged. Effective-conformance fixture remains anchored to P. No canonical World Graph mutation in this PR.
+Kernel paths unchanged. Effective-conformance fixture remains anchored to P until the third re-anchor. Canonical World Graph mutation is post-merge only.
 
 ## §3 Operator seam
 
@@ -110,6 +111,52 @@ E(Q₃) = 367 / 311 / 56 / 3   (when P is unchanged)
 ## §5 Post-merge DONE gate
 
 Merged package alone is not DONE. Operator must perform the canonical live exit on exact P, prove `parent(Q₃)==P`, C₁/C₂ intact, sibling support preserved, delta `-1/0/-1/0`, retry `already_applied`, and pinned/unpinned replay equivalence before marking this slice DONE.
+
+## §6 Canonical live exit (DONE)
+
+```text
+merge #550:
+  425333d03cd23007ed2ab7fe0392c45a3c7c9412
+
+P:
+  rev:b8dfc063bc13a4fb297e83f5f9b313d9
+  E(P): 368 / 311 / 57 / 3
+  payload SHA256:
+    4539afb0e25ccca42f4a2ec479ab470f7c14cf31803f6caa581e0d03a1f0c776
+
+Q₃:
+  rev:ba3abde1bfc3659795bcd77bb55eb9f7
+  parent(Q₃) == P
+  E(Q₃): 367 / 311 / 56 / 3
+  payload SHA256:
+    8aa2b90bd6d16fce4b034417e72b5e613deb0ec3baf029aeea5a426ffed7a7b4
+
+delta:
+  semantic     -1
+  represented   0
+  residual     -1
+  mechanics     0
+
+X:
+  edge:npc_lysandra:leads:pc:caelynn
+  assertion:fed9280859610fd0
+  durable, contradicted, active support empty
+  target supporter moved to contradicted lineage
+
+C₃:
+  contribution:222c55dadacfa67f
+  revision-bound active (digest + replay manifest + ledger + index)
+
+C₁ / C₂:
+  unchanged / already_applied
+
+post-apply status: already_applied
+exact retry on Q₃: published=false (noop)
+stale P retry: stale_expected_parent
+pinned + unpinned rebuild: equivalent
+siblings unchanged
+source contribution:fe483d91c47590a1 remains active
+```
 
 Successor after proven Q₃:
 
