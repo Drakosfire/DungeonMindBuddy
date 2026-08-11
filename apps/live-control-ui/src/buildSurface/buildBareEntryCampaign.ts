@@ -66,6 +66,34 @@ export function resolveBareBuildCampaignId(input?: {
   return readBuildLastCampaignId();
 }
 
+/**
+ * Prefill for New Source only — must be a campaign the create form can actually show.
+ * Never suggests a foreign active-document campaign (e.g. eldyrwild) or falls through
+ * remembered C1/C2 when the URL explicitly fails closed on `?campaign=`.
+ */
+export function resolveSuggestedBuildCreateCampaignId(input: {
+  activeCampaignId?: string | null;
+  search?: string | null;
+}): BuildKnownCampaignId | null {
+  if (isBuildKnownCampaignId(input.activeCampaignId)) {
+    return input.activeCampaignId;
+  }
+
+  const search =
+    input.search ?? (typeof window !== "undefined" ? window.location.search : null);
+  if (search != null) {
+    const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    // Explicit campaign= is fail-closed for create prefill: do not fall through to last.
+    if (params.has("campaign")) {
+      const fromRoute = params.get("campaign")?.trim() ?? "";
+      return isBuildKnownCampaignId(fromRoute) ? fromRoute : null;
+    }
+  }
+
+  const resolved = resolveBareBuildCampaignId({ search });
+  return isBuildKnownCampaignId(resolved) ? resolved : null;
+}
+
 export function bareBuildAutoCreateKey(campaignId: string): string {
   return JSON.stringify({ campaignId: campaignId.trim() });
 }

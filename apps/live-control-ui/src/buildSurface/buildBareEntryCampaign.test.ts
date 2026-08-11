@@ -4,6 +4,7 @@ import {
   BUILD_LAST_CAMPAIGN_STORAGE_KEY,
   bareBuildAutoCreateKey,
   resolveBareBuildCampaignId,
+  resolveSuggestedBuildCreateCampaignId,
   writeBuildLastCampaignId,
 } from "./buildBareEntryCampaign";
 
@@ -39,6 +40,34 @@ describe("buildBareEntryCampaign", () => {
     writeBuildLastCampaignId("longmont-c1");
     expect(resolveBareBuildCampaignId({ search: "?campaign=" })).toBeNull();
     expect(resolveBareBuildCampaignId({ search: "?campaign=%20" })).toBeNull();
+  });
+
+  it("suggests only known create campaigns and honors campaign= fail-closed", () => {
+    writeBuildLastCampaignId("longmont-c2");
+    expect(
+      resolveSuggestedBuildCreateCampaignId({
+        activeCampaignId: "eldyrwild",
+        search: "",
+      }),
+    ).toBe("longmont-c2");
+    expect(
+      resolveSuggestedBuildCreateCampaignId({
+        activeCampaignId: "eldyrwild",
+        search: "?campaign=",
+      }),
+    ).toBeNull();
+    expect(
+      resolveSuggestedBuildCreateCampaignId({
+        activeCampaignId: "eldyrwild",
+        search: "?campaign=typo",
+      }),
+    ).toBeNull();
+    expect(
+      resolveSuggestedBuildCreateCampaignId({
+        activeCampaignId: "longmont-c1",
+        search: "?campaign=",
+      }),
+    ).toBe("longmont-c1");
   });
 
   it("uses shared-lens campaigns when Build campaign param is absent", () => {

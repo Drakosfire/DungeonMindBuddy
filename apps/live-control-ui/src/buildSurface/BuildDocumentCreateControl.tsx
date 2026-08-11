@@ -4,7 +4,10 @@ import {
   SurfaceContextAction,
   SurfaceContextPopover,
 } from "../surfaceInteraction/contextHost";
-import { BUILD_KNOWN_CAMPAIGN_IDS } from "./buildBareEntryCampaign";
+import {
+  BUILD_KNOWN_CAMPAIGN_IDS,
+  isBuildKnownCampaignId,
+} from "./buildBareEntryCampaign";
 
 export interface BuildDocumentCreateSubmitPayload {
   title: string;
@@ -21,6 +24,10 @@ export interface BuildDocumentCreateControlProps {
   disabled?: boolean;
 }
 
+function normalizeCreateCampaignId(value: string | null | undefined): string {
+  return isBuildKnownCampaignId(value) ? value : "";
+}
+
 export function BuildDocumentCreateControl({
   suggestedCampaignId,
   creating = false,
@@ -31,13 +38,19 @@ export function BuildDocumentCreateControl({
   disabled = false,
 }: BuildDocumentCreateControlProps) {
   const [open, setOpen] = useState(false);
-  const [campaignId, setCampaignId] = useState(suggestedCampaignId ?? "");
+  const [campaignId, setCampaignId] = useState(() =>
+    normalizeCreateCampaignId(suggestedCampaignId),
+  );
   const [title, setTitle] = useState("");
 
   useEffect(() => {
-    if (suggestedCampaignId) {
-      setCampaignId(suggestedCampaignId);
+    const next = normalizeCreateCampaignId(suggestedCampaignId);
+    if (next) {
+      setCampaignId(next);
+      return;
     }
+    // Suggestion cleared or foreign: keep only a still-visible selection.
+    setCampaignId((current) => normalizeCreateCampaignId(current));
   }, [suggestedCampaignId]);
 
   useEffect(() => {
@@ -60,13 +73,15 @@ export function BuildDocumentCreateControl({
     if (disabled || creating) return;
     const trimmed = title.trim();
     const campaign = campaignId.trim();
-    if (!trimmed || !campaign) return;
+    if (!trimmed || !isBuildKnownCampaignId(campaign)) return;
     onSubmit({ title: trimmed, campaignId: campaign });
   };
 
   const canSubmit =
-    !disabled && !creating && Boolean(title.trim()) && Boolean(campaignId.trim());
-
+    !disabled &&
+    !creating &&
+    Boolean(title.trim()) &&
+    isBuildKnownCampaignId(campaignId);
   const createForm = (
     <form
       className="build-document-create__form"

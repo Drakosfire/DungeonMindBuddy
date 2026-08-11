@@ -8,8 +8,10 @@ import {
 } from "../workspaceDocument/workspaceDocumentCreation";
 import { buildDocumentSelectionSearch } from "./buildDocumentNavigation";
 import {
+  isBuildKnownCampaignId,
   readBuildLastCampaignId,
   resolveBareBuildCampaignId,
+  resolveSuggestedBuildCreateCampaignId,
   writeBuildLastCampaignId,
 } from "./buildBareEntryCampaign";
 
@@ -95,19 +97,8 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const documentLoadGenerationRef = useRef(0);
   const selectorListGenerationRef = useRef(0);
 
-  const urlDocumentId = useMemo(
-    () => readDocumentIdFromSearch(locationSearch),
-    [locationSearch],
-  );
-
-  // Mount Canvas only for an admitted record, or while resolving a direct URL id.
-  // Failed loads must not keep a broken documentId mounted.
-  const activeDocumentId = useMemo(() => {
-    if (activeRecord) return activeRecord.document_id;
-    if (urlDocumentId && loadStatus === "loading") return urlDocumentId;
-    return null;
-  }, [activeRecord, loadStatus, urlDocumentId]);
-
+  // Single admission lane: mount Canvas only after controller preflight admits a record.
+  const activeDocumentId = activeRecord?.document_id ?? null;
   const refreshDocuments = useCallback(async () => {
     const generation = ++selectorListGenerationRef.current;
     setListStatus("loading");
@@ -297,6 +288,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
   const createDocument = useCallback(
     async ({ title, campaignId }: { title: string; campaignId: string }) => {
+      if (!isBuildKnownCampaignId(campaignId)) {
+        setCreateError("Choose a campaign from the list");
+        return;
+      }
       setCreating(true);
       setCreateError(null);
       setActivationError(null);
@@ -364,13 +359,14 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     }
   }, [activateCreatedRecord]);
 
-  const suggestedCreateCampaignId = useMemo(() => {
-    if (activeRecord?.campaign_id) return activeRecord.campaign_id;
-    const fromRoute = resolveBareBuildCampaignId({ search: locationSearch });
-    if (fromRoute) return fromRoute;
-    return readBuildLastCampaignId();
-  }, [activeRecord?.campaign_id, locationSearch]);
-
+  const suggestedCreateCampaignId = useMemo(
+    () =>
+      resolveSuggestedBuildCreateCampaignId({
+        activeCampaignId: activeRecord?.campaign_id,
+        search: locationSearch,
+      }),
+    [activeRecord?.campaign_id, locationSearch],
+  );
   return {
     activeRecord,
     activeDocumentId,

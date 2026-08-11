@@ -58,4 +58,18 @@ describe("BuildDocumentCreateControl", () => {
     await user.click(screen.getByTestId("build-document-create-open"));
     expect(screen.getByTestId("build-document-create-retry-open")).toBeInTheDocument();
   });
+
+  it("does not adopt a foreign suggested campaign into the visible select", async () => {
+    const user = userEvent.setup();
+    render(
+      <BuildDocumentCreateControl suggestedCampaignId="eldyrwild" onSubmit={vi.fn()} />,
+    );
+
+    await user.click(screen.getByTestId("build-document-create-open"));
+    const campaignSelect = screen.getByTestId("build-document-create-campaign");
+    expect(campaignSelect).toHaveValue("");
+    expect(
+      Array.from(campaignSelect.querySelectorAll("option")).map((option) => option.value),
+    ).not.toContain("eldyrwild");
+  });
 });
