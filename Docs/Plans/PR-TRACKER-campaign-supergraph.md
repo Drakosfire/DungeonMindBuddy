@@ -1,8 +1,8 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-10 — #554 merged (`R_current=Q₃`); repair #555 multi-anchor + successor-state contract before BUILD dispatch
-**Repository anchor:** `35776cd0…` / `origin/main` after #554 (`21e28e7871…`)
+**Updated:** 2026-08-10 — Session-25 descendant adjudication BUILD package; `UNADJUDICATED: 7 → 0` at Q₃ without representation change
+**Repository anchor:** branch `build/eldyrwild-descendant-residual-adjudication-session25` (based on `origin/main` after #555)
 **#538 design predecessor / docs base:** PR #538 merge
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
@@ -21,7 +21,7 @@ R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7
 367 semantic / 311 represented / 56 residual / 3 uses_statblock
 ```
 
-after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live exit, `#549` second re-anchor, `#550` C₃ live exit, `#552` DONE bookkeeping, and `#554` third effective re-anchor. Live head and formal baseline are both `Q₃` (`367 / 311 / 56 / 3`). Next gated work: repair and merge #555’s descendant-adjudication DESIGN (S25 multi-anchor + successor-state), then BUILD. Enclosing remaining program: `buddy-remaining-relationship-correction-slices`. Whole-world cutover remains `BLOCKED`.
+after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live exit, `#549` second re-anchor, `#550` C₃ live exit, `#552` DONE bookkeeping, `#554` third effective re-anchor, and `#555` S25 multi-anchor DESIGN. Live head and formal baseline are both `Q₃` (`367 / 311 / 56 / 3`) with `UNADJUDICATED=0` under composed A+S25 authority in this BUILD package. Enclosing remaining program: `buddy-remaining-relationship-correction-slices`. Whole-world cutover remains `BLOCKED`.
 
 ## Rules
 
@@ -79,8 +79,8 @@ after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live e
 | `eldyrwild-effective-conformance-after-second-correction` / #549 | DONE | Session-24 correction `DONE` (merged package **and** canonical apply exit proof) | Re-anchored current effective fixture/replay baseline to exact `R_current = Q = rev:b8dfc063bc13a4fb297e83f5f9b313d9` (`368 / 311 / 57 / 3`); both C₁/C₂ authorities preserved; adjudication/source seals unchanged; merge `bd1e4922…` |
 | `eldyrwild-session24-lysandra-caelynn-false-leads-correction` / #550 | DONE | #549 | Merged contradiction package + canonical `P→Q₃` exit proven (`P=rev:b8dfc063bc13a4fb297e83f5f9b313d9`, `Q₃=rev:ba3abde1bfc3659795bcd77bb55eb9f7`, parent-relative `-1/0/−1/0`, retry `already_applied`; C₁/C₂ preserved) |
 | `eldyrwild-effective-conformance-after-third-correction` / #554 | DONE | Session-24 false-leads correction `DONE` (merged package **and** canonical apply exit proof) | Re-anchored current effective fixture/replay baseline to exact `R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7` (`367 / 311 / 56 / 3`); C₁/C₂/C₃ authorities preserved; adjudication/source seals unchanged; merge `21e28e7871…` |
-| `eldyrwild-descendant-residual-adjudication-session25` / #555 | DOING | third re-anchor DONE | DESIGN repair: lock S25 as exact descendant-adjudication anchor, compose A∪S25 without rewriting A continuity, and stage open-candidate successor-state semantics; BUILD only after #555 merges. Handoff [`HANDOFF-eldyrwild-descendant-residual-adjudication-session25.md`](HANDOFF-eldyrwild-descendant-residual-adjudication-session25.md) |
-| `buddy-remaining-relationship-correction-slices` | BLOCKED | descendant Session-25 adjudication BUILD `DONE` | Select one bounded correction/decomposition/identity/evidence slice from the **Q₃** residual ledger by adjudicated correction class (including former U₇); never zero the ledger in one omnibus PR |
+| `eldyrwild-descendant-residual-adjudication-session25` / #555 DESIGN + this BUILD | DOING | #554 + #555 DESIGN DONE | Seal exact U₇ at S25, compose with immutable A, clear `UNADJUDICATED` at Q₃ while keeping `367/311/56/3` and residual edge IDs unchanged; handoff [`HANDOFF-eldyrwild-descendant-residual-adjudication-session25.md`](HANDOFF-eldyrwild-descendant-residual-adjudication-session25.md) |
+| `buddy-remaining-relationship-correction-slices` | BLOCKED | descendant Session-25 adjudication BUILD merge `DONE` | Select one bounded correction/decomposition/identity/evidence slice from the **Q₃** residual ledger by adjudicated class (including former U₇); never zero the ledger in one omnibus PR |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | Buddy semantic closure + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until whole-world conformance and durable adoption both prove READY |
 
 ### Parallel product backlog retained from the July sequence
@@ -101,11 +101,10 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Merge repaired #555 DESIGN (multi-anchor S25 authority + successor-state contract) — do **not** dispatch BUILD from the pre-repair handoff.
-2. After #555 merges, dispatch BUILD for `eldyrwild-descendant-residual-adjudication-session25` per [`HANDOFF-eldyrwild-descendant-residual-adjudication-session25.md`](HANDOFF-eldyrwild-descendant-residual-adjudication-session25.md) (S25-anchored descendant ledger for exact U₇; A continuity untouched; compose downstream).
-3. After descendant adjudication BUILD `DONE`, select one bounded Buddy-owned residual slice from the **Q₃** ledger by adjudicated class — never omnibus. Open descendant candidates route to separate adapter/vocabulary slices.
-4. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
-5. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
+1. Merge this BUILD package for `eldyrwild-descendant-residual-adjudication-session25` (S25-anchored U₇ authority composed with immutable A; no graph mutation).
+2. After merge, select one bounded Buddy-owned residual slice from the **Q₃** ledger by adjudicated class — never omnibus. Prefer one clean source-correction, or a separately designed U6 identity-seam slice.
+3. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
+4. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
@@ -116,7 +115,7 @@ The following remain true after the third governed correction re-anchor:
 - Session-24 cube→Karsemine false-location contradiction is `DONE` (merged #545 + canonical `P→Q` exit).
 - Session-24 Lysandra→Caelynn false-leads contradiction is `DONE` (merged #550 + canonical `P→Q₃` exit).
 - Formal current effective conformance is `R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7` (`367 / 311 / 56 / 3`) after #554; previous formal baselines `rev:b8dfc063…` (`368 / 311 / 57 / 3`) and `rev:b90646fb…` (`369 / 311 / 58 / 3`) remain historical; historical adjudication anchor `rev:3413bf6f5044cf2680233f5e37c90dcf` remains `346 / 294 / 52 / 2`.
-- Remaining Buddy residuals on `Q₃` are **56**, including **7 UNADJUDICATED** Session-25 edges (`contribution:a4231edb9a228963`) that require an S25-anchored descendant adjudication authority composed with immutable A before correction. #555 DESIGN must land the multi-anchor + successor-state contract before BUILD. Diagnostics and adapters still do not mutate the World Graph.
+- Remaining Buddy residuals on `Q₃` are **56** with `UNADJUDICATED=0` under composed A + S25 descendant authority (7 Session-25 edges now sealed at S25). Diagnostics and adapters still do not mutate the World Graph.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.

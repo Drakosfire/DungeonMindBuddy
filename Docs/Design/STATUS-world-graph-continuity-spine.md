@@ -1,7 +1,7 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-10 — after #545 Session-24 live exit and third effective re-anchor; current effective baseline is `R_current = Q₃`
+**Updated:** 2026-08-10 — Session-25 descendant adjudication BUILD; composed A+S25 authority clears `UNADJUDICATED` at `R_current = Q₃`
 **Repository anchor:** `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde`
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
@@ -288,7 +288,7 @@ The PR tracker is the sequencing authority. At this anchor the current gates are
 2. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
 3. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` DONE on merge.
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` DONE, Session-25 descendant residual adjudication BUILD package (S25-anchored U₇ composed with immutable A; `UNADJUDICATED: 7 → 0` without representation change).
 
 ## Fast diagnostic questions
 
