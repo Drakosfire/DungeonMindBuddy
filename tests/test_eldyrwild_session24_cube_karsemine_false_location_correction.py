@@ -69,6 +69,10 @@ ADJUDICATION_PATH = (
 # service's R_CURRENT at package authoring: post-Lysandra / pre-Session-24).
 PRE_C_PARENT_REVISION_ID = R_CURRENT_REVISION_ID
 POST_C_CHILD_REVISION_ID = "rev:b8dfc063bc13a4fb297e83f5f9b313d9"
+SESSION24_FALSE_LEADS_POST_C_CHILD_REVISION_ID = (
+    "rev:ba3abde1bfc3659795bcd77bb55eb9f7"
+)
+SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID = "contribution:222c55dadacfa67f"
 
 
 def _strip_contribution_from_clone(root: Path, contribution_id: str) -> None:
@@ -122,12 +126,20 @@ def _ensure_pre_c_eligible_root(root: Path) -> None:
         root, ELDYRWILD_WORLD_ID, PRE_C_PARENT_REVISION_ID
     )
     _strip_contribution_from_clone(root, LOCKED_CORRECTION_CONTRIBUTION_ID)
+    _strip_contribution_from_clone(
+        root, SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID
+    )
 
     post_c_dir = world_paths.revision_dir(
         root, ELDYRWILD_WORLD_ID, POST_C_CHILD_REVISION_ID
     )
     if post_c_dir.is_dir():
         shutil.rmtree(post_c_dir)
+    post_c3_dir = world_paths.revision_dir(
+        root, ELDYRWILD_WORLD_ID, SESSION24_FALSE_LEADS_POST_C_CHILD_REVISION_ID
+    )
+    if post_c3_dir.is_dir():
+        shutil.rmtree(post_c3_dir)
 
     rebuild_latest = world_paths.contribution_rebuild_latest_path(
         root, ELDYRWILD_WORLD_ID

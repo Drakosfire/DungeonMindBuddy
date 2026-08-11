@@ -81,6 +81,10 @@ POST_C_CHILD_REVISION_ID = "rev:b90646fb5b135988bd7842cde858c96e"
 # the pre-Lysandra clone is not mixed with post-Lysandra mutable authority.
 SESSION24_POST_C_CHILD_REVISION_ID = "rev:b8dfc063bc13a4fb297e83f5f9b313d9"
 SESSION24_CORRECTION_CONTRIBUTION_ID = "contribution:6c13bc0f8edf4377"
+SESSION24_FALSE_LEADS_POST_C_CHILD_REVISION_ID = (
+    "rev:ba3abde1bfc3659795bcd77bb55eb9f7"
+)
+SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID = "contribution:222c55dadacfa67f"
 
 
 def _strip_contribution_from_clone(root: Path, contribution_id: str) -> None:
@@ -143,11 +147,15 @@ def _ensure_pre_c_eligible_root(root: Path) -> None:
 
     _strip_contribution_from_clone(root, LOCKED_CORRECTION_CONTRIBUTION_ID)
     _strip_contribution_from_clone(root, SESSION24_CORRECTION_CONTRIBUTION_ID)
+    _strip_contribution_from_clone(
+        root, SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID
+    )
 
     # Drop post-C descendant material so the clone is not a mixed P-head/Q-history
     # store. Eligible apply must publish a fresh child from P.
     _drop_revision_material(root, POST_C_CHILD_REVISION_ID)
     _drop_revision_material(root, SESSION24_POST_C_CHILD_REVISION_ID)
+    _drop_revision_material(root, SESSION24_FALSE_LEADS_POST_C_CHILD_REVISION_ID)
 
     rebuild_latest = world_paths.contribution_rebuild_latest_path(
         root, ELDYRWILD_WORLD_ID
