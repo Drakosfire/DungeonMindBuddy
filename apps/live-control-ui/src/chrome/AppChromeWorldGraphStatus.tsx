@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { GraphLoadPanel } from "../graphLens/GraphLoadPanel";
+import type { PlanGraphLensFocus, ReviewCampaignId } from "../graphLens/sessionCampaignContext";
 import { useOptionalPlanGraphLens } from "../graphLens/WorldGraphLensContext";
 import { useOptionalWorldGraphLensProjection } from "../graphLens/useWorldGraphLensProjection";
 import {
@@ -17,27 +18,47 @@ export type WorldGraphChromeTone =
 
 export interface WorldGraphChromePresentation {
   tone: WorldGraphChromeTone;
-  /** Compact resting label, e.g. `C2 · S25 · Ready`. */
+  /** Compact resting label, e.g. `C1+C2 · C2 · S25 · Ready`. */
   compactLabel: string;
   /** Slightly longer label when space allows. */
   fullLabel: string;
 }
 
-function shortCampaignToken(summaryLabel: string): string {
-  const campaignMatch = summaryLabel.match(/\bC(\d+)\b/i);
-  if (campaignMatch) return `C${campaignMatch[1]}`;
-  const first = summaryLabel.split("·")[0]?.trim();
-  return first || "World";
+function shortCampaignIdToken(campaignId: string): string {
+  const match = campaignId.match(/^longmont-c(\d+)$/i);
+  if (match) return `C${match[1]}`;
+  return campaignId.trim() || "World";
 }
 
-function focusSessionToken(summaryLabel: string): string | null {
-  const sessionMatch = summaryLabel.match(/Session\s+(\d+)/i);
-  return sessionMatch ? `S${sessionMatch[1]}` : null;
+/**
+ * Scope string from structured lens state — never reparse summaryLabel.
+ * Examples: `C2`, `C2 · S25`, `C1+C2`, `C1+C2 · C2 · S25`.
+ */
+export function formatWorldGraphChromeScope(input: {
+  selectedCampaignIds: readonly ReviewCampaignId[] | null | undefined;
+  focus: PlanGraphLensFocus | null | undefined;
+}): string {
+  const selected = input.selectedCampaignIds ?? [];
+  if (selected.length === 0) {
+    return "World";
+  }
+  const campaignScope = selected.map(shortCampaignIdToken).join("+");
+  const focus = input.focus;
+  if (!focus) {
+    return campaignScope;
+  }
+  const focusCampaign = shortCampaignIdToken(focus.campaignId);
+  const session = `S${focus.sessionNumber}`;
+  // Single-campaign focus on that same campaign: avoid repeating C2 · C2 · S25.
+  if (selected.length === 1 && selected[0] === focus.campaignId) {
+    return `${campaignScope} · ${session}`;
+  }
+  return `${campaignScope} · ${focusCampaign} · ${session}`;
 }
 
 /**
  * Pure presentation helper — keeps chrome wording out of GraphLoadPanel.
- * Existing lens/projection state remains authoritative.
+ * Lens selection/focus remain authoritative; do not reparse summaryLabel.
  */
 export function presentWorldGraphChromeStatus(input: {
   hasProjectionContext: boolean;
@@ -45,7 +66,8 @@ export function presentWorldGraphChromeStatus(input: {
   projectionState: "loading" | "ready" | "error" | "unavailable" | null;
   projectionError: string | null;
   focusValidationStatus: string | null;
-  summaryLabel: string | null;
+  selectedCampaignIds: readonly ReviewCampaignId[] | null;
+  focus: PlanGraphLensFocus | null;
 }): WorldGraphChromePresentation {
   if (!input.hasProjectionContext) {
     return {
@@ -62,10 +84,10 @@ export function presentWorldGraphChromeStatus(input: {
     };
   }
 
-  const summary = input.summaryLabel?.trim() || "World";
-  const campaign = shortCampaignToken(summary);
-  const session = focusSessionToken(summary);
-  const scope = session ? `${campaign} · ${session}` : campaign;
+  const scope = formatWorldGraphChromeScope({
+    selectedCampaignIds: input.selectedCampaignIds,
+    focus: input.focus,
+  });
 
   if (input.projectionState === "loading" || input.focusValidationStatus === "pending") {
     return {
@@ -144,7 +166,8 @@ export function AppChromeWorldGraphStatus() {
         projectionState: projection?.projectionState ?? null,
         projectionError: projection?.projectionError ?? null,
         focusValidationStatus: lens?.focusValidationStatus ?? null,
-        summaryLabel: lens?.summaryLabel ?? null,
+        selectedCampaignIds: lens?.lens.selectedCampaignIds ?? null,
+        focus: lens?.lens.focus ?? null,
       }),
     [lens, projection],
   );

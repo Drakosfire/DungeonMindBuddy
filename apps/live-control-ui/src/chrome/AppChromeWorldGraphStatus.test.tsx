@@ -77,12 +77,13 @@ describe("presentWorldGraphChromeStatus", () => {
         projectionState: null,
         projectionError: null,
         focusValidationStatus: null,
-        summaryLabel: null,
+        selectedCampaignIds: null,
+        focus: null,
       }).tone,
     ).toBe("not_loaded");
   });
 
-  it("reports loading and ready presentations", () => {
+  it("reports loading and ready presentations from structured lens state", () => {
     expect(
       presentWorldGraphChromeStatus({
         hasProjectionContext: true,
@@ -90,7 +91,8 @@ describe("presentWorldGraphChromeStatus", () => {
         projectionState: "loading",
         projectionError: null,
         focusValidationStatus: "none",
-        summaryLabel: "C2 · all sessions",
+        selectedCampaignIds: ["longmont-c2"],
+        focus: null,
       }).compactLabel,
     ).toContain("Loading");
 
@@ -101,11 +103,50 @@ describe("presentWorldGraphChromeStatus", () => {
         projectionState: "ready",
         projectionError: null,
         focusValidationStatus: "none",
-        summaryLabel: "C2 · Session 25",
+        selectedCampaignIds: ["longmont-c2"],
+        focus: { campaignId: "longmont-c2", sessionNumber: 25 },
       }),
     ).toMatchObject({
       tone: "ready",
       compactLabel: "C2 · S25 · Ready",
+    });
+  });
+
+  it("preserves C1+C2 union with no focus", () => {
+    expect(
+      presentWorldGraphChromeStatus({
+        hasProjectionContext: true,
+        hasLensControls: true,
+        projectionState: "ready",
+        projectionError: null,
+        focusValidationStatus: "none",
+        selectedCampaignIds: ["longmont-c1", "longmont-c2"],
+        focus: null,
+      }),
+    ).toMatchObject({
+      tone: "ready",
+      compactLabel: "C1+C2 · Ready",
+      fullLabel: "World · C1+C2 · Ready",
+    });
+  });
+
+  it("preserves C1+C2 union and C2/S25 focus together", () => {
+    // summaryLabel would be "Union · C1+C2 · C2 · Session 25" — parsing the first C#
+    // used to collapse this to "C1 · S25 · Ready".
+    expect(
+      presentWorldGraphChromeStatus({
+        hasProjectionContext: true,
+        hasLensControls: true,
+        projectionState: "ready",
+        projectionError: null,
+        focusValidationStatus: "none",
+        selectedCampaignIds: ["longmont-c1", "longmont-c2"],
+        focus: { campaignId: "longmont-c2", sessionNumber: 25 },
+      }),
+    ).toMatchObject({
+      tone: "ready",
+      compactLabel: "C1+C2 · C2 · S25 · Ready",
+      fullLabel: "World · C1+C2 · C2 · S25 · Ready",
     });
   });
 });
