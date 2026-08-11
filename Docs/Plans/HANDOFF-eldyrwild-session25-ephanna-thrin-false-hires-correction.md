@@ -1,8 +1,8 @@
 # HANDOFF — Eldyrwild Session-25 Ephanna→Thrin false `hires` correction
 
 **Created:** 2026-08-11
-**Updated:** 2026-08-11 — BUILD in progress; Q₃ capture complete
-**Status:** BUILD DOING — bounded C₄ source correction
+**Updated:** 2026-08-11 — BUILD implementation complete; awaiting review/merge (no live apply yet)
+**Status:** IMPLEMENTATION COMPLETE — merge-ready package; canonical live apply gate remains post-merge
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-session25-ephanna-thrin-false-hires-correction.md`
 **Conversation name:** `DUNGEONMIND-CUTOVER`
 **Flow / agent:** `BUILD`
@@ -152,7 +152,7 @@ Capture actual Q₄; only then mark DONE. Successor: `eldyrwild-effective-confor
 
 ```text
 implementation base SHA: e88ac88bd511452e354ac0d804731475b8527e71
-final PR head SHA: <pending>
+final PR head SHA: <branch tip at push; verify with git rev-parse HEAD>
 
 TARGET_ASSERTION_ID: assertion:9b68a1cbcbd9015b
 
@@ -165,11 +165,39 @@ locked active target supporters:
   contribution:a4231edb9a228963
 
 source seal verified: yes
-clone parent: Q₃
+clone parent: Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7
 clone child (smoke): rev:3759d8d6a02f09306397918234a2ded2
 clone effective: 366 / 311 / 55 / 3
 exact delta: -1 / 0 / -1 / 0
 
-focused tests: <pending>
-cumulative tests: <pending>
+sibling assertion preservation: proven
+U₁–U₆ preservation: proven
+C₁/C₂/C₃ preservation: proven
+retry: already_applied
+replay equivalence: proven
+
+focused tests: 20 passed
+cumulative tests: 101 passed (descendant + effective + C₁ + C₂ + C₃ + C₄)
+ruff: clean
+git diff --check: clean
+
+canonical head before/after tests: rev:ba3abde1bfc3659795bcd77bb55eb9f7
+canonical tree digest before/after:
+  18697bc2362a12be8806562f48132c57d3c9caa87ace2e8e9022369002cfbcba
+
+deviations:
+  - adversarial multi-support Kernel probe accepts fail-closed unpublished
+    outcomes beyond exact correction_rejected (singleton live A(X₄) has no
+    second real supporter to reuse from C₃ history)
+
+remaining risks:
+  - post-merge live apply still required before DONE
+  - formal R_current stays Q₃ until fourth re-anchor
+
+reviewer focus:
+  - eligibility via S25 composed authority, not historical A
+  - TARGET_ASSERTION_ID + singleton support pin
+  - no replacement / no contribution supersession
+  - sibling U₁–U₆ + C₁/C₂/C₃ preservation
+  - effective fixture untouched; no Kernel changes
 ```
