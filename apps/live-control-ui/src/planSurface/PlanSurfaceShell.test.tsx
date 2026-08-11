@@ -54,6 +54,7 @@ import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
+import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
@@ -78,6 +79,7 @@ const worldGraphProjection = {
     isHead: true,
     focus: { kind: "none" as const, sessionId: null },
     admissibility: "gm" as const,
+    scopeMode: "world" as const,
   },
   summary: { nodeCount: 0, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
   nodes: [],
@@ -97,6 +99,21 @@ const expectedWorldGraphContextRequest = {
   admissibility: "gm",
   revision_pin: "rev-1",
 };
+
+/** Isolated canvas tests still need save-status visibility after heading moved to context bar. */
+function IsolatedPlanCanvasWithSaveStatus(
+  props: Omit<ComponentProps<typeof PlanSurfaceCanvas>, "onSaveStatusChange">,
+) {
+  const [saveStatusLabel, setSaveStatusLabel] = useState(
+    "Local draft · not yet saved to Markdown",
+  );
+  return (
+    <>
+      <span data-testid="plan-canvas-save-status">{saveStatusLabel}</span>
+      <PlanSurfaceCanvas {...props} onSaveStatusChange={setSaveStatusLabel} />
+    </>
+  );
+}
 
 function mockWorldGraphQueryContext(
   status: "ready" | "empty" | "unavailable",
@@ -143,9 +160,11 @@ function PlanSurfaceTestHarness() {
       <AskPluginSlotProvider>
         <WorldGraphLensProvider planCampaignId="longmont-c2">
           <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
-            <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-              <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-            </AppChrome>
+            <SurfaceContextProvider>
+              <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+                <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+              </AppChrome>
+            </SurfaceContextProvider>
             <ToolHost />
             <LegacyProjectionHostAdapter />
             <AgentInteractionChrome />
@@ -158,6 +177,13 @@ function PlanSurfaceTestHarness() {
 
 function renderPlanSurface() {
   return render(<PlanSurfaceTestHarness />);
+}
+
+async function openWorldGraphLoadPanel(user: ReturnType<typeof userEvent.setup>) {
+  if (!screen.queryByTestId("plan-graph-load-panel")) {
+    await user.click(screen.getByTestId("app-chrome-world-graph-status"));
+    await screen.findByTestId("plan-graph-load-panel");
+  }
 }
 
 async function waitForPlanSurfaceReady() {
@@ -223,21 +249,28 @@ describe("PlanSurfaceShell", () => {
     window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
   });
 
-  it("renders toolbar, edit bar, and canvas regions", async () => {
+  it("renders context bar prep controls, edit bar, and canvas regions", async () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
+
+    expect(screen.queryByTestId("plan-document-toolbar")).not.toBeInTheDocument();
+    const contextHost = screen.getByTestId("surface-context-host");
+    expect(within(contextHost).getByText("PREP")).toBeInTheDocument();
+    expect(within(contextHost).getByTestId("plan-document-select")).toBeInTheDocument();
+    expect(within(contextHost).getByTestId("plan-document-create-open")).toHaveTextContent(
+      "+ New prep",
+    );
 
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     // Projection host is body-only until a tool/content projection is active (SIH-04).
     expect(screen.queryByRole("navigation", { name: "Toolbox tools" })).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Plan toolbox" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
-    expect(screen.getByText("Plan Board")).toBeInTheDocument();
-    expect(screen.getByTestId("app-chrome-graph-lens")).toBeInTheDocument();
-    expect(
-      within(screen.getByTestId("app-chrome-graph-lens")).getByTestId("plan-graph-load-panel"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("surface-context-host")).toHaveTextContent("PREP");
+    expect(document.querySelector(".plan-canvas-heading")).toBeNull();
+    expect(screen.getByTestId("app-chrome-world-graph-status")).toBeInTheDocument();
     expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    expect(screen.getByTestId("plan-canvas-save-status")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Plan surface navigation" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-memory-source")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review memory" })).not.toBeInTheDocument();
@@ -743,6 +776,7 @@ describe("PlanSurfaceShell", () => {
 
     resolveBundle?.(mockSourceBundle);
 
+    await openWorldGraphLoadPanel(user);
     await waitFor(() => {
       expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
         /C2 only · no session focus/i,
@@ -782,6 +816,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
+    await openWorldGraphLoadPanel(user);
     await waitFor(() => {
       expect(screen.getByTestId("plan-graph-focus-validation-unavailable")).toBeInTheDocument();
     });
@@ -796,6 +831,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
     expect(liveQueryFetchCalls()).toHaveLength(0);
 
+    await openWorldGraphLoadPanel(user);
     await user.click(screen.getByRole("button", { name: "Clear focus" }));
     await waitFor(() => {
       expect(screen.queryByTestId("plan-graph-focus-validation-unavailable")).not.toBeInTheDocument();
@@ -841,6 +877,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
+    await openWorldGraphLoadPanel(user);
     await waitFor(() => {
       expect(screen.getByTestId("plan-graph-focus-validation-unavailable")).toBeInTheDocument();
     });
@@ -861,7 +898,7 @@ describe("PlanSurfaceShell", () => {
     deferBundles = true;
     deferredResolvers = [];
 
-    await user.click(screen.getByRole("button", { name: "Open" }));
+    await openWorldGraphLoadPanel(user);
     await user.click(screen.getByRole("checkbox", { name: /Longmont C1/i }));
 
     // Lens changed while override was valid: gate must engage before deferred bundles resolve.
@@ -878,6 +915,7 @@ describe("PlanSurfaceShell", () => {
       expect(request.focus?.sessionId ?? null).not.toBe("session-40");
     }
 
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(await screen.findByText("Validating session focus…")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Ask after lens change?");
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
@@ -888,6 +926,7 @@ describe("PlanSurfaceShell", () => {
       resolve(mockSourceBundle);
     }
 
+    await openWorldGraphLoadPanel(user);
     await waitFor(() => {
       expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
         /no session focus/i,
@@ -1796,7 +1835,7 @@ describe("PlanSurfaceShell", () => {
         <AgentInteractionProjectionTestHost config={config}>
           <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
             <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-              <PlanSurfaceCanvas
+              <IsolatedPlanCanvasWithSaveStatus
                 sessionDescriptor={sessionDescriptor}
                 theme={config.theme}
                 onEditorToolsChange={(tools) => { editorTools = tools; }}
@@ -1904,7 +1943,7 @@ describe("PlanSurfaceShell", () => {
         <AgentInteractionProjectionTestHost config={config}>
           <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
             <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-              <PlanSurfaceCanvas
+              <IsolatedPlanCanvasWithSaveStatus
                 sessionDescriptor={sessionDescriptor}
                 theme={config.theme}
                 onEditorToolsChange={(tools) => { editorTools = tools; }}
@@ -3137,7 +3176,7 @@ describe("PlanSurfaceShell", () => {
 
       await navigateHistory("forward");
       await waitFor(() =>
-        expect(screen.getByTestId("plan-document-switch-error")).toHaveTextContent(
+        expect(screen.getByTestId("surface-context-host")).toHaveTextContent(
           "Workspace document not found",
         ));
       expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep");
@@ -3164,7 +3203,7 @@ describe("PlanSurfaceShell", () => {
       await user.selectOptions(screen.getByTestId("plan-document-select"), DOC_B);
 
       await waitFor(() =>
-        expect(screen.getByTestId("plan-document-switch-error")).toHaveTextContent(
+        expect(screen.getByTestId("surface-context-host")).toHaveTextContent(
           "Workspace document not found",
         ));
       expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep");
@@ -3299,7 +3338,9 @@ describe("PlanSurfaceShell", () => {
 
       expect(await screen.findByTestId("plan-surface-empty")).toBeInTheDocument();
       expect(screen.getByText("No prep documents yet")).toBeInTheDocument();
-      expect(screen.getByTestId("plan-document-create-open")).toBeInTheDocument();
+      const contextHost = await screen.findByTestId("surface-context-host");
+      expect(within(contextHost).getByTestId("plan-document-create-open")).toBeInTheDocument();
+      expect(within(screen.getByTestId("plan-surface-empty")).queryByTestId("plan-document-create-open")).not.toBeInTheDocument();
       expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     });
 

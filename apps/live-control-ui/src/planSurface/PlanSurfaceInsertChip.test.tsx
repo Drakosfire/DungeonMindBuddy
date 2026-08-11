@@ -5,8 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
+import {
+  WorldGraphLensProvider,
+  WorldGraphLensProjectionProvider,
+} from "../graphLens";
+import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { fixtureWorkspaceDocumentRecord } from "./config/planSessionDescriptor";
 import { mockPlanView } from "../test/fixtures";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
@@ -82,9 +88,17 @@ function Harness() {
   const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
   return (
     <AgentInteractionProvider>
-      <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-        <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-      </AppChrome>
+      <AskPluginSlotProvider>
+        <WorldGraphLensProvider planCampaignId="longmont-c2">
+          <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
+            <SurfaceContextProvider>
+              <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+                <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+              </AppChrome>
+            </SurfaceContextProvider>
+          </WorldGraphLensProjectionProvider>
+        </WorldGraphLensProvider>
+      </AskPluginSlotProvider>
     </AgentInteractionProvider>
   );
 }

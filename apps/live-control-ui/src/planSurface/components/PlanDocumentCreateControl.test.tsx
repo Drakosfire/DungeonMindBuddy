@@ -71,6 +71,9 @@ describe("PlanDocumentCreateControl", () => {
 
     await user.click(screen.getByTestId("plan-document-create-open"));
     expect(screen.getByTestId("plan-document-create-same-session")).toHaveTextContent(
+      "You're making another path.",
+    );
+    expect(screen.getByTestId("plan-document-create-same-session")).toHaveTextContent(
       "1 other prep is already aimed at Session 27",
     );
 

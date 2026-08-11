@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  SurfaceContextAction,
+  SurfaceContextPopover,
+} from "../../surfaceInteraction/contextHost";
 import { defaultSessionPrepTitle } from "../config/planSessionDescriptor";
 
 export interface PlanDocumentCreateSubmitPayload {
@@ -12,7 +16,7 @@ export interface PlanDocumentCreateActiveDocument {
   targetSession: number | null;
 }
 
-interface PlanDocumentCreateControlProps {
+export interface PlanDocumentCreateControlProps {
   campaignId: string;
   campaignLabel: string;
   suggestedSession: number;
@@ -25,6 +29,7 @@ interface PlanDocumentCreateControlProps {
   onSubmit: (payload: PlanDocumentCreateSubmitPayload) => void;
   onRetryOpen?: () => void;
   disabled?: boolean;
+  presentation?: "inline" | "context";
 }
 
 function normalizePlanTitle(title: string): string {
@@ -87,6 +92,7 @@ export function PlanDocumentCreateControl({
   onSubmit,
   onRetryOpen,
   disabled = false,
+  presentation = "inline",
 }: PlanDocumentCreateControlProps) {
   const [open, setOpen] = useState(false);
   const [sessionText, setSessionText] = useState(String(suggestedSession));
@@ -230,8 +236,137 @@ export function PlanDocumentCreateControl({
 
   const canSubmit = !disabled && !creating && !titleConflicts && Boolean(title.trim());
 
+  const sameSessionCopy =
+    sameSessionActive.length === 1
+      ? `1 other prep is already aimed at Session ${targetSession}.`
+      : `${sameSessionActive.length} other preps are already aimed at Session ${targetSession}.`;
+
+  const createForm = (
+    <form
+      className="plan-document-create__form"
+      data-testid="plan-document-create-form"
+      onSubmit={handleSubmit}
+    >
+      <div className="plan-document-create__controls">
+        <label className="plan-document-create__field plan-document-create__field--session">
+          <span>For session</span>
+          <input
+            type="number"
+            min={1}
+            data-testid="plan-document-create-session"
+            value={sessionText}
+            onChange={(event) => handleSessionChange(event.target.value)}
+            onBlur={handleSessionBlur}
+            disabled={disabled || creating}
+          />
+        </label>
+        <label className="plan-document-create__field plan-document-create__field--title">
+          <span>Title</span>
+          <input
+            type="text"
+            data-testid="plan-document-create-title"
+            value={title}
+            onChange={(event) => handleTitleChange(event.target.value)}
+            disabled={disabled || creating}
+          />
+        </label>
+        <div className="plan-document-create__actions">
+          <button type="submit" data-testid="plan-document-create-submit" disabled={!canSubmit}>
+            {creating ? "Creating…" : "Create prep"}
+          </button>
+          {activationError && onRetryOpen ? (
+            <button
+              type="button"
+              data-testid="plan-document-create-retry-open"
+              onClick={onRetryOpen}
+              disabled={disabled || creating}
+            >
+              Retry Open
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="plan-document-create__status" aria-live="polite">
+        <p
+          className={
+            sameSessionActive.length > 0
+              ? "plan-document-create__same-session"
+              : "plan-document-create__status-slot"
+          }
+          data-testid="plan-document-create-same-session"
+          hidden={sameSessionActive.length === 0}
+        >
+          {sameSessionCopy} You're making another path.
+        </p>
+        <p
+          className={
+            titleConflicts && conflictingTitle
+              ? "plan-document-create__title-warning"
+              : "plan-document-create__status-slot"
+          }
+          role={titleConflicts && conflictingTitle ? "alert" : undefined}
+          data-testid="plan-document-create-title-error"
+          hidden={!(titleConflicts && conflictingTitle)}
+        >
+          {titleConflicts && conflictingTitle
+            ? `Another active prep for Session ${targetSession} is already titled "${conflictingTitle}".${
+                unusedTitleExample
+                  ? ` Choose a different name, such as "${unusedTitleExample}".`
+                  : " Choose a different name."
+              }`
+            : null}
+        </p>
+        {createError ? (
+          <p className="plan-document-create__error" role="alert" data-testid="plan-document-create-error">
+            {createError}
+          </p>
+        ) : null}
+        {activationError ? (
+          <p
+            className="plan-document-create__error"
+            role="alert"
+            data-testid="plan-document-create-activation-error"
+          >
+            Created but could not open: {activationError}
+          </p>
+        ) : null}
+      </div>
+    </form>
+  );
+
+  const rootClassName =
+    presentation === "context"
+      ? "plan-document-create plan-document-create--context"
+      : "plan-document-create";
+
+  if (presentation === "context") {
+    return (
+      <div className={rootClassName} data-testid="plan-document-create">
+        <SurfaceContextPopover
+          open={open}
+          onOpenChange={setOpen}
+          title="New prep"
+          align="end"
+          placement="beside"
+          className="surface-context-popover--wide"
+          trigger={
+            <SurfaceContextAction
+              data-testid="plan-document-create-open"
+              onClick={handleOpen}
+              disabled={disabled || creating}
+            >
+              + New prep
+            </SurfaceContextAction>
+          }
+        >
+          {createForm}
+        </SurfaceContextPopover>
+      </div>
+    );
+  }
+
   return (
-    <div className="plan-document-create" data-testid="plan-document-create">
+    <div className={rootClassName} data-testid="plan-document-create">
       {!open ? (
         <button
           type="button"
@@ -243,107 +378,7 @@ export function PlanDocumentCreateControl({
           Create New Prep
         </button>
       ) : (
-        <form
-          className="plan-document-create__form"
-          data-testid="plan-document-create-form"
-          onSubmit={handleSubmit}
-        >
-          <div className="plan-document-create__controls">
-            <label className="plan-document-create__field plan-document-create__field--session">
-              <span>For session</span>
-              <input
-                type="number"
-                min={1}
-                data-testid="plan-document-create-session"
-                value={sessionText}
-                onChange={(event) => handleSessionChange(event.target.value)}
-                onBlur={handleSessionBlur}
-                disabled={disabled || creating}
-              />
-            </label>
-            <label className="plan-document-create__field plan-document-create__field--title">
-              <span>Title</span>
-              <input
-                type="text"
-                data-testid="plan-document-create-title"
-                value={title}
-                onChange={(event) => handleTitleChange(event.target.value)}
-                disabled={disabled || creating}
-              />
-            </label>
-            <div className="plan-document-create__actions">
-              <button
-                type="submit"
-                data-testid="plan-document-create-submit"
-                disabled={!canSubmit}
-              >
-                {creating ? "Creating…" : "Create prep"}
-              </button>
-              {activationError && onRetryOpen ? (
-                <button
-                  type="button"
-                  data-testid="plan-document-create-retry-open"
-                  onClick={onRetryOpen}
-                  disabled={disabled || creating}
-                >
-                  Retry Open
-                </button>
-              ) : null}
-            </div>
-          </div>
-          <div className="plan-document-create__status" aria-live="polite">
-            <p
-              className={
-                sameSessionActive.length > 0
-                  ? "plan-document-create__same-session"
-                  : "plan-document-create__status-slot"
-              }
-              data-testid="plan-document-create-same-session"
-              hidden={sameSessionActive.length === 0}
-            >
-              {sameSessionActive.length === 1
-                ? `1 other prep is already aimed at Session ${targetSession}.`
-                : `${sameSessionActive.length} other preps are already aimed at Session ${targetSession}.`}{" "}
-              This will create another alternative.
-            </p>
-            <p
-              className={
-                titleConflicts && conflictingTitle
-                  ? "plan-document-create__title-warning"
-                  : "plan-document-create__status-slot"
-              }
-              role={titleConflicts && conflictingTitle ? "alert" : undefined}
-              data-testid="plan-document-create-title-error"
-              hidden={!(titleConflicts && conflictingTitle)}
-            >
-              {titleConflicts && conflictingTitle
-                ? `Another active prep for Session ${targetSession} is already titled "${conflictingTitle}".${
-                    unusedTitleExample
-                      ? ` Choose a different name, such as "${unusedTitleExample}".`
-                      : " Choose a different name."
-                  }`
-                : null}
-            </p>
-            {createError ? (
-              <p
-                className="plan-document-create__error"
-                role="alert"
-                data-testid="plan-document-create-error"
-              >
-                {createError}
-              </p>
-            ) : null}
-            {activationError ? (
-              <p
-                className="plan-document-create__error"
-                role="alert"
-                data-testid="plan-document-create-activation-error"
-              >
-                Created but could not open: {activationError}
-              </p>
-            ) : null}
-          </div>
-        </form>
+        createForm
       )}
     </div>
   );

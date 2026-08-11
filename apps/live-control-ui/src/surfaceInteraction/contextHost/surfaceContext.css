@@ -1,0 +1,206 @@
+.surface-context-host {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #2a3142;
+  border-radius: 10px;
+  background: rgba(18, 20, 26, 0.88);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(8px);
+  color: #e8eaef;
+  overflow: visible;
+}
+
+.surface-context-host__slot {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.surface-context-module {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.15rem 0.35rem;
+}
+
+.surface-context-module__body {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.surface-context-label {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9aa3b5;
+}
+
+.surface-context-value {
+  min-width: 0;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  color: #e8eaef;
+}
+
+.surface-context-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid #2a3142;
+  border-radius: 999px;
+  background: rgba(42, 49, 66, 0.55);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #c0caf5;
+}
+
+.surface-context-action {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #9aa3b5;
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+}
+
+.surface-context-action:hover {
+  color: #e8eaef;
+  border-color: #565f89;
+  background: rgba(122, 162, 247, 0.08);
+}
+
+.surface-context-status {
+  font-size: 0.74rem;
+  color: #9aa3b5;
+}
+
+.surface-context-status--warning {
+  color: #e0af68;
+}
+
+.surface-context-status--error {
+  color: #f7768e;
+}
+
+.surface-context-select {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid #2a3142;
+  border-radius: 6px;
+  background: #12141a;
+  color: #e8eaef;
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.surface-context-popover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.surface-context-popover__panel {
+  position: absolute;
+  z-index: 40;
+  min-width: min(16rem, calc(100vw - 1.5rem));
+  max-width: min(24rem, calc(100vw - 1.5rem));
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: rgba(18, 20, 26, 0.98);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  color: #e8eaef;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.surface-context-popover--placement-below .surface-context-popover__panel {
+  top: calc(100% + 0.35rem);
+  transform-origin: top center;
+}
+
+.surface-context-popover--placement-below.surface-context-popover--align-start
+  .surface-context-popover__panel {
+  left: 0;
+}
+
+.surface-context-popover--placement-below.surface-context-popover--align-end
+  .surface-context-popover__panel {
+  right: 0;
+}
+
+/* Fly out beside the trigger so the panel does not cover the context bar. */
+.surface-context-popover--placement-beside .surface-context-popover__panel {
+  top: 0;
+  transform-origin: top left;
+}
+
+.surface-context-popover--placement-beside.surface-context-popover--align-start
+  .surface-context-popover__panel {
+  right: calc(100% + 0.5rem);
+  left: auto;
+  transform-origin: top right;
+}
+
+.surface-context-popover--placement-beside.surface-context-popover--align-end
+  .surface-context-popover__panel {
+  left: calc(100% + 0.5rem);
+  right: auto;
+  transform-origin: top left;
+}
+
+.surface-context-popover--wide .surface-context-popover__panel {
+  width: max-content;
+  min-width: min(28rem, calc(100vw - 2rem));
+  max-width: min(36rem, calc(100vw - 1.5rem));
+}
+
+.surface-context-popover__title {
+  margin-bottom: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa3b5;
+}
+
+.surface-context-popover__body {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  /* Narrow viewports: keep the flyout on-screen under the trigger. */
+  .surface-context-popover--placement-beside .surface-context-popover__panel {
+    top: calc(100% + 0.35rem);
+    left: auto;
+    right: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-context-popover__panel {
+    transition: none;
+    transform: none;
+  }
+}

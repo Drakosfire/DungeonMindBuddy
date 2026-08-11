@@ -72,23 +72,75 @@
   color: #f2a6a6;
 }
 
-.plan-document-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.75rem 1.25rem;
-}
-
-.plan-document-toolbar > .plan-document-selector {
-  flex: 0 1 auto;
+.plan-document-selector--context {
   min-width: 0;
 }
 
-.plan-document-toolbar > .plan-document-create {
-  /* Stay beside the selector when space allows; never grow from status copy. */
-  flex: 1 1 22rem;
-  min-width: min(100%, 22rem);
-  max-width: 100%;
+.plan-surface-context__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  min-width: 0;
+}
+
+.plan-surface-context__save-status {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-document-selector--context .surface-context-select {
+  max-width: min(28rem, 52vw);
+}
+
+.plan-surface-context__retry {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.plan-document-create--context .plan-document-create__form {
+  max-width: none;
+  width: 100%;
+  min-width: min(26rem, calc(100vw - 3rem));
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.plan-document-create--context .plan-document-create__controls {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  min-height: 0;
+  gap: 0.65rem;
+}
+
+.plan-document-create--context .plan-document-create__field--session {
+  flex: 0 0 auto;
+  width: 7.5rem;
+}
+
+.plan-document-create--context .plan-document-create__field--title {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.plan-document-create--context .plan-document-create__actions {
+  margin-left: 0;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.plan-document-create--context .plan-document-create__status {
+  height: auto;
+  min-height: 3.6rem;
 }
 
 .plan-surface-empty {
