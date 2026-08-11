@@ -484,13 +484,13 @@ def _analyze_relationship_effective_conformance_with_authorities(
         if composed_authority is not None:
             composed_by_edge = composed_rows_by_edge(composed_authority)
             forbidden = {
-                composed_by_edge[edge_id].disposition
+                composed_by_edge[edge_id].finding.disposition.value
                 for edge_id in remaining
                 if edge_id in composed_by_edge
                 and composed_by_edge[edge_id].authority_id
                 == HISTORICAL_A_AUTHORITY_ID
                 and composed_by_edge[edge_id].continuity_state in _ACTIVE_CONTINUITY
-                and composed_by_edge[edge_id].disposition
+                and composed_by_edge[edge_id].finding.disposition.value
                 in _FORBIDDEN_REMAINING_DISPOSITIONS
             }
         else:

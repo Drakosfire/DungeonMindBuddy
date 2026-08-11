@@ -61,9 +61,36 @@ class RelationshipAdjudicationAuthorityRowV1:
     disposition: str
     responsible_repo: str
     next_action: str
+    finding: AdjudicationFinding
     reason_code: str | None = None
     diagnostic: str | None = None
     diagnostic_detail: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.disposition != self.finding.disposition.value:
+            raise RelationshipAdjudicationAuthorityError(
+                "authority row disposition diverges from bound finding: "
+                f"{self.edge_id} row={self.disposition!r} "
+                f"finding={self.finding.disposition.value!r}"
+            )
+        if self.responsible_repo != self.finding.responsible_repo.value:
+            raise RelationshipAdjudicationAuthorityError(
+                "authority row responsible_repo diverges from bound finding: "
+                f"{self.edge_id}"
+            )
+        if self.next_action != self.finding.next_action.value:
+            raise RelationshipAdjudicationAuthorityError(
+                "authority row next_action diverges from bound finding: "
+                f"{self.edge_id}"
+            )
+        if (
+            self.reason_code is not None
+            and self.reason_code != self.finding.reason_code.value
+        ):
+            raise RelationshipAdjudicationAuthorityError(
+                "authority row reason_code diverges from bound finding: "
+                f"{self.edge_id}"
+            )
 
 
 @dataclass(frozen=True)
@@ -81,12 +108,54 @@ class RelationshipAdjudicationAuthorityReportV1:
     composed_row_count: int
 
 
+def _assert_continuity_matches_request(
+    report: RelationshipAdjudicationContinuityReportV1,
+    *,
+    world_id: str,
+    campaign_id: str,
+    revision_id: str,
+    label: str,
+) -> None:
+    if report.world_id != world_id:
+        raise RelationshipAdjudicationAuthorityError(
+            f"{label} continuity world_id mismatch: "
+            f"{report.world_id!r} != {world_id!r}"
+        )
+    if report.campaign_id != campaign_id:
+        raise RelationshipAdjudicationAuthorityError(
+            f"{label} continuity campaign_id mismatch: "
+            f"{report.campaign_id!r} != {campaign_id!r}"
+        )
+    if report.requested_revision_id != revision_id:
+        raise RelationshipAdjudicationAuthorityError(
+            f"{label} continuity requested_revision_id mismatch: "
+            f"{report.requested_revision_id!r} != {revision_id!r}"
+        )
+
+
 def _row_from_continuity(
     *,
     authority_id: str,
     continuity: RelationshipAdjudicationContinuityReportV1,
     row: RelationshipAdjudicationContinuityRowV1,
+    finding: AdjudicationFinding,
 ) -> RelationshipAdjudicationAuthorityRowV1:
+    if row.original_disposition != finding.disposition.value:
+        raise RelationshipAdjudicationAuthorityError(
+            "continuity disposition diverges from bound finding: "
+            f"{row.edge_id} continuity={row.original_disposition!r} "
+            f"finding={finding.disposition.value!r}"
+        )
+    if row.original_responsible_repo != finding.responsible_repo.value:
+        raise RelationshipAdjudicationAuthorityError(
+            "continuity responsible_repo diverges from bound finding: "
+            f"{row.edge_id}"
+        )
+    if row.original_next_action != finding.next_action.value:
+        raise RelationshipAdjudicationAuthorityError(
+            "continuity next_action diverges from bound finding: "
+            f"{row.edge_id}"
+        )
     return RelationshipAdjudicationAuthorityRowV1(
         edge_id=row.edge_id,
         authority_id=authority_id,
@@ -96,9 +165,11 @@ def _row_from_continuity(
         continuity_state=row.continuity_state,
         source_grounding_verified=row.source_grounding_verified,
         durable_shape_verified=row.durable_shape_verified,
-        disposition=row.original_disposition,
-        responsible_repo=row.original_responsible_repo,
-        next_action=row.original_next_action,
+        disposition=finding.disposition.value,
+        responsible_repo=finding.responsible_repo.value,
+        next_action=finding.next_action.value,
+        finding=finding,
+        reason_code=finding.reason_code.value,
         diagnostic=row.diagnostic,
         diagnostic_detail=row.diagnostic_detail,
     )
@@ -145,6 +216,8 @@ def analyze_composed_relationship_adjudication_authority_v1(
     revision_id: str,
     historical_a: RelationshipAdjudicationContinuityReportV1 | None = None,
     session25_descendant: RelationshipAdjudicationContinuityReportV1 | None = None,
+    historical_a_findings: Mapping[str, AdjudicationFinding] | None = None,
+    session25_findings: Mapping[str, AdjudicationFinding] | None = None,
     verify_excerpt: bool = True,
 ) -> RelationshipAdjudicationAuthorityReportV1:
     """Compose immutable A continuity with S25 descendant continuity."""
@@ -153,10 +226,24 @@ def analyze_composed_relationship_adjudication_authority_v1(
             f"composed authority world mismatch: {world_id!r}"
         )
 
+    a_findings = dict(historical_a_findings or ELDYRWILD_RESIDUAL_FINDINGS)
+    s25_findings = dict(session25_findings or ELDYRWILD_DESCENDANT_RESIDUAL_FINDINGS)
+    if set(s25_findings) != set(EXACT_U7_EDGE_IDS):
+        raise RelationshipAdjudicationAuthorityError(
+            "S25 composed findings must equal exact U₇"
+        )
+
     a_report = historical_a or analyze_relationship_adjudication_continuity_v1(
         root=root,
         world_id=world_id,
         revision_id=revision_id,
+    )
+    _assert_continuity_matches_request(
+        a_report,
+        world_id=world_id,
+        campaign_id=ELDYRWILD_CAMPAIGN_ID,
+        revision_id=revision_id,
+        label="historical A",
     )
     if a_report.anchor_revision_id != ELDYRWILD_REVISION_ID:
         raise RelationshipAdjudicationAuthorityError(
@@ -177,7 +264,15 @@ def analyze_composed_relationship_adjudication_authority_v1(
         root=root,
         world_id=world_id,
         revision_id=revision_id,
+        findings=s25_findings,
         verify_excerpt=verify_excerpt,
+    )
+    _assert_continuity_matches_request(
+        s25_report,
+        world_id=world_id,
+        campaign_id=ELDYRWILD_CAMPAIGN_ID,
+        revision_id=revision_id,
+        label="S25 descendant",
     )
     if s25_report.anchor_revision_id != S25_REVISION_ID:
         raise RelationshipAdjudicationAuthorityError(
@@ -193,6 +288,18 @@ def analyze_composed_relationship_adjudication_authority_v1(
             "S25 continuity payload pin drifted"
         )
 
+    a_payload = a_report.requested_graph_payload_sha256
+    s25_payload = s25_report.requested_graph_payload_sha256
+    if (
+        a_payload is not None
+        and s25_payload is not None
+        and a_payload != s25_payload
+    ):
+        raise RelationshipAdjudicationAuthorityError(
+            "injected A and S25 requested payloads disagree: "
+            f"{a_payload!r} != {s25_payload!r}"
+        )
+
     a_ids = {row.edge_id for row in a_report.rows}
     s25_ids = {row.edge_id for row in s25_report.rows}
     if a_ids & s25_ids:
@@ -204,12 +311,17 @@ def analyze_composed_relationship_adjudication_authority_v1(
         raise RelationshipAdjudicationAuthorityError(
             "S25 authority rows must equal exact U₇"
         )
+    if set(a_findings) != a_ids:
+        raise RelationshipAdjudicationAuthorityError(
+            "historical A findings must cover exactly the A continuity rows"
+        )
 
     rows = [
         _row_from_continuity(
             authority_id=HISTORICAL_A_AUTHORITY_ID,
             continuity=a_report,
             row=row,
+            finding=a_findings[row.edge_id],
         )
         for row in a_report.rows
     ]
@@ -218,6 +330,7 @@ def analyze_composed_relationship_adjudication_authority_v1(
             authority_id=SESSION25_DESCENDANT_AUTHORITY_ID,
             continuity=s25_report,
             row=row,
+            finding=s25_findings[row.edge_id],
         )
         for row in s25_report.rows
     )
@@ -240,10 +353,7 @@ def analyze_composed_relationship_adjudication_authority_v1(
                 f"unknown authority_id: {row.authority_id!r}"
             )
 
-    requested_payload = (
-        a_report.requested_graph_payload_sha256
-        or s25_report.requested_graph_payload_sha256
-    )
+    requested_payload = a_payload if a_payload is not None else s25_payload
     return RelationshipAdjudicationAuthorityReportV1(
         schema_version=RELATIONSHIP_ADJUDICATION_AUTHORITY_SCHEMA_V1,
         world_id=world_id,
@@ -262,26 +372,23 @@ def analyze_composed_relationship_adjudication_authority_v1(
 def composed_active_findings_by_edge(
     composed: RelationshipAdjudicationAuthorityReportV1,
 ) -> dict[str, AdjudicationFinding]:
-    """Active composed findings keyed by edge_id for effective ownership."""
-    a_findings = ELDYRWILD_RESIDUAL_FINDINGS
-    s25_findings = ELDYRWILD_DESCENDANT_RESIDUAL_FINDINGS
+    """Active composed findings keyed by edge_id for effective ownership.
+
+    Returns the finding object bound onto each active authority row — never a
+    separate static reload that could diverge from row disposition/owner fields.
+    """
     out: dict[str, AdjudicationFinding] = {}
     for row in composed.rows:
         if row.continuity_state not in _ACTIVE_CONTINUITY:
             continue
-        if row.authority_id == HISTORICAL_A_AUTHORITY_ID:
-            finding = a_findings.get(row.edge_id)
-        elif row.authority_id == SESSION25_DESCENDANT_AUTHORITY_ID:
-            finding = s25_findings.get(row.edge_id)
-        else:
+        if row.authority_id not in {
+            HISTORICAL_A_AUTHORITY_ID,
+            SESSION25_DESCENDANT_AUTHORITY_ID,
+        }:
             raise RelationshipAdjudicationAuthorityError(
                 f"unknown authority_id while resolving findings: {row.authority_id}"
             )
-        if finding is None:
-            raise RelationshipAdjudicationAuthorityError(
-                f"active composed row lacks finding: {row.edge_id}"
-            )
-        out[row.edge_id] = finding
+        out[row.edge_id] = row.finding
     return out
 
 

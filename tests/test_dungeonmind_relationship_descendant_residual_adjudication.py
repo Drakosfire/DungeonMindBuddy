@@ -58,14 +58,14 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_expli
     RelationshipExplicitAdapterCatalogV1,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_residual_adjudication import (
+    ELDYRWILD_CAMPAIGN_ID,
     ELDYRWILD_PAYLOAD_SHA256,
     ELDYRWILD_RESIDUAL_FINDINGS,
     ELDYRWILD_REVISION_ID,
     ELDYRWILD_WORLD_ID,
-    NextAction,
     ReasonCode,
     ResidualDisposition,
-    ResponsibleRepo,
+    _adapter,
     _source,
     load_residual_source_seals,
 )
@@ -498,11 +498,16 @@ def test_t6_composed_authority_and_reject_naive_union(tmp_path: Path) -> None:
         if row.authority_id == HISTORICAL_A_AUTHORITY_ID:
             assert row.anchor_revision_id == A_REVISION_ID
             assert row.continuity_state == "CARRIED_FORWARD"
+            assert row.finding == ELDYRWILD_RESIDUAL_FINDINGS[row.edge_id]
         elif row.authority_id == SESSION25_DESCENDANT_AUTHORITY_ID:
             assert row.anchor_revision_id == S25_REVISION_ID
             assert row.continuity_state == "CARRIED_FORWARD"
+            assert row.finding == ELDYRWILD_DESCENDANT_RESIDUAL_FINDINGS[row.edge_id]
         else:
             raise AssertionError(f"unexpected authority_id {row.authority_id}")
+        assert row.disposition == row.finding.disposition.value
+        assert row.responsible_repo == row.finding.responsible_repo.value
+        assert row.next_action == row.finding.next_action.value
     assert by_auth[HISTORICAL_A_AUTHORITY_ID] == set(ELDYRWILD_RESIDUAL_FINDINGS)
     assert by_auth[SESSION25_DESCENDANT_AUTHORITY_ID] == set(EXACT_U7_EDGE_IDS)
     assert not (
@@ -528,6 +533,96 @@ def test_t6_composed_authority_and_reject_naive_union(tmp_path: Path) -> None:
             root=root,
             world_id=ELDYRWILD_WORLD_ID,
             revision_id=Q3_REVISION_ID,
+        )
+
+
+@pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
+def test_composed_rejects_mixed_requested_revision_or_payload(
+    tmp_path: Path,
+) -> None:
+    """Stale/mixed injected continuity reports must not compose as one authority."""
+    root = _clone_eldyrwild_world(tmp_path)
+    a_at_s25 = analyze_relationship_adjudication_continuity_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=S25_REVISION_ID,
+    )
+    s25_at_q3 = analyze_session25_descendant_continuity_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=Q3_REVISION_ID,
+        verify_excerpt=False,
+    )
+    assert a_at_s25.requested_revision_id == S25_REVISION_ID
+    assert s25_at_q3.requested_revision_id == Q3_REVISION_ID
+    assert a_at_s25.campaign_id == ELDYRWILD_CAMPAIGN_ID
+    assert s25_at_q3.world_id == ELDYRWILD_WORLD_ID
+
+    with pytest.raises(
+        RelationshipAdjudicationAuthorityError,
+        match="historical A continuity requested_revision_id mismatch",
+    ):
+        analyze_composed_relationship_adjudication_authority_v1(
+            root=root,
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=Q3_REVISION_ID,
+            historical_a=a_at_s25,
+            session25_descendant=s25_at_q3,
+            verify_excerpt=False,
+        )
+
+    coherent = analyze_composed_relationship_adjudication_authority_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=Q3_REVISION_ID,
+        verify_excerpt=False,
+    )
+    bad_payload_a = coherent.historical_a.model_copy(
+        update={"requested_graph_payload_sha256": "0" * 64}
+    )
+    with pytest.raises(
+        RelationshipAdjudicationAuthorityError,
+        match="requested payloads disagree",
+    ):
+        analyze_composed_relationship_adjudication_authority_v1(
+            root=root,
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=Q3_REVISION_ID,
+            historical_a=bad_payload_a,
+            session25_descendant=coherent.session25_descendant,
+            verify_excerpt=False,
+        )
+
+    bad_campaign = coherent.historical_a.model_copy(
+        update={"campaign_id": "not-longmont-c2"}
+    )
+    with pytest.raises(
+        RelationshipAdjudicationAuthorityError,
+        match="historical A continuity campaign_id mismatch",
+    ):
+        analyze_composed_relationship_adjudication_authority_v1(
+            root=root,
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=Q3_REVISION_ID,
+            historical_a=bad_campaign,
+            session25_descendant=coherent.session25_descendant,
+            verify_excerpt=False,
+        )
+
+    bad_world = coherent.session25_descendant.model_copy(
+        update={"world_id": "spoof-world"}
+    )
+    with pytest.raises(
+        RelationshipAdjudicationAuthorityError,
+        match="S25 descendant continuity world_id mismatch",
+    ):
+        analyze_composed_relationship_adjudication_authority_v1(
+            root=root,
+            world_id=ELDYRWILD_WORLD_ID,
+            revision_id=Q3_REVISION_ID,
+            historical_a=coherent.historical_a,
+            session25_descendant=bad_world,
+            verify_excerpt=False,
         )
 
 
@@ -728,9 +823,11 @@ def test_t9_historical_closed_successor_forbidden_with_composed_a_authority(
         continuity_state="CARRIED_FORWARD",
         source_grounding_verified=True,
         durable_shape_verified=True,
-        disposition=ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE.value,
-        responsible_repo=ResponsibleRepo.DUNGEONMINDBUDDY.value,
-        next_action=NextAction.ADD_BUDDY_EXPLICIT_ADAPTER.value,
+        disposition=finding.disposition.value,
+        responsible_repo=finding.responsible_repo.value,
+        next_action=finding.next_action.value,
+        finding=finding,
+        reason_code=finding.reason_code.value,
     )
     composed = RelationshipAdjudicationAuthorityReportV1(
         schema_version=RELATIONSHIP_ADJUDICATION_AUTHORITY_SCHEMA_V1,
@@ -776,7 +873,7 @@ def test_t9_historical_closed_successor_forbidden_with_composed_a_authority(
 
 
 def test_t10_open_descendant_candidate_may_remain_residual(tmp_path: Path) -> None:
-    """S25 authority EXPLICIT_ADAPTER_CANDIDATE residual does not trip closed guard."""
+    """S25 open EXPLICIT_ADAPTER_CANDIDATE survives residual inventory without closed-A guard."""
     store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
     evid = "evidence:synth:u7"
     art = "artifact:synth:u7"
@@ -800,6 +897,18 @@ def test_t10_open_descendant_candidate_may_remain_residual(tmp_path: Path) -> No
         anchor_revision_id=r0,
         requested_revision_id=r0,
     )
+    open_candidate = _adapter(
+        "dnd5e:employs",
+        rationale=(
+            "Synthetic open descendant candidate: future adapter work may map "
+            "assignment semantics without treating this as a closed A-era successor."
+        ),
+    )
+    assert open_candidate.disposition == ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE
+    assert (
+        open_candidate.disposition
+        != ELDYRWILD_DESCENDANT_RESIDUAL_FINDINGS[U7].disposition
+    )
     s25_row = RelationshipAdjudicationAuthorityRowV1(
         edge_id=U7,
         authority_id=SESSION25_DESCENDANT_AUTHORITY_ID,
@@ -809,9 +918,11 @@ def test_t10_open_descendant_candidate_may_remain_residual(tmp_path: Path) -> No
         continuity_state="CARRIED_FORWARD",
         source_grounding_verified=True,
         durable_shape_verified=True,
-        disposition=ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE.value,
-        responsible_repo=ResponsibleRepo.DUNGEONMINDBUDDY.value,
-        next_action=NextAction.ADD_BUDDY_EXPLICIT_ADAPTER.value,
+        disposition=open_candidate.disposition.value,
+        responsible_repo=open_candidate.responsible_repo.value,
+        next_action=open_candidate.next_action.value,
+        finding=open_candidate,
+        reason_code=open_candidate.reason_code.value,
     )
     composed = RelationshipAdjudicationAuthorityReportV1(
         schema_version=RELATIONSHIP_ADJUDICATION_AUTHORITY_SCHEMA_V1,
@@ -849,10 +960,14 @@ def test_t10_open_descendant_candidate_may_remain_residual(tmp_path: Path) -> No
         row.key: row.count for row in report.remaining_residual_disposition_inventory
     }
     assert "UNADJUDICATED" not in dispositions
-    # Ownership resolves the sealed S25 finding (SOURCE_CORRECTION), not UNADJUDICATED.
-    assert dispositions.get(
-        ELDYRWILD_DESCENDANT_RESIDUAL_FINDINGS[U7].disposition.value
-    )
+    # Ownership must propagate the bound open-candidate finding, not static U7 SCR.
+    assert dispositions == {
+        ResidualDisposition.EXPLICIT_ADAPTER_CANDIDATE.value: 1,
+    }
+    assert report.dungeonmindbuddy_owned_remaining_count == 1
+    assert report.dungeonmind_owned_remaining_count == 0
+    assert s25_row.finding is open_candidate
+    assert s25_row.disposition == open_candidate.disposition.value
 
 
 # ---------------------------------------------------------------------------

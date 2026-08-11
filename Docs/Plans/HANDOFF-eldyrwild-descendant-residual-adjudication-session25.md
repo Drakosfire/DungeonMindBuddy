@@ -1,8 +1,8 @@
 # HANDOFF — Eldyrwild Session-25 descendant residual adjudication BUILD
 
 **Created:** 2026-08-10
-**Updated:** 2026-08-10 — BUILD implementation complete; awaiting review/merge
-**Status:** IMPLEMENTATION COMPLETE — merge-ready package; no live World Graph apply gate
+**Updated:** 2026-08-11 — P1 compose coherence fixes for review 4906565632; awaiting re-review/merge
+**Status:** IMPLEMENTATION COMPLETE — P1 finding-bind + injected-authority coherence landed; no live World Graph apply gate
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-descendant-residual-adjudication-session25.md`
 **Conversation name:** `DUNGEONMIND-CUTOVER`
 **Flow / agent:** `BUILD`
@@ -59,7 +59,7 @@
 7. **Seven findings:** locked dispositions match DESIGN §4 (1 compound, 1 identity, 5 source-correction); evidence/span IDs sealed from S25 graph-linked evidence (see seals fixture)
 8. **Composed authority at Q₃:** 59 historical-A `CARRIED_FORWARD` + 7 S25-descendant `CARRIED_FORWARD` = 66; A `anchor_finding_count` remains 59
 9. **Effective inventory:** `367/311/56/3`; dispositions `37/11/7/1` SCR/compound/identity/insufficient; `UNADJUDICATED=0`; buddy-owned 56; residual edge IDs unchanged
-10. **Tests:** focused `30 passed`; cumulative authority/conformance suites `126 passed`
+10. **Tests:** focused `31 passed` (includes mixed-revision compose reject + bound open-candidate T10); cumulative authority/conformance suites `127 passed`
 11. **Canonical head/tree:** head remained `rev:ba3abde1bfc3659795bcd77bb55eb9f7`; tree digest `18697bc2362a12be8806562f48132c57d3c9caa87ace2e8e9022369002cfbcba` unchanged through analysis; no `--allow-live-world`; analysis-only
 12. **Bounded discovery:** none beyond allowlist; public effective composition gated to `world_id=eldyrwild` so hermetic non-Eldyrwild worlds keep prior behavior
 13. **Deviations:** none vs locked multi-anchor / successor-state contract; graph-linked primary excerpts for some edges are weak relative to whole-recap rationale (expected for defective edges; seals still pin actual linked evidence)
