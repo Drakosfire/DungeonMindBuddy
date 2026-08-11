@@ -48,6 +48,7 @@ function renderBuildContext(
         createDocument={onCreate}
         retryCreatedDocument={vi.fn()}
         refreshDocuments={onRetryList}
+        creatableCampaignIds={["longmont-c1", "longmont-c2"]}
         suggestedCreateCampaignId="longmont-c1"
         authoringStatusLabel="Committed"
         setAuthoringStatusLabel={vi.fn()}

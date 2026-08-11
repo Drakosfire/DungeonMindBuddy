@@ -10,6 +10,8 @@ import { buildDocumentSelectionSearch } from "./buildDocumentNavigation";
 import {
   readBuildLastCampaignId,
   resolveBareBuildCampaignId,
+  resolveBuildCreateCampaignChoices,
+  resolveSuggestedBuildCreateCampaignId,
   writeBuildLastCampaignId,
 } from "./buildBareEntryCampaign";
 
@@ -59,6 +61,8 @@ export interface BuildWorkspaceDocumentController {
   createDocument: (payload: { title: string; campaignId: string }) => void;
   retryCreatedDocument: () => void;
   refreshDocuments: () => void;
+  /** Campaigns New Source may create into (visible select == POST validation). */
+  creatableCampaignIds: string[];
   suggestedCreateCampaignId: string | null;
   setAuthoringStatusLabel: (label: string | null) => void;
   authoringStatusLabel: string | null;
@@ -95,19 +99,8 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const documentLoadGenerationRef = useRef(0);
   const selectorListGenerationRef = useRef(0);
 
-  const urlDocumentId = useMemo(
-    () => readDocumentIdFromSearch(locationSearch),
-    [locationSearch],
-  );
-
-  // Mount Canvas only for an admitted record, or while resolving a direct URL id.
-  // Failed loads must not keep a broken documentId mounted.
-  const activeDocumentId = useMemo(() => {
-    if (activeRecord) return activeRecord.document_id;
-    if (urlDocumentId && loadStatus === "loading") return urlDocumentId;
-    return null;
-  }, [activeRecord, loadStatus, urlDocumentId]);
-
+  // Single admission lane: mount Canvas only after controller preflight admits a record.
+  const activeDocumentId = activeRecord?.document_id ?? null;
   const refreshDocuments = useCallback(async () => {
     const generation = ++selectorListGenerationRef.current;
     setListStatus("loading");
@@ -295,15 +288,31 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     [loadBuildDocument],
   );
 
+  const creatableCampaignIds = useMemo(
+    () =>
+      resolveBuildCreateCampaignChoices({
+        documents,
+        activeCampaignId: activeRecord?.campaign_id,
+      }),
+    [activeRecord?.campaign_id, documents],
+  );
+  const creatableCampaignIdsRef = useRef(creatableCampaignIds);
+  creatableCampaignIdsRef.current = creatableCampaignIds;
+
   const createDocument = useCallback(
     async ({ title, campaignId }: { title: string; campaignId: string }) => {
+      const campaign = campaignId.trim();
+      if (!creatableCampaignIdsRef.current.includes(campaign)) {
+        setCreateError("Choose a campaign from the list");
+        return;
+      }
       setCreating(true);
       setCreateError(null);
       setActivationError(null);
       try {
         const created = await createControllerRef.current.create({
           kind: "worldbuilding_source",
-          campaignId,
+          campaignId: campaign,
           title,
           documentClass: "lore",
           authorityState: "draft",
@@ -364,13 +373,15 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     }
   }, [activateCreatedRecord]);
 
-  const suggestedCreateCampaignId = useMemo(() => {
-    if (activeRecord?.campaign_id) return activeRecord.campaign_id;
-    const fromRoute = resolveBareBuildCampaignId({ search: locationSearch });
-    if (fromRoute) return fromRoute;
-    return readBuildLastCampaignId();
-  }, [activeRecord?.campaign_id, locationSearch]);
-
+  const suggestedCreateCampaignId = useMemo(
+    () =>
+      resolveSuggestedBuildCreateCampaignId({
+        activeCampaignId: activeRecord?.campaign_id,
+        search: locationSearch,
+        creatableCampaignIds,
+      }),
+    [activeRecord?.campaign_id, creatableCampaignIds, locationSearch],
+  );
   return {
     activeRecord,
     activeDocumentId,
@@ -386,6 +397,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     createDocument: (payload) => void createDocument(payload),
     retryCreatedDocument: () => void retryCreatedDocument(),
     refreshDocuments: () => void refreshDocuments(),
+    creatableCampaignIds,
     suggestedCreateCampaignId,
     setAuthoringStatusLabel,
     authoringStatusLabel,

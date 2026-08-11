@@ -44,6 +44,8 @@ export function BuildSurfacePage() {
             <h1>{BUILD_SURFACE_LABEL}</h1>
             {controller.loadStatus === "error" ? (
               <p role="alert">Could not open that source. Try another.</p>
+            ) : controller.loadStatus === "loading" ? (
+              <p>Loading worldbuilding source…</p>
             ) : (
               <p>Choose or create a source above.</p>
             )}

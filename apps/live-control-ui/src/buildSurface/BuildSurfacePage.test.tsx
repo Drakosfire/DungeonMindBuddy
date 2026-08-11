@@ -347,6 +347,112 @@ describe("BuildSurfacePage", () => {
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
   });
 
+  it("recovers dirty local draft after switching A → B → A", async () => {
+    const user = userEvent.setup();
+    const records = [
+      {
+        schema_version: "dmb_workspace_document_record_v1" as const,
+        document_id: DOC_ID,
+        title: "Source A",
+        campaign_id: "longmont-c1",
+        target_session: null,
+        kind: "worldbuilding_source" as const,
+        target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
+        status: "active" as const,
+        content_status: "draft" as const,
+        revision: 1,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding" as const,
+        document_class: "lore",
+        authority_state: "draft" as const,
+        visibility_state: "internal" as const,
+      },
+      {
+        schema_version: "dmb_workspace_document_record_v1" as const,
+        document_id: DOC_B,
+        title: "Source B",
+        campaign_id: "longmont-c2",
+        target_session: null,
+        kind: "worldbuilding_source" as const,
+        target_relpath: `out/workspace/worldbuilding/${DOC_B}.md`,
+        status: "active" as const,
+        content_status: "draft" as const,
+        revision: 1,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding" as const,
+        document_class: "lore",
+        authority_state: "draft" as const,
+        visibility_state: "internal" as const,
+      },
+    ];
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records,
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) => {
+      const record = records.find((entry) => entry.document_id === id)!;
+      return {
+        schema_version: "dmb_workspace_document_snapshot_v1" as const,
+        record,
+        markdown: `# ${record.title}\n`,
+        content_sha256: `sha-${id}`,
+        file_fingerprint: "absent" as const,
+        file_exists: false,
+        loaded_revision: 1,
+      };
+    });
+
+    const localA = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Source A",
+      campaignId: "longmont-c1",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 1,
+      baseContentSha256: `sha-${DOC_ID}`,
+      starterContent: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Alpha draft note" }],
+          },
+        ],
+      },
+    });
+    localA.dirty = true;
+    localA.exported_markdown = "# Source A\n\nAlpha draft note\n";
+    window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(localA));
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    renderBuildPage();
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Unsaved|dirty|local/i);
+    });
+
+    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_B);
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source B");
+    });
+
+    await user.selectOptions(screen.getByTestId("build-document-select"), DOC_ID);
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Source A");
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Unsaved|dirty|local/i);
+    });
+    const stored = JSON.parse(
+      window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) ?? "{}",
+    ) as { dirty?: boolean; exported_markdown?: string };
+    expect(stored.dirty).toBe(true);
+    expect(stored.exported_markdown).toContain("Alpha draft note");
+  });
+
   it("PR380B: preserves graph pointer params when opening document from URL", async () => {
     window.history.pushState(
       {},

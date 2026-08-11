@@ -66,6 +66,73 @@ export function resolveBareBuildCampaignId(input?: {
   return readBuildLastCampaignId();
 }
 
+/**
+ * Visible New Source campaign choices.
+ *
+ * `BUILD_KNOWN_CAMPAIGN_IDS` remains context-free entry defaults only. Creation choices
+ * also include every campaign already present on admissible Build sources (listed active
+ * worldbuilding records + the currently admitted record). That keeps Create authority
+ * aligned with what Build can already load, without inventing a separate non-creatable
+ * loadable-scope policy.
+ */
+export function resolveBuildCreateCampaignChoices(input: {
+  documents?: ReadonlyArray<{ campaign_id: string }> | null;
+  activeCampaignId?: string | null;
+}): string[] {
+  const choices: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string | null | undefined) => {
+    const id = raw?.trim() ?? "";
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    choices.push(id);
+  };
+
+  for (const id of BUILD_KNOWN_CAMPAIGN_IDS) {
+    push(id);
+  }
+  for (const record of input.documents ?? []) {
+    push(record.campaign_id);
+  }
+  push(input.activeCampaignId);
+  return choices;
+}
+
+/**
+ * Prefill for New Source — must be a campaign the create form can actually show.
+ * Prefers the admitted document's campaign when it is creatable; otherwise route/last
+ * hints only when they appear in `creatableCampaignIds`. Explicit blank/unknown
+ * `?campaign=` stays fail-closed (no fallthrough to remembered last) unless the
+ * active admitted campaign is itself creatable.
+ */
+export function resolveSuggestedBuildCreateCampaignId(input: {
+  activeCampaignId?: string | null;
+  search?: string | null;
+  creatableCampaignIds: readonly string[];
+}): string | null {
+  const creatable = new Set(
+    input.creatableCampaignIds.map((id) => id.trim()).filter(Boolean),
+  );
+  const active = input.activeCampaignId?.trim() ?? "";
+  if (active && creatable.has(active)) {
+    return active;
+  }
+
+  const search =
+    input.search ?? (typeof window !== "undefined" ? window.location.search : null);
+  if (search != null) {
+    const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    // Explicit campaign= is fail-closed for create prefill: do not fall through to last.
+    if (params.has("campaign")) {
+      const fromRoute = params.get("campaign")?.trim() ?? "";
+      return fromRoute && creatable.has(fromRoute) ? fromRoute : null;
+    }
+  }
+
+  const resolved = resolveBareBuildCampaignId({ search })?.trim() ?? "";
+  return resolved && creatable.has(resolved) ? resolved : null;
+}
+
 export function bareBuildAutoCreateKey(campaignId: string): string {
   return JSON.stringify({ campaignId: campaignId.trim() });
 }
