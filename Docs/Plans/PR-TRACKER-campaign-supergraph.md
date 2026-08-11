@@ -1,8 +1,8 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-10 — land `HANDOFF-eldyrwild-effective-conformance-after-third-correction` after #552; third re-anchor READY for BUILD; formal `R_current` remains `rev:b8dfc063…` (`368/311/57/3`) until that BUILD merges; live head `Q₃=rev:ba3abde1…` (`367/311/56/3`)
-**Repository anchor:** `3739968fb126be5ab235be948a8113d6ca499599` (`origin/main` merge for #552; DESIGN capture base for third re-anchor handoff)
+**Updated:** 2026-08-10 — third effective re-anchor; formal `R_current = Q₃ = rev:ba3abde1…` (`367/311/56/3`); next gate residual selection from Q₃ ledger (including 7 UNADJUDICATED)
+**Repository anchor:** (this PR merge on `main`; re-anchors formal baseline after #550/#552)
 **#538 design predecessor / docs base:** PR #538 merge
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
@@ -17,11 +17,11 @@ This tracker records only current sequence, dependencies, and exit proofs. Compl
 At the immutable adjudication domain, historical Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. The formal **current** effective-conformance baseline is now anchored to exact live descendant:
 
 ```text
-R_current = Q = rev:b8dfc063bc13a4fb297e83f5f9b313d9
-368 semantic / 311 represented / 57 residual / 3 uses_statblock
+R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7
+367 semantic / 311 represented / 56 residual / 3 uses_statblock
 ```
 
-after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live exit, `#549` effective re-anchor to prior `R_current = Q`, `#550` Session-24 Lysandra→Caelynn false-leads correction live exit (`P→Q₃`, `Q₃=rev:ba3abde1bfc3659795bcd77bb55eb9f7`), and `#552` DONE bookkeeping. Formal current effective baseline remains at prior `R_current = Q` until `eldyrwild-effective-conformance-after-third-correction` BUILD merges. Live head is already `Q₃` (`367 / 311 / 56 / 3`). Handoff: [`HANDOFF-eldyrwild-effective-conformance-after-third-correction.md`](HANDOFF-eldyrwild-effective-conformance-after-third-correction.md). Enclosing remaining program after re-anchor: `buddy-remaining-relationship-correction-slices`. Whole-world cutover remains `BLOCKED`.
+after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live exit, `#549` second re-anchor, `#550` C₃ live exit, `#552` DONE bookkeeping, and this third effective re-anchor. Enclosing remaining program: `buddy-remaining-relationship-correction-slices` from the **Q₃** ledger (includes 7 `UNADJUDICATED` edges requiring descendant-adjudication authority design before correction). Whole-world cutover remains `BLOCKED`.
 
 ## Rules
 
@@ -78,8 +78,8 @@ after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live e
 | `eldyrwild-session24-cube-karsemine-false-location-correction` / #545 | DONE | Kernel contradiction `#544` + first effective re-anchor | Merged contradiction package + canonical `P→Q` exit proven (`P=rev:b90646fb5b135988bd7842cde858c96e`, `Q=rev:b8dfc063bc13a4fb297e83f5f9b313d9`, parent-relative `-1/0/−1/0`, retry `already_applied`) |
 | `eldyrwild-effective-conformance-after-second-correction` / #549 | DONE | Session-24 correction `DONE` (merged package **and** canonical apply exit proof) | Re-anchored current effective fixture/replay baseline to exact `R_current = Q = rev:b8dfc063bc13a4fb297e83f5f9b313d9` (`368 / 311 / 57 / 3`); both C₁/C₂ authorities preserved; adjudication/source seals unchanged; merge `bd1e4922…` |
 | `eldyrwild-session24-lysandra-caelynn-false-leads-correction` / #550 | DONE | #549 | Merged contradiction package + canonical `P→Q₃` exit proven (`P=rev:b8dfc063bc13a4fb297e83f5f9b313d9`, `Q₃=rev:ba3abde1bfc3659795bcd77bb55eb9f7`, parent-relative `-1/0/−1/0`, retry `already_applied`; C₁/C₂ preserved) |
-| `eldyrwild-effective-conformance-after-third-correction` | READY | Session-24 false-leads correction `DONE` (merged package **and** canonical apply exit proof) + handoff landed | Re-anchor current effective fixture/replay baseline to exact live `Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7` (`367 / 311 / 56 / 3`); preserve C₁/C₂/C₃ authorities; adjudication/source seals unchanged; handoff [`HANDOFF-eldyrwild-effective-conformance-after-third-correction.md`](HANDOFF-eldyrwild-effective-conformance-after-third-correction.md) |
-| `buddy-remaining-relationship-correction-slices` | READY | third re-anchor + current effective baseline at Q₃ | Select one bounded correction/decomposition/identity/evidence slice from the **Q₃** residual ledger by adjudicated correction class; never zero the ledger in one omnibus PR |
+| `eldyrwild-effective-conformance-after-third-correction` | DONE | Session-24 false-leads correction `DONE` (merged package **and** canonical apply exit proof) | Re-anchored current effective fixture/replay baseline to exact `R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7` (`367 / 311 / 56 / 3`); C₁/C₂/C₃ authorities preserved; adjudication/source seals unchanged |
+| `buddy-remaining-relationship-correction-slices` | READY | third re-anchor + current effective baseline at Q₃ | Select one bounded correction/decomposition/identity/evidence slice from the **Q₃** residual ledger by adjudicated correction class; 7 `UNADJUDICATED` edges need descendant-adjudication authority design before correction; never zero the ledger in one omnibus PR |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | Buddy semantic closure + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until whole-world conformance and durable adoption both prove READY |
 
 ### Parallel product backlog retained from the July sequence
@@ -100,22 +100,21 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Merge this handoff, then dispatch BUILD for `eldyrwild-effective-conformance-after-third-correction` on exact live `Q₃` (`367 / 311 / 56 / 3`) per [`HANDOFF-eldyrwild-effective-conformance-after-third-correction.md`](HANDOFF-eldyrwild-effective-conformance-after-third-correction.md).
-2. After that re-anchor merges, select one bounded Buddy-owned residual slice from the **Q₃** residual ledger by correction class (`SOURCE_CORRECTION_REQUIRED`, `COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP`, `IDENTITY_NOT_RELATIONSHIP`, `INSUFFICIENT_EVIDENCE`, or `UNADJUDICATED`); keep authority models distinct.
-3. Do not schedule an omnibus residual-zeroing PR or another automatic “fix the rest” correction batch.
-4. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
-5. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
+1. Design descendant-adjudication authority for the 7 `UNADJUDICATED` Q₃ residual edges (they are post-A inventory growth, not rows inside the sealed 59-finding set), then select one bounded Buddy-owned residual slice by correction class from the **Q₃** ledger.
+2. Do not schedule an omnibus residual-zeroing PR or another automatic “fix the rest” correction batch.
+3. In parallel, PR380D or other July product work may proceed only when isolated from the correction/adoption authority boundary.
+4. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
-The following remain true after the third governed correction live exit:
+The following remain true after the third governed correction re-anchor:
 
 - Integrity heal for `contribution:d3d244474789879c` is `DONE` (merged #540 + canonical live heal exit).
 - Lysandra threat-direction correction is `DONE` (merged #537 + canonical `P_live→Q_live` exit).
 - Session-24 cube→Karsemine false-location contradiction is `DONE` (merged #545 + canonical `P→Q` exit).
 - Session-24 Lysandra→Caelynn false-leads contradiction is `DONE` (merged #550 + canonical `P→Q₃` exit).
-- Formal current effective conformance remains anchored to `R_current = rev:b8dfc063bc13a4fb297e83f5f9b313d9` (`368 / 311 / 57 / 3`) until the third re-anchor; live head is `Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7` (`367 / 311 / 56 / 3`); previous formal baseline `rev:b90646fb5b135988bd7842cde858c96e` remains `369 / 311 / 58 / 3`; historical adjudication anchor `rev:3413bf6f5044cf2680233f5e37c90dcf` remains `346 / 294 / 52 / 2`.
-- Remaining Buddy residuals on live `Q₃` are **56**; formal residual count stays **57** until re-anchor. Diagnostics and adapters still do not mutate the World Graph.
+- Formal current effective conformance is anchored to `R_current = rev:ba3abde1bfc3659795bcd77bb55eb9f7` (`367 / 311 / 56 / 3`); previous formal baseline `rev:b8dfc063bc13a4fb297e83f5f9b313d9` remains `368 / 311 / 57 / 3`; earlier `rev:b90646fb5b135988bd7842cde858c96e` remains `369 / 311 / 58 / 3`; historical adjudication anchor `rev:3413bf6f5044cf2680233f5e37c90dcf` remains `346 / 294 / 52 / 2`.
+- Remaining Buddy residuals on `Q₃` are **56**, including **7 UNADJUDICATED** that lack descendant-adjudication authority. Diagnostics and adapters still do not mutate the World Graph.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.

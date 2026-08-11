@@ -1,7 +1,7 @@
 # HANDOFF — Eldyrwild effective conformance after third governed correction
 
 **Created:** 2026-08-10
-**Status:** READY FOR BUILD — land this handoff on `main` before implementation; slice DONE on merge of the re-anchor PR (no separate live-exit gate; read-only)
+**Status:** IMPLEMENTATION COMPLETE — awaiting review; R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-effective-conformance-after-third-correction.md`
 **Conversation name:** `DUNGEONMIND-CUTOVER`
 **Flow / agent:** `BUILD`
