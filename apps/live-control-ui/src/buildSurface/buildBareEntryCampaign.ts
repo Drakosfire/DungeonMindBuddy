@@ -34,7 +34,7 @@ export function writeBuildLastCampaignId(campaignId: string): void {
 }
 
 /**
- * Resolve the campaign for bare `/build` auto-create.
+ * Resolve the campaign hint for Build document context (create defaults, URL canonicalization).
  * Priority: known route `?campaign=` → first known shared-lens `?campaigns=` → last Build campaign.
  * Unknown or blank route `?campaign=` fail closed (null → picker / no write),
  * including when a remembered campaign exists — explicit malformed context

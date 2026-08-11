@@ -6,18 +6,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { BuildGraphObjectContext } from "./BuildGraphObjectContext";
-import {
-  BuildSurfacePage,
-  resetBuildBareEntryAutoCreateForTests,
-} from "./BuildSurfacePage";
+import { BuildSurfacePage } from "./BuildSurfacePage";
 
 const buildSurfaceDir = path.dirname(fileURLToPath(import.meta.url));
 
 describe("BuildGraphObjectContext", () => {
   beforeEach(() => {
-    resetBuildBareEntryAutoCreateForTests();
+    vi.clearAllMocks();
   });
 
   it("production module exists", () => {
@@ -77,30 +75,17 @@ describe("BuildGraphObjectContext", () => {
     expect(postProjection).not.toHaveBeenCalled();
   });
 
-  it("BuildSurfacePage auto-creates draft and keeps graph pointer on admitted Canvas", async () => {
+  it("BuildSurfacePage opens graph context when document is admitted from URL", async () => {
+    const documentId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     window.history.replaceState(
       {},
       "",
-      `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
+      `/build?documentId=${documentId}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
-    const documentId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue({
-      schema_version: "dmb_workspace_document_record_v1",
-      document_id: documentId,
-      title: "Untitled worldbuilding source",
-      campaign_id: "longmont-c2",
-      target_session: null,
-      kind: "worldbuilding_source",
-      target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
-      status: "active",
-      content_status: "draft",
-      revision: 1,
-      created_at: "2026-07-22T00:00:00Z",
-      updated_at: "2026-07-22T00:00:00Z",
-      source_domain: "worldbuilding",
-      document_class: "lore",
-      authority_state: "draft",
-      visibility_state: "internal",
+    vi.spyOn(liveApi, "createWorkspaceDocument");
+    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [],
     });
     vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v1",
@@ -148,10 +133,13 @@ describe("BuildGraphObjectContext", () => {
     });
     render(
       <AgentInteractionProvider>
-        <BuildSurfacePage />
+        <SurfaceContextProvider>
+          <BuildSurfacePage />
+        </SurfaceContextProvider>
       </AgentInteractionProvider>,
     );
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });
 });

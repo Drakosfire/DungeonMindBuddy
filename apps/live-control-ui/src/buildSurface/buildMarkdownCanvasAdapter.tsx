@@ -1,17 +1,13 @@
-import type { ReactNode } from "react";
-
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 
 /** Build-owned slot copy and Save action for the shared MarkdownCanvas. */
 export function useBuildMarkdownCanvasSlots(args?: {
-  statusExtra?: ReactNode;
   /** When shared Edit Host publishes Save, omit the duplicate footer button. */
   hideFooterSave?: boolean;
 }): MarkdownCanvasSlots {
   const session = useMarkdownCanvasSession();
-  const statusExtra = args?.statusExtra;
   const hideFooterSave = args?.hideFooterSave === true;
 
   return {
@@ -29,16 +25,7 @@ export function useBuildMarkdownCanvasSlots(args?: {
     conflictTestId: "build-surface-conflict",
     saveErrorTestId: "build-save-error",
     hideDefaultStatus: true,
-    statusExtra: (
-      <>
-        <p data-testid="build-document-status">{session.statusLabel}</p>
-        <p data-testid="build-authoring-status">{session.statusLabel}</p>
-        {session.record?.document_class ? (
-          <p data-testid="build-document-class">{session.record.document_class}</p>
-        ) : null}
-        {statusExtra}
-      </>
-    ),
+    hideReadyHeader: true,
     actions: hideFooterSave ? undefined : (
       <>
         {session.exportedMarkdownAuthoritative ? (

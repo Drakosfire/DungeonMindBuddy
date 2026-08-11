@@ -11,6 +11,8 @@ export interface MarkdownCanvasSlots {
   statusExtra?: ReactNode;
   /** When true, omit the default status paragraph (use statusExtra only). */
   hideDefaultStatus?: boolean;
+  /** When true in ready phase, omit the document header chrome entirely. */
+  hideReadyHeader?: boolean;
   /** Footer / document actions (e.g. Save). */
   actions?: ReactNode;
   /** Adjacent tools rendered above or beside the editor. */
@@ -47,6 +49,7 @@ export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
     title,
     statusExtra,
     hideDefaultStatus = false,
+    hideReadyHeader = false,
     actions,
     tools,
     loadingMessage = "Loading document…",
@@ -101,16 +104,25 @@ export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
   return (
     <main className={className} data-testid={dataTestId}>
       {tools}
-      <header className="markdown-canvas-header">
-        <h1>{title ?? session.record?.title ?? errorHeading}</h1>
-        {hideDefaultStatus ? null : (
-          <p data-testid={statusTestId ?? `${dataTestId}-status`}>{session.statusLabel}</p>
-        )}
-        {session.error ? (
-          <p role="alert" data-testid={saveErrorTestId ?? `${dataTestId}-save-error`}>{session.error}</p>
-        ) : null}
-        {statusExtra}
-      </header>
+      {hideReadyHeader ? null : (
+        <header className="markdown-canvas-header">
+          <h1>{title ?? session.record?.title ?? errorHeading}</h1>
+          {hideDefaultStatus ? null : (
+            <p data-testid={statusTestId ?? `${dataTestId}-status`}>{session.statusLabel}</p>
+          )}
+          {session.error ? (
+            <p role="alert" data-testid={saveErrorTestId ?? `${dataTestId}-save-error`}>
+              {session.error}
+            </p>
+          ) : null}
+          {statusExtra}
+        </header>
+      )}
+      {hideReadyHeader && session.error ? (
+        <p role="alert" data-testid={saveErrorTestId ?? `${dataTestId}-save-error`}>
+          {session.error}
+        </p>
+      ) : null}
 
       <section className={editorClassName}>
         <MarkdownEditorCore
