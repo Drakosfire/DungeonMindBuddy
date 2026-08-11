@@ -41,7 +41,7 @@
 ## §15 BUILD handback
 
 1. **Implementation base SHA:** `09c8c9a8594d0e61c5483e2c3369a3269fbb5a5e` (#555 merge; branch cut from later `origin/main` `7cbf9e558643d76b2e652ee42263deef2b0756a7` with #555 as ancestor)
-2. **Final package head:** `ddc91f2dd5988987ac7a5a9b1b8dc5e4088b5fab`
+2. **Final package head:** PR #557 branch tip (self-pinned after docs commits; verify with `git rev-parse HEAD` on the PR branch)
 3. **Changed paths:**
    - `A` `apps/.../relationship_descendant_residual_adjudication_v1.py`
    - `A` `apps/.../relationship_adjudication_authority_v1.py`
