@@ -41,7 +41,7 @@
 ## §15 BUILD handback
 
 1. **Implementation base SHA:** `09c8c9a8594d0e61c5483e2c3369a3269fbb5a5e` (#555 merge; branch cut from later `origin/main` `7cbf9e558643d76b2e652ee42263deef2b0756a7` with #555 as ancestor)
-2. **Final package head:** b0349f3a91aac3e2954c84ecccd9b2e3aba02f8b
+2. **Final package head:** `PENDING_TIP`
 3. **Changed paths:**
    - `A` `apps/.../relationship_descendant_residual_adjudication_v1.py`
    - `A` `apps/.../relationship_adjudication_authority_v1.py`
@@ -60,11 +60,13 @@
 8. **Composed authority at Q₃:** 59 historical-A `CARRIED_FORWARD` + 7 S25-descendant `CARRIED_FORWARD` = 66; A `anchor_finding_count` remains 59
 9. **Effective inventory:** `367/311/56/3`; dispositions `37/11/7/1` SCR/compound/identity/insufficient; `UNADJUDICATED=0`; buddy-owned 56; residual edge IDs unchanged
 10. **Tests:** focused `30 passed`; cumulative authority/conformance suites `126 passed`
-11. **Canonical head/tree:** head remained `rev:ba3abde1bfc3659795bcd77bb55eb9f7` throughout; no `--allow-live-world`; analysis-only
+11. **Canonical head/tree:** head remained `rev:ba3abde1bfc3659795bcd77bb55eb9f7`; tree digest `18697bc2362a12be8806562f48132c57d3c9caa87ace2e8e9022369002cfbcba` unchanged through analysis; no `--allow-live-world`; analysis-only
 12. **Bounded discovery:** none beyond allowlist; public effective composition gated to `world_id=eldyrwild` so hermetic non-Eldyrwild worlds keep prior behavior
 13. **Deviations:** none vs locked multi-anchor / successor-state contract; graph-linked primary excerpts for some edges are weak relative to whole-recap rationale (expected for defective edges; seals still pin actual linked evidence)
 14. **Remaining risks:** next correction/identity slices must not treat open-candidate architecture as implemented adapters; U₆ identity seam still needs its own slice
 15. **Reviewer focus:** no A→66 widening; S25 not Q₃ as descendant anchor; seals from graph evidence; `active_adjudicated_edge_ids` stays 59; closed-successor guard scoped; synthetic open descendant candidate remains possible; residual IDs unchanged; no graph mutation
+
+**Canonical tree digest (before=after):** `18697bc2362a12be8806562f48132c57d3c9caa87ace2e8e9022369002cfbcba`
 
 ---
 
