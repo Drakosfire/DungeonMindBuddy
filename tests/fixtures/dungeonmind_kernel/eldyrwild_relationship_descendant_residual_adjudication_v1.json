@@ -1,0 +1,135 @@
+{
+  "schema": "dmb_dungeonmind_relationship_descendant_residual_adjudication_v1",
+  "world_id": "eldyrwild",
+  "campaign_id": "longmont-c2",
+  "anchor_revision_id": "rev:df92031efcd379b9c52e0df2e3ff7217",
+  "anchor_graph_payload_sha256": "5361c9734c84702a5ac6b012c1b5470c5991f3d31bb836721375fbab3727c71f",
+  "adjudicated_count": 7,
+  "by_disposition": [
+    {
+      "key": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+      "count": 1
+    },
+    {
+      "key": "IDENTITY_NOT_RELATIONSHIP",
+      "count": 1
+    },
+    {
+      "key": "SOURCE_CORRECTION_REQUIRED",
+      "count": 5
+    }
+  ],
+  "by_responsible_repo": [
+    {
+      "key": "DungeonMindBuddy",
+      "count": 7
+    }
+  ],
+  "by_next_action": [
+    {
+      "key": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "count": 5
+    },
+    {
+      "key": "DECOMPOSE_COMPOUND_ASSERTION",
+      "count": 1
+    },
+    {
+      "key": "MIGRATE_VIA_IDENTITY_SEAM",
+      "count": 1
+    }
+  ],
+  "records": [
+    {
+      "edge_id": "edge:faction:town-guards-mireward-gate:reports_threat_in:mystery:session25:west-wall-screaming-and-dark-shapes-below",
+      "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+      "reason_code": "COMPOUND_MULTI_CLAIM",
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+      "requires_source_mutation": true,
+      "rationale": "Session-25 recap collapses observation/reporting, threat identification, and west-wall spatial context into `reports_threat_in`; follow A-era compound precedent for this predicate family.",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+      "excerpt_sha256": "e4dc2bf579d59f9ca64dbe6fa4e86760787f649cb7bfb9f3c9767646b918a37d"
+    },
+    {
+      "edge_id": "edge:item:crossbow_bolt_light_source:controls_comms_with:loc:north-road",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "requires_source_mutation": true,
+      "rationale": "Stafl casts Light on a crossbow bolt and illuminates part of the north road; the durable `controls_comms_with` claim is a predicate misapplication.",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1"
+    },
+    {
+      "edge_id": "edge:node:hesta-bramblewood:governs:organization:merchant-s-crossroads-apothecary",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "requires_source_mutation": true,
+      "rationale": "Hesta answers the apothecary door, holds potions, and agrees to brew more; the source does not establish organizational `governs` authority.",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+      "excerpt_sha256": "e65b7c63fce1ddffbc8558a26ac0dec94ee8aef966bc130af0a49a206efad0f7"
+    },
+    {
+      "edge_id": "edge:node:orik:participates_in:organization:warehouse-gate-sheltering-group",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "requires_source_mutation": true,
+      "rationale": "Orik helps coordinate refugee sheltering and leaves to find help; the source does not establish membership/`participates_in` an organization identified as warehouse-gate-sheltering-group.",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037"
+    },
+    {
+      "edge_id": "edge:node:thrin-branchborn:caused_by:mystery:session25:thrin-ambush-by-hybrid-creatures",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "reason_code": "DIRECTION_CONTRADICTION",
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "requires_source_mutation": true,
+      "rationale": "Thrin is ambushed and dragged; durable `Thrin --caused_by--> ambush` contradicts source direction/meaning and requires authored correction rather than auto-reverse.",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+      "excerpt_sha256": "9d9be2c8d59ed5d75554911864ca11713504bdb6d4a513b7c23f32336917e8e4"
+    },
+    {
+      "edge_id": "edge:organization:merchant-s-crossroads-apothecary:same_as:loc:crooked-retort",
+      "disposition": "IDENTITY_NOT_RELATIONSHIP",
+      "reason_code": "IDENTITY_EQUIVALENCE",
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+      "requires_source_mutation": false,
+      "rationale": "The recap identifies the Merchant's Crossroads apothecary as the Crooked Retort — two graph identities for one place/business, not a durable `same_as` semantic relationship.",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037"
+    },
+    {
+      "edge_id": "edge:pc:ephanna:hires:node:thrin-branchborn",
+      "disposition": "SOURCE_CORRECTION_REQUIRED",
+      "reason_code": "PREDICATE_MISAPPLIED",
+      "responsible_repo": "DungeonMindBuddy",
+      "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+      "requires_source_mutation": true,
+      "rationale": "Ephanna entrusts Thrin to scout and remain hidden; the source supports assignment/request, not employment/`hires`.",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1"
+    }
+  ]
+}

@@ -162,11 +162,10 @@ _SEVENTH_EDGE_ID = (
 )
 
 _EXPECTED_CURRENT_REMAINING_DISPOSITIONS = {
-    "SOURCE_CORRECTION_REQUIRED": 32,
-    "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 10,
-    "IDENTITY_NOT_RELATIONSHIP": 6,
+    "SOURCE_CORRECTION_REQUIRED": 37,
+    "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 11,
+    "IDENTITY_NOT_RELATIONSHIP": 7,
     "INSUFFICIENT_EVIDENCE": 1,
-    "UNADJUDICATED": 7,
 }
 
 # Disposition inventory on the immutable adjudication anchor domain (A and
@@ -571,8 +570,8 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
     assert payload["base_relationship_represented_count"] == 305
     assert payload["base_relationship_residual_count"] == 62
     assert payload["dungeonmind_owned_remaining_count"] == 0
-    assert payload["dungeonmindbuddy_owned_remaining_count"] == 49
-    assert payload["unadjudicated_remaining_count"] == 7
+    assert payload["dungeonmindbuddy_owned_remaining_count"] == 56
+    assert payload["unadjudicated_remaining_count"] == 0
     assert payload["requires_readjudication_count"] == 0
     assert len(payload["active_adjudicated_edge_ids"]) == 59
     assert TARGET_EDGE_ID not in payload["remaining_residual_edge_ids"]

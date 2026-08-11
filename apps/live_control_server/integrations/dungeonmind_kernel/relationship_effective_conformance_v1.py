@@ -14,13 +14,20 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from dungeonmind_dnd.application.world_object_vocabulary import (
     load_builtin_world_object_v4_vocabulary,
     vocabulary_sha256,
+)
+from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_authority_v1 import (
+    HISTORICAL_A_AUTHORITY_ID,
+    RelationshipAdjudicationAuthorityReportV1,
+    analyze_composed_relationship_adjudication_authority_v1,
+    composed_active_findings_by_edge,
+    composed_rows_by_edge,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_continuity_v1 import (
     RELATIONSHIP_ADJUDICATION_CONTINUITY_SCHEMA_V1,
@@ -40,6 +47,8 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_expli
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_residual_adjudication import (
     ELDYRWILD_RESIDUAL_FINDINGS,
+    ELDYRWILD_WORLD_ID,
+    AdjudicationFinding,
     ResidualDisposition,
     ResponsibleRepo,
 )
@@ -271,8 +280,18 @@ def _ownership_for_remaining(
     remaining_edge_ids: list[str],
     *,
     continuity: RelationshipAdjudicationContinuityReportV1,
+    composed_authority: RelationshipAdjudicationAuthorityReportV1 | None = None,
+    findings_by_edge: Mapping[str, AdjudicationFinding] | None = None,
 ) -> tuple[list[InventoryCountRow], int, int, int, int]:
     by_edge = _continuity_by_edge(continuity)
+    composed_by_edge = (
+        composed_rows_by_edge(composed_authority)
+        if composed_authority is not None
+        else {}
+    )
+    active_findings = findings_by_edge
+    if active_findings is None and composed_authority is not None:
+        active_findings = composed_active_findings_by_edge(composed_authority)
     disposition_counter: Counter[str] = Counter()
     dm_owned = 0
     buddy_owned = 0
@@ -280,6 +299,30 @@ def _ownership_for_remaining(
     requires_readjudication = 0
 
     for edge_id in remaining_edge_ids:
+        composed_row = composed_by_edge.get(edge_id)
+        if composed_row is not None:
+            if composed_row.continuity_state == "REQUIRES_READJUDICATION":
+                requires_readjudication += 1
+                disposition_counter["REQUIRES_READJUDICATION"] += 1
+                continue
+            if composed_row.continuity_state not in _ACTIVE_CONTINUITY:
+                requires_readjudication += 1
+                disposition_counter["REQUIRES_READJUDICATION"] += 1
+                continue
+            finding = (active_findings or {}).get(edge_id)
+            if finding is None:
+                unadjudicated += 1
+                disposition_counter["UNADJUDICATED"] += 1
+                continue
+            disposition_counter[finding.disposition.value] += 1
+            if finding.responsible_repo == ResponsibleRepo.DUNGEONMIND:
+                dm_owned += 1
+            elif finding.responsible_repo == ResponsibleRepo.DUNGEONMINDBUDDY:
+                buddy_owned += 1
+            else:
+                unadjudicated += 1
+            continue
+
         row = by_edge.get(edge_id)
         if row is None:
             finding = ELDYRWILD_RESIDUAL_FINDINGS.get(edge_id)
@@ -333,6 +376,7 @@ def _analyze_relationship_effective_conformance_with_authorities(
     continuity: RelationshipAdjudicationContinuityReportV1,
     catalog: RelationshipExplicitAdapterCatalogV1,
     store: UnionSupergraphStore | None = None,
+    composed_authority: RelationshipAdjudicationAuthorityReportV1 | None = None,
     world_graph_digest_before: str | None = None,
     world_graph_digest_after: str | None = None,
 ) -> RelationshipEffectiveConformanceReportV1:
@@ -419,25 +463,42 @@ def _analyze_relationship_effective_conformance_with_authorities(
         buddy_owned,
         unadjudicated,
         requires_from_remaining,
-    ) = _ownership_for_remaining(remaining, continuity=continuity)
+    ) = _ownership_for_remaining(
+        remaining,
+        continuity=continuity,
+        composed_authority=composed_authority,
+    )
 
     requires_readjudication = max(
         continuity.requires_readjudication_count,
         requires_from_remaining,
     )
 
-    # On the exact Eldyrwild active continuity set, remaining must not include
-    # closed successor dispositions that were already resolved.
+    # Closed historical successors under A authority must not reappear as residual.
+    # Open descendant candidates using the same disposition names may remain residual.
     if (
         continuity.anchor_is_ancestor
         and continuity.world_id == base_report.source_world_id
         and all(row.continuity_state in _ACTIVE_CONTINUITY for row in continuity.rows)
     ):
-        forbidden = {
-            row.key
-            for row in disposition_inventory
-            if row.key in _FORBIDDEN_REMAINING_DISPOSITIONS
-        }
+        if composed_authority is not None:
+            composed_by_edge = composed_rows_by_edge(composed_authority)
+            forbidden = {
+                composed_by_edge[edge_id].finding.disposition.value
+                for edge_id in remaining
+                if edge_id in composed_by_edge
+                and composed_by_edge[edge_id].authority_id
+                == HISTORICAL_A_AUTHORITY_ID
+                and composed_by_edge[edge_id].continuity_state in _ACTIVE_CONTINUITY
+                and composed_by_edge[edge_id].finding.disposition.value
+                in _FORBIDDEN_REMAINING_DISPOSITIONS
+            }
+        else:
+            forbidden = {
+                row.key
+                for row in disposition_inventory
+                if row.key in _FORBIDDEN_REMAINING_DISPOSITIONS
+            }
         if forbidden:
             raise RelationshipEffectiveConformanceError(
                 "remaining residual ledger still contains closed dispositions: "
@@ -525,6 +586,14 @@ def analyze_relationship_effective_conformance_v1(
         world_id=world_id,
         revision_id=revision_id,
     )
+    composed_authority = None
+    if world_id == ELDYRWILD_WORLD_ID:
+        composed_authority = analyze_composed_relationship_adjudication_authority_v1(
+            root=root,
+            world_id=world_id,
+            revision_id=revision_id,
+            historical_a=continuity,
+        )
     return _analyze_relationship_effective_conformance_with_authorities(
         root=root,
         world_id=world_id,
@@ -532,6 +601,7 @@ def analyze_relationship_effective_conformance_v1(
         base_report=base_report,
         continuity=continuity,
         catalog=load_eldyrwild_relationship_explicit_adapter_catalog_v1(),
+        composed_authority=composed_authority,
         world_graph_digest_before=world_graph_digest_before,
         world_graph_digest_after=world_graph_digest_after,
     )

@@ -246,11 +246,11 @@
   "remaining_residual_disposition_inventory": [
     {
       "key": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
-      "count": 10
+      "count": 11
     },
     {
       "key": "IDENTITY_NOT_RELATIONSHIP",
-      "count": 6
+      "count": 7
     },
     {
       "key": "INSUFFICIENT_EVIDENCE",
@@ -258,16 +258,12 @@
     },
     {
       "key": "SOURCE_CORRECTION_REQUIRED",
-      "count": 32
-    },
-    {
-      "key": "UNADJUDICATED",
-      "count": 7
+      "count": 37
     }
   ],
   "dungeonmind_owned_remaining_count": 0,
-  "dungeonmindbuddy_owned_remaining_count": 49,
-  "unadjudicated_remaining_count": 7,
+  "dungeonmindbuddy_owned_remaining_count": 56,
+  "unadjudicated_remaining_count": 0,
   "requires_readjudication_count": 0,
   "world_graph_digest_before": null,
   "world_graph_digest_after": null

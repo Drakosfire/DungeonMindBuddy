@@ -1,0 +1,257 @@
+{
+  "schema": "dmb_dungeonmind_relationship_descendant_residual_source_seals_v1",
+  "world_id": "eldyrwild",
+  "campaign_id": "longmont-c2",
+  "anchor_revision_id": "rev:df92031efcd379b9c52e0df2e3ff7217",
+  "anchor_graph_payload_sha256": "5361c9734c84702a5ac6b012c1b5470c5991f3d31bb836721375fbab3727c71f",
+  "sealed_count": 7,
+  "seals": [
+    {
+      "edge_id": "edge:faction:town-guards-mireward-gate:reports_threat_in:mystery:session25:west-wall-screaming-and-dark-shapes-below",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+      "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+      "locator_kind": "line_span",
+      "locator": "35-35",
+      "normalized_excerpt": "Stafl jumps up from behind the wall and takes aim with his crossbow, landing a perfect shot and killing the second monster. The third monster releases Thrin and charges at Bonogo. Ogonob gets a decent hit in before the creature attacks Bonogo with a claw attack and bite, dealing big damage and leaving behind festering wounds. It then attempts to grapple Bonogo, but he dodges out of reach. Karsemine watches and Thrin once again is being pulled into the ground and then suddenly hears screaming coming from the west along the wall. Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra.",
+      "excerpt_sha256": "e4dc2bf579d59f9ca64dbe6fa4e86760787f649cb7bfb9f3c9767646b918a37d",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37"
+      ],
+      "all_evidence_excerpt_sha256s": [
+        "e4dc2bf579d59f9ca64dbe6fa4e86760787f649cb7bfb9f3c9767646b918a37d",
+        "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+          "locator_kind": "line_span",
+          "locator": "35-35",
+          "excerpt_sha256": "e4dc2bf579d59f9ca64dbe6fa4e86760787f649cb7bfb9f3c9767646b918a37d",
+          "normalized_excerpt": "Stafl jumps up from behind the wall and takes aim with his crossbow, landing a perfect shot and killing the second monster. The third monster releases Thrin and charges at Bonogo. Ogonob gets a decent hit in before the creature attacks Bonogo with a claw attack and bite, dealing big damage and leaving behind festering wounds. It then attempts to grapple Bonogo, but he dodges out of reach. Karsemine watches and Thrin once again is being pulled into the ground and then suddenly hears screaming coming from the west along the wall. Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37",
+          "locator_kind": "line_span",
+          "locator": "37-37",
+          "excerpt_sha256": "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429",
+          "normalized_excerpt": "Lysandra uses her Commanding Shout and directs Karsmine, Stafl and Caelynn to attack or move. Karsemine uses her bow, and Caylynn her crossbow, to deal more damage to the remaining monster. Then Lysandra casts Leadership and gives Karsemine a boost to her next attack, which she uses to cast Fire Bolt on the monster, killing it by fully engulfing it in flames. Now she has a chance to head down the length of the wall to where she heard the screaming before. As she starts she can feel the ground begin to shake and sees town guards gesturing over the wall where she can just make out dark shapes moving below. Just before Bonogo is able to turn to help Thrin get up, Thrin is again pulled into the ground and fully disappears out of sight."
+        }
+      ]
+    },
+    {
+      "edge_id": "edge:item:crossbow_bolt_light_source:controls_comms_with:loc:north-road",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+      "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "locator_kind": "line_span",
+      "locator": "25-25",
+      "normalized_excerpt": "Back on the north wall, Stafl casts light on another crossbow bolt and illuminates a portion of the north road. This light will last the full hour of the group’s short rest. Because it is quiet, Stafl strikes up a conversation with the other town guards on the wall. He discovers that the town was in the midst of a celebration when the messenger on the horse came racing into town; a sort of anti-establishment, anti-Mirathorn, festival. Needing additional intel on the area north of the gate, Ephanna entrusts Thrin to scout out the area, with directions to stay well hidden. While they wait, Stafl strums a soothing tune.",
+      "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25"
+      ],
+      "all_evidence_excerpt_sha256s": [
+        "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+          "locator_kind": "line_span",
+          "locator": "25-25",
+          "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1",
+          "normalized_excerpt": "Back on the north wall, Stafl casts light on another crossbow bolt and illuminates a portion of the north road. This light will last the full hour of the group’s short rest. Because it is quiet, Stafl strikes up a conversation with the other town guards on the wall. He discovers that the town was in the midst of a celebration when the messenger on the horse came racing into town; a sort of anti-establishment, anti-Mirathorn, festival. Needing additional intel on the area north of the gate, Ephanna entrusts Thrin to scout out the area, with directions to stay well hidden. While they wait, Stafl strums a soothing tune."
+        }
+      ]
+    },
+    {
+      "edge_id": "edge:node:hesta-bramblewood:governs:organization:merchant-s-crossroads-apothecary",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+      "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+      "locator_kind": "line_span",
+      "locator": "27-27",
+      "normalized_excerpt": "Back with the other group, they head to the Merchant’s Crossroads, looking for the apothecary. After knocking repeatedly, a very, very old halfling woman finally answers the door. Hesta Bramblewood was fast asleep and is now wondering why they woke her up. They quickly recount the battle and tell her they need her help with some potions. Initially Karsemine starts explaining the saturation they are in and the help they need, but Caelynn soon swoops in and tries to convince the old woman to help them right away. Despite trying to tell her how little time there is to get this done, Hesta takes her time and brews some tea, giving a cup to a reluctant Caelynn, who cautiously does not drink it.",
+      "excerpt_sha256": "e65b7c63fce1ddffbc8558a26ac0dec94ee8aef966bc130af0a49a206efad0f7",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29"
+      ],
+      "all_evidence_excerpt_sha256s": [
+        "e65b7c63fce1ddffbc8558a26ac0dec94ee8aef966bc130af0a49a206efad0f7",
+        "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+          "locator_kind": "line_span",
+          "locator": "27-27",
+          "excerpt_sha256": "e65b7c63fce1ddffbc8558a26ac0dec94ee8aef966bc130af0a49a206efad0f7",
+          "normalized_excerpt": "Back with the other group, they head to the Merchant’s Crossroads, looking for the apothecary. After knocking repeatedly, a very, very old halfling woman finally answers the door. Hesta Bramblewood was fast asleep and is now wondering why they woke her up. They quickly recount the battle and tell her they need her help with some potions. Initially Karsemine starts explaining the saturation they are in and the help they need, but Caelynn soon swoops in and tries to convince the old woman to help them right away. Despite trying to tell her how little time there is to get this done, Hesta takes her time and brews some tea, giving a cup to a reluctant Caelynn, who cautiously does not drink it."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29",
+          "locator_kind": "line_span",
+          "locator": "29-29",
+          "excerpt_sha256": "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9",
+          "normalized_excerpt": "Karsemine decides to use a different approach and uses intimidation and finally convinces Hesta of the dire nature of their situation. Karsemine can almost see the moment it clicks and Hesta snaps back to reality, immediately telling Caelynn not to drink the tea. She agrees to make the sleep potions, but will take lots of time without any help. After the mayor leaves to find some help, Hesta gives the group the five sleep potions she has on hand. On their way out, Bonogo whispers to her that maybe the situation is dire enough that no one wakes back up from their sleep. So instead they will prioritize people with the infected eyes. They make their way to the warehouse and meet Brin out front. He informs the group that they have locked off the area with people with the infection and Caelynn receives praise from the mayor for her help. Then, they head back to the north wall."
+        }
+      ]
+    },
+    {
+      "edge_id": "edge:node:orik:participates_in:organization:warehouse-gate-sheltering-group",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+      "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "locator_kind": "line_span",
+      "locator": "23-23",
+      "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort.",
+      "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29"
+      ],
+      "all_evidence_excerpt_sha256s": [
+        "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+        "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+          "locator_kind": "line_span",
+          "locator": "23-23",
+          "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+          "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29",
+          "locator_kind": "line_span",
+          "locator": "29-29",
+          "excerpt_sha256": "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9",
+          "normalized_excerpt": "Karsemine decides to use a different approach and uses intimidation and finally convinces Hesta of the dire nature of their situation. Karsemine can almost see the moment it clicks and Hesta snaps back to reality, immediately telling Caelynn not to drink the tea. She agrees to make the sleep potions, but will take lots of time without any help. After the mayor leaves to find some help, Hesta gives the group the five sleep potions she has on hand. On their way out, Bonogo whispers to her that maybe the situation is dire enough that no one wakes back up from their sleep. So instead they will prioritize people with the infected eyes. They make their way to the warehouse and meet Brin out front. He informs the group that they have locked off the area with people with the infection and Caelynn receives praise from the mayor for her help. Then, they head back to the north wall."
+        }
+      ]
+    },
+    {
+      "edge_id": "edge:node:thrin-branchborn:caused_by:mystery:session25:thrin-ambush-by-hybrid-creatures",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+      "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+      "locator_kind": "line_span",
+      "locator": "31-31",
+      "normalized_excerpt": "Ephanna is listening to Stafl play while listening for any secret calls from Thrin out in the field. They hear a shrill call before it is abruptly cut off, followed by a crashing sound. Baergrom immediately sets up his shield, beginning to boost the HP of the rest of the team. Then Karsemine, casting Pass without Trace, is joined by Bonogo and Ogonob as they venture out into the field in search of Thrin. Stafl directs the town guards along the wall to fire arrows out into the field to provide light. With just enough light the group is able to make out three new hybrid creatures wrapped around something and beginning to burrow into the ground.",
+      "excerpt_sha256": "9d9be2c8d59ed5d75554911864ca11713504bdb6d4a513b7c23f32336917e8e4",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37"
+      ],
+      "all_evidence_excerpt_sha256s": [
+        "9d9be2c8d59ed5d75554911864ca11713504bdb6d4a513b7c23f32336917e8e4",
+        "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+          "locator_kind": "line_span",
+          "locator": "31-31",
+          "excerpt_sha256": "9d9be2c8d59ed5d75554911864ca11713504bdb6d4a513b7c23f32336917e8e4",
+          "normalized_excerpt": "Ephanna is listening to Stafl play while listening for any secret calls from Thrin out in the field. They hear a shrill call before it is abruptly cut off, followed by a crashing sound. Baergrom immediately sets up his shield, beginning to boost the HP of the rest of the team. Then Karsemine, casting Pass without Trace, is joined by Bonogo and Ogonob as they venture out into the field in search of Thrin. Stafl directs the town guards along the wall to fire arrows out into the field to provide light. With just enough light the group is able to make out three new hybrid creatures wrapped around something and beginning to burrow into the ground."
+        },
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37",
+          "locator_kind": "line_span",
+          "locator": "37-37",
+          "excerpt_sha256": "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429",
+          "normalized_excerpt": "Lysandra uses her Commanding Shout and directs Karsmine, Stafl and Caelynn to attack or move. Karsemine uses her bow, and Caylynn her crossbow, to deal more damage to the remaining monster. Then Lysandra casts Leadership and gives Karsemine a boost to her next attack, which she uses to cast Fire Bolt on the monster, killing it by fully engulfing it in flames. Now she has a chance to head down the length of the wall to where she heard the screaming before. As she starts she can feel the ground begin to shake and sees town guards gesturing over the wall where she can just make out dark shapes moving below. Just before Bonogo is able to turn to help Thrin get up, Thrin is again pulled into the ground and fully disappears out of sight."
+        }
+      ]
+    },
+    {
+      "edge_id": "edge:organization:merchant-s-crossroads-apothecary:same_as:loc:crooked-retort",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+      "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "locator_kind": "line_span",
+      "locator": "23-23",
+      "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort.",
+      "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23"
+      ],
+      "all_evidence_excerpt_sha256s": [
+        "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+          "locator_kind": "line_span",
+          "locator": "23-23",
+          "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+          "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort."
+        }
+      ]
+    },
+    {
+      "edge_id": "edge:pc:ephanna:hires:node:thrin-branchborn",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+      "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+      "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+      "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+      "locator_kind": "line_span",
+      "locator": "25-25",
+      "normalized_excerpt": "Back on the north wall, Stafl casts light on another crossbow bolt and illuminates a portion of the north road. This light will last the full hour of the group’s short rest. Because it is quiet, Stafl strikes up a conversation with the other town guards on the wall. He discovers that the town was in the midst of a celebration when the messenger on the horse came racing into town; a sort of anti-establishment, anti-Mirathorn, festival. Needing additional intel on the area north of the gate, Ephanna entrusts Thrin to scout out the area, with directions to stay well hidden. While they wait, Stafl strums a soothing tune.",
+      "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1",
+      "all_evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25"
+      ],
+      "all_evidence_excerpt_sha256s": [
+        "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1"
+      ],
+      "evidence_excerpts": [
+        {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+          "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+          "locator_kind": "line_span",
+          "locator": "25-25",
+          "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1",
+          "normalized_excerpt": "Back on the north wall, Stafl casts light on another crossbow bolt and illuminates a portion of the north road. This light will last the full hour of the group’s short rest. Because it is quiet, Stafl strikes up a conversation with the other town guards on the wall. He discovers that the town was in the midst of a celebration when the messenger on the horse came racing into town; a sort of anti-establishment, anti-Mirathorn, festival. Needing additional intel on the area north of the gate, Ephanna entrusts Thrin to scout out the area, with directions to stay well hidden. While they wait, Stafl strums a soothing tune."
+        }
+      ]
+    }
+  ]
+}
