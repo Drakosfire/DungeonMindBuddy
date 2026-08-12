@@ -15,6 +15,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     createWorkspaceDocument: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    updateWorkspaceDocumentMetadata: vi.fn(),
   };
 });
 
@@ -76,6 +77,13 @@ describe("useBuildWorkspaceDocumentController", () => {
       schema_version: "dmb_workspace_document_registry_v1",
       records: [buildRecord(DOC_A), buildRecord(DOC_B, { campaign_id: "longmont-c2" })],
     });
+    vi.mocked(liveApi.updateWorkspaceDocumentMetadata).mockImplementation(
+      async (documentId, request) =>
+        buildRecord(documentId, {
+          title: request.title ?? `Source ${documentId.slice(0, 4)}`,
+          revision: (request.expected_revision ?? 1) + 1,
+        }),
+    );
   });
 
   it("starts empty on bare /build without creating", async () => {
@@ -912,6 +920,62 @@ describe("useBuildWorkspaceDocumentController", () => {
     );
   });
 
+  it("fails ambiguous commit reconcile when snapshot markdown differs", async () => {
+    const imported = buildRecord(DOC_B, {
+      title: "Ambiguous Import",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockRejectedValue(new Error("network lost"));
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(
+        id,
+        {
+          campaign_id: "longmont-c2",
+          world_id: "eldyrwild",
+          content_status: id === DOC_B ? "committed" : "committed",
+          revision: id === DOC_B ? 2 : 2,
+        },
+        {
+          markdown: id === DOC_B ? "# Different content\n" : "",
+          file_exists: id === DOC_B,
+        },
+      ),
+    );
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Ambiguous Import",
+        campaignId: "longmont-c2",
+        markdown: "# Imported\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.importError).toMatch(/does not match pasted Markdown/i);
+    });
+    expect(result.current.activeRecord?.document_id).toBe(DOC_A);
+    expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+  });
+
   it("reconciles ambiguous commit via snapshot without a second commit", async () => {
     const imported = buildRecord(DOC_B, {
       title: "Ambiguous Import",
@@ -977,7 +1041,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
   });
 
-  it("restores pending import from sessionStorage and imports without a second create", async () => {
+  it("restores pending import from sessionStorage when URL still shows previous document", async () => {
     const blankSource = buildRecord(DOC_B, {
       title: "Blank Source",
       campaign_id: "longmont-c2",
@@ -990,7 +1054,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     );
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
-        campaign_id: "longmont-c2",
+        campaign_id: id === DOC_B ? "longmont-c2" : "longmont-c1",
         world_id: "eldyrwild",
         content_status: id === DOC_B ? "draft" : "committed",
         revision: id === DOC_B ? 1 : 2,
@@ -1022,16 +1086,16 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
-    window.history.pushState({}, "", `/build?documentId=${DOC_B}`);
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
 
     const { result, unmount } = renderHook(() => useBuildWorkspaceDocumentController());
-    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_B));
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
     expect(result.current.pendingImportDocumentId).toBe(DOC_B);
 
     unmount();
 
     const { result: reloaded } = renderHook(() => useBuildWorkspaceDocumentController());
-    await waitFor(() => expect(reloaded.current.activeRecord?.document_id).toBe(DOC_B));
+    await waitFor(() => expect(reloaded.current.activeRecord?.document_id).toBe(DOC_A));
     expect(reloaded.current.pendingImportDocumentId).toBe(DOC_B);
 
     await act(async () => {
@@ -1045,6 +1109,174 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => {
       expect(reloaded.current.activeRecord?.document_id).toBe(DOC_B);
     });
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+  });
+
+  it("does not reuse active empty draft when campaign mismatches import form", async () => {
+    const blankC1 = buildRecord(DOC_A, {
+      title: "Blank C1",
+      campaign_id: "longmont-c1",
+      world_id: "eldyrwild",
+      content_status: "draft",
+    });
+    const imported = buildRecord(DOC_B, {
+      title: "Imported C2",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, {
+        campaign_id: id === DOC_A ? "longmont-c1" : "longmont-c2",
+        world_id: "eldyrwild",
+        content_status: id === DOC_A ? "draft" : "committed",
+        revision: id === DOC_A ? 1 : 2,
+      }),
+    );
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+    expect(result.current.activeRecord?.content_status).toBe("draft");
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Imported C2",
+        campaignId: "longmont-c2",
+        markdown: "# Imported\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Imported C2",
+        campaign_id: "longmont-c2",
+      }),
+    );
+    void blankC1;
+  });
+
+  it("updates title on reuse before source_import when form title differs", async () => {
+    const blankSource = buildRecord(DOC_B, {
+      title: "Blank Source",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+      content_status: "draft",
+    });
+    const retitled = { ...blankSource, title: "Imported Source", revision: 2 };
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValueOnce(blankSource);
+    vi.mocked(liveApi.updateWorkspaceDocumentMetadata).mockResolvedValue(retitled);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, {
+        campaign_id: "longmont-c2",
+        world_id: "eldyrwild",
+        content_status: id === DOC_B ? "draft" : "committed",
+        revision: id === DOC_B ? 1 : 2,
+        title: id === DOC_B ? "Blank Source" : "Imported Source",
+      }),
+    );
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: retitled.title,
+      target_relpath: retitled.target_relpath ?? "",
+      target_display_path: retitled.target_relpath ?? "",
+      registry_revision: 2,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: retitled.title,
+      target_relpath: retitled.target_relpath ?? "",
+      target_display_path: retitled.target_relpath ?? "",
+      registry_revision: 3,
+      committed_revision: 3,
+      committed_record: { ...retitled, content_status: "committed", revision: 3 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.createDocument({ title: "Blank Source", campaignId: "longmont-c2" });
+    });
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_B));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Imported Source",
+        campaignId: "longmont-c2",
+        markdown: "# Imported\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.updateWorkspaceDocumentMetadata).toHaveBeenCalledWith(DOC_B, {
+      title: "Imported Source",
+      expected_revision: 1,
+    });
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: DOC_B,
+        expected_revision: 2,
+      }),
+    );
+  });
+
+  it("rejects whitespace-only markdown in importSourceDocument", async () => {
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Whitespace",
+        campaignId: "longmont-c2",
+        markdown: "   \n\t  \n",
+      });
+    });
+
+    expect(result.current.importError).toMatch(/Paste non-empty Markdown/i);
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
   });
 });
