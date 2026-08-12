@@ -1709,18 +1709,20 @@ def _role_summary_counts(
     return role_field_count, adapter, external_op, residual
 
 
-def analyze_exact_buddy_world_revision_v4(
+def _analyze_loaded_buddy_world_store_v4(
     *,
     root: Path,
     world_id: str,
     revision_id: str,
+    manifest: Any,
+    store: UnionSupergraphStore,
 ) -> WholeWorldConformanceReportV4:
-    """Inventory and classify one exact Buddy World Graph revision against v5/v4 contracts."""
-    manifest, store = _load_exact_buddy_revision(
-        root=root,
-        world_id=world_id,
-        revision_id=revision_id,
-    )
+    """Classify an already integrity-loaded Buddy store against v5/v4 contracts.
+
+    ``manifest`` and ``store`` must remain the exact integrity-attested pair for
+    the requested revision, except for private in-memory migration overlays that
+    intentionally preserve the canonical manifest pins.
+    """
     adjudication_domain = _matches_adjudication_domain(
         world_id=world_id,
         revision_id=manifest.revision_id,
@@ -2264,6 +2266,27 @@ def analyze_exact_buddy_world_revision_v4(
         role_property_adapter_count=role_property_adapter_count,
         role_external_resource_count=role_external_resource_count,
         role_residual_count=role_residual_count,
+    )
+
+
+def analyze_exact_buddy_world_revision_v4(
+    *,
+    root: Path,
+    world_id: str,
+    revision_id: str,
+) -> WholeWorldConformanceReportV4:
+    """Inventory and classify one exact Buddy World Graph revision against v5/v4 contracts."""
+    manifest, store = _load_exact_buddy_revision(
+        root=root,
+        world_id=world_id,
+        revision_id=revision_id,
+    )
+    return _analyze_loaded_buddy_world_store_v4(
+        root=root,
+        world_id=world_id,
+        revision_id=revision_id,
+        manifest=manifest,
+        store=store,
     )
 
 
