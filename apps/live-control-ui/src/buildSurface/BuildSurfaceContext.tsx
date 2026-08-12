@@ -39,7 +39,8 @@ export type BuildSurfaceContextProps = Pick<
   | "retryImportSource"
   | "retryCreatedDocument"
   | "refreshDocuments"
-  | "creatableCampaignIds"
+  | "destinationOptions"
+  | "suggestedDestinationValue"
   | "suggestedCreateCampaignId"
 >;
 
@@ -61,7 +62,8 @@ export function BuildSurfaceContext({
   retryImportSource,
   retryCreatedDocument,
   refreshDocuments,
-  creatableCampaignIds,
+  destinationOptions,
+  suggestedDestinationValue,
   suggestedCreateCampaignId,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
@@ -160,8 +162,8 @@ export function BuildSurfaceContext({
             </>
           )}
           <BuildDocumentCreateControl
-            creatableCampaignIds={creatableCampaignIds}
-            suggestedCampaignId={suggestedCreateCampaignId}
+            destinationOptions={destinationOptions}
+            suggestedDestinationValue={suggestedDestinationValue}
             creating={creating}
             createError={createError}
             activationError={activationError}
@@ -194,10 +196,10 @@ export function BuildSurfaceContext({
       authoringStatusLabel,
       campaignBadge,
       campaignId,
-      creatableCampaignIds,
       createDocument,
       createError,
       creating,
+      destinationOptions,
       displayTitle,
       documentClass,
       documentMutationBusy,
@@ -215,6 +217,7 @@ export function BuildSurfaceContext({
       selectDocument,
       session,
       suggestedCreateCampaignId,
+      suggestedDestinationValue,
       switchError,
       switching,
     ],

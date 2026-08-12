@@ -5,9 +5,30 @@ import {
   SurfaceContextPopover,
 } from "../surfaceInteraction/contextHost";
 
+/** Explicit Build destination — never invent campaign/world identity from titles. */
+export type BuildSourceDestinationIntent =
+  | { kind: "campaign"; campaignId: string }
+  | { kind: "world"; worldId: string }
+  | { kind: "new_world"; name: string };
+
+export type BuildSourceDestinationOption =
+  | {
+      kind: "campaign";
+      campaignId: string;
+      worldId: string;
+      label: string;
+      value: string;
+    }
+  | {
+      kind: "world";
+      worldId: string;
+      label: string;
+      value: string;
+    };
+
 export interface BuildDocumentCreateSubmitPayload {
   title: string;
-  campaignId: string;
+  destination: BuildSourceDestinationIntent;
 }
 
 export interface BuildDocumentImportSubmitPayload extends BuildDocumentCreateSubmitPayload {
@@ -15,9 +36,8 @@ export interface BuildDocumentImportSubmitPayload extends BuildDocumentCreateSub
 }
 
 export interface BuildDocumentCreateControlProps {
-  /** Campaigns the operator may create into — must match controller validation. */
-  creatableCampaignIds: readonly string[];
-  suggestedCampaignId: string | null;
+  destinationOptions: readonly BuildSourceDestinationOption[];
+  suggestedDestinationValue: string | null;
   creating?: boolean;
   createError?: string | null;
   activationError?: string | null;
@@ -30,17 +50,34 @@ export interface BuildDocumentCreateControlProps {
   disabled?: boolean;
 }
 
-function normalizeCreateCampaignId(
+const NEW_WORLD_VALUE = "__new_world__";
+
+function normalizeDestinationValue(
   value: string | null | undefined,
-  creatable: ReadonlySet<string>,
+  options: readonly BuildSourceDestinationOption[],
 ): string {
   const trimmed = value?.trim() ?? "";
-  return trimmed && creatable.has(trimmed) ? trimmed : "";
+  if (trimmed && options.some((option) => option.value === trimmed)) {
+    return trimmed;
+  }
+  return "";
+}
+
+function parseExistingDestination(
+  value: string,
+  options: readonly BuildSourceDestinationOption[],
+): BuildSourceDestinationIntent | null {
+  const option = options.find((row) => row.value === value);
+  if (!option) return null;
+  if (option.kind === "campaign") {
+    return { kind: "campaign", campaignId: option.campaignId };
+  }
+  return { kind: "world", worldId: option.worldId };
 }
 
 export function BuildDocumentCreateControl({
-  creatableCampaignIds,
-  suggestedCampaignId,
+  destinationOptions,
+  suggestedDestinationValue,
   creating = false,
   createError = null,
   activationError = null,
@@ -52,25 +89,27 @@ export function BuildDocumentCreateControl({
   onRetryImport,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
-  const creatable = new Set(
-    creatableCampaignIds.map((id) => id.trim()).filter(Boolean),
-  );
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [campaignId, setCampaignId] = useState(() =>
-    normalizeCreateCampaignId(suggestedCampaignId, creatable),
+  const [destinationValue, setDestinationValue] = useState(() =>
+    normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
   );
+  const [worldName, setWorldName] = useState("");
   const [title, setTitle] = useState("");
   const [importMarkdown, setImportMarkdown] = useState("");
 
   useEffect(() => {
-    const next = normalizeCreateCampaignId(suggestedCampaignId, creatable);
+    const next = normalizeDestinationValue(suggestedDestinationValue, destinationOptions);
     if (next) {
-      setCampaignId(next);
+      setDestinationValue(next);
       return;
     }
-    setCampaignId((current) => normalizeCreateCampaignId(current, creatable));
-  }, [creatableCampaignIds, suggestedCampaignId]);
+    setDestinationValue((current) =>
+      current === NEW_WORLD_VALUE
+        ? NEW_WORLD_VALUE
+        : normalizeDestinationValue(current, destinationOptions),
+    );
+  }, [destinationOptions, suggestedDestinationValue]);
 
   useEffect(() => {
     if (createError || activationError) {
@@ -91,60 +130,84 @@ export function BuildDocumentCreateControl({
     if (!finishedCreating || createError || activationError || importError) return;
     setTitle("");
     setImportMarkdown("");
+    setWorldName("");
     setCreateOpen(false);
     setImportOpen(false);
   }, [activationError, createError, creating, importError]);
 
+  const isNewWorld = destinationValue === NEW_WORLD_VALUE;
+  const resolvedDestination: BuildSourceDestinationIntent | null = isNewWorld
+    ? worldName.trim()
+      ? { kind: "new_world", name: worldName.trim() }
+      : null
+    : parseExistingDestination(destinationValue, destinationOptions);
+
   const handleCreateSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (disabled || creating) return;
+    if (disabled || creating || !resolvedDestination) return;
     const trimmed = title.trim();
-    const campaign = campaignId.trim();
-    if (!trimmed || !creatable.has(campaign)) return;
-    onSubmit({ title: trimmed, campaignId: campaign });
+    if (!trimmed) return;
+    onSubmit({ title: trimmed, destination: resolvedDestination });
   };
 
   const handleImportSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (disabled || creating) return;
+    if (disabled || creating || !resolvedDestination) return;
     const trimmedTitle = title.trim();
-    const campaign = campaignId.trim();
-    if (!trimmedTitle || !creatable.has(campaign) || importMarkdown.trim().length === 0) return;
-    onImportSubmit({ title: trimmedTitle, campaignId: campaign, markdown: importMarkdown });
+    if (!trimmedTitle || importMarkdown.trim().length === 0) return;
+    onImportSubmit({
+      title: trimmedTitle,
+      destination: resolvedDestination,
+      markdown: importMarkdown,
+    });
   };
 
   const canCreateSubmit =
-    !disabled && !creating && Boolean(title.trim()) && creatable.has(campaignId.trim());
+    !disabled && !creating && Boolean(title.trim()) && resolvedDestination != null;
   const canImportSubmit =
     !disabled &&
     !creating &&
     Boolean(title.trim()) &&
     importMarkdown.trim().length > 0 &&
-    creatable.has(campaignId.trim());
+    resolvedDestination != null;
 
   const sharedFields = (
     <>
-      <label className="build-document-create__field build-document-create__field--campaign">
-        <span>Campaign</span>
+      <label className="build-document-create__field build-document-create__field--destination">
+        <span>Destination</span>
         <select
-          data-testid="build-document-create-campaign"
-          value={campaignId}
-          onChange={(event) => setCampaignId(event.target.value)}
+          data-testid="build-document-create-destination"
+          value={destinationValue}
+          onChange={(event) => setDestinationValue(event.target.value)}
           disabled={disabled || creating}
           required
         >
-          {!campaignId ? (
+          {!destinationValue ? (
             <option value="" disabled>
-              Choose campaign
+              Choose destination
             </option>
           ) : null}
-          {creatableCampaignIds.map((id) => (
-            <option key={id} value={id}>
-              {id}
+          {destinationOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
+          <option value={NEW_WORLD_VALUE}>New world…</option>
         </select>
       </label>
+      {isNewWorld ? (
+        <label className="build-document-create__field build-document-create__field--world-name">
+          <span>World name</span>
+          <input
+            type="text"
+            data-testid="build-document-create-world-name"
+            value={worldName}
+            onChange={(event) => setWorldName(event.target.value)}
+            placeholder="The Glass Orchard"
+            disabled={disabled || creating}
+          />
+        </label>
+      ) : null}
       <label className="build-document-create__field build-document-create__field--title">
         <span>Title</span>
         <input
@@ -325,3 +388,5 @@ export function BuildDocumentCreateControl({
     </div>
   );
 }
+
+export { NEW_WORLD_VALUE as BUILD_NEW_WORLD_DESTINATION_VALUE };

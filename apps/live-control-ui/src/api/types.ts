@@ -1380,6 +1380,23 @@ export interface WorkspaceDocumentsListResponse {
   records: WorkspaceDocumentRecord[];
 }
 
+export interface WorldContainerRecord {
+  schema_version: "dmb_world_container_record_v1";
+  world_id: string;
+  name: string;
+  source_root_relpath: string;
+  created_at: string;
+}
+
+export interface WorldContainersListResponse {
+  schema_version: "dmb_world_container_registry_v1";
+  records: WorldContainerRecord[];
+}
+
+export interface CreateWorldContainerRequest {
+  name: string;
+}
+
 export interface CreateWorkspaceDocumentRequest {
   title: string;
   campaign_id: string;
