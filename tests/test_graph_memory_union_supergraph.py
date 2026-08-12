@@ -117,6 +117,27 @@ def test_missing_focus_session_id_fails(fixture: dict) -> None:
     assert_invalid(payload, "focus_session_id is required")
 
 
+def test_empty_focus_session_id_is_valid_sessionless_store_payload() -> None:
+    """Structural store validation accepts focus_session_id='' as technical no-focus.
+
+    Representative fixture acceptance still requires a non-empty focus match; empty
+    focus is for world-level / sessionless production stores (empty baseline).
+    """
+    from graph_memory.kernel.world_initialization import (
+        build_empty_technical_baseline_store,
+    )
+    from graph_memory.union_supergraph.validate import (
+        validate_union_supergraph_store_payload,
+    )
+
+    store = build_empty_technical_baseline_store("the-glass-orchard", "")
+    assert store.focus_session_id == ""
+    report = validate_union_supergraph_store_payload(
+        store.model_dump(mode="json", by_alias=True)
+    )
+    assert report["valid"] is True
+
+
 def test_focus_session_id_mismatch_fails(fixture: dict) -> None:
     payload = copy.deepcopy(fixture)
     payload["focus_session_id"] = "session-99"

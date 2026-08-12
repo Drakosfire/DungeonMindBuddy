@@ -2118,10 +2118,23 @@ def _reviewed_init_plan_from_product(
 ) -> ReviewedWorldInitializationPlan:
     decision_hex = plan.decision_digest.removeprefix("sha256:")
     payload_hex = plan.contribution_payload_sha256.removeprefix("sha256:")
+    campaign_id = (plan.campaign_scope or "").strip()
+    if campaign_id != plan.world_id:
+        raise ExtractPromoteError(
+            "first-world plan campaign_scope must equal world_id",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "campaign_scope must equal world_id for first-world publish",
+                )
+            ],
+        )
     return ReviewedWorldInitializationPlan(
         schema=REVIEWED_PLAN_SCHEMA,
         world_id=plan.world_id,
-        campaign_id=plan.campaign_scope or plan.world_id,
+        campaign_id=campaign_id,
         focus_session_id=SESSIONLESS_FOCUS_SESSION_ID,
         plan_id=plan.plan_id,
         contribution_id=plan.contribution_id,
@@ -2134,6 +2147,94 @@ def _reviewed_init_plan_from_product(
             workspace_document_revision=plan.workspace_document_revision,
             decision_digest=decision_hex,
         ),
+    )
+
+
+def _assert_rematerialized_first_world_plan_matches(
+    plan: FirstWorldGraphPlan,
+    rematerialized,
+) -> None:
+    """Browser-carried plan fields are evidence only; rematerialization is authority."""
+    if not rematerialized.confirmable:
+        raise ExtractPromoteError(
+            "first-world plan is not confirmable (zero accepted assertions)",
+            code="empty_first_world_contribution",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "empty_first_world_contribution",
+                    "zero accepted assertions cannot initialize a World Graph",
+                )
+            ],
+        )
+    if plan.confirmable != rematerialized.confirmable:
+        raise ExtractPromoteError(
+            "sealed first-world confirmable flag failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "browser-carried confirmable disagrees with rematerialized plan",
+                )
+            ],
+        )
+    if list(plan.accepted_assertion_ids) != list(rematerialized.accepted_assertion_ids):
+        raise ExtractPromoteError(
+            "sealed first-world acceptedAssertionIds failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "browser-carried acceptedAssertionIds disagree with rematerialized plan",
+                )
+            ],
+        )
+    if list(plan.rejected_assertion_ids) != list(rematerialized.rejected_assertion_ids):
+        raise ExtractPromoteError(
+            "sealed first-world rejectedAssertionIds failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "browser-carried rejectedAssertionIds disagree with rematerialized plan",
+                )
+            ],
+        )
+
+
+def _first_world_confirm_receipt(
+    *,
+    outcome: str,
+    plan: FirstWorldGraphPlan,
+    rematerialized,
+    result,
+) -> FirstWorldGraphConfirmReceipt:
+    receipt = result.receipt
+    return FirstWorldGraphConfirmReceipt(
+        outcome=outcome,  # type: ignore[arg-type]
+        world_id=plan.world_id,
+        plan_id=plan.plan_id,
+        plan_digest=plan.plan_digest,
+        decision_digest=plan.decision_digest,
+        source_artifact_id=plan.source_artifact_id,
+        source_revision_id=plan.source_revision_id,
+        contribution_id=plan.contribution_id,
+        baseline_revision_id=(
+            receipt.baseline_revision_id if receipt else result.baseline_revision_id
+        ),
+        committed_revision_id=(
+            receipt.initial_head_revision_id
+            if receipt
+            else result.initial_head_revision_id
+        ),
+        applied_assertion_count=len(rematerialized.accepted_assertion_ids),
+        accepted_assertion_ids=list(rematerialized.accepted_assertion_ids),
+        rejected_assertion_ids=list(rematerialized.rejected_assertion_ids),
+        audit_status="ok",
+        warnings=list(result.diagnostics),
     )
 
 
@@ -2238,6 +2339,30 @@ def confirm_first_world(
                 )
             ],
         )
+    if (plan.campaign_scope or "").strip() != plan.world_id:
+        raise ExtractPromoteError(
+            "sealed first-world campaign_scope must equal world_id",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "campaign_scope must equal world_id for first-world publish",
+                )
+            ],
+        )
+    if lineage.campaign_scope != plan.world_id:
+        raise ExtractPromoteError(
+            "resolved lineage campaign_scope must equal world_id",
+            code="workspace_lineage_mismatch",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "workspace_lineage_mismatch",
+                    "campaign_id / campaign_scope must equal world_id",
+                )
+            ],
+        )
 
     # Evidence still verifies against frozen span index.
     try:
@@ -2336,6 +2461,7 @@ def confirm_first_world(
                 )
             ],
         )
+    _assert_rematerialized_first_world_plan_matches(plan, rematerialized)
 
     state = classify_world_graph_state(world_root, plan.world_id)
     kernel_plan = _reviewed_init_plan_from_product(plan)
@@ -2382,29 +2508,11 @@ def confirm_first_world(
                 ],
             ) from exc
         if result.outcome == "already_initialized":
-            receipt = result.receipt
-            return FirstWorldGraphConfirmReceipt(
+            return _first_world_confirm_receipt(
                 outcome="already_initialized",
-                world_id=plan.world_id,
-                plan_id=plan.plan_id,
-                plan_digest=plan.plan_digest,
-                decision_digest=plan.decision_digest,
-                source_artifact_id=plan.source_artifact_id,
-                source_revision_id=plan.source_revision_id,
-                contribution_id=plan.contribution_id,
-                baseline_revision_id=(
-                    receipt.baseline_revision_id if receipt else result.baseline_revision_id
-                ),
-                committed_revision_id=(
-                    receipt.initial_head_revision_id
-                    if receipt
-                    else result.initial_head_revision_id
-                ),
-                applied_assertion_count=len(plan.accepted_assertion_ids),
-                accepted_assertion_ids=list(plan.accepted_assertion_ids),
-                rejected_assertion_ids=list(plan.rejected_assertion_ids),
-                audit_status="ok",
-                warnings=list(result.diagnostics),
+                plan=plan,
+                rematerialized=rematerialized,
+                result=result,
             )
         raise ExtractPromoteError(
             "World Graph already exists",
@@ -2443,29 +2551,11 @@ def confirm_first_world(
         ) from exc
 
     if result.outcome == "already_initialized":
-        receipt = result.receipt
-        return FirstWorldGraphConfirmReceipt(
+        return _first_world_confirm_receipt(
             outcome="already_initialized",
-            world_id=plan.world_id,
-            plan_id=plan.plan_id,
-            plan_digest=plan.plan_digest,
-            decision_digest=plan.decision_digest,
-            source_artifact_id=plan.source_artifact_id,
-            source_revision_id=plan.source_revision_id,
-            contribution_id=plan.contribution_id,
-            baseline_revision_id=(
-                receipt.baseline_revision_id if receipt else result.baseline_revision_id
-            ),
-            committed_revision_id=(
-                receipt.initial_head_revision_id
-                if receipt
-                else result.initial_head_revision_id
-            ),
-            applied_assertion_count=len(plan.accepted_assertion_ids),
-            accepted_assertion_ids=list(plan.accepted_assertion_ids),
-            rejected_assertion_ids=list(plan.rejected_assertion_ids),
-            audit_status="ok",
-            warnings=list(result.diagnostics),
+            plan=plan,
+            rematerialized=rematerialized,
+            result=result,
         )
 
     if result.outcome != "published" or not result.published:
@@ -2481,29 +2571,11 @@ def confirm_first_world(
             ],
         )
 
-    receipt = result.receipt
-    return FirstWorldGraphConfirmReceipt(
+    return _first_world_confirm_receipt(
         outcome="initialized",
-        world_id=plan.world_id,
-        plan_id=plan.plan_id,
-        plan_digest=plan.plan_digest,
-        decision_digest=plan.decision_digest,
-        source_artifact_id=plan.source_artifact_id,
-        source_revision_id=plan.source_revision_id,
-        contribution_id=plan.contribution_id,
-        baseline_revision_id=(
-            receipt.baseline_revision_id if receipt else result.baseline_revision_id
-        ),
-        committed_revision_id=(
-            receipt.initial_head_revision_id
-            if receipt
-            else result.initial_head_revision_id
-        ),
-        applied_assertion_count=len(plan.accepted_assertion_ids),
-        accepted_assertion_ids=list(plan.accepted_assertion_ids),
-        rejected_assertion_ids=list(plan.rejected_assertion_ids),
-        audit_status="ok",
-        warnings=list(result.diagnostics),
+        plan=plan,
+        rematerialized=rematerialized,
+        result=result,
     )
 
 

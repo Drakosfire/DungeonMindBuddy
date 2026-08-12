@@ -996,6 +996,7 @@ Every production change must be listed here or reconciled under the bounded disc
 | Modify as needed | `src/graph_memory/kernel/world_initialization.py` | Factor shared atomic staging/promotion primitive so reviewed init and legacy init do not duplicate transaction logic. Legacy behavior/digests unchanged. |
 | Modify as needed | `src/graph_memory/kernel/__init__.py` | Export the reviewed initializer if Kernel conventions require it. |
 | Modify as needed | `src/graph_memory/world_supergraph/paths.py` | Add a safe reviewed-initialization receipt path if receipt is stored inside W. |
+| Modify (reconciled) | `src/graph_memory/union_supergraph/validate.py` | Allow `focus_session_id=""` as technical no-focus for sessionless / world-level stores. See §10.1. |
 
 ## 6.3 Frontend product path
 
@@ -1016,6 +1017,7 @@ Every production change must be listed here or reconciled under the bounded disc
 | Modify | `tests/test_live_extract_promote_api.py` | API first-world prepare/confirm identity, unmanaged/existing/unreadable/foreign world failures, retries. |
 | Create | `tests/test_reviewed_world_initialization.py` | Atomic staging, integrity, receipt, idempotency, race, failure cleanup, no fake legacy attestation. |
 | Modify as needed | `tests/test_worldbuilding_write_plan.py` | Only if shared semantic-mapping helpers are factored/reused; existing BLD-10 behavior must remain green. |
+| Modify (reconciled) | `tests/test_graph_memory_union_supergraph.py` | Prove structural store validation accepts sessionless `focus_session_id=""`. |
 
 ## 6.5 Handoff
 
@@ -1318,6 +1320,21 @@ Any reconciliation must state:
 - smallest contract change;
 - files/evidence added;
 - what remains out of scope.
+
+## 10.1 Reconciliation — sessionless `focus_session_id=""` (RC1)
+
+**Discovered fact:** Empty technical baseline stores for world-level sources must use `focus_session_id=""`. Prior UnionSupergraph *store* validation treated empty string as missing (`bool("")` is false), so reviewed world initialization could not pass structural validation without inventing a fake `session-*` focus.
+
+**Why the prior invariant could not be satisfied:** Handoff §4.9 forbids inventing a user-visible session for a world-level first source. Legacy Eldyrwild bootstrap uses a real focus session; first-world Glass Orchard has none. Keeping `bool(focus_session_id)` would force a fake session or block publication.
+
+**Smallest contract change:** In `validate_union_supergraph_store_payload` only, require `isinstance(focus_session_id, str)` (including `""`). Do **not** relax representative-fixture acceptance (`validate_union_supergraph_fixture`), which still expects a non-empty focus match for Eldyrwild-shaped fixtures. Projection already treats falsy focus as “no session focus.”
+
+**Files / evidence:**
+- `src/graph_memory/union_supergraph/validate.py` — store-payload string check;
+- `tests/test_graph_memory_union_supergraph.py` — empty baseline / `""` store-payload proof;
+- `tests/test_reviewed_world_initialization.py` — sessionless receipt + store `focus_session_id==""`.
+
+**Out of scope:** Changing `union_supergraph/model.py` field types; inventing a new focus enum; making empty focus pass representative-fixture acceptance; teaching product UI to display a playable “session” for `""`.
 
 ---
 

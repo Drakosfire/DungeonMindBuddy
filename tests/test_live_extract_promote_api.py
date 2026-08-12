@@ -2558,6 +2558,173 @@ def test_first_world_prepare_zero_accepts_not_confirmable_and_inert(
     assert confirm.json()["code"] == "empty_first_world_contribution"
     assert not glass_dir.exists()
 
+    # Browser-carried confirmable=true must not initialize a zero-accepted graph.
+    tampered = json.loads(json.dumps(body))
+    tampered["confirmable"] = True
+    forged = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(tampered))
+    assert forged.status_code == 422, forged.text
+    assert forged.json()["code"] == "empty_first_world_contribution"
+    assert not glass_dir.exists()
+
+
+def test_first_world_confirm_rejects_forged_assertion_id_lists(world_client) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 200, prepare.text
+    plan = prepare.json()
+    assert plan["confirmable"] is True
+    assert plan["acceptedAssertionIds"]
+
+    forged_accepted = json.loads(json.dumps(plan))
+    forged_accepted["acceptedAssertionIds"] = list(plan["acceptedAssertionIds"]) + [
+        "assertion:forged-extra"
+    ]
+    resp_accepted = client.post(
+        FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(forged_accepted)
+    )
+    assert resp_accepted.status_code == 409, resp_accepted.text
+    assert resp_accepted.json()["code"] == "plan_verification_failed"
+    assert not glass_dir.exists()
+
+    forged_rejected = json.loads(json.dumps(plan))
+    forged_rejected["rejectedAssertionIds"] = ["assertion:forged-reject"]
+    resp_rejected = client.post(
+        FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(forged_rejected)
+    )
+    assert resp_rejected.status_code == 409, resp_rejected.text
+    assert resp_rejected.json()["code"] == "plan_verification_failed"
+    assert not glass_dir.exists()
+
+
+def test_first_world_rejects_campaign_id_world_id_mismatch(world_client) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+
+    from apps.live_control_server.services.graph_run_registry import (
+        extraction_runs_path,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryDocument,
+        get_source_artifact,
+        source_artifacts_path,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRegistryDocument,
+        get_workspace_document,
+        workspace_documents_path,
+    )
+    from src.live_play.live_store import load_json, write_json
+
+    run = get_extraction_run(repo, run_id)
+    artifact = get_source_artifact(repo, run.source_artifact_id)
+    assert artifact.world_id == GLASS_ORCHARD_WORLD_ID
+    assert artifact.campaign_id == GLASS_ORCHARD_WORLD_ID
+
+    # Tamper SourceArtifact.campaign_id (and run campaign to keep integrity)
+    # while keeping world_id=W — first-world must still fail closed.
+    artifact_path = source_artifacts_path(repo)
+    artifact_doc = SourceArtifactRegistryDocument.model_validate(load_json(artifact_path))
+    rewritten_artifacts = []
+    for row in artifact_doc.records:
+        if row.source_artifact_id == artifact.source_artifact_id:
+            rewritten_artifacts.append(
+                row.model_copy(update={"campaign_id": "foreign-campaign"})
+            )
+        else:
+            rewritten_artifacts.append(row)
+    write_json(
+        artifact_path,
+        SourceArtifactRegistryDocument(
+            schema_version=artifact_doc.schema_version,
+            records=rewritten_artifacts,
+        ).model_dump(mode="json"),
+    )
+    runs_path = extraction_runs_path(repo)
+    runs_doc = load_json(runs_path)
+    for record in runs_doc["records"]:
+        if record["run_id"] == run_id:
+            record["campaign_id"] = "foreign-campaign"
+            break
+    write_json(runs_path, runs_doc)
+
+    from apps.live_control_server.services.promotable_ingest_run import (
+        _resolve_extraction_component_path,
+    )
+
+    run_after = get_extraction_run(repo, run_id)
+    candidate_path = _resolve_extraction_component_path(
+        repo,
+        run_after.components["candidate_graph"].uri,
+        label="candidate_graph",
+    )
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["campaign_id"] = "foreign-campaign"
+    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
+    candidate_digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    for record in runs_doc["records"]:
+        if record["run_id"] == run_id:
+            record["components"]["candidate_graph"]["sha256"] = candidate_digest
+            break
+    write_json(runs_path, runs_doc)
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 422, prepare.text
+    assert prepare.json()["code"] == "workspace_lineage_mismatch"
+    assert not glass_dir.exists()
+
+    # Restore artifact + run + candidate campaign, then mismatch workspace only.
+    write_json(artifact_path, artifact_doc.model_dump(mode="json"))
+    candidate["campaign_id"] = GLASS_ORCHARD_WORLD_ID
+    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
+    candidate_digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    for record in runs_doc["records"]:
+        if record["run_id"] == run_id:
+            record["campaign_id"] = GLASS_ORCHARD_WORLD_ID
+            record["components"]["candidate_graph"]["sha256"] = candidate_digest
+            break
+    write_json(runs_path, runs_doc)
+
+    workspace_path = workspace_documents_path(repo)
+    workspace_doc = WorkspaceDocumentRegistryDocument.model_validate(
+        load_json(workspace_path)
+    )
+    rewritten_workspace = []
+    for row in workspace_doc.records:
+        if row.document_id == artifact.workspace_document_id:
+            rewritten_workspace.append(
+                row.model_copy(update={"campaign_id": "foreign-campaign"})
+            )
+        else:
+            rewritten_workspace.append(row)
+    write_json(
+        workspace_path,
+        WorkspaceDocumentRegistryDocument(
+            schema_version=workspace_doc.schema_version,
+            records=rewritten_workspace,
+        ).model_dump(mode="json"),
+    )
+    assert get_workspace_document(repo, artifact.workspace_document_id).campaign_id == (
+        "foreign-campaign"
+    )
+    prepare_ws = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare_ws.status_code == 422, prepare_ws.text
+    assert prepare_ws.json()["code"] == "workspace_lineage_mismatch"
+    assert not glass_dir.exists()
+
 
 def test_first_world_prepare_is_inert(world_client) -> None:
     client, world_root, repo, *_rest = world_client

@@ -199,6 +199,13 @@ def cross_check_workspace_lineage(
             code="workspace_lineage_mismatch",
             status_code=422,
         )
+    artifact_campaign = (artifact.campaign_id or "").strip()
+    if artifact_campaign != expected_world_id:
+        raise WorldbuildingWritePlanError(
+            "SourceArtifact campaign_id must equal world_id for first-world publish",
+            code="workspace_lineage_mismatch",
+            status_code=422,
+        )
     snapshot = get_workspace_document_snapshot(repo, document_id)
     record = snapshot.record
     if record.status != "active":
@@ -217,6 +224,13 @@ def cross_check_workspace_lineage(
     if record_world != expected_world_id:
         raise WorldbuildingWritePlanError(
             "workspace document world_id does not match SourceArtifact world_id",
+            code="workspace_lineage_mismatch",
+            status_code=422,
+        )
+    record_campaign = (record.campaign_id or "").strip()
+    if record_campaign != expected_world_id:
+        raise WorldbuildingWritePlanError(
+            "workspace document campaign_id must equal world_id for first-world publish",
             code="workspace_lineage_mismatch",
             status_code=422,
         )
@@ -245,7 +259,8 @@ def cross_check_workspace_lineage(
         source_revision_id=source_revision_id,
         workspace_document_id=document_id,
         workspace_document_revision=str(artifact.workspace_document_revision),
-        campaign_scope=(artifact.campaign_id or expected_world_id or None),
+        # First-world publish requires campaign_scope == world_id (fail closed above).
+        campaign_scope=expected_world_id,
         content_sha256=artifact_digest,
     )
 
