@@ -1771,6 +1771,99 @@ describe("liveApi workspace worldbuilding contracts", () => {
     );
   });
 
+  it("posts world_id on world-scoped worldbuilding create requests", async () => {
+    const record = worldbuildingRecord({
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+      target_relpath:
+        "corpus/eldyrwild-markdown/_dungeonbuddy/sources/11111111-1111-4111-8111-111111111111/source.md",
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(record));
+
+    const request: CreateWorkspaceDocumentRequest = {
+      title: "Imported Source",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+      kind: "worldbuilding_source",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    };
+    await createWorkspaceDocument(request);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/live/workspace-documents"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(request),
+      }),
+    );
+  });
+
+  it("omits write_mode from tiptap prepare when absent", async () => {
+    const prepare = {
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: "11111111-1111-4111-8111-111111111111",
+      title: "World Lore",
+      target_relpath: "out/workspace/worldbuilding/11111111-1111-4111-8111-111111111111.md",
+      target_display_path: "out/workspace/worldbuilding/11111111-1111-4111-8111-111111111111.md",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "token",
+      writer_diff: "",
+      warnings: [],
+      diagnostics: [],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(prepare));
+
+    await prepareTiptapMarkdownWrite({
+      document_id: prepare.document_id,
+      markdown: "# Title\n",
+      expected_revision: 1,
+    });
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
+    expect(body.write_mode).toBeUndefined();
+  });
+
+  it("posts source_import write_mode on tiptap prepare/commit", async () => {
+    const prepare = {
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: "11111111-1111-4111-8111-111111111111",
+      title: "World Lore",
+      target_relpath:
+        "corpus/eldyrwild-markdown/_dungeonbuddy/sources/11111111-1111-4111-8111-111111111111/source.md",
+      target_display_path:
+        "corpus/eldyrwild-markdown/_dungeonbuddy/sources/11111111-1111-4111-8111-111111111111/source.md",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "token",
+      writer_diff: "",
+      warnings: [],
+      diagnostics: [],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(prepare));
+
+    await prepareTiptapMarkdownWrite({
+      document_id: prepare.document_id,
+      markdown: "| a | b |\n",
+      expected_revision: 1,
+      write_mode: "source_import",
+    });
+
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual({
+      document_id: prepare.document_id,
+      markdown: "| a | b |\n",
+      expected_revision: 1,
+      write_mode: "source_import",
+    });
+  });
+
   it("lists worldbuilding_source documents by kind", async () => {
     const record = worldbuildingRecord();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(

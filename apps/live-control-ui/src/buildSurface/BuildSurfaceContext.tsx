@@ -31,8 +31,12 @@ export type BuildSurfaceContextProps = Pick<
   | "creating"
   | "createError"
   | "activationError"
+  | "importError"
+  | "pendingImportDocumentId"
   | "selectDocument"
   | "createDocument"
+  | "importSourceDocument"
+  | "retryImportSource"
   | "retryCreatedDocument"
   | "refreshDocuments"
   | "creatableCampaignIds"
@@ -49,8 +53,12 @@ export function BuildSurfaceContext({
   creating,
   createError,
   activationError,
+  importError,
+  pendingImportDocumentId,
   selectDocument,
   createDocument,
+  importSourceDocument,
+  retryImportSource,
   retryCreatedDocument,
   refreshDocuments,
   creatableCampaignIds,
@@ -157,8 +165,12 @@ export function BuildSurfaceContext({
             creating={creating}
             createError={createError}
             activationError={activationError}
+            importError={importError}
+            pendingImportDocumentId={pendingImportDocumentId}
             onSubmit={createDocument}
+            onImportSubmit={importSourceDocument}
             onRetryOpen={activationError ? retryCreatedDocument : undefined}
+            onRetryImport={importError ? retryImportSource : undefined}
             disabled={documentMutationBusy}
           />
         </div>
@@ -190,12 +202,16 @@ export function BuildSurfaceContext({
       documentClass,
       documentMutationBusy,
       documents,
+      importError,
+      importSourceDocument,
       listStatus,
       liveRecord,
       metadataBusy,
+      pendingImportDocumentId,
       refreshDocuments,
       renameAdmitted,
       retryCreatedDocument,
+      retryImportSource,
       selectDocument,
       session,
       suggestedCreateCampaignId,

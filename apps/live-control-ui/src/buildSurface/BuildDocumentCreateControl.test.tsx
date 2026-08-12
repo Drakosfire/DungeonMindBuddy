@@ -1,117 +1,71 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { BUILD_KNOWN_CAMPAIGN_IDS } from "./buildBareEntryCampaign";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 
 describe("BuildDocumentCreateControl", () => {
-  it("requires a title and does not default to untitled", async () => {
-    const user = userEvent.setup();
-    const onSubmit = vi.fn();
+  const baseProps = {
+    creatableCampaignIds: ["longmont-c2"],
+    suggestedCampaignId: "longmont-c2",
+    onSubmit: vi.fn(),
+    onImportSubmit: vi.fn(),
+  };
+
+  it("blocks empty import submit and disables controls while creating", () => {
+    const onImportSubmit = vi.fn();
     render(
       <BuildDocumentCreateControl
-        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
-        suggestedCampaignId="longmont-c2"
-        onSubmit={onSubmit}
+        {...baseProps}
+        creating
+        onImportSubmit={onImportSubmit}
       />,
     );
 
-    await user.click(screen.getByTestId("build-document-create-open"));
-    const titleInput = screen.getByTestId("build-document-create-title");
-    expect(titleInput).toHaveValue("");
-    expect(titleInput).toHaveAttribute("placeholder", "Ironveil Property");
-    expect(screen.getByTestId("build-document-create-submit")).toBeDisabled();
+    expect(screen.getByTestId("build-document-import-open")).toBeDisabled();
+    expect(onImportSubmit).not.toHaveBeenCalled();
+  });
 
-    await user.type(titleInput, "Ironveil Property");
-    await user.click(screen.getByTestId("build-document-create-submit"));
+  it("submits import with title campaign and markdown", () => {
+    const onImportSubmit = vi.fn();
+    render(
+      <BuildDocumentCreateControl {...baseProps} onImportSubmit={onImportSubmit} />,
+    );
 
-    expect(onSubmit).toHaveBeenCalledWith({
-      title: "Ironveil Property",
+    fireEvent.click(screen.getByTestId("build-document-import-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Imported" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-import-markdown"), {
+      target: { value: "# Imported\n\nBody.\n" },
+    });
+    fireEvent.click(screen.getByTestId("build-document-import-submit"));
+
+    expect(onImportSubmit).toHaveBeenCalledWith({
+      title: "Imported",
       campaignId: "longmont-c2",
+      markdown: expect.stringContaining("# Imported"),
     });
   });
 
-  it("requires an explicit campaign when none is suggested", async () => {
-    const user = userEvent.setup();
-    const onSubmit = vi.fn();
+  it("retains pasted markdown and exposes retry import after failure", () => {
+    const onRetryImport = vi.fn();
     render(
       <BuildDocumentCreateControl
-        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
-        suggestedCampaignId={null}
-        onSubmit={onSubmit}
+        {...baseProps}
+        importError="prepare failed"
+        pendingImportDocumentId="11111111-1111-4111-8111-111111111111"
+        onRetryImport={onRetryImport}
       />,
     );
 
-    await user.click(screen.getByTestId("build-document-create-open"));
-    await user.type(screen.getByTestId("build-document-create-title"), "Stormspire Notes");
-    expect(screen.getByTestId("build-document-create-submit")).toBeDisabled();
-
-    await user.selectOptions(screen.getByTestId("build-document-create-campaign"), "longmont-c1");
-    await user.click(screen.getByTestId("build-document-create-submit"));
-    expect(onSubmit).toHaveBeenCalledWith({
-      title: "Stormspire Notes",
-      campaignId: "longmont-c1",
+    fireEvent.click(screen.getByTestId("build-document-import-open"));
+    const markdownField = screen.getByTestId("build-document-import-markdown");
+    fireEvent.change(markdownField, {
+      target: { value: "# Keep me\n" },
     });
-  });
+    fireEvent.click(screen.getByTestId("build-document-import-retry"));
 
-  it("shows Retry Open when activation fails", async () => {
-    const user = userEvent.setup();
-    render(
-      <BuildDocumentCreateControl
-        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
-        suggestedCampaignId="longmont-c1"
-        activationError="network"
-        onSubmit={vi.fn()}
-        onRetryOpen={vi.fn()}
-      />,
-    );
-
-    await user.click(screen.getByTestId("build-document-create-open"));
-    expect(screen.getByTestId("build-document-create-retry-open")).toBeInTheDocument();
-  });
-
-  it("does not adopt a suggested campaign absent from creatable choices", async () => {
-    const user = userEvent.setup();
-    render(
-      <BuildDocumentCreateControl
-        creatableCampaignIds={BUILD_KNOWN_CAMPAIGN_IDS}
-        suggestedCampaignId="eldyrwild"
-        onSubmit={vi.fn()}
-      />,
-    );
-
-    await user.click(screen.getByTestId("build-document-create-open"));
-    const campaignSelect = screen.getByTestId("build-document-create-campaign");
-    expect(campaignSelect).toHaveValue("");
-    expect(
-      Array.from(campaignSelect.querySelectorAll("option")).map((option) => option.value),
-    ).not.toContain("eldyrwild");
-  });
-
-  it("offers admissible Build-scope campaigns beyond known entry defaults", async () => {
-    const user = userEvent.setup();
-    const onSubmit = vi.fn();
-    render(
-      <BuildDocumentCreateControl
-        creatableCampaignIds={[...BUILD_KNOWN_CAMPAIGN_IDS, "eldyrwild"]}
-        suggestedCampaignId="eldyrwild"
-        onSubmit={onSubmit}
-      />,
-    );
-
-    await user.click(screen.getByTestId("build-document-create-open"));
-    const campaignSelect = screen.getByTestId("build-document-create-campaign");
-    expect(campaignSelect).toHaveValue("eldyrwild");
-    expect(
-      Array.from(campaignSelect.querySelectorAll("option")).map((option) => option.value),
-    ).toContain("eldyrwild");
-
-    await user.type(screen.getByTestId("build-document-create-title"), "Eldyrwild Lore");
-    await user.click(screen.getByTestId("build-document-create-submit"));
-    expect(onSubmit).toHaveBeenCalledWith({
-      title: "Eldyrwild Lore",
-      campaignId: "eldyrwild",
-    });
+    expect(markdownField).toHaveValue("# Keep me\n");
+    expect(onRetryImport).toHaveBeenCalledWith({ markdown: "# Keep me\n" });
   });
 });

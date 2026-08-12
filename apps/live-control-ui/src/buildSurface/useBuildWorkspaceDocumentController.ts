@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getWorkspaceDocumentSnapshot, listWorkspaceDocuments } from "../api/liveApi";
+import {
+  commitTiptapMarkdownWrite,
+  getWorkspaceDocumentSnapshot,
+  listWorkspaceDocuments,
+  prepareTiptapMarkdownWrite,
+} from "../api/liveApi";
 import type { WorkspaceDocumentRecord } from "../api/types";
+import {
+  classifyBuildDocumentScope,
+  getWorldIdForCampaign,
+} from "../worldGraph/worldGraphSurfaceContext";
 import {
   createWorkspaceDocumentCreationController,
   WorkspaceDocumentCreationError,
@@ -46,6 +55,38 @@ function validateBuildSourceRecord(
   return record;
 }
 
+export function resolveWorldIdForBuildCreate(campaignId: string): string | null {
+  const mapped = getWorldIdForCampaign(campaignId);
+  if (mapped) return mapped;
+  const scope = classifyBuildDocumentScope(campaignId);
+  if (scope.kind === "world") return scope.worldId;
+  return null;
+}
+
+function buildWorldbuildingCreateIntent(
+  title: string,
+  campaignId: string,
+): {
+  kind: "worldbuilding_source";
+  campaignId: string;
+  title: string;
+  worldId?: string;
+  documentClass: string;
+  authorityState: "draft";
+  visibilityState: "internal";
+} {
+  const worldId = resolveWorldIdForBuildCreate(campaignId);
+  return {
+    kind: "worldbuilding_source",
+    campaignId,
+    title,
+    ...(worldId ? { worldId } : {}),
+    documentClass: "lore",
+    authorityState: "draft",
+    visibilityState: "internal",
+  };
+}
+
 export interface BuildWorkspaceDocumentController {
   activeRecord: WorkspaceDocumentRecord | null;
   activeDocumentId: string | null;
@@ -57,13 +98,22 @@ export interface BuildWorkspaceDocumentController {
   creating: boolean;
   createError: string | null;
   activationError: string | null;
+  importError: string | null;
   selectDocument: (documentId: string) => void;
   createDocument: (payload: { title: string; campaignId: string }) => void;
+  importSourceDocument: (payload: {
+    title: string;
+    campaignId: string;
+    markdown: string;
+  }) => void;
+  retryImportSource: (payload: { markdown: string }) => void;
   retryCreatedDocument: () => void;
   refreshDocuments: () => void;
   /** Campaigns New Source may create into (visible select == POST validation). */
   creatableCampaignIds: string[];
   suggestedCreateCampaignId: string | null;
+  /** Retained empty source from a failed import lifecycle, if any. */
+  pendingImportDocumentId: string | null;
 }
 
 export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentController {
@@ -87,6 +137,11 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [pendingImportDocumentId, setPendingImportDocumentId] = useState<string | null>(
+    null,
+  );
+  const importCommittedRef = useRef(false);
 
   const createControllerRef = useRef(createWorkspaceDocumentCreationController());
   const activeRecordRef = useRef<WorkspaceDocumentRecord | null>(null);
@@ -96,7 +151,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const documentLoadGenerationRef = useRef(0);
   const selectorListGenerationRef = useRef(0);
 
-  // Single admission lane: mount Canvas only after controller preflight admits a record.
   const activeDocumentId = activeRecord?.document_id ?? null;
   const refreshDocuments = useCallback(async () => {
     const generation = ++selectorListGenerationRef.current;
@@ -166,11 +220,13 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           createControllerRef.current.reconcileActivatedDocument(record.document_id);
           setCreateError(null);
           setActivationError(null);
+          setImportError(null);
+          setPendingImportDocumentId(null);
+          importCommittedRef.current = false;
         }
         void refreshDocuments();
 
         if (typeof window !== "undefined") {
-          // Always commit the accepted record's campaign in the same history entry.
           const canonical = buildDocumentSelectionSearch(
             search,
             record.document_id,
@@ -248,8 +304,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       createControllerRef.current.supersedePendingCreateIntent();
       setCreateError(null);
       setActivationError(null);
+      setImportError(null);
+      setPendingImportDocumentId(null);
+      importCommittedRef.current = false;
       const record = documents?.find((entry) => entry.document_id === documentId);
-      // Pre-resolve campaign is a hint only; successful admit rewrites from the record.
       const campaignHint =
         record?.campaign_id ??
         activeRecordRef.current?.campaign_id ??
@@ -279,11 +337,52 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       );
       if (applied) {
         setActivationError(null);
+        setPendingImportDocumentId(null);
+        importCommittedRef.current = false;
       }
       return applied;
     },
     [loadBuildDocument],
   );
+
+  const commitSourceImport = useCallback(
+    async (record: WorkspaceDocumentRecord, markdown: string): Promise<WorkspaceDocumentRecord> => {
+      const prepared = await prepareTiptapMarkdownWrite({
+        document_id: record.document_id,
+        markdown,
+        expected_revision: record.revision,
+        write_mode: "source_import",
+      });
+      if (!prepared.writer_confirm_token) {
+        throw new Error("Source import prepare did not return a confirm token");
+      }
+      const committed = await commitTiptapMarkdownWrite({
+        document_id: record.document_id,
+        markdown,
+        writer_confirm_token: prepared.writer_confirm_token,
+        expected_revision: record.revision,
+        write_mode: "source_import",
+      });
+      importCommittedRef.current = true;
+      setPendingImportDocumentId(record.document_id);
+      return committed.committed_record;
+    },
+    [],
+  );
+
+  const resolveImportRecordForRetry = useCallback(async (): Promise<WorkspaceDocumentRecord> => {
+    const retained = createControllerRef.current.getState().record;
+    if (retained == null) {
+      throw new Error("No created source is available to import into");
+    }
+    if (importCommittedRef.current) {
+      const snapshot = await getWorkspaceDocumentSnapshot(retained.document_id);
+      if (snapshot.record.content_status === "committed") {
+        return snapshot.record;
+      }
+    }
+    return retained;
+  }, []);
 
   const creatableCampaignIds = useMemo(
     () =>
@@ -303,18 +402,21 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         setCreateError("Choose a campaign from the list");
         return;
       }
+      const worldId = resolveWorldIdForBuildCreate(campaign);
+      if (!worldId) {
+        setCreateError("Choose a campaign mapped to an admitted world");
+        return;
+      }
       setCreating(true);
       setCreateError(null);
       setActivationError(null);
+      setImportError(null);
+      importCommittedRef.current = false;
+      setPendingImportDocumentId(null);
       try {
-        const created = await createControllerRef.current.create({
-          kind: "worldbuilding_source",
-          campaignId: campaign,
-          title,
-          documentClass: "lore",
-          authorityState: "draft",
-          visibilityState: "internal",
-        });
+        const created = await createControllerRef.current.create(
+          buildWorldbuildingCreateIntent(title, campaign),
+        );
         void refreshDocuments();
         if (!created.intentCurrent) {
           return;
@@ -347,15 +449,162 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     [activateCreatedRecord, refreshDocuments],
   );
 
+  const importSourceDocument = useCallback(
+    async ({
+      title,
+      campaignId,
+      markdown,
+    }: {
+      title: string;
+      campaignId: string;
+      markdown: string;
+    }) => {
+      const campaign = campaignId.trim();
+      const body = markdown.trim();
+      if (!body) {
+        setImportError("Paste non-empty Markdown to import");
+        return;
+      }
+      if (!creatableCampaignIdsRef.current.includes(campaign)) {
+        setImportError("Choose a campaign from the list");
+        return;
+      }
+      const worldId = resolveWorldIdForBuildCreate(campaign);
+      if (!worldId) {
+        setImportError("Choose a campaign mapped to an admitted world");
+        return;
+      }
+      setCreating(true);
+      setCreateError(null);
+      setActivationError(null);
+      setImportError(null);
+      try {
+        let record: WorkspaceDocumentRecord;
+        const createState = createControllerRef.current.getState();
+        if (
+          createState.record != null &&
+          createState.phase !== "create_failed" &&
+          pendingImportDocumentId === createState.record.document_id &&
+          !importCommittedRef.current
+        ) {
+          record = createState.record;
+        } else if (
+          createState.record != null &&
+          createState.phase !== "create_failed" &&
+          !importCommittedRef.current
+        ) {
+          record = createState.record;
+        } else {
+          importCommittedRef.current = false;
+          const created = await createControllerRef.current.create(
+            buildWorldbuildingCreateIntent(title, campaign),
+          );
+          void refreshDocuments();
+          if (!created.intentCurrent) {
+            return;
+          }
+          record = created.record;
+          setPendingImportDocumentId(record.document_id);
+        }
+
+        let committedRecord = record;
+        if (!importCommittedRef.current) {
+          committedRecord = await commitSourceImport(record, body);
+        } else {
+          const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+          committedRecord = snapshot.record;
+        }
+
+        try {
+          await activateCreatedRecord(committedRecord);
+        } catch (error) {
+          const message =
+            error instanceof WorkspaceDocumentCreationError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : "Failed to open imported source";
+          setActivationError(
+            importCommittedRef.current
+              ? "Source imported; could not open it yet"
+              : message,
+          );
+        }
+      } catch (error) {
+        const message =
+          error instanceof WorkspaceDocumentCreationError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Failed to import source";
+        if (error instanceof WorkspaceDocumentCreationError && error.code === "create_failed") {
+          setImportError(message);
+        } else {
+          setImportError(message);
+          const retained = createControllerRef.current.getState().record;
+          if (retained != null) {
+            setPendingImportDocumentId(retained.document_id);
+          }
+        }
+      } finally {
+        setCreating(false);
+      }
+    },
+    [
+      activateCreatedRecord,
+      commitSourceImport,
+      pendingImportDocumentId,
+      refreshDocuments,
+    ],
+  );
+
+  const retryImportSource = useCallback(
+    async ({ markdown }: { markdown: string }) => {
+      const body = markdown.trim();
+      if (!body) {
+        setImportError("Paste non-empty Markdown to import");
+        return;
+      }
+      setCreating(true);
+      setImportError(null);
+      setActivationError(null);
+      try {
+        if (importCommittedRef.current) {
+          const record = await resolveImportRecordForRetry();
+          await activateCreatedRecord(record);
+          return;
+        }
+        const record = await resolveImportRecordForRetry();
+        const committedRecord = await commitSourceImport(record, body);
+        try {
+          await activateCreatedRecord(committedRecord);
+        } catch (error) {
+          setActivationError("Source imported; could not open it yet");
+          void error;
+        }
+      } catch (error) {
+        setImportError(error instanceof Error ? error.message : "Failed to import source");
+      } finally {
+        setCreating(false);
+      }
+    },
+    [activateCreatedRecord, commitSourceImport, resolveImportRecordForRetry],
+  );
+
   const retryCreatedDocument = useCallback(async () => {
-    const record = createControllerRef.current.getState().record;
-    if (record == null) {
-      setActivationError("No created source is available to open");
-      return;
-    }
     setCreating(true);
     setActivationError(null);
     try {
+      if (importCommittedRef.current && pendingImportDocumentId) {
+        const snapshot = await getWorkspaceDocumentSnapshot(pendingImportDocumentId);
+        await activateCreatedRecord(snapshot.record);
+        return;
+      }
+      const record = createControllerRef.current.getState().record;
+      if (record == null) {
+        setActivationError("No created source is available to open");
+        return;
+      }
       await activateCreatedRecord(record);
     } catch (error) {
       const message =
@@ -363,12 +612,14 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           ? error.message
           : error instanceof Error
             ? error.message
-            : "Failed to open created worldbuilding source";
+            : importCommittedRef.current
+              ? "Source imported; could not open it yet"
+              : "Failed to open created worldbuilding source";
       setActivationError(message);
     } finally {
       setCreating(false);
     }
-  }, [activateCreatedRecord]);
+  }, [activateCreatedRecord, pendingImportDocumentId]);
 
   const suggestedCreateCampaignId = useMemo(
     () =>
@@ -390,11 +641,15 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     creating,
     createError,
     activationError,
+    importError,
     selectDocument,
     createDocument: (payload) => void createDocument(payload),
+    importSourceDocument: (payload) => void importSourceDocument(payload),
+    retryImportSource: (payload) => void retryImportSource(payload),
     retryCreatedDocument: () => void retryCreatedDocument(),
     refreshDocuments: () => void refreshDocuments(),
     creatableCampaignIds,
     suggestedCreateCampaignId,
+    pendingImportDocumentId,
   };
 }

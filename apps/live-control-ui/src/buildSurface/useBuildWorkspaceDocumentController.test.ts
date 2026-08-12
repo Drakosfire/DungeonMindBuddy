@@ -13,6 +13,8 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     createWorkspaceDocument: vi.fn(),
+    prepareTiptapMarkdownWrite: vi.fn(),
+    commitTiptapMarkdownWrite: vi.fn(),
   };
 });
 
@@ -202,6 +204,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         title: "Ironveil Property",
         campaign_id: "longmont-c2",
         kind: "worldbuilding_source",
+        world_id: "eldyrwild",
       }),
     );
   });
@@ -447,5 +450,145 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => expect(result.current.loadStatus).toBe("error"));
     expect(result.current.activeDocumentId).toBeNull();
     expect(result.current.activeRecord).toBeNull();
+  });
+
+  it("importSourceDocument creates once then source_imports and activates", async () => {
+    const imported = buildRecord(DOC_B, {
+      title: "Hesta's Apothecary",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+      target_relpath: `corpus/eldyrwild-markdown/_dungeonbuddy/sources/${DOC_B}/source.md`,
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, {
+        title: "Hesta's Apothecary",
+        campaign_id: "longmont-c2",
+        world_id: "eldyrwild",
+        content_status: "committed",
+        revision: 2,
+      }),
+    );
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Hesta's Apothecary",
+        campaignId: "longmont-c2",
+        markdown: "# Hesta\n\n| a | b |\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: DOC_B,
+        write_mode: "source_import",
+      }),
+    );
+    expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: DOC_B,
+        write_mode: "source_import",
+      }),
+    );
+  });
+
+  it("failed import retains created record and retry does not POST again", async () => {
+    const imported = buildRecord(DOC_B, {
+      title: "Retry Source",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockRejectedValue(new Error("prepare failed"));
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Retry Source",
+        campaignId: "longmont-c2",
+        markdown: "# Retry\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.importError).toMatch(/prepare failed/i);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingImportDocumentId).toBe(DOC_B);
+
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, { content_status: "committed", revision: 2 }),
+    );
+
+    await act(async () => {
+      result.current.retryImportSource({ markdown: "# Retry\n" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
   });
 });

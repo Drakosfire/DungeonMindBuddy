@@ -10,6 +10,10 @@ export interface BuildDocumentCreateSubmitPayload {
   campaignId: string;
 }
 
+export interface BuildDocumentImportSubmitPayload extends BuildDocumentCreateSubmitPayload {
+  markdown: string;
+}
+
 export interface BuildDocumentCreateControlProps {
   /** Campaigns the operator may create into — must match controller validation. */
   creatableCampaignIds: readonly string[];
@@ -17,8 +21,12 @@ export interface BuildDocumentCreateControlProps {
   creating?: boolean;
   createError?: string | null;
   activationError?: string | null;
+  importError?: string | null;
+  pendingImportDocumentId?: string | null;
   onSubmit: (payload: BuildDocumentCreateSubmitPayload) => void;
+  onImportSubmit: (payload: BuildDocumentImportSubmitPayload) => void;
   onRetryOpen?: () => void;
+  onRetryImport?: (payload: { markdown: string }) => void;
   disabled?: boolean;
 }
 
@@ -36,18 +44,24 @@ export function BuildDocumentCreateControl({
   creating = false,
   createError = null,
   activationError = null,
+  importError = null,
+  pendingImportDocumentId = null,
   onSubmit,
+  onImportSubmit,
   onRetryOpen,
+  onRetryImport,
   disabled = false,
 }: BuildDocumentCreateControlProps) {
   const creatable = new Set(
     creatableCampaignIds.map((id) => id.trim()).filter(Boolean),
   );
-  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [campaignId, setCampaignId] = useState(() =>
     normalizeCreateCampaignId(suggestedCampaignId, creatable),
   );
   const [title, setTitle] = useState("");
+  const [importMarkdown, setImportMarkdown] = useState("");
 
   useEffect(() => {
     const next = normalizeCreateCampaignId(suggestedCampaignId, creatable);
@@ -55,26 +69,33 @@ export function BuildDocumentCreateControl({
       setCampaignId(next);
       return;
     }
-    // Suggestion cleared or not creatable: keep only a still-visible selection.
     setCampaignId((current) => normalizeCreateCampaignId(current, creatable));
   }, [creatableCampaignIds, suggestedCampaignId]);
 
   useEffect(() => {
     if (createError || activationError) {
-      setOpen(true);
+      setCreateOpen(true);
     }
   }, [createError, activationError]);
+
+  useEffect(() => {
+    if (importError) {
+      setImportOpen(true);
+    }
+  }, [importError]);
 
   const wasCreatingRef = useRef(false);
   useEffect(() => {
     const finishedCreating = wasCreatingRef.current && !creating;
     wasCreatingRef.current = creating;
-    if (!finishedCreating || createError || activationError) return;
+    if (!finishedCreating || createError || activationError || importError) return;
     setTitle("");
-    setOpen(false);
-  }, [activationError, createError, creating]);
+    setImportMarkdown("");
+    setCreateOpen(false);
+    setImportOpen(false);
+  }, [activationError, createError, creating, importError]);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleCreateSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (disabled || creating) return;
     const trimmed = title.trim();
@@ -83,57 +104,80 @@ export function BuildDocumentCreateControl({
     onSubmit({ title: trimmed, campaignId: campaign });
   };
 
-  const canSubmit =
+  const handleImportSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (disabled || creating) return;
+    const trimmedTitle = title.trim();
+    const campaign = campaignId.trim();
+    const markdown = importMarkdown.trim();
+    if (!trimmedTitle || !creatable.has(campaign) || !markdown) return;
+    onImportSubmit({ title: trimmedTitle, campaignId: campaign, markdown });
+  };
+
+  const canCreateSubmit =
     !disabled && !creating && Boolean(title.trim()) && creatable.has(campaignId.trim());
+  const canImportSubmit =
+    !disabled &&
+    !creating &&
+    Boolean(title.trim()) &&
+    Boolean(importMarkdown.trim()) &&
+    creatable.has(campaignId.trim());
+
+  const sharedFields = (
+    <>
+      <label className="build-document-create__field build-document-create__field--campaign">
+        <span>Campaign</span>
+        <select
+          data-testid="build-document-create-campaign"
+          value={campaignId}
+          onChange={(event) => setCampaignId(event.target.value)}
+          disabled={disabled || creating}
+          required
+        >
+          {!campaignId ? (
+            <option value="" disabled>
+              Choose campaign
+            </option>
+          ) : null}
+          {creatableCampaignIds.map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="build-document-create__field build-document-create__field--title">
+        <span>Title</span>
+        <input
+          type="text"
+          data-testid="build-document-create-title"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Ironveil Property"
+          disabled={disabled || creating}
+        />
+      </label>
+    </>
+  );
+
   const createForm = (
     <form
       className="build-document-create__form"
       data-testid="build-document-create-form"
-      onSubmit={handleSubmit}
+      onSubmit={handleCreateSubmit}
     >
       <div className="build-document-create__controls">
-        <label className="build-document-create__field build-document-create__field--campaign">
-          <span>Campaign</span>
-          <select
-            data-testid="build-document-create-campaign"
-            value={campaignId}
-            onChange={(event) => setCampaignId(event.target.value)}
-            disabled={disabled || creating}
-            required
-          >
-            {!campaignId ? (
-              <option value="" disabled>
-                Choose campaign
-              </option>
-            ) : null}
-            {creatableCampaignIds.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="build-document-create__field build-document-create__field--title">
-          <span>Title</span>
-          <input
-            type="text"
-            data-testid="build-document-create-title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Ironveil Property"
-            disabled={disabled || creating}
-          />
-        </label>
+        {sharedFields}
         <div className="build-document-create__actions">
           <button
             type="button"
             data-testid="build-document-create-cancel"
-            onClick={() => setOpen(false)}
+            onClick={() => setCreateOpen(false)}
             disabled={disabled || creating}
           >
             Cancel
           </button>
-          <button type="submit" data-testid="build-document-create-submit" disabled={!canSubmit}>
+          <button type="submit" data-testid="build-document-create-submit" disabled={!canCreateSubmit}>
             {creating ? "Creating…" : "Create source"}
           </button>
           {activationError && onRetryOpen ? (
@@ -167,11 +211,83 @@ export function BuildDocumentCreateControl({
     </form>
   );
 
+  const importForm = (
+    <form
+      className="build-document-create__form"
+      data-testid="build-document-import-form"
+      onSubmit={handleImportSubmit}
+    >
+      <div className="build-document-create__controls">
+        {sharedFields}
+        <label className="build-document-create__field build-document-create__field--markdown">
+          <span>Markdown</span>
+          <textarea
+            data-testid="build-document-import-markdown"
+            value={importMarkdown}
+            onChange={(event) => setImportMarkdown(event.target.value)}
+            placeholder="# Source title&#10;&#10;Paste external Markdown here."
+            rows={8}
+            disabled={disabled || creating}
+          />
+        </label>
+        <div className="build-document-create__actions">
+          <button
+            type="button"
+            data-testid="build-document-import-cancel"
+            onClick={() => setImportOpen(false)}
+            disabled={disabled || creating}
+          >
+            Cancel
+          </button>
+          <button type="submit" data-testid="build-document-import-submit" disabled={!canImportSubmit}>
+            {creating ? "Importing…" : "Import source"}
+          </button>
+          {importError && pendingImportDocumentId && onRetryImport ? (
+            <button
+              type="button"
+              data-testid="build-document-import-retry"
+              onClick={() => onRetryImport({ markdown: importMarkdown })}
+              disabled={disabled || creating || !importMarkdown.trim()}
+            >
+              Retry import
+            </button>
+          ) : null}
+          {activationError && onRetryOpen ? (
+            <button
+              type="button"
+              data-testid="build-document-import-retry-open"
+              onClick={onRetryOpen}
+              disabled={disabled || creating}
+            >
+              Retry Open
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="build-document-create__status" aria-live="polite">
+        {importError ? (
+          <p className="build-document-create__error" role="alert" data-testid="build-document-import-error">
+            {importError}
+          </p>
+        ) : null}
+        {activationError ? (
+          <p
+            className="build-document-create__error"
+            role="alert"
+            data-testid="build-document-import-activation-error"
+          >
+            {activationError}
+          </p>
+        ) : null}
+      </div>
+    </form>
+  );
+
   return (
     <div className="build-document-create build-document-create--context" data-testid="build-document-create">
       <SurfaceContextPopover
-        open={open}
-        onOpenChange={setOpen}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
         title="New source"
         align="end"
         placement="beside"
@@ -179,7 +295,7 @@ export function BuildDocumentCreateControl({
         trigger={
           <SurfaceContextAction
             data-testid="build-document-create-open"
-            onClick={() => setOpen(true)}
+            onClick={() => setCreateOpen(true)}
             disabled={disabled || creating}
           >
             + New source
@@ -187,6 +303,25 @@ export function BuildDocumentCreateControl({
         }
       >
         {createForm}
+      </SurfaceContextPopover>
+      <SurfaceContextPopover
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import source"
+        align="end"
+        placement="beside"
+        className="surface-context-popover--wide"
+        trigger={
+          <SurfaceContextAction
+            data-testid="build-document-import-open"
+            onClick={() => setImportOpen(true)}
+            disabled={disabled || creating}
+          >
+            Import source
+          </SurfaceContextAction>
+        }
+      >
+        {importForm}
       </SurfaceContextPopover>
     </div>
   );
