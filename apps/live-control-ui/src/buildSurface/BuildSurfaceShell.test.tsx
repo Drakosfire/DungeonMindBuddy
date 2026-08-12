@@ -125,6 +125,19 @@ function BuildDocumentHarness({ documentId }: { documentId: string }) {
   );
 }
 
+/** Non-empty clean sources default to Read; editor tests must switch explicitly. */
+async function enterEditMode() {
+  const user = (await import("@testing-library/user-event")).default.setup();
+  await waitFor(() => {
+    expect(screen.getByTestId("build-source-mode-edit")).toBeInTheDocument();
+  });
+  await user.click(screen.getByTestId("build-source-mode-edit"));
+  await waitFor(() => {
+    expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
+  });
+  return user;
+}
+
 describe("BuildSurfaceShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -592,6 +605,7 @@ describe("BuildSurfaceShell", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await enterEditMode();
 
     await waitFor(() => {
       expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
@@ -654,6 +668,7 @@ describe("BuildSurfaceShell", () => {
     }));
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await enterEditMode();
 
     await waitFor(() => {
       expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
@@ -758,6 +773,7 @@ describe("BuildSurfaceShell", () => {
     });
 
     render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await enterEditMode();
 
     await waitFor(() => {
       expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
@@ -918,5 +934,133 @@ describe("BuildSurfaceShell", () => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
     });
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+  });
+
+  it("defaults clean non-empty sources to Read with exact snapshot Markdown", async () => {
+    const snapshot = {
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      markdown: [
+        "# Gate Notes",
+        "",
+        "See [Hesta](https://example.com/hesta).",
+        "",
+        "| Role | Name |",
+        "| --- | --- |",
+        "| Gate | Hesta |",
+        "",
+        "<section>raw</section>",
+        "",
+      ].join("\n"),
+    };
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Hesta" })).toHaveAttribute("href", "https://example.com/hesta");
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByTestId("markdown-reader-html-literal")).toHaveTextContent("<section>raw</section>");
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("defaults blank sources to Edit", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      markdown: "   \n",
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
+  });
+
+  it("defaults recovered dirty sources to Edit", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Build Source",
+      campaignId: "eldyrwild",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 1,
+      baseContentSha256: "sha-build",
+      starterContent: { type: "doc", content: [] },
+    });
+    local.dirty = true;
+    local.exported_markdown = "# Dirty local\n";
+    writeWorkspaceDocumentLocalState(window.localStorage, local);
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+  });
+
+  it("switches Read ↔ Edit without write APIs and shows dirty warning in Read", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+
+    const user = await enterEditMode();
+    await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      buildShellTestEditor?.commands.insertContent(" unsaved delta");
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+
+    await user.click(screen.getByTestId("build-source-mode-read"));
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-reader-dirty-warning")).toHaveTextContent(/last saved source/i);
+    expect(screen.getByTestId("build-source-reader")).toHaveTextContent("Build Source");
+    expect(screen.queryByText("unsaved delta")).not.toBeInTheDocument();
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("does not mount the rich reader for load errors or conflicts", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      schema_version: "dmb_workspace_document_snapshot_v1",
+      record: {
+        schema_version: "dmb_workspace_document_record_v1",
+        document_id: DOC_ID,
+        title: "Session Prep",
+        campaign_id: "eldyrwild",
+        target_session: 4,
+        kind: "plan",
+        target_relpath: "corpus/prep.md",
+        status: "active",
+        content_status: "committed",
+        revision: 2,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: null,
+        document_class: null,
+        authority_state: null,
+        visibility_state: null,
+      },
+      markdown: "# Prep with [link](https://example.com)\n",
+      content_sha256: "sha-plan",
+      file_fingerprint: "present",
+      file_exists: true,
+      loaded_revision: 2,
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    expect(await screen.findByTestId("build-surface-error")).toBeInTheDocument();
+    expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("build-source-mode-toggle")).not.toBeInTheDocument();
   });
 });

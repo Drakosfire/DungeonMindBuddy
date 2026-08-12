@@ -243,7 +243,7 @@ describe("BuildSurfacePage", () => {
 
     renderBuildPage();
     await user.click(screen.getByTestId("build-document-create-open"));
-    await user.selectOptions(screen.getByTestId("build-document-create-campaign"), "longmont-c2");
+    await user.selectOptions(screen.getByTestId("build-document-create-destination"), "campaign:longmont-c2");
     await user.type(screen.getByTestId("build-document-create-title"), "Ironveil Property");
     await user.click(screen.getByTestId("build-document-create-submit"));
 
@@ -253,13 +253,16 @@ describe("BuildSurfacePage", () => {
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith({
       title: "Ironveil Property",
       campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
       kind: "worldbuilding_source",
       source_domain: "worldbuilding",
       document_class: "lore",
       authority_state: "draft",
       visibility_state: "internal",
     });
+    // Blank new drafts default to Edit so the canvas is immediately usable.
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
   });
 
@@ -334,11 +337,15 @@ describe("BuildSurfacePage", () => {
 
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}`);
     renderBuildPage();
-    expect(await screen.findByText("Doc A")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Doc A");
+    });
 
     window.history.pushState({}, "", `/build?documentId=${otherId}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
-    expect(await screen.findByText("Doc B")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Doc B");
+    });
 
     await act(async () => {
       window.history.pushState({}, "", "/build");
@@ -480,7 +487,7 @@ describe("BuildSurfacePage", () => {
       diagnostics: [],
     });
     renderBuildPage();
-    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(new URLSearchParams(window.location.search).get("graphNodeId")).toBe("pc_caelynn");
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
@@ -1245,7 +1252,9 @@ describe("BuildSurfacePage", () => {
     window.history.pushState({}, "", `/build?documentId=${DOC_B}&campaign=longmont-c1`);
     window.dispatchEvent(new PopStateEvent("popstate"));
 
-    expect(await screen.findByText("Doc B")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Doc B");
+    });
     await waitFor(() => {
       expect(latestContext?.documentId).toBe(DOC_B);
     });
@@ -1439,7 +1448,7 @@ describe("BuildSurfacePage", () => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
       expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
     });
-    expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent(
+    expect(await screen.findByTestId("build-source-reader")).toHaveTextContent(
       /western warehouse is empty during festival season/i,
     );
 
@@ -1475,6 +1484,8 @@ describe("BuildSurfacePage", () => {
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
     renderBuildPage();
 
+    await waitFor(() => expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument());
+    await user.click(screen.getByTestId("build-source-mode-edit"));
     await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: /Find existing object/ }));
