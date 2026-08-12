@@ -71,7 +71,8 @@ def _utc_now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _atomic_write_json(path: Path, payload: dict) -> None:
+def atomic_write_json(path: Path, payload: dict) -> None:
+    """Atomically write a JSON document (tmp + replace)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(path.suffix + ".tmp")
     temp_path.write_text(
@@ -79,6 +80,10 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
         encoding="utf-8",
     )
     temp_path.replace(path)
+
+
+# Backward-compatible alias for callers that still use the private name.
+_atomic_write_json = atomic_write_json
 
 
 def build_empty_technical_baseline_store(
@@ -323,15 +328,24 @@ def _bind_contributions_to_plan(
     return compute_initialization_plan_digest(plan)
 
 
-def _verify_initialized_world(
+def verify_initialized_world_contents(
     root: Path,
     *,
-    plan: WorldInitializationPlan,
+    world_id: str,
+    ordered_contribution_ids: list[str],
+    ordered_payload_sha256s: list[str],
     baseline_revision_id: str,
     diagnostics: list[str],
 ) -> tuple[int, list[str], bool, bool, bool]:
-    head, _revision, store = load_current_world_graph(root, plan.world_id)
-    index = load_contribution_index(root, plan.world_id)
+    """Verify staged/production world matches the bound contribution plan."""
+    if len(ordered_contribution_ids) != len(ordered_payload_sha256s):
+        raise WorldInitializationError(
+            "ordered contribution ids/digests length mismatch",
+            state="error",
+            diagnostics=diagnostics,
+        )
+    head, _revision, store = load_current_world_graph(root, world_id)
+    index = load_contribution_index(root, world_id)
 
     if index.baseline_revision_id != baseline_revision_id:
         raise WorldInitializationError(
@@ -339,7 +353,7 @@ def _verify_initialized_world(
             state="error",
             diagnostics=diagnostics,
         )
-    if list(index.active_contribution_ids) != plan.ordered_contribution_ids:
+    if list(index.active_contribution_ids) != list(ordered_contribution_ids):
         raise WorldInitializationError(
             "active contribution ids do not match initialization plan",
             state="error",
@@ -347,20 +361,25 @@ def _verify_initialized_world(
         )
 
     ledger_records = [
-        load_contribution_record(root, plan.world_id, item.contribution_id)
-        for item in plan.ordered_contributions
+        load_contribution_record(root, world_id, contribution_id)
+        for contribution_id in ordered_contribution_ids
     ]
-    for expected, record in zip(plan.ordered_contributions, ledger_records):
+    for contribution_id, expected_digest, record in zip(
+        ordered_contribution_ids,
+        ordered_payload_sha256s,
+        ledger_records,
+        strict=True,
+    ):
         actual_digest = compute_contribution_payload_sha256(record)
-        if actual_digest != expected.payload_sha256:
+        if actual_digest != expected_digest:
             raise WorldInitializationError(
                 "persisted contribution payload digest does not match "
-                f"initialization plan: {record.contribution_id}",
+                f"initialization plan: {contribution_id}",
                 state="error",
                 diagnostics=diagnostics,
             )
 
-    rebuild = rebuild_from_contributions(root, world_id=plan.world_id, publish=False)
+    rebuild = rebuild_from_contributions(root, world_id=world_id, publish=False)
     rebuild_equivalent = "rebuild_equivalent_to_head" in rebuild.diagnostics
     if not rebuild_equivalent:
         raise WorldInitializationError(
@@ -371,7 +390,7 @@ def _verify_initialized_world(
 
     contribution_health = build_contribution_integrity_report(
         root,
-        world_id=plan.world_id,
+        world_id=world_id,
         check_rebuild=True,
     )
     contribution_integrity_ok = contribution_health.rebuild_equivalent_to_head is True
@@ -393,7 +412,7 @@ def _verify_initialized_world(
 
     world_health = build_world_graph_integrity_report(
         root,
-        plan.world_id,
+        world_id,
         persist=False,
     )
     world_integrity_ok = world_health.load_ok and world_health.validation_ok
@@ -431,6 +450,25 @@ def _verify_initialized_world(
         rebuild_equivalent,
         world_integrity_ok,
         contribution_integrity_ok,
+    )
+
+
+def _verify_initialized_world(
+    root: Path,
+    *,
+    plan: WorldInitializationPlan,
+    baseline_revision_id: str,
+    diagnostics: list[str],
+) -> tuple[int, list[str], bool, bool, bool]:
+    return verify_initialized_world_contents(
+        root,
+        world_id=plan.world_id,
+        ordered_contribution_ids=list(plan.ordered_contribution_ids),
+        ordered_payload_sha256s=[
+            item.payload_sha256 for item in plan.ordered_contributions
+        ],
+        baseline_revision_id=baseline_revision_id,
+        diagnostics=diagnostics,
     )
 
 
@@ -492,9 +530,13 @@ def _write_initialization_receipt(
     _atomic_write_json(path, receipt.model_dump(mode="json", by_alias=True))
 
 
-def _cleanup_staging(staging_root: Path) -> None:
+def cleanup_world_initialization_staging(staging_root: Path) -> None:
+    """Remove a staged initialization Kernel root if present."""
     if staging_root.exists():
         shutil.rmtree(staging_root)
+
+
+_cleanup_staging = cleanup_world_initialization_staging
 
 
 def _best_effort_diagnostic(diagnostics: list[str], message: str) -> None:
@@ -506,16 +548,45 @@ def _best_effort_diagnostic(diagnostics: list[str], message: str) -> None:
         pass
 
 
-def _stage_and_build_world(
+def stage_and_verify_world_initialization(
     root: Path,
     *,
-    plan: WorldInitializationPlan,
+    world_id: str,
+    campaign_id: str,
+    focus_session_id: str,
     contributions: list[GraphContribution],
+    ordered_contribution_ids: list[str],
+    ordered_payload_sha256s: list[str],
+    initialization_plan_digest: str,
+    initialization_attestation_digest: str,
+    baseline_operation_id: str,
     diagnostics: list[str],
 ) -> tuple[Path, Path, str]:
+    """Shared staging transaction: empty baseline → merge → verify.
+
+    Returns ``(staging_root, staged_world_dir, baseline_revision_id)``.
+    On failure, cleans staging and re-raises.
+    """
+    if list(ordered_contribution_ids) != [item.contribution_id for item in contributions]:
+        raise WorldInitializationError(
+            "contribution list is not bound to ordered_contribution_ids",
+            state="error",
+            diagnostics=[
+                *diagnostics,
+                f"expected_ids={ordered_contribution_ids}",
+                f"actual_ids={[item.contribution_id for item in contributions]}",
+            ],
+        )
+    if len(ordered_contribution_ids) != len(ordered_payload_sha256s):
+        raise WorldInitializationError(
+            "ordered contribution ids/digests length mismatch",
+            state="error",
+            diagnostics=diagnostics,
+        )
+
     run_id = uuid.uuid4().hex
-    staging_root = world_paths.staging_run_dir(root, plan.world_id, run_id)
-    staged_world = world_paths.staged_world_dir(staging_root, plan.world_id)
+    staging_root = world_paths.staging_run_dir(root, world_id, run_id)
+    staged_world = world_paths.staged_world_dir(staging_root, world_id)
     if staging_root.exists():
         raise WorldInitializationError(
             f"staging directory already exists: {staging_root}",
@@ -526,29 +597,20 @@ def _stage_and_build_world(
     staging_root.mkdir(parents=True, exist_ok=False)
     try:
         baseline = build_empty_technical_baseline_store(
-            plan.campaign_id,
-            plan.focus_session_id,
-        )
-        plan_digest = compute_initialization_plan_digest(plan)
-        attestation_digest = compute_initialization_attestation_digest(
-            plan.approval_attestation
+            campaign_id,
+            focus_session_id,
         )
         baseline = stamp_initialization_authority(
             baseline,
-            initialization_contribution_ids=list(plan.ordered_contribution_ids),
-            initialization_plan_digest=plan_digest,
-            initialization_attestation_digest=attestation_digest,
+            initialization_contribution_ids=list(ordered_contribution_ids),
+            initialization_plan_digest=initialization_plan_digest,
+            initialization_attestation_digest=initialization_attestation_digest,
         )
         baseline_result = publish_world_revision(
             staging_root,
-            plan.world_id,
+            world_id,
             baseline,
-            operation_ids=[
-                _baseline_operation_id(
-                    plan.world_id,
-                    plan.approval_attestation.bundle_id,
-                )
-            ],
+            operation_ids=[baseline_operation_id],
             expected_parent_revision_id=None,
         )
         baseline_revision_id = baseline_result.revision.revision_id
@@ -558,7 +620,7 @@ def _stage_and_build_world(
         for contribution in contributions:
             merge_result = merge_contribution_to_revision(
                 staging_root,
-                world_id=plan.world_id,
+                world_id=world_id,
                 contribution=contribution,
                 expected_parent_revision_id=parent_revision_id,
             )
@@ -573,25 +635,59 @@ def _stage_and_build_world(
                 f"merged_contribution:{contribution.contribution_id}:{parent_revision_id}"
             )
 
-        _verify_initialized_world(
+        verify_initialized_world_contents(
             staging_root,
-            plan=plan,
+            world_id=world_id,
+            ordered_contribution_ids=list(ordered_contribution_ids),
+            ordered_payload_sha256s=list(ordered_payload_sha256s),
             baseline_revision_id=baseline_revision_id,
             diagnostics=diagnostics,
         )
         return staging_root, staged_world, baseline_revision_id
     except Exception:
-        _cleanup_staging(staging_root)
+        cleanup_world_initialization_staging(staging_root)
         raise
 
 
-def _promote_staged_world(
+def _stage_and_build_world(
+    root: Path,
+    *,
+    plan: WorldInitializationPlan,
+    contributions: list[GraphContribution],
+    diagnostics: list[str],
+) -> tuple[Path, Path, str]:
+    plan_digest = compute_initialization_plan_digest(plan)
+    attestation_digest = compute_initialization_attestation_digest(
+        plan.approval_attestation
+    )
+    return stage_and_verify_world_initialization(
+        root,
+        world_id=plan.world_id,
+        campaign_id=plan.campaign_id,
+        focus_session_id=plan.focus_session_id,
+        contributions=contributions,
+        ordered_contribution_ids=list(plan.ordered_contribution_ids),
+        ordered_payload_sha256s=[
+            item.payload_sha256 for item in plan.ordered_contributions
+        ],
+        initialization_plan_digest=plan_digest,
+        initialization_attestation_digest=attestation_digest,
+        baseline_operation_id=_baseline_operation_id(
+            plan.world_id,
+            plan.approval_attestation.bundle_id,
+        ),
+        diagnostics=diagnostics,
+    )
+
+
+def promote_staged_world_initialization(
     root: Path,
     *,
     world_id: str,
     staged_world: Path,
     diagnostics: list[str],
 ) -> None:
+    """Atomically rename a staged world directory into production under lock."""
     target_world = world_paths.world_dir(root, world_id)
     if target_world.exists():
         raise WorldInitializationError(
@@ -615,6 +711,9 @@ def _promote_staged_world(
     except Exception:
         if not committed:
             raise
+
+
+_promote_staged_world = promote_staged_world_initialization
 
 
 def initialize_world_from_contributions(

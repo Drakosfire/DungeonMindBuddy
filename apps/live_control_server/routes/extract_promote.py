@@ -19,6 +19,10 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareResponse,
     ExactRunReviewPackage,
     ExtractPromoteStatusResponse,
+    FirstWorldGraphConfirmReceipt,
+    FirstWorldGraphConfirmRequest,
+    FirstWorldGraphPlan,
+    FirstWorldGraphPrepareRequest,
     WorldbuildingWritePlanConfirmReceipt,
     WorldbuildingWritePlanConfirmRequest,
     WorldbuildingWritePlanPrepareRequest,
@@ -27,10 +31,12 @@ from apps.live_control_server.models.extract_promote import (
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     confirm,
+    confirm_first_world,
     confirm_worldbuilding,
     get_exact_run_review_package,
     get_status,
     prepare,
+    prepare_first_world,
     prepare_worldbuilding,
 )
 
@@ -246,6 +252,78 @@ def post_worldbuilding_write_plan_confirm(
         return _error_response(
             ExtractPromoteError(
                 "The worldbuilding write-plan confirm operation failed unexpectedly.",
+                code="extract_promote_internal_error",
+                status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
+                        severity="error",
+                    )
+                ],
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/worldbuilding/first-world/prepare",
+    response_model=FirstWorldGraphPlan,
+)
+def post_first_world_prepare(
+    request_context: Request,
+    request: FirstWorldGraphPrepareRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_selector_query(request_context)
+        response = prepare_first_world(request)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "first-world prepare failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
+        return _error_response(
+            ExtractPromoteError(
+                "The first-world prepare operation failed unexpectedly.",
+                code="extract_promote_internal_error",
+                status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
+                        severity="error",
+                    )
+                ],
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/worldbuilding/first-world/confirm",
+    response_model=FirstWorldGraphConfirmReceipt,
+)
+def post_first_world_confirm(
+    request_context: Request,
+    request: FirstWorldGraphConfirmRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_selector_query(request_context)
+        response = confirm_first_world(request)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "first-world confirm failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
+        return _error_response(
+            ExtractPromoteError(
+                "The first-world confirm operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
                 diagnostics=[

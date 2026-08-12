@@ -162,7 +162,12 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
         )
     known_domains = KNOWN_SOURCE_DOMAINS
     focus_session_id = fixture.get("focus_session_id")
-    _require(bool(focus_session_id), errors, "top-level focus_session_id is required")
+    # Empty string is valid technical "no focus" (sessionless / world-level graphs).
+    _require(
+        isinstance(focus_session_id, str),
+        errors,
+        "top-level focus_session_id is required",
+    )
 
     for node_id, node in nodes.items():
         _require(

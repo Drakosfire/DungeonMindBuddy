@@ -10,6 +10,10 @@ import type {
   ExtractPromotePrepareRequest,
   ExtractPromotePrepareResponse,
   ExtractPromoteStatusResponse,
+  FirstWorldGraphConfirmReceipt,
+  FirstWorldGraphConfirmRequest,
+  FirstWorldGraphPlan,
+  FirstWorldGraphPrepareRequest,
 } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
@@ -113,4 +117,41 @@ export async function confirmExtractPromote(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function prepareFirstWorldGraph(
+  body: Omit<FirstWorldGraphPrepareRequest, "schema"> & {
+    schema?: FirstWorldGraphPrepareRequest["schema"];
+  },
+): Promise<FirstWorldGraphPlan> {
+  const payload: FirstWorldGraphPrepareRequest = {
+    schema: "dmb_first_world_graph_prepare_request_v1",
+    runId: body.runId,
+    decisions: body.decisions,
+  };
+  return extractPromoteFetch<FirstWorldGraphPlan>(
+    "/api/live/extract-promote/worldbuilding/first-world/prepare",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function confirmFirstWorldGraph(
+  body: Omit<FirstWorldGraphConfirmRequest, "schema"> & {
+    schema?: FirstWorldGraphConfirmRequest["schema"];
+  },
+): Promise<FirstWorldGraphConfirmReceipt> {
+  const payload: FirstWorldGraphConfirmRequest = {
+    schema: "dmb_first_world_graph_confirm_request_v1",
+    plan: body.plan,
+  };
+  return extractPromoteFetch<FirstWorldGraphConfirmReceipt>(
+    "/api/live/extract-promote/worldbuilding/first-world/confirm",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }
