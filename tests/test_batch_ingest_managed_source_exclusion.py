@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import importlib.util
+import sys
 import uuid
 from pathlib import Path
 
-from tools.batch_ingest_corpus import collect_legacy_corpus_markdown_paths
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+_BATCH_INGEST_PATH = ROOT / "tools" / "batch_ingest_corpus.py"
+_spec = importlib.util.spec_from_file_location("batch_ingest_corpus", _BATCH_INGEST_PATH)
+assert _spec is not None and _spec.loader is not None
+_batch_ingest = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_batch_ingest)
+collect_legacy_corpus_markdown_paths = _batch_ingest.collect_legacy_corpus_markdown_paths
 
 
 def test_collect_legacy_corpus_markdown_paths_excludes_dungeonbuddy_managed_storage(

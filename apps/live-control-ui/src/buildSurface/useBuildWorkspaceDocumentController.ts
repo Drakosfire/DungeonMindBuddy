@@ -6,7 +6,7 @@ import {
   listWorkspaceDocuments,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
 import {
   classifyBuildDocumentScope,
   getWorldIdForCampaign,
@@ -87,6 +87,52 @@ function buildWorldbuildingCreateIntent(
   };
 }
 
+const PENDING_SOURCE_IMPORT_STORAGE_KEY = "dmb.build.pendingSourceImport.v1";
+
+function readPendingImportDocumentIdFromStorage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(PENDING_SOURCE_IMPORT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { documentId?: string };
+    const documentId = parsed.documentId?.trim();
+    return documentId || null;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingImportDocumentIdToStorage(documentId: string | null): void {
+  if (typeof window === "undefined") return;
+  if (documentId) {
+    sessionStorage.setItem(
+      PENDING_SOURCE_IMPORT_STORAGE_KEY,
+      JSON.stringify({ documentId }),
+    );
+  } else {
+    sessionStorage.removeItem(PENDING_SOURCE_IMPORT_STORAGE_KEY);
+  }
+}
+
+function isImportableEmptyActiveSource(
+  record: WorkspaceDocumentRecord | null | undefined,
+): record is WorkspaceDocumentRecord {
+  return (
+    record != null &&
+    record.kind === "worldbuilding_source" &&
+    record.status === "active" &&
+    record.content_status === "draft"
+  );
+}
+
+function isSnapshotImportCommitted(snapshot: WorkspaceDocumentSnapshot): boolean {
+  return (
+    snapshot.record.content_status === "committed" &&
+    snapshot.file_exists &&
+    snapshot.markdown.length > 0
+  );
+}
+
 export interface BuildWorkspaceDocumentController {
   activeRecord: WorkspaceDocumentRecord | null;
   activeDocumentId: string | null;
@@ -138,9 +184,16 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const [createError, setCreateError] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [pendingImportDocumentId, setPendingImportDocumentId] = useState<string | null>(
-    null,
+  const [pendingImportDocumentId, setPendingImportDocumentIdState] = useState<string | null>(
+    () => readPendingImportDocumentIdFromStorage(),
   );
+  const pendingImportDocumentIdRef = useRef<string | null>(pendingImportDocumentId);
+  pendingImportDocumentIdRef.current = pendingImportDocumentId;
+  const persistPendingImportDocumentId = useCallback((documentId: string | null) => {
+    pendingImportDocumentIdRef.current = documentId;
+    setPendingImportDocumentIdState(documentId);
+    writePendingImportDocumentIdToStorage(documentId);
+  }, []);
   const importCommittedRef = useRef(false);
 
   const createControllerRef = useRef(createWorkspaceDocumentCreationController());
@@ -221,8 +274,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           setCreateError(null);
           setActivationError(null);
           setImportError(null);
-          setPendingImportDocumentId(null);
-          importCommittedRef.current = false;
+          if (!pendingImportDocumentIdRef.current) {
+            importCommittedRef.current = false;
+          }
         }
         void refreshDocuments();
 
@@ -283,7 +337,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         return false;
       }
     },
-    [refreshDocuments],
+    [persistPendingImportDocumentId, refreshDocuments],
   );
 
   useEffect(() => {
@@ -305,8 +359,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       setCreateError(null);
       setActivationError(null);
       setImportError(null);
-      setPendingImportDocumentId(null);
-      importCommittedRef.current = false;
+      if (documentId !== pendingImportDocumentIdRef.current) {
+        persistPendingImportDocumentId(null);
+        importCommittedRef.current = false;
+      }
       const record = documents?.find((entry) => entry.document_id === documentId);
       const campaignHint =
         record?.campaign_id ??
@@ -321,7 +377,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       );
       void loadBuildDocument(search, { mode: "push", search });
     },
-    [documents, loadBuildDocument],
+    [documents, loadBuildDocument, persistPendingImportDocumentId],
   );
 
   const activateCreatedRecord = useCallback(
@@ -337,51 +393,70 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       );
       if (applied) {
         setActivationError(null);
-        setPendingImportDocumentId(null);
+        persistPendingImportDocumentId(null);
         importCommittedRef.current = false;
       }
       return applied;
     },
-    [loadBuildDocument],
+    [loadBuildDocument, persistPendingImportDocumentId],
   );
 
   const commitSourceImport = useCallback(
     async (record: WorkspaceDocumentRecord, markdown: string): Promise<WorkspaceDocumentRecord> => {
-      const prepared = await prepareTiptapMarkdownWrite({
-        document_id: record.document_id,
-        markdown,
-        expected_revision: record.revision,
-        write_mode: "source_import",
-      });
-      if (!prepared.writer_confirm_token) {
-        throw new Error("Source import prepare did not return a confirm token");
+      try {
+        const prepared = await prepareTiptapMarkdownWrite({
+          document_id: record.document_id,
+          markdown,
+          expected_revision: record.revision,
+          write_mode: "source_import",
+        });
+        if (!prepared.writer_confirm_token) {
+          throw new Error("Source import prepare did not return a confirm token");
+        }
+        const committed = await commitTiptapMarkdownWrite({
+          document_id: record.document_id,
+          markdown,
+          writer_confirm_token: prepared.writer_confirm_token,
+          expected_revision: record.revision,
+          write_mode: "source_import",
+        });
+        importCommittedRef.current = true;
+        persistPendingImportDocumentId(record.document_id);
+        return committed.committed_record;
+      } catch (error) {
+        const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+        if (isSnapshotImportCommitted(snapshot)) {
+          importCommittedRef.current = true;
+          persistPendingImportDocumentId(record.document_id);
+          return snapshot.record;
+        }
+        throw error;
       }
-      const committed = await commitTiptapMarkdownWrite({
-        document_id: record.document_id,
-        markdown,
-        writer_confirm_token: prepared.writer_confirm_token,
-        expected_revision: record.revision,
-        write_mode: "source_import",
-      });
-      importCommittedRef.current = true;
-      setPendingImportDocumentId(record.document_id);
-      return committed.committed_record;
     },
-    [],
+    [persistPendingImportDocumentId],
   );
 
   const resolveImportRecordForRetry = useCallback(async (): Promise<WorkspaceDocumentRecord> => {
+    const pendingId = pendingImportDocumentIdRef.current;
+    if (pendingId) {
+      const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
+      if (isSnapshotImportCommitted(snapshot)) {
+        importCommittedRef.current = true;
+        return snapshot.record;
+      }
+      return snapshot.record;
+    }
+
     const retained = createControllerRef.current.getState().record;
     if (retained == null) {
       throw new Error("No created source is available to import into");
     }
-    if (importCommittedRef.current) {
-      const snapshot = await getWorkspaceDocumentSnapshot(retained.document_id);
-      if (snapshot.record.content_status === "committed") {
-        return snapshot.record;
-      }
+    const snapshot = await getWorkspaceDocumentSnapshot(retained.document_id);
+    if (isSnapshotImportCommitted(snapshot)) {
+      importCommittedRef.current = true;
+      return snapshot.record;
     }
-    return retained;
+    return snapshot.record;
   }, []);
 
   const creatableCampaignIds = useMemo(
@@ -412,7 +487,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       setActivationError(null);
       setImportError(null);
       importCommittedRef.current = false;
-      setPendingImportDocumentId(null);
+      persistPendingImportDocumentId(null);
       try {
         const created = await createControllerRef.current.create(
           buildWorldbuildingCreateIntent(title, campaign),
@@ -446,7 +521,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         setCreating(false);
       }
     },
-    [activateCreatedRecord, refreshDocuments],
+    [activateCreatedRecord, persistPendingImportDocumentId, refreshDocuments],
   );
 
   const importSourceDocument = useCallback(
@@ -460,8 +535,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       markdown: string;
     }) => {
       const campaign = campaignId.trim();
-      const body = markdown.trim();
-      if (!body) {
+      if (markdown.length === 0) {
         setImportError("Paste non-empty Markdown to import");
         return;
       }
@@ -481,13 +555,18 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       try {
         let record: WorkspaceDocumentRecord;
         const createState = createControllerRef.current.getState();
+        const pendingId = pendingImportDocumentIdRef.current;
         if (
+          pendingId &&
           createState.record != null &&
           createState.phase !== "create_failed" &&
-          pendingImportDocumentId === createState.record.document_id &&
+          pendingId === createState.record.document_id &&
           !importCommittedRef.current
         ) {
           record = createState.record;
+        } else if (isImportableEmptyActiveSource(activeRecordRef.current)) {
+          record = activeRecordRef.current;
+          persistPendingImportDocumentId(record.document_id);
         } else {
           importCommittedRef.current = false;
           const created = await createControllerRef.current.create(
@@ -498,12 +577,12 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
             return;
           }
           record = created.record;
-          setPendingImportDocumentId(record.document_id);
+          persistPendingImportDocumentId(record.document_id);
         }
 
         let committedRecord = record;
         if (!importCommittedRef.current) {
-          committedRecord = await commitSourceImport(record, body);
+          committedRecord = await commitSourceImport(record, markdown);
         } else {
           const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
           committedRecord = snapshot.record;
@@ -537,7 +616,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           setImportError(message);
           const retained = createControllerRef.current.getState().record;
           if (retained != null) {
-            setPendingImportDocumentId(retained.document_id);
+            persistPendingImportDocumentId(retained.document_id);
+          } else if (pendingImportDocumentIdRef.current) {
+            persistPendingImportDocumentId(pendingImportDocumentIdRef.current);
           }
         }
       } finally {
@@ -547,15 +628,14 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     [
       activateCreatedRecord,
       commitSourceImport,
-      pendingImportDocumentId,
+      persistPendingImportDocumentId,
       refreshDocuments,
     ],
   );
 
   const retryImportSource = useCallback(
     async ({ markdown }: { markdown: string }) => {
-      const body = markdown.trim();
-      if (!body) {
+      if (markdown.length === 0) {
         setImportError("Paste non-empty Markdown to import");
         return;
       }
@@ -563,13 +643,12 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       setImportError(null);
       setActivationError(null);
       try {
+        const record = await resolveImportRecordForRetry();
         if (importCommittedRef.current) {
-          const record = await resolveImportRecordForRetry();
           await activateCreatedRecord(record);
           return;
         }
-        const record = await resolveImportRecordForRetry();
-        const committedRecord = await commitSourceImport(record, body);
+        const committedRecord = await commitSourceImport(record, markdown);
         try {
           await activateCreatedRecord(committedRecord);
         } catch (error) {
@@ -589,8 +668,15 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     setCreating(true);
     setActivationError(null);
     try {
-      if (importCommittedRef.current && pendingImportDocumentId) {
-        const snapshot = await getWorkspaceDocumentSnapshot(pendingImportDocumentId);
+      const pendingId = pendingImportDocumentIdRef.current;
+      if (pendingId) {
+        const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
+        if (isSnapshotImportCommitted(snapshot)) {
+          importCommittedRef.current = true;
+        }
+      }
+      if (importCommittedRef.current && pendingId) {
+        const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
         await activateCreatedRecord(snapshot.record);
         return;
       }
