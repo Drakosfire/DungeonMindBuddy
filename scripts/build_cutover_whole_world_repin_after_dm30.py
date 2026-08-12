@@ -12,7 +12,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from apps.live_control_server.services.cutover_whole_world_repin_after_dm30 import (
+from apps.live_control_server.services.cutover_whole_world_repin_after_dm30 import (  # noqa: E402
     CutoverWholeWorldRepinAfterDm30Error,
     build_cutover_whole_world_repin_after_dm30,
     get_cutover_whole_world_repin_after_dm30_status,
