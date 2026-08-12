@@ -261,4 +261,68 @@ describe("GraphObjectCard", () => {
       }),
     );
   });
+
+  it("shows Read source per openable evidence row and invokes callback for clicked row", async () => {
+    const user = userEvent.setup();
+    const onReadSourceEvidence = vi.fn();
+    const modelWithSourceEvidence: GraphObjectCardViewModel = {
+      ...planModel,
+      evidence: [
+        {
+          id: "ev-open-1",
+          label: "First passage",
+          sourceArtifactId: "artifact-a",
+          sourceSpanRefId: "span-1",
+          sourceDomain: "worldbuilding",
+          canOpenSource: true,
+          canHighlightSpan: true,
+        },
+        {
+          id: "ev-open-2",
+          label: "Second passage",
+          sourceArtifactId: "artifact-a",
+          sourceSpanRefId: "span-2",
+          sourceDomain: "worldbuilding",
+          canOpenSource: true,
+          canHighlightSpan: true,
+        },
+        {
+          id: "ev-closed",
+          label: "Recap only",
+          sourceArtifactId: "artifact-recap",
+          sourceDomain: "recap",
+          canOpenSource: false,
+        },
+      ],
+      details: {
+        ...planModel.details!,
+        evidenceCount: 3,
+      },
+    };
+
+    render(
+      <GraphObjectCard
+        mode="plan"
+        model={modelWithSourceEvidence}
+        onReadSourceEvidence={onReadSourceEvidence}
+      />,
+    );
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    await user.click(within(card).getByText("Details"));
+
+    const readButtons = within(card).getAllByRole("button", { name: "Read source" });
+    expect(readButtons).toHaveLength(2);
+    expect(within(card).queryByText("Recap only · recap")).toBeInTheDocument();
+    expect(within(card).queryAllByRole("button", { name: "Read source" })).toHaveLength(2);
+
+    await user.click(readButtons[0]!);
+    expect(onReadSourceEvidence).toHaveBeenCalledOnce();
+    expect(onReadSourceEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "ev-open-1",
+        sourceSpanRefId: "span-1",
+      }),
+    );
+  });
 });

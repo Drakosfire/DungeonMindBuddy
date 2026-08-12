@@ -54,9 +54,12 @@ export function evidenceViewModelsFromNode(
     id: badge.evidence_ref_id,
     label: badge.label ?? null,
     sourceArtifactId: badge.source_artifact_id,
+    sourceSpanRefId: badge.source_span_ref_id ?? null,
     sourceDomain: badge.source_domain,
     sourcePath: null,
     excerpt: null,
+    canOpenSource: badge.can_open_source,
+    canHighlightSpan: badge.can_highlight_span,
   }));
 }
 

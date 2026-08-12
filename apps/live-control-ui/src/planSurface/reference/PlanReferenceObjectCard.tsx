@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { GraphObjectCard } from "../../graphObjectCard";
-import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import type {
+  GraphObjectEvidenceViewModel,
+  GraphObjectRelationshipViewModel,
+} from "../../graphObjectCard";
 import { ResolvedGraphObjectProjection } from "../../graphReference/ResolvedGraphObjectProjection";
 import type {
   GraphReferenceProjectionBinding,
@@ -12,6 +15,7 @@ import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
 import { buildPlanGraphObjectActions } from "./buildPlanGraphObjectActions";
+import { resolveAndNavigateToBuildSource } from "../../sourceNavigation/sourceNavigation";
 
 export interface PlanReferenceObjectCardProps {
   resolution: GraphReferenceResolution;
@@ -125,6 +129,8 @@ export function PlanReferenceObjectCard({
   glanceOnly = false,
 }: PlanReferenceObjectCardProps) {
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
+  const [resolvingEvidenceId, setResolvingEvidenceId] = useState<string | null>(null);
+  const [evidenceErrors, setEvidenceErrors] = useState<Record<string, string>>({});
   const graphReferenceBindingRef = useRef(graphReferenceBinding);
   graphReferenceBindingRef.current = graphReferenceBinding;
   const selectedObjectKey = resolution.kind === "resolved_graph"
@@ -154,6 +160,8 @@ export function PlanReferenceObjectCard({
   }, []);
   useEffect(() => {
     setNavigatingRelationshipId(null);
+    setResolvingEvidenceId(null);
+    setEvidenceErrors({});
   }, [selectedObjectKey]);
 
   const resolverProjectionState = graphReferenceBinding?.resolverState ?? null;
@@ -216,8 +224,40 @@ export function PlanReferenceObjectCard({
 
   const relationshipsDisabled =
     Boolean(navigatingRelationshipId)
+    || Boolean(resolvingEvidenceId)
     || resolverProjectionState === "loading"
     || resolverProjectionState === "error";
+
+  const onReadSourceEvidence = useCallback(
+    async (evidence: GraphObjectEvidenceViewModel) => {
+      if (!evidence.sourceArtifactId || !evidence.sourceSpanRefId) return;
+      if (resolvingEvidenceId) return;
+
+      setResolvingEvidenceId(evidence.id);
+      setEvidenceErrors((previous) => {
+        const next = { ...previous };
+        delete next[evidence.id];
+        return next;
+      });
+      try {
+        await resolveAndNavigateToBuildSource({
+          sourceArtifactId: evidence.sourceArtifactId,
+          sourceSpanRefId: evidence.sourceSpanRefId,
+          navigate: (href) => {
+            window.location.assign(href);
+          },
+          currentSearch: typeof window !== "undefined" ? window.location.search : "",
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Source navigation is unavailable.";
+        setEvidenceErrors((previous) => ({ ...previous, [evidence.id]: message }));
+      } finally {
+        setResolvingEvidenceId(null);
+      }
+    },
+    [resolvingEvidenceId],
+  );
 
   if (resolution.kind === "resolved_graph") {
     const model = {
@@ -242,6 +282,9 @@ export function PlanReferenceObjectCard({
         onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
         relationshipsDisabled={relationshipsDisabled}
+        onReadSourceEvidence={onReadSourceEvidence}
+        resolvingEvidenceId={resolvingEvidenceId}
+        evidenceErrors={evidenceErrors}
         aria-label={`${model.label} graph object`}
       />
     );

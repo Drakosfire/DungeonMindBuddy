@@ -27,7 +27,18 @@ vi.mock("../../api/liveApi", async () => {
   };
 });
 
+vi.mock("../../sourceNavigation/sourceNavigation", async () => {
+  const actual = await vi.importActual<typeof import("../../sourceNavigation/sourceNavigation")>(
+    "../../sourceNavigation/sourceNavigation",
+  );
+  return {
+    ...actual,
+    resolveAndNavigateToBuildSource: vi.fn(),
+  };
+});
+
 import * as liveApi from "../../api/liveApi";
+import { resolveAndNavigateToBuildSource } from "../../sourceNavigation/sourceNavigation";
 import { FIXTURE_DOC_ID } from "../config/planSessionDescriptor";
 
 const innNode: GraphProjectionNodeView = {
@@ -56,6 +67,11 @@ const glowkindleNode: GraphProjectionNodeView = {
       label: "Session recap mention",
       source_domain: "recap",
       source_artifact_id: "artifact-1",
+      evidence_role: "mention",
+      is_focus_session_evidence: true,
+      can_open_source: true,
+      can_highlight_span: false,
+      source_span_ref_id: "span-glow-1",
     },
   ],
   adjacency: [
@@ -249,6 +265,7 @@ function mockBinding(
 
 describe("PlanReferenceObjectCard", () => {
   beforeEach(() => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockReset();
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
@@ -326,6 +343,42 @@ describe("PlanReferenceObjectCard", () => {
 
     await user.click(within(card).getByRole("button", { name: /Inspect source\/evidence/i }));
     expect(details).toHaveAttribute("open");
+  });
+
+  it("resolves Read source through the server navigation client", async () => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockResolvedValue(undefined);
+    const resolution = resolvedGraphFromNode(glowkindleNode);
+    const user = userEvent.setup();
+
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    const card = screen.getByLabelText(/Glowkindle graph object/i);
+    await user.click(within(card).getByText("Details"));
+    await user.click(within(card).getByRole("button", { name: "Read source" }));
+
+    expect(resolveAndNavigateToBuildSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceArtifactId: "artifact-1",
+        sourceSpanRefId: "span-glow-1",
+        navigate: expect.any(Function),
+      }),
+    );
+  });
+
+  it("shows row-local error when Read source resolution fails", async () => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockRejectedValue(
+      new Error("Source span not found."),
+    );
+    const resolution = resolvedGraphFromNode(glowkindleNode);
+    const user = userEvent.setup();
+
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    const card = screen.getByLabelText(/Glowkindle graph object/i);
+    await user.click(within(card).getByText("Details"));
+    await user.click(within(card).getByRole("button", { name: "Read source" }));
+
+    expect(await within(card).findByRole("alert")).toHaveTextContent("Source span not found.");
   });
 
   it("renders Open statblock tool for grounded statblock graph nodes when projection can open tools", async () => {

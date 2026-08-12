@@ -10,6 +10,7 @@ import type {
   GraphObjectActionViewModel,
   GraphObjectCardMode,
   GraphObjectCardViewModel,
+  GraphObjectEvidenceViewModel,
   GraphObjectRelationshipViewModel,
 } from "./types";
 
@@ -35,8 +36,68 @@ export interface GraphObjectCardProps {
   actionsSlot?: ReactNode;
   /** Optional override for collapsed details (e.g. review status / merge provenance). */
   detailsSlot?: ReactNode;
+  /** Invoked when the GM chooses Read source on one explicit evidence row. */
+  onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
+  /** Disables the clicked evidence row while source navigation resolves. */
+  resolvingEvidenceId?: string | null;
+  /** Row-local resolver errors keyed by evidence id. */
+  evidenceErrors?: Record<string, string>;
   className?: string;
   "aria-label"?: string;
+}
+
+function evidenceRowCanReadSource(item: GraphObjectEvidenceViewModel): boolean {
+  return Boolean(
+    item.canOpenSource && item.sourceArtifactId && item.sourceSpanRefId,
+  );
+}
+
+export function GraphObjectEvidenceRows({
+  evidence,
+  onReadSourceEvidence,
+  resolvingEvidenceId = null,
+  evidenceErrors = {},
+}: {
+  evidence: GraphObjectEvidenceViewModel[];
+  onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
+  resolvingEvidenceId?: string | null;
+  evidenceErrors?: Record<string, string>;
+}) {
+  return (
+    <>
+      {evidence.map((item) => {
+        const canRead = evidenceRowCanReadSource(item);
+        const isResolving = resolvingEvidenceId === item.id;
+        const error = evidenceErrors[item.id];
+
+        return (
+          <div key={item.id} className="graph-object-card__evidence-row">
+            <p className="graph-object-card__muted">
+              {item.label ?? item.id}
+              {item.sourceDomain ? ` · ${item.sourceDomain}` : ""}
+            </p>
+            {canRead && onReadSourceEvidence ? (
+              <>
+                <button
+                  type="button"
+                  className="graph-object-card__read-source-button"
+                  disabled={isResolving}
+                  onClick={() => onReadSourceEvidence(item)}
+                >
+                  {isResolving ? "Opening source…" : "Read source"}
+                </button>
+                {error ? (
+                  <p className="graph-object-card__evidence-error" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 function RelationshipRowBody({
@@ -280,10 +341,16 @@ function DefaultDetails({
   model,
   mode,
   showDebugIdentifiers,
+  onReadSourceEvidence,
+  resolvingEvidenceId,
+  evidenceErrors,
 }: {
   model: GraphObjectCardViewModel;
   mode: GraphObjectCardMode;
   showDebugIdentifiers: boolean;
+  onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
+  resolvingEvidenceId?: string | null;
+  evidenceErrors?: Record<string, string>;
 }) {
   const details = model.details;
   const evidence = model.evidence ?? [];
@@ -332,12 +399,12 @@ function DefaultDetails({
             <strong>Source phrase:</strong> {details.sourceAnchorText}
           </p>
         ) : null}
-        {evidence.map((item) => (
-          <p key={item.id} className="graph-object-card__muted">
-            {item.label ?? item.id}
-            {item.sourceDomain ? ` · ${item.sourceDomain}` : ""}
-          </p>
-        ))}
+        <GraphObjectEvidenceRows
+          evidence={evidence}
+          onReadSourceEvidence={onReadSourceEvidence}
+          resolvingEvidenceId={resolvingEvidenceId}
+          evidenceErrors={evidenceErrors}
+        />
       </section>
       {details?.lines?.length ? (
         <section className="graph-object-card__details-section" aria-label="Additional details">
@@ -376,6 +443,9 @@ export function GraphObjectCard({
   relationshipsSlot,
   actionsSlot,
   detailsSlot,
+  onReadSourceEvidence,
+  resolvingEvidenceId = null,
+  evidenceErrors = {},
   className = "graph-object-card",
   "aria-label": ariaLabel,
 }: GraphObjectCardProps) {
@@ -404,6 +474,9 @@ export function GraphObjectCard({
           model={model}
           mode={mode}
           showDebugIdentifiers={showDebugIdentifiers}
+          onReadSourceEvidence={onReadSourceEvidence}
+          resolvingEvidenceId={resolvingEvidenceId}
+          evidenceErrors={evidenceErrors}
         />
       )}
       {actionsSlot ?? (mode === "plan" ? <PlanMemoryTools model={model} rootRef={rootRef} /> : null)}

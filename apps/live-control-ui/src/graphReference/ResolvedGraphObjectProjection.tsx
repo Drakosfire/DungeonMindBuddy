@@ -1,6 +1,7 @@
 import type {
   GraphObjectCardMode,
   GraphObjectCardViewModel,
+  GraphObjectEvidenceViewModel,
   GraphObjectRelationshipViewModel,
 } from "../graphObjectCard";
 import { GraphObjectProjectionCard } from "../graphObjectCard/GraphObjectProjectionCard";
@@ -26,6 +27,9 @@ export interface ResolvedGraphObjectProjectionProps {
   selectedRelationshipId?: string | null;
   relationshipsDisabled?: boolean;
   showRelationshipProvenance?: boolean;
+  onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
+  resolvingEvidenceId?: string | null;
+  evidenceErrors?: Record<string, string>;
   "aria-label"?: string;
 }
 
@@ -45,6 +49,9 @@ export function ResolvedGraphObjectProjection({
   selectedRelationshipId = null,
   relationshipsDisabled = false,
   showRelationshipProvenance = true,
+  onReadSourceEvidence,
+  resolvingEvidenceId = null,
+  evidenceErrors = {},
   "aria-label": ariaLabel,
 }: ResolvedGraphObjectProjectionProps) {
   if (shouldRenderThreatCampaignSheet(resolution)) {
@@ -69,6 +76,9 @@ export function ResolvedGraphObjectProjection({
       onSelectRelationship={onSelectRelationship}
       selectedRelationshipId={selectedRelationshipId}
       disabled={relationshipsDisabled}
+      onReadSourceEvidence={onReadSourceEvidence}
+      resolvingEvidenceId={resolvingEvidenceId}
+      evidenceErrors={evidenceErrors}
     />
   );
 }

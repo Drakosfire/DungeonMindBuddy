@@ -1,10 +1,22 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView } from "../../api/types";
 import { GraphReviewNodeGameCard } from "./GraphReviewNodeGameCard";
 import type { GraphReviewSelectedNodeViewModel } from "./graphReviewSelectionUtils";
+
+vi.mock("../../sourceNavigation/sourceNavigation", async () => {
+  const actual = await vi.importActual<typeof import("../../sourceNavigation/sourceNavigation")>(
+    "../../sourceNavigation/sourceNavigation",
+  );
+  return {
+    ...actual,
+    resolveAndNavigateToBuildSource: vi.fn(),
+  };
+});
+
+import { resolveAndNavigateToBuildSource } from "../../sourceNavigation/sourceNavigation";
 
 const baseNode: GraphProjectionNodeView = {
   node_id: "the-group",
@@ -23,6 +35,7 @@ const baseNode: GraphProjectionNodeView = {
       can_open_source: true,
       can_highlight_span: false,
       label: "Session recap",
+      source_span_ref_id: "span-group-1",
     },
   ],
   adjacency: [
@@ -63,6 +76,10 @@ function viewModel(
 }
 
 describe("GraphReviewNodeGameCard", () => {
+  beforeEach(() => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockReset();
+  });
+
   const innRelationship = {
     edge_id: "edge-inn",
     node_id: "location_inn",
@@ -473,6 +490,31 @@ describe("GraphReviewNodeGameCard", () => {
 
     await user.click(screen.getByRole("button", { name: "Inspect evidence/source" }));
     expect(onSelectEvidenceDelta).toHaveBeenCalledWith("delta-1");
+  });
+
+  it("resolves Read source from the custom details panel", async () => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    render(
+      <GraphReviewNodeGameCard
+        viewModel={viewModel()}
+        selectedEdgeId={null}
+        onSelectRelationship={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByLabelText(/the group game card/i);
+    await user.click(within(card).getByText("Details"));
+    await user.click(within(card).getByRole("button", { name: "Read source" }));
+
+    expect(resolveAndNavigateToBuildSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceArtifactId: "artifact-1",
+        sourceSpanRefId: "span-group-1",
+        navigate: expect.any(Function),
+      }),
+    );
   });
 
   it("disables Stage relationship when source and target are the same object", () => {

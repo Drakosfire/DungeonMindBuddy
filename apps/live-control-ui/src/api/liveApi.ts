@@ -113,6 +113,7 @@ import type {
   ValidateDefinitionBuddyResponseV1,
   AcceptThreatDraftMechanicsRequestV1,
   AcceptThreatDraftMechanicsResponseV1,
+  BuildSourceNavigationResponse,
   BeginThreatPublicationOperationRequestV1,
   CancelThreatPublicationOperationRequestV1,
   ConfirmThreatPublicationRequestV1,
@@ -1070,6 +1071,19 @@ export async function getGoldGraphProjection(
   });
   return apiFetch<GoldGraphProjectionResponse>(
     `/api/live/graph-preview/gold-review/projection?${params.toString()}`,
+  );
+}
+
+export async function getBuildSourceNavigation(args: {
+  sourceArtifactId: string;
+  sourceSpanRefId: string;
+}): Promise<BuildSourceNavigationResponse> {
+  const params = new URLSearchParams({
+    source_artifact_id: args.sourceArtifactId,
+    source_span_ref_id: args.sourceSpanRefId,
+  });
+  return apiFetch<BuildSourceNavigationResponse>(
+    `/api/live/source-navigation?${params.toString()}`,
   );
 }
 
