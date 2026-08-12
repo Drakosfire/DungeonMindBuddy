@@ -478,6 +478,7 @@ Every production-path change must be listed here or be justified under the bound
 |---|---|---|
 | Create | `Docs/Design/CONTRACT-world-container-v1.md` | Freeze the new durable registry/API/path/authority contract. |
 | Current handoff | `Docs/Plans/HANDOFF-BUILD-create-new-world-from-build.md` | Implementation/review authority. |
+| Modify | `Backlog.md` | Promote the Hesta dogfood IDEA to READY and point at this CR01B slice (new world only; campaign half remains later). |
 
 ## Paths that should usually remain unchanged
 
