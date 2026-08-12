@@ -84,6 +84,7 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,
     WorldbuildingWritePlanVerificationContext,
+    _canonical_effect,
     build_worldbuilding_write_plan,
     materialize_worldbuilding_contribution,
     verify_worldbuilding_write_plan,
@@ -2115,9 +2116,13 @@ def prepare_first_world(
 
 def _reviewed_init_plan_from_product(
     plan: FirstWorldGraphPlan,
+    rematerialized,
 ) -> ReviewedWorldInitializationPlan:
-    decision_hex = plan.decision_digest.removeprefix("sha256:")
-    payload_hex = plan.contribution_payload_sha256.removeprefix("sha256:")
+    """Build the Kernel plan from rematerialized authority (browser plan is evidence)."""
+    decision_hex = rematerialized.decision_digest.removeprefix("sha256:")
+    payload_hex = compute_contribution_payload_sha256(
+        rematerialized.contribution
+    ).removeprefix("sha256:")
     campaign_id = (plan.campaign_scope or "").strip()
     if campaign_id != plan.world_id:
         raise ExtractPromoteError(
@@ -2136,8 +2141,8 @@ def _reviewed_init_plan_from_product(
         world_id=plan.world_id,
         campaign_id=campaign_id,
         focus_session_id=SESSIONLESS_FOCUS_SESSION_ID,
-        plan_id=plan.plan_id,
-        contribution_id=plan.contribution_id,
+        plan_id=rematerialized.plan_id,
+        contribution_id=rematerialized.contribution.contribution_id,
         contribution_payload_sha256=payload_hex,
         approval_attestation=ReviewedWorldInitializationAttestation(
             run_id=plan.run_id,
@@ -2164,6 +2169,18 @@ def _assert_rematerialized_first_world_plan_matches(
                 _diagnostic(
                     "empty_first_world_contribution",
                     "zero accepted assertions cannot initialize a World Graph",
+                )
+            ],
+        )
+    if plan.plan_id != rematerialized.plan_id:
+        raise ExtractPromoteError(
+            "sealed first-world planId failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "browser-carried planId disagrees with rematerialized plan",
                 )
             ],
         )
@@ -2203,6 +2220,46 @@ def _assert_rematerialized_first_world_plan_matches(
                 )
             ],
         )
+    try:
+        carried_effect = _canonical_effect(plan.reviewed_effect)
+        expected_effect = _canonical_effect(rematerialized.effect)
+    except WorldbuildingWritePlanError as exc:
+        raise ExtractPromoteError(
+            "sealed first-world reviewedEffect failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    f"reviewedEffect is not canonical sealed material: {exc}",
+                )
+            ],
+        ) from exc
+    if carried_effect != expected_effect:
+        raise ExtractPromoteError(
+            "sealed first-world reviewedEffect failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "browser-carried reviewedEffect disagrees with rematerialized plan",
+                )
+            ],
+        )
+    carried_summary = plan.summary.model_dump(mode="json")
+    if carried_summary != dict(rematerialized.summary):
+        raise ExtractPromoteError(
+            "sealed first-world summary failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "browser-carried summary disagrees with rematerialized plan",
+                )
+            ],
+        )
 
 
 def _first_world_confirm_receipt(
@@ -2216,12 +2273,12 @@ def _first_world_confirm_receipt(
     return FirstWorldGraphConfirmReceipt(
         outcome=outcome,  # type: ignore[arg-type]
         world_id=plan.world_id,
-        plan_id=plan.plan_id,
-        plan_digest=plan.plan_digest,
-        decision_digest=plan.decision_digest,
+        plan_id=rematerialized.plan_id,
+        plan_digest=rematerialized.plan_digest,
+        decision_digest=rematerialized.decision_digest,
         source_artifact_id=plan.source_artifact_id,
         source_revision_id=plan.source_revision_id,
-        contribution_id=plan.contribution_id,
+        contribution_id=rematerialized.contribution.contribution_id,
         baseline_revision_id=(
             receipt.baseline_revision_id if receipt else result.baseline_revision_id
         ),
@@ -2464,7 +2521,7 @@ def confirm_first_world(
     _assert_rematerialized_first_world_plan_matches(plan, rematerialized)
 
     state = classify_world_graph_state(world_root, plan.world_id)
-    kernel_plan = _reviewed_init_plan_from_product(plan)
+    kernel_plan = _reviewed_init_plan_from_product(plan, rematerialized)
 
     if state == "unreadable":
         raise ExtractPromoteError(

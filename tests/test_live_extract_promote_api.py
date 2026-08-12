@@ -2602,6 +2602,68 @@ def test_first_world_confirm_rejects_forged_assertion_id_lists(world_client) -> 
     assert not glass_dir.exists()
 
 
+def test_first_world_confirm_rejects_forged_plan_id(world_client) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 200, prepare.text
+    plan = prepare.json()
+    assert plan["confirmable"] is True
+    original_plan_id = plan["planId"]
+    assert original_plan_id.startswith("first-world-graph-plan:")
+
+    forged = json.loads(json.dumps(plan))
+    forged["planId"] = "first-world-graph-plan:000000000000000000000000"
+    assert forged["planId"] != original_plan_id
+    response = client.post(
+        FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(forged)
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == "plan_verification_failed"
+    assert not glass_dir.exists()
+
+
+def test_first_world_confirm_rejects_reviewed_effect_and_summary_tamper(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 200, prepare.text
+    plan = prepare.json()
+    assert plan["confirmable"] is True
+
+    effect_tamper = json.loads(json.dumps(plan))
+    proposals = effect_tamper["reviewedEffect"]["accepted_proposals"]
+    assert proposals, "fixture must include at least one accepted proposal"
+    proposals[0]["label"] = "tampered-label"
+    effect_resp = client.post(
+        FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(effect_tamper)
+    )
+    assert effect_resp.status_code == 409, effect_resp.text
+    assert effect_resp.json()["code"] == "plan_verification_failed"
+    assert not glass_dir.exists()
+
+    summary_tamper = json.loads(json.dumps(plan))
+    summary_tamper["summary"]["acceptedAssertionCount"] = 0
+    summary_resp = client.post(
+        FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(summary_tamper)
+    )
+    assert summary_resp.status_code == 409, summary_resp.text
+    assert summary_resp.json()["code"] == "plan_verification_failed"
+    assert not glass_dir.exists()
+
+
 def test_first_world_rejects_campaign_id_world_id_mismatch(world_client) -> None:
     client, world_root, repo, *_rest = world_client
     run_id, _source = _write_glass_orchard_bld08_run(repo)
