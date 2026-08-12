@@ -1,12 +1,12 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-12 — post-#566 CUTOVER whole-world re-anchor active
+**Updated:** 2026-08-12 — post-DM#30 CUTOVER whole-world re-pin active
 
-Active CUTOVER slice: `cutover-whole-world-reanchor-after-566` — diagnostic/compositional re-anchor against exact canonical `rev:5a7c13ae45c49a65b402920499be72ed` and payload SHA `2632870e…`. Canonical effective truth is `323 / 314 / 9 / 3`; the non-publishing four-kind migration projection is `323 / 318 / 5 / 3`; no graph bytes, identities, aspects, or source history are changed. Normalized projected ledger currently selects **Case A** (DungeonMind: admit Buddy kind `thread`) because adoption-package construction is not yet expressible; Case B adoption-seam work remains deferred behind that gap.
-**Repository anchor:** `9f08d72462f87b39073920f7726aa8f3e392ef08` (PR #566 merge pin)
+Active CUTOVER slice: `cutover-repin-dungeonmind-v5-after-pr30` — non-publishing re-measurement against exact DungeonMind PR #30 (`be76acc…`) world-object-v5 / world-property-v3. Canonical Eldyrwild remains `rev:5a7c13ae45c49a65b402920499be72ed` / payload `2632870e…` with relationship inventories `323 / 314 / 9 / 3` (canonical) and `323 / 318 / 5 / 3` (four-kind migration projection). Historical #568 fixture still reproduces under explicit v4/v2 loaders. `WORLD_OBJECT_KIND` for Buddy `thread` is cleared (`thread→dnd5e:thread`); refreshed migration ledger selects **Case C** (Buddy: `ATTRIBUTE_ASSERTION` package-construction). Five dual-sense `RELATIONSHIP_PREDICATE` STOPs remain cross-repository package-construction blockers; Case B is still forbidden.
+**Repository anchor:** `e5aaaf1d3d1e1e9f8c07a62383770dfd8326f259` (PR #568 merge pin)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
-**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
+**DungeonMind pin:** `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30 semantic authority; world-object-v5 `f9fd5420…`, world-property-v3 `aa94df78…`)
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Tracker:** [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
@@ -185,10 +185,11 @@ The five dual-sense residual edges remain explicit migration/materialization
 decisions. The active re-anchor report keeps canonical Buddy truth separate from
 that projection, replaces raw v4 relationship blocker totals with effective
 conformance / #566 owning-proof ledgers, and confirms zero unaccounted durable
-elements in both views. CUTOVER remains `NOT_READY`. The normalized projected
-ledger currently selects **Case A** (admit Buddy kind `thread`); the public
+elements in both views. CUTOVER remains `NOT_READY`. After DungeonMind PR #30
+and the Buddy re-pin, `WORLD_OBJECT_KIND` is cleared; the normalized projected
+ledger currently selects **Case C** (Buddy: `ATTRIBUTE_ASSERTION`); the public
 DungeonMind existing-world adoption seam remains a later Case B gate only after
-package-construction semantic gaps are cleared.
+package-construction semantic gaps are cleared (including five dual-sense STOPs).
 
 ### Current Eldyrwild semantic state
 
@@ -314,8 +315,8 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `cutover-whole-world-reanchor-after-566` — DOING: independently verify the deterministic canonical/projection report and its no-mutation proof.
-2. Use the resulting blocker ledger to dispatch one bounded successor. Current ledger selects **Case A** (DungeonMind: admit Buddy kind `thread`); do not dispatch Case B adoption-seam work while package-construction gaps remain.
+1. `cutover-repin-dungeonmind-v5-after-pr30` — DOING: independently verify the deterministic post-PR30 re-pin report and its no-mutation / historical-reproduction proofs.
+2. Use the refreshed blocker ledger to dispatch one bounded successor. Current ledger selects **Case C** (Buddy: `ATTRIBUTE_ASSERTION` package-construction); do not dispatch Case B adoption-seam work while package-construction gaps remain.
 3. Keep the five dual-sense edges as migration decisions and keep DungeonMind product-authority cutover blocked.
 4. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
