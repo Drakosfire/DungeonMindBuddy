@@ -33,7 +33,6 @@ from graph_memory.retrieval.models import (
     RETRIEVAL_SEARCH_REQUEST_SCHEMA,
     RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
     WorldGraphEvidenceRequest,
-    WorldGraphEvidenceTarget,
     WorldGraphNeighborhoodRequest,
     WorldGraphObjectRequest,
     WorldGraphRetrievalFocus,
@@ -509,7 +508,7 @@ def execute_read_graph_source(
     focus = _focus_for_request(session.snapshot.focus)
     reads: list[dict[str, Any]] = []
     for anchor_id in request.anchor_ids:
-        if admitted and anchor_id not in admitted:
+        if anchor_id not in admitted:
             reads.append(
                 {
                     "schema": "dmb_world_graph_source_anchor_read_v1",
