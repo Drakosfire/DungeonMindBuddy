@@ -11,6 +11,8 @@ import re
 from collections import Counter, defaultdict
 from enum import StrEnum
 from pathlib import Path
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from dungeonmind.application.graph_snapshot import GRAPH_SCHEMA_V5
@@ -27,15 +29,20 @@ from dungeonmind.contracts.knowledge_assertion import (
 from dungeonmind.contracts.vocabulary import CanonState, Visibility
 from dungeonmind_dnd.application.world_object_vocabulary import (
     builtin_world_object_v4_vocabulary_ref,
+    builtin_world_object_v5_vocabulary_ref,
     load_builtin_v3_descriptor,
     load_builtin_world_object_v3_vocabulary,
     load_builtin_world_object_v4_vocabulary,
+    load_builtin_world_object_v5_vocabulary,
     vocabulary_sha256,
 )
 from dungeonmind_dnd.application.world_property_vocabulary import (
     builtin_world_property_v2_vocabulary_ref,
+    builtin_world_property_v3_vocabulary_ref,
     load_builtin_world_property_v2_vocabulary,
+    load_builtin_world_property_v3_vocabulary,
     validate_world_property_assignment_v2,
+    validate_world_property_assignment_v3,
     world_property_vocabulary_sha256,
 )
 from dungeonmind_dnd.domain.errors import DndCandidateValidationError
@@ -118,6 +125,59 @@ _BUDDY_TO_DM_KIND: dict[str, str] = {
     "party": "dnd5e:party",
     "event": "dnd5e:event",
 }
+
+_BUDDY_TO_DM_KIND_V5: dict[str, str] = {
+    **_BUDDY_TO_DM_KIND,
+    "thread": "dnd5e:thread",
+}
+
+_DUNGEONMIND_DEPENDENCY_REF_V5 = "be76acc997c5fbcb8ceaa090969ec051afa6051d"
+
+
+@dataclass(frozen=True, slots=True)
+class WholeWorldTargetContract:
+    """Exact DungeonMind target contract for whole-world analysis.
+
+    Target selection is explicit; never infer latest/current/default.
+    """
+
+    target_id: str
+    dungeonmind_dependency_ref: str
+    world_object_loader: Callable[[], Any]
+    world_object_ref_loader: Callable[[], Any]
+    world_property_loader: Callable[[], Any]
+    world_property_ref_loader: Callable[[], Any]
+    role_validator: Callable[..., None]
+    buddy_to_dm_kind: Mapping[str, str]
+    world_object_revision_label: str
+    world_property_revision_label: str
+
+
+HISTORICAL_V4_TARGET = WholeWorldTargetContract(
+    target_id="historical_v4",
+    dungeonmind_dependency_ref=_DUNGEONMIND_DEPENDENCY_REF_V4,
+    world_object_loader=load_builtin_world_object_v4_vocabulary,
+    world_object_ref_loader=builtin_world_object_v4_vocabulary_ref,
+    world_property_loader=load_builtin_world_property_v2_vocabulary,
+    world_property_ref_loader=builtin_world_property_v2_vocabulary_ref,
+    role_validator=validate_world_property_assignment_v2,
+    buddy_to_dm_kind=_BUDDY_TO_DM_KIND,
+    world_object_revision_label="world-object-v4",
+    world_property_revision_label="world-property-v2",
+)
+
+CURRENT_V5_TARGET = WholeWorldTargetContract(
+    target_id="current_v5",
+    dungeonmind_dependency_ref=_DUNGEONMIND_DEPENDENCY_REF_V5,
+    world_object_loader=load_builtin_world_object_v5_vocabulary,
+    world_object_ref_loader=builtin_world_object_v5_vocabulary_ref,
+    world_property_loader=load_builtin_world_property_v3_vocabulary,
+    world_property_ref_loader=builtin_world_property_v3_vocabulary_ref,
+    role_validator=validate_world_property_assignment_v3,
+    buddy_to_dm_kind=_BUDDY_TO_DM_KIND_V5,
+    world_object_revision_label="world-object-v5",
+    world_property_revision_label="world-property-v3",
+)
 
 # Direct Buddy predicate → dnd5e:<same> (no generic f"dnd5e:{pred}" fallback).
 _DIRECT_PREDICATE_MAP: frozenset[str] = frozenset(
@@ -430,20 +490,26 @@ def _classification_inventory(
     ]
 
 
-def _dm_kind_for_buddy_kind(buddy_kind: str) -> str | None:
-    return _BUDDY_TO_DM_KIND.get(buddy_kind)
+def _dm_kind_for_buddy_kind(
+    buddy_kind: str,
+    *,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
+) -> str | None:
+    return target.buddy_to_dm_kind.get(buddy_kind)
 
 
 def _endpoint_dm_kinds(
     store: UnionSupergraphStore,
     node_id: str,
+    *,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[str | None, str]:
     node = store.nodes.get(node_id)
     if node is None:
         return None, "missing_node"
     if node.kind == "external_resource":
         return None, "external_resource"
-    dm_kind = _dm_kind_for_buddy_kind(node.kind)
+    dm_kind = _dm_kind_for_buddy_kind(node.kind, target=target)
     if dm_kind is None:
         return None, node.kind
     return dm_kind, node.kind
@@ -451,6 +517,8 @@ def _endpoint_dm_kinds(
 
 def _map_buddy_node_kind_v4(
     node: UnionSupergraphNode,
+    *,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
     kind = node.kind
     if not isinstance(kind, str) or not kind.strip():
@@ -461,11 +529,12 @@ def _map_buddy_node_kind_v4(
             None,
             "mechanics resource locator via #521 adapter; not a world-object kind",
         )
-    if kind in _BUDDY_TO_DM_KIND:
+    mapped = target.buddy_to_dm_kind.get(kind)
+    if mapped is not None:
         return (
             SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER,
             None,
-            f"explicit adapter {_BUDDY_TO_DM_KIND[kind]}",
+            f"explicit adapter {mapped}",
         )
     return (
         SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP,
@@ -595,6 +664,7 @@ def _admit_mapped_edge_v4(
     dm_predicate: str,
     reverse_endpoints: bool,
     note: str,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[SemanticClassification, BlockerClass | None, str, PredicateDisposition, str | None, bool]:
     """Shared endpoint-admission path for explicit maps and edge-specific overrides."""
     allowed = _predicate_allowed_endpoints(dm_predicate, vocabulary)
@@ -602,14 +672,17 @@ def _admit_mapped_edge_v4(
         return (
             SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP,
             BlockerClass.RELATIONSHIP_PREDICATE,
-            f"world-object-v4 vocabulary missing predicate {dm_predicate}",
+            (
+                f"{target.world_object_revision_label} vocabulary missing "
+                f"predicate {dm_predicate}"
+            ),
             PredicateDisposition.SEMANTIC_ADJUDICATION_REQUIRED,
             dm_predicate,
             reverse_endpoints,
         )
     subject_kinds, object_kinds = allowed
-    src_dm, src_note = _endpoint_dm_kinds(store, edge.source_node_id)
-    tgt_dm, tgt_note = _endpoint_dm_kinds(store, edge.target_node_id)
+    src_dm, src_note = _endpoint_dm_kinds(store, edge.source_node_id, target=target)
+    tgt_dm, tgt_note = _endpoint_dm_kinds(store, edge.target_node_id, target=target)
     if reverse_endpoints:
         admit_src, admit_tgt = tgt_dm, src_dm
         admit_src_note, admit_tgt_note = tgt_note, src_note
@@ -659,6 +732,7 @@ def _classify_edge_predicate_v4(
     vocabulary: Any,
     *,
     adjudication_domain: bool = False,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[SemanticClassification, BlockerClass | None, str, PredicateDisposition, str | None, bool]:
     """Classify one edge predicate.
 
@@ -708,6 +782,7 @@ def _classify_edge_predicate_v4(
                     f"adjudication-domain edge-specific override "
                     f"{edge.edge_id!r}→{override_term}"
                 ),
+                target=target,
             )
 
     if predicate in _INTENTIONALLY_UNRESOLVED_PREDICATES:
@@ -762,11 +837,14 @@ def _classify_edge_predicate_v4(
         dm_predicate=dm_predicate,
         reverse_endpoints=reverse_endpoints,
         note=note,
+        target=target,
     )
 
 
 def _classify_node_role_v4(
     node: UnionSupergraphNode,
+    *,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
     kind = node.kind
     role_value = node.role
@@ -794,7 +872,7 @@ def _classify_node_role_v4(
             ),
         )
 
-    dm_kind = _dm_kind_for_buddy_kind(kind)
+    dm_kind = _dm_kind_for_buddy_kind(kind, target=target)
     if dm_kind is None:
         return (
             SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP,
@@ -803,7 +881,7 @@ def _classify_node_role_v4(
         )
 
     try:
-        validate_world_property_assignment_v2(
+        target.role_validator(
             property_term="dnd5e:role",
             subject_kind=dm_kind,
             value=role_value,
@@ -825,9 +903,11 @@ def _classify_node_field_v4(
     field: str,
     value: Any,
     node: UnionSupergraphNode,
+    *,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
     if field == "kind":
-        return _map_buddy_node_kind_v4(node)
+        return _map_buddy_node_kind_v4(node, target=target)
     if field == "node_id":
         return (
             SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER,
@@ -839,7 +919,7 @@ def _classify_node_field_v4(
             return SemanticClassification.EXACTLY_REPRESENTABLE, None, "display label"
         return SemanticClassification.INVALID_SOURCE, BlockerClass.ATTRIBUTE_ASSERTION, "empty label"
     if field == "role":
-        return _classify_node_role_v4(node)
+        return _classify_node_role_v4(node, target=target)
     if field == "aliases":
         return _classify_node_aliases_field_v4(node)
     if field == "source_domains":
@@ -900,6 +980,7 @@ def _classify_edge_field_v4(
     vocabulary: Any,
     *,
     adjudication_domain: bool = False,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
     if field == "predicate":
         classification, blocker, note, _, _, _ = _classify_edge_predicate_v4(
@@ -907,6 +988,7 @@ def _classify_edge_field_v4(
             store,
             vocabulary,
             adjudication_domain=adjudication_domain,
+            target=target,
         )
         return classification, blocker, note
     if field in {"edge_id", "source_node_id", "target_node_id"}:
@@ -1475,6 +1557,7 @@ def _collect_v4_relationship_edge_sets(
     vocabulary: Any,
     *,
     adjudication_domain: bool,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[set[str], set[str]]:
     residual_ids: set[str] = set()
     represented_ids: set[str] = set()
@@ -1491,6 +1574,7 @@ def _collect_v4_relationship_edge_sets(
             store,
             vocabulary,
             adjudication_domain=adjudication_domain,
+            target=target,
         )
         if disposition == PredicateDisposition.MECHANICS_SPECIALIZATION:
             continue
@@ -1506,6 +1590,7 @@ def _build_relationship_predicate_inventory_v4(
     vocabulary: Any,
     *,
     adjudication_domain: bool,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[
     list[RelationshipPredicateInventoryRowV4],
     list[InventoryCountRow],
@@ -1550,6 +1635,7 @@ def _build_relationship_predicate_inventory_v4(
                 store,
                 vocabulary,
                 adjudication_domain=adjudication_domain,
+                target=target,
             )
 
             src_node = store.nodes.get(edge.source_node_id)
@@ -1692,6 +1778,8 @@ def _append_identity_history_blocker(
 
 def _role_summary_counts(
     store: UnionSupergraphStore,
+    *,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> tuple[int, int, int, int]:
     role_field_count = 0
     adapter = 0
@@ -1699,7 +1787,7 @@ def _role_summary_counts(
     residual = 0
     for node in store.nodes.values():
         role_field_count += 1
-        classification, _, _ = _classify_node_role_v4(node)
+        classification, _, _ = _classify_node_role_v4(node, target=target)
         if classification == SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER:
             adapter += 1
         elif classification == SemanticClassification.BUDDY_OPERATIONAL_ONLY:
@@ -1716,12 +1804,15 @@ def _analyze_loaded_buddy_world_store_v4(
     revision_id: str,
     manifest: Any,
     store: UnionSupergraphStore,
+    target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
 ) -> WholeWorldConformanceReportV4:
-    """Classify an already integrity-loaded Buddy store against v5/v4 contracts.
+    """Classify an already integrity-loaded Buddy store against an exact target.
 
     ``manifest`` and ``store`` must remain the exact integrity-attested pair for
     the requested revision, except for private in-memory migration overlays that
     intentionally preserve the canonical manifest pins.
+
+    Default ``target`` is HISTORICAL_V4_TARGET so existing callers remain byte-stable.
     """
     adjudication_domain = _matches_adjudication_domain(
         world_id=world_id,
@@ -1729,10 +1820,10 @@ def _analyze_loaded_buddy_world_store_v4(
         graph_payload_sha256=manifest.graph_payload_sha256,
     )
     profile = load_builtin_v3_descriptor()
-    vocabulary = load_builtin_world_object_v4_vocabulary()
-    vocab_ref = builtin_world_object_v4_vocabulary_ref()
-    property_vocab = load_builtin_world_property_v2_vocabulary()
-    property_ref = builtin_world_property_v2_vocabulary_ref()
+    vocabulary = target.world_object_loader()
+    vocab_ref = target.world_object_ref_loader()
+    property_vocab = target.world_property_loader()
+    property_ref = target.world_property_ref_loader()
     seam = inspect_dungeonmind_durable_adoption_seam()
 
     expected_ids = enumerate_durable_element_ids(store)
@@ -1759,7 +1850,9 @@ def _analyze_loaded_buddy_world_store_v4(
                 continue
             if field in _NODE_DECLARED_FIELDS:
                 element_id = f"node:{node_id}:field:{field}"
-                f_class, f_blocker, f_note = _classify_node_field_v4(field, value, node)
+                f_class, f_blocker, f_note = _classify_node_field_v4(
+                    field, value, node, target=target
+                )
                 _append_classification(
                     classified=classified,
                     buckets=buckets,
@@ -1820,6 +1913,7 @@ def _analyze_loaded_buddy_world_store_v4(
                         store,
                         vocabulary,
                         adjudication_domain=adjudication_domain,
+                        target=target,
                     )
                 else:
                     f_class = SemanticClassification.SOURCE_MIGRATION_HISTORY
@@ -2072,6 +2166,7 @@ def _analyze_loaded_buddy_world_store_v4(
         store,
         vocabulary,
         adjudication_domain=adjudication_domain,
+        target=target,
     )
     property_gap_inventory = _build_property_gap_inventory_v4(store)
     (
@@ -2079,12 +2174,13 @@ def _analyze_loaded_buddy_world_store_v4(
         role_property_adapter_count,
         role_external_resource_count,
         role_residual_count,
-    ) = _role_summary_counts(store)
+    ) = _role_summary_counts(store, target=target)
 
     v4_residual_ids, _v4_represented_ids = _collect_v4_relationship_edge_sets(
         store,
         vocabulary,
         adjudication_domain=adjudication_domain,
+        target=target,
     )
     v3_vocabulary = load_builtin_world_object_v3_vocabulary()
     v3_residual_ids = collect_v3_residual_edge_ids(store, v3_vocabulary)
@@ -2185,7 +2281,7 @@ def _analyze_loaded_buddy_world_store_v4(
         source_revision_id=manifest.revision_id,
         source_graph_payload_sha256=manifest.graph_payload_sha256,
         source_campaign_id=store.campaign_id,
-        dungeonmind_dependency_ref=_DUNGEONMIND_DEPENDENCY_REF_V4,
+        dungeonmind_dependency_ref=target.dungeonmind_dependency_ref,
         target_graph_schema=GRAPH_SCHEMA_V5,
         source_artifact_schema=SOURCE_ARTIFACT_V2_SCHEMA,
         evidence_schema=EVIDENCE_REF_V2_SCHEMA,
@@ -2242,13 +2338,26 @@ def _analyze_loaded_buddy_world_store_v4(
         durable_adoption_seam=seam,
         postgres_status="BLOCKED",
         mechanics_specialization_retained=True,
+        # HISTORICAL_V4_TARGET must keep the exact #568 note text for fixture
+        # byte-stability. Non-historical targets use an explicit measurement note.
         adoption_genesis_policy_note=(
-            "Genesis policies A/B/C remain undecided for execution. Post-v29 "
-            "world-object-v4 and world-property-v2 close the four DungeonMind-owned "
-            "relationship gaps from the Eldyrwild residual adjudication. Remaining "
-            "relationship residuals are adjudicated Buddy-owned cleanup. Adoption remains "
-            "blocked by those Buddy residuals, contribution/identity history, and the "
-            "missing durable adoption seam."
+            (
+                "Genesis policies A/B/C remain undecided for execution. Post-v29 "
+                "world-object-v4 and world-property-v2 close the four DungeonMind-owned "
+                "relationship gaps from the Eldyrwild residual adjudication. Remaining "
+                "relationship residuals are adjudicated Buddy-owned cleanup. Adoption remains "
+                "blocked by those Buddy residuals, contribution/identity history, and the "
+                "missing durable adoption seam."
+            )
+            if target.target_id == HISTORICAL_V4_TARGET.target_id
+            else (
+                "Genesis policies A/B/C remain undecided for execution. Target "
+                f"{target.world_object_revision_label} and "
+                f"{target.world_property_revision_label} are the exact measurement "
+                "contracts for this report. Remaining relationship residuals follow "
+                "owning authorities. Adoption remains blocked by package-construction "
+                "and durable-adoption gates recorded in blockers."
+            )
         ),
         unaccounted_durable_elements=unaccounted,
         classified_elements_count=len(classified),
