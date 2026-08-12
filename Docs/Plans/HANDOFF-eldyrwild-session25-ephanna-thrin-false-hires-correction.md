@@ -163,6 +163,8 @@ C4 raw artifact SHA256: d4e679582a6764a1d846944a761eb697130fd54c63ead705cdf80e0c
 
 locked active target supporters:
   contribution:a4231edb9a228963
+locked target source-payload SHA256:
+  2cf28604655f23e43846e389e5dce9920f98dfd670a0717ca3bf12e48703380c
 
 source seal verified: yes
 clone parent: Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7
@@ -173,11 +175,13 @@ exact delta: -1 / 0 / -1 / 0
 sibling assertion preservation: proven
 U₁–U₆ preservation: proven
 C₁/C₂/C₃ preservation: proven
+edge-level sole active assertion identity: proven
+target source revision/mutable seal: proven
 retry: already_applied
 replay equivalence: proven
 
-focused tests: 20 passed
-cumulative tests: 101 passed (descendant + effective + C₁ + C₂ + C₃ + C₄)
+focused tests: 24 passed
+cumulative tests: 105 passed (descendant + effective + C₁ + C₂ + C₃ + C₄)
 ruff: clean
 git diff --check: clean
 

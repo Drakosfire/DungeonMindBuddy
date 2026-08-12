@@ -69,6 +69,7 @@ from apps.live_control_server.services.eldyrwild_session25_ephanna_thrin_false_h
     LOCKED_SOURCE_REVISION_ID,
     LOCKED_SOURCE_SPAN_REF_ID,
     LOCKED_TARGET_CONTRIBUTION_IDS,
+    LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256,
     R_CURRENT_REVISION_ID,
     TARGET_ASSERTION_ID,
     TARGET_EDGE_ID,
@@ -563,6 +564,224 @@ def test_outsider_support_is_ineligible(
     assert "active_support_mismatch_locked_c" in st.diagnostics
 
 
+def test_second_active_edge_assertion_id_is_ineligible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second supported assertion ID on X₄ must fail closed before mutate.
+
+    Distinct from multi-contributor support on the same assertion ID: the Kernel
+    keeps the edge current when any other edge-kind assertion shares
+    ``graph_object_id`` and remains supported with active contributors.
+    """
+    root = _clone_eldyrwild(tmp_path)
+    head, revision, store = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
+    locked = next(iter(LOCKED_TARGET_CONTRIBUTION_IDS))
+    primary = dict(store.assertion_support[TARGET_ASSERTION_ID])
+    twin_id = "assertion:adversary-second-ephanna-hires-identity"
+    twin = {
+        **primary,
+        "assertion_id": twin_id,
+        "active_contribution_ids": [locked],
+        "support_state": "supported",
+        "assertion_kind": "edge",
+        "graph_object_id": TARGET_EDGE_ID,
+        "introduced_by_contribution_id": locked,
+        "per_contribution_evidence_ref_ids": {
+            locked: list(primary.get("evidence_ref_ids") or [])
+        },
+        "per_contribution_source_artifact_ids": {
+            locked: list(primary.get("source_artifact_ids") or [])
+        },
+    }
+    store.assertion_support[twin_id] = twin
+    assert svc._active_edge_assertion_ids(store, TARGET_EDGE_ID) == {
+        TARGET_ASSERTION_ID,
+        twin_id,
+    }
+    monkeypatch.setattr(
+        kernel,
+        "open_current_world_graph",
+        lambda *args, **kwargs: (head, revision, store),
+    )
+    st = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, expected_parent_revision_id=head.head_revision_id, repo=REPO
+    )
+    assert st.eligibility == "ineligible"
+    assert "target_edge_active_assertion_ids_not_singleton" in st.diagnostics
+
+
+def test_target_source_ledger_digest_drift_fails_before_publish(tmp_path: Path) -> None:
+    """Mutable A(X₄) ledger digest drift vs Q₃ revision-bound seal must fail closed."""
+    root = _clone_eldyrwild(tmp_path)
+    parent = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, repo=REPO
+    ).head_revision_id
+    assert parent == ELIGIBLE_PARENT_REVISION_ID
+
+    store_before = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
+    digests_before = dict(store_before.contribution_source_payload_sha256 or {})
+    assert digests_before.get(_LOCKED_SOURCE_CONTRIBUTION_ID) == (
+        LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256
+    )
+
+    ledger = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, _LOCKED_SOURCE_CONTRIBUTION_ID
+    )
+    tampered = ledger.model_copy(update={"authored_by": "not-gm"})
+    assert (
+        kernel.compute_contribution_source_payload_sha256(tampered)
+        != LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256
+    )
+    write_contribution_record(root, ELDYRWILD_WORLD_ID, tampered)
+
+    store_after = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
+    assert dict(store_after.contribution_source_payload_sha256 or {}) == digests_before
+
+    st = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, expected_parent_revision_id=parent, repo=REPO
+    )
+    assert st.eligibility == "integrity_failure"
+    assert "target_source_mutable_digest_mismatch" in st.diagnostics
+    before = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    with pytest.raises(Session25EphannaThrinFalseHiresCorrectionError) as exc:
+        apply_session25_ephanna_thrin_false_hires_correction(
+            expected_parent_revision_id=parent,
+            root=root,
+            repo=REPO,
+        )
+    assert exc.value.code == "integrity_failure"
+    assert snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID) == before
+    head, _, _ = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
+    assert head.head_revision_id == parent
+
+
+def test_target_source_index_drift_after_apply_is_integrity_failure(
+    tmp_path: Path,
+) -> None:
+    """Post-C₄ index/lifecycle drift of A(X₄) must not report already_applied."""
+    root = _clone_eldyrwild(tmp_path)
+    parent = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, repo=REPO
+    ).head_revision_id
+    assert parent
+    result = apply_session25_ephanna_thrin_false_hires_correction(
+        expected_parent_revision_id=parent,
+        root=root,
+        repo=REPO,
+    )
+    child = result.revision_id
+    assert child
+    assert (
+        get_session25_ephanna_thrin_false_hires_correction_status(
+            root=root, expected_parent_revision_id=child, repo=REPO
+        ).eligibility
+        == "already_applied"
+    )
+
+    store_before = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, child)
+    digests_before = dict(store_before.contribution_source_payload_sha256 or {})
+    assert digests_before.get(_LOCKED_SOURCE_CONTRIBUTION_ID) == (
+        LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256
+    )
+    ledger_path = world_paths.contribution_path(
+        root, ELDYRWILD_WORLD_ID, _LOCKED_SOURCE_CONTRIBUTION_ID
+    )
+    ledger_bytes_before = ledger_path.read_bytes()
+
+    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    assert _LOCKED_SOURCE_CONTRIBUTION_ID in set(index.active_contribution_ids)
+    index = index.model_copy(
+        update={
+            "active_contribution_ids": [
+                x
+                for x in index.active_contribution_ids
+                if x != _LOCKED_SOURCE_CONTRIBUTION_ID
+            ],
+            "retracted_contribution_ids": sorted(
+                set(index.retracted_contribution_ids)
+                | {_LOCKED_SOURCE_CONTRIBUTION_ID}
+            ),
+        }
+    )
+    save_contribution_index(root, ELDYRWILD_WORLD_ID, index)
+
+    store_after = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, child)
+    assert dict(store_after.contribution_source_payload_sha256 or {}) == digests_before
+    assert ledger_path.read_bytes() == ledger_bytes_before
+    assert svc._active_edge_assertion_ids(store_after, TARGET_EDGE_ID) == set()
+
+    st = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, expected_parent_revision_id=child, repo=REPO
+    )
+    assert st.eligibility == "integrity_failure"
+    assert "target_source_index_not_active" in st.diagnostics
+    assert "target_source_index_retracted" in st.diagnostics
+
+    before = snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID)
+    with pytest.raises(Session25EphannaThrinFalseHiresCorrectionError) as exc:
+        apply_session25_ephanna_thrin_false_hires_correction(
+            expected_parent_revision_id=child,
+            root=root,
+            repo=REPO,
+        )
+    assert exc.value.code == "integrity_failure"
+    assert snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID) == before
+    head, _, _ = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
+    assert head.head_revision_id == child
+
+
+def test_remaining_active_edge_assertion_after_apply_is_integrity_failure(
+    tmp_path: Path,
+) -> None:
+    """already_applied must fail if a second active edge assertion still defines X₄."""
+    root = _clone_eldyrwild(tmp_path)
+    parent = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, repo=REPO
+    ).head_revision_id
+    assert parent
+    result = apply_session25_ephanna_thrin_false_hires_correction(
+        expected_parent_revision_id=parent,
+        root=root,
+        repo=REPO,
+    )
+    child = result.revision_id
+    assert child
+
+    store = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, child)
+    locked = next(iter(LOCKED_TARGET_CONTRIBUTION_IDS))
+    primary = dict(store.assertion_support[TARGET_ASSERTION_ID])
+    twin_id = "assertion:adversary-post-c4-surviving-hires"
+    store.assertion_support[twin_id] = {
+        **primary,
+        "assertion_id": twin_id,
+        "support_state": "supported",
+        "assertion_kind": "edge",
+        "graph_object_id": TARGET_EDGE_ID,
+        "active_contribution_ids": [locked],
+        "contradicted_contribution_ids": [],
+        "introduced_by_contribution_id": locked,
+        "per_contribution_evidence_ref_ids": {
+            locked: list(primary.get("evidence_ref_ids") or [])
+        },
+        "per_contribution_source_artifact_ids": {
+            locked: list(primary.get("source_artifact_ids") or [])
+        },
+    }
+    advanced = kernel.publish_world_revision(
+        root,
+        ELDYRWILD_WORLD_ID,
+        store,
+        operation_ids=["op:session25-hires-surviving-second-assertion"],
+    ).revision.revision_id
+
+    st = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, expected_parent_revision_id=advanced, repo=REPO
+    )
+    assert st.eligibility == "integrity_failure"
+    assert st.eligibility != "already_applied"
+    assert "target_edge_still_has_active_assertions" in st.diagnostics
+
+
 def test_x_not_effective_residual_is_ineligible(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -789,13 +1008,25 @@ def test_real_clone_apply_preserves_history_and_parent_relative_conformance(
         or []
     )
     assert active_p == LOCKED_TARGET_CONTRIBUTION_IDS
+    assert svc._active_edge_assertion_ids(store_p, TARGET_EDGE_ID) == {
+        TARGET_ASSERTION_ID
+    }
+    digests_p = store_p.contribution_source_payload_sha256 or {}
+    source_ok_p, source_diag_p = (
+        svc._verify_locked_target_source_contribution_authority(
+            root=root, store=store_p
+        )
+    )
+    assert source_ok_p, source_diag_p
+    assert digests_p.get(_LOCKED_SOURCE_CONTRIBUTION_ID) == (
+        LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256
+    )
     assert C2_TARGET_ASSERTION_ID in siblings_p
     assert siblings_p[C2_TARGET_ASSERTION_ID]["support_state"] == "contradicted"
     assert not (siblings_p[C2_TARGET_ASSERTION_ID].get("active_contribution_ids") or [])
     assert C3_TARGET_ASSERTION_ID in siblings_p
     assert siblings_p[C3_TARGET_ASSERTION_ID]["support_state"] == "contradicted"
     assert not (siblings_p[C3_TARGET_ASSERTION_ID].get("active_contribution_ids") or [])
-    digests_p = store_p.contribution_source_payload_sha256 or {}
     assert digests_p.get(C1_CORRECTION_CONTRIBUTION_ID) == (
         C1_CORRECTION_SOURCE_PAYLOAD_SHA256
     )
@@ -844,11 +1075,21 @@ def test_real_clone_apply_preserves_history_and_parent_relative_conformance(
     assert not (x_support.get("active_contribution_ids") or [])
     contradicted = set(x_support.get("contradicted_contribution_ids") or [])
     assert LOCKED_TARGET_CONTRIBUTION_IDS.issubset(contradicted)
+    assert svc._active_edge_assertion_ids(store_q, TARGET_EDGE_ID) == set()
 
     digests = store_q.contribution_source_payload_sha256 or {}
     assert digests.get(LOCKED_CORRECTION_CONTRIBUTION_ID) == (
         LOCKED_CORRECTION_SOURCE_PAYLOAD_SHA256
     )
+    assert digests.get(_LOCKED_SOURCE_CONTRIBUTION_ID) == (
+        LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256
+    )
+    source_ok_q, source_diag_q = (
+        svc._verify_locked_target_source_contribution_authority(
+            root=root, store=store_q
+        )
+    )
+    assert source_ok_q, source_diag_q
     ledger_c = load_contribution_record(
         root, ELDYRWILD_WORLD_ID, LOCKED_CORRECTION_CONTRIBUTION_ID
     )

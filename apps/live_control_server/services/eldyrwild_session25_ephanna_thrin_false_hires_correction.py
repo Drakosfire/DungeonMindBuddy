@@ -82,6 +82,11 @@ TARGET_ASSERTION_ID = "assertion:9b68a1cbcbd9015b"
 
 # Exact live A(X₄) sealed into C₄ at BUILD capture on Q₃.
 LOCKED_TARGET_CONTRIBUTION_IDS = frozenset({"contribution:a4231edb9a228963"})
+# Revision-bound + mutable source-payload digest for contribution:a4231edb9a228963
+# on exact eligible parent Q₃ (and preserved through Q₄ contradiction).
+LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256 = (
+    "2cf28604655f23e43846e389e5dce9920f98dfd670a0717ca3bf12e48703380c"
+)
 
 LOCKED_CORRECTION_CONTRIBUTION_ID = "contribution:d044a019d814968e"
 LOCKED_CORRECTION_DIGEST = (
@@ -475,6 +480,41 @@ def _verify_predecessor_correction_authorities(
     return (not diagnostics), diagnostics or ["predecessor_corrections_coherent"]
 
 
+def _support_record_as_dict(record: Any) -> dict[str, Any] | None:
+    if isinstance(record, dict):
+        return record
+    if hasattr(record, "model_dump"):
+        dumped = record.model_dump()
+        return dumped if isinstance(dumped, dict) else None
+    return None
+
+
+def _active_edge_assertion_ids(store: Any, edge_id: str) -> set[str]:
+    """Assertion IDs that currently keep ``edge_id`` supported in the Kernel.
+
+    Mirrors ``_mark_graph_objects_unsupported``: another supported edge-kind
+    assertion with the same ``graph_object_id`` and nonempty active contributors
+    keeps the edge current even if a different assertion ID is contradicted.
+    """
+    active: set[str] = set()
+    for assertion_id, raw in (store.assertion_support or {}).items():
+        support = _support_record_as_dict(raw)
+        if support is None:
+            continue
+        if support.get("graph_object_id") != edge_id:
+            continue
+        if support.get("assertion_kind") != "edge":
+            continue
+        if support.get("support_state") != "supported":
+            continue
+        if not list(support.get("active_contribution_ids") or []):
+            continue
+        resolved_id = support.get("assertion_id") or assertion_id
+        if isinstance(resolved_id, str) and resolved_id:
+            active.add(resolved_id)
+    return active
+
+
 def _support_shape_suggests_applied(store: Any) -> bool:
     support = store.assertion_support.get(TARGET_ASSERTION_ID)
     if not isinstance(support, dict):
@@ -485,6 +525,9 @@ def _support_shape_suggests_applied(store: Any) -> bool:
         return False
     contradicted = set(support.get("contradicted_contribution_ids") or [])
     if not LOCKED_TARGET_CONTRIBUTION_IDS.issubset(contradicted):
+        return False
+    # Edge-level currentness: no other active edge assertion may keep X₄ live.
+    if _active_edge_assertion_ids(store, TARGET_EDGE_ID):
         return False
     edge = store.edges.get(TARGET_EDGE_ID)
     if edge is None:
@@ -504,6 +547,99 @@ def _manifest_entry(store: Any, contribution_id: str) -> Any | None:
         if cid == contribution_id:
             return entry
     return None
+
+
+def _verify_locked_target_source_contribution_authority(
+    *,
+    root: Path,
+    store: Any,
+) -> tuple[bool, list[str]]:
+    """Seal original A(X₄) contribution against revision + mutable authority.
+
+    Contradiction-only C₄ preserves the Session-25 source contribution as active
+    source authority. Fresh eligibility and ``already_applied`` both require the
+    locked singleton's revision-bound digest, active replay-manifest lifecycle,
+    mutable ledger digest/status, and contribution-index active membership to
+    agree — otherwise a same-ID ledger mutation could publish an unreplayable
+    child or a post-apply drift could still report ``already_applied``.
+    """
+    diagnostics: list[str] = []
+    if len(LOCKED_TARGET_CONTRIBUTION_IDS) != 1:
+        diagnostics.append("locked_target_contribution_set_not_singleton")
+        return False, diagnostics
+    cid = next(iter(LOCKED_TARGET_CONTRIBUTION_IDS))
+
+    digests = store.contribution_source_payload_sha256 or {}
+    bound = digests.get(cid)
+    if bound != LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256:
+        diagnostics.append("target_source_revision_digest_mismatch_or_missing")
+        return False, diagnostics
+
+    entry = _manifest_entry(store, cid)
+    if entry is None:
+        diagnostics.append("target_source_replay_manifest_missing")
+        return False, diagnostics
+    status = getattr(entry, "status", None)
+    if status is None and isinstance(entry, dict):
+        status = entry.get("status")
+    digest = getattr(entry, "source_payload_sha256", None)
+    if digest is None and isinstance(entry, dict):
+        digest = entry.get("source_payload_sha256")
+    if status != "active":
+        diagnostics.append("target_source_replay_manifest_not_active")
+        return False, diagnostics
+    if digest != LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256:
+        diagnostics.append("target_source_replay_manifest_digest_mismatch")
+        return False, diagnostics
+
+    try:
+        ledger = load_contribution_record(root, WORLD_ID, cid)
+    except FileNotFoundError:
+        diagnostics.append("target_source_mutable_ledger_missing")
+        return False, diagnostics
+    if ledger.contribution_id != cid:
+        diagnostics.append("target_source_mutable_id_mismatch")
+        return False, diagnostics
+    ledger_digest = kernel.compute_contribution_source_payload_sha256(ledger)
+    if ledger_digest != LOCKED_TARGET_CONTRIBUTION_SOURCE_PAYLOAD_SHA256:
+        diagnostics.append("target_source_mutable_digest_mismatch")
+        return False, diagnostics
+    if ledger.status != "active":
+        diagnostics.append("target_source_mutable_not_active")
+        return False, diagnostics
+
+    target_assertion = next(
+        (
+            a
+            for a in ledger.accepted_assertions
+            if a.assertion_id == TARGET_ASSERTION_ID
+        ),
+        None,
+    )
+    if target_assertion is None or target_assertion.assertion_kind != "edge":
+        diagnostics.append("target_source_assertion_missing")
+        return False, diagnostics
+
+    index = load_contribution_index(root, WORLD_ID)
+    all_ids = set(index.all_contribution_ids)
+    active_ids = set(index.active_contribution_ids)
+    superseded_ids = set(index.superseded_contribution_ids)
+    retracted_ids = set(index.retracted_contribution_ids)
+    failed_ids = set(index.failed_contribution_ids)
+    if cid not in all_ids:
+        diagnostics.append("target_source_index_missing_from_all")
+    if cid not in active_ids:
+        diagnostics.append("target_source_index_not_active")
+    if cid in superseded_ids:
+        diagnostics.append("target_source_index_superseded")
+    if cid in retracted_ids:
+        diagnostics.append("target_source_index_retracted")
+    if cid in failed_ids:
+        diagnostics.append("target_source_index_failed")
+    if any(d.startswith("target_source_index_") for d in diagnostics):
+        return False, diagnostics
+
+    return True, ["target_source_authority_sealed"]
 
 
 def _revision_bound_correction_authority(
@@ -575,11 +711,20 @@ def _revision_bound_correction_authority(
     if any(d.startswith("mutable_C_index_") for d in diagnostics):
         return False, diagnostics
 
-    if not _support_shape_suggests_applied(store):
-        diagnostics.append("support_shape_incomplete")
+    source_ok, source_diag = _verify_locked_target_source_contribution_authority(
+        root=root, store=store
+    )
+    if not source_ok:
+        diagnostics.extend(source_diag)
         return False, diagnostics
 
-    return True, ["revision_bound_C_authority"]
+    if not _support_shape_suggests_applied(store):
+        diagnostics.append("support_shape_incomplete")
+        if _active_edge_assertion_ids(store, TARGET_EDGE_ID):
+            diagnostics.append("target_edge_still_has_active_assertions")
+        return False, diagnostics
+
+    return True, ["revision_bound_C_authority", *source_diag]
 
 
 def _classify_applied_state(
@@ -932,6 +1077,24 @@ def _preflight(
             durable_shape_verified=True,
         )
 
+    # Edge-level currentness: Kernel keeps an edge current when any other
+    # supported edge assertion shares graph_object_id. C₄ only contradicts
+    # TARGET_ASSERTION_ID, so eligibility requires that identity be alone.
+    active_edge_assertion_ids = _active_edge_assertion_ids(store, TARGET_EDGE_ID)
+    if active_edge_assertion_ids != {TARGET_ASSERTION_ID}:
+        return _status(
+            eligibility="ineligible",
+            reason=(
+                "active edge assertion identities for X₄ are not exactly "
+                f"{{{TARGET_ASSERTION_ID}}}; got {sorted(active_edge_assertion_ids)!r}"
+            ),
+            diagnostics=["target_edge_active_assertion_ids_not_singleton"],
+            head_revision_id=head_revision_id,
+            continuity_state=row.continuity_state,
+            source_grounding_verified=True,
+            durable_shape_verified=True,
+        )
+
     active_ids = set(support.get("active_contribution_ids") or [])
     if not active_ids:
         return _status(
@@ -957,53 +1120,22 @@ def _preflight(
             durable_shape_verified=True,
         )
 
-    for cid in sorted(LOCKED_TARGET_CONTRIBUTION_IDS):
-        try:
-            target_contribution = load_contribution_record(root, WORLD_ID, cid)
-        except FileNotFoundError:
-            return _status(
-                eligibility="ineligible",
-                reason=f"target contribution missing: {cid}",
-                diagnostics=["target_contribution_missing", cid],
-                head_revision_id=head_revision_id,
-                continuity_state=row.continuity_state,
-                source_grounding_verified=True,
-                durable_shape_verified=True,
-            )
-        if target_contribution.status != "active":
-            return _status(
-                eligibility="ineligible",
-                reason=(
-                    f"target contribution {cid} status is "
-                    f"{target_contribution.status!r}, expected active"
-                ),
-                diagnostics=["target_contribution_inactive", cid],
-                head_revision_id=head_revision_id,
-                continuity_state=row.continuity_state,
-                source_grounding_verified=True,
-                durable_shape_verified=True,
-            )
-        target_assertion = next(
-            (
-                a
-                for a in target_contribution.accepted_assertions
-                if a.assertion_id == TARGET_ASSERTION_ID
+    source_ok, source_diag = _verify_locked_target_source_contribution_authority(
+        root=root, store=store
+    )
+    if not source_ok:
+        return _status(
+            eligibility="integrity_failure",
+            reason=(
+                "locked Session-25 target contribution authority drifted vs Q₃ "
+                "revision-bound / mutable seal"
             ),
-            None,
+            diagnostics=["integrity_failure", *source_diag],
+            head_revision_id=head_revision_id,
+            continuity_state=row.continuity_state,
+            source_grounding_verified=True,
+            durable_shape_verified=True,
         )
-        if target_assertion is None or target_assertion.assertion_kind != "edge":
-            return _status(
-                eligibility="ineligible",
-                reason=(
-                    f"target contribution {cid} missing accepted edge assertion "
-                    f"{TARGET_ASSERTION_ID}"
-                ),
-                diagnostics=["target_assertion_missing", cid],
-                head_revision_id=head_revision_id,
-                continuity_state=row.continuity_state,
-                source_grounding_verified=True,
-                durable_shape_verified=True,
-            )
 
     live_edge = store.edges.get(TARGET_EDGE_ID)
     if live_edge is None:
@@ -1058,7 +1190,7 @@ def _preflight(
             "parent is eligible for the locked Session-25 Ephanna→Thrin "
             "false-hires contradiction"
         ),
-        diagnostics=["eligible", *seal_diag, *adj_diag, *pred_diag],
+        diagnostics=["eligible", *seal_diag, *adj_diag, *pred_diag, *source_diag],
         head_revision_id=head_revision_id,
         continuity_state=row.continuity_state,
         source_grounding_verified=True,
