@@ -1,19 +1,109 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
-import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import {
+  useMarkdownCanvasSession,
+  type MarkdownCanvasSessionValue,
+} from "../markdownCanvas/MarkdownCanvasSession";
+import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
+import { BuildSourceReader } from "./BuildSourceReader";
 
 /** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
 export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
 
+export type BuildSourceViewMode = "read" | "edit";
+
+function isPresentableSourcePhase(phase: string): boolean {
+  return (
+    phase !== "unloaded"
+    && phase !== "loading"
+    && phase !== "load_error"
+    && phase !== "conflict"
+  );
+}
+
+function isEffectivelyEmptyMarkdown(markdown: string): boolean {
+  return markdown.trim().length === 0;
+}
+
+export function initialSourceViewMode(args: {
+  dirty: boolean;
+  markdown: string;
+}): BuildSourceViewMode {
+  if (args.dirty) return "edit";
+  if (isEffectivelyEmptyMarkdown(args.markdown)) return "edit";
+  return "read";
+}
+
 /**
- * Build document chrome: Agent Interaction publication + shared MarkdownCanvas.
+ * Ephemeral Read/Edit chrome for one admitted document.
+ * Mounted with `key={documentId}` so the initial mode decision runs once per document.
+ */
+function BuildPresentableSourceView({
+  session,
+  editSlots,
+}: {
+  session: MarkdownCanvasSessionValue;
+  editSlots: MarkdownCanvasSlots;
+}) {
+  const [sourceViewMode, setSourceViewMode] = useState<BuildSourceViewMode>(() =>
+    initialSourceViewMode({
+      dirty: session.dirty,
+      markdown: session.snapshot?.markdown ?? "",
+    }),
+  );
+
+  return (
+    <div className="build-surface-shell" data-testid="build-surface-shell">
+      <div
+        className="build-source-mode-toggle"
+        role="group"
+        aria-label="Source view mode"
+        data-testid="build-source-mode-toggle"
+      >
+        <button
+          type="button"
+          className="build-source-mode-toggle__button"
+          aria-label="Read source"
+          aria-pressed={sourceViewMode === "read"}
+          data-testid="build-source-mode-read"
+          onClick={() => setSourceViewMode("read")}
+        >
+          Read
+        </button>
+        <button
+          type="button"
+          className="build-source-mode-toggle__button"
+          aria-label="Edit source"
+          aria-pressed={sourceViewMode === "edit"}
+          data-testid="build-source-mode-edit"
+          onClick={() => setSourceViewMode("edit")}
+        >
+          Edit
+        </button>
+      </div>
+      {sourceViewMode === "read" ? (
+        <BuildSourceReader
+          title={session.record!.title}
+          markdown={session.snapshot!.markdown}
+          dirty={session.dirty}
+        />
+      ) : (
+        <MarkdownCanvas slots={editSlots} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Build document chrome: Agent Interaction publication + Read/Edit composition.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
+ * Read renders exact saved snapshot Markdown; Edit preserves MarkdownCanvas authoring.
  */
 export function BuildSurfaceShell() {
   const session = useMarkdownCanvasSession();
@@ -23,6 +113,11 @@ export function BuildSurfaceShell() {
   );
   const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave });
   const lastAcceptedCampaignRef = useRef<string>("build");
+
+  const isPresentable =
+    session.record != null
+    && session.snapshot != null
+    && isPresentableSourcePhase(session.phase);
 
   useEffect(() => {
     if (session.record?.campaign_id) {
@@ -151,6 +246,13 @@ export function BuildSurfaceShell() {
   const graphPointer = parseBuildGraphPointerFromLocation();
   const acceptedDocumentCampaignId = session.record?.campaign_id ?? null;
 
+  const editSlots: MarkdownCanvasSlots = {
+    ...slots,
+    // Outer shell owns build-surface-shell when presentable; avoid nested duplicate.
+    dataTestId: "build-surface-editor-shell",
+    className: "build-surface-editor-shell",
+  };
+
   return (
     <div className="build-surface-with-graph-context">
       {graphPointer && acceptedDocumentCampaignId ? (
@@ -159,7 +261,15 @@ export function BuildSurfaceShell() {
           requireDocumentScope
         />
       ) : null}
-      <MarkdownCanvas slots={slots} />
+      {!isPresentable ? (
+        <MarkdownCanvas slots={slots} />
+      ) : (
+        <BuildPresentableSourceView
+          key={session.record!.document_id}
+          session={session}
+          editSlots={editSlots}
+        />
+      )}
     </div>
   );
 }
