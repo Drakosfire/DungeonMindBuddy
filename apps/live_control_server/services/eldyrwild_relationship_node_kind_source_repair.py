@@ -161,8 +161,6 @@ class RelationshipNodeKindSourceRepairProof(_Model):
     zero_regressions: bool
     base_inventory: dict[str, int]
     projected_inventory: dict[str, int]
-    projected_residual_edge_ids: list[str] = Field(default_factory=list)
-    newly_represented_edge_ids: list[str] = Field(default_factory=list)
     deferred_edge_proofs: list[dict[str, Any]] = Field(default_factory=list)
     dual_sense_stop_proofs: list[dict[str, Any]] = Field(default_factory=list)
     regression_edge_ids: list[str] = Field(default_factory=list)
@@ -1064,8 +1062,6 @@ def _prove_overlay(
         zero_regressions=not regressions,
         base_inventory=base_inventory,
         projected_inventory=projected,
-        projected_residual_edge_ids=sorted(overlay_remaining),
-        newly_represented_edge_ids=sorted(base_remaining - overlay_remaining),
         deferred_edge_proofs=deferred_proofs,
         dual_sense_stop_proofs=stop_proofs,
         regression_edge_ids=regressions,

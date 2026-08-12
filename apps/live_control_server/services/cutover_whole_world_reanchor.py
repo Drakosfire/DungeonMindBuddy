@@ -314,9 +314,13 @@ def _verify_repair_authority(root: Path, repo: Path) -> tuple[Any, Any]:
     proof = repair_service.prove_isolated_repair_effect(root=root, repo=repo)
     if not proof.passed or proof.projected_inventory != EXPECTED_MIGRATION_RELATIONSHIP_INVENTORY:
         raise _fail("PR #566 owning repair proof did not verify", "repair_proof_failed")
-    if set(proof.projected_residual_edge_ids) != MIGRATION_RESIDUAL_EDGE_IDS:
+    migration_relationship = _relationship_inventory_from_repair_proof(proof)
+    if set(migration_relationship["residual_edge_ids"]) != MIGRATION_RESIDUAL_EDGE_IDS:
         raise _fail("PR #566 proof residual set did not verify", "repair_proof_failed")
-    if set(proof.newly_represented_edge_ids) != MIGRATION_NEWLY_REPRESENTED_EDGE_IDS:
+    if (
+        set(migration_relationship["newly_represented_edge_ids"])
+        != MIGRATION_NEWLY_REPRESENTED_EDGE_IDS
+    ):
         raise _fail("PR #566 proof represented set did not verify", "repair_proof_failed")
     return pin, proof
 
@@ -475,14 +479,25 @@ def _relationship_inventory_from_effective(report: Any) -> dict[str, Any]:
 
 
 def _relationship_inventory_from_repair_proof(proof: Any) -> dict[str, Any]:
+    residual_edge_ids = sorted(
+        edge_id
+        for stop in proof.dual_sense_stop_proofs
+        for edge_id in stop["deferred_edge_ids"]
+    )
+    newly_represented_edge_ids = sorted(
+        edge["edge_id"]
+        for edge in proof.deferred_edge_proofs
+        if edge["disposition"]
+        == repair_service.PredicateDisposition.EXISTING_EXPLICIT_ADAPTER.value
+    )
     return {
         **dict(proof.projected_inventory),
-        "residual_edge_ids": sorted(proof.projected_residual_edge_ids),
-        "newly_represented_edge_ids": sorted(proof.newly_represented_edge_ids),
+        "residual_edge_ids": residual_edge_ids,
+        "newly_represented_edge_ids": newly_represented_edge_ids,
         "residual_disposition_inventory": [
             {
                 "key": "DUAL_SENSE_MIGRATION_STOP",
-                "count": len(proof.projected_residual_edge_ids),
+                "count": proof.projected_inventory["residual"],
             }
         ],
         "authority": "eldyrwild-relationship-node-kind-source-repair-v1",
