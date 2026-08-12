@@ -52,6 +52,13 @@ export interface BuildDocumentCreateControlProps {
 
 const NEW_WORLD_VALUE = "__new_world__";
 
+type DestinationSelectionProvenance = "explicit" | "derived";
+
+type DestinationSelection = {
+  value: string;
+  provenance: DestinationSelectionProvenance;
+};
+
 function normalizeDestinationValue(
   value: string | null | undefined,
   options: readonly BuildSourceDestinationOption[],
@@ -61,6 +68,14 @@ function normalizeDestinationValue(
     return trimmed;
   }
   return "";
+}
+
+function isDestinationStillValid(
+  value: string,
+  options: readonly BuildSourceDestinationOption[],
+): boolean {
+  if (value === NEW_WORLD_VALUE) return true;
+  return Boolean(value) && options.some((option) => option.value === value);
 }
 
 function parseExistingDestination(
@@ -91,23 +106,28 @@ export function BuildDocumentCreateControl({
 }: BuildDocumentCreateControlProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [destinationValue, setDestinationValue] = useState(() =>
-    normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
-  );
+  const [destinationSelection, setDestinationSelection] = useState<DestinationSelection>(() => ({
+    value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
+    provenance: "derived",
+  }));
   const [worldName, setWorldName] = useState("");
   const [title, setTitle] = useState("");
   const [importMarkdown, setImportMarkdown] = useState("");
 
+  const destinationValue = destinationSelection.value;
+
   useEffect(() => {
-    // Preserve an intentional New world… selection (and any still-valid explicit
-    // destination) across managed-world list refreshes. Do not snap back to the
-    // suggested campaign after create W succeeds but source create fails.
-    setDestinationValue((current) => {
-      if (current === NEW_WORLD_VALUE) return NEW_WORLD_VALUE;
-      if (current && destinationOptions.some((option) => option.value === current)) {
+    // Preserve explicit GM intent (including New world…) across option refreshes.
+    // Derived/default selections must follow a new authoritative suggestion —
+    // e.g. C1→C2 navigation, or campaign→managed-world collision after worlds load.
+    setDestinationSelection((current) => {
+      if (current.provenance === "explicit" && isDestinationStillValid(current.value, destinationOptions)) {
         return current;
       }
-      return normalizeDestinationValue(suggestedDestinationValue, destinationOptions);
+      return {
+        value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
+        provenance: "derived",
+      };
     });
   }, [destinationOptions, suggestedDestinationValue]);
 
@@ -131,9 +151,20 @@ export function BuildDocumentCreateControl({
     setTitle("");
     setImportMarkdown("");
     setWorldName("");
+    setDestinationSelection({
+      value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
+      provenance: "derived",
+    });
     setCreateOpen(false);
     setImportOpen(false);
-  }, [activationError, createError, creating, importError]);
+  }, [
+    activationError,
+    createError,
+    creating,
+    destinationOptions,
+    importError,
+    suggestedDestinationValue,
+  ]);
 
   const isNewWorld = destinationValue === NEW_WORLD_VALUE;
   const resolvedDestination: BuildSourceDestinationIntent | null = isNewWorld
@@ -178,7 +209,12 @@ export function BuildDocumentCreateControl({
         <select
           data-testid="build-document-create-destination"
           value={destinationValue}
-          onChange={(event) => setDestinationValue(event.target.value)}
+          onChange={(event) =>
+            setDestinationSelection({
+              value: event.target.value,
+              provenance: "explicit",
+            })
+          }
           disabled={disabled || creating}
           required
         >

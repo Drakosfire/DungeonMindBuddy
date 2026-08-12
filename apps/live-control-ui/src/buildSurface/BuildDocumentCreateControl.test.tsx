@@ -251,4 +251,87 @@ describe("BuildDocumentCreateControl", () => {
       destination: { kind: "new_world", name: "The Glass Orchard" },
     });
   });
+
+  it("follows suggested destination when Build navigates C1 → C2 without an explicit pick", () => {
+    const c1Option = {
+      kind: "campaign" as const,
+      campaignId: "longmont-c1",
+      worldId: "eldyrwild",
+      label: "longmont-c1",
+      value: "campaign:longmont-c1",
+    };
+    const c2Option = {
+      kind: "campaign" as const,
+      campaignId: "longmont-c2",
+      worldId: "eldyrwild",
+      label: "longmont-c2",
+      value: "campaign:longmont-c2",
+    };
+    const { rerender } = render(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[c1Option, c2Option]}
+        suggestedDestinationValue="campaign:longmont-c1"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "campaign:longmont-c1",
+    );
+
+    rerender(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[c1Option, c2Option]}
+        suggestedDestinationValue="campaign:longmont-c2"
+      />,
+    );
+
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "campaign:longmont-c2",
+    );
+  });
+
+  it("upgrades derived campaign destination to colliding managed world when suggestion arrives", () => {
+    const campaignOption = {
+      kind: "campaign" as const,
+      campaignId: "longmont-c2",
+      worldId: "eldyrwild",
+      label: "longmont-c2",
+      value: "campaign:longmont-c2",
+    };
+    const worldOption = {
+      kind: "world" as const,
+      worldId: "longmont-c2",
+      label: "Longmont C2 (world)",
+      value: "world:longmont-c2",
+    };
+
+    const { rerender } = render(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[campaignOption]}
+        suggestedDestinationValue="campaign:longmont-c2"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "campaign:longmont-c2",
+    );
+
+    // Managed worlds load after first paint; controller now recommends the world destination.
+    rerender(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[campaignOption, worldOption]}
+        suggestedDestinationValue="world:longmont-c2"
+      />,
+    );
+
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "world:longmont-c2",
+    );
+  });
 });
