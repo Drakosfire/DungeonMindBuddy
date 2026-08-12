@@ -88,7 +88,7 @@ PR #566 is merged and non-publishing: canonical bytes remain unchanged, while it
 | `eldyrwild-effective-conformance-after-fourth-correction` | DONE | #559 merged + canonical C₄ live exit | Re-anchored current effective fixture/replay baseline to exact `R_current = Q₄ = rev:3759d8d6a02f09306397918234a2ded2` (`366 / 311 / 55 / 3`); composed A+S25 authority unchanged; absorbed as first implementation commit of the closure PR |
 | `eldyrwild-relationship-semantic-closure` | DONE | Q₄ re-anchor + canonical closure exit | Canonical effective state is `323 / 314 / 9 / 3`; nine deferred kind-miscoding residuals remain source-sealed for migration authority |
 | `eldyrwild-relationship-node-kind-source-repair` / #566 | DONE | #563 closure + exact canonical pin | Non-publishing locked authority proves four in-memory kind repairs and five dual-sense STOP edges; manifest SHA `96cc26fc…` |
-| `cutover-whole-world-reanchor-after-566` | DOING | #566 + exact canonical revision/payload | Compose canonical `323/314/9/3` and migration `323/318/5/3` whole-world views, preserve zero-unaccounted ledgers, and select the next bounded cross-repository slice |
+| `cutover-whole-world-reanchor-after-566` | DOING | #566 + exact canonical revision/payload | Compose canonical `323/314/9/3` and migration `323/318/5/3` whole-world views, preserve zero-unaccounted ledgers, and select the next bounded cross-repository slice from normalized blocker stages (current ledger → Case A: admit Buddy `thread` kind) |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | CUTOVER re-anchor + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until the blocker ledger and durable adoption proof both authorize it |
 
 ### Parallel product backlog retained from the July sequence
@@ -110,7 +110,7 @@ These remain valid product capabilities, but they do **not** override the active
 ## Immediate dispatch order
 
 1. Verify and merge `cutover-whole-world-reanchor-after-566` against canonical `rev:5a7c13ae…` and payload SHA `2632870e…`.
-2. Use its blocker ledger to dispatch exactly one bounded successor; the current report recommendation is DungeonMind governed existing-world adoption, subject to independent review.
+2. Use its blocker ledger to dispatch exactly one bounded successor. Current ledger-derived recommendation is **Case A**: DungeonMind admit Buddy kind `thread` (or explicit Buddy→DM kind adapter). Do **not** dispatch the existing-world adoption seam while package-construction semantic gaps remain.
 3. Keep the five dual-sense STOP edges as migration decisions; do not reopen broad Buddy relationship cleanup.
 4. Do not schedule DungeonMind product-authority cutover until whole-world adoption and the public existing-world adoption seam are proven.
 
