@@ -74,10 +74,6 @@ export function resolveWorldIdForBuildCreate(campaignId: string): string | null 
   return null;
 }
 
-function normalizeWorldNameForCompare(name: string): string {
-  return name.trim().split(/\s+/).filter(Boolean).join(" ").toLowerCase();
-}
-
 function buildWorldbuildingCreateIntent(
   title: string,
   campaignId: string,
@@ -102,20 +98,10 @@ function buildWorldbuildingCreateIntent(
   };
 }
 
-async function reconcileManagedWorldByName(name: string): Promise<WorldContainerRecord | null> {
-  const needle = normalizeWorldNameForCompare(name);
-  if (!needle) return null;
-  const listed = await listWorldContainers();
-  return (
-    listed.records.find(
-      (record) => normalizeWorldNameForCompare(record.name) === needle,
-    ) ?? null
-  );
-}
-
 /**
- * Create or reconcile one managed world. On ambiguous create failure, list before
- * minting another world.
+ * Create or reconcile one managed world via server-owned idempotence.
+ * On ambiguous create failure, retry POST rather than reimplementing the
+ * server's casefold/whitespace duplicate rule in the client.
  */
 async function ensureManagedWorld(name: string): Promise<WorldContainerRecord> {
   const trimmed = name.trim();
@@ -124,10 +110,14 @@ async function ensureManagedWorld(name: string): Promise<WorldContainerRecord> {
   }
   try {
     return await createWorldContainer({ name: trimmed });
-  } catch (error) {
-    const existing = await reconcileManagedWorldByName(trimmed);
-    if (existing) return existing;
-    throw error instanceof Error ? error : new Error("Could not create the world.");
+  } catch (firstError) {
+    try {
+      return await createWorldContainer({ name: trimmed });
+    } catch {
+      throw firstError instanceof Error
+        ? firstError
+        : new Error("Could not create the world.");
+    }
   }
 }
 
@@ -647,8 +637,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       });
     }
     for (const world of managedWorlds) {
+      // Kind-qualified values stay distinct even when world_id collides with a
+      // campaign id (e.g. managed world "Longmont C2" → world_id longmont-c2).
       const value = `world:${world.world_id}`;
-      if (seen.has(value) || seen.has(`campaign:${world.world_id}`)) continue;
+      if (seen.has(value)) continue;
       seen.add(value);
       options.push({
         kind: "world",
@@ -924,6 +916,20 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     [activeRecord?.campaign_id, creatableCampaignIds, locationSearch],
   );
   const suggestedDestinationValue = useMemo(() => {
+    const activeCampaign = activeRecord?.campaign_id?.trim() ?? "";
+    const activeWorld = activeRecord?.world_id?.trim() ?? "";
+
+    // World-level Build sources use campaign_id === world_id. Prefer the
+    // kind-qualified world destination before any campaign suggestion so a
+    // colliding campaign id cannot steal the default (e.g. managed world
+    // longmont-c2 vs campaign longmont-c2).
+    if (activeWorld && activeWorld === activeCampaign) {
+      const worldMatch = destinationOptions.find(
+        (option) => option.kind === "world" && option.worldId === activeWorld,
+      );
+      if (worldMatch) return worldMatch.value;
+    }
+
     if (suggestedCreateCampaignId) {
       const match = destinationOptions.find(
         (option) =>
@@ -931,7 +937,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       );
       if (match) return match.value;
     }
-    const activeCampaign = activeRecord?.campaign_id?.trim() ?? "";
+
     if (activeCampaign) {
       const campaignMatch = destinationOptions.find(
         (option) =>
@@ -944,7 +950,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       if (worldMatch) return worldMatch.value;
     }
     return destinationOptions[0]?.value ?? null;
-  }, [activeRecord?.campaign_id, destinationOptions, suggestedCreateCampaignId]);
+  }, [activeRecord?.campaign_id, activeRecord?.world_id, destinationOptions, suggestedCreateCampaignId]);
 
   return {
     activeRecord,

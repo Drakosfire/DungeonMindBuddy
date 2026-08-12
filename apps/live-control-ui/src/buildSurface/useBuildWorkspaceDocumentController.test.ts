@@ -26,7 +26,7 @@ const DOC_B = "22222222-2222-4222-8222-222222222222";
 
 const GLASS_ORCHARD_WORLD = {
   schema_version: "dmb_world_container_record_v1" as const,
-  world_id: "44444444-4444-4444-8444-444444444444",
+  world_id: "the-glass-orchard",
   name: "The Glass Orchard",
   source_root_relpath: "corpus/the-glass-orchard-markdown",
   created_at: "2026-07-22T00:00:00Z",
@@ -1541,12 +1541,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     }
   });
 
-  it("reconciles ambiguous world create via listWorldContainers without duplicate world", async () => {
-    vi.mocked(liveApi.createWorldContainer).mockRejectedValueOnce(new Error("network lost"));
-    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
-      schema_version: "dmb_world_container_registry_v1",
-      records: [GLASS_ORCHARD_WORLD],
-    });
+  it("reconciles ambiguous world create by retrying server idempotent POST", async () => {
+    vi.mocked(liveApi.createWorldContainer)
+      .mockRejectedValueOnce(new Error("network lost"))
+      .mockResolvedValueOnce(GLASS_ORCHARD_WORLD);
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
       buildRecord(DOC_B, {
         title: "Reconciled Orchard",
@@ -1575,13 +1573,66 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => {
       expect(result.current.activeRecord?.document_id).toBe(DOC_B);
     });
-    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(2);
+    expect(liveApi.createWorldContainer).toHaveBeenNthCalledWith(1, {
+      name: "The Glass Orchard",
+    });
+    expect(liveApi.createWorldContainer).toHaveBeenNthCalledWith(2, {
+      name: "The Glass Orchard",
+    });
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
       expect.objectContaining({
         campaign_id: GLASS_ORCHARD_WORLD.world_id,
         world_id: GLASS_ORCHARD_WORLD.world_id,
       }),
     );
+  });
+
+  it("keeps kind-qualified managed world destination when world_id collides with a campaign id", async () => {
+    const collidingWorld = {
+      schema_version: "dmb_world_container_record_v1" as const,
+      world_id: "longmont-c2",
+      name: "Longmont C2",
+      source_root_relpath: "corpus/longmont-c2-markdown",
+      created_at: "2026-07-22T00:00:00Z",
+    };
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [collidingWorld],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      mockSnapshot(DOC_B, {
+        campaign_id: "longmont-c2",
+        world_id: "longmont-c2",
+        title: "Colliding World Source",
+      }),
+    );
+    window.history.pushState({}, "", `/build?documentId=${DOC_B}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_B));
+
+    const campaignOption = result.current.destinationOptions.find(
+      (option) => option.value === "campaign:longmont-c2",
+    );
+    const worldOption = result.current.destinationOptions.find(
+      (option) => option.value === "world:longmont-c2",
+    );
+    expect(campaignOption).toEqual(
+      expect.objectContaining({
+        kind: "campaign",
+        campaignId: "longmont-c2",
+        worldId: "eldyrwild",
+      }),
+    );
+    expect(worldOption).toEqual(
+      expect.objectContaining({
+        kind: "world",
+        worldId: "longmont-c2",
+        label: "Longmont C2",
+      }),
+    );
+    expect(result.current.suggestedDestinationValue).toBe("world:longmont-c2");
   });
 
   it("fails closed when pending import destination world differs from form destination", async () => {
