@@ -914,7 +914,7 @@
       },
       {
         "blocker_class": "RELATIONSHIP_PREDICATE",
-        "blocking_stage": "authority_promotion",
+        "blocking_stage": "adoption_package_construction",
         "count": 5,
         "examples": [
           "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
@@ -929,7 +929,7 @@
         "presence_scope": "both",
         "relationship_authority": "eldyrwild-relationship-node-kind-source-repair-v1",
         "responsible_repo": null,
-        "smallest_next_change": "Retain the five dual-sense edges as an explicit migration decision set; do not schedule live Buddy repair or a singular DM contract from this row alone."
+        "smallest_next_change": "Keep the five dual-sense edges as an explicit migration decision set that still blocks adoption-package construction until a pinned contract can carry unresolved identity/decomposition semantics losslessly; do not schedule live Buddy repair or Case B adoption from this row alone."
       },
       {
         "blocker_class": "WORLD_OBJECT_KIND",
@@ -1450,7 +1450,7 @@
     ],
     "case": "CASE_A",
     "change": "Admit Buddy kind 'thread' into world-object vocabulary, or publish an explicit Buddy→DM kind adapter with ADR (example: node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind).",
-    "cross_repository_decision_sets": [
+    "cross_repository_package_construction": [
       "RELATIONSHIP_PREDICATE"
     ],
     "deferred_durable_adoption_gates": [
@@ -1459,7 +1459,7 @@
       "IDENTITY_HISTORY",
       "POSTGRES_ADOPTION"
     ],
-    "nonclaim": "Case A does not authorize adopting an existing world while semantic package-construction gaps remain; dual-sense STOPs stay undecided.",
+    "nonclaim": "Case A does not authorize adopting an existing world while semantic package-construction gaps remain; dual-sense STOPs still block adoption-package construction and stay undecided.",
     "repository": "DungeonMind"
   },
   "projection_delta": {
@@ -1492,7 +1492,7 @@
         },
         "migration": {
           "blocker_class": "RELATIONSHIP_PREDICATE",
-          "blocking_stage": "authority_promotion",
+          "blocking_stage": "adoption_package_construction",
           "count": 5,
           "examples": [
             "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
@@ -1507,7 +1507,7 @@
           "presence_scope": "both",
           "relationship_authority": "eldyrwild-relationship-node-kind-source-repair-v1",
           "responsible_repo": null,
-          "smallest_next_change": "Retain the five dual-sense edges as an explicit migration decision set; do not schedule live Buddy repair or a singular DM contract from this row alone."
+          "smallest_next_change": "Keep the five dual-sense edges as an explicit migration decision set that still blocks adoption-package construction until a pinned contract can carry unresolved identity/decomposition semantics losslessly; do not schedule live Buddy repair or Case B adoption from this row alone."
         }
       }
     ],

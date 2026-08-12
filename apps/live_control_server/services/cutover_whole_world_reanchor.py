@@ -100,7 +100,7 @@ FIXTURE_RELPATH = (
     "eldyrwild_cutover_reanchor_after_566_v1.json"
 )
 LOCKED_FIXTURE_SHA256 = (
-    "012d112f0f5d37745bde6b08ae5d62c3295aff07914cddf44b1b06fe7b7fccfa"
+    "6c978f89527ccd82e9bad32eac70a5386a5d714e80f7e426f574d7dbc0e43cbf"
 )
 
 # Named source/provenance families for T14 no-mutation proofs. Assertion support,
@@ -472,7 +472,7 @@ def _relationship_blocker(
             "count": len(residual_edge_ids),
             "examples": residual_edge_ids[:10],
             "presence_scope": presence_scope,
-            "blocking_stage": "authority_promotion",
+            "blocking_stage": "adoption_package_construction",
             "ownership_scope": "cross_repository",
             "responsible_repo": None,
             "ownership_note": (
@@ -481,8 +481,10 @@ def _relationship_blocker(
                 "this report does not collapse either owner."
             ),
             "smallest_next_change": (
-                "Retain the five dual-sense edges as an explicit migration decision "
-                "set; do not schedule live Buddy repair or a singular DM contract "
+                "Keep the five dual-sense edges as an explicit migration decision "
+                "set that still blocks adoption-package construction until a pinned "
+                "contract can carry unresolved identity/decomposition semantics "
+                "losslessly; do not schedule live Buddy repair or Case B adoption "
                 "from this row alone."
             ),
             "ledger_disposition": "replaced_by_effective_relationship",
@@ -786,16 +788,26 @@ def _package_construction_blockers(
     blockers: list[dict[str, Any]],
     *,
     responsible_repo: str | None = None,
+    ownership_scope: OwnershipScope | None = "singular",
 ) -> list[dict[str, Any]]:
     rows = [
         blocker
         for blocker in blockers
         if blocker.get("blocking_stage") == "adoption_package_construction"
-        and blocker.get("ownership_scope") == "singular"
     ]
+    if ownership_scope is not None:
+        rows = [blocker for blocker in rows if blocker.get("ownership_scope") == ownership_scope]
     if responsible_repo is None:
         return rows
     return [blocker for blocker in rows if blocker.get("responsible_repo") == responsible_repo]
+
+
+def _any_package_construction_blockers(blockers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        blocker
+        for blocker in blockers
+        if blocker.get("blocking_stage") == "adoption_package_construction"
+    ]
 
 
 def _pick_case_a_gap(blockers: list[dict[str, Any]]) -> dict[str, Any]:
@@ -851,16 +863,18 @@ def _next_slice_recommendation(blockers: list[dict[str, Any]]) -> dict[str, Any]
                     if blocker.get("blocking_stage") == "durable_adoption"
                 }
             ),
-            "cross_repository_decision_sets": sorted(
+            "cross_repository_package_construction": sorted(
                 {
                     blocker["blocker_class"]
                     for blocker in blockers
                     if blocker.get("ownership_scope") == "cross_repository"
+                    and blocker.get("blocking_stage") == "adoption_package_construction"
                 }
             ),
             "nonclaim": (
                 "Case A does not authorize adopting an existing world while semantic "
-                "package-construction gaps remain; dual-sense STOPs stay undecided."
+                "package-construction gaps remain; dual-sense STOPs still block "
+                "adoption-package construction and stay undecided."
             ),
         }
 
@@ -876,7 +890,56 @@ def _next_slice_recommendation(blockers: list[dict[str, Any]]) -> dict[str, Any]
             "basis_blocker_classes": [primary["blocker_class"]],
             "basis_blocking_stages": ["adoption_package_construction"],
             "basis_examples": list(primary.get("examples", [])[:5]),
+            "cross_repository_package_construction": sorted(
+                {
+                    blocker["blocker_class"]
+                    for blocker in blockers
+                    if blocker.get("ownership_scope") == "cross_repository"
+                    and blocker.get("blocking_stage") == "adoption_package_construction"
+                }
+            ),
             "nonclaim": "Do not reopen broad relationship cleanup.",
+        }
+
+    cross_repo_package = _package_construction_blockers(
+        blockers, ownership_scope="cross_repository"
+    )
+    if cross_repo_package:
+        primary = sorted(cross_repo_package, key=lambda row: row["blocker_class"])[0]
+        return {
+            "case": "CASE_A",
+            "repository": None,
+            "change": primary["smallest_next_change"],
+            "basis_blocker_classes": [primary["blocker_class"]],
+            "basis_blocking_stages": ["adoption_package_construction"],
+            "basis_examples": list(primary.get("examples", [])[:5]),
+            "basis_ownership_scope": "cross_repository",
+            "deferred_durable_adoption_gates": sorted(
+                {
+                    blocker["blocker_class"]
+                    for blocker in blockers
+                    if blocker.get("blocking_stage") == "durable_adoption"
+                }
+            ),
+            "nonclaim": (
+                "Cross-repository package-construction blockers keep the semantic "
+                "target inexpressible; Case B adoption-seam work is not authorized."
+            ),
+        }
+
+    remaining_package = _any_package_construction_blockers(blockers)
+    if remaining_package:
+        primary = sorted(remaining_package, key=lambda row: row["blocker_class"])[0]
+        return {
+            "case": "CASE_A",
+            "repository": primary.get("responsible_repo"),
+            "change": primary["smallest_next_change"],
+            "basis_blocker_classes": [primary["blocker_class"]],
+            "basis_blocking_stages": ["adoption_package_construction"],
+            "basis_examples": list(primary.get("examples", [])[:5]),
+            "nonclaim": (
+                "Adoption-package construction is not clear; Case B is not authorized."
+            ),
         }
 
     durable_gates = [
