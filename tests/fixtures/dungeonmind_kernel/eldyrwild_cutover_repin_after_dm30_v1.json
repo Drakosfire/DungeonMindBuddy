@@ -1549,7 +1549,7 @@
           "ownership_scope": "singular",
           "responsible_repo": "DungeonMindBuddy"
         },
-        "note": "ATTRIBUTE_ASSERTION 29→28 because Buddy role on kind 'thread' (node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role) becomes representable once PR #30 maps thread→dnd5e:thread and world-property-v3 admits dnd5e:role on that subject kind.",
+        "note": "After thread→dnd5e:thread, world-property-v3 admits dnd5e:role on that subject kind; this field leaves ATTRIBUTE_ASSERTION.",
         "previous": {
           "blocking_stage": "adoption_package_construction",
           "count": 29,
@@ -1564,19 +1564,14 @@
           "responsible_repo": "DungeonMindBuddy"
         },
         "representative_durable_ids": [
-          "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role",
-          "node:item:session11:council-headquarters:state:last_identity_decision_id",
-          "node:item:session11:council-headquarters:state:merged_into",
-          "node:item_enormous_boulder:state:last_identity_decision_id",
-          "node:item_enormous_boulder:state:merged_into",
-          "node:item_foot_of_statue:state:identity_state"
+          "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role"
         ],
         "view": "canonical"
       },
       {
         "blocker_class": "WORLD_OBJECT_KIND",
         "current": null,
-        "note": "Cleared under CURRENT_V5_TARGET (DungeonMind PR #30 world-object-v5 / world-property-v3).",
+        "note": "PR #30 publishes dnd5e:thread; CURRENT_V5_TARGET maps Buddy kind 'thread' → dnd5e:thread so this field leaves WORLD_OBJECT_KIND.",
         "previous": {
           "blocking_stage": "adoption_package_construction",
           "count": 1,
@@ -1606,7 +1601,7 @@
           "ownership_scope": "singular",
           "responsible_repo": "DungeonMindBuddy"
         },
-        "note": "ATTRIBUTE_ASSERTION 29→28 because Buddy role on kind 'thread' (node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role) becomes representable once PR #30 maps thread→dnd5e:thread and world-property-v3 admits dnd5e:role on that subject kind.",
+        "note": "After thread→dnd5e:thread, world-property-v3 admits dnd5e:role on that subject kind; this field leaves ATTRIBUTE_ASSERTION.",
         "previous": {
           "blocking_stage": "adoption_package_construction",
           "count": 29,
@@ -1621,19 +1616,14 @@
           "responsible_repo": "DungeonMindBuddy"
         },
         "representative_durable_ids": [
-          "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role",
-          "node:item:session11:council-headquarters:state:last_identity_decision_id",
-          "node:item:session11:council-headquarters:state:merged_into",
-          "node:item_enormous_boulder:state:last_identity_decision_id",
-          "node:item_enormous_boulder:state:merged_into",
-          "node:item_foot_of_statue:state:identity_state"
+          "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role"
         ],
         "view": "migration"
       },
       {
         "blocker_class": "WORLD_OBJECT_KIND",
         "current": null,
-        "note": "Cleared under CURRENT_V5_TARGET (DungeonMind PR #30 world-object-v5 / world-property-v3).",
+        "note": "PR #30 publishes dnd5e:thread; CURRENT_V5_TARGET maps Buddy kind 'thread' → dnd5e:thread so this field leaves WORLD_OBJECT_KIND.",
         "previous": {
           "blocking_stage": "adoption_package_construction",
           "count": 1,
@@ -1649,6 +1639,90 @@
         "view": "migration"
       }
     ],
+    "classified_element_transitions": {
+      "canonical": [
+        {
+          "current": {
+            "blocker_class": null,
+            "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+            "element_family": "node_field",
+            "note": "explicit adapter dnd5e:thread"
+          },
+          "element_family": "node_field",
+          "element_id": "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind",
+          "explanation": "PR #30 publishes dnd5e:thread; CURRENT_V5_TARGET maps Buddy kind 'thread' → dnd5e:thread so this field leaves WORLD_OBJECT_KIND.",
+          "previous": {
+            "blocker_class": "WORLD_OBJECT_KIND",
+            "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+            "element_family": "node_field",
+            "note": "unknown Buddy kind 'thread'"
+          },
+          "view": "canonical"
+        },
+        {
+          "current": {
+            "blocker_class": null,
+            "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+            "element_family": "node_field",
+            "note": "Buddy role → dnd5e:role exact string on dnd5e:thread (no normalization)"
+          },
+          "element_family": "node_field",
+          "element_id": "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role",
+          "explanation": "After thread→dnd5e:thread, world-property-v3 admits dnd5e:role on that subject kind; this field leaves ATTRIBUTE_ASSERTION.",
+          "previous": {
+            "blocker_class": "ATTRIBUTE_ASSERTION",
+            "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+            "element_family": "node_field",
+            "note": "Buddy role 'thread' on unmapped kind 'thread'"
+          },
+          "view": "canonical"
+        }
+      ],
+      "lossless": true,
+      "migration": [
+        {
+          "current": {
+            "blocker_class": null,
+            "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+            "element_family": "node_field",
+            "note": "explicit adapter dnd5e:thread"
+          },
+          "element_family": "node_field",
+          "element_id": "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind",
+          "explanation": "PR #30 publishes dnd5e:thread; CURRENT_V5_TARGET maps Buddy kind 'thread' → dnd5e:thread so this field leaves WORLD_OBJECT_KIND.",
+          "previous": {
+            "blocker_class": "WORLD_OBJECT_KIND",
+            "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+            "element_family": "node_field",
+            "note": "unknown Buddy kind 'thread'"
+          },
+          "view": "migration"
+        },
+        {
+          "current": {
+            "blocker_class": null,
+            "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+            "element_family": "node_field",
+            "note": "Buddy role → dnd5e:role exact string on dnd5e:thread (no normalization)"
+          },
+          "element_family": "node_field",
+          "element_id": "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role",
+          "explanation": "After thread→dnd5e:thread, world-property-v3 admits dnd5e:role on that subject kind; this field leaves ATTRIBUTE_ASSERTION.",
+          "previous": {
+            "blocker_class": "ATTRIBUTE_ASSERTION",
+            "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+            "element_family": "node_field",
+            "note": "Buddy role 'thread' on unmapped kind 'thread'"
+          },
+          "view": "migration"
+        }
+      ],
+      "note": "Every historical→v5 semantic classification/blocker change is enumerated by durable element_id. Compact whole-world digests omit mapping_buckets; this inventory is the T12 proof.",
+      "sealed_element_ids": [
+        "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind",
+        "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role"
+      ]
+    },
     "cleared_blocker_classes": [
       "WORLD_OBJECT_KIND"
     ],

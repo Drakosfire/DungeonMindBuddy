@@ -49,6 +49,7 @@ def _analyze_loaded_buddy_world_store_v5(
     revision_id: str,
     manifest: Any,
     store: UnionSupergraphStore,
+    classified_out: list[Any] | None = None,
 ) -> WholeWorldConformanceReportV4:
     """Private loaded-store path for in-memory migration projections under v5."""
     return _analyze_loaded_buddy_world_store_v4(
@@ -58,6 +59,7 @@ def _analyze_loaded_buddy_world_store_v5(
         manifest=manifest,
         store=store,
         target=CURRENT_V5_TARGET,
+        classified_out=classified_out,
     )
 
 

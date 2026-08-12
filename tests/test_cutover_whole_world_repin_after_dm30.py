@@ -12,6 +12,8 @@ import graph_memory.kernel as kernel
 from apps.live_control_server.config import repo_root, world_graph_root
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
     BlockerClass,
+    ClassifiedElement,
+    SemanticClassification,
     enumerate_durable_element_ids,
     inspect_dungeonmind_durable_adoption_seam,
     snapshot_world_graph_tree_digest,
@@ -28,13 +30,19 @@ from apps.live_control_server.services.cutover_whole_world_reanchor import (
 from apps.live_control_server.services.cutover_whole_world_repin_after_dm30 import (
     CANONICAL_GRAPH_PAYLOAD_SHA256,
     CANONICAL_REVISION_ID,
+    EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS,
     FIXTURE_RELPATH,
     HISTORICAL_FIXTURE_RELPATH,
     HISTORICAL_FIXTURE_SHA256,
     LOCKED_FIXTURE_SHA256,
+    THREAD_KIND_ELEMENT_ID,
+    THREAD_ROLE_ELEMENT_ID,
+    CutoverWholeWorldRepinAfterDm30Error,
     _compose_report,
     _next_slice_recommendation,
     _report_bytes,
+    assert_sealed_classified_transitions,
+    build_classified_element_delta,
     build_cutover_whole_world_repin_after_dm30,
     get_cutover_whole_world_repin_after_dm30_status,
     snapshot_source_authority_inventory,
@@ -157,6 +165,162 @@ def test_world_object_kind_clears_under_v5(report: Any) -> None:
     assert BlockerClass.WORLD_OBJECT_KIND.value in report.target_contract_delta[
         "cleared_blocker_classes"
     ]
+
+
+def test_t12_classified_element_delta_is_lossless_and_sealed(report: Any) -> None:
+    classified = report.target_contract_delta["classified_element_transitions"]
+    assert classified["lossless"] is True
+    assert classified["sealed_element_ids"] == sorted(
+        EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS
+    )
+    for view_name in ("canonical", "migration"):
+        rows = classified[view_name]
+        assert {row["element_id"] for row in rows} == (
+            EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS
+        )
+        by_id = {row["element_id"]: row for row in rows}
+        kind = by_id[THREAD_KIND_ELEMENT_ID]
+        role = by_id[THREAD_ROLE_ELEMENT_ID]
+        assert kind["previous"]["blocker_class"] == BlockerClass.WORLD_OBJECT_KIND.value
+        assert kind["current"]["blocker_class"] is None
+        assert kind["current"]["classification"] == (
+            SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER.value
+        )
+        assert role["previous"]["blocker_class"] == (
+            BlockerClass.ATTRIBUTE_ASSERTION.value
+        )
+        assert role["current"]["blocker_class"] is None
+        assert role["current"]["classification"] == (
+            SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER.value
+        )
+        assert "29→28" not in role["explanation"]
+        assert "dnd5e:thread" in kind["explanation"]
+        assert "world-property-v3" in role["explanation"]
+
+    # Blocker ledger notes must be derived from classified evidence.
+    attr_notes = [
+        row["note"]
+        for row in report.target_contract_delta["changed_blockers"]
+        if row["blocker_class"] == BlockerClass.ATTRIBUTE_ASSERTION.value
+    ]
+    assert attr_notes
+    assert all("29→28" not in note for note in attr_notes)
+    assert all(THREAD_ROLE_ELEMENT_ID in row for row in [
+        row["representative_durable_ids"]
+        for row in report.target_contract_delta["changed_blockers"]
+        if row["blocker_class"] == BlockerClass.ATTRIBUTE_ASSERTION.value
+    ])
+
+
+def _classified(
+    element_id: str,
+    *,
+    classification: SemanticClassification,
+    blocker: BlockerClass | None,
+    family: str = "node_field",
+) -> ClassifiedElement:
+    return ClassifiedElement(
+        element_id=element_id,
+        element_family=family,
+        classification=classification,
+        blocker_class=blocker,
+        note="fixture",
+    )
+
+
+def test_t12_adversarial_compensating_swap_cannot_pass_with_stable_counts() -> None:
+    """Aggregate blocker counts alone must not satisfy T12.
+
+    Construct a compensating swap that keeps WORLD_OBJECT_KIND/ATTRIBUTE totals
+    looking like the PR #30 outcome while changing an unrelated durable element.
+    """
+    gap = SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP
+    adapter = SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER
+    previous = [
+        _classified(
+            THREAD_KIND_ELEMENT_ID,
+            classification=gap,
+            blocker=BlockerClass.WORLD_OBJECT_KIND,
+        ),
+        _classified(
+            THREAD_ROLE_ELEMENT_ID,
+            classification=gap,
+            blocker=BlockerClass.ATTRIBUTE_ASSERTION,
+        ),
+        _classified(
+            "node:unrelated:field:label",
+            classification=adapter,
+            blocker=None,
+        ),
+    ]
+    # Compensating swap: clear thread kind/role as expected, but also flip an
+    # unrelated element into ATTRIBUTE_ASSERTION so aggregate ATTR still drops
+    # by one if someone only counted thread-role clearance... Actually for a
+    # true compensating case with IDENTICAL aggregate blocker counts:
+    # - thread kind clears WORLD_OBJECT_KIND (count -1)
+    # - unrelated element becomes WORLD_OBJECT_KIND (count +1)
+    # net WORLD_OBJECT_KIND unchanged, but classified delta has extra rows.
+    # For ATTR: thread role clears (-1) and unrelated becomes ATTR (+1) → net 0.
+    current = [
+        _classified(
+            THREAD_KIND_ELEMENT_ID,
+            classification=adapter,
+            blocker=None,
+        ),
+        _classified(
+            THREAD_ROLE_ELEMENT_ID,
+            classification=adapter,
+            blocker=None,
+        ),
+        _classified(
+            "node:unrelated:field:label",
+            classification=gap,
+            blocker=BlockerClass.ATTRIBUTE_ASSERTION,
+        ),
+    ]
+    transitions = build_classified_element_delta(
+        view="adversarial",
+        previous_elements=previous,
+        current_elements=current,
+    )
+    # Three transitions: kind, role, and unrelated — must not seal as PR #30 set.
+    assert {row["element_id"] for row in transitions} != (
+        EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS
+    )
+    with pytest.raises(CutoverWholeWorldRepinAfterDm30Error) as exc:
+        assert_sealed_classified_transitions(transitions, view="adversarial")
+    assert exc.value.code == "classified_element_delta_mismatch"
+
+
+def test_t12_adversarial_count_matched_fake_thread_set_still_needs_exact_semantics() -> None:
+    """Even with only the two sealed IDs, wrong old/new blocker classes fail T12."""
+    gap = SemanticClassification.DUNGEONMIND_SEMANTIC_CONTRACT_GAP
+    adapter = SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER
+    previous = [
+        _classified(
+            THREAD_KIND_ELEMENT_ID,
+            classification=gap,
+            blocker=BlockerClass.WORLD_OBJECT_KIND,
+        ),
+        _classified(
+            THREAD_ROLE_ELEMENT_ID,
+            classification=gap,
+            # Wrong prior class — would still clear ATTR aggregate if miscounted.
+            blocker=BlockerClass.EVIDENCE_PROVENANCE,
+        ),
+    ]
+    current = [
+        _classified(THREAD_KIND_ELEMENT_ID, classification=adapter, blocker=None),
+        _classified(THREAD_ROLE_ELEMENT_ID, classification=adapter, blocker=None),
+    ]
+    transitions = build_classified_element_delta(
+        view="adversarial",
+        previous_elements=previous,
+        current_elements=current,
+    )
+    with pytest.raises(CutoverWholeWorldRepinAfterDm30Error) as exc:
+        assert_sealed_classified_transitions(transitions, view="adversarial")
+    assert exc.value.code == "classified_element_delta_mismatch"
 
 
 def test_relationship_inventories_unchanged(report: Any) -> None:

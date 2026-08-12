@@ -1805,6 +1805,7 @@ def _analyze_loaded_buddy_world_store_v4(
     manifest: Any,
     store: UnionSupergraphStore,
     target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
+    classified_out: list[ClassifiedElement] | None = None,
 ) -> WholeWorldConformanceReportV4:
     """Classify an already integrity-loaded Buddy store against an exact target.
 
@@ -1813,6 +1814,11 @@ def _analyze_loaded_buddy_world_store_v4(
     intentionally preserve the canonical manifest pins.
 
     Default ``target`` is HISTORICAL_V4_TARGET so existing callers remain byte-stable.
+
+    When ``classified_out`` is provided, append every durable classified element
+    (full inventory, not truncated mapping-bucket representatives) for lossless
+    target-contract deltas. Classified elements are never attached to the report
+    payload so historical compact digests remain unchanged.
     """
     adjudication_domain = _matches_adjudication_domain(
         world_id=world_id,
@@ -2276,7 +2282,7 @@ def _analyze_loaded_buddy_world_store_v4(
         "WHOLE_GRAPH_ADOPTION_READY" if not blockers else "WHOLE_GRAPH_ADOPTION_NOT_READY"
     )
 
-    return WholeWorldConformanceReportV4(
+    report = WholeWorldConformanceReportV4(
         source_world_id=world_id,
         source_revision_id=manifest.revision_id,
         source_graph_payload_sha256=manifest.graph_payload_sha256,
@@ -2376,6 +2382,9 @@ def _analyze_loaded_buddy_world_store_v4(
         role_external_resource_count=role_external_resource_count,
         role_residual_count=role_residual_count,
     )
+    if classified_out is not None:
+        classified_out.extend(classified)
+    return report
 
 
 def analyze_exact_buddy_world_revision_v4(

@@ -92,7 +92,20 @@ FIXTURE_RELPATH = (
 )
 # Empty until first seal; nonempty enforces exact match thereafter.
 LOCKED_FIXTURE_SHA256 = (
-    "cf44b403b2686bc4cfbdee4d3a96252b3d4f1c071384f8a95dc2ebb1937e1b13"
+    "a666a2bc0d7fabe7a8b66e1dc93698a29bb911efede7c3089df28887477c13b5"
+)
+
+# Exact PR #30 classified-element transitions sealed by T12 (both views).
+THREAD_NODE_ID = (
+    "mystery:session25:light-and-sound-as-search-tools-during-night-response"
+)
+THREAD_KIND_ELEMENT_ID = f"node:{THREAD_NODE_ID}:field:kind"
+THREAD_ROLE_ELEMENT_ID = f"node:{THREAD_NODE_ID}:field:role"
+EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS = frozenset(
+    {
+        THREAD_KIND_ELEMENT_ID,
+        THREAD_ROLE_ELEMENT_ID,
+    }
 )
 
 CutoverDisposition = Literal["CUTOVER_READY", "CUTOVER_NOT_READY"]
@@ -398,11 +411,177 @@ def _blocker_ledger_map(blockers: list[dict[str, Any]]) -> dict[str, dict[str, A
     }
 
 
+def _classified_snapshot(element: Any) -> dict[str, Any]:
+    blocker = element.blocker_class
+    return {
+        "element_family": element.element_family,
+        "classification": element.classification.value,
+        "blocker_class": None if blocker is None else blocker.value,
+        "note": element.note,
+    }
+
+
+def _classified_index(elements: list[Any]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for element in elements:
+        if element.element_id in index:
+            raise _fail(
+                f"duplicate classified element id {element.element_id!r}",
+                "classified_element_duplicate",
+            )
+        index[element.element_id] = _classified_snapshot(element)
+    return index
+
+
+def _semantic_key(snapshot: dict[str, Any] | None) -> tuple[str | None, str | None] | None:
+    if snapshot is None:
+        return None
+    return (snapshot["classification"], snapshot["blocker_class"])
+
+
+def _explain_classified_transition(
+    *,
+    element_id: str,
+    previous: dict[str, Any] | None,
+    current: dict[str, Any] | None,
+) -> str:
+    if element_id == THREAD_KIND_ELEMENT_ID:
+        return (
+            "PR #30 publishes dnd5e:thread; CURRENT_V5_TARGET maps Buddy kind "
+            "'thread' → dnd5e:thread so this field leaves WORLD_OBJECT_KIND."
+        )
+    if element_id == THREAD_ROLE_ELEMENT_ID:
+        return (
+            "After thread→dnd5e:thread, world-property-v3 admits dnd5e:role on "
+            "that subject kind; this field leaves ATTRIBUTE_ASSERTION."
+        )
+    return (
+        "Unexpected classified-element transition under CURRENT_V5_TARGET "
+        f"(previous={previous!r}, current={current!r})."
+    )
+
+
+def build_classified_element_delta(
+    *,
+    view: str,
+    previous_elements: list[Any],
+    current_elements: list[Any],
+) -> list[dict[str, Any]]:
+    """Lossless historical→current classified-element transitions (T12)."""
+    previous_index = _classified_index(previous_elements)
+    current_index = _classified_index(current_elements)
+    if set(previous_index) != set(current_index):
+        missing = sorted(set(previous_index) - set(current_index))
+        added = sorted(set(current_index) - set(previous_index))
+        raise _fail(
+            (
+                f"{view} classified element id set drifted "
+                f"(missing={missing[:5]}, added={added[:5]})"
+            ),
+            "classified_element_id_set_drift",
+        )
+    transitions: list[dict[str, Any]] = []
+    for element_id in sorted(previous_index):
+        previous = previous_index[element_id]
+        current = current_index[element_id]
+        if _semantic_key(previous) == _semantic_key(current):
+            continue
+        transitions.append(
+            {
+                "view": view,
+                "element_id": element_id,
+                "element_family": current["element_family"],
+                "previous": previous,
+                "current": current,
+                "explanation": _explain_classified_transition(
+                    element_id=element_id,
+                    previous=previous,
+                    current=current,
+                ),
+            }
+        )
+    return transitions
+
+
+def assert_sealed_classified_transitions(
+    transitions: list[dict[str, Any]],
+    *,
+    view: str,
+) -> None:
+    """Fail closed unless the sealed PR #30 two-element transition set holds."""
+    observed = {row["element_id"] for row in transitions}
+    if observed != EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS:
+        raise _fail(
+            (
+                f"{view} classified-element delta {sorted(observed)} != sealed "
+                f"{sorted(EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS)}"
+            ),
+            "classified_element_delta_mismatch",
+        )
+    by_id = {row["element_id"]: row for row in transitions}
+    kind = by_id[THREAD_KIND_ELEMENT_ID]
+    role = by_id[THREAD_ROLE_ELEMENT_ID]
+    if kind["previous"]["blocker_class"] != BlockerClass.WORLD_OBJECT_KIND.value:
+        raise _fail(
+            f"{view} thread kind previous blocker is not WORLD_OBJECT_KIND",
+            "classified_element_delta_mismatch",
+        )
+    if kind["current"]["blocker_class"] is not None:
+        raise _fail(
+            f"{view} thread kind current still carries a blocker",
+            "classified_element_delta_mismatch",
+        )
+    if role["previous"]["blocker_class"] != BlockerClass.ATTRIBUTE_ASSERTION.value:
+        raise _fail(
+            f"{view} thread role previous blocker is not ATTRIBUTE_ASSERTION",
+            "classified_element_delta_mismatch",
+        )
+    if role["current"]["blocker_class"] is not None:
+        raise _fail(
+            f"{view} thread role current still carries a blocker",
+            "classified_element_delta_mismatch",
+        )
+
+
+def _note_for_blocker_change(
+    *,
+    blocker_class: str,
+    transitions: list[dict[str, Any]],
+    previous: dict[str, Any] | None,
+    current: dict[str, Any] | None,
+) -> tuple[str, list[str]]:
+    """Derive blocker-ledger notes from classified-element evidence, not aggregates."""
+    relevant = [
+        row
+        for row in transitions
+        if (
+            (row["previous"] or {}).get("blocker_class") == blocker_class
+            or (row["current"] or {}).get("blocker_class") == blocker_class
+        )
+    ]
+    representative = [row["element_id"] for row in relevant]
+    if blocker_class == BlockerClass.WORLD_OBJECT_KIND.value and relevant:
+        return relevant[0]["explanation"], representative
+    if blocker_class == BlockerClass.ATTRIBUTE_ASSERTION.value and relevant:
+        return relevant[0]["explanation"], representative
+    prev_count = None if previous is None else previous.get("count")
+    curr_count = None if current is None else current.get("count")
+    return (
+        (
+            "Remeasured under CURRENT_V5_TARGET after DungeonMind PR #30 "
+            f"(count {prev_count}→{curr_count}); see classified_element_transitions."
+        ),
+        representative
+        or list((previous or current or {}).get("examples", []))[:10],
+    )
+
+
 def _compare_blocker_ledgers(
     *,
     view: str,
     previous_blockers: list[dict[str, Any]],
     current_blockers: list[dict[str, Any]],
+    classified_transitions: list[dict[str, Any]],
 ) -> tuple[list[str], list[dict[str, Any]]]:
     previous_map = _blocker_ledger_map(previous_blockers)
     current_map = _blocker_ledger_map(current_blockers)
@@ -413,66 +592,56 @@ def _compare_blocker_ledgers(
             continue
         prev = previous_map[blocker_class]
         curr = current_map[blocker_class]
-        representative = sorted(
-            set(prev.get("examples", [])) | set(curr.get("examples", []))
-        )[:10]
-        note = (
-            "Remeasured under CURRENT_V5_TARGET after DungeonMind PR #30; "
-            "counts are analyzer outputs, not carried forward from #568."
+        note, representative = _note_for_blocker_change(
+            blocker_class=blocker_class,
+            transitions=classified_transitions,
+            previous=prev,
+            current=curr,
         )
-        if (
-            blocker_class == BlockerClass.ATTRIBUTE_ASSERTION.value
-            and prev.get("count") == 29
-            and curr.get("count") == 28
-        ):
-            # Same node that cleared WORLD_OBJECT_KIND; role was blocked only
-            # because the kind was unmapped under historical v4.
-            thread_role_id = (
-                "node:mystery:session25:light-and-sound-as-search-tools-"
-                "during-night-response:field:role"
-            )
-            representative = [thread_role_id, *representative][:10]
-            note = (
-                "ATTRIBUTE_ASSERTION 29→28 because Buddy role on kind 'thread' "
-                f"({thread_role_id}) becomes representable once PR #30 maps "
-                "thread→dnd5e:thread and world-property-v3 admits dnd5e:role "
-                "on that subject kind."
-            )
         changed.append(
             {
                 "view": view,
                 "blocker_class": blocker_class,
                 "previous": prev,
                 "current": curr,
-                "representative_durable_ids": representative,
+                "representative_durable_ids": representative[:10],
                 "note": note,
             }
         )
     for blocker_class in cleared:
         prev = previous_map[blocker_class]
+        note, representative = _note_for_blocker_change(
+            blocker_class=blocker_class,
+            transitions=classified_transitions,
+            previous=prev,
+            current=None,
+        )
         changed.append(
             {
                 "view": view,
                 "blocker_class": blocker_class,
                 "previous": prev,
                 "current": None,
-                "representative_durable_ids": list(prev.get("examples", []))[:10],
-                "note": (
-                    "Cleared under CURRENT_V5_TARGET (DungeonMind PR #30 "
-                    "world-object-v5 / world-property-v3)."
-                ),
+                "representative_durable_ids": representative[:10],
+                "note": note,
             }
         )
     for blocker_class in sorted(set(current_map) - set(previous_map)):
         curr = current_map[blocker_class]
+        note, representative = _note_for_blocker_change(
+            blocker_class=blocker_class,
+            transitions=classified_transitions,
+            previous=None,
+            current=curr,
+        )
         changed.append(
             {
                 "view": view,
                 "blocker_class": blocker_class,
                 "previous": None,
                 "current": curr,
-                "representative_durable_ids": list(curr.get("examples", []))[:10],
-                "note": "Newly present under CURRENT_V5_TARGET relative to historical v4.",
+                "representative_durable_ids": representative[:10],
+                "note": note,
             }
         )
     return cleared, changed
@@ -488,16 +657,35 @@ def _build_target_contract_delta(
     historical_migration_blockers: list[dict[str, Any]],
     current_canonical_blockers: list[dict[str, Any]],
     current_migration_blockers: list[dict[str, Any]],
+    historical_canonical_classified: list[Any],
+    historical_migration_classified: list[Any],
+    current_canonical_classified: list[Any],
+    current_migration_classified: list[Any],
 ) -> dict[str, Any]:
+    canonical_transitions = build_classified_element_delta(
+        view="canonical",
+        previous_elements=historical_canonical_classified,
+        current_elements=current_canonical_classified,
+    )
+    migration_transitions = build_classified_element_delta(
+        view="migration",
+        previous_elements=historical_migration_classified,
+        current_elements=current_migration_classified,
+    )
+    assert_sealed_classified_transitions(canonical_transitions, view="canonical")
+    assert_sealed_classified_transitions(migration_transitions, view="migration")
+
     cleared_canonical, changed_canonical = _compare_blocker_ledgers(
         view="canonical",
         previous_blockers=historical_canonical_blockers,
         current_blockers=current_canonical_blockers,
+        classified_transitions=canonical_transitions,
     )
     cleared_migration, changed_migration = _compare_blocker_ledgers(
         view="migration",
         previous_blockers=historical_migration_blockers,
         current_blockers=current_migration_blockers,
+        classified_transitions=migration_transitions,
     )
     historical_kind = set(HISTORICAL_V4_TARGET.buddy_to_dm_kind)
     current_kind = set(CURRENT_V5_TARGET.buddy_to_dm_kind)
@@ -548,6 +736,17 @@ def _build_target_contract_delta(
         "current_whole_world_digests": {
             "canonical": _whole_world_digest(current_canonical, target="v5"),
             "migration": _whole_world_digest(current_migration, target="v5"),
+        },
+        "classified_element_transitions": {
+            "canonical": canonical_transitions,
+            "migration": migration_transitions,
+            "sealed_element_ids": sorted(EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS),
+            "lossless": True,
+            "note": (
+                "Every historical→v5 semantic classification/blocker change is "
+                "enumerated by durable element_id. Compact whole-world digests omit "
+                "mapping_buckets; this inventory is the T12 proof."
+            ),
         },
         "cleared_blocker_classes": sorted(set(cleared_canonical) | set(cleared_migration)),
         "changed_blockers": changed_canonical + changed_migration,
@@ -601,22 +800,26 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldRepinAfterDm30Re
     source_before = snapshot_source_authority_inventory(root)
 
     # CURRENT v5/v3 analysis (canonical + migration overlay).
+    current_canonical_classified: list[Any] = []
     canonical_v5 = whole_world_v5._analyze_loaded_buddy_world_store_v5(
         root=root,
         world_id=WORLD_ID,
         revision_id=CANONICAL_REVISION_ID,
         manifest=manifest,
         store=base_store,
+        classified_out=current_canonical_classified,
     )
     _verify_contract_pins(canonical_v5)
 
     # Historical v4/v2 analysis on the same loaded stores (target delta + reproduction).
+    historical_canonical_classified: list[Any] = []
     historical_canonical_v4 = whole_world_v4._analyze_loaded_buddy_world_store_v4(
         root=root,
         world_id=WORLD_ID,
         revision_id=CANONICAL_REVISION_ID,
         manifest=_copy_manifest(manifest),
         store=base_store,
+        classified_out=historical_canonical_classified,
     )
     _verify_historical_contract_pins(historical_canonical_v4)
 
@@ -658,21 +861,25 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldRepinAfterDm30Re
             "projection_diff_mismatch",
         )
 
+    current_migration_classified: list[Any] = []
     overlay_v5 = whole_world_v5._analyze_loaded_buddy_world_store_v5(
         root=root,
         world_id=WORLD_ID,
         revision_id=CANONICAL_REVISION_ID,
         manifest=_copy_manifest(manifest),
         store=overlay_store,
+        classified_out=current_migration_classified,
     )
     if overlay_v5.unaccounted_durable_elements != 0:
         raise _fail("migration overlay has unaccounted durable elements", "overlay_unaccounted")
+    historical_migration_classified: list[Any] = []
     historical_overlay_v4 = whole_world_v4._analyze_loaded_buddy_world_store_v4(
         root=root,
         world_id=WORLD_ID,
         revision_id=CANONICAL_REVISION_ID,
         manifest=_copy_manifest(manifest),
         store=overlay_store,
+        classified_out=historical_migration_classified,
     )
     _verify_historical_contract_pins(historical_overlay_v4)
 
@@ -792,6 +999,10 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldRepinAfterDm30Re
         historical_migration_blockers=historical_migration_blockers,
         current_canonical_blockers=canonical_blockers,
         current_migration_blockers=migration_blockers,
+        historical_canonical_classified=historical_canonical_classified,
+        historical_migration_classified=historical_migration_classified,
+        current_canonical_classified=current_canonical_classified,
+        current_migration_classified=current_migration_classified,
     )
     if BlockerClass.WORLD_OBJECT_KIND.value not in target_contract_delta[
         "cleared_blocker_classes"
@@ -917,6 +1128,24 @@ def _assert_report_invariants(report: CutoverWholeWorldRepinAfterDm30ReportV1) -
         "thread": "dnd5e:thread"
     }:
         raise _fail("kind mapping delta drifted", "kind_map_delta_mismatch")
+    classified = report.target_contract_delta.get("classified_element_transitions")
+    if not isinstance(classified, dict) or not classified.get("lossless"):
+        raise _fail(
+            "classified_element_transitions missing or not lossless",
+            "classified_element_delta_mismatch",
+        )
+    if classified.get("sealed_element_ids") != sorted(
+        EXPECTED_CLASSIFIED_TRANSITION_ELEMENT_IDS
+    ):
+        raise _fail(
+            "sealed classified-element id set drifted",
+            "classified_element_delta_mismatch",
+        )
+    for view_name in ("canonical", "migration"):
+        assert_sealed_classified_transitions(
+            classified[view_name],
+            view=view_name,
+        )
     if not report.historical_reproduction.get("verified"):
         raise _fail("historical reproduction flag missing", "historical_reproduction_failed")
     if "aspect" in json.dumps(report.model_dump(mode="json", by_alias=True)).lower():
