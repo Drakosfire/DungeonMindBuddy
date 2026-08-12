@@ -1,0 +1,811 @@
+{
+ "base_graph_payload_sha256": "2632870ef70638969503de788cfdec97acd490875deff3e2630ac91dc96fe974",
+ "base_revision_id": "rev:5a7c13ae45c49a65b402920499be72ed",
+ "canonical_payload_sha256": "452341b9ef46f00d0596c2100d876fae7998315a405da161717ed7b377483ca7",
+ "deferred_dual_sense_stops": [
+  {
+   "current_kind": "location",
+   "deferred_edge_ids": [
+    "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+   ],
+   "node_id": "loc:wizard_college",
+   "retained_effective_edge_ids": [
+    "edge:node:thalia:travels_to:loc:wizard_college",
+    "edge:node:torbin:travels_to:loc:wizard_college"
+   ],
+   "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-11"
+   ],
+   "source_contribution_ids": [
+    "contribution:97f5ef69b6c6d14e"
+   ],
+   "source_contribution_payload_sha256": {
+    "contribution:97f5ef69b6c6d14e": "b2f1ebea3b7bf0b495978f9abaab5a7c20450827d2df2b4e306a9c8d5914e349"
+   },
+   "source_seals": [
+    {
+     "all_evidence_excerpt_sha256s": [
+      "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+       "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+       "locator": "paragraph:008",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Headmaster Tinkerbright - Head of the Wizard’s College",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:008"
+      }
+     ],
+     "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+     "locator": "paragraph:008",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Headmaster Tinkerbright - Head of the Wizard’s College",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:008"
+    }
+   ],
+   "stop_basis": {
+    "candidate_kind": "faction",
+    "closure_unit_ids": [
+     "closure-unit:051"
+    ],
+    "deferred_edge_ids": [
+     "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+    ],
+    "kind_only_insufficient": true,
+    "note": "Changing the source to faction admits the headmaster's leads edge, but makes both retained travels_to edges residual because they require a location target. The source therefore has conflicting kind requirements; Stage B must stop.",
+    "proof": {
+     "candidate_kind": "faction",
+     "candidate_remaining_residual_edge_ids": [],
+     "current_kind": "location",
+     "deferred_edge_ids": [
+      "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+     ],
+     "deferred_edges_admitted": true,
+     "effective_conformance_path": "private_injectable_owner_boundary",
+     "kind_only_insufficient": true,
+     "node_id": "loc:wizard_college",
+     "retained_edges_residual_under_candidate": [
+      "edge:node:thalia:travels_to:loc:wizard_college",
+      "edge:node:torbin:travels_to:loc:wizard_college"
+     ],
+     "retained_edges_were_effective_on_base": true,
+     "retained_effective_edge_ids": [
+      "edge:node:thalia:travels_to:loc:wizard_college",
+      "edge:node:torbin:travels_to:loc:wizard_college"
+     ]
+    },
+    "retained_effective_edge_ids": [
+     "edge:node:thalia:travels_to:loc:wizard_college",
+     "edge:node:torbin:travels_to:loc:wizard_college"
+    ],
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+      "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+      "source_span_ref_id": "session-11:recap:paragraph:008"
+     }
+    ],
+    "source_rationales": {
+     "edge:node:headmaster_tinkerbright:leads:loc:wizard_college": "Head of the Wizard's College is organizational leadership; college is mistyped as location. Extending leads to locations would confuse path/escort senses."
+    }
+   }
+  },
+  {
+   "current_kind": "group",
+   "deferred_edge_ids": [
+    "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+    "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+   ],
+   "node_id": "node:hempholm_folk_revelry",
+   "retained_effective_edge_ids": [
+    "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+   ],
+   "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-4"
+   ],
+   "source_contribution_ids": [
+    "contribution:4766ca1187eeeac4"
+   ],
+   "source_contribution_payload_sha256": {
+    "contribution:4766ca1187eeeac4": "2a49d8e3e5848bea46217913b6297501a6f8f25a825e89590f0061201717dc4f"
+   },
+   "source_seals": [
+    {
+     "all_evidence_excerpt_sha256s": [
+      "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+     "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+       "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_span_ref_id": "session-4:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+     "source_span_ref_id": "session-4:recap:paragraph:004"
+    },
+    {
+     "all_evidence_excerpt_sha256s": [
+      "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+     "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+       "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_span_ref_id": "session-4:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+     "source_span_ref_id": "session-4:recap:paragraph:004"
+    }
+   ],
+   "stop_basis": {
+    "candidate_kind": "event",
+    "closure_unit_ids": [
+     "closure-unit:052",
+     "closure-unit:055"
+    ],
+    "deferred_edge_ids": [
+     "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+     "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+    ],
+    "kind_only_insufficient": true,
+    "note": "Changing the source to event admits both participates_in edges, but makes its retained within-to-located_in edge residual because the source must remain a location-compatible group. Stage B must stop.",
+    "proof": {
+     "candidate_kind": "event",
+     "candidate_remaining_residual_edge_ids": [],
+     "current_kind": "group",
+     "deferred_edge_ids": [
+      "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+      "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+     ],
+     "deferred_edges_admitted": true,
+     "effective_conformance_path": "private_injectable_owner_boundary",
+     "kind_only_insufficient": true,
+     "node_id": "node:hempholm_folk_revelry",
+     "retained_edges_residual_under_candidate": [
+      "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+     ],
+     "retained_edges_were_effective_on_base": true,
+     "retained_effective_edge_ids": [
+      "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+     ]
+    },
+    "retained_effective_edge_ids": [
+     "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+    ],
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+      "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+      "source_span_ref_id": "session-4:recap:paragraph:004"
+     },
+     {
+      "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+      "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+      "source_span_ref_id": "session-4:recap:paragraph:004"
+     }
+    ],
+    "source_rationales": {
+     "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry": "Townsfolk gather for revelry; revelry is mistyped as group rather than event/encounter required by participates_in.",
+     "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry": "Caelynn joins festivities; revelry mistyped as group instead of event."
+    }
+   }
+  },
+  {
+   "current_kind": "party",
+   "deferred_edge_ids": [
+    "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+    "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+   ],
+   "node_id": "node:meat_distribution_network_session9",
+   "retained_effective_edge_ids": [
+    "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+    "edge:node:lyra:leads:node:meat_distribution_network_session9"
+   ],
+   "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-9"
+   ],
+   "source_contribution_ids": [
+    "contribution:b8d6018f51828276"
+   ],
+   "source_contribution_payload_sha256": {
+    "contribution:b8d6018f51828276": "fd65d5994fac1668c4b9ea91be039c18a83b952519fe2b517ee62a15df8414bb"
+   },
+   "source_seals": [
+    {
+     "all_evidence_excerpt_sha256s": [
+      "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+       "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:011"
+    },
+    {
+     "all_evidence_excerpt_sha256s": [
+      "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+       "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:011"
+    }
+   ],
+   "stop_basis": {
+    "candidate_kind": "location",
+    "closure_unit_ids": [
+     "closure-unit:048",
+     "closure-unit:049"
+    ],
+    "deferred_edge_ids": [
+     "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+     "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+    ],
+    "kind_only_insufficient": true,
+    "note": "Changing the source to location admits both containment edges, but makes the retained leads edges residual because leads requires a party/group/faction target. The source therefore has conflicting kind requirements; Stage B must stop.",
+    "proof": {
+     "candidate_kind": "location",
+     "candidate_remaining_residual_edge_ids": [],
+     "current_kind": "party",
+     "deferred_edge_ids": [
+      "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+      "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+     ],
+     "deferred_edges_admitted": true,
+     "effective_conformance_path": "private_injectable_owner_boundary",
+     "kind_only_insufficient": true,
+     "node_id": "node:meat_distribution_network_session9",
+     "retained_edges_residual_under_candidate": [
+      "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+      "edge:node:lyra:leads:node:meat_distribution_network_session9"
+     ],
+     "retained_edges_were_effective_on_base": true,
+     "retained_effective_edge_ids": [
+      "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+      "edge:node:lyra:leads:node:meat_distribution_network_session9"
+     ]
+    },
+    "retained_effective_edge_ids": [
+     "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+     "edge:node:lyra:leads:node:meat_distribution_network_session9"
+    ],
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+      "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+      "source_span_ref_id": "session-9:recap:paragraph:011"
+     },
+     {
+      "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+      "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+      "source_span_ref_id": "session-9:recap:paragraph:011"
+     }
+    ],
+    "source_rationales": {
+     "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of": "Label 'site of' inverts containment and types the project as party; authored structure is wrong for located_in.",
+     "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9": "Packing area belongs to a logistics site/network mistyped as party; correct kinds before any part_of endpoint work."
+    }
+   }
+  }
+ ],
+ "expected_base_inventory": {
+  "represented": 314,
+  "residual": 9,
+  "semantic": 323,
+  "uses_statblock_mechanics": 3
+ },
+ "expected_deferred_residual_edge_ids": [
+  "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+  "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+  "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+  "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+  "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+  "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+  "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+  "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+  "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+ ],
+ "expected_projected_inventory": {
+  "represented": 318,
+  "residual": 5,
+  "semantic": 323,
+  "uses_statblock_mechanics": 3
+ },
+ "expected_remaining_residual_edge_ids": [
+  "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+  "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+  "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+  "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+  "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+ ],
+ "kind_repairs": [
+  {
+   "admissibility_after": [
+    {
+     "blocker": null,
+     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+     "disposition": "EXISTING_EXPLICIT_ADAPTER",
+     "edge_id": "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+     "mapped_dm_term": "dnd5e:member_of",
+     "note": "explicit adapter dnd5e:member_of",
+     "predicate": "member_of",
+     "reverse_endpoints": false,
+     "source_kind": "group",
+     "source_node_id": "node:torvak_hempdealer_crew",
+     "target_kind": "group",
+     "target_node_id": "item:torvak-hemp-caravan"
+    }
+   ],
+   "admissibility_before": [
+    {
+     "blocker": "RELATIONSHIP_PREDICATE",
+     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+     "disposition": "ENDPOINT_ADMISSION_GAP",
+     "edge_id": "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+     "mapped_dm_term": "dnd5e:member_of",
+     "note": "member_of→dnd5e:member_of endpoint kinds dnd5e:group/dnd5e:item not admitted",
+     "predicate": "member_of",
+     "reverse_endpoints": false,
+     "source_kind": "group",
+     "source_node_id": "node:torvak_hempdealer_crew",
+     "target_kind": "item",
+     "target_node_id": "item:torvak-hemp-caravan"
+    }
+   ],
+   "affected_deferred_edge_ids": [
+    "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan"
+   ],
+   "corrected_kind": "group",
+   "current_kind": "item",
+   "kind_basis": {
+    "closure_unit_ids": [
+     "closure-unit:054"
+    ],
+    "note": "The sealed recap describes a caravan with a crew; member_of already admits group/faction/party and does not admit item; adapter admission and source uniquely require group.",
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+      "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+      "source_span_ref_id": "session-4:recap:paragraph:002"
+     }
+    ],
+    "source_rationales": {
+     "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan": "Crew belongs to Torvak's caravan group mistyped as item; member_of already admits group/faction/party objects."
+    }
+   },
+   "node_id": "item:torvak-hemp-caravan",
+   "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-4"
+   ],
+   "source_contribution_ids": [
+    "contribution:4766ca1187eeeac4"
+   ],
+   "source_contribution_payload_sha256": {
+    "contribution:4766ca1187eeeac4": "2a49d8e3e5848bea46217913b6297501a6f8f25a825e89590f0061201717dc4f"
+   },
+   "source_required_kind": "group",
+   "source_seals": [
+    {
+     "all_evidence_excerpt_sha256s": [
+      "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002"
+     ],
+     "artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+     "edge_id": "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+       "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+       "locator": "paragraph:002",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak’s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_span_ref_id": "session-4:recap:paragraph:002"
+      }
+     ],
+     "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+     "locator": "paragraph:002",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak’s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+     "source_span_ref_id": "session-4:recap:paragraph:002"
+    }
+   ]
+  },
+  {
+   "admissibility_after": [
+    {
+     "blocker": null,
+     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+     "disposition": "EXISTING_EXPLICIT_ADAPTER",
+     "edge_id": "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+     "mapped_dm_term": "dnd5e:located_in",
+     "note": "explicit adapter dnd5e:located_in",
+     "predicate": "located_in",
+     "reverse_endpoints": false,
+     "source_kind": "encounter",
+     "source_node_id": "combat_shatter_mages_tower_spider",
+     "target_kind": "location",
+     "target_node_id": "item_shatter_mages_tower"
+    }
+   ],
+   "admissibility_before": [
+    {
+     "blocker": "RELATIONSHIP_PREDICATE",
+     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+     "disposition": "ENDPOINT_ADMISSION_GAP",
+     "edge_id": "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+     "mapped_dm_term": "dnd5e:located_in",
+     "note": "located_in→dnd5e:located_in endpoint kinds dnd5e:encounter/dnd5e:item not admitted",
+     "predicate": "located_in",
+     "reverse_endpoints": false,
+     "source_kind": "encounter",
+     "source_node_id": "combat_shatter_mages_tower_spider",
+     "target_kind": "item",
+     "target_node_id": "item_shatter_mages_tower"
+    }
+   ],
+   "affected_deferred_edge_ids": [
+    "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower"
+   ],
+   "corrected_kind": "location",
+   "current_kind": "item",
+   "kind_basis": {
+    "closure_unit_ids": [
+     "closure-unit:047"
+    ],
+    "note": "The sealed recap calls this a tower and the deferred located_in edge needs a location endpoint; this is uniquely source-required by adapter admission and source; adapter admission must not widen located_in to item.",
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+      "excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009",
+      "source_span_ref_id": "session-1:recap:paragraph:009"
+     }
+    ],
+    "source_rationales": {
+     "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower": "Encounter is inside Shatter Mage's tower; tower is mistyped as item. located_in would admit once the place is a location — do not widen located_in object to arbitrary items for this case."
+    }
+   },
+   "node_id": "item_shatter_mages_tower",
+   "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-1"
+   ],
+   "source_contribution_ids": [
+    "contribution:f1700a77cda5ce95",
+    "contribution:f2fbbf4f7c191d8e"
+   ],
+   "source_contribution_payload_sha256": {
+    "contribution:f1700a77cda5ce95": "c9b77f7861036217d454b2dab9a2fc1bd50d28d1274d9fa4fed23868a03ecd57",
+    "contribution:f2fbbf4f7c191d8e": "3a9fa174a6eb59ed0ed7d410b66f48c8fb880c3a04d998b347f12699a5f6f9e8"
+   },
+   "source_required_kind": "location",
+   "source_seals": [
+    {
+     "all_evidence_excerpt_sha256s": [
+      "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009"
+     ],
+     "artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+     "edge_id": "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009",
+       "excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550",
+       "locator": "paragraph:009",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Finally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools. As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+       "source_span_ref_id": "session-1:recap:paragraph:009"
+      }
+     ],
+     "excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550",
+     "locator": "paragraph:009",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Finally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools. As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+     "source_span_ref_id": "session-1:recap:paragraph:009"
+    }
+   ]
+  },
+  {
+   "admissibility_after": [
+    {
+     "blocker": null,
+     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+     "disposition": "EXISTING_EXPLICIT_ADAPTER",
+     "edge_id": "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+     "mapped_dm_term": "dnd5e:serves",
+     "note": "explicit adapter dnd5e:serves",
+     "predicate": "serves",
+     "reverse_endpoints": false,
+     "source_kind": "npc",
+     "source_node_id": "node:torrin_flamescale",
+     "target_kind": "faction",
+     "target_node_id": "loc:guilds"
+    }
+   ],
+   "admissibility_before": [
+    {
+     "blocker": "RELATIONSHIP_PREDICATE",
+     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+     "disposition": "ENDPOINT_ADMISSION_GAP",
+     "edge_id": "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+     "mapped_dm_term": "dnd5e:serves",
+     "note": "serves→dnd5e:serves endpoint kinds dnd5e:npc/dnd5e:location not admitted",
+     "predicate": "serves",
+     "reverse_endpoints": false,
+     "source_kind": "npc",
+     "source_node_id": "node:torrin_flamescale",
+     "target_kind": "location",
+     "target_node_id": "loc:guilds"
+    }
+   ],
+   "affected_deferred_edge_ids": [
+    "edge:node:torrin_flamescale:serves:loc:guilds:represents"
+   ],
+   "corrected_kind": "faction",
+   "current_kind": "location",
+   "kind_basis": {
+    "closure_unit_ids": [
+     "closure-unit:053"
+    ],
+    "note": "The sealed source identifies the Guilds as Torrin's represented collective; adapter admission and source uniquely require faction, without widening serves to location.",
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+      "excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010",
+      "source_span_ref_id": "session-11:recap:paragraph:010"
+     }
+    ],
+    "source_rationales": {
+     "edge:node:torrin_flamescale:serves:loc:guilds:represents": "Representative of the Guilds; guilds mistyped as location. serves to a faction would already be endpoint-admitted."
+    }
+   },
+   "node_id": "loc:guilds",
+   "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-11"
+   ],
+   "source_contribution_ids": [
+    "contribution:97f5ef69b6c6d14e"
+   ],
+   "source_contribution_payload_sha256": {
+    "contribution:97f5ef69b6c6d14e": "b2f1ebea3b7bf0b495978f9abaab5a7c20450827d2df2b4e306a9c8d5914e349"
+   },
+   "source_required_kind": "faction",
+   "source_seals": [
+    {
+     "all_evidence_excerpt_sha256s": [
+      "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010",
+       "excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4",
+       "locator": "paragraph:010",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Torrin Flamescale - Master Smith and Representative of the Guilds",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:010"
+      }
+     ],
+     "excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4",
+     "locator": "paragraph:010",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Torrin Flamescale - Master Smith and Representative of the Guilds",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:010"
+    }
+   ]
+  },
+  {
+   "admissibility_after": [
+    {
+     "blocker": null,
+     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
+     "disposition": "EXISTING_EXPLICIT_ADAPTER",
+     "edge_id": "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+     "mapped_dm_term": "dnd5e:contains",
+     "note": "explicit adapter dnd5e:contains",
+     "predicate": "contains",
+     "reverse_endpoints": false,
+     "source_kind": "location",
+     "source_node_id": "loc:stone_bridge",
+     "target_kind": "location",
+     "target_node_id": "mystery_stone_bridge_river_name"
+    }
+   ],
+   "admissibility_before": [
+    {
+     "blocker": "RELATIONSHIP_PREDICATE",
+     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+     "disposition": "ENDPOINT_ADMISSION_GAP",
+     "edge_id": "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+     "mapped_dm_term": "dnd5e:contains",
+     "note": "contains→dnd5e:contains endpoint kinds dnd5e:location/dnd5e:mystery not admitted",
+     "predicate": "contains",
+     "reverse_endpoints": false,
+     "source_kind": "location",
+     "source_node_id": "loc:stone_bridge",
+     "target_kind": "mystery",
+     "target_node_id": "mystery_stone_bridge_river_name"
+    }
+   ],
+   "affected_deferred_edge_ids": [
+    "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name"
+   ],
+   "corrected_kind": "location",
+   "current_kind": "mystery",
+   "kind_basis": {
+    "closure_unit_ids": [
+     "closure-unit:050"
+    ],
+    "note": "The sealed recap describes the river by Stone Bridge; contains requires a location endpoint by adapter admission and source, and must not be widened to mystery.",
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+      "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+      "source_span_ref_id": "session-1:recap:paragraph:003"
+     }
+    ],
+    "source_rationales": {
+     "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name": "River beside/under Stone Bridge is a location mistyped as mystery; do not widen contains to mysteries."
+    }
+   },
+   "node_id": "mystery_stone_bridge_river_name",
+   "source_artifact_ids": [
+    "artifact:recap:longmont-c1:session-1"
+   ],
+   "source_contribution_ids": [
+    "contribution:f1700a77cda5ce95",
+    "contribution:f2fbbf4f7c191d8e"
+   ],
+   "source_contribution_payload_sha256": {
+    "contribution:f1700a77cda5ce95": "c9b77f7861036217d454b2dab9a2fc1bd50d28d1274d9fa4fed23868a03ecd57",
+    "contribution:f2fbbf4f7c191d8e": "3a9fa174a6eb59ed0ed7d410b66f48c8fb880c3a04d998b347f12699a5f6f9e8"
+   },
+   "source_required_kind": "location",
+   "source_seals": [
+    {
+     "all_evidence_excerpt_sha256s": [
+      "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003"
+     ],
+     "artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+       "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+       "locator": "paragraph:003",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+       "source_span_ref_id": "session-1:recap:paragraph:003"
+      }
+     ],
+     "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+     "locator": "paragraph:003",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+     "source_span_ref_id": "session-1:recap:paragraph:003"
+    }
+   ]
+  }
+ ],
+ "merge_sha_context": "0479d50d048a88b92b9d200dbf3cbbc93d295ba2",
+ "predecessor_closure_id": "eldyrwild-relationship-semantic-closure-v1",
+ "predecessor_closure_manifest_sha256": "3d5da9b19b74a28d4930132e281c0e41197d3ea1493c5a202ba1ef6c6ffbfb25",
+ "repair_id": "eldyrwild-relationship-node-kind-source-repair-v1",
+ "schema": "dmb_eldyrwild_relationship_node_kind_source_repair_v1",
+ "world_id": "eldyrwild"
+}
