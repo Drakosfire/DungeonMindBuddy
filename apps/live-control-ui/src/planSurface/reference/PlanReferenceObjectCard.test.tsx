@@ -263,6 +263,13 @@ function mockBinding(
   };
 }
 
+/** Related-object clicks no-op while World Graph projection is still loading. */
+async function waitForRelatedObjectEnabled(name: RegExp) {
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name })).toBeEnabled();
+  });
+}
+
 describe("PlanReferenceObjectCard", () => {
   beforeEach(() => {
     vi.mocked(resolveAndNavigateToBuildSource).mockReset();
@@ -463,6 +470,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
+    await waitForRelatedObjectEnabled(/Open related object .*Inn/i);
     await user.click(
       screen.getByRole("button", { name: /Open related object .*Inn/i }),
     );
@@ -585,6 +593,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
+    await waitForRelatedObjectEnabled(/Open related object .*Lysandra/i);
     await user.click(screen.getByRole("button", { name: /Open related object .*Lysandra/i }));
 
     await waitFor(() => {
@@ -631,6 +640,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
+    await waitForRelatedObjectEnabled(/Open related object .*Missing Gate/i);
     await user.click(screen.getByRole("button", { name: /Open related object .*Missing Gate/i }));
 
     await waitFor(() => {
@@ -683,6 +693,7 @@ describe("PlanReferenceObjectCard", () => {
     });
 
     // First empty-targetId row is ambiguous Lysandra. Clicking Inn must not first-win that row.
+    await waitForRelatedObjectEnabled(/Open related object .*Inn/i);
     await user.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
 
     await waitFor(() => {
