@@ -926,6 +926,73 @@ def test_partial_resume_refuses_foreign_revision_interleaved_in_prefix(
     assert status_final.eligibility == "integrity_failure"
 
 
+def test_intra_apply_refuses_foreign_revision_interleaved_between_ops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Foreign publish between ops in one apply must refuse the next closure write."""
+    root = _clone_eldyrwild(tmp_path)
+    probe: dict[str, Any] = {"fired": False, "foreign_head": None}
+
+    def _inject_foreign(world_root: Path, applied_operation_count: int) -> None:
+        if probe["fired"] or applied_operation_count != 2:
+            return
+        probe["fired"] = True
+        parent = kernel.open_world_graph_head(
+            world_root, ELDYRWILD_WORLD_ID
+        ).head_revision_id
+        foreign = kernel.create_graph_contribution(
+            world_id=ELDYRWILD_WORLD_ID,
+            source_kind="manual_import",
+            source_artifact_id="artifact:closure-foreign-intra-apply-probe",
+            campaign_scope="eldyrwild",
+            authored_by="gm",
+            accepted_assertions=[
+                kernel.build_assertion(
+                    assertion_kind="node",
+                    acceptance_state="accepted",
+                    subject_node_id="npc:closure_foreign_intra_apply_probe",
+                    label="closure foreign intra-apply probe",
+                    campaign_scope="eldyrwild",
+                    value={
+                        "kind": "npc",
+                        "role": "foreign_intra_apply_probe",
+                        "source_domains": ["manual_seed"],
+                    },
+                    identity_resolution_outcome="created_new",
+                )
+            ],
+        )
+        merged = kernel.merge_contribution_to_revision(
+            world_root,
+            world_id=ELDYRWILD_WORLD_ID,
+            contribution=foreign,
+            expected_parent_revision_id=parent,
+        )
+        assert merged.published is True
+        probe["foreign_head"] = merged.revision_id
+
+    monkeypatch.setattr(
+        closure_service, "_after_closure_operation_hook", _inject_foreign
+    )
+
+    result = apply_relationship_semantic_closure(
+        expected_base_revision_id=BASE_REVISION_ID, root=root, repo=REPO
+    )
+    assert probe["fired"] is True
+    assert probe["foreign_head"] is not None
+    assert result.failed_unit_id is not None
+    assert result.failure_code == "closure_chain_prefix_drift"
+    assert "closure_chain_" in (result.failure_message or "")
+    assert len(result.published_revision_ids) == 2
+    assert result.verify_passed is False
+
+    head_now = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
+    assert head_now == probe["foreign_head"]
+    status = get_relationship_semantic_closure_status(root=root, repo=REPO)
+    assert status.eligibility == "integrity_failure"
+    assert status.head_revision_id == probe["foreign_head"]
+
+
 def test_partial_resume_refuses_when_applied_unit_target_source_drifts(
     tmp_path: Path,
 ) -> None:
