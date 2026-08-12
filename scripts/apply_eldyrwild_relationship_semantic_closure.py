@@ -4,9 +4,9 @@
 Commands:
   status    Read-only closure status against the locked manifest.
   preflight Whole-ledger fail-closed verification against the exact Q4 base.
-  apply     Apply the 55-unit closure program in manifest order (prefix-safe).
-  verify    Verify post-closure head inventory (314/314/0/3) and unit states.
-  finalize  Refuse nonzero residual; emit the live pin JSON on success.
+  apply     Apply the mutable closure program in operation_plan order (prefix-safe).
+  verify    Verify post-closure head inventory (323/314/9/3) and deferred residuals.
+  finalize  Refuse unless verify proves the governed residual=9 exit; emit pin JSON.
 
 Examples:
   uv run python scripts/apply_eldyrwild_relationship_semantic_closure.py status

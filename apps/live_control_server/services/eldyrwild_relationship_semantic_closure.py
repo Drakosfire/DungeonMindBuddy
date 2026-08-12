@@ -1,8 +1,9 @@
 """Governed apply for the Eldyrwild relationship semantic closure program.
 
-Loads the locked 55-row closure manifest (plus its four hash-sealed child
-artifacts), proves whole-ledger preflight against the exact Q4 base revision,
-and applies closure units in manifest order through existing Kernel seams:
+Loads the locked 55-row closure manifest (46 mutable + 9 deferred kind-repair
+units with empty operations), proves whole-ledger preflight against the exact
+Q4 base revision, and applies mutable closure operations in ``operation_plan``
+order through existing Kernel seams:
 
 * ``contradict_edge_assertion_support`` for contradiction-only units and for
   the compound/identity edge contradictions;
@@ -12,10 +13,13 @@ and applies closure units in manifest order through existing Kernel seams:
   identity migrations (decision payloads are synced to the durable
   ``identity_decisions/`` ledger on publish).
 
-Callers cannot inject different artifacts, unit order, targets, or semantics:
+Deferred ``deferred_buddy_kind_repair`` units are never contradicted or mutated;
+they remain residual (residual=9) at the governed exit.
+
+Callers cannot inject different artifacts, unit/op order, targets, or semantics:
 the manifest bytes are sha256-locked here and child artifacts are verified
-against the manifest before any mutation. Apply is prefix-safe: an already
-applied prefix is skipped, a non-prefix applied set is refused.
+against the manifest before any mutation. Apply is operation-plan prefix-safe:
+an already applied op prefix is skipped, a non-prefix applied set is refused.
 """
 
 from __future__ import annotations
@@ -33,8 +37,16 @@ from apps.live_control_server.config import (
     repo_root,
     world_graph_root,
 )
+from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_continuity_v1 import (
+    prove_revision_is_anchor_or_descendant_v1,
+)
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_effective_conformance_v1 import (
     analyze_relationship_effective_conformance_v1,
+)
+from apps.live_control_server.integrations.dungeonmind_kernel.relationship_residual_adjudication import (
+    RelationshipResidualAdjudicationError,
+    resolve_evidence_excerpt,
+    verify_excerpt_against_seal,
 )
 from graph_memory.kernel.contribution_models import GraphContribution
 from graph_memory.kernel.identity_decisions import (
@@ -42,9 +54,14 @@ from graph_memory.kernel.identity_decisions import (
     merge_identity,
 )
 from graph_memory.world_supergraph.contribution_store import (
+    load_contribution_index,
     load_contribution_record,
 )
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
+from graph_memory.world_supergraph.identity_decision_store import (
+    load_identity_decision_index,
+    load_identity_decision_record,
+)
 
 CLOSURE_ID = "eldyrwild-relationship-semantic-closure-v1"
 WORLD_ID = "eldyrwild"
@@ -59,7 +76,7 @@ CLOSURE_DIR_RELPATH = (
 )
 MANIFEST_RELPATH = f"{CLOSURE_DIR_RELPATH}/manifest.json"
 LOCKED_MANIFEST_SHA256 = (
-    "ff52a6ddbd55f3339d89dd26aa286107eb3f473f184072a0c5182dfe25822423"
+    "3d5da9b19b74a28d4930132e281c0e41197d3ea1493c5a202ba1ef6c6ffbfb25"
 )
 
 EXPECTED_BASE_INVENTORY = {
@@ -72,11 +89,30 @@ EXPECTED_BASE_INVENTORY = {
     "buddy_owned": 55,
 }
 EXPECTED_FINAL_INVENTORY = {
-    "semantic": 314,
+    "semantic": 323,
     "represented": 314,
-    "residual": 0,
+    "residual": 9,
     "uses_statblock_mechanics": 3,
 }
+
+DEFERRED_RESIDUAL_EDGE_IDS = frozenset(
+    {
+        "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+        "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+        "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+        "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+        "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+        "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+        "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+        "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+        "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+    }
+)
+
+MUTABLE_UNIT_COUNT = 46
+DEFERRED_UNIT_COUNT = 9
+TOTAL_UNIT_COUNT = 55
+OPERATION_PLAN_COUNT = 54
 
 ADJUDICATION_FIXTURES = {
     "A": "tests/fixtures/dungeonmind_kernel/eldyrwild_relationship_residual_adjudication_v1.json",
@@ -90,6 +126,7 @@ SEAL_FIXTURES = {
 ClosureEligibility = Literal[
     "eligible", "partially_applied", "already_applied", "ineligible", "integrity_failure"
 ]
+OpState = Literal["applied", "pending", "integrity_failure"]
 
 
 class _Model(BaseModel):
@@ -101,9 +138,11 @@ class ClosureUnitState(_Model):
     ordinal: int
     edge_id: str
     closure_kind: str
+    deferred: bool = False
     applied: bool
     applied_operations: list[str] = Field(default_factory=list)
     pending_operations: list[str] = Field(default_factory=list)
+    integrity_failure: bool = False
 
 
 class RelationshipSemanticClosureStatus(_Model):
@@ -118,6 +157,8 @@ class RelationshipSemanticClosureStatus(_Model):
     eligibility: ClosureEligibility
     reason: str | None = None
     unit_count: int = 0
+    mutable_unit_count: int = 0
+    deferred_unit_count: int = 0
     applied_unit_count: int = 0
     next_pending_unit_id: str | None = None
     units: list[ClosureUnitState] = Field(default_factory=list)
@@ -136,6 +177,7 @@ class RelationshipSemanticClosureResult(_Model):
     published_revision_ids: list[str] = Field(default_factory=list)
     applied_unit_ids: list[str] = Field(default_factory=list)
     already_applied_unit_ids: list[str] = Field(default_factory=list)
+    deferred_unit_ids: list[str] = Field(default_factory=list)
     failed_unit_id: str | None = None
     failure_code: str | None = None
     failure_message: str | None = None
@@ -224,10 +266,42 @@ def _load_manifest(repo: Path | None = None) -> dict[str, Any]:
         raise RelationshipSemanticClosureError(
             "closure manifest final inventory mismatch", code="closure_manifest_invalid"
         )
+    deferred_ids = frozenset(manifest.get("deferred_residual_edge_ids") or [])
+    if deferred_ids != DEFERRED_RESIDUAL_EDGE_IDS:
+        raise RelationshipSemanticClosureError(
+            "closure manifest deferred residual edge set mismatch",
+            code="closure_manifest_invalid",
+        )
     units = manifest.get("units") or []
-    if len(units) != 55 or manifest.get("unit_order") != [u["unit_id"] for u in units]:
+    if len(units) != TOTAL_UNIT_COUNT or manifest.get("unit_order") != [
+        u["unit_id"] for u in units
+    ]:
         raise RelationshipSemanticClosureError(
             "closure manifest unit order mismatch", code="closure_manifest_invalid"
+        )
+    mutable = [u for u in units if not u.get("deferred")]
+    deferred = [u for u in units if u.get("deferred")]
+    if len(mutable) != MUTABLE_UNIT_COUNT or len(deferred) != DEFERRED_UNIT_COUNT:
+        raise RelationshipSemanticClosureError(
+            "closure manifest mutable/deferred unit counts mismatch",
+            code="closure_manifest_invalid",
+        )
+    for unit in deferred:
+        if unit.get("operations"):
+            raise RelationshipSemanticClosureError(
+                f"deferred unit {unit['unit_id']} must have empty operations",
+                code="closure_manifest_invalid",
+            )
+        if unit.get("closure_kind") != "deferred_buddy_kind_repair":
+            raise RelationshipSemanticClosureError(
+                f"deferred unit {unit['unit_id']} has unexpected closure_kind",
+                code="closure_manifest_invalid",
+            )
+    plan = manifest.get("operation_plan") or []
+    if len(plan) != OPERATION_PLAN_COUNT:
+        raise RelationshipSemanticClosureError(
+            "closure manifest operation_plan length mismatch",
+            code="closure_manifest_invalid",
         )
 
     for name, info in (manifest.get("artifacts") or {}).items():
@@ -262,15 +336,31 @@ def _unit_contribution(manifest: dict[str, Any], contribution_id: str) -> GraphC
         for entry in payload.get("entries") or []:
             contribs = entry.get("contributions") or {}
             if contribution_id in contribs:
-                return GraphContribution.model_validate(contribs[contribution_id])
+                raw = dict(contribs[contribution_id])
+                # Artifacts may embed the locked digest alongside the contribution
+                # body; GraphContribution forbids that auxiliary field.
+                raw.pop("source_payload_sha256", None)
+                return GraphContribution.model_validate(raw)
     raise RelationshipSemanticClosureError(
         f"contribution {contribution_id} not found in closure artifacts",
         code="closure_artifact_invalid",
     )
 
 
+def _units_by_id(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {u["unit_id"]: u for u in manifest["units"]}
+
+
+def _plan_unit_op(
+    manifest: dict[str, Any], plan_op: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    unit = _units_by_id(manifest)[plan_op["unit_id"]]
+    op = unit["operations"][plan_op["unit_op_index"]]
+    return unit, op
+
+
 # ---------------------------------------------------------------------------
-# Per-operation applied detection (prefix-safe resume)
+# Gold-standard authority helpers (mirrored from C4 session25 service)
 # ---------------------------------------------------------------------------
 
 
@@ -284,74 +374,415 @@ def _support_row(store: Any, assertion_id: str) -> dict[str, Any] | None:
     return row.model_dump(mode="json")
 
 
-def _correction_op_applied(
-    store: Any, unit: dict[str, Any], contribution_id: str
+def _support_record_as_dict(record: Any) -> dict[str, Any] | None:
+    if isinstance(record, dict):
+        return record
+    if hasattr(record, "model_dump"):
+        dumped = record.model_dump()
+        return dumped if isinstance(dumped, dict) else None
+    return None
+
+
+def _active_edge_assertion_ids(store: Any, edge_id: str) -> set[str]:
+    """Assertion IDs that currently keep ``edge_id`` supported in the Kernel."""
+    active: set[str] = set()
+    for assertion_id, raw in (store.assertion_support or {}).items():
+        support = _support_record_as_dict(raw)
+        if support is None:
+            continue
+        if support.get("graph_object_id") != edge_id:
+            continue
+        if support.get("assertion_kind") != "edge":
+            continue
+        if support.get("support_state") != "supported":
+            continue
+        if not list(support.get("active_contribution_ids") or []):
+            continue
+        resolved_id = support.get("assertion_id") or assertion_id
+        if isinstance(resolved_id, str) and resolved_id:
+            active.add(resolved_id)
+    return active
+
+
+def _manifest_entry(store: Any, contribution_id: str) -> Any | None:
+    for entry in store.contribution_replay_manifest or []:
+        cid = getattr(entry, "contribution_id", None)
+        if cid is None and isinstance(entry, dict):
+            cid = entry.get("contribution_id")
+        if cid == contribution_id:
+            return entry
+    return None
+
+
+def _entry_status_digest(entry: Any) -> tuple[str | None, str | None]:
+    status = getattr(entry, "status", None)
+    if status is None and isinstance(entry, dict):
+        status = entry.get("status")
+    digest = getattr(entry, "source_payload_sha256", None)
+    if digest is None and isinstance(entry, dict):
+        digest = entry.get("source_payload_sha256")
+    return status, digest
+
+
+def _accepted_edge_ids(contribution: GraphContribution) -> list[str]:
+    edge_ids: list[str] = []
+    for assertion in contribution.accepted_assertions:
+        if assertion.assertion_kind != "edge":
+            continue
+        value = assertion.value
+        if isinstance(value, dict):
+            edge_id = value.get("edge_id")
+            if isinstance(edge_id, str) and edge_id:
+                edge_ids.append(edge_id)
+    return edge_ids
+
+
+def _revision_bound_contribution_authority(
+    *,
+    root: Path,
+    store: Any,
+    contribution_id: str,
+    locked_source_payload_sha256: str,
+) -> tuple[bool, list[str]]:
+    """Digest VALUE equality + active replay + mutable ledger + index coherence."""
+    diagnostics: list[str] = []
+    digests = store.contribution_source_payload_sha256 or {}
+    bound = digests.get(contribution_id)
+    if bound != locked_source_payload_sha256:
+        diagnostics.append(f"revision_digest_mismatch_or_missing:{contribution_id}")
+        return False, diagnostics
+
+    entry = _manifest_entry(store, contribution_id)
+    if entry is None:
+        diagnostics.append(f"replay_manifest_missing:{contribution_id}")
+        return False, diagnostics
+    status, digest = _entry_status_digest(entry)
+    if status != "active":
+        diagnostics.append(f"replay_manifest_not_active:{contribution_id}")
+        return False, diagnostics
+    if digest != locked_source_payload_sha256:
+        diagnostics.append(f"replay_manifest_digest_mismatch:{contribution_id}")
+        return False, diagnostics
+
+    try:
+        ledger = load_contribution_record(root, WORLD_ID, contribution_id)
+    except FileNotFoundError:
+        diagnostics.append(f"mutable_ledger_missing:{contribution_id}")
+        return False, diagnostics
+    if ledger.contribution_id != contribution_id:
+        diagnostics.append(f"mutable_id_mismatch:{contribution_id}")
+        return False, diagnostics
+    ledger_digest = kernel.compute_contribution_source_payload_sha256(ledger)
+    if ledger_digest != locked_source_payload_sha256:
+        diagnostics.append(f"mutable_digest_mismatch:{contribution_id}")
+        return False, diagnostics
+    if ledger.status != "active":
+        diagnostics.append(f"mutable_not_active:{contribution_id}")
+        return False, diagnostics
+
+    index = load_contribution_index(root, WORLD_ID)
+    all_ids = set(index.all_contribution_ids)
+    active_ids = set(index.active_contribution_ids)
+    superseded_ids = set(index.superseded_contribution_ids)
+    retracted_ids = set(index.retracted_contribution_ids)
+    failed_ids = set(index.failed_contribution_ids)
+    if contribution_id not in all_ids:
+        diagnostics.append(f"index_missing_from_all:{contribution_id}")
+    if contribution_id not in active_ids:
+        diagnostics.append(f"index_not_active:{contribution_id}")
+    if contribution_id in superseded_ids:
+        diagnostics.append(f"index_superseded:{contribution_id}")
+    if contribution_id in retracted_ids:
+        diagnostics.append(f"index_retracted:{contribution_id}")
+    if contribution_id in failed_ids:
+        diagnostics.append(f"index_failed:{contribution_id}")
+    if any(
+        d.startswith("index_") and d.endswith(f":{contribution_id}") for d in diagnostics
+    ):
+        return False, diagnostics
+
+    return True, [f"revision_bound_authority:{contribution_id}"]
+
+
+def _verify_locked_target_source_contribution_authority(
+    *,
+    root: Path,
+    store: Any,
+    contribution_id: str,
+    locked_source_payload_sha256: str,
+    target_assertion_id: str | None = None,
+) -> tuple[bool, list[str]]:
+    """Seal an original target contribution against revision + mutable authority."""
+    ok, diagnostics = _revision_bound_contribution_authority(
+        root=root,
+        store=store,
+        contribution_id=contribution_id,
+        locked_source_payload_sha256=locked_source_payload_sha256,
+    )
+    if not ok:
+        return False, [f"target_source_{d}" for d in diagnostics]
+
+    if target_assertion_id is not None:
+        try:
+            ledger = load_contribution_record(root, WORLD_ID, contribution_id)
+        except FileNotFoundError:
+            return False, [f"target_source_mutable_ledger_missing:{contribution_id}"]
+        target_assertion = next(
+            (
+                a
+                for a in ledger.accepted_assertions
+                if a.assertion_id == target_assertion_id
+            ),
+            None,
+        )
+        if target_assertion is None or target_assertion.assertion_kind != "edge":
+            return False, [f"target_source_assertion_missing:{contribution_id}"]
+
+    return True, [f"target_source_authority_sealed:{contribution_id}"]
+
+
+def _contradict_support_shape_suggests_applied(
+    store: Any, unit: dict[str, Any]
 ) -> bool:
-    bound = set((store.contribution_source_payload_sha256 or {}).keys())
-    if contribution_id not in bound:
-        return False
     row = _support_row(store, unit["target_assertion_id"])
     if row is None:
         return False
-    return row.get("support_state") == "contradicted"
-
-
-def _additive_op_applied(store: Any, contribution_id: str) -> bool:
-    bound = set((store.contribution_source_payload_sha256 or {}).keys())
-    if contribution_id not in bound:
+    if row.get("support_state") != "contradicted":
         return False
-    manifest = store.contribution_replay_manifest or []
-    for entry in manifest:
-        if isinstance(entry, dict):
-            entry_id = entry.get("contribution_id")
-            entry_status = entry.get("status")
-        else:
-            entry_id = entry.contribution_id
-            entry_status = entry.status
-        if entry_id == contribution_id:
-            return entry_status == "active"
+    if list(row.get("active_contribution_ids") or []):
+        return False
+    contradicted = set(row.get("contradicted_contribution_ids") or [])
+    targets = set(unit.get("target_contribution_ids") or [])
+    if not targets.issubset(contradicted):
+        return False
+    if _active_edge_assertion_ids(store, unit["edge_id"]):
+        return False
     return True
 
 
-def _identity_merge_op_applied(store: Any, op: dict[str, Any]) -> bool:
+def _replacement_edges_current(
+    store: Any, manifest: dict[str, Any], contribution_id: str
+) -> bool:
+    contribution = _unit_contribution(manifest, contribution_id)
+    edge_ids = _accepted_edge_ids(contribution)
+    if not edge_ids:
+        return False
+    for edge_id in edge_ids:
+        if not _active_edge_assertion_ids(store, edge_id):
+            return False
+    return True
+
+
+def _merge_additive_shape_suggests_applied(
+    store: Any, manifest: dict[str, Any], contribution_id: str
+) -> bool:
+    entry = _manifest_entry(store, contribution_id)
+    if entry is None:
+        return False
+    status, _digest = _entry_status_digest(entry)
+    if status != "active":
+        return False
+    return _replacement_edges_current(store, manifest, contribution_id)
+
+
+def _identity_redirect_active(store: Any, source_node_id: str, target_node_id: str) -> bool:
+    from graph_memory.union_supergraph.redirects import resolve_union_node_id
+
+    try:
+        return (
+            resolve_union_node_id(source_node_id, store.identity_redirects or [])
+            == target_node_id
+        )
+    except Exception:
+        return False
+
+
+def _identity_merge_authority(
+    *,
+    root: Path,
+    store: Any,
+    op: dict[str, Any],
+) -> tuple[bool, list[str]]:
+    diagnostics: list[str] = []
     source = store.nodes.get(op["source_node_id"])
     if source is None:
-        return False
+        diagnostics.append(f"identity_source_missing:{op['source_node_id']}")
+        return False, diagnostics
     state = dict(source.state or {})
     if state.get("merged_into") != op["target_node_id"]:
-        return False
-    decisions = store.identity_decisions or []
+        diagnostics.append(f"identity_merged_into_mismatch:{op['source_node_id']}")
+        return False, diagnostics
+
     expected = op["expected_decision_id"]
-    for raw in decisions:
+    try:
+        record = load_identity_decision_record(root, WORLD_ID, expected)
+    except FileNotFoundError:
+        diagnostics.append(f"identity_durable_ledger_missing:{expected}")
+        return False, diagnostics
+    if record.status != "active":
+        diagnostics.append(f"identity_durable_ledger_inactive:{expected}")
+        return False, diagnostics
+    if record.decision_id != expected:
+        diagnostics.append(f"identity_durable_ledger_id_mismatch:{expected}")
+        return False, diagnostics
+
+    if not _identity_redirect_active(store, op["source_node_id"], op["target_node_id"]):
+        diagnostics.append(f"identity_redirect_missing:{op['source_node_id']}")
+        return False, diagnostics
+
+    index = load_identity_decision_index(root, WORLD_ID)
+    if expected not in set(index.all_decision_ids):
+        diagnostics.append(f"identity_decision_index_missing:{expected}")
+        return False, diagnostics
+
+    return True, [f"identity_merge_authority:{expected}"]
+
+
+def _identity_merge_shape_suggests_applied(store: Any, op: dict[str, Any]) -> bool:
+    source = store.nodes.get(op["source_node_id"])
+    if source is not None:
+        state = dict(source.state or {})
+        if state.get("merged_into") == op["target_node_id"]:
+            return True
+    expected = op.get("expected_decision_id")
+    for raw in store.identity_decisions or []:
         decision_id = raw.get("decision_id") if isinstance(raw, dict) else raw.decision_id
         if decision_id == expected:
             return True
     return False
 
 
-def _op_applied(store: Any, unit: dict[str, Any], op: dict[str, Any]) -> bool:
+def _contribution_digest_key_present(store: Any, contribution_id: str) -> bool:
+    digests = store.contribution_source_payload_sha256 or {}
+    return contribution_id in digests
+
+
+def _classify_op(
+    *,
+    root: Path,
+    store: Any,
+    unit: dict[str, Any],
+    op: dict[str, Any],
+    manifest: dict[str, Any],
+) -> tuple[OpState, list[str]]:
     kind = op["op"]
-    if kind in {"contradict", "correct"}:
-        return _correction_op_applied(store, unit, op["contribution_id"])
-    if kind == "merge_additive":
-        return _additive_op_applied(store, op["contribution_id"])
+    if kind in {"contradict", "correct", "merge_additive"}:
+        cid = op["contribution_id"]
+        locked = op.get("source_payload_sha256")
+        if not locked:
+            return "integrity_failure", [f"op_missing_locked_digest:{cid}"]
+        authority_ok, auth_diag = _revision_bound_contribution_authority(
+            root=root,
+            store=store,
+            contribution_id=cid,
+            locked_source_payload_sha256=locked,
+        )
+        if kind in {"contradict", "correct"}:
+            shape = _contradict_support_shape_suggests_applied(store, unit)
+            if kind == "correct":
+                shape = shape and _replacement_edges_current(store, manifest, cid)
+        else:
+            shape = _merge_additive_shape_suggests_applied(store, manifest, cid)
+
+        if authority_ok and shape:
+            return "applied", auth_diag
+        if shape or _contribution_digest_key_present(store, cid) or authority_ok:
+            return "integrity_failure", [
+                f"op_integrity_failure:{unit['unit_id']}:{kind}",
+                *auth_diag,
+            ]
+        return "pending", []
+
     if kind == "identity_merge":
-        return _identity_merge_op_applied(store, op)
+        authority_ok, auth_diag = _identity_merge_authority(root=root, store=store, op=op)
+        shape = _identity_merge_shape_suggests_applied(store, op)
+        if authority_ok:
+            return "applied", auth_diag
+        if shape:
+            return "integrity_failure", [
+                f"op_integrity_failure:{unit['unit_id']}:identity_merge",
+                *auth_diag,
+            ]
+        return "pending", []
+
     raise RelationshipSemanticClosureError(
         f"unknown closure op {kind!r}", code="closure_manifest_invalid"
     )
 
 
-def _unit_states(store: Any, manifest: dict[str, Any]) -> list[ClosureUnitState]:
+def _op_applied(
+    store: Any,
+    unit: dict[str, Any],
+    op: dict[str, Any],
+    *,
+    root: Path | None = None,
+    manifest: dict[str, Any] | None = None,
+) -> bool:
+    """True only when the op is applied under gold-standard authority detectors.
+
+    When ``root``/``manifest`` are omitted (legacy call sites), falls back to a
+    fail-closed False unless a temporary root/manifest can be supplied via the
+    store-bound closure apply path (which always passes them).
+    """
+    if root is None or manifest is None:
+        # Narrow legacy helper: contribution digest key alone is NOT applied.
+        kind = op["op"]
+        if kind in {"contradict", "correct"}:
+            if not _contribution_digest_key_present(store, op["contribution_id"]):
+                return False
+            return False
+        if kind == "merge_additive":
+            return False
+        if kind == "identity_merge":
+            return False
+        return False
+    state, _diag = _classify_op(
+        root=root, store=store, unit=unit, op=op, manifest=manifest
+    )
+    return state == "applied"
+
+
+def _op_label(op: dict[str, Any], index: int) -> str:
+    return f"{op['op']}#{index}"
+
+
+def _unit_states(
+    *,
+    root: Path,
+    store: Any,
+    manifest: dict[str, Any],
+) -> list[ClosureUnitState]:
     states: list[ClosureUnitState] = []
     for unit in manifest["units"]:
+        if unit.get("deferred"):
+            states.append(
+                ClosureUnitState(
+                    unit_id=unit["unit_id"],
+                    ordinal=unit["ordinal"],
+                    edge_id=unit["edge_id"],
+                    closure_kind=unit["closure_kind"],
+                    deferred=True,
+                    applied=False,
+                    applied_operations=[],
+                    pending_operations=[],
+                    integrity_failure=False,
+                )
+            )
+            continue
         applied_ops: list[str] = []
         pending_ops: list[str] = []
+        integrity = False
         for index, op in enumerate(unit["operations"]):
-            label = f"{op['op']}#{index}"
-            if _op_applied(store, unit, op):
+            label = _op_label(op, index)
+            state, _diag = _classify_op(
+                root=root, store=store, unit=unit, op=op, manifest=manifest
+            )
+            if state == "applied":
                 applied_ops.append(label)
+            elif state == "pending":
+                pending_ops.append(label)
             else:
+                integrity = True
                 pending_ops.append(label)
         states.append(
             ClosureUnitState(
@@ -359,12 +790,51 @@ def _unit_states(store: Any, manifest: dict[str, Any]) -> list[ClosureUnitState]
                 ordinal=unit["ordinal"],
                 edge_id=unit["edge_id"],
                 closure_kind=unit["closure_kind"],
-                applied=not pending_ops,
+                deferred=False,
+                applied=not pending_ops and not integrity,
                 applied_operations=applied_ops,
                 pending_operations=pending_ops,
+                integrity_failure=integrity,
             )
         )
     return states
+
+
+def _operation_plan_states(
+    *,
+    root: Path,
+    store: Any,
+    manifest: dict[str, Any],
+) -> list[tuple[dict[str, Any], OpState, list[str]]]:
+    results: list[tuple[dict[str, Any], OpState, list[str]]] = []
+    for plan_op in manifest.get("operation_plan") or []:
+        unit, op = _plan_unit_op(manifest, plan_op)
+        state, diag = _classify_op(
+            root=root, store=store, unit=unit, op=op, manifest=manifest
+        )
+        results.append((plan_op, state, diag))
+    return results
+
+
+def _assert_operation_plan_prefix(
+    plan_states: list[tuple[dict[str, Any], OpState, list[str]]],
+) -> list[str]:
+    diagnostics: list[str] = []
+    if any(state == "integrity_failure" for _op, state, _d in plan_states):
+        diagnostics.append("op_authority_integrity_failure")
+        for plan_op, state, diag in plan_states:
+            if state == "integrity_failure":
+                diagnostics.extend(diag)
+                diagnostics.append(
+                    f"integrity_op:{plan_op['unit_id']}:{plan_op['op']}#{plan_op['op_ordinal']}"
+                )
+    applied_flags = [state == "applied" for _op, state, _d in plan_states]
+    first_pending = next(
+        (i for i, flag in enumerate(applied_flags) if not flag), len(applied_flags)
+    )
+    if any(applied_flags[first_pending:]):
+        diagnostics.append("applied_ops_not_a_prefix")
+    return diagnostics
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +903,57 @@ def _verify_fixture_rows(manifest: dict[str, Any], repo: Path | None) -> list[st
     return diagnostics
 
 
+def _verify_live_source_seal(
+    *,
+    store: Any,
+    root: Path,
+    unit: dict[str, Any],
+) -> list[str]:
+    diagnostics: list[str] = []
+    seal = unit.get("seal") or {}
+    edge_id = unit["edge_id"]
+    evidence_ref_id = seal.get("primary_evidence_ref_id")
+    if not evidence_ref_id:
+        diagnostics.append(f"live_seal_missing_primary_evidence:{edge_id}")
+        return diagnostics
+    try:
+        live = resolve_evidence_excerpt(
+            store,
+            edge_id=edge_id,
+            evidence_ref_id=evidence_ref_id,
+            world_graph_root=root,
+        )
+        verify_excerpt_against_seal(live, seal, edge_id=edge_id)
+    except RelationshipResidualAdjudicationError as exc:
+        diagnostics.append(f"live_seal_failed:{edge_id}:{exc}")
+    return diagnostics
+
+
+def _verify_unit_target_source_seals(
+    *,
+    root: Path,
+    store: Any,
+    unit: dict[str, Any],
+) -> list[str]:
+    diagnostics: list[str] = []
+    locked_map = unit.get("target_source_payload_sha256") or {}
+    for contribution_id in unit.get("target_contribution_ids") or []:
+        locked = locked_map.get(contribution_id)
+        if not locked:
+            diagnostics.append(f"target_source_digest_missing:{contribution_id}")
+            continue
+        ok, diag = _verify_locked_target_source_contribution_authority(
+            root=root,
+            store=store,
+            contribution_id=contribution_id,
+            locked_source_payload_sha256=locked,
+            target_assertion_id=unit.get("target_assertion_id"),
+        )
+        if not ok:
+            diagnostics.extend(diag)
+    return diagnostics
+
+
 def _preflight(
     *,
     root: Path,
@@ -442,8 +963,8 @@ def _preflight(
 ) -> list[str]:
     """Fail-closed whole-ledger verification. Returns diagnostics (empty = clean).
 
-    Resume-aware: units already applied at head are exempt from live-state
-    checks; the applied set must form an exact manifest-order prefix.
+    Resume-aware: applied ops must form an exact ``operation_plan`` prefix.
+    Deferred units are never mutated; they remain residual and seal-verified.
     """
     diagnostics: list[str] = []
 
@@ -453,16 +974,15 @@ def _preflight(
         return [f"world_missing:{WORLD_ID}"]
 
     _h, _r, store = kernel.open_current_world_graph(root, WORLD_ID)
-    states = _unit_states(store, manifest)
-    applied_flags = [s.applied for s in states]
-    applied_count = sum(applied_flags)
-    first_pending = next(
-        (i for i, flag in enumerate(applied_flags) if not flag), len(applied_flags)
-    )
-    if any(applied_flags[first_pending:]):
-        diagnostics.append("applied_units_not_a_prefix")
+    plan_states = _operation_plan_states(root=root, store=store, manifest=manifest)
+    diagnostics.extend(_assert_operation_plan_prefix(plan_states))
 
-    if applied_count == 0:
+    applied_op_count = sum(1 for _op, state, _d in plan_states if state == "applied")
+    states = _unit_states(root=root, store=store, manifest=manifest)
+    if any(s.integrity_failure for s in states):
+        diagnostics.append("unit_op_integrity_failure")
+
+    if applied_op_count == 0:
         if head.head_revision_id != expected_base_revision_id:
             diagnostics.append(
                 "stale_base:"
@@ -495,9 +1015,30 @@ def _preflight(
         if edge_id in seen_edges:
             diagnostics.append(f"duplicate_unit_edge:{edge_id}")
         seen_edges.add(edge_id)
+
+        # Live source seals for every unit (including deferred).
+        diagnostics.extend(
+            _verify_live_source_seal(store=store, root=root, unit=unit)
+        )
+
+        if unit.get("deferred"):
+            # Deferred residuals must remain supported residual edges.
+            if residual_set is not None and edge_id not in residual_set:
+                diagnostics.append(f"deferred_edge_not_residual:{edge_id}")
+            row = _support_row(store, unit["target_assertion_id"])
+            if row is None or row.get("support_state") != "supported":
+                diagnostics.append(f"deferred_assertion_not_supported:{edge_id}")
+            if not _active_edge_assertion_ids(store, edge_id):
+                diagnostics.append(f"deferred_edge_not_current:{edge_id}")
+            diagnostics.extend(
+                _verify_unit_target_source_seals(root=root, store=store, unit=unit)
+            )
+            continue
+
         if state.applied:
             continue
 
+        # Pending mutable units: edge still residual at base; seals + targets.
         if residual_set is not None and edge_id not in residual_set:
             diagnostics.append(f"unit_edge_not_residual:{edge_id}")
         edge = store.edges.get(edge_id)
@@ -521,39 +1062,38 @@ def _preflight(
         if row.get("assertion_kind") != "edge":
             diagnostics.append(f"unit_assertion_not_edge:{edge_id}")
 
-        # Per-op live checks only for ops still pending.
+        # Target source seals for pending mutable units (and partial units).
+        diagnostics.extend(
+            _verify_unit_target_source_seals(root=root, store=store, unit=unit)
+        )
+
         for index, op in enumerate(unit["operations"]):
-            label = f"{op['op']}#{index}"
+            label = _op_label(op, index)
             if label in state.applied_operations:
                 continue
             if op["op"] in {"contradict", "correct"}:
-                if row is not None and row.get("support_state") != "supported":
-                    diagnostics.append(f"unit_assertion_not_supported:{edge_id}")
-                active = sorted((row or {}).get("active_contribution_ids") or [])
-                if active != sorted(unit["target_contribution_ids"]):
+                # Only require still-supported shape when no prior op of this unit applied.
+                if not state.applied_operations:
+                    if row is not None and row.get("support_state") != "supported":
+                        diagnostics.append(f"unit_assertion_not_supported:{edge_id}")
+                    active = sorted((row or {}).get("active_contribution_ids") or [])
+                    if active != sorted(unit["target_contribution_ids"]):
+                        diagnostics.append(
+                            f"unit_active_support_mismatch:{edge_id}:{active}"
+                        )
+                contribution = _unit_contribution(manifest, op["contribution_id"])
+                digest = kernel.compute_contribution_source_payload_sha256(contribution)
+                if digest != op.get("source_payload_sha256"):
                     diagnostics.append(
-                        f"unit_active_support_mismatch:{edge_id}:{active}"
+                        f"unit_contribution_digest_mismatch:{op['contribution_id']}"
                     )
-                for contribution_id in unit["target_contribution_ids"]:
-                    try:
-                        contribution = load_contribution_record(
-                            root, WORLD_ID, contribution_id
-                        )
-                    except FileNotFoundError:
-                        diagnostics.append(
-                            f"unit_target_contribution_missing:{contribution_id}"
-                        )
-                        continue
-                    if not any(
-                        a.assertion_id == unit["target_assertion_id"]
-                        for a in contribution.accepted_assertions
-                    ):
-                        diagnostics.append(
-                            f"unit_target_contribution_lacks_assertion:{contribution_id}"
-                        )
-                _unit_contribution(manifest, op["contribution_id"])
             elif op["op"] == "merge_additive":
-                _unit_contribution(manifest, op["contribution_id"])
+                contribution = _unit_contribution(manifest, op["contribution_id"])
+                digest = kernel.compute_contribution_source_payload_sha256(contribution)
+                if digest != op.get("source_payload_sha256"):
+                    diagnostics.append(
+                        f"unit_contribution_digest_mismatch:{op['contribution_id']}"
+                    )
             elif op["op"] == "identity_merge":
                 for node_key in ("source_node_id", "target_node_id"):
                     if op[node_key] not in store.nodes:
@@ -603,35 +1143,63 @@ def get_relationship_semantic_closure_status(
             diagnostics=["world_missing"],
         )
 
-    states = _unit_states(store, manifest)
-    applied = [s for s in states if s.applied]
-    pending = [s for s in states if not s.applied]
+    states = _unit_states(root=world_root, store=store, manifest=manifest)
+    plan_states = _operation_plan_states(
+        root=world_root, store=store, manifest=manifest
+    )
+    prefix_diags = _assert_operation_plan_prefix(plan_states)
 
-    if not pending:
-        eligibility: ClosureEligibility = "already_applied"
-        reason = "all 55 closure units are applied at head"
-    elif applied:
+    mutable_states = [s for s in states if not s.deferred]
+    deferred_states = [s for s in states if s.deferred]
+    fully_applied = [s for s in mutable_states if s.applied]
+    pending = [s for s in mutable_states if not s.applied]
+    applied_op_count = sum(1 for _op, state, _d in plan_states if state == "applied")
+
+    if prefix_diags or any(s.integrity_failure for s in states):
+        eligibility: ClosureEligibility = "integrity_failure"
+        reason = "applied ops are not an authority-safe operation_plan prefix"
+        diagnostics = ["integrity_failure", *prefix_diags]
+    elif not pending:
+        eligibility = "already_applied"
+        reason = (
+            f"all {MUTABLE_UNIT_COUNT} mutable closure units are applied at head; "
+            f"{DEFERRED_UNIT_COUNT} deferred kind-repair residuals remain open"
+        )
+        diagnostics = ["status_ok", "already_applied"]
+    elif applied_op_count > 0 or fully_applied:
         eligibility = "partially_applied"
-        reason = f"{len(applied)} units applied, {len(pending)} pending"
+        reason = (
+            f"{len(fully_applied)} mutable units fully applied, "
+            f"{len(pending)} pending "
+            f"({applied_op_count}/{OPERATION_PLAN_COUNT} ops applied)"
+        )
+        diagnostics = ["status_ok", "partially_applied"]
     elif _h.head_revision_id != expected:
         eligibility = "ineligible"
         reason = (
             f"head {_h.head_revision_id!r} is not the exact closure base "
-            f"{expected!r} and no closure unit is applied"
+            f"{expected!r} and no closure op is applied"
         )
+        diagnostics = ["stale_base"]
     else:
         eligibility = "eligible"
-        reason = "head is the exact closure base; no unit applied yet"
+        reason = (
+            "head is the exact closure base; no mutable unit applied yet; "
+            f"{DEFERRED_UNIT_COUNT} deferred residuals will remain open"
+        )
+        diagnostics = ["status_ok"]
 
     return RelationshipSemanticClosureStatus(
         head_revision_id=_h.head_revision_id,
         eligibility=eligibility,
         reason=reason,
         unit_count=len(states),
-        applied_unit_count=len(applied),
+        mutable_unit_count=len(mutable_states),
+        deferred_unit_count=len(deferred_states),
+        applied_unit_count=len(fully_applied),
         next_pending_unit_id=pending[0].unit_id if pending else None,
         units=states,
-        diagnostics=["status_ok"],
+        diagnostics=diagnostics,
     )
 
 
@@ -642,7 +1210,7 @@ def apply_relationship_semantic_closure(
     repo: Path | None = None,
     allow_live_world: bool = False,
 ) -> RelationshipSemanticClosureResult:
-    """Apply the 55-unit closure program in manifest order (prefix-safe)."""
+    """Apply the mutable closure program in operation_plan order (prefix-safe)."""
     if not expected_base_revision_id or not expected_base_revision_id.strip():
         raise RelationshipSemanticClosureError(
             "expected_base_revision_id is required", code="expected_base_required"
@@ -661,6 +1229,9 @@ def apply_relationship_semantic_closure(
         )
 
     manifest = _load_manifest(repo=repo)
+    deferred_unit_ids = [
+        u["unit_id"] for u in manifest["units"] if u.get("deferred")
+    ]
 
     preflight_diags = _preflight(
         root=world_root,
@@ -680,21 +1251,54 @@ def apply_relationship_semantic_closure(
     diagnostics: list[str] = []
 
     for unit in manifest["units"]:
+        if unit.get("deferred"):
+            diagnostics.append(f"unit_deferred_skipped:{unit['unit_id']}")
+            continue
+
         _h, _r, store = kernel.open_current_world_graph(world_root, WORLD_ID)
-        if all(_op_applied(store, unit, op) for op in unit["operations"]):
+        if all(
+            _op_applied(store, unit, op, root=world_root, manifest=manifest)
+            for op in unit["operations"]
+        ):
             already_applied.append(unit["unit_id"])
             diagnostics.append(f"unit_already_applied:{unit['unit_id']}")
             continue
+
         try:
-            for op in unit["operations"]:
+            for index, op in enumerate(unit["operations"]):
+                # Intra-unit prefix: refuse op N if any earlier op is not applied.
+                for earlier_index, earlier_op in enumerate(unit["operations"][:index]):
+                    _h, _r, store = kernel.open_current_world_graph(
+                        world_root, WORLD_ID
+                    )
+                    if not _op_applied(
+                        store, unit, earlier_op, root=world_root, manifest=manifest
+                    ):
+                        raise RelationshipSemanticClosureError(
+                            f"applied_ops_not_a_prefix at {unit['unit_id']} "
+                            f"op#{index} while op#{earlier_index} pending",
+                            code="applied_ops_not_a_prefix",
+                        )
+
                 head_now = kernel.open_world_graph_head(world_root, WORLD_ID)
                 parent = head_now.head_revision_id
                 _h, _r, store = kernel.open_current_world_graph(world_root, WORLD_ID)
-                if _op_applied(store, unit, op):
-                    diagnostics.append(f"op_already_applied:{unit['unit_id']}:{op['op']}")
+                if _op_applied(store, unit, op, root=world_root, manifest=manifest):
+                    diagnostics.append(
+                        f"op_already_applied:{unit['unit_id']}:{op['op']}"
+                    )
                     continue
                 if op["op"] == "contradict":
                     contribution = _unit_contribution(manifest, op["contribution_id"])
+                    locked = op.get("source_payload_sha256")
+                    digest = kernel.compute_contribution_source_payload_sha256(
+                        contribution
+                    )
+                    if locked and digest != locked:
+                        raise RelationshipSemanticClosureError(
+                            f"contribution digest drift for {op['contribution_id']}",
+                            code="contribution_digest_drift",
+                        )
                     merge = kernel.contradict_edge_assertion_support(
                         world_root,
                         world_id=WORLD_ID,
@@ -703,6 +1307,15 @@ def apply_relationship_semantic_closure(
                     )
                 elif op["op"] == "correct":
                     contribution = _unit_contribution(manifest, op["contribution_id"])
+                    locked = op.get("source_payload_sha256")
+                    digest = kernel.compute_contribution_source_payload_sha256(
+                        contribution
+                    )
+                    if locked and digest != locked:
+                        raise RelationshipSemanticClosureError(
+                            f"contribution digest drift for {op['contribution_id']}",
+                            code="contribution_digest_drift",
+                        )
                     merge = kernel.correct_edge_assertion_support(
                         world_root,
                         world_id=WORLD_ID,
@@ -711,6 +1324,15 @@ def apply_relationship_semantic_closure(
                     )
                 elif op["op"] == "merge_additive":
                     contribution = _unit_contribution(manifest, op["contribution_id"])
+                    locked = op.get("source_payload_sha256")
+                    digest = kernel.compute_contribution_source_payload_sha256(
+                        contribution
+                    )
+                    if locked and digest != locked:
+                        raise RelationshipSemanticClosureError(
+                            f"contribution digest drift for {op['contribution_id']}",
+                            code="contribution_digest_drift",
+                        )
                     merge = kernel.merge_contribution_to_revision(
                         world_root,
                         world_id=WORLD_ID,
@@ -772,6 +1394,7 @@ def apply_relationship_semantic_closure(
                 published_revision_ids=published,
                 applied_unit_ids=applied_units,
                 already_applied_unit_ids=already_applied,
+                deferred_unit_ids=deferred_unit_ids,
                 failed_unit_id=unit["unit_id"],
                 failure_code=code,
                 failure_message=str(exc),
@@ -787,6 +1410,7 @@ def apply_relationship_semantic_closure(
         published_revision_ids=published,
         applied_unit_ids=applied_units,
         already_applied_unit_ids=already_applied,
+        deferred_unit_ids=deferred_unit_ids,
         final_inventory=pin.final_inventory if pin else None,
         verify_passed=pin is not None,
         diagnostics=[
@@ -801,15 +1425,67 @@ def verify_relationship_semantic_closure(
     root: Path | None = None,
     repo: Path | None = None,
 ) -> RelationshipSemanticClosurePin | None:
-    """Verify the post-closure head inventory; return the pin when clean."""
+    """Verify the post-closure head; return the pin when the governed exit holds."""
     manifest = _load_manifest(repo=repo)
     world_root = _resolve_root(root)
+    diagnostics: list[str] = []
     try:
         head = kernel.open_world_graph_head(world_root, WORLD_ID)
     except WorldGraphNotFoundError:
         return None
+
+    head_revision_id = head.head_revision_id
+    if not head_revision_id:
+        return None
+
+    ancestry_ok, ancestry_diag, ancestry_detail = prove_revision_is_anchor_or_descendant_v1(
+        root=world_root,
+        world_id=WORLD_ID,
+        requested_revision_id=head_revision_id,
+        anchor_revision_id=BASE_REVISION_ID,
+        anchor_world_id=WORLD_ID,
+    )
+    if not ancestry_ok:
+        return None
+    diagnostics.append("q4_ancestry_proven")
+    if ancestry_diag:
+        diagnostics.append(str(ancestry_diag))
+    if ancestry_detail:
+        diagnostics.append(str(ancestry_detail))
+
+    try:
+        pinned = kernel.rebuild_from_contributions(
+            world_root,
+            world_id=WORLD_ID,
+            compare_revision_id=head_revision_id,
+            publish=False,
+        )
+        pinned_diag = list(getattr(pinned, "diagnostics", []) or [])
+        if "rebuild_equivalent_to_pinned_revision" not in pinned_diag:
+            return None
+        diagnostics.append("rebuild_equivalent_to_pinned_revision")
+
+        unpinned = kernel.rebuild_from_contributions(
+            world_root,
+            world_id=WORLD_ID,
+            publish=False,
+        )
+        unpinned_diag = list(getattr(unpinned, "diagnostics", []) or [])
+        if not (
+            "rebuild_equivalent_to_head" in unpinned_diag
+            or "rebuild_equivalent_to_published_head" in unpinned_diag
+        ):
+            return None
+        diagnostics.append(
+            "rebuild_equivalent_to_head"
+            if "rebuild_equivalent_to_head" in unpinned_diag
+            else "rebuild_equivalent_to_published_head"
+        )
+    except (ValueError, RuntimeError):
+        return None
+
     eff = analyze_relationship_effective_conformance_v1(
-        root=world_root, world_id=WORLD_ID, revision_id=head.head_revision_id
+        root=world_root, world_id=WORLD_ID, revision_id=head_revision_id
     )
     inventory = {
         "semantic": eff.relationship_semantic_count,
@@ -819,16 +1495,71 @@ def verify_relationship_semantic_closure(
     }
     if inventory != EXPECTED_FINAL_INVENTORY:
         return None
-    _h, _r, store = kernel.open_current_world_graph(world_root, WORLD_ID)
-    states = _unit_states(store, manifest)
-    if not all(s.applied for s in states):
+    remaining = set(eff.remaining_residual_edge_ids)
+    if remaining != DEFERRED_RESIDUAL_EDGE_IDS:
         return None
+    diagnostics.append("final_inventory_matches")
+    diagnostics.append("deferred_residuals_exact")
+
+    _h, _r, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+    plan_states = _operation_plan_states(
+        root=world_root, store=store, manifest=manifest
+    )
+    if any(state != "applied" for _op, state, _d in plan_states):
+        return None
+    diagnostics.append("all_mutable_ops_applied")
+
+    for unit in manifest["units"]:
+        if not unit.get("deferred"):
+            continue
+        edge_id = unit["edge_id"]
+        if edge_id not in remaining:
+            return None
+        row = _support_row(store, unit["target_assertion_id"])
+        if row is None or row.get("support_state") != "supported":
+            return None
+        if not _active_edge_assertion_ids(store, edge_id):
+            return None
+        seal_diags = _verify_live_source_seal(
+            store=store, root=world_root, unit=unit
+        )
+        if seal_diags:
+            return None
+    diagnostics.append("deferred_units_still_supported_residual")
+
+    # Every closure contribution in the operation_plan is revision-bound.
+    for plan_op in manifest.get("operation_plan") or []:
+        if plan_op["op"] == "identity_merge":
+            expected = plan_op["expected_decision_id"]
+            try:
+                record = load_identity_decision_record(
+                    world_root, WORLD_ID, expected
+                )
+            except FileNotFoundError:
+                return None
+            if record.status != "active":
+                return None
+            continue
+        cid = plan_op["contribution_id"]
+        locked = plan_op["source_payload_sha256"]
+        ok, _diag = _revision_bound_contribution_authority(
+            root=world_root,
+            store=store,
+            contribution_id=cid,
+            locked_source_payload_sha256=locked,
+        )
+        if not ok:
+            return None
+    diagnostics.append("closure_contributions_revision_bound")
+    diagnostics.append("identity_decisions_durable_active")
+    diagnostics.append("closure_verified")
+
     return RelationshipSemanticClosurePin(
-        final_revision_id=head.head_revision_id,
+        final_revision_id=head_revision_id,
         final_graph_payload_sha256=eff.source_graph_payload_sha256,
         final_inventory=inventory,
-        residual_edge_ids=list(eff.remaining_residual_edge_ids),
-        diagnostics=["closure_verified"],
+        residual_edge_ids=sorted(DEFERRED_RESIDUAL_EDGE_IDS),
+        diagnostics=diagnostics,
     )
 
 
@@ -838,7 +1569,7 @@ def finalize_relationship_semantic_closure(
     repo: Path | None = None,
     allow_live_world: bool = False,
 ) -> RelationshipSemanticClosurePin:
-    """§18 finalizer: refuse nonzero residual; emit the live pin."""
+    """§18 finalizer: refuse unless verify proves the governed residual=9 exit."""
     world_root = _resolve_root(root)
     if _is_canonical_live_root(world_root) and not allow_live_world:
         raise RelationshipSemanticClosureError(
@@ -848,8 +1579,9 @@ def finalize_relationship_semantic_closure(
     pin = verify_relationship_semantic_closure(root=world_root, repo=repo)
     if pin is None:
         raise RelationshipSemanticClosureError(
-            "closure finalization refused: head does not verify as a complete, "
-            "zero-residual closure exit",
+            "closure finalization refused: head does not verify as a complete "
+            "closure exit (inventory 323/314/9/3 with deferred residuals intact, "
+            "Q4 ancestry, and rebuild equivalence)",
             code="finalize_refused",
         )
     return pin
