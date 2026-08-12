@@ -32,10 +32,23 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromoteReviewSummary,
     ExtractPromotionReviewItem,
     ExtractPromoteStatusResponse,
+    FirstWorldGraphConfirmReceipt,
+    FirstWorldGraphConfirmRequest,
+    FirstWorldGraphPlan,
+    FirstWorldGraphPlanSummary,
+    FirstWorldGraphPrepareRequest,
     WorldbuildingWritePlanConfirmReceipt,
     WorldbuildingWritePlanConfirmRequest,
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
+)
+from apps.live_control_server.services.first_world_graph import (
+    FirstWorldLineage,
+    admit_managed_world,
+    classify_world_graph_state,
+    cross_check_workspace_lineage,
+    materialize_first_world_plan,
+    resolve_first_world_capability,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
@@ -58,6 +71,15 @@ from graph_memory.extract_promote_ops import (
     resolve_merged_contribution_from_package,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
+from graph_memory.kernel.contributions import compute_contribution_payload_sha256
+from graph_memory.kernel.reviewed_world_initialization import (
+    REVIEWED_PLAN_SCHEMA,
+    ReviewedWorldInitializationAttestation,
+    ReviewedWorldInitializationError,
+    ReviewedWorldInitializationPlan,
+    SESSIONLESS_FOCUS_SESSION_ID,
+    initialize_reviewed_world,
+)
 from graph_memory.worldbuilding_write_plan import (
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,
@@ -67,6 +89,7 @@ from graph_memory.worldbuilding_write_plan import (
     verify_worldbuilding_write_plan,
 )
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
+from graph_memory.world_supergraph import paths as world_paths
 
 # Narrow server-owned roots for non-run promote source evidence (confirm of
 # legacy/CLI seals, dedicated fixture roots). Product prepare never uses these
@@ -768,6 +791,13 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         )
 
         inspect_only = _is_worldbuilding_inspect_only(resolved)
+        capability = resolve_first_world_capability(
+            repo=repo_root(),
+            world_root=world_graph_root(),
+            source_domain=resolved.source_domain,
+            world_id=getattr(resolved, "world_id", None),
+            source_artifact_id=resolved.source_artifact_id,
+        )
         return ExactRunReviewPackage(
             run_id=resolved.run_id,
             source_domain=resolved.source_domain,
@@ -780,6 +810,10 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             diagnostics=list(resolved.diagnostics),
             promotable=not inspect_only,
             promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None,
+            world_id=capability.world_id,
+            world_state=capability.world_state,
+            first_world_publish_eligible=capability.eligible,
+            first_world_publish_reason=capability.reason,
         )
     except ExtractPromoteError as exc:
         raise _with_review_package_inspection_context(
@@ -1924,12 +1958,564 @@ def confirm(
     )
 
 
+def _write_plan_error(exc: WorldbuildingWritePlanError) -> ExtractPromoteError:
+    return ExtractPromoteError(
+        str(exc),
+        code=exc.code,
+        status_code=exc.status_code,
+        diagnostics=[_diagnostic(exc.code, str(exc))],
+    )
+
+
+def _require_first_world_admission(resolved) -> tuple[str, FirstWorldLineage]:
+    """Resolve managed W + uninitialized (or matching-receipt) gate for prepare."""
+    world_id = (getattr(resolved, "world_id", None) or "").strip()
+    if not world_id:
+        raise ExtractPromoteError(
+            "first-world publish requires SourceArtifact world_id",
+            code="world_id_required",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "world_id_required",
+                    "exact SourceArtifact world_id is required for first-world publish",
+                )
+            ],
+        )
+    try:
+        admit_managed_world(repo_root(), world_id)
+    except WorldbuildingWritePlanError as exc:
+        raise _write_plan_error(exc) from exc
+    state = classify_world_graph_state(world_graph_root(), world_id)
+    if state == "initialized":
+        raise ExtractPromoteError(
+            "World Graph already exists for this world",
+            code="world_already_initialized",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "world_already_initialized",
+                    f"world {world_id!r} already has a readable World Graph head",
+                )
+            ],
+        )
+    if state == "unreadable":
+        raise ExtractPromoteError(
+            "World Graph storage exists but is unreadable",
+            code="world_unreadable",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "world_unreadable",
+                    f"world {world_id!r} storage exists but cannot be opened",
+                )
+            ],
+        )
+    try:
+        lineage = cross_check_workspace_lineage(
+            repo_root(),
+            source_artifact_id=resolved.source_artifact_id,
+            expected_world_id=world_id,
+        )
+    except WorldbuildingWritePlanError as exc:
+        raise _write_plan_error(exc) from exc
+    return world_id, lineage
+
+
+def prepare_first_world(
+    request: FirstWorldGraphPrepareRequest,
+) -> FirstWorldGraphPlan:
+    """Seal an inert first-world initialization plan (no production graph mutation)."""
+    try:
+        resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
+    except PromotableIngestRunError as exc:
+        raise _promotable_run_error(exc) from exc
+
+    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
+        resolved
+    )
+    # Reuse exact-run evidence validators before sealing decisions.
+    try:
+        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ExtractPromoteError(
+            "exact-run source prose could not be read",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_unreadable", str(exc))],
+        ) from exc
+    candidate_payload = json.loads(
+        resolved.candidate_graph_path.read_text(encoding="utf-8")
+    )
+    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    _assert_and_project_candidate_evidence(
+        candidate_payload=candidate_payload,
+        source_prose=source_prose,
+        source_artifact_id=resolved.source_artifact_id,
+        span_index=span_index,
+    )
+
+    _world_id, lineage = _require_first_world_admission(resolved)
+
+    try:
+        materialized = materialize_first_world_plan(
+            preview=typed_preview,
+            world_id=lineage.world_id,
+            run_id=resolved.run_id,
+            source_artifact_id=lineage.source_artifact_id,
+            source_revision_id=lineage.source_revision_id,
+            source_uri=resolved.sealed_source_uri,
+            extraction_profile=expected_profile,
+            campaign_scope=lineage.campaign_scope,
+            workspace_document_id=lineage.workspace_document_id,
+            workspace_document_revision=lineage.workspace_document_revision,
+            dispositions=[
+                WorldbuildingDispositionInput(
+                    assertion_id=item.assertion_id,
+                    decision=item.decision,
+                    target_node_id=None,
+                )
+                for item in request.decisions
+            ],
+        )
+    except WorldbuildingWritePlanError as exc:
+        raise _write_plan_error(exc) from exc
+
+    # Inert prepare: never create world dirs / receipts.
+    if world_paths.world_dir(world_graph_root(), lineage.world_id).exists():
+        # Race: another writer appeared during prepare — still return plan but
+        # reclassify via confirm gates. Prepare itself must not mutate.
+        pass
+
+    return FirstWorldGraphPlan(
+        plan_id=materialized.plan_id,
+        plan_digest=materialized.plan_digest,
+        decision_digest=materialized.decision_digest,
+        world_id=lineage.world_id,
+        run_id=resolved.run_id,
+        source_artifact_id=lineage.source_artifact_id,
+        source_revision_id=lineage.source_revision_id,
+        workspace_document_id=lineage.workspace_document_id,
+        workspace_document_revision=lineage.workspace_document_revision,
+        campaign_scope=lineage.campaign_scope,
+        session_scope=None,
+        extraction_profile=expected_profile,  # type: ignore[arg-type]
+        accepted_assertion_ids=list(materialized.accepted_assertion_ids),
+        rejected_assertion_ids=list(materialized.rejected_assertion_ids),
+        contribution_id=materialized.contribution.contribution_id,
+        contribution_payload_sha256=compute_contribution_payload_sha256(
+            materialized.contribution
+        ),
+        reviewed_effect=materialized.effect,
+        summary=FirstWorldGraphPlanSummary.model_validate(materialized.summary),
+        confirmable=materialized.confirmable,
+        diagnostics=list(materialized.diagnostics),
+    )
+
+
+def _reviewed_init_plan_from_product(
+    plan: FirstWorldGraphPlan,
+) -> ReviewedWorldInitializationPlan:
+    decision_hex = plan.decision_digest.removeprefix("sha256:")
+    payload_hex = plan.contribution_payload_sha256.removeprefix("sha256:")
+    return ReviewedWorldInitializationPlan(
+        schema=REVIEWED_PLAN_SCHEMA,
+        world_id=plan.world_id,
+        campaign_id=plan.campaign_scope or plan.world_id,
+        focus_session_id=SESSIONLESS_FOCUS_SESSION_ID,
+        plan_id=plan.plan_id,
+        contribution_id=plan.contribution_id,
+        contribution_payload_sha256=payload_hex,
+        approval_attestation=ReviewedWorldInitializationAttestation(
+            run_id=plan.run_id,
+            source_artifact_id=plan.source_artifact_id,
+            source_revision_id=plan.source_revision_id,
+            workspace_document_id=plan.workspace_document_id,
+            workspace_document_revision=plan.workspace_document_revision,
+            decision_digest=decision_hex,
+        ),
+    )
+
+
+def confirm_first_world(
+    request: FirstWorldGraphConfirmRequest,
+) -> FirstWorldGraphConfirmReceipt:
+    """Verify a sealed first-world plan and atomically initialize W."""
+    plan = request.plan
+    world_root = world_graph_root()
+    if (
+        world_root.resolve() == live_world_graph_root().resolve()
+        and not PRODUCT_CONFIRM_ALLOW_LIVE_WORLD
+    ):
+        raise ExtractPromoteError(
+            "refusing to mutate live world root without allow_live_world",
+            code="live_world_refused",
+            status_code=403,
+            diagnostics=[_diagnostic("live_world_refused", "live world refused")],
+        )
+
+    if not plan.confirmable:
+        raise ExtractPromoteError(
+            "first-world plan is not confirmable (zero accepted assertions)",
+            code="empty_first_world_contribution",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "empty_first_world_contribution",
+                    "zero accepted assertions cannot initialize a World Graph",
+                )
+            ],
+        )
+
+    try:
+        resolved = resolve_promotable_ingest_run(plan.run_id, root=repo_root())
+    except PromotableIngestRunError as exc:
+        raise _promotable_run_error(exc) from exc
+
+    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
+        resolved
+    )
+    resolved_world = (getattr(resolved, "world_id", None) or "").strip()
+    if resolved_world != plan.world_id:
+        raise ExtractPromoteError(
+            "resolved run world_id does not match sealed plan",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "resolved SourceArtifact world_id disagrees with sealed plan",
+                )
+            ],
+        )
+    if resolved.source_artifact_id != plan.source_artifact_id:
+        raise ExtractPromoteError(
+            "resolved source artifact does not match sealed plan",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "source_artifact_id mismatch",
+                )
+            ],
+        )
+    if resolved.source_revision_id != plan.source_revision_id:
+        raise ExtractPromoteError(
+            "resolved source revision does not match sealed plan",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "source_revision_id mismatch",
+                )
+            ],
+        )
+
+    try:
+        admit_managed_world(repo_root(), plan.world_id)
+        lineage = cross_check_workspace_lineage(
+            repo_root(),
+            source_artifact_id=resolved.source_artifact_id,
+            expected_world_id=plan.world_id,
+        )
+    except WorldbuildingWritePlanError as exc:
+        raise _write_plan_error(exc) from exc
+
+    if (
+        lineage.workspace_document_id != plan.workspace_document_id
+        or lineage.workspace_document_revision != plan.workspace_document_revision
+    ):
+        raise ExtractPromoteError(
+            "workspace lineage disagrees with sealed plan",
+            code="workspace_lineage_mismatch",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "workspace_lineage_mismatch",
+                    "workspace document identity/revision mismatch",
+                )
+            ],
+        )
+
+    # Evidence still verifies against frozen span index.
+    try:
+        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ExtractPromoteError(
+            "exact-run source prose could not be read",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_unreadable", str(exc))],
+        ) from exc
+    candidate_payload = json.loads(
+        resolved.candidate_graph_path.read_text(encoding="utf-8")
+    )
+    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    _assert_and_project_candidate_evidence(
+        candidate_payload=candidate_payload,
+        source_prose=source_prose,
+        source_artifact_id=resolved.source_artifact_id,
+        span_index=span_index,
+    )
+
+    decision_snapshot = plan.reviewed_effect.get("decision_snapshot") or []
+    dispositions = [
+        WorldbuildingDispositionInput(
+            assertion_id=str(item["assertion_id"]),
+            decision=str(item["decision"]),  # type: ignore[arg-type]
+            target_node_id=item.get("target_node_id"),
+        )
+        for item in decision_snapshot
+    ]
+    try:
+        rematerialized = materialize_first_world_plan(
+            preview=typed_preview,
+            world_id=plan.world_id,
+            run_id=plan.run_id,
+            source_artifact_id=plan.source_artifact_id,
+            source_revision_id=plan.source_revision_id,
+            source_uri=resolved.sealed_source_uri,
+            extraction_profile=expected_profile,
+            campaign_scope=plan.campaign_scope,
+            workspace_document_id=plan.workspace_document_id,
+            workspace_document_revision=plan.workspace_document_revision,
+            dispositions=dispositions,
+        )
+    except WorldbuildingWritePlanError as exc:
+        raise _write_plan_error(exc) from exc
+
+    if rematerialized.plan_digest != plan.plan_digest:
+        raise ExtractPromoteError(
+            "sealed first-world plan digest failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "rebuilt plan_digest disagrees with sealed plan",
+                )
+            ],
+        )
+    if rematerialized.decision_digest != plan.decision_digest:
+        raise ExtractPromoteError(
+            "sealed first-world decision digest failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "rebuilt decision_digest disagrees with sealed plan",
+                )
+            ],
+        )
+    contribution = rematerialized.contribution
+    actual_payload = compute_contribution_payload_sha256(contribution)
+    if actual_payload != plan.contribution_payload_sha256.removeprefix("sha256:"):
+        raise ExtractPromoteError(
+            "sealed contribution payload digest failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "contribution_payload_sha256 mismatch",
+                )
+            ],
+        )
+    if contribution.contribution_id != plan.contribution_id:
+        raise ExtractPromoteError(
+            "sealed contribution id failed verification",
+            code="plan_verification_failed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "plan_verification_failed",
+                    "contribution_id mismatch",
+                )
+            ],
+        )
+
+    state = classify_world_graph_state(world_root, plan.world_id)
+    kernel_plan = _reviewed_init_plan_from_product(plan)
+
+    if state == "unreadable":
+        raise ExtractPromoteError(
+            "World Graph storage exists but is unreadable",
+            code="world_unreadable",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "world_unreadable",
+                    f"world {plan.world_id!r} storage exists but cannot be opened",
+                )
+            ],
+        )
+    if state == "initialized":
+        # Lost-response / race: only already_initialized when receipt matches.
+        try:
+            result = initialize_reviewed_world(
+                world_root,
+                plan=kernel_plan,
+                contribution=contribution,
+                actor=SERVER_CONFIRMING_PRINCIPAL,
+            )
+        except ReviewedWorldInitializationError as exc:
+            if exc.state == "blocked":
+                raise ExtractPromoteError(
+                    "World Graph already exists without a matching reviewed receipt",
+                    code="world_already_initialized",
+                    status_code=409,
+                    diagnostics=[
+                        _diagnostic("world_already_initialized", str(exc)),
+                        *[_diagnostic("detail", item) for item in exc.diagnostics],
+                    ],
+                ) from exc
+            raise ExtractPromoteError(
+                str(exc),
+                code="stale_world_state",
+                status_code=409,
+                diagnostics=[
+                    _diagnostic("stale_world_state", str(exc)),
+                    *[_diagnostic("detail", item) for item in exc.diagnostics],
+                ],
+            ) from exc
+        if result.outcome == "already_initialized":
+            receipt = result.receipt
+            return FirstWorldGraphConfirmReceipt(
+                outcome="already_initialized",
+                world_id=plan.world_id,
+                plan_id=plan.plan_id,
+                plan_digest=plan.plan_digest,
+                decision_digest=plan.decision_digest,
+                source_artifact_id=plan.source_artifact_id,
+                source_revision_id=plan.source_revision_id,
+                contribution_id=plan.contribution_id,
+                baseline_revision_id=(
+                    receipt.baseline_revision_id if receipt else result.baseline_revision_id
+                ),
+                committed_revision_id=(
+                    receipt.initial_head_revision_id
+                    if receipt
+                    else result.initial_head_revision_id
+                ),
+                applied_assertion_count=len(plan.accepted_assertion_ids),
+                accepted_assertion_ids=list(plan.accepted_assertion_ids),
+                rejected_assertion_ids=list(plan.rejected_assertion_ids),
+                audit_status="ok",
+                warnings=list(result.diagnostics),
+            )
+        raise ExtractPromoteError(
+            "World Graph already exists",
+            code="world_already_initialized",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "world_already_initialized",
+                    f"unexpected outcome {result.outcome!r} for initialized world",
+                )
+            ],
+        )
+
+    try:
+        result = initialize_reviewed_world(
+            world_root,
+            plan=kernel_plan,
+            contribution=contribution,
+            actor=SERVER_CONFIRMING_PRINCIPAL,
+        )
+    except ReviewedWorldInitializationError as exc:
+        code = (
+            "world_already_initialized"
+            if exc.state == "blocked"
+            else "first_world_initialization_failed"
+        )
+        status = 409 if exc.state in {"blocked", "inconsistent_lineage"} else 500
+        raise ExtractPromoteError(
+            str(exc),
+            code=code,
+            status_code=status,
+            diagnostics=[
+                _diagnostic(code, str(exc)),
+                *[_diagnostic("detail", item) for item in exc.diagnostics],
+            ],
+        ) from exc
+
+    if result.outcome == "already_initialized":
+        receipt = result.receipt
+        return FirstWorldGraphConfirmReceipt(
+            outcome="already_initialized",
+            world_id=plan.world_id,
+            plan_id=plan.plan_id,
+            plan_digest=plan.plan_digest,
+            decision_digest=plan.decision_digest,
+            source_artifact_id=plan.source_artifact_id,
+            source_revision_id=plan.source_revision_id,
+            contribution_id=plan.contribution_id,
+            baseline_revision_id=(
+                receipt.baseline_revision_id if receipt else result.baseline_revision_id
+            ),
+            committed_revision_id=(
+                receipt.initial_head_revision_id
+                if receipt
+                else result.initial_head_revision_id
+            ),
+            applied_assertion_count=len(plan.accepted_assertion_ids),
+            accepted_assertion_ids=list(plan.accepted_assertion_ids),
+            rejected_assertion_ids=list(plan.rejected_assertion_ids),
+            audit_status="ok",
+            warnings=list(result.diagnostics),
+        )
+
+    if result.outcome != "published" or not result.published:
+        raise ExtractPromoteError(
+            "first-world initialization did not publish",
+            code="first_world_initialization_failed",
+            status_code=500,
+            diagnostics=[
+                _diagnostic(
+                    "first_world_initialization_failed",
+                    f"outcome={result.outcome}",
+                )
+            ],
+        )
+
+    receipt = result.receipt
+    return FirstWorldGraphConfirmReceipt(
+        outcome="initialized",
+        world_id=plan.world_id,
+        plan_id=plan.plan_id,
+        plan_digest=plan.plan_digest,
+        decision_digest=plan.decision_digest,
+        source_artifact_id=plan.source_artifact_id,
+        source_revision_id=plan.source_revision_id,
+        contribution_id=plan.contribution_id,
+        baseline_revision_id=(
+            receipt.baseline_revision_id if receipt else result.baseline_revision_id
+        ),
+        committed_revision_id=(
+            receipt.initial_head_revision_id
+            if receipt
+            else result.initial_head_revision_id
+        ),
+        applied_assertion_count=len(plan.accepted_assertion_ids),
+        accepted_assertion_ids=list(plan.accepted_assertion_ids),
+        rejected_assertion_ids=list(plan.rejected_assertion_ids),
+        audit_status="ok",
+        warnings=list(result.diagnostics),
+    )
+
+
 __all__ = [
     "ExtractPromoteError",
     "assert_sealed_source_uri_allowed",
     "confirm",
+    "confirm_first_world",
     "confirm_worldbuilding",
+    "get_exact_run_review_package",
     "get_status",
+    "prepare_first_world",
     "prepare_worldbuilding",
     "prepare",
     "resolve_promote_source_uri",

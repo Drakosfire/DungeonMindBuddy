@@ -348,6 +348,7 @@ def _write_bld08_reviewable_run(
     repo: Path,
     *,
     campaign_id: str | None = CAMPAIGN_ID,
+    world_id: str | None = None,
     profile_id: str = "worldbuilding_shepherds_flock_v0@0.1",
     session_id: str | None = None,
 ) -> tuple[str, Path]:
@@ -369,6 +370,7 @@ def _write_bld08_reviewable_run(
     resolved_id, source = _write_reviewable_extraction_run(
         repo,
         campaign_id=campaign_id,
+        world_id=world_id,
     )
     run = get_extraction_run(repo, resolved_id)
     candidate_path = _resolve_extraction_component_path(
@@ -2398,3 +2400,357 @@ def test_worldbuilding_prepare_has_safe_internal_error_boundary(
     assert body["code"] == "extract_promote_internal_error"
     assert "private implementation detail" not in response.text
     assert "Reference:" in body["diagnostics"][0]["message"]
+
+
+# --- First-world reviewed graph (CR02A) ---------------------------------------
+
+GLASS_ORCHARD_WORLD_ID = "the-glass-orchard"
+FIRST_WORLD_PREPARE_URL = "/api/live/extract-promote/worldbuilding/first-world/prepare"
+FIRST_WORLD_CONFIRM_URL = "/api/live/extract-promote/worldbuilding/first-world/confirm"
+
+
+def _register_glass_orchard(repo: Path):
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+    )
+
+    return create_world_container(repo, name="The Glass Orchard")
+
+
+def _write_glass_orchard_bld08_run(repo: Path) -> tuple[str, Path]:
+    _register_glass_orchard(repo)
+    return _write_bld08_reviewable_run(
+        repo,
+        campaign_id=GLASS_ORCHARD_WORLD_ID,
+        world_id=GLASS_ORCHARD_WORLD_ID,
+    )
+
+
+def _first_world_decisions(
+    *,
+    vial: str = "create_new",
+    puddles: str = "create_new",
+    edge: str = "accept",
+) -> list[dict[str, str]]:
+    return [
+        {"assertionId": "obj_session22_vial", "decision": vial},
+        {"assertionId": "mystery_puddles", "decision": puddles},
+        {"assertionId": "e33", "decision": edge},
+    ]
+
+
+def _first_world_prepare_body(run_id: str, decisions: list[dict[str, str]]) -> dict:
+    return {
+        "schema": "dmb_first_world_graph_prepare_request_v1",
+        "runId": run_id,
+        "decisions": decisions,
+    }
+
+
+def _first_world_confirm_body(plan: dict) -> dict:
+    return {
+        "schema": "dmb_first_world_graph_confirm_request_v1",
+        "plan": plan,
+    }
+
+
+def test_first_world_review_package_glass_orchard_uninitialized_eligible(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+
+    # Eldyrwild head remains; Glass Orchard must not exist yet.
+    assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+    assert not glass_dir.exists()
+
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    body = review.json()
+    assert body["worldId"] == GLASS_ORCHARD_WORLD_ID
+    assert body["worldState"] == "uninitialized"
+    assert body["firstWorldPublishEligible"] is True
+    assert body.get("firstWorldPublishReason") in (None, "")
+    assert body["promotable"] is False
+
+
+def test_first_world_prepare_rejects_incomplete_duplicate_unknown_decisions(
+    world_client,
+) -> None:
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+
+    missing = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(
+            run_id,
+            [{"assertionId": "obj_session22_vial", "decision": "create_new"}],
+        ),
+    )
+    assert missing.status_code == 422, missing.text
+    assert missing.json()["code"] == "invalid_disposition_set"
+
+    duplicate = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(
+            run_id,
+            _first_world_decisions()
+            + [{"assertionId": "obj_session22_vial", "decision": "reject"}],
+        ),
+    )
+    assert duplicate.status_code == 422, duplicate.text
+    assert duplicate.json()["code"] == "invalid_disposition_set"
+
+    unknown = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(
+            run_id,
+            [
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "not_a_candidate", "decision": "reject"},
+            ],
+        ),
+    )
+    assert unknown.status_code == 422, unknown.text
+    assert unknown.json()["code"] == "invalid_disposition_set"
+
+
+def test_first_world_prepare_rejects_accept_edge_when_endpoint_rejected(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    response = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(
+            run_id,
+            _first_world_decisions(vial="reject", puddles="create_new", edge="accept"),
+        ),
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["code"] == "edge_endpoint_unresolved"
+    assert not (world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID).exists()
+
+
+def test_first_world_prepare_zero_accepts_not_confirmable_and_inert(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+    response = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(
+            run_id,
+            _first_world_decisions(vial="reject", puddles="reject", edge="reject"),
+        ),
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["confirmable"] is False
+    assert body["summary"]["acceptedAssertionCount"] == 0
+    assert not glass_dir.exists()
+
+    confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(body))
+    assert confirm.status_code == 422, confirm.text
+    assert confirm.json()["code"] == "empty_first_world_contribution"
+    assert not glass_dir.exists()
+
+
+def test_first_world_prepare_is_inert(world_client) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+    eldyr_head = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    response = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["confirmable"] is True
+    assert response.json()["worldId"] == GLASS_ORCHARD_WORLD_ID
+    assert not glass_dir.exists()
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == eldyr_head
+    )
+
+
+def test_first_world_confirm_initializes_and_retry_is_already_initialized(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    eldyr_head = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 200, prepare.text
+    plan = prepare.json()
+    assert plan["schema"] == "dmb_first_world_graph_plan_v1"
+    assert plan["worldId"] == GLASS_ORCHARD_WORLD_ID
+    assert plan["confirmable"] is True
+
+    first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert first.status_code == 200, first.text
+    receipt = first.json()
+    assert receipt["schema"] == "dmb_first_world_graph_confirm_v1"
+    assert receipt["outcome"] == "initialized"
+    assert receipt["worldId"] == GLASS_ORCHARD_WORLD_ID
+    assert glass_dir.is_dir()
+    reviewed = glass_dir / "initialization" / "reviewed_initialization_receipt.json"
+    assert reviewed.is_file()
+    head, _rev, store = kernel.open_current_world_graph(
+        world_root, GLASS_ORCHARD_WORLD_ID
+    )
+    assert head.head_revision_id == receipt["committedRevisionId"]
+    assert store.focus_session_id == ""
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == eldyr_head
+    )
+
+    retry = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["outcome"] == "already_initialized"
+    assert (
+        kernel.open_current_world_graph(world_root, GLASS_ORCHARD_WORLD_ID)[
+            0
+        ].head_revision_id
+        == receipt["committedRevisionId"]
+    )
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == eldyr_head
+    )
+
+
+def test_first_world_unmanaged_world_fails(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    # Create source/run for an unmanaged world id (corpus dir only; no registry).
+    run_id, _source = _write_bld08_reviewable_run(
+        repo,
+        campaign_id="unmanaged-glass",
+        world_id="unmanaged-glass",
+    )
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    assert review.json()["worldState"] == "unmanaged"
+    assert review.json()["firstWorldPublishEligible"] is False
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 422, prepare.text
+    assert prepare.json()["code"] == "world_unmanaged"
+
+
+def test_first_world_existing_readable_world_ineligible(world_client) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 200, prepare.text
+    plan = prepare.json()
+    confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert confirm.status_code == 200, confirm.text
+    head_after = kernel.open_current_world_graph(
+        world_root, GLASS_ORCHARD_WORLD_ID
+    )[0].head_revision_id
+
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    assert review.json()["worldState"] == "initialized"
+    assert review.json()["firstWorldPublishEligible"] is False
+
+    prepare_again = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare_again.status_code == 409, prepare_again.text
+    assert prepare_again.json()["code"] == "world_already_initialized"
+    assert (
+        kernel.open_current_world_graph(world_root, GLASS_ORCHARD_WORLD_ID)[
+            0
+        ].head_revision_id
+        == head_after
+    )
+
+
+def test_first_world_unreadable_world_not_treated_as_uninitialized(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID
+    glass_dir.mkdir(parents=True)
+    (glass_dir / "head.json").write_text("{not-valid-json", encoding="utf-8")
+
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    assert review.json()["worldState"] == "unreadable"
+    assert review.json()["firstWorldPublishEligible"] is False
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 409, prepare.text
+    assert prepare.json()["code"] == "world_unreadable"
+
+
+def test_first_world_rejects_client_supplied_world_id(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    body = _first_world_prepare_body(run_id, _first_world_decisions())
+    body["worldId"] = "eldyrwild"
+    response = client.post(FIRST_WORLD_PREPARE_URL, json=body)
+    assert response.status_code == 422, response.text
+    assert response.json()["code"] == "invalid_request"
+
+
+def test_first_world_does_not_use_default_world_id_or_mutate_eldyrwild(
+    world_client,
+) -> None:
+    """Adversarial: DEFAULT_WORLD_ID remains Eldyrwild; target stays Glass Orchard."""
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_glass_orchard_bld08_run(repo)
+    eldyr_before = {
+        path.relative_to(world_root).as_posix(): path.read_bytes()
+        for path in (world_root / "graph_memory" / "worlds" / WORLD_ID).rglob("*")
+        if path.is_file()
+    }
+    eldyr_head = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    prepare = client.post(
+        FIRST_WORLD_PREPARE_URL,
+        json=_first_world_prepare_body(run_id, _first_world_decisions()),
+    )
+    assert prepare.status_code == 200, prepare.text
+    plan = prepare.json()
+    assert plan["worldId"] == GLASS_ORCHARD_WORLD_ID
+    assert plan["worldId"] != WORLD_ID
+
+    confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["worldId"] == GLASS_ORCHARD_WORLD_ID
+
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == eldyr_head
+    )
+    eldyr_after = {
+        path.relative_to(world_root).as_posix(): path.read_bytes()
+        for path in (world_root / "graph_memory" / "worlds" / WORLD_ID).rglob("*")
+        if path.is_file()
+    }
+    assert eldyr_after == eldyr_before
