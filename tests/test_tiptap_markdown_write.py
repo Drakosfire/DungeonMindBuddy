@@ -755,7 +755,63 @@ def test_source_import_preserves_lossy_markdown_byte_for_byte(tmp_path: Path) ->
     )
     assert committed.writer_ok is True
     target = tmp_path / (record.target_relpath or "")
-    assert target.read_text(encoding="utf-8") == LOSSY_IMPORT_MARKDOWN.rstrip("\n") + "\n"
+    assert target.read_text(encoding="utf-8") == LOSSY_IMPORT_MARKDOWN
+
+
+def test_source_import_preserves_trailing_blank_lines_without_normalization(
+    tmp_path: Path,
+) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    exact_markdown = "# Exact import\n\nBody line.\n\n\n\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    committed = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert committed.writer_ok is True
+    target = tmp_path / (record.target_relpath or "")
+    assert target.read_text(encoding="utf-8") == exact_markdown
+
+
+def test_source_import_preserves_markdown_without_trailing_newline(tmp_path: Path) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    exact_markdown = "# No trailing newline"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    committed = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert committed.writer_ok is True
+    target = tmp_path / (record.target_relpath or "")
+    assert target.read_text(encoding="utf-8") == exact_markdown
 
 
 def test_source_import_blocks_same_body_in_authoring_mode(tmp_path: Path) -> None:

@@ -255,6 +255,18 @@ def _final_content(markdown: str) -> str:
     return markdown.rstrip("\n") + "\n"
 
 
+def _source_import_content(markdown: str) -> str:
+    if markdown == "":
+        raise TiptapMarkdownWriteError("markdown must not be empty")
+    return markdown
+
+
+def _content_for_write_mode(markdown: str, write_mode: WriteMode) -> str:
+    if write_mode == "source_import":
+        return _source_import_content(markdown)
+    return _final_content(markdown)
+
+
 def _file_state_token(target: Path) -> str:
     if not target.exists():
         return "absent"
@@ -381,7 +393,7 @@ def prepare_tiptap_markdown_write(
     target = resolve_tiptap_markdown_target(root, relpath)
     if write_mode == "source_import":
         _assert_source_import_eligible(record, target)
-    content = _final_content(request.markdown)
+    content = _content_for_write_mode(request.markdown, write_mode)
     lossy = markdown_lossy_diagnostics(request.markdown)
     blocking_lossy = (
         [] if write_mode == "source_import" else _commit_blocking_lossy(record.kind, request.markdown)
@@ -528,7 +540,7 @@ def _commit_tiptap_markdown_write_unlocked(
     )
     relpath = authorize_target_for_record(record)
     target = resolve_tiptap_markdown_target(root, relpath)
-    content = _final_content(request.markdown)
+    content = _content_for_write_mode(request.markdown, write_mode)
     expected = _confirm_token(
         record.document_id,
         record.revision,

@@ -109,9 +109,8 @@ export function BuildDocumentCreateControl({
     if (disabled || creating) return;
     const trimmedTitle = title.trim();
     const campaign = campaignId.trim();
-    const markdown = importMarkdown.trim();
-    if (!trimmedTitle || !creatable.has(campaign) || !markdown) return;
-    onImportSubmit({ title: trimmedTitle, campaignId: campaign, markdown });
+    if (!trimmedTitle || !creatable.has(campaign) || importMarkdown.length === 0) return;
+    onImportSubmit({ title: trimmedTitle, campaignId: campaign, markdown: importMarkdown });
   };
 
   const canCreateSubmit =
@@ -120,7 +119,7 @@ export function BuildDocumentCreateControl({
     !disabled &&
     !creating &&
     Boolean(title.trim()) &&
-    Boolean(importMarkdown.trim()) &&
+    importMarkdown.length > 0 &&
     creatable.has(campaignId.trim());
 
   const sharedFields = (
@@ -247,7 +246,7 @@ export function BuildDocumentCreateControl({
               type="button"
               data-testid="build-document-import-retry"
               onClick={() => onRetryImport({ markdown: importMarkdown })}
-              disabled={disabled || creating || !importMarkdown.trim()}
+              disabled={disabled || creating || importMarkdown.length === 0}
             >
               Retry import
             </button>
