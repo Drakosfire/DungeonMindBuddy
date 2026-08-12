@@ -9,6 +9,13 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 > **Workstream closeout (2026-08-11):** `DOGFOOD-POLISH` is closed. Completed Plan/Build document-authoring slices are no longer active backlog items; see [`Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md). READY/IDEA items below that touch Plan, Build, Hermes, Threats, or Play are independent product work, not implied successors under the closed workstream.
 
+## [READY] CUTOVER Case B only after package-construction is expressible — captured 2026-08-12
+**Context:** PR #568 review: `_next_slice_recommendation` returned Case B whenever `DURABLE_ADOPTION_BOUNDARY` existed, while `WORLD_OBJECT_KIND` (`thread`) and other package-construction blockers remained.
+**Insight:** Missing adoption seam is not sufficient for Case B. Case selection must derive from normalized blocker `blocking_stage` / ownership: Case A for singular DungeonMind adoption-package gaps; Case B only when those are clear and durable adoption is the first remaining DM gate; cross-repository dual-sense STOPs must not invent a singular owner.
+**Action:** Keep CUTOVER dispatch ledger stage-driven; after #568, next DM slice is admit Buddy kind `thread` (or explicit adapter), not the adoption transaction.
+**Surfaces when:** CUTOVER re-anchor, whole-world blocker ledger, Case A/B/C/D selection, DURABLE_ADOPTION_BOUNDARY, WORLD_OBJECT_KIND, thread kind, dual-sense STOP, PR #568
+**Refs:** `Docs/Plans/HANDOFF-cutover-whole-world-reanchor-after-566.md`; `apps/live_control_server/services/cutover_whole_world_reanchor.py`
+
 ## [READY] Build Import should be able to designate a new world or campaign — captured 2026-08-11
 **Context:** CON-READY CR01A Hesta dogfood of lossless Markdown import. Import currently requires an already-admitted campaign/world; missing world root is a truthful failure and new-world bootstrap is an explicit successor.
 **Insight:** During Build import/create, the GM naturally wants to name a new world or campaign rather than only picking from currently admitted scopes. That is product placement authority, not a side effect of source ingress.
