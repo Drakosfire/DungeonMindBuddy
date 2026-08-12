@@ -64,10 +64,13 @@ EXPECTED_BASE_INVENTORY = {
     "dungeonmind_owned": 0,
     "buddy_owned": 55,
 }
+# After applying the 46 mutable units (and leaving the 9 Kernel-blocked
+# kind-miscoding residuals open): 366 - 46 + 3 new atomics = 323 semantic,
+# 9 residual, 314 represented.
 EXPECTED_FINAL_INVENTORY = {
-    "semantic": 314,
+    "semantic": 323,
     "represented": 314,
-    "residual": 0,
+    "residual": 9,
     "uses_statblock_mechanics": 3,
 }
 
@@ -75,13 +78,17 @@ EXPECTED_FINAL_INVENTORY = {
 # Per-row closure decision table (55 rows).
 #
 # closure_kind:
-#   contradiction_only        - governed contradiction, no replacement
-#   contradicts_and_replaces  - single kernel correction restoring one
-#                               source-grounded vocabulary-legal atomic
-#   compound_decomposition    - contradict compound + additive contribution
-#                               carrying the source-grounded atomic(s)
-#   identity_merge            - durable identity merge + contradiction of the
-#                               identity edge
+#   contradiction_only             - governed contradiction, no replacement
+#   contradicts_and_replaces       - single kernel correction restoring one
+#                                    source-grounded vocabulary-legal atomic
+#   compound_decomposition         - contradict compound + additive contribution
+#                                    carrying the source-grounded atomic(s)
+#   identity_merge                 - durable identity merge + contradiction of
+#                                    the identity edge
+#   deferred_buddy_kind_repair     - STOP: Kernel has no governed node-kind
+#                                    retype seam; residual stays open until a
+#                                    Buddy source-repair successor retypes the
+#                                    mistyped endpoint and re-admits the edge
 # ---------------------------------------------------------------------------
 
 IDENTITY_UNITS: dict[str, dict[str, str]] = {
@@ -187,49 +194,95 @@ DECOMPOSITION_UNITS: dict[str, dict[str, object]] = {
     },
 }
 
-KIND_MISCODING_NOTES: dict[str, str] = {
-    "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower": (
-        "item_shatter_mages_tower is mistyped as item; a Buddy-side retype to "
-        "location would admit located_in. Tracked as a Buddy source repair successor."
-    ),
-    "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of": (
-        "node:meat_distribution_network_session9 is mistyped as party; a Buddy-side "
-        "retype of the logistics site would admit containment. Tracked as a Buddy "
-        "source repair successor."
-    ),
-    "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9": (
-        "node:meat_distribution_network_session9 is mistyped as party; a Buddy-side "
-        "retype of the logistics site would admit part_of. Tracked as a Buddy source "
-        "repair successor."
-    ),
-    "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name": (
-        "mystery_stone_bridge_river_name is mistyped as mystery; the river is a "
-        "location and a Buddy-side retype would admit contains. Tracked as a Buddy "
-        "source repair successor."
-    ),
-    "edge:node:headmaster_tinkerbright:leads:loc:wizard_college": (
-        "loc:wizard_college is mistyped as location for organizational leadership; a "
-        "Buddy-side retype to an organized collective would admit leads. Tracked as a "
-        "Buddy source repair successor."
-    ),
-    "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry": (
-        "node:hempholm_folk_revelry is mistyped as group; the revelry is an event and "
-        "a Buddy-side retype would admit participates_in. Tracked as a Buddy source "
-        "repair successor."
-    ),
-    "edge:node:torrin_flamescale:serves:loc:guilds:represents": (
-        "loc:guilds is mistyped as location; a Buddy-side retype to faction would "
-        "admit serves. Tracked as a Buddy source repair successor."
-    ),
-    "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan": (
-        "item:torvak-hemp-caravan is mistyped as item; a Buddy-side retype to group "
-        "would admit member_of. Tracked as a Buddy source repair successor."
-    ),
-    "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry": (
-        "node:hempholm_folk_revelry is mistyped as group; the revelry is an event and "
-        "a Buddy-side retype would admit participates_in. Tracked as a Buddy source "
-        "repair successor."
-    ),
+# Nine residuals whose root defect is a mistyped endpoint kind. Kernel has no
+# governed node-kind correction seam (edge-only correct/contradict; additive
+# node merges refuse disagreeing fingerprints; existing-node apply ignores
+# kind). These rows are inventoried and sealed but NOT mutated by this
+# program — contradicting them would delete supported campaign truth while
+# leaving the malformed objects in place.
+DEFERRED_BUDDY_KIND_REPAIR: dict[str, dict[str, str]] = {
+    "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower": {
+        "mistyped_node_id": "item_shatter_mages_tower",
+        "current_kind": "item",
+        "required_kind": "location",
+        "unit_note": (
+            "STOP: Kernel cannot retype item_shatter_mages_tower item→location. "
+            "located_in is source-grounded once the Buddy source-repair successor "
+            "retypes the tower; do not contradict this residual."
+        ),
+    },
+    "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of": {
+        "mistyped_node_id": "node:meat_distribution_network_session9",
+        "current_kind": "party",
+        "required_kind": "location",
+        "unit_note": (
+            "STOP: Kernel cannot retype the meat-distribution site party→location. "
+            "Containment is source-grounded once Buddy retypes the logistics site."
+        ),
+    },
+    "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9": {
+        "mistyped_node_id": "node:meat_distribution_network_session9",
+        "current_kind": "party",
+        "required_kind": "location",
+        "unit_note": (
+            "STOP: Kernel cannot retype the meat-distribution site party→location. "
+            "part_of is source-grounded once Buddy retypes the logistics site."
+        ),
+    },
+    "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name": {
+        "mistyped_node_id": "mystery_stone_bridge_river_name",
+        "current_kind": "mystery",
+        "required_kind": "location",
+        "unit_note": (
+            "STOP: Kernel cannot retype the river mystery→location. contains is "
+            "source-grounded once Buddy retypes the river."
+        ),
+    },
+    "edge:node:headmaster_tinkerbright:leads:loc:wizard_college": {
+        "mistyped_node_id": "loc:wizard_college",
+        "current_kind": "location",
+        "required_kind": "faction",
+        "unit_note": (
+            "STOP: Kernel cannot retype Wizard's College location→faction/group. "
+            "leads is source-grounded once Buddy retypes the organized collective."
+        ),
+    },
+    "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry": {
+        "mistyped_node_id": "node:hempholm_folk_revelry",
+        "current_kind": "group",
+        "required_kind": "event",
+        "unit_note": (
+            "STOP: Kernel cannot retype hempholm_folk_revelry group→event. "
+            "participates_in is source-grounded once Buddy retypes the revelry."
+        ),
+    },
+    "edge:node:torrin_flamescale:serves:loc:guilds:represents": {
+        "mistyped_node_id": "loc:guilds",
+        "current_kind": "location",
+        "required_kind": "faction",
+        "unit_note": (
+            "STOP: Kernel cannot retype loc:guilds location→faction. serves is "
+            "source-grounded once Buddy retypes the Guilds collective."
+        ),
+    },
+    "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan": {
+        "mistyped_node_id": "item:torvak-hemp-caravan",
+        "current_kind": "item",
+        "required_kind": "group",
+        "unit_note": (
+            "STOP: Kernel cannot retype torvak-hemp-caravan item→group. member_of "
+            "is source-grounded once Buddy retypes the caravan collective."
+        ),
+    },
+    "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry": {
+        "mistyped_node_id": "node:hempholm_folk_revelry",
+        "current_kind": "group",
+        "required_kind": "event",
+        "unit_note": (
+            "STOP: Kernel cannot retype hempholm_folk_revelry group→event. "
+            "participates_in is source-grounded once Buddy retypes the revelry."
+        ),
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -291,6 +344,7 @@ def main() -> int:
 
     import graph_memory.kernel as kernel  # noqa: PLC0415
     from graph_memory.kernel.contributions import (  # noqa: PLC0415
+        compute_contribution_source_payload_sha256,
         create_graph_contribution,
     )
     from graph_memory.kernel.contribution_models import (  # noqa: PLC0415
@@ -403,7 +457,9 @@ def main() -> int:
         disposition = adj.get("disposition")
         reason_code = adj.get("reason_code")
 
-        if edge_id in IDENTITY_UNITS:
+        if edge_id in DEFERRED_BUDDY_KIND_REPAIR:
+            closure_kind = "deferred_buddy_kind_repair"
+        elif edge_id in IDENTITY_UNITS:
             closure_kind = "identity_merge"
         elif edge_id in REPLACEMENT_UNITS:
             closure_kind = "contradicts_and_replaces"
@@ -418,6 +474,14 @@ def main() -> int:
                 f"residual {edge_id} has unclosable disposition {disposition!r}"
             )
 
+        # Seal the live target contribution payload against revision-bound digest.
+        target_source_payload_sha256 = {
+            cid: compute_contribution_source_payload_sha256(
+                load_contribution_record(world_root, WORLD_ID, cid)
+            )
+            for cid in active_contribs
+        }
+
         rows.append(
             {
                 "edge_id": edge_id,
@@ -426,6 +490,7 @@ def main() -> int:
                 "seal": seal,
                 "assertion_id": assertion_id,
                 "active_contribution_ids": active_contribs,
+                "target_source_payload_sha256": target_source_payload_sha256,
                 "target_assertion": target_assertion.model_dump(mode="json"),
                 "campaign_scope": target_assertion.campaign_scope,
                 "disposition": disposition,
@@ -441,29 +506,43 @@ def main() -> int:
         )
 
     # ---- 3. Validate decision-table coverage -------------------------------
-    counts = {"identity_merge": 0, "contradicts_and_replaces": 0,
-              "compound_decomposition": 0, "contradiction_only": 0}
+    counts = {
+        "identity_merge": 0,
+        "contradicts_and_replaces": 0,
+        "compound_decomposition": 0,
+        "contradiction_only": 0,
+        "deferred_buddy_kind_repair": 0,
+    }
     for row in rows:
         counts[row["closure_kind"]] += 1
     expected_counts = {
         "identity_merge": 7,
         "contradicts_and_replaces": 2,
         "compound_decomposition": 1,
-        "contradiction_only": 45,
+        "contradiction_only": 36,
+        "deferred_buddy_kind_repair": 9,
     }
     if counts != expected_counts:
         raise SystemExit(f"closure-kind counts {counts} != {expected_counts}")
+    if set(DEFERRED_BUDDY_KIND_REPAIR) - set(r["edge_id"] for r in rows):
+        raise SystemExit("deferred kind-repair table references non-residual edges")
     if decision_edges - set(r["edge_id"] for r in rows):
         raise SystemExit("decision table references non-residual edges")
 
-    # ---- 4. Order units (identity -> source -> compound -> unsupported) -----
+    # ---- 4. Order units (mutable first by disposition, deferred last) ------
     disposition_rank = {
         "IDENTITY_NOT_RELATIONSHIP": 0,
         "SOURCE_CORRECTION_REQUIRED": 1,
         "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 2,
         "INSUFFICIENT_EVIDENCE": 3,
     }
-    rows.sort(key=lambda r: (disposition_rank[r["disposition"]], r["edge_id"]))
+    rows.sort(
+        key=lambda r: (
+            1 if r["closure_kind"] == "deferred_buddy_kind_repair" else 0,
+            disposition_rank[r["disposition"]],
+            r["edge_id"],
+        )
+    )
 
     # ---- 5. Build per-unit closure records + contribution payloads ----------
     def _correction_contribution(row: dict, unit_key: str) -> dict:
@@ -567,6 +646,17 @@ def main() -> int:
         )
         return contrib.model_dump(mode="json")
 
+    def _with_digest(payload: dict) -> dict:
+        from graph_memory.kernel.contribution_models import (  # noqa: PLC0415
+            GraphContribution as GC,
+        )
+
+        model = GC.model_validate(payload)
+        digest = compute_contribution_source_payload_sha256(model)
+        out = model.model_dump(mode="json")
+        out["source_payload_sha256"] = digest
+        return out
+
     child_files: dict[str, list[dict]] = {
         "source-corrections": [],
         "compound-decompositions": [],
@@ -581,6 +671,8 @@ def main() -> int:
     }
 
     units: list[dict] = []
+    operation_plan: list[dict] = []
+    global_op_ordinal = 0
     for ordinal, row in enumerate(rows, start=1):
         unit_id = f"closure-unit:{ordinal:03d}"
         unit_key = f"u{ordinal:03d}"
@@ -590,14 +682,46 @@ def main() -> int:
         contributions: dict[str, dict] = {}
         notes: list[str] = []
 
-        if edge_id in KIND_MISCODING_NOTES:
-            notes.append(KIND_MISCODING_NOTES[edge_id])
+        if kind == "deferred_buddy_kind_repair":
+            spec = DEFERRED_BUDDY_KIND_REPAIR[edge_id]
+            notes.append(spec["unit_note"])
+            unit = {
+                "unit_id": unit_id,
+                "ordinal": ordinal,
+                "edge_id": edge_id,
+                "authority": row["authority"],
+                "disposition": row["disposition"],
+                "reason_code": row["reason_code"],
+                "closure_kind": kind,
+                "deferred": True,
+                "mistyped_node_id": spec["mistyped_node_id"],
+                "current_kind": spec["current_kind"],
+                "required_kind": spec["required_kind"],
+                "edge_shape": row["edge_shape"],
+                "target_assertion_id": row["assertion_id"],
+                "target_contribution_ids": row["active_contribution_ids"],
+                "target_source_payload_sha256": row["target_source_payload_sha256"],
+                "rationale": row["adjudication"].get("rationale"),
+                "next_action": row["adjudication"].get("next_action"),
+                "seal": row["seal"],
+                "operations": [],
+                "notes": notes,
+            }
+            units.append(unit)
+            child_files[child_of_disposition[row["disposition"]]].append(
+                {"unit": unit, "contributions": {}}
+            )
+            continue
 
         if kind == "contradiction_only":
-            payload = _correction_contribution(row, unit_key)
+            payload = _with_digest(_correction_contribution(row, unit_key))
             contributions[payload["contribution_id"]] = payload
             operations.append(
-                {"op": "contradict", "contribution_id": payload["contribution_id"]}
+                {
+                    "op": "contradict",
+                    "contribution_id": payload["contribution_id"],
+                    "source_payload_sha256": payload["source_payload_sha256"],
+                }
             )
         elif kind == "contradicts_and_replaces":
             spec = REPLACEMENT_UNITS[edge_id]
@@ -605,31 +729,49 @@ def main() -> int:
                 raise SystemExit(
                     f"{edge_id}: replacement requires exactly one active support"
                 )
-            payload = _replacement_contribution(row, unit_key, spec)
+            payload = _with_digest(_replacement_contribution(row, unit_key, spec))
             contributions[payload["contribution_id"]] = payload
             operations.append(
-                {"op": "correct", "contribution_id": payload["contribution_id"]}
+                {
+                    "op": "correct",
+                    "contribution_id": payload["contribution_id"],
+                    "source_payload_sha256": payload["source_payload_sha256"],
+                }
             )
             notes.append(spec["unit_note"])
         elif kind == "compound_decomposition":
             spec = DECOMPOSITION_UNITS[edge_id]
-            payload = _correction_contribution(row, unit_key)
+            payload = _with_digest(_correction_contribution(row, unit_key))
             contributions[payload["contribution_id"]] = payload
             operations.append(
-                {"op": "contradict", "contribution_id": payload["contribution_id"]}
+                {
+                    "op": "contradict",
+                    "contribution_id": payload["contribution_id"],
+                    "source_payload_sha256": payload["source_payload_sha256"],
+                }
             )
-            additive = _additive_contribution(row, unit_key, spec["atomics"])  # type: ignore[arg-type]
+            additive = _with_digest(
+                _additive_contribution(row, unit_key, spec["atomics"])  # type: ignore[arg-type]
+            )
             contributions[additive["contribution_id"]] = additive
             operations.append(
-                {"op": "merge_additive", "contribution_id": additive["contribution_id"]}
+                {
+                    "op": "merge_additive",
+                    "contribution_id": additive["contribution_id"],
+                    "source_payload_sha256": additive["source_payload_sha256"],
+                }
             )
             notes.append(str(spec["unit_note"]))
         elif kind == "identity_merge":
             spec = IDENTITY_UNITS[edge_id]
-            payload = _correction_contribution(row, unit_key)
+            payload = _with_digest(_correction_contribution(row, unit_key))
             contributions[payload["contribution_id"]] = payload
             operations.append(
-                {"op": "contradict", "contribution_id": payload["contribution_id"]}
+                {
+                    "op": "contradict",
+                    "contribution_id": payload["contribution_id"],
+                    "source_payload_sha256": payload["source_payload_sha256"],
+                }
             )
             expected_decision_id = compute_identity_decision_id(
                 world_id=WORLD_ID,
@@ -652,6 +794,23 @@ def main() -> int:
         else:  # pragma: no cover - guarded above
             raise SystemExit(f"unknown closure kind {kind}")
 
+        for local_index, op in enumerate(operations):
+            global_op_ordinal += 1
+            op["op_ordinal"] = global_op_ordinal
+            op["unit_id"] = unit_id
+            op["unit_op_index"] = local_index
+            operation_plan.append(
+                {
+                    "op_ordinal": global_op_ordinal,
+                    "unit_id": unit_id,
+                    "unit_op_index": local_index,
+                    "op": op["op"],
+                    "contribution_id": op.get("contribution_id"),
+                    "source_payload_sha256": op.get("source_payload_sha256"),
+                    "expected_decision_id": op.get("expected_decision_id"),
+                }
+            )
+
         unit = {
             "unit_id": unit_id,
             "ordinal": ordinal,
@@ -660,9 +819,11 @@ def main() -> int:
             "disposition": row["disposition"],
             "reason_code": row["reason_code"],
             "closure_kind": kind,
+            "deferred": False,
             "edge_shape": row["edge_shape"],
             "target_assertion_id": row["assertion_id"],
             "target_contribution_ids": row["active_contribution_ids"],
+            "target_source_payload_sha256": row["target_source_payload_sha256"],
             "rationale": row["adjudication"].get("rationale"),
             "next_action": row["adjudication"].get("next_action"),
             "seal": row["seal"],
@@ -695,6 +856,10 @@ def main() -> int:
             "unit_count": len(entries),
         }
 
+    deferred_edge_ids = sorted(
+        u["edge_id"] for u in units if u["closure_kind"] == "deferred_buddy_kind_repair"
+    )
+    mutable_units = [u for u in units if not u.get("deferred")]
     manifest = {
         "schema": "dmb_eldyrwild_relationship_semantic_closure_manifest_v1",
         "closure_id": CLOSURE_ID,
@@ -706,6 +871,11 @@ def main() -> int:
         "expected_base_inventory": EXPECTED_BASE_INVENTORY,
         "expected_final_inventory": EXPECTED_FINAL_INVENTORY,
         "unit_count": len(units),
+        "mutable_unit_count": len(mutable_units),
+        "deferred_unit_count": len(deferred_edge_ids),
+        "deferred_residual_edge_ids": deferred_edge_ids,
+        "operation_count": len(operation_plan),
+        "operation_plan": operation_plan,
         "unit_order": [u["unit_id"] for u in units],
         "artifacts": child_index,
         "units": units,
@@ -713,7 +883,8 @@ def main() -> int:
     manifest_text = json.dumps(manifest, indent=1, sort_keys=True) + "\n"
     (out_dir / "manifest.json").write_text(manifest_text, encoding="utf-8")
 
-    print(f"units: {len(units)}")
+    print(f"units: {len(units)} (mutable={len(mutable_units)} deferred={len(deferred_edge_ids)})")
+    print(f"operations: {len(operation_plan)}")
     print(f"closure kinds: {counts}")
     for name, info in child_index.items():
         print(f"  {name}.json: {info['unit_count']} units sha256={info['sha256'][:16]}…")

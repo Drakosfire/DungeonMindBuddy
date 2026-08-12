@@ -24,6 +24,7 @@
      "rejected_assertions": [],
      "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u001",
      "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "b9227aca7d775e08f2cb6ca2fa820c36c3d496e82fcc983d212fad8620250a82",
      "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u001",
      "status": "active",
      "supersedes_contribution_id": null,
@@ -34,6 +35,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "identity_merge",
+    "deferred": false,
     "disposition": "IDENTITY_NOT_RELATIONSHIP",
     "edge_id": "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
     "edge_shape": {
@@ -47,14 +49,21 @@
     "operations": [
      {
       "contribution_id": "contribution:681e6db3893d493c",
-      "op": "contradict"
+      "op": "contradict",
+      "op_ordinal": 1,
+      "source_payload_sha256": "b9227aca7d775e08f2cb6ca2fa820c36c3d496e82fcc983d212fad8620250a82",
+      "unit_id": "closure-unit:001",
+      "unit_op_index": 0
      },
      {
       "expected_decision_id": "identity-decision:3a8965f409e85911",
       "merge_reason": "Council headquarters and 'the Council' place are the same site; the kind-correct location identity (broader evidence and reference authority) survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
       "op": "identity_merge",
+      "op_ordinal": 2,
       "source_node_id": "item:session11:council-headquarters",
-      "target_node_id": "loc:the-council"
+      "target_node_id": "loc:the-council",
+      "unit_id": "closure-unit:001",
+      "unit_op_index": 1
      }
     ],
     "ordinal": 1,
@@ -93,6 +102,9 @@
     "target_contribution_ids": [
      "contribution:97f5ef69b6c6d14e"
     ],
+    "target_source_payload_sha256": {
+     "contribution:97f5ef69b6c6d14e": "b2f1ebea3b7bf0b495978f9abaab5a7c20450827d2df2b4e306a9c8d5914e349"
+    },
     "unit_id": "closure-unit:001"
    }
   },
@@ -125,6 +137,7 @@
      "rejected_assertions": [],
      "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u002",
      "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "4ba53e185733ef90e96674f7f1393cd2f7e6ac4348d561cb6ef12e9a476b9dfa",
      "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u002",
      "status": "active",
      "supersedes_contribution_id": null,
@@ -135,6 +148,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "identity_merge",
+    "deferred": false,
     "disposition": "IDENTITY_NOT_RELATIONSHIP",
     "edge_id": "edge:item_enormous_boulder:same_as:item_foot_of_statue",
     "edge_shape": {
@@ -148,14 +162,21 @@
     "operations": [
      {
       "contribution_id": "contribution:b3f5dbbf689d5e8b",
-      "op": "contradict"
+      "op": "contradict",
+      "op_ordinal": 3,
+      "source_payload_sha256": "4ba53e185733ef90e96674f7f1393cd2f7e6ac4348d561cb6ef12e9a476b9dfa",
+      "unit_id": "closure-unit:002",
+      "unit_op_index": 0
      },
      {
       "expected_decision_id": "identity-decision:622b690ffe07c2c6",
       "merge_reason": "The enormous boulder resolves into the foot of a once enormous statue; the resolved object identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
       "op": "identity_merge",
+      "op_ordinal": 4,
       "source_node_id": "item_enormous_boulder",
-      "target_node_id": "item_foot_of_statue"
+      "target_node_id": "item_foot_of_statue",
+      "unit_id": "closure-unit:002",
+      "unit_op_index": 1
      }
     ],
     "ordinal": 2,
@@ -195,6 +216,10 @@
      "contribution:f1700a77cda5ce95",
      "contribution:f2fbbf4f7c191d8e"
     ],
+    "target_source_payload_sha256": {
+     "contribution:f1700a77cda5ce95": "c9b77f7861036217d454b2dab9a2fc1bd50d28d1274d9fa4fed23868a03ecd57",
+     "contribution:f2fbbf4f7c191d8e": "3a9fa174a6eb59ed0ed7d410b66f48c8fb880c3a04d998b347f12699a5f6f9e8"
+    },
     "unit_id": "closure-unit:002"
    }
   },
@@ -221,6 +246,7 @@
      "rejected_assertions": [],
      "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u003",
      "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "1777129a536a958959b16e24a07952b9d3d7c019249efce93275d9aab64e2840",
      "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u003",
      "status": "active",
      "supersedes_contribution_id": null,
@@ -231,6 +257,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "identity_merge",
+    "deferred": false,
     "disposition": "IDENTITY_NOT_RELATIONSHIP",
     "edge_id": "edge:item_session2_hidden_alchemy_room:same_as:location_003",
     "edge_shape": {
@@ -244,14 +271,21 @@
     "operations": [
      {
       "contribution_id": "contribution:f9bbf15530970f49",
-      "op": "contradict"
+      "op": "contradict",
+      "op_ordinal": 5,
+      "source_payload_sha256": "1777129a536a958959b16e24a07952b9d3d7c019249efce93275d9aab64e2840",
+      "unit_id": "closure-unit:003",
+      "unit_op_index": 0
      },
      {
       "expected_decision_id": "identity-decision:6a4d736c16cab085",
       "merge_reason": "The hidden alchemy room item/location pair is one place; the kind-correct location identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
       "op": "identity_merge",
+      "op_ordinal": 6,
       "source_node_id": "item_session2_hidden_alchemy_room",
-      "target_node_id": "location_003"
+      "target_node_id": "location_003",
+      "unit_id": "closure-unit:003",
+      "unit_op_index": 1
      }
     ],
     "ordinal": 3,
@@ -290,6 +324,9 @@
     "target_contribution_ids": [
      "contribution:728ad4422e4b079f"
     ],
+    "target_source_payload_sha256": {
+     "contribution:728ad4422e4b079f": "e174183e356ebeda163d1b3c5f84b87fc04e95caa3c9a6ba043b7e6ea40bd511"
+    },
     "unit_id": "closure-unit:003"
    }
   },
@@ -322,6 +359,7 @@
      "rejected_assertions": [],
      "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u004",
      "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "219d678ecc7233e807ae5388226add5c483204fbb2fb3b68d1eaefd89f9b72c4",
      "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u004",
      "status": "active",
      "supersedes_contribution_id": null,
@@ -332,6 +370,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "identity_merge",
+    "deferred": false,
     "disposition": "IDENTITY_NOT_RELATIONSHIP",
     "edge_id": "edge:loc:last_warehouse:same_as:loc:chilled_warehouse",
     "edge_shape": {
@@ -345,14 +384,21 @@
     "operations": [
      {
       "contribution_id": "contribution:d37fd3297400f729",
-      "op": "contradict"
+      "op": "contradict",
+      "op_ordinal": 7,
+      "source_payload_sha256": "219d678ecc7233e807ae5388226add5c483204fbb2fb3b68d1eaefd89f9b72c4",
+      "unit_id": "closure-unit:004",
+      "unit_op_index": 0
      },
      {
       "expected_decision_id": "identity-decision:1ff8bf27a0b1921c",
       "merge_reason": "The last warehouse reached is the chilled warehouse; the substantive, more-referenced location identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
       "op": "identity_merge",
+      "op_ordinal": 8,
       "source_node_id": "loc:last_warehouse",
-      "target_node_id": "loc:chilled_warehouse"
+      "target_node_id": "loc:chilled_warehouse",
+      "unit_id": "closure-unit:004",
+      "unit_op_index": 1
      }
     ],
     "ordinal": 4,
@@ -392,6 +438,10 @@
      "contribution:d3d244474789879c",
      "contribution:dfadb94646dd9d3c"
     ],
+    "target_source_payload_sha256": {
+     "contribution:d3d244474789879c": "f312aa5895c9d9a8bfd77b815f47278a4abaffbe699fd6c401adf723fefaf1e5",
+     "contribution:dfadb94646dd9d3c": "49bed3c1dbb4cab8420bb3565c17cc0faa8f0ae73be9b70989cea3bd4a7be48f"
+    },
     "unit_id": "closure-unit:004"
    }
   },
@@ -418,6 +468,7 @@
      "rejected_assertions": [],
      "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u005",
      "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "5e072dca5c5eb6ef9b42563656d1fad2a0100a3c62accaa0822e98edfc13acf8",
      "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u005",
      "status": "active",
      "supersedes_contribution_id": null,
@@ -428,6 +479,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "identity_merge",
+    "deferred": false,
     "disposition": "IDENTITY_NOT_RELATIONSHIP",
     "edge_id": "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance",
     "edge_shape": {
@@ -441,14 +493,21 @@
     "operations": [
      {
       "contribution_id": "contribution:ac90b06c0ef6d06c",
-      "op": "contradict"
+      "op": "contradict",
+      "op_ordinal": 9,
+      "source_payload_sha256": "5e072dca5c5eb6ef9b42563656d1fad2a0100a3c62accaa0822e98edfc13acf8",
+      "unit_id": "closure-unit:005",
+      "unit_op_index": 0
      },
      {
       "expected_decision_id": "identity-decision:c7f1cab745c8a1d2",
       "merge_reason": "The second underground entrance is one durable place; the location identity survives and the mystery node is the discovery framing. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
       "op": "identity_merge",
+      "op_ordinal": 10,
       "source_node_id": "mystery:session9:second_underground_entrance",
-      "target_node_id": "loc:underground-entrance"
+      "target_node_id": "loc:underground-entrance",
+      "unit_id": "closure-unit:005",
+      "unit_op_index": 1
      }
     ],
     "ordinal": 5,
@@ -487,6 +546,9 @@
     "target_contribution_ids": [
      "contribution:b8d6018f51828276"
     ],
+    "target_source_payload_sha256": {
+     "contribution:b8d6018f51828276": "fd65d5994fac1668c4b9ea91be039c18a83b952519fe2b517ee62a15df8414bb"
+    },
     "unit_id": "closure-unit:005"
    }
   },
@@ -513,6 +575,7 @@
      "rejected_assertions": [],
      "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u006",
      "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "20b2c47addf4ed8f5b74dea7ac0bd8f76cb6dd276cb7b3b4049ebbaa9113d250",
      "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u006",
      "status": "active",
      "supersedes_contribution_id": null,
@@ -523,6 +586,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "identity_merge",
+    "deferred": false,
     "disposition": "IDENTITY_NOT_RELATIONSHIP",
     "edge_id": "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language",
     "edge_shape": {
@@ -536,14 +600,21 @@
     "operations": [
      {
       "contribution_id": "contribution:7d795899fbb4b353",
-      "op": "contradict"
+      "op": "contradict",
+      "op_ordinal": 11,
+      "source_payload_sha256": "20b2c47addf4ed8f5b74dea7ac0bd8f76cb6dd276cb7b3b4049ebbaa9113d250",
+      "unit_id": "closure-unit:006",
+      "unit_op_index": 0
      },
      {
       "expected_decision_id": "identity-decision:ac8e5efc25de3804",
       "merge_reason": "The strange-language scroll mystery and the recovered abyssal scroll item are one object; the durable item identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
       "op": "identity_merge",
+      "op_ordinal": 12,
       "source_node_id": "mystery:session9:scroll_in_strange_language",
-      "target_node_id": "obj:session9:scroll_abyssal"
+      "target_node_id": "obj:session9:scroll_abyssal",
+      "unit_id": "closure-unit:006",
+      "unit_op_index": 1
      }
     ],
     "ordinal": 6,
@@ -582,6 +653,9 @@
     "target_contribution_ids": [
      "contribution:b8d6018f51828276"
     ],
+    "target_source_payload_sha256": {
+     "contribution:b8d6018f51828276": "fd65d5994fac1668c4b9ea91be039c18a83b952519fe2b517ee62a15df8414bb"
+    },
     "unit_id": "closure-unit:006"
    }
   },
@@ -608,6 +682,7 @@
      "rejected_assertions": [],
      "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u007",
      "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "ae9a9566e5b9b52e2f037a7b434e7360007f21c08eeee7bb06b3b24f88794266",
      "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u007",
      "status": "active",
      "supersedes_contribution_id": null,
@@ -618,6 +693,7 @@
    "unit": {
     "authority": "S25",
     "closure_kind": "identity_merge",
+    "deferred": false,
     "disposition": "IDENTITY_NOT_RELATIONSHIP",
     "edge_id": "edge:organization:merchant-s-crossroads-apothecary:same_as:loc:crooked-retort",
     "edge_shape": {
@@ -631,14 +707,21 @@
     "operations": [
      {
       "contribution_id": "contribution:356341354c4463a4",
-      "op": "contradict"
+      "op": "contradict",
+      "op_ordinal": 13,
+      "source_payload_sha256": "ae9a9566e5b9b52e2f037a7b434e7360007f21c08eeee7bb06b3b24f88794266",
+      "unit_id": "closure-unit:007",
+      "unit_op_index": 0
      },
      {
       "expected_decision_id": "identity-decision:adab1e19800e24d7",
       "merge_reason": "The Session-25 recap identifies the Merchant's Crossroads apothecary as the Crooked Retort; the kind-correct place identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
       "op": "identity_merge",
+      "op_ordinal": 14,
       "source_node_id": "organization:merchant-s-crossroads-apothecary",
-      "target_node_id": "loc:crooked-retort"
+      "target_node_id": "loc:crooked-retort",
+      "unit_id": "closure-unit:007",
+      "unit_op_index": 1
      }
     ],
     "ordinal": 7,
@@ -677,6 +760,9 @@
     "target_contribution_ids": [
      "contribution:a4231edb9a228963"
     ],
+    "target_source_payload_sha256": {
+     "contribution:a4231edb9a228963": "2cf28604655f23e43846e389e5dce9920f98dfd670a0717ca3bf12e48703380c"
+    },
     "unit_id": "closure-unit:007"
    }
   }

@@ -3,7 +3,7 @@
  "entries": [
   {
    "contributions": {
-    "contribution:83d88df40f927c28": {
+    "contribution:5af729b078d5459d": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -16,15 +16,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c2",
      "candidate_assertions": [],
-     "contribution_id": "contribution:83d88df40f927c28",
+     "contribution_id": "contribution:5af729b078d5459d",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u044",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u035",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u044",
+     "source_payload_sha256": "0d6e20c3340e4b60c16ba27ca5dc603d7b82e3f3eb1443f553e8c481ee8df486",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u035",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -34,6 +35,7 @@
    "unit": {
     "authority": "S25",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:faction:town-guards-mireward-gate:reports_threat_in:mystery:session25:west-wall-screaming-and-dark-shapes-below",
     "edge_shape": {
@@ -46,11 +48,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:83d88df40f927c28",
-      "op": "contradict"
+      "contribution_id": "contribution:5af729b078d5459d",
+      "op": "contradict",
+      "op_ordinal": 42,
+      "source_payload_sha256": "0d6e20c3340e4b60c16ba27ca5dc603d7b82e3f3eb1443f553e8c481ee8df486",
+      "unit_id": "closure-unit:035",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 44,
+    "ordinal": 35,
     "rationale": "Session-25 recap collapses observation/reporting, threat identification, and west-wall spatial context into `reports_threat_in`; follow A-era compound precedent for this predicate family.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -97,12 +103,15 @@
     "target_contribution_ids": [
      "contribution:a4231edb9a228963"
     ],
-    "unit_id": "closure-unit:044"
+    "target_source_payload_sha256": {
+     "contribution:a4231edb9a228963": "2cf28604655f23e43846e389e5dce9920f98dfd670a0717ca3bf12e48703380c"
+    },
+    "unit_id": "closure-unit:035"
    }
   },
   {
    "contributions": {
-    "contribution:61a5658dd0383823": {
+    "contribution:97b4e6395891e402": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -115,15 +124,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c2",
      "candidate_assertions": [],
-     "contribution_id": "contribution:61a5658dd0383823",
+     "contribution_id": "contribution:97b4e6395891e402",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u045",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u036",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u045",
+     "source_payload_sha256": "e1f235a4096b277ab4faca238c7a2a8d05e9082083fff19bde9cf8f1ff0d3665",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u036",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -133,6 +143,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:group_session24_refugees_of_edge:part_of_group:mystery_7",
     "edge_shape": {
@@ -145,11 +156,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:61a5658dd0383823",
-      "op": "contradict"
+      "contribution_id": "contribution:97b4e6395891e402",
+      "op": "contradict",
+      "op_ordinal": 43,
+      "source_payload_sha256": "e1f235a4096b277ab4faca238c7a2a8d05e9082083fff19bde9cf8f1ff0d3665",
+      "unit_id": "closure-unit:036",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 45,
+    "ordinal": 36,
     "rationale": "part_of_group bundles group membership with an unresolved refugee mystery/situation; cannot flatten to one relationship term.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -185,12 +200,15 @@
     "target_contribution_ids": [
      "contribution:fe483d91c47590a1"
     ],
-    "unit_id": "closure-unit:045"
+    "target_source_payload_sha256": {
+     "contribution:fe483d91c47590a1": "36d172c4396728494439e919bf5a184151e6b921b537856fe6fa3decf566140b"
+    },
+    "unit_id": "closure-unit:036"
    }
   },
   {
    "contributions": {
-    "contribution:1a74e0f6d9dae28a": {
+    "contribution:9e2d4b3105442a97": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -209,15 +227,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:1a74e0f6d9dae28a",
+     "contribution_id": "contribution:9e2d4b3105442a97",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u046",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u037",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u046",
+     "source_payload_sha256": "544b3beb68a82ccf86e63931df16637ac2c257d828ba60dcd9c8fae1ef8f9eb2",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u037",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -227,6 +246,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:item_glowkindle_help_request:mission_targets:group_mercenaries",
     "edge_shape": {
@@ -239,11 +259,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:1a74e0f6d9dae28a",
-      "op": "contradict"
+      "contribution_id": "contribution:9e2d4b3105442a97",
+      "op": "contradict",
+      "op_ordinal": 44,
+      "source_payload_sha256": "544b3beb68a82ccf86e63931df16637ac2c257d828ba60dcd9c8fae1ef8f9eb2",
+      "unit_id": "closure-unit:037",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 46,
+    "ordinal": 37,
     "rationale": "Job posting solicits mercenaries \u2014 audience/mission targeting plus request semantics; not one atomic relationship.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -280,12 +304,16 @@
      "contribution:f1700a77cda5ce95",
      "contribution:f2fbbf4f7c191d8e"
     ],
-    "unit_id": "closure-unit:046"
+    "target_source_payload_sha256": {
+     "contribution:f1700a77cda5ce95": "c9b77f7861036217d454b2dab9a2fc1bd50d28d1274d9fa4fed23868a03ecd57",
+     "contribution:f2fbbf4f7c191d8e": "3a9fa174a6eb59ed0ed7d410b66f48c8fb880c3a04d998b347f12699a5f6f9e8"
+    },
+    "unit_id": "closure-unit:037"
    }
   },
   {
    "contributions": {
-    "contribution:c57308732057b6d9": {
+    "contribution:997c5b42d831e8e0": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -298,15 +326,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:c57308732057b6d9",
+     "contribution_id": "contribution:997c5b42d831e8e0",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u047",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u038",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u047",
+     "source_payload_sha256": "f9694e278a52fe0fb5a13359ec745776d58943b04fb1062073cfadd0d2333471",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u038",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -316,6 +345,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:loc:stormspire-academy:objective_of:mystery:session7:glowing_mushrooms",
     "edge_shape": {
@@ -328,11 +358,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:c57308732057b6d9",
-      "op": "contradict"
+      "contribution_id": "contribution:997c5b42d831e8e0",
+      "op": "contradict",
+      "op_ordinal": 45,
+      "source_payload_sha256": "f9694e278a52fe0fb5a13359ec745776d58943b04fb1062073cfadd0d2333471",
+      "unit_id": "closure-unit:038",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 47,
+    "ordinal": 38,
     "rationale": "Academy tied to potion-making use of mushrooms mixes institution, objective, and mystery topic.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -368,12 +402,15 @@
     "target_contribution_ids": [
      "contribution:8b046da9ec0f4275"
     ],
-    "unit_id": "closure-unit:047"
+    "target_source_payload_sha256": {
+     "contribution:8b046da9ec0f4275": "01be14a6cac3eece5695794d8d4b27ad549cb8153e8de9a97e6c83afa5f7c703"
+    },
+    "unit_id": "closure-unit:038"
    }
   },
   {
    "contributions": {
-    "contribution:8bb3f53d4e6bd702": {
+    "contribution:5d22078273786565": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -386,15 +423,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:8bb3f53d4e6bd702",
+     "contribution_id": "contribution:5d22078273786565",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u048",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u039",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u048",
+     "source_payload_sha256": "157d3bb7327e8feb578407fae56b39b755d98818d54363a6d3caf99d6693badb",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u039",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -404,6 +442,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:mystery:session7:glowing_mushrooms:leads_to:loc:stormspire-academy",
     "edge_shape": {
@@ -416,11 +455,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:8bb3f53d4e6bd702",
-      "op": "contradict"
+      "contribution_id": "contribution:5d22078273786565",
+      "op": "contradict",
+      "op_ordinal": 46,
+      "source_payload_sha256": "157d3bb7327e8feb578407fae56b39b755d98818d54363a6d3caf99d6693badb",
+      "unit_id": "closure-unit:039",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 48,
+    "ordinal": 39,
     "rationale": "Mushrooms 'to be taken to academy' mixes transport intent, destination, and mystery topic \u2014 not path leads_to.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -456,12 +499,15 @@
     "target_contribution_ids": [
      "contribution:8b046da9ec0f4275"
     ],
-    "unit_id": "closure-unit:048"
+    "target_source_payload_sha256": {
+     "contribution:8b046da9ec0f4275": "01be14a6cac3eece5695794d8d4b27ad549cb8153e8de9a97e6c83afa5f7c703"
+    },
+    "unit_id": "closure-unit:039"
    }
   },
   {
    "contributions": {
-    "contribution:65d311a80fd8ca8d": {
+    "contribution:5a1b02112689da68": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -474,15 +520,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:65d311a80fd8ca8d",
+     "contribution_id": "contribution:5a1b02112689da68",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u049",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u040",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u049",
+     "source_payload_sha256": "8f945c1e36cc9add91bb78895a944087d3bd793a690cb803d618865a36aad157",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u040",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -492,6 +539,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:node:berin_ironfoot:carries_report_to:loc:stormspire-academy:sends-meat-sample-for-analysis",
     "edge_shape": {
@@ -504,11 +552,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:65d311a80fd8ca8d",
-      "op": "contradict"
+      "contribution_id": "contribution:5a1b02112689da68",
+      "op": "contradict",
+      "op_ordinal": 47,
+      "source_payload_sha256": "8f945c1e36cc9add91bb78895a944087d3bd793a690cb803d618865a36aad157",
+      "unit_id": "closure-unit:040",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 49,
+    "ordinal": 40,
     "rationale": "carries_report_to encodes courier + report + destination/analysis request in one predicate.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -544,12 +596,15 @@
     "target_contribution_ids": [
      "contribution:86ea8a3d97dd18cc"
     ],
-    "unit_id": "closure-unit:049"
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:040"
    }
   },
   {
    "contributions": {
-    "contribution:36859d66a62e42aa": {
+    "contribution:be78ce930cc1814e": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -562,15 +617,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:36859d66a62e42aa",
+     "contribution_id": "contribution:be78ce930cc1814e",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u050",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u041",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u050",
+     "source_payload_sha256": "e0294a843650bbeea2c43ffc57c2308d7a488808984e6c635acb40fc23f8a753",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u041",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -580,6 +636,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain",
     "edge_shape": {
@@ -592,11 +649,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:36859d66a62e42aa",
-      "op": "contradict"
+      "contribution_id": "contribution:be78ce930cc1814e",
+      "op": "contradict",
+      "op_ordinal": 48,
+      "source_payload_sha256": "e0294a843650bbeea2c43ffc57c2308d7a488808984e6c635acb40fc23f8a753",
+      "unit_id": "closure-unit:041",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 50,
+    "ordinal": 41,
     "rationale": "Fey bargain offering Torbin mixes deal terms, objective, and custody \u2014 not one relationship.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -632,12 +693,15 @@
     "target_contribution_ids": [
      "contribution:86ea8a3d97dd18cc"
     ],
-    "unit_id": "closure-unit:050"
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:041"
    }
   },
   {
    "contributions": {
-    "contribution:6c6cc4f16759746e": {
+    "contribution:f94a2efad6dc6058": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -650,15 +714,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:6c6cc4f16759746e",
+     "contribution_id": "contribution:f94a2efad6dc6058",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u051",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u042",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u051",
+     "source_payload_sha256": "9309eaba86792a253c06e39b2aa860e86fd79c1d301220d1628a4374b186d1ab",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u042",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -668,6 +733,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
     "edge_shape": {
@@ -680,11 +746,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:6c6cc4f16759746e",
-      "op": "contradict"
+      "contribution_id": "contribution:f94a2efad6dc6058",
+      "op": "contradict",
+      "op_ordinal": 49,
+      "source_payload_sha256": "9309eaba86792a253c06e39b2aa860e86fd79c1d301220d1628a4374b186d1ab",
+      "unit_id": "closure-unit:042",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 51,
+    "ordinal": 42,
     "rationale": "Torbin begins showing oily-eye symptoms \u2014 condition attribution linked to a mystery node, not identity and not a single relationship.",
     "reason_code": "CONDITION_ATTRIBUTION_NOT_IDENTITY",
     "seal": {
@@ -720,19 +790,50 @@
     "target_contribution_ids": [
      "contribution:86ea8a3d97dd18cc"
     ],
-    "unit_id": "closure-unit:051"
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:042"
    }
   },
   {
    "contributions": {
-    "contribution:dd0ad97c7d5d5540": {
+    "contribution:13e49118072e8377": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:8156a959433e159b",
+       "target_contribution_id": "contribution:4766ca1187eeeac4"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:13e49118072e8377",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u043",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "ab55fe8244d7c10a8bcbaf3f9705472ba60e1fb3e9a61b08d17e09601a765fc6",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u043",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    },
+    "contribution:507314081f704d56": {
      "accepted_assertions": [
       {
        "acceptance_state": "accepted",
        "assertion_id": "assertion:2c3536c8a74ddf67",
        "assertion_kind": "edge",
        "campaign_scope": "longmont-c1",
-       "contribution_id": "contribution:dd0ad97c7d5d5540",
+       "contribution_id": "contribution:507314081f704d56",
        "epistemic_kind": "source_derived_candidate",
        "evidence_ref_ids": [
         "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002"
@@ -787,42 +888,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:dd0ad97c7d5d5540",
+     "contribution_id": "contribution:507314081f704d56",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u052:atomics",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u043:atomics",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u052:atomics",
-     "status": "active",
-     "supersedes_contribution_id": null,
-     "unresolved_mentions": [],
-     "world_id": "eldyrwild"
-    },
-    "contribution:dd179ccb89bc5086": {
-     "accepted_assertions": [],
-     "assertion_corrections": [
-      {
-       "correction_kind": "contradicts",
-       "replacement_assertion_id": null,
-       "target_assertion_id": "assertion:8156a959433e159b",
-       "target_contribution_id": "contribution:4766ca1187eeeac4"
-      }
-     ],
-     "authored_by": "gm",
-     "campaign_scope": "longmont-c1",
-     "candidate_assertions": [],
-     "contribution_id": "contribution:dd179ccb89bc5086",
-     "diagnostics": [],
-     "extraction_profile": null,
-     "identity_decision_ids": [],
-     "produced_at": "2026-08-12T00:00:00Z",
-     "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u052",
-     "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u052",
+     "source_payload_sha256": "d281019541ee67d694bf73b64010fb447c2a0488a26cc167d9633985bb42d19a",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u043:atomics",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -832,6 +907,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "compound_decomposition",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree",
     "edge_shape": {
@@ -846,15 +922,23 @@
     ],
     "operations": [
      {
-      "contribution_id": "contribution:dd179ccb89bc5086",
-      "op": "contradict"
+      "contribution_id": "contribution:13e49118072e8377",
+      "op": "contradict",
+      "op_ordinal": 50,
+      "source_payload_sha256": "ab55fe8244d7c10a8bcbaf3f9705472ba60e1fb3e9a61b08d17e09601a765fc6",
+      "unit_id": "closure-unit:043",
+      "unit_op_index": 0
      },
      {
-      "contribution_id": "contribution:dd0ad97c7d5d5540",
-      "op": "merge_additive"
+      "contribution_id": "contribution:507314081f704d56",
+      "op": "merge_additive",
+      "op_ordinal": 51,
+      "source_payload_sha256": "d281019541ee67d694bf73b64010fb447c2a0488a26cc167d9633985bb42d19a",
+      "unit_id": "closure-unit:043",
+      "unit_op_index": 1
      }
     ],
-    "ordinal": 52,
+    "ordinal": 43,
     "rationale": "reports_threat_in bundles reporting speech act + threat topic + place context.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -890,12 +974,15 @@
     "target_contribution_ids": [
      "contribution:4766ca1187eeeac4"
     ],
-    "unit_id": "closure-unit:052"
+    "target_source_payload_sha256": {
+     "contribution:4766ca1187eeeac4": "2a49d8e3e5848bea46217913b6297501a6f8f25a825e89590f0061201717dc4f"
+    },
+    "unit_id": "closure-unit:043"
    }
   },
   {
    "contributions": {
-    "contribution:6c47cc9c8c34447a": {
+    "contribution:b97e4ea2e899d542": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -908,15 +995,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:6c47cc9c8c34447a",
+     "contribution_id": "contribution:b97e4ea2e899d542",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u053",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u044",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u053",
+     "source_payload_sha256": "f771476d3639a32d9c16d8b2a88f5632c344cfdec7f3fbb725c4e48ad7b29651",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u044",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -926,6 +1014,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms",
     "edge_shape": {
@@ -938,11 +1027,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:6c47cc9c8c34447a",
-      "op": "contradict"
+      "contribution_id": "contribution:b97e4ea2e899d542",
+      "op": "contradict",
+      "op_ordinal": 52,
+      "source_payload_sha256": "f771476d3639a32d9c16d8b2a88f5632c344cfdec7f3fbb725c4e48ad7b29651",
+      "unit_id": "closure-unit:044",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 53,
+    "ordinal": 44,
     "rationale": "Bill shows oily-eye symptoms / link to oily-eyed guards mystery \u2014 condition attribution, not identity.",
     "reason_code": "CONDITION_ATTRIBUTION_NOT_IDENTITY",
     "seal": {
@@ -978,12 +1071,15 @@
     "target_contribution_ids": [
      "contribution:86ea8a3d97dd18cc"
     ],
-    "unit_id": "closure-unit:053"
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:044"
    }
   },
   {
    "contributions": {
-    "contribution:93a34422f5dfe113": {
+    "contribution:a65e1d63ef28e504": {
      "accepted_assertions": [],
      "assertion_corrections": [
       {
@@ -1008,15 +1104,16 @@
      "authored_by": "gm",
      "campaign_scope": "longmont-c1",
      "candidate_assertions": [],
-     "contribution_id": "contribution:93a34422f5dfe113",
+     "contribution_id": "contribution:a65e1d63ef28e504",
      "diagnostics": [],
      "extraction_profile": null,
      "identity_decision_ids": [],
      "produced_at": "2026-08-12T00:00:00Z",
      "rejected_assertions": [],
-     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u054",
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u045",
      "source_kind": "graph_review_authored_assertion",
-     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u054",
+     "source_payload_sha256": "67d16a38769725285ea4a3fbf548363bb759b022936cfcf1be769cabe860c9f5",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u045",
      "status": "active",
      "supersedes_contribution_id": null,
      "unresolved_mentions": [],
@@ -1026,6 +1123,7 @@
    "unit": {
     "authority": "A",
     "closure_kind": "contradiction_only",
+    "deferred": false,
     "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
     "edge_id": "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate",
     "edge_shape": {
@@ -1038,11 +1136,15 @@
     "notes": [],
     "operations": [
      {
-      "contribution_id": "contribution:93a34422f5dfe113",
-      "op": "contradict"
+      "contribution_id": "contribution:a65e1d63ef28e504",
+      "op": "contradict",
+      "op_ordinal": 53,
+      "source_payload_sha256": "67d16a38769725285ea4a3fbf548363bb759b022936cfcf1be769cabe860c9f5",
+      "unit_id": "closure-unit:045",
+      "unit_op_index": 0
      }
     ],
-    "ordinal": 54,
+    "ordinal": 45,
     "rationale": "may-close-gate mixes authority/control over a location with a communications-shaped predicate name.",
     "reason_code": "COMPOUND_MULTI_CLAIM",
     "seal": {
@@ -1080,7 +1182,12 @@
      "contribution:cc2574b7d2d274a9",
      "contribution:f43a2446902be8a9"
     ],
-    "unit_id": "closure-unit:054"
+    "target_source_payload_sha256": {
+     "contribution:a5f8e745364e182c": "ef84a1cbd36367c1ee930b85961f37a77ee935a9ce73baf6c683e0b678420146",
+     "contribution:cc2574b7d2d274a9": "5d4d1791314dddaf57a37b4e36b20163471176f21cbda2204ac0de1ceaa0fbf9",
+     "contribution:f43a2446902be8a9": "300cd7bf6014630b4c5aa7f26504124d9e138cce14b766d0305cbdca5db16c7a"
+    },
+    "unit_id": "closure-unit:045"
    }
   }
  ],
