@@ -99,16 +99,16 @@ export function BuildDocumentCreateControl({
   const [importMarkdown, setImportMarkdown] = useState("");
 
   useEffect(() => {
-    const next = normalizeDestinationValue(suggestedDestinationValue, destinationOptions);
-    if (next) {
-      setDestinationValue(next);
-      return;
-    }
-    setDestinationValue((current) =>
-      current === NEW_WORLD_VALUE
-        ? NEW_WORLD_VALUE
-        : normalizeDestinationValue(current, destinationOptions),
-    );
+    // Preserve an intentional New world… selection (and any still-valid explicit
+    // destination) across managed-world list refreshes. Do not snap back to the
+    // suggested campaign after create W succeeds but source create fails.
+    setDestinationValue((current) => {
+      if (current === NEW_WORLD_VALUE) return NEW_WORLD_VALUE;
+      if (current && destinationOptions.some((option) => option.value === current)) {
+        return current;
+      }
+      return normalizeDestinationValue(suggestedDestinationValue, destinationOptions);
+    });
   }, [destinationOptions, suggestedDestinationValue]);
 
   useEffect(() => {

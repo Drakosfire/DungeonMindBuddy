@@ -204,4 +204,51 @@ describe("BuildDocumentCreateControl", () => {
     expect(screen.getByTestId("build-document-create-destination")).toBeDisabled();
     expect(screen.getByTestId("build-document-create-world-name")).toBeDisabled();
   });
+
+  it("preserves New world selection and world name when destination options refresh", () => {
+    const onSubmit = vi.fn();
+    const { rerender } = render(
+      <BuildDocumentCreateControl {...baseProps} onSubmit={onSubmit} createError={null} />,
+    );
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-world-name"), {
+      target: { value: "The Glass Orchard" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Orchard Notes" },
+    });
+
+    // Simulate managed-worlds refresh after W is created but source POST failed:
+    // suggested snaps back to campaign, and a world option appears.
+    rerender(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        onSubmit={onSubmit}
+        createError="The world was created, but the source could not be created."
+        suggestedDestinationValue="campaign:longmont-c2"
+        destinationOptions={[
+          ...baseProps.destinationOptions,
+          {
+            kind: "world",
+            worldId: "the-glass-orchard",
+            label: "The Glass Orchard",
+            value: "world:the-glass-orchard",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue("__new_world__");
+    expect(screen.getByTestId("build-document-create-world-name")).toHaveValue("The Glass Orchard");
+
+    fireEvent.click(screen.getByTestId("build-document-create-submit"));
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: "Orchard Notes",
+      destination: { kind: "new_world", name: "The Glass Orchard" },
+    });
+  });
 });
