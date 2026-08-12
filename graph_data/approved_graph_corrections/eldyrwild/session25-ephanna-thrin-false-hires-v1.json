@@ -1,0 +1,27 @@
+{
+  "contribution_id": "contribution:d044a019d814968e",
+  "world_id": "eldyrwild",
+  "source_kind": "graph_review_authored_assertion",
+  "source_artifact_id": "graph-native:eldyrwild-correction:session25-ephanna-thrin-false-hires-v1",
+  "source_revision_id": "correction:eldyrwild:session25-ephanna-thrin-false-hires-v1",
+  "extraction_profile": null,
+  "produced_at": "2026-08-11T23:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "assertion_corrections": [
+    {
+      "correction_kind": "contradicts",
+      "target_contribution_id": "contribution:a4231edb9a228963",
+      "target_assertion_id": "assertion:9b68a1cbcbd9015b",
+      "replacement_assertion_id": null
+    }
+  ],
+  "authored_by": "gm",
+  "diagnostics": []
+}

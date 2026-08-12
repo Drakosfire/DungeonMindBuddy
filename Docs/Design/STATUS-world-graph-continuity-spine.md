@@ -1,7 +1,9 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-10 — Session-25 descendant adjudication BUILD; composed A+S25 authority clears `UNADJUDICATED` at `R_current = Q₃`
+**Updated:** 2026-08-11 — C₄ false-hires correction BUILD against `R_current = Q₃`; #557 descendant adjudication DONE
+
+Active correction slice: `eldyrwild-session25-ephanna-thrin-false-hires-correction` (C₄) targets `edge:pc:ephanna:hires:node:thrin-branchborn` / `assertion:9b68a1cbcbd9015b` with contradiction-without-replacement on exact Q₃. Formal `R_current` remains Q₃ until post-merge live apply + fourth re-anchor.
 **Repository anchor:** `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde`
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
