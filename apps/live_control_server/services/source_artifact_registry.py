@@ -398,6 +398,8 @@ def _create_source_artifact_from_workspace_document_unlocked(
     )
 
     now = _utc_now_iso()
+    # Legacy worldbuilding records without world_id use campaign_id as world identity.
+    artifact_world_id = record.world_id if record.world_id else record.campaign_id
     candidate = GraphMemorySourceArtifact(
         source_artifact_id=source_artifact_id,
         source_domain="worldbuilding",
@@ -409,7 +411,7 @@ def _create_source_artifact_from_workspace_document_unlocked(
         document_class=record.document_class,
         authority_state=record.authority_state,
         visibility_state=record.visibility_state,
-        world_id=record.campaign_id,
+        world_id=artifact_world_id,
         workspace_document_id=record.document_id,
         workspace_document_revision=record.revision,
         lineage={
