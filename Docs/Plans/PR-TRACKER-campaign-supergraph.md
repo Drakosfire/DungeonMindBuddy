@@ -1,8 +1,8 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-12 — Relationship semantic closure BUILD against `R_current = Q₄`; C₄ merged + live exit DONE
-**Repository anchor:** branch `build/eldyrwild-relationship-semantic-closure` (based on `origin/main` after #559)
+**Updated:** 2026-08-12 — Post-#566 CUTOVER whole-world re-anchor active
+**Repository anchor:** branch `cutover/reanchor-whole-world-after-566` (based on PR #566 merge `9f08d724…`)
 **#538 design predecessor / docs base:** PR #538 merge
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
@@ -14,14 +14,17 @@
 
 This tracker records only current sequence, dependencies, and exit proofs. Completed implementation narrative belongs in merged PRs, archived handoffs, and acceptance reports.
 
-At the immutable adjudication domain, historical Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. The formal **current** effective-conformance baseline is now anchored to exact live descendant:
+At the immutable adjudication domain, historical Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. The exact post-#566 canonical World Graph is now the CUTOVER activation source:
 
 ```text
-R_current = Q₄ = rev:3759d8d6a02f09306397918234a2ded2
-366 semantic / 311 represented / 55 residual / 3 uses_statblock
+canonical = rev:5a7c13ae45c49a65b402920499be72ed
+323 semantic / 314 represented / 9 residual / 3 uses_statblock
+
+approved migration projection = in-memory only
+323 semantic / 318 represented / 5 residual / 3 uses_statblock
 ```
 
-after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live exit, `#549` second re-anchor, `#550` C₃ live exit, `#552` DONE bookkeeping, `#554` third effective re-anchor, `#557` S25 descendant adjudication, and `#559` C₄ live exit (`Q₃→Q₄`, parent-relative `-1/0/−1/0`, retry `already_applied`). Live head and formal baseline are both `Q₄` (`366 / 311 / 55 / 3`) with `UNADJUDICATED=0` under composed A+S25 authority. The enclosing remaining program `buddy-remaining-relationship-correction-slices` is superseded by the omnibus `eldyrwild-relationship-semantic-closure` slice (46 mutable residuals + 9 deferred Kernel-blocked kind-miscoding residuals; expected post-live `323 / 314 / 9 / 3`). Whole-world cutover remains `BLOCKED`.
+PR #566 is merged and non-publishing: canonical bytes remain unchanged, while its locked authority proves exactly four source-sealed kind repairs and leaves five dual-sense STOP edges. This CUTOVER re-anchor is diagnostic/compositional only; whole-world adoption and product-authority cutover remain `BLOCKED`.
 
 ## Rules
 
@@ -83,9 +86,10 @@ after integrity heal `DONE`, Lysandra `#537` live exit, Session-24 `#545` live e
 | `eldyrwild-descendant-residual-adjudication-session25` / #557 | DONE | #554 + #555 DESIGN DONE | Sealed exact U₇ at S25, composed with immutable A, cleared `UNADJUDICATED` at Q₃ while keeping `367/311/56/3`; merge `e88ac88bd511452e354ac0d804731475b8527e71` |
 | `eldyrwild-session25-ephanna-thrin-false-hires-correction` / #559 | DONE | #557 DONE | Merged contradiction package (`8abfca285a780adb33797c71fd5ff6878caa6a76`) + canonical `Q₃→Q₄` live exit proven (`Q₄=rev:3759d8d6a02f09306397918234a2ded2`, parent-relative `-1/0/−1/0`, retry `already_applied`; C₁/C₂/C₃ + U₁–U₆ preserved) |
 | `eldyrwild-effective-conformance-after-fourth-correction` | DONE | #559 merged + canonical C₄ live exit | Re-anchored current effective fixture/replay baseline to exact `R_current = Q₄ = rev:3759d8d6a02f09306397918234a2ded2` (`366 / 311 / 55 / 3`); composed A+S25 authority unchanged; absorbed as first implementation commit of the closure PR |
-| `eldyrwild-relationship-semantic-closure` | DOING | Q₄ re-anchor DONE | Omnibus governed closure of 46 mutable residuals (7 identity merges, 2 governed replacements, 1 compound decomposition, 36 contradiction-only) while **STOPPING** on 9 Kernel-blocked kind-miscoding residuals (Buddy source-repair successors); expected post-live `323 / 314 / 9 / 3` |
-| `buddy-remaining-relationship-correction-slices` | SUPERSEDED | `eldyrwild-relationship-semantic-closure` | Individual C₅+ slices are not scheduled; the omnibus closure owns every remaining residual |
-| `dungeonmind-whole-world-authority-cutover` | BLOCKED | Buddy semantic closure + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until whole-world conformance and durable adoption both prove READY |
+| `eldyrwild-relationship-semantic-closure` | DONE | Q₄ re-anchor + canonical closure exit | Canonical effective state is `323 / 314 / 9 / 3`; nine deferred kind-miscoding residuals remain source-sealed for migration authority |
+| `eldyrwild-relationship-node-kind-source-repair` / #566 | DONE | #563 closure + exact canonical pin | Non-publishing locked authority proves four in-memory kind repairs and five dual-sense STOP edges; manifest SHA `96cc26fc…` |
+| `cutover-whole-world-reanchor-after-566` | DOING | #566 + exact canonical revision/payload | Compose canonical `323/314/9/3` and migration `323/318/5/3` whole-world views, preserve zero-unaccounted ledgers, and select the next bounded cross-repository slice from normalized blocker stages (current ledger → Case A: admit Buddy `thread` kind) |
+| `dungeonmind-whole-world-authority-cutover` | BLOCKED | CUTOVER re-anchor + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until the blocker ledger and durable adoption proof both authorize it |
 
 ### Parallel product backlog retained from the July sequence
 
@@ -105,21 +109,21 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Complete and merge `eldyrwild-relationship-semantic-closure` against exact Q₄.
-2. After merge, run the canonical live closure apply + finalize exit; only then mark closure `DONE` and re-anchor `R_current` to the final pinned revision (`323 / 314 / 9 / 3`).
-3. Schedule a Buddy source-repair successor for the 9 deferred kind-miscoding residuals (Kernel has no governed node-kind retype seam).
-4. Do not schedule DungeonMind product-authority cutover until both semantic closure and the public existing-world adoption seam are proven.
+1. Verify and merge `cutover-whole-world-reanchor-after-566` against canonical `rev:5a7c13ae…` and payload SHA `2632870e…`.
+2. Use its blocker ledger to dispatch exactly one bounded successor. Current ledger-derived recommendation is **Case A**: DungeonMind admit Buddy kind `thread` (or explicit Buddy→DM kind adapter). Do **not** dispatch the existing-world adoption seam while package-construction semantic gaps remain.
+3. Keep the five dual-sense STOP edges as migration decisions; do not reopen broad Buddy relationship cleanup.
+4. Do not schedule DungeonMind product-authority cutover until whole-world adoption and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
-The following remain true after the third governed correction re-anchor:
+The following remain true after PR #566 and the CUTOVER re-anchor:
 
 - Integrity heal for `contribution:d3d244474789879c` is `DONE` (merged #540 + canonical live heal exit).
 - Lysandra threat-direction correction is `DONE` (merged #537 + canonical `P_live→Q_live` exit).
 - Session-24 cube→Karsemine false-location contradiction is `DONE` (merged #545 + canonical `P→Q` exit).
 - Session-24 Lysandra→Caelynn false-leads contradiction is `DONE` (merged #550 + canonical `P→Q₃` exit).
-- Formal current effective conformance is `R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7` (`367 / 311 / 56 / 3`) after #554; previous formal baselines `rev:b8dfc063…` (`368 / 311 / 57 / 3`) and `rev:b90646fb…` (`369 / 311 / 58 / 3`) remain historical; historical adjudication anchor `rev:3413bf6f5044cf2680233f5e37c90dcf` remains `346 / 294 / 52 / 2`.
-- Session-25 descendant residual adjudication is `DONE` (merged #557). Remaining Buddy residuals on `Q₃` are **56** with `UNADJUDICATED=0`. C₄ BUILD is contradicting X₄ (`Ephanna --hires--> Thrin`); formal `R_current` stays Q₃ until post-live fourth re-anchor.
+- Canonical effective conformance is pinned to `rev:5a7c13ae45c49a65b402920499be72ed` (`323 / 314 / 9 / 3`) with exact payload SHA `2632870e…`; the approved migration projection is non-publishing (`323 / 318 / 5 / 3`).
+- PR #566 is verified against locked manifest SHA `96cc26fc…`; four kind-only paths are approved for in-memory projection and five dual-sense edges remain explicit STOP decisions.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.

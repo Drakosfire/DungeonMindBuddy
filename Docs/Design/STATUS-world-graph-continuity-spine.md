@@ -1,10 +1,10 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-12 — relationship semantic closure BUILD against `R_current = Q₄`; C₄ #559 merged + live exit DONE
+**Updated:** 2026-08-12 — post-#566 CUTOVER whole-world re-anchor active
 
-Active correction slice: `eldyrwild-relationship-semantic-closure` — governed omnibus over 46 mutable Q₄ residuals (7 identity merges, 2 governed replacements, 1 compound decomposition, 36 contradiction-only) via the sha-locked closure manifest at `graph_data/approved_graph_corrections/eldyrwild/relationship-semantic-closure-v1/`, while **STOPPING** on 9 Kernel-blocked kind-miscoding residuals (Buddy source-repair successors; do not contradict supported facts). Formal `R_current` is Q₄ (`rev:3759d8d6a02f09306397918234a2ded2`, `366 / 311 / 55 / 3`); expected post-live closure exit is `323 / 314 / 9 / 3`.
-**Repository anchor:** `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde`
+Active CUTOVER slice: `cutover-whole-world-reanchor-after-566` — diagnostic/compositional re-anchor against exact canonical `rev:5a7c13ae45c49a65b402920499be72ed` and payload SHA `2632870e…`. Canonical effective truth is `323 / 314 / 9 / 3`; the non-publishing four-kind migration projection is `323 / 318 / 5 / 3`; no graph bytes, identities, aspects, or source history are changed. Normalized projected ledger currently selects **Case A** (DungeonMind: admit Buddy kind `thread`) because adoption-package construction is not yet expressible; Case B adoption-seam work remains deferred behind that gap.
+**Repository anchor:** `9f08d72462f87b39073920f7726aa8f3e392ef08` (PR #566 merge pin)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
@@ -169,6 +169,27 @@ The August chain is now part of current state and must not be reconstructed from
 | #534 | Targeted structural edge-assertion correction: contradict exactly one active support and publish a replacement in one CAS-fenced descendant, with replay and integrity fail-closed proofs |
 | #536 | Current-support-aware relationship conformance: durable contradicted/historical edges remain inspectable but do not count as current semantic residuals |
 
+### Post-#566 CUTOVER anchor
+
+PR #566 is merged and non-publishing. Its locked repair authority is
+`96cc26fc…` and proves exactly four in-memory node-kind changes:
+
+```text
+nodes[item_shatter_mages_tower].kind
+nodes[mystery_stone_bridge_river_name].kind
+nodes[loc:guilds].kind
+nodes[item:torvak-hemp-caravan].kind
+```
+
+The five dual-sense residual edges remain explicit migration/materialization
+decisions. The active re-anchor report keeps canonical Buddy truth separate from
+that projection, replaces raw v4 relationship blocker totals with effective
+conformance / #566 owning-proof ledgers, and confirms zero unaccounted durable
+elements in both views. CUTOVER remains `NOT_READY`. The normalized projected
+ledger currently selects **Case A** (admit Buddy kind `thread`); the public
+DungeonMind existing-world adoption seam remains a later Case B gate only after
+package-construction semantic gaps are cleared.
+
 ### Current Eldyrwild semantic state
 
 Two governed real-world corrections have now crossed the full design → Kernel → canonical write → replay → formal-current-baseline path. Lysandra remains live through C₁ (`contribution:4c65f668dc95ef4f`). Session-24 false cube→Karsemine location is contradicted without replacement through C₂ (`contribution:6c13bc0f8edf4377`). Historical X₁/X₂ remain inspectable and non-current; current truth contains X₁′ through C₁ and no longer projects X₂.
@@ -190,7 +211,7 @@ Two governed real-world corrections have now crossed the full design → Kernel 
 - retained `uses_statblock` mechanics attachments: `3`;
 - parent-relative Lysandra exit delta from Lysandra `P_live`: semantic `0` / represented `+1` / residual `−1` / mechanics `0`.
 
-**Current formal effective-conformance baseline** (`R_current = Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7`):
+**Historical pre-closure effective-conformance baseline** (`Q₃ = rev:ba3abde1bfc3659795bcd77bb55eb9f7`):
 
 - relationship semantic count: `367`;
 - effectively represented: `311`;
@@ -198,7 +219,14 @@ Two governed real-world corrections have now crossed the full design → Kernel 
 - retained `uses_statblock` mechanics attachments: `3`;
 - parent-relative C₃ exit delta from `R_prev`: semantic `−1` / represented `0` / residual `−1` / mechanics `0`.
 
-Previous formal baseline after #549 (`rev:b8dfc063bc13a4fb297e83f5f9b313d9`) remains `368 / 311 / 57 / 3`. Do not carry historical `346 / 294 / 52 / 2` or previous `369 / 311 / 58 / 3` forward as though they were the live baseline. Remaining residual work must be selected by correction class from the Q₃ ledger.
+Previous formal baselines after #549 and Q₄ remain historical (`368 / 311 / 57 / 3` and `366 / 311 / 55 / 3`). Do not carry historical `346 / 294 / 52 / 2`, `369 / 311 / 58 / 3`, or Q₄ values forward as though they were the post-#566 canonical baseline.
+
+The exact post-#566 canonical CUTOVER baseline is `rev:5a7c13ae45c49a65b402920499be72ed` with payload SHA `2632870e…`:
+
+- canonical effective relationship inventory: `323 / 314 / 9 / 3`;
+- approved four-kind migration projection: `323 / 318 / 5 / 3`, in memory only;
+- canonical head and tree remain unchanged by this diagnostic slice;
+- the five dual-sense STOP edges remain migration/materialization decisions.
 
 The residual classes still distinguish Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, insufficient-evidence cases, and unadjudicated residuals. Different classes may require different write authority and therefore different PRs.
 
@@ -244,7 +272,7 @@ P: rev:b8dfc063bc13a4fb297e83f5f9b313d9
 Q₃ / R_current: rev:ba3abde1bfc3659795bcd77bb55eb9f7
 ```
 
-Integrity heal, Lysandra, Session-24 cube, and Session-24 false-leads live exits are complete. The next step is one bounded Buddy residual slice by correction class from the 56-edge Q₃ ledger — not batch repair.
+Integrity heal, Lysandra, Session-24 cube, Session-24 false-leads, closure, and PR #566 live exits are complete. The next step is the bounded CUTOVER whole-world blocker ledger; do not reopen broad Buddy repair or treat the migration projection as published truth.
 
 ## Current surface state
 
@@ -286,12 +314,12 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `eldyrwild-relationship-semantic-closure` — DOING: merge the omnibus closure package, then run the canonical live closure apply + finalize exit; re-anchor `R_current` to the final pinned revision (`323 / 314 / 9 / 3`).
-2. Buddy source-repair successor for the 9 deferred kind-miscoding residuals (Kernel lacks governed node-kind retype).
-3. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
+1. `cutover-whole-world-reanchor-after-566` — DOING: independently verify the deterministic canonical/projection report and its no-mutation proof.
+2. Use the resulting blocker ledger to dispatch one bounded successor. Current ledger selects **Case A** (DungeonMind: admit Buddy kind `thread`); do not dispatch Case B adoption-seam work while package-construction gaps remain.
+3. Keep the five dual-sense edges as migration decisions and keep DungeonMind product-authority cutover blocked.
 4. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` DONE, Session-25 descendant residual adjudication BUILD package (S25-anchored U₇ composed with immutable A; `UNADJUDICATED: 7 → 0` without representation change), Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `R_current = Q₄` `DONE`.
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` `DONE`, Session-25 descendant residual adjudication `DONE`, Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `Q₄` `DONE`, relationship semantic closure `DONE`, and PR #566 non-publishing kind-repair authority `DONE`. The CUTOVER whole-world re-anchor remains `DOING`.
 
 ## Fast diagnostic questions
 
