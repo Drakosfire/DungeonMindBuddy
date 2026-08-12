@@ -777,28 +777,36 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
   });
 
-  it("imports into the active empty draft without a second create", async () => {
-    const blankSource = buildRecord(DOC_B, {
+  it("fresh Import creates a new identity even when an active draft exists", async () => {
+    const blankSource = buildRecord(DOC_A, {
       title: "Blank Source",
       campaign_id: "longmont-c2",
       world_id: "eldyrwild",
       content_status: "draft",
     });
-    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValueOnce(blankSource);
+    const imported = buildRecord(DOC_B, {
+      title: "Imported Source",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument)
+      .mockResolvedValueOnce(blankSource)
+      .mockResolvedValueOnce(imported);
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         campaign_id: "longmont-c2",
         world_id: "eldyrwild",
-        content_status: id === DOC_B ? "draft" : "committed",
-        revision: id === DOC_B ? 1 : 2,
+        content_status: id === DOC_A ? "draft" : "committed",
+        revision: id === DOC_A ? 1 : 2,
+        title: id === DOC_A ? "Blank Source" : "Imported Source",
       }),
     );
     vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_prepare_v1",
       document_id: DOC_B,
-      title: blankSource.title,
-      target_relpath: blankSource.target_relpath ?? "",
-      target_display_path: blankSource.target_relpath ?? "",
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
       registry_revision: 1,
       file_exists: false,
       writer_ok: true,
@@ -809,12 +817,12 @@ describe("useBuildWorkspaceDocumentController", () => {
     vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_commit_v1",
       document_id: DOC_B,
-      title: blankSource.title,
-      target_relpath: blankSource.target_relpath ?? "",
-      target_display_path: blankSource.target_relpath ?? "",
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
       registry_revision: 2,
       committed_revision: 2,
-      committed_record: { ...blankSource, content_status: "committed", revision: 2 },
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
       normalized_content_sha256: "sha",
       writer_ok: true,
       diagnostics: [],
@@ -826,7 +834,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.createDocument({ title: "Blank Source", campaignId: "longmont-c2" });
     });
-    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_B));
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -840,7 +848,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => {
       expect(result.current.activeRecord?.document_id).toBe(DOC_B);
     });
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
     expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
       expect.objectContaining({ document_id: DOC_B }),
     );
@@ -1186,7 +1194,58 @@ describe("useBuildWorkspaceDocumentController", () => {
     void blankC1;
   });
 
-  it("updates title on reuse before source_import when form title differs", async () => {
+  it("rejects committed pending recovery when campaign/world scope mismatches", async () => {
+    const pendingCommitted = buildRecord(DOC_B, {
+      title: "Pending C2",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+      content_status: "committed",
+      revision: 2,
+    });
+    sessionStorage.setItem(
+      "dmb.build.pendingSourceImport.v1",
+      JSON.stringify({ documentId: DOC_B }),
+    );
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(
+        id,
+        {
+          campaign_id: id === DOC_B ? "longmont-c2" : "longmont-c1",
+          world_id: "eldyrwild",
+          content_status: "committed",
+          revision: 2,
+          title: id === DOC_B ? pendingCommitted.title : `Source ${id.slice(0, 4)}`,
+        },
+        {
+          markdown: id === DOC_B ? "# Imported\n" : "",
+          file_exists: id === DOC_B,
+        },
+      ),
+    );
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+    expect(result.current.pendingImportDocumentId).toBe(DOC_B);
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Imported C1",
+        campaignId: "longmont-c1",
+        markdown: "# Imported\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.importError).toMatch(/cannot be reused/i);
+    });
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(result.current.activeRecord?.document_id).toBe(DOC_A);
+    expect(result.current.pendingImportDocumentId).toBe(DOC_B);
+  });
+
+  it("updates title on pending reuse before source_import when form title differs", async () => {
     const blankSource = buildRecord(DOC_B, {
       title: "Blank Source",
       campaign_id: "longmont-c2",
@@ -1194,15 +1253,18 @@ describe("useBuildWorkspaceDocumentController", () => {
       content_status: "draft",
     });
     const retitled = { ...blankSource, title: "Imported Source", revision: 2 };
-    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValueOnce(blankSource);
+    sessionStorage.setItem(
+      "dmb.build.pendingSourceImport.v1",
+      JSON.stringify({ documentId: DOC_B }),
+    );
     vi.mocked(liveApi.updateWorkspaceDocumentMetadata).mockResolvedValue(retitled);
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
-        campaign_id: "longmont-c2",
+        campaign_id: id === DOC_B ? "longmont-c2" : "longmont-c1",
         world_id: "eldyrwild",
         content_status: id === DOC_B ? "draft" : "committed",
         revision: id === DOC_B ? 1 : 2,
-        title: id === DOC_B ? "Blank Source" : "Imported Source",
+        title: id === DOC_B ? "Blank Source" : `Source ${id.slice(0, 4)}`,
       }),
     );
     vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
@@ -1231,14 +1293,11 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
 
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
-    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
-
-    await act(async () => {
-      result.current.createDocument({ title: "Blank Source", campaignId: "longmont-c2" });
-    });
-    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_B));
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+    expect(result.current.pendingImportDocumentId).toBe(DOC_B);
 
     await act(async () => {
       result.current.importSourceDocument({
@@ -1251,7 +1310,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => {
       expect(result.current.activeRecord?.document_id).toBe(DOC_B);
     });
-    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(liveApi.updateWorkspaceDocumentMetadata).toHaveBeenCalledWith(DOC_B, {
       title: "Imported Source",
       expected_revision: 1,

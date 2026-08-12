@@ -115,11 +115,12 @@ function writePendingImportDocumentIdToStorage(documentId: string | null): void 
   }
 }
 
-function isImportableEmptyActiveSource(
+/** Pending-lifecycle empty draft only — never reuse an arbitrary active Canvas draft. */
+function isPendingImportableDraft(
   record: WorkspaceDocumentRecord | null | undefined,
   campaignId: string,
   worldId: string | null,
-): record is WorkspaceDocumentRecord {
+): boolean {
   return (
     record != null &&
     record.kind === "worldbuilding_source" &&
@@ -128,6 +129,14 @@ function isImportableEmptyActiveSource(
     record.campaign_id === campaignId &&
     (record.world_id ?? null) === worldId
   );
+}
+
+function recordMatchesImportScope(
+  record: WorkspaceDocumentRecord,
+  campaignId: string,
+  worldId: string | null,
+): boolean {
+  return record.campaign_id === campaignId && (record.world_id ?? null) === worldId;
 }
 
 function isSnapshotImportCommitted(
@@ -623,27 +632,29 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         let skipCommit = false;
         const pendingId = pendingImportDocumentIdRef.current;
         if (pendingId) {
+          // Only the persisted pending-import lifecycle may reuse an identity.
+          // Fresh Import never targets the currently active Canvas draft.
           const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
+          const pendingRecord = snapshot.record;
+          if (!recordMatchesImportScope(pendingRecord, campaign, worldId)) {
+            throw new Error(
+              "A pending import source exists but cannot be reused for this import",
+            );
+          }
           if (isSnapshotImportCommitted(snapshot, markdown)) {
-            record = snapshot.record;
+            record = pendingRecord;
             importCommittedRef.current = true;
             skipCommit = true;
-          } else if (isImportableEmptyActiveSource(snapshot.record, campaign, worldId)) {
-            record = await applyImportTitleIfNeeded(snapshot.record, title);
+          } else if (isPendingImportableDraft(pendingRecord, campaign, worldId)) {
+            record = await applyImportTitleIfNeeded(pendingRecord, title);
             persistPendingImportDocumentId(record.document_id);
-          } else if (
-            snapshot.record.content_status === "committed" &&
-            snapshot.file_exists
-          ) {
+          } else if (snapshot.file_exists && pendingRecord.content_status === "committed") {
             throw new Error("Imported content does not match pasted Markdown");
           } else {
             throw new Error(
               "A pending import source exists but cannot be reused for this import",
             );
           }
-        } else if (isImportableEmptyActiveSource(activeRecordRef.current, campaign, worldId)) {
-          record = await applyImportTitleIfNeeded(activeRecordRef.current, title);
-          persistPendingImportDocumentId(record.document_id);
         } else {
           importCommittedRef.current = false;
           const created = await createControllerRef.current.create(
