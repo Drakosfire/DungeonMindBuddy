@@ -25,6 +25,37 @@ describe("BuildDocumentCreateControl", () => {
     expect(onImportSubmit).not.toHaveBeenCalled();
   });
 
+  it("blocks import submit while creating and ignores rapid double submit", () => {
+    const onImportSubmit = vi.fn();
+    const { rerender } = render(
+      <BuildDocumentCreateControl {...baseProps} onImportSubmit={onImportSubmit} />,
+    );
+
+    fireEvent.click(screen.getByTestId("build-document-import-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Imported" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-import-markdown"), {
+      target: { value: "# Imported\n\nBody.\n" },
+    });
+
+    fireEvent.click(screen.getByTestId("build-document-import-submit"));
+    expect(onImportSubmit).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        creating
+        onImportSubmit={onImportSubmit}
+      />,
+    );
+
+    const submit = screen.getByTestId("build-document-import-submit");
+    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expect(onImportSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it("submits import with title campaign and markdown", () => {
     const onImportSubmit = vi.fn();
     render(

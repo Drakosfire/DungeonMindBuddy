@@ -23,7 +23,10 @@ vi.mock("../api/liveApi", () => ({
 
 const DOC_ID = "11111111-1111-4111-8111-111111111111";
 
-function snapshot(markdown: string): WorkspaceDocumentSnapshot {
+function snapshot(
+  markdown: string,
+  recordOverrides: Parameters<typeof fixtureWorkspaceDocumentRecord>[0] = {},
+): WorkspaceDocumentSnapshot {
   return {
     schema_version: "dmb_workspace_document_snapshot_v1",
     record: fixtureWorkspaceDocumentRecord({
@@ -33,6 +36,7 @@ function snapshot(markdown: string): WorkspaceDocumentSnapshot {
       target_session: null,
       revision: 1,
       content_status: "draft",
+      ...recordOverrides,
     }),
     markdown,
     content_sha256: "sha-source",
@@ -122,6 +126,57 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({
       markdown: committedMarkdown,
     }));
+  });
+
+  it("seals post-import dogfood markdown on a world-scoped source without lossy save", async () => {
+    const importedUnsafe = [
+      "# Hesta's Apothecary",
+      "",
+      "| Item | Note |",
+      "| --- | --- |",
+      "| Tonic | Rare |",
+      "",
+      "![Floor plan](assets/hesta-floor.png)",
+      "",
+      "---",
+      "",
+      "<div class=\"gm-note\">Hidden shelf</div>",
+      "",
+    ].join("\n");
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshot(importedUnsafe, {
+        content_status: "committed",
+        target_relpath:
+          "corpus/eldyrwild-markdown/_dungeonbuddy/sources/11111111-1111-4111-8111-111111111111/source.md",
+      }),
+    );
+
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    expect(result.current.exportedMarkdownAuthoritative).toBe(true);
+    expect(result.current.saveDisabled).toBe(true);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown)
+      .toBe(importedUnsafe);
+
+    act(() => {
+      result.current.setEditor(editorWithParagraph("Looks safe in the editor"));
+      result.current.markDirty();
+    });
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("save_error");
+    expect(result.current.error).toMatch(/sealed projection|cannot round-trip safely/i);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown)
+      .toBe(importedUnsafe);
   });
 
   it("blocks durable save when the loaded source contains unsupported Markdown", async () => {

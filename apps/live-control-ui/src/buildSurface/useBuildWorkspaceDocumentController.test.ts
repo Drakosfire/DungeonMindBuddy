@@ -591,4 +591,232 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
   });
+
+  it("post-commit import activation failure retries open without prepare or commit", async () => {
+    const imported = buildRecord(DOC_B, {
+      title: "Imported Source",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+
+    let activationAttempts = 0;
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+      if (id === DOC_B) {
+        activationAttempts += 1;
+        if (activationAttempts === 1) {
+          throw new Error("activation failed");
+        }
+        return mockSnapshot(DOC_B, {
+          title: "Imported Source",
+          campaign_id: "longmont-c2",
+          content_status: "committed",
+          revision: 2,
+        });
+      }
+      return mockSnapshot(id);
+    });
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Imported Source",
+        campaignId: "longmont-c2",
+        markdown: "# Imported\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activationError).toMatch(/Source imported; could not open it yet/i);
+    });
+    expect(result.current.activeRecord?.document_id).toBe(DOC_A);
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      result.current.retryCreatedDocument();
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+    expect(result.current.activationError).toBeNull();
+  });
+
+  it("does not POST a second create when import is already in flight", async () => {
+    let resolveCreate: ((value: WorkspaceDocumentRecord) => void) | null = null;
+    const imported = buildRecord(DOC_B, {
+      title: "Overlapping Import",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, { content_status: "committed", revision: 2 }),
+    );
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Overlapping Import",
+        campaignId: "longmont-c2",
+        markdown: "# First\n",
+      });
+    });
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Overlapping Import",
+        campaignId: "longmont-c2",
+        markdown: "# Second\n",
+      });
+    });
+
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCreate?.(imported);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.creating).toBe(false);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reuse a blank New Source record for a fresh Import submit", async () => {
+    const blankSource = buildRecord(DOC_B, {
+      title: "Blank Source",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    const imported = buildRecord("33333333-3333-4333-8333-333333333333", {
+      title: "Imported Source",
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    vi.mocked(liveApi.createWorkspaceDocument)
+      .mockResolvedValueOnce(blankSource)
+      .mockResolvedValueOnce(imported);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, { campaign_id: "longmont-c2", content_status: "committed", revision: 2 }),
+    );
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: imported.document_id,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: imported.document_id,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.createDocument({ title: "Blank Source", campaignId: "longmont-c2" });
+    });
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_B));
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Imported Source",
+        campaignId: "longmont-c2",
+        markdown: "# Imported\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(imported.document_id);
+    });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ document_id: imported.document_id }),
+    );
+  });
 });

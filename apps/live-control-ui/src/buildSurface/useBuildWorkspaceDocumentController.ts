@@ -488,12 +488,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           !importCommittedRef.current
         ) {
           record = createState.record;
-        } else if (
-          createState.record != null &&
-          createState.phase !== "create_failed" &&
-          !importCommittedRef.current
-        ) {
-          record = createState.record;
         } else {
           importCommittedRef.current = false;
           const created = await createControllerRef.current.create(
