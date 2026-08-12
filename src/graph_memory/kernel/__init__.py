@@ -89,6 +89,21 @@ from graph_memory.kernel.identity_policy import (
     DEFAULT_IDENTITY_RESOLUTION_POLICY,
     IdentityResolutionPolicy,
 )
+from graph_memory.kernel.reviewed_world_initialization import (
+    REVIEWED_PLAN_SCHEMA,
+    REVIEWED_RECEIPT_SCHEMA,
+    SESSIONLESS_FOCUS_SESSION_ID,
+    ReviewedWorldInitializationAttestation,
+    ReviewedWorldInitializationError,
+    ReviewedWorldInitializationPlan,
+    ReviewedWorldInitializationReceipt,
+    ReviewedWorldInitializationResult,
+    compute_reviewed_initialization_attestation_digest,
+    compute_reviewed_initialization_plan_digest,
+    initialize_reviewed_world,
+    inspect_reviewed_world_initialization_state,
+    read_reviewed_initialization_receipt,
+)
 from graph_memory.kernel.world_initialization import (
     build_empty_technical_baseline_store,
     compute_initialization_attestation_digest,
@@ -228,6 +243,20 @@ __all__ = [
     "initialize_world_from_contributions",
     "inspect_world_initialization_state",
     "read_initialization_receipt",
+    # Reviewed-source world initialization (CR02A)
+    "REVIEWED_PLAN_SCHEMA",
+    "REVIEWED_RECEIPT_SCHEMA",
+    "SESSIONLESS_FOCUS_SESSION_ID",
+    "ReviewedWorldInitializationAttestation",
+    "ReviewedWorldInitializationError",
+    "ReviewedWorldInitializationPlan",
+    "ReviewedWorldInitializationReceipt",
+    "ReviewedWorldInitializationResult",
+    "compute_reviewed_initialization_attestation_digest",
+    "compute_reviewed_initialization_plan_digest",
+    "initialize_reviewed_world",
+    "inspect_reviewed_world_initialization_state",
+    "read_reviewed_initialization_receipt",
     # Identity (PR004)
     "IdentityCandidate",
     "IdentityCanonState",

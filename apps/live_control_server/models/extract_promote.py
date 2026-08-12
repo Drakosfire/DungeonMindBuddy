@@ -30,7 +30,17 @@ WORLDBUILDING_WRITE_PLAN_SCHEMA = WORLD_BUILDING_WRITE_PLAN_SCHEMA
 
 DiagnosticSeverity = Literal["error", "warning", "info"]
 ExtractPromoteInspectionStatus = Literal["ready", "blocked", "invalid_evidence"]
-WorldState = Literal["initialized", "uninitialized", "unreadable"]
+WorldState = Literal["initialized", "uninitialized", "unreadable", "unmanaged"]
+FirstWorldGraphState = Literal[
+    "uninitialized",
+    "initialized",
+    "unreadable",
+    "unmanaged",
+]
+FIRST_WORLD_PREPARE_REQUEST_SCHEMA = "dmb_first_world_graph_prepare_request_v1"
+FIRST_WORLD_PLAN_SCHEMA = "dmb_first_world_graph_plan_v1"
+FIRST_WORLD_CONFIRM_REQUEST_SCHEMA = "dmb_first_world_graph_confirm_request_v1"
+FIRST_WORLD_CONFIRM_RESPONSE_SCHEMA = "dmb_first_world_graph_confirm_v1"
 
 SERVER_PREPARED_BY = "live_control:extract_promote"
 SERVER_CONFIRMING_PRINCIPAL = "live_control:graph_review_confirm"
@@ -406,3 +416,107 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     # remains reserved for promote-eligible (played_canon) recap paths.
     promotable: bool = True
     promotable_reason: str | None = None
+    # Additive first-world publish capability (CR02A). Generic promotable stays
+    # false for worldbuilding; eligibility is a separate explicit path.
+    world_id: str | None = None
+    world_state: FirstWorldGraphState | None = None
+    first_world_publish_eligible: bool = False
+    first_world_publish_reason: str | None = None
+
+
+FirstWorldDecision = Literal["create_new", "reject", "accept"]
+FirstWorldConfirmOutcome = Literal[
+    "initialized",
+    "already_initialized",
+    "published_audit_degraded",
+]
+
+
+class FirstWorldDisposition(_ExtractPromoteModel):
+    assertion_id: str
+    decision: FirstWorldDecision
+
+    @field_validator("assertion_id")
+    @classmethod
+    def _assertion_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="assertion_id")
+
+
+class FirstWorldGraphPrepareRequest(_ExtractPromoteModel):
+    schema_: Literal[FIRST_WORLD_PREPARE_REQUEST_SCHEMA] = Field(
+        default=FIRST_WORLD_PREPARE_REQUEST_SCHEMA, alias="schema"
+    )
+    run_id: str
+    decisions: list[FirstWorldDisposition] = Field(min_length=1)
+
+    @field_validator("run_id")
+    @classmethod
+    def _run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="run_id")
+
+
+class FirstWorldGraphPlanSummary(_ExtractPromoteModel):
+    create_new_node_count: int = 0
+    accepted_edge_count: int = 0
+    rejected_candidate_count: int = 0
+    accepted_assertion_count: int = 0
+
+
+class FirstWorldGraphPlan(_ExtractPromoteModel):
+    """Sealed, response-carried first-world initialization plan (confirm evidence)."""
+
+    schema_: Literal[FIRST_WORLD_PLAN_SCHEMA] = Field(
+        default=FIRST_WORLD_PLAN_SCHEMA, alias="schema"
+    )
+    plan_id: str
+    plan_digest: str
+    decision_digest: str
+    world_id: str
+    run_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    workspace_document_id: str
+    workspace_document_revision: str
+    campaign_scope: str | None = None
+    session_scope: None = None
+    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1"] = (
+        "worldbuilding_shepherds_flock_v0@0.1"
+    )
+    accepted_assertion_ids: list[str] = Field(default_factory=list)
+    rejected_assertion_ids: list[str] = Field(default_factory=list)
+    contribution_id: str
+    contribution_payload_sha256: str
+    reviewed_effect: dict[str, Any]
+    summary: FirstWorldGraphPlanSummary = Field(
+        default_factory=FirstWorldGraphPlanSummary
+    )
+    confirmable: bool
+    diagnostics: list[str] = Field(default_factory=list)
+
+
+class FirstWorldGraphConfirmRequest(_ExtractPromoteModel):
+    schema_: Literal[FIRST_WORLD_CONFIRM_REQUEST_SCHEMA] = Field(
+        default=FIRST_WORLD_CONFIRM_REQUEST_SCHEMA, alias="schema"
+    )
+    plan: FirstWorldGraphPlan
+
+
+class FirstWorldGraphConfirmReceipt(_ExtractPromoteModel):
+    schema_: Literal[FIRST_WORLD_CONFIRM_RESPONSE_SCHEMA] = Field(
+        default=FIRST_WORLD_CONFIRM_RESPONSE_SCHEMA, alias="schema"
+    )
+    outcome: FirstWorldConfirmOutcome
+    world_id: str
+    plan_id: str
+    plan_digest: str
+    decision_digest: str
+    source_artifact_id: str
+    source_revision_id: str
+    contribution_id: str
+    baseline_revision_id: str | None = None
+    committed_revision_id: str | None = None
+    applied_assertion_count: int
+    accepted_assertion_ids: list[str] = Field(default_factory=list)
+    rejected_assertion_ids: list[str] = Field(default_factory=list)
+    audit_status: ConfirmAuditStatus
+    warnings: list[str] = Field(default_factory=list)

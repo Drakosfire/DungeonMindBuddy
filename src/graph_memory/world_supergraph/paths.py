@@ -179,3 +179,8 @@ def initialization_dir(root: Path, world_id: str) -> Path:
 def initialization_receipt_path(root: Path, world_id: str) -> Path:
     """Immutable initial-publication receipt for a world."""
     return initialization_dir(root, world_id) / "initial.json"
+
+
+def reviewed_initialization_receipt_path(root: Path, world_id: str) -> Path:
+    """Immutable reviewed-source initialization receipt (separate from bundle init)."""
+    return initialization_dir(root, world_id) / "reviewed_initialization_receipt.json"

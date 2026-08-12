@@ -346,7 +346,34 @@ describe("GraphReviewGenericRun", () => {
       /inspect-only/i,
     );
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-first-world-publish-sheet")).not.toBeInTheDocument();
     expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it("shows first-world publish sheet for eligible worldbuilding runs", async () => {
+    mockCatalogApis();
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
+    mockExactRunReviewPackage({
+      ...reviewPackage,
+      worldId: "the-glass-orchard",
+      worldState: "uninitialized",
+      firstWorldPublishEligible: true,
+      firstWorldPublishReason: null,
+    });
+    const prepare = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
+    const firstWorldPrepare = vi.spyOn(extractPromoteApi, "prepareFirstWorldGraph");
+
+    renderModule();
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-first-world-publish-sheet")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/The Glass Orchard/i)).toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-first-world-create-cta")).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-not-promotable")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(firstWorldPrepare).not.toHaveBeenCalled();
   });
 
   it("prepares promotion with exact runId only for promotable recap runs", async () => {

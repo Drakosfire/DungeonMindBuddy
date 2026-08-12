@@ -35,6 +35,7 @@ def test_resolve_promotable_ingest_run_happy(tmp_path: Path, monkeypatch) -> Non
     assert resolved.run_id == run_id
     assert resolved.campaign_id == CAMPAIGN_ID
     assert resolved.session_id == SESSION_ID
+    assert resolved.world_id is None  # legacy graph-ingest path stays explicit
     assert resolved.source_revision_id == digest
     assert resolved.source_artifact_id == "artifact:recap:longmont-c2:session-22"
     assert resolved.extraction_profile == "category_v1"
@@ -368,6 +369,7 @@ def _write_reviewable_extraction_run(
     *,
     status: str = "reviewable",
     campaign_id: str | None = CAMPAIGN_ID,
+    world_id: str | None = None,
     invent_session_in_candidate: bool = False,
     candidate_campaign_id: str | None = ...,  # type: ignore[assignment]
     pin_noncanonical_span_index: bool = False,
@@ -418,11 +420,14 @@ def _write_reviewable_extraction_run(
     if candidate_campaign_id is ...:
         candidate_campaign_id = campaign_id
 
-    storage_campaign = campaign_id or CAMPAIGN_ID
+    storage_campaign = world_id or campaign_id or CAMPAIGN_ID
+    if world_id is not None:
+        (repo / f"corpus/{world_id}-markdown").mkdir(parents=True, exist_ok=True)
     document = create_workspace_document(
         repo,
         title="Worldbuilding lore",
         campaign_id=storage_campaign,
+        world_id=world_id,
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",
@@ -628,6 +633,8 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert resolved.session_id == ""
     assert resolved.source_domain == "worldbuilding"
     assert resolved.source_artifact_id.startswith("artifact:worldbuilding:")
+    assert resolved.world_id == CAMPAIGN_ID  # legacy fixture stamps campaign as world identity
+    assert "world_id=" + CAMPAIGN_ID in resolved.diagnostics
     assert resolved.source_revision_id == f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
     assert resolved.candidate_graph_path.is_file()
     assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/promote_seals/")
@@ -640,6 +647,27 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert resolved.normalized_recap_path != source.resolve()
     assert resolved.normalized_recap_path.read_bytes() == source.read_bytes()
     assert not (resolved.run_dir / "normalized_source.md").exists()
+
+
+def test_resolve_managed_worldbuilding_run_preserves_source_artifact_world_id(
+    tmp_path: Path,
+) -> None:
+    """Canonical Build run must preserve SourceArtifact W != Eldyrwild."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    world_id = "the-glass-orchard"
+    run_id, _source = _write_reviewable_extraction_run(
+        repo,
+        campaign_id=world_id,
+        world_id=world_id,
+    )
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.world_id == world_id
+    assert resolved.campaign_id == world_id
+    assert resolved.session_id == ""
+    assert resolved.world_id != "eldyrwild"
+    assert f"world_id={world_id}" in resolved.diagnostics
 
 
 def test_resolve_extraction_run_seal_is_idempotent(tmp_path: Path) -> None:
