@@ -1377,4 +1377,139 @@ describe("useWorkspaceDocumentAuthoring", () => {
     );
     expect(stored.dirty).toBe(false);
   });
+
+  it("adopts metadata-only revision while preserving dirty body and documentKey", async () => {
+    const editor = createEditor("Build Source");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+    act(() => {
+      result.current.setEditor(editor);
+    });
+    act(() => {
+      editor.editTo("The western warehouse is empty during festival season.");
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+    expect(result.current.dirty).toBe(true);
+    const documentKeyBefore = result.current.documentKey;
+    const shaBefore = result.current.snapshot?.content_sha256;
+    const bodyBefore = result.current.editorContent;
+
+    const renamed = fixtureWorkspaceDocumentRecord({
+      document_id: BUILD_DOC_ID,
+      kind: "worldbuilding_source",
+      campaign_id: "eldyrwild",
+      title: "Ironveil Manufactory Grounds",
+      revision: 2,
+      content_status: "draft",
+    });
+
+    let adopted!: ReturnType<typeof result.current.adoptMetadataUpdate>;
+    act(() => {
+      adopted = result.current.adoptMetadataUpdate({
+        previousRevision: 1,
+        record: renamed,
+      });
+    });
+
+    expect(adopted).toEqual({ ok: true, record: renamed });
+    expect(result.current.documentKey).toBe(documentKeyBefore);
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.snapshot?.loaded_revision).toBe(2);
+    expect(result.current.snapshot?.content_sha256).toBe(shaBefore);
+    expect(result.current.snapshot?.markdown).toBe("# Build Source\n");
+    expect(result.current.record?.title).toBe("Ironveil Manufactory Grounds");
+    expect(result.current.editorContent).toEqual(bodyBefore);
+    expect(result.current.localAdmission?.baseRevision).toBe(2);
+    expect(result.current.localAdmission?.baseContentSha256).toBe(shaBefore);
+
+    vi.mocked(prepareTiptapMarkdownWrite).mockImplementation(async (request) => {
+      expect(request.expected_revision).toBe(2);
+      return {
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: BUILD_DOC_ID,
+        title: "Ironveil Manufactory Grounds",
+        target_relpath: "out/workspace/worldbuilding/build.md",
+        target_display_path: "out/workspace/worldbuilding/build.md",
+        registry_revision: 2,
+        file_exists: false,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "+edited\n",
+        warnings: [],
+        diagnostics: [],
+      };
+    });
+    vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: BUILD_DOC_ID,
+      title: "Ironveil Manufactory Grounds",
+      target_relpath: "out/workspace/worldbuilding/build.md",
+      target_display_path: "out/workspace/worldbuilding/build.md",
+      registry_revision: 3,
+      committed_revision: 3,
+      committed_record: fixtureWorkspaceDocumentRecord({
+        document_id: BUILD_DOC_ID,
+        kind: "worldbuilding_source",
+        title: "Ironveil Manufactory Grounds",
+        revision: 3,
+        content_status: "committed",
+      }),
+      normalized_content_sha256: "sha-after-save",
+      writer_ok: true,
+      bytes_written: 64,
+      file_fingerprint: "fp-after-save",
+      diagnostics: [],
+    });
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(buildSnapshot({
+      record: fixtureWorkspaceDocumentRecord({
+        document_id: BUILD_DOC_ID,
+        kind: "worldbuilding_source",
+        title: "Ironveil Manufactory Grounds",
+        revision: 3,
+        content_status: "committed",
+      }),
+      markdown: "The western warehouse is empty during festival season.\n",
+      content_sha256: "sha-after-save",
+      file_fingerprint: "fp-after-save",
+      file_exists: true,
+      loaded_revision: 3,
+    }));
+
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+    await waitFor(() => expect(result.current.dirty).toBe(false));
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ expected_revision: 2 }),
+    );
+  });
+
+  it("rejects metadata adoption that violates successor revision", async () => {
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    let adopted!: ReturnType<typeof result.current.adoptMetadataUpdate>;
+    act(() => {
+      adopted = result.current.adoptMetadataUpdate({
+        previousRevision: 1,
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: BUILD_DOC_ID,
+          kind: "worldbuilding_source",
+          revision: 4,
+        }),
+      });
+    });
+    expect(adopted.ok).toBe(false);
+    expect(result.current.snapshot?.loaded_revision).toBe(1);
+  });
 });

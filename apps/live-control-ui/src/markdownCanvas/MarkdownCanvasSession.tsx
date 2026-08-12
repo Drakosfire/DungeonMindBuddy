@@ -6,19 +6,23 @@ import {
   type ReactNode,
 } from "react";
 
+import { LiveApiError, updateWorkspaceDocumentMetadata } from "../api/liveApi";
+import type { WorkspaceDocumentRecord } from "../api/types";
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { isEditorInteractive } from "../workspaceDocument/workspaceDocumentAuthoringMachine";
 import type {
   AdmissionLookupResult,
   AdmittedDocumentEnvelope,
   DocumentAdmissionPolicy,
+  DocumentCommandResult,
   MarkdownCanvasSessionProviderProps,
   MarkdownCanvasSessionValue,
 } from "./markdownCanvasTypes";
-import { DOCUMENT_SAVE_COMMAND_ID } from "./markdownCanvasTypes";
-import { useCanvasCommand } from "./useCanvasCommand";
-
-const MarkdownCanvasSessionContext = createContext<MarkdownCanvasSessionValue | null>(null);
+import {
+  DOCUMENT_METADATA_UPDATE_COMMAND_ID,
+  DOCUMENT_SAVE_COMMAND_ID,
+} from "./markdownCanvasTypes";
+import { useCanvasCommand } from "./useCanvasCommand";const MarkdownCanvasSessionContext = createContext<MarkdownCanvasSessionValue | null>(null);
 
 export function useMarkdownCanvasSession(): MarkdownCanvasSessionValue {
   const value = useContext(MarkdownCanvasSessionContext);
@@ -222,6 +226,53 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     }
   }, [authoring, runDocumentCommand, saveConflicts]);
 
+  const updateDocumentMetadata = useCallback(
+    async (patch: { title: string }): Promise<DocumentCommandResult<WorkspaceDocumentRecord>> => {
+      const title = patch.title.trim();
+      return runDocumentCommand(
+        {
+          id: DOCUMENT_METADATA_UPDATE_COMMAND_ID,
+          conflictsWith: [DOCUMENT_SAVE_COMMAND_ID, ...saveConflicts],
+          admission: "editable",
+          invalidateOnDocumentChange: true,
+        },
+        async ({ envelope, signal, documentId: commandDocumentId }) => {
+          if (!envelope) {
+            throw new Error("Metadata update requires an admitted editable document.");
+          }
+          if (signal.aborted) {
+            throw new Error("Metadata update aborted.");
+          }
+          const previousRevision = envelope.revision;
+          let record: WorkspaceDocumentRecord;
+          try {
+            record = await updateWorkspaceDocumentMetadata(commandDocumentId, {
+              title,
+              expected_revision: previousRevision,
+            });
+          } catch (error) {
+            if (error instanceof LiveApiError && error.status === 409) {
+              throw new Error("Source changed elsewhere. Reload before retrying.");
+            }
+            throw error;
+          }
+          if (signal.aborted) {
+            throw new Error("Metadata update aborted.");
+          }
+          const adopted = authoring.adoptMetadataUpdate({
+            previousRevision,
+            record,
+          });
+          if (!adopted.ok) {
+            throw new Error(adopted.reason);
+          }
+          return adopted.record;
+        },
+      );
+    },
+    [authoring, runDocumentCommand, saveConflicts],
+  );
+
   const saveBlockedByCommand = Boolean(
     activeCommand && saveConflicts.includes(activeCommand.id),
   );
@@ -253,6 +304,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       getAdmittedDocument,
       lookupAdmission,
       runDocumentCommand,
+      updateDocumentMetadata,
     }),
     [
       activeCommand,
@@ -263,6 +315,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       runDocumentCommand,
       saveBlockedByCommand,
       saveMarkdown,
+      updateDocumentMetadata,
     ],
   );
 

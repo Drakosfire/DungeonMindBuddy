@@ -2,6 +2,11 @@ import { useMemo } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
+import {
+  DOCUMENT_METADATA_UPDATE_COMMAND_ID,
+  DOCUMENT_SAVE_COMMAND_ID,
+} from "../markdownCanvas/markdownCanvasTypes";
+import { useOptionalMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
   SurfaceContextBadge,
@@ -11,6 +16,7 @@ import {
   useSurfaceContextContribution,
 } from "../surfaceInteraction/contextHost";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
+import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
 import type { BuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
 
@@ -31,7 +37,6 @@ export type BuildSurfaceContextProps = Pick<
   | "refreshDocuments"
   | "creatableCampaignIds"
   | "suggestedCreateCampaignId"
-  | "authoringStatusLabel"
 >;
 
 export function BuildSurfaceContext({
@@ -50,8 +55,9 @@ export function BuildSurfaceContext({
   refreshDocuments,
   creatableCampaignIds,
   suggestedCreateCampaignId,
-  authoringStatusLabel,
 }: BuildSurfaceContextProps) {
+  const session = useOptionalMarkdownCanvasSession();
+
   const surfaceIdentity = useMemo(() => {
     if (activeDocumentId) {
       return buildBuildSurfaceIdentity({ documentId: activeDocumentId });
@@ -62,33 +68,45 @@ export function BuildSurfaceContext({
     });
   }, [activeDocumentId]);
 
-  const campaignBadge = activeRecord?.campaign_id
-    ? formatReviewCampaignLabel(activeRecord.campaign_id).replace(/^Longmont /, "")
+  // Live Canvas record wins for title/status when admitted; controller is preflight only.
+  const liveRecord = session?.record ?? activeRecord;
+  const displayTitle = liveRecord?.title ?? activeRecord?.title ?? null;
+  const authoringStatusLabel = session?.statusLabel ?? null;
+  const campaignId = liveRecord?.campaign_id ?? activeRecord?.campaign_id ?? null;
+  const documentClass = liveRecord?.document_class ?? activeRecord?.document_class ?? null;
+  const campaignBadge = campaignId
+    ? formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "")
     : null;
+
+  const metadataBusy =
+    session?.activeCommand?.id === DOCUMENT_METADATA_UPDATE_COMMAND_ID;
+  const saveBusy = session?.activeCommand?.id === DOCUMENT_SAVE_COMMAND_ID;
+  const documentMutationBusy = metadataBusy || saveBusy || switching || creating;
+  const renameAdmitted = Boolean(session?.lookupAdmission("editable").ok);
 
   const content = useMemo(
     () => (
       <SurfaceContextModule label="DOCUMENT" className="build-surface-context">
         <div className="build-surface-context__row">
-          {activeRecord ? (
+          {activeDocumentId && liveRecord ? (
             <>
               <span data-testid="build-canvas-title" hidden>
-                {activeRecord.title}
+                {displayTitle}
               </span>
               <BuildDocumentSelector
                 documents={documents}
                 listStatus={listStatus}
                 activeDocumentId={activeDocumentId}
-                activeRecord={activeRecord}
-                preferredCampaignId={activeRecord.campaign_id}
-                switching={switching}
+                activeRecord={liveRecord}
+                preferredCampaignId={campaignId}
+                switching={documentMutationBusy}
                 onSelect={selectDocument}
               />
               {campaignBadge ? (
                 <SurfaceContextBadge>{campaignBadge}</SurfaceContextBadge>
               ) : null}
-              {activeRecord.document_class ? (
-                <SurfaceContextBadge>{activeRecord.document_class}</SurfaceContextBadge>
+              {documentClass ? (
+                <SurfaceContextBadge>{documentClass}</SurfaceContextBadge>
               ) : null}
               {authoringStatusLabel ? (
                 <>
@@ -104,6 +122,20 @@ export function BuildSurfaceContext({
                   </span>
                 </>
               ) : null}
+              {session ? (
+                <BuildDocumentRenameControl
+                  currentTitle={displayTitle ?? ""}
+                  renaming={metadataBusy}
+                  disabled={!renameAdmitted || (documentMutationBusy && !metadataBusy)}
+                  onRename={async (title) => {
+                    const result = await session.updateDocumentMetadata({ title });
+                    if (result.ok) {
+                      refreshDocuments();
+                    }
+                    return result;
+                  }}
+                />
+              ) : null}
             </>
           ) : (
             <>
@@ -114,7 +146,7 @@ export function BuildSurfaceContext({
                 activeDocumentId={null}
                 activeRecord={null}
                 preferredCampaignId={suggestedCreateCampaignId}
-                switching={switching}
+                switching={switching || creating}
                 onSelect={selectDocument}
               />
             </>
@@ -127,7 +159,7 @@ export function BuildSurfaceContext({
             activationError={activationError}
             onSubmit={createDocument}
             onRetryOpen={activationError ? retryCreatedDocument : undefined}
-            disabled={switching}
+            disabled={documentMutationBusy}
           />
         </div>
         {listStatus === "error" ? (
@@ -145,20 +177,27 @@ export function BuildSurfaceContext({
       </SurfaceContextModule>
     ),
     [
-      activeDocumentId,
-      activeRecord,
       activationError,
+      activeDocumentId,
       authoringStatusLabel,
       campaignBadge,
+      campaignId,
       creatableCampaignIds,
       createDocument,
       createError,
       creating,
+      displayTitle,
+      documentClass,
+      documentMutationBusy,
       documents,
       listStatus,
+      liveRecord,
+      metadataBusy,
       refreshDocuments,
+      renameAdmitted,
       retryCreatedDocument,
       selectDocument,
+      session,
       suggestedCreateCampaignId,
       switchError,
       switching,

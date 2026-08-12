@@ -64,8 +64,6 @@ export interface BuildWorkspaceDocumentController {
   /** Campaigns New Source may create into (visible select == POST validation). */
   creatableCampaignIds: string[];
   suggestedCreateCampaignId: string | null;
-  setAuthoringStatusLabel: (label: string | null) => void;
-  authoringStatusLabel: string | null;
 }
 
 export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentController {
@@ -89,7 +87,6 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
-  const [authoringStatusLabel, setAuthoringStatusLabel] = useState<string | null>(null);
 
   const createControllerRef = useRef(createWorkspaceDocumentCreationController());
   const activeRecordRef = useRef<WorkspaceDocumentRecord | null>(null);
@@ -399,7 +396,5 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     refreshDocuments: () => void refreshDocuments(),
     creatableCampaignIds,
     suggestedCreateCampaignId,
-    setAuthoringStatusLabel,
-    authoringStatusLabel,
   };
 }
