@@ -57,6 +57,9 @@ import type {
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
   WorkspaceDocumentRevisionRequest,
+  WorldContainerRecord,
+  WorldContainersListResponse,
+  CreateWorldContainerRequest,
   GraphPreviewSurfaceResponse,
   GraphPreviewRunsResponse,
   GraphIngestLatestRunResponse,
@@ -1570,6 +1573,19 @@ export async function listWorkspaceDocuments(args: {
   return apiFetch<WorkspaceDocumentsListResponse>(
     `/api/live/workspace-documents${query ? `?${query}` : ""}`,
   );
+}
+
+export async function listWorldContainers(): Promise<WorldContainersListResponse> {
+  return apiFetch<WorldContainersListResponse>("/api/live/world-containers");
+}
+
+export async function createWorldContainer(
+  request: CreateWorldContainerRequest,
+): Promise<WorldContainerRecord> {
+  return apiFetch<WorldContainerRecord>("/api/live/world-containers", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {

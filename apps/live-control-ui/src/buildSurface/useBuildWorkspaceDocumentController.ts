@@ -2,12 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   commitTiptapMarkdownWrite,
+  createWorldContainer,
   getWorkspaceDocumentSnapshot,
   listWorkspaceDocuments,
+  listWorldContainers,
   prepareTiptapMarkdownWrite,
   updateWorkspaceDocumentMetadata,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
+import type {
+  WorldContainerRecord,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentSnapshot,
+} from "../api/types";
 import {
   classifyBuildDocumentScope,
   getWorldIdForCampaign,
@@ -24,6 +30,10 @@ import {
   resolveSuggestedBuildCreateCampaignId,
   writeBuildLastCampaignId,
 } from "./buildBareEntryCampaign";
+import type {
+  BuildSourceDestinationIntent,
+  BuildSourceDestinationOption,
+} from "./BuildDocumentCreateControl";
 
 export type BuildDocumentListStatus = "loading" | "ready" | "error";
 export type BuildDocumentLoadStatus = "idle" | "loading" | "ready" | "empty" | "error";
@@ -67,24 +77,73 @@ export function resolveWorldIdForBuildCreate(campaignId: string): string | null 
 function buildWorldbuildingCreateIntent(
   title: string,
   campaignId: string,
+  worldId: string,
 ): {
   kind: "worldbuilding_source";
   campaignId: string;
   title: string;
-  worldId?: string;
+  worldId: string;
   documentClass: string;
   authorityState: "draft";
   visibilityState: "internal";
 } {
-  const worldId = resolveWorldIdForBuildCreate(campaignId);
   return {
     kind: "worldbuilding_source",
     campaignId,
     title,
-    ...(worldId ? { worldId } : {}),
+    worldId,
     documentClass: "lore",
     authorityState: "draft",
     visibilityState: "internal",
+  };
+}
+
+/**
+ * Create or reconcile one managed world via server-owned idempotence.
+ * On ambiguous create failure, retry POST rather than reimplementing the
+ * server's casefold/whitespace duplicate rule in the client.
+ */
+async function ensureManagedWorld(name: string): Promise<WorldContainerRecord> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error("That world name is required.");
+  }
+  try {
+    return await createWorldContainer({ name: trimmed });
+  } catch (firstError) {
+    try {
+      return await createWorldContainer({ name: trimmed });
+    } catch {
+      throw firstError instanceof Error
+        ? firstError
+        : new Error("Could not create the world.");
+    }
+  }
+}
+
+async function resolveBuildDestinationScope(
+  destination: BuildSourceDestinationIntent,
+): Promise<{ campaignId: string; worldId: string; createdNewWorld: boolean }> {
+  if (destination.kind === "campaign") {
+    const campaignId = destination.campaignId.trim();
+    const worldId = resolveWorldIdForBuildCreate(campaignId);
+    if (!worldId) {
+      throw new Error("Choose a campaign mapped to an admitted world");
+    }
+    return { campaignId, worldId, createdNewWorld: false };
+  }
+  if (destination.kind === "world") {
+    const worldId = destination.worldId.trim();
+    if (!worldId) {
+      throw new Error("Choose a destination");
+    }
+    return { campaignId: worldId, worldId, createdNewWorld: false };
+  }
+  const world = await ensureManagedWorld(destination.name);
+  return {
+    campaignId: world.world_id,
+    worldId: world.world_id,
+    createdNewWorld: true,
   };
 }
 
@@ -178,16 +237,22 @@ export interface BuildWorkspaceDocumentController {
   activationError: string | null;
   importError: string | null;
   selectDocument: (documentId: string) => void;
-  createDocument: (payload: { title: string; campaignId: string }) => void;
+  createDocument: (payload: {
+    title: string;
+    destination: BuildSourceDestinationIntent;
+  }) => void;
   importSourceDocument: (payload: {
     title: string;
-    campaignId: string;
+    destination: BuildSourceDestinationIntent;
     markdown: string;
   }) => void;
   retryImportSource: (payload: { markdown: string }) => void;
   retryCreatedDocument: () => void;
   refreshDocuments: () => void;
-  /** Campaigns New Source may create into (visible select == POST validation). */
+  /** Existing campaign + managed-world destinations for New Source / Import. */
+  destinationOptions: BuildSourceDestinationOption[];
+  suggestedDestinationValue: string | null;
+  /** @deprecated Prefer destinationOptions; retained for transitional callers. */
   creatableCampaignIds: string[];
   suggestedCreateCampaignId: string | null;
   /** Retained empty source from a failed import lifecycle, if any. */
@@ -212,6 +277,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   switchingRef.current = switching;
   const [documents, setDocuments] = useState<WorkspaceDocumentRecord[] | null>(null);
   const [listStatus, setListStatus] = useState<BuildDocumentListStatus>("loading");
+  const [managedWorlds, setManagedWorlds] = useState<WorldContainerRecord[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -237,6 +303,15 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const selectorListGenerationRef = useRef(0);
 
   const activeDocumentId = activeRecord?.document_id ?? null;
+  const refreshManagedWorlds = useCallback(async () => {
+    try {
+      const listed = await listWorldContainers();
+      setManagedWorlds(listed.records);
+    } catch {
+      // Keep last-known managed worlds; source create still fails closed if root missing.
+    }
+  }, []);
+
   const refreshDocuments = useCallback(async () => {
     const generation = ++selectorListGenerationRef.current;
     setListStatus("loading");
@@ -256,7 +331,8 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
   useEffect(() => {
     void refreshDocuments();
-  }, [refreshDocuments]);
+    void refreshManagedWorlds();
+  }, [refreshDocuments, refreshManagedWorlds]);
 
   const loadBuildDocument = useCallback(
     async (
@@ -542,30 +618,61 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       }),
     [activeRecord?.campaign_id, documents],
   );
-  const creatableCampaignIdsRef = useRef(creatableCampaignIds);
-  creatableCampaignIdsRef.current = creatableCampaignIds;
+
+  const destinationOptions = useMemo((): BuildSourceDestinationOption[] => {
+    const options: BuildSourceDestinationOption[] = [];
+    const seen = new Set<string>();
+    for (const campaignId of creatableCampaignIds) {
+      const worldId = resolveWorldIdForBuildCreate(campaignId);
+      if (!worldId) continue;
+      const value = `campaign:${campaignId}`;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({
+        kind: "campaign",
+        campaignId,
+        worldId,
+        label: campaignId,
+        value,
+      });
+    }
+    for (const world of managedWorlds) {
+      // Kind-qualified values stay distinct even when world_id collides with a
+      // campaign id (e.g. managed world "Longmont C2" → world_id longmont-c2).
+      const value = `world:${world.world_id}`;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({
+        kind: "world",
+        worldId: world.world_id,
+        label: world.name,
+        value,
+      });
+    }
+    return options;
+  }, [creatableCampaignIds, managedWorlds]);
 
   const createDocument = useCallback(
-    async ({ title, campaignId }: { title: string; campaignId: string }) => {
-      const campaign = campaignId.trim();
-      if (!creatableCampaignIdsRef.current.includes(campaign)) {
-        setCreateError("Choose a campaign from the list");
-        return;
-      }
-      const worldId = resolveWorldIdForBuildCreate(campaign);
-      if (!worldId) {
-        setCreateError("Choose a campaign mapped to an admitted world");
-        return;
-      }
+    async ({
+      title,
+      destination,
+    }: {
+      title: string;
+      destination: BuildSourceDestinationIntent;
+    }) => {
       setCreating(true);
       setCreateError(null);
       setActivationError(null);
       setImportError(null);
       importCommittedRef.current = false;
       persistPendingImportDocumentId(null);
+      let worldCreated = false;
       try {
+        const scope = await resolveBuildDestinationScope(destination);
+        worldCreated = scope.createdNewWorld;
+        void refreshManagedWorlds();
         const created = await createControllerRef.current.create(
-          buildWorldbuildingCreateIntent(title, campaign),
+          buildWorldbuildingCreateIntent(title, scope.campaignId, scope.worldId),
         );
         void refreshDocuments();
         if (!created.intentCurrent) {
@@ -583,51 +690,56 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           setActivationError(message);
         }
       } catch (error) {
-        if (error instanceof WorkspaceDocumentCreationError) {
+        const message =
+          error instanceof WorkspaceDocumentCreationError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Failed to create worldbuilding source";
+        if (worldCreated) {
+          setCreateError(
+            `The world was created, but the source could not be created. ${message}`,
+          );
+        } else if (error instanceof WorkspaceDocumentCreationError) {
           if (error.code === "create_failed") {
-            setCreateError(error.message);
+            setCreateError(message);
           }
-        } else if (error instanceof Error) {
-          setCreateError(error.message);
         } else {
-          setCreateError("Failed to create worldbuilding source");
+          setCreateError(message);
         }
       } finally {
         setCreating(false);
       }
     },
-    [activateCreatedRecord, persistPendingImportDocumentId, refreshDocuments],
+    [activateCreatedRecord, persistPendingImportDocumentId, refreshDocuments, refreshManagedWorlds],
   );
 
   const importSourceDocument = useCallback(
     async ({
       title,
-      campaignId,
+      destination,
       markdown,
     }: {
       title: string;
-      campaignId: string;
+      destination: BuildSourceDestinationIntent;
       markdown: string;
     }) => {
-      const campaign = campaignId.trim();
       if (markdown.trim().length === 0) {
         setImportError("Paste non-empty Markdown to import");
-        return;
-      }
-      if (!creatableCampaignIdsRef.current.includes(campaign)) {
-        setImportError("Choose a campaign from the list");
-        return;
-      }
-      const worldId = resolveWorldIdForBuildCreate(campaign);
-      if (!worldId) {
-        setImportError("Choose a campaign mapped to an admitted world");
         return;
       }
       setCreating(true);
       setCreateError(null);
       setActivationError(null);
       setImportError(null);
+      let worldCreated = false;
       try {
+        const scope = await resolveBuildDestinationScope(destination);
+        worldCreated = scope.createdNewWorld;
+        void refreshManagedWorlds();
+        const campaign = scope.campaignId;
+        const worldId = scope.worldId;
+
         let record: WorkspaceDocumentRecord;
         let skipCommit = false;
         const pendingId = pendingImportDocumentIdRef.current;
@@ -638,7 +750,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           const pendingRecord = snapshot.record;
           if (!recordMatchesImportScope(pendingRecord, campaign, worldId)) {
             throw new Error(
-              "A pending import source exists but cannot be reused for this import",
+              "This source belongs to a different destination.",
             );
           }
           if (isSnapshotImportCommitted(snapshot, markdown)) {
@@ -658,7 +770,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         } else {
           importCommittedRef.current = false;
           const created = await createControllerRef.current.create(
-            buildWorldbuildingCreateIntent(title, campaign),
+            buildWorldbuildingCreateIntent(title, campaign, worldId),
           );
           void refreshDocuments();
           if (!created.intentCurrent) {
@@ -698,7 +810,11 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
             : error instanceof Error
               ? error.message
               : "Failed to import source";
-        if (error instanceof WorkspaceDocumentCreationError && error.code === "create_failed") {
+        if (worldCreated && !(pendingImportDocumentIdRef.current || createControllerRef.current.getState().record)) {
+          setImportError(
+            `The world was created, but the source could not be created. ${message}`,
+          );
+        } else if (error instanceof WorkspaceDocumentCreationError && error.code === "create_failed") {
           setImportError(message);
         } else {
           setImportError(message);
@@ -718,6 +834,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       commitSourceImport,
       persistPendingImportDocumentId,
       refreshDocuments,
+      refreshManagedWorlds,
     ],
   );
 
@@ -798,6 +915,43 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       }),
     [activeRecord?.campaign_id, creatableCampaignIds, locationSearch],
   );
+  const suggestedDestinationValue = useMemo(() => {
+    const activeCampaign = activeRecord?.campaign_id?.trim() ?? "";
+    const activeWorld = activeRecord?.world_id?.trim() ?? "";
+
+    // World-level Build sources use campaign_id === world_id. Prefer the
+    // kind-qualified world destination before any campaign suggestion so a
+    // colliding campaign id cannot steal the default (e.g. managed world
+    // longmont-c2 vs campaign longmont-c2).
+    if (activeWorld && activeWorld === activeCampaign) {
+      const worldMatch = destinationOptions.find(
+        (option) => option.kind === "world" && option.worldId === activeWorld,
+      );
+      if (worldMatch) return worldMatch.value;
+    }
+
+    if (suggestedCreateCampaignId) {
+      const match = destinationOptions.find(
+        (option) =>
+          option.kind === "campaign" && option.campaignId === suggestedCreateCampaignId,
+      );
+      if (match) return match.value;
+    }
+
+    if (activeCampaign) {
+      const campaignMatch = destinationOptions.find(
+        (option) =>
+          option.kind === "campaign" && option.campaignId === activeCampaign,
+      );
+      if (campaignMatch) return campaignMatch.value;
+      const worldMatch = destinationOptions.find(
+        (option) => option.kind === "world" && option.worldId === activeCampaign,
+      );
+      if (worldMatch) return worldMatch.value;
+    }
+    return destinationOptions[0]?.value ?? null;
+  }, [activeRecord?.campaign_id, activeRecord?.world_id, destinationOptions, suggestedCreateCampaignId]);
+
   return {
     activeRecord,
     activeDocumentId,
@@ -816,6 +970,8 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     retryImportSource: (payload) => void retryImportSource(payload),
     retryCreatedDocument: () => void retryCreatedDocument(),
     refreshDocuments: () => void refreshDocuments(),
+    destinationOptions,
+    suggestedDestinationValue,
     creatableCampaignIds,
     suggestedCreateCampaignId,
     pendingImportDocumentId,

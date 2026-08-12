@@ -5,8 +5,16 @@ import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 
 describe("BuildDocumentCreateControl", () => {
   const baseProps = {
-    creatableCampaignIds: ["longmont-c2"],
-    suggestedCampaignId: "longmont-c2",
+    destinationOptions: [
+      {
+        kind: "campaign" as const,
+        campaignId: "longmont-c2",
+        worldId: "eldyrwild",
+        label: "longmont-c2",
+        value: "campaign:longmont-c2",
+      },
+    ],
+    suggestedDestinationValue: "campaign:longmont-c2",
     onSubmit: vi.fn(),
     onImportSubmit: vi.fn(),
   };
@@ -78,7 +86,7 @@ describe("BuildDocumentCreateControl", () => {
     expect(onRetryImport).toHaveBeenCalledWith({ markdown: "# Keep me\n" });
   });
 
-  it("submits import with title campaign and markdown", () => {
+  it("submits import with title destination and markdown", () => {
     const onImportSubmit = vi.fn();
     render(
       <BuildDocumentCreateControl {...baseProps} onImportSubmit={onImportSubmit} />,
@@ -95,7 +103,7 @@ describe("BuildDocumentCreateControl", () => {
 
     expect(onImportSubmit).toHaveBeenCalledWith({
       title: "Imported",
-      campaignId: "longmont-c2",
+      destination: { kind: "campaign", campaignId: "longmont-c2" },
       markdown: expect.stringContaining("# Imported"),
     });
   });
@@ -138,8 +146,192 @@ describe("BuildDocumentCreateControl", () => {
 
     expect(onImportSubmit).toHaveBeenCalledWith({
       title: "Imported",
-      campaignId: "longmont-c2",
+      destination: { kind: "campaign", campaignId: "longmont-c2" },
       markdown,
     });
+  });
+
+  it("requires world name before new-world submit is enabled", () => {
+    render(<BuildDocumentCreateControl {...baseProps} />);
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Orchard Notes" },
+    });
+
+    expect(screen.getByTestId("build-document-create-submit")).toBeDisabled();
+    expect(screen.getByTestId("build-document-create-world-name")).toBeInTheDocument();
+  });
+
+  it("submits new world destination with trimmed world name", () => {
+    const onSubmit = vi.fn();
+    render(<BuildDocumentCreateControl {...baseProps} onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-world-name"), {
+      target: { value: "The Glass Orchard" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Orchard Notes" },
+    });
+    fireEvent.click(screen.getByTestId("build-document-create-submit"));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: "Orchard Notes",
+      destination: { kind: "new_world", name: "The Glass Orchard" },
+    });
+  });
+
+  it("disables destination and world name fields while creating", () => {
+    const { rerender } = render(<BuildDocumentCreateControl {...baseProps} />);
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-world-name"), {
+      target: { value: "The Glass Orchard" },
+    });
+
+    rerender(<BuildDocumentCreateControl {...baseProps} creating />);
+
+    expect(screen.getByTestId("build-document-create-destination")).toBeDisabled();
+    expect(screen.getByTestId("build-document-create-world-name")).toBeDisabled();
+  });
+
+  it("preserves New world selection and world name when destination options refresh", () => {
+    const onSubmit = vi.fn();
+    const { rerender } = render(
+      <BuildDocumentCreateControl {...baseProps} onSubmit={onSubmit} createError={null} />,
+    );
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-world-name"), {
+      target: { value: "The Glass Orchard" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Orchard Notes" },
+    });
+
+    // Simulate managed-worlds refresh after W is created but source POST failed:
+    // suggested snaps back to campaign, and a world option appears.
+    rerender(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        onSubmit={onSubmit}
+        createError="The world was created, but the source could not be created."
+        suggestedDestinationValue="campaign:longmont-c2"
+        destinationOptions={[
+          ...baseProps.destinationOptions,
+          {
+            kind: "world",
+            worldId: "the-glass-orchard",
+            label: "The Glass Orchard",
+            value: "world:the-glass-orchard",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue("__new_world__");
+    expect(screen.getByTestId("build-document-create-world-name")).toHaveValue("The Glass Orchard");
+
+    fireEvent.click(screen.getByTestId("build-document-create-submit"));
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: "Orchard Notes",
+      destination: { kind: "new_world", name: "The Glass Orchard" },
+    });
+  });
+
+  it("follows suggested destination when Build navigates C1 → C2 without an explicit pick", () => {
+    const c1Option = {
+      kind: "campaign" as const,
+      campaignId: "longmont-c1",
+      worldId: "eldyrwild",
+      label: "longmont-c1",
+      value: "campaign:longmont-c1",
+    };
+    const c2Option = {
+      kind: "campaign" as const,
+      campaignId: "longmont-c2",
+      worldId: "eldyrwild",
+      label: "longmont-c2",
+      value: "campaign:longmont-c2",
+    };
+    const { rerender } = render(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[c1Option, c2Option]}
+        suggestedDestinationValue="campaign:longmont-c1"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "campaign:longmont-c1",
+    );
+
+    rerender(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[c1Option, c2Option]}
+        suggestedDestinationValue="campaign:longmont-c2"
+      />,
+    );
+
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "campaign:longmont-c2",
+    );
+  });
+
+  it("upgrades derived campaign destination to colliding managed world when suggestion arrives", () => {
+    const campaignOption = {
+      kind: "campaign" as const,
+      campaignId: "longmont-c2",
+      worldId: "eldyrwild",
+      label: "longmont-c2",
+      value: "campaign:longmont-c2",
+    };
+    const worldOption = {
+      kind: "world" as const,
+      worldId: "longmont-c2",
+      label: "Longmont C2 (world)",
+      value: "world:longmont-c2",
+    };
+
+    const { rerender } = render(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[campaignOption]}
+        suggestedDestinationValue="campaign:longmont-c2"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "campaign:longmont-c2",
+    );
+
+    // Managed worlds load after first paint; controller now recommends the world destination.
+    rerender(
+      <BuildDocumentCreateControl
+        {...baseProps}
+        destinationOptions={[campaignOption, worldOption]}
+        suggestedDestinationValue="world:longmont-c2"
+      />,
+    );
+
+    expect(screen.getByTestId("build-document-create-destination")).toHaveValue(
+      "world:longmont-c2",
+    );
   });
 });

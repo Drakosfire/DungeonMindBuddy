@@ -25,6 +25,9 @@ from apps.live_control_server.routes.world_graph_retrieval import (
 from apps.live_control_server.routes.workspace_documents import (
     router as workspace_documents_router,
 )
+from apps.live_control_server.routes.world_containers import (
+    router as world_containers_router,
+)
 from apps.live_control_server.routes.statblock_integration import (
     router as statblock_integration_router,
 )
@@ -96,6 +99,7 @@ def create_app() -> FastAPI:
     application.include_router(world_graph_projection_router)
     application.include_router(world_graph_retrieval_router)
     application.include_router(workspace_documents_router)
+    application.include_router(world_containers_router)
     application.include_router(statblock_integration_router)
     application.include_router(threat_drafts_router)
     application.include_router(threat_publication_router)

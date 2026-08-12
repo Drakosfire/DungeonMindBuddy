@@ -7,6 +7,7 @@ import {
   advanceCombatTurn,
   applyCombatHpDelta,
   commitTiptapMarkdownWrite,
+  createWorldContainer,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
@@ -16,6 +17,7 @@ import {
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
   LiveApiError,
+  listWorldContainers,
   listWorkspaceDocuments,
   postLiveQuery,
   postThreatQueryHydration,
@@ -1744,6 +1746,49 @@ function worldbuildingRecord(overrides: Partial<WorkspaceDocumentRecord> = {}): 
     ...overrides,
   };
 }
+
+describe("liveApi world container contracts", () => {
+  afterEach(() => {
+    clearProjectionRequestCache();
+    vi.restoreAllMocks();
+  });
+
+  it("listWorldContainers GETs /api/live/world-containers", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema_version: "dmb_world_container_registry_v1",
+        records: [],
+      }),
+    );
+
+    const listed = await listWorldContainers();
+
+    expect(listed.schema_version).toBe("dmb_world_container_registry_v1");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0][0])).toBe("/api/live/world-containers");
+    expect(fetchSpy.mock.calls[0][1]?.method).toBeUndefined();
+  });
+
+  it("createWorldContainer POSTs name-only body to /api/live/world-containers", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema_version: "dmb_world_container_record_v1",
+        world_id: "44444444-4444-4444-8444-444444444444",
+        name: "The Glass Orchard",
+        source_root_relpath: "corpus/the-glass-orchard-markdown",
+        created_at: "2026-07-22T00:00:00Z",
+      }),
+    );
+
+    await createWorldContainer({ name: "The Glass Orchard" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-containers");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ name: "The Glass Orchard" });
+  });
+});
 
 describe("liveApi workspace worldbuilding contracts", () => {
   it("posts worldbuilding create payloads and returns registry-owned targets", async () => {
