@@ -777,7 +777,24 @@ def _classify_locator(
     store: UnionSupergraphStore | None = None,
     contribution_id: str | None = None,
     admitted_content_sha256: str | None = None,
+    source_domain: str | None = None,
+    source_span_ref_id: str | None = None,
+    session_id: str | None = None,
 ) -> tuple[str, bool]:
+    cleaned_span = str(source_span_ref_id or "").strip() or None
+    domain = str(source_domain or "")
+    # Worldbuilding SourceSpan identity is an admitted provenance shape.
+    # Prefer explicit S; never treat arbitrary contribution/... locators as spans.
+    if domain == "worldbuilding" and cleaned_span:
+        if session_id is None and locator is not None:
+            cleaned_locator = str(locator).strip()
+            if cleaned_locator and cleaned_locator != cleaned_span:
+                # Locator disagrees with explicit S — do not invent span authority.
+                return "unsupported", False
+        # Same spirit as heading: require a revision-bound admitted digest.
+        if admitted_content_sha256 is None:
+            return "source_span", False
+        return "source_span", True
     if locator is None:
         return "unsupported", False
     if parse_repo_uri(uri) is not None and parse_heading_locator(locator) is not None:
@@ -794,7 +811,19 @@ def _classify_locator(
     return "unsupported", False
 
 
-def _display_label(locator: str | None) -> str | None:
+def _display_label(
+    locator: str | None,
+    *,
+    locator_kind: str | None = None,
+    source_span_ref_id: str | None = None,
+) -> str | None:
+    if locator_kind == "source_span":
+        span = str(source_span_ref_id or "").strip()
+        if not span:
+            return "source span"
+        if len(span) <= 20:
+            return f"source span ({span})"
+        return f"source span (…{span[-12:]})"
     if locator is None:
         return None
     heading_text = parse_heading_locator(locator)
@@ -862,6 +891,14 @@ def _anchor_derivations_for_supports(
                 if source_artifact is None:
                     continue
                 locator = evidence.locator
+                source_span_ref_id = (
+                    str(evidence.source_span_ref_id).strip()
+                    if evidence.source_span_ref_id
+                    else None
+                ) or None
+                # Prefer explicit S for stable identity when present (sessionless
+                # worldbuilding already used S as locator after #567).
+                locator_identity = source_span_ref_id or locator or ""
                 anchor_id = compute_source_anchor_id(
                     world_id=snapshot.world_id,
                     campaign_id=snapshot.campaign_id,
@@ -870,7 +907,7 @@ def _anchor_derivations_for_supports(
                     revision_id=snapshot.revision_id,
                     evidence_ref_id=evidence_ref_id,
                     source_artifact_id=evidence.source_artifact_id,
-                    locator_identity=locator or "",
+                    locator_identity=locator_identity,
                 )
                 locator_kind, readable = _classify_locator(
                     source_artifact.uri,
@@ -880,6 +917,9 @@ def _anchor_derivations_for_supports(
                     admitted_content_sha256=_admitted_source_content_sha256(
                         source_artifact
                     ),
+                    source_domain=str(evidence.source_domain),
+                    source_span_ref_id=source_span_ref_id,
+                    session_id=evidence.session_id,
                 )
                 existing = derivations.get(anchor_id)
                 if existing is not None:
@@ -907,13 +947,18 @@ def _anchor_derivations_for_supports(
                     source_artifact_id=evidence.source_artifact_id,
                     source_domain=str(evidence.source_domain),
                     session_id=evidence.session_id,
+                    source_span_ref_id=source_span_ref_id,
                     supporting_graph_object_ids=(
                         [support.graph_object_id] if support.graph_object_id else []
                     ),
                     supporting_assertion_ids=[support.assertion_id],
                     readable=readable,
                     locator_kind=locator_kind,  # type: ignore[arg-type]
-                    display_label=_display_label(locator),
+                    display_label=_display_label(
+                        locator,
+                        locator_kind=locator_kind,
+                        source_span_ref_id=source_span_ref_id,
+                    ),
                 )
                 derivations[anchor_id] = _AnchorDerivation(
                     anchor=anchor,
@@ -1471,15 +1516,30 @@ def _handle_source_read(
         ) from exc
 
 
-def read_source_anchor(
+@dataclass(frozen=True)
+class AdmittedSourceAnchorMatch:
+    """Graph-re-resolved admitted source anchor for a read request.
+
+    Live services may compose registry-backed readers on top of this match
+    without duplicating G→evidence→A/S derivation.
+    """
+
+    snapshot: WorldGraphRetrievalSnapshot
+    derivation: _AnchorDerivation
+    store: UnionSupergraphStore
+    graph_content_sha256: str | None
+
+
+def resolve_admitted_anchor_match(
     root: Path,
     request: WorldGraphSourceAnchorReadRequest,
-    *,
-    repo_root: Path | None = None,
-) -> WorldGraphSourceAnchorReadResult:
-    request = _revalidate(WorldGraphSourceAnchorReadRequest, request)
-    resolved_repo_root = repo_root if repo_root is not None else _default_repo_root()
+) -> AdmittedSourceAnchorMatch | WorldGraphSourceAnchorReadResult:
+    """Re-derive G under the exact request snapshot.
 
+    Returns either an ``AdmittedSourceAnchorMatch`` or an early-exit
+    ``WorldGraphSourceAnchorReadResult`` (unavailable world / unknown G).
+    """
+    request = _revalidate(WorldGraphSourceAnchorReadRequest, request)
     loaded = _load_projection_and_store(
         root,
         world_id=request.world_id,
@@ -1505,7 +1565,6 @@ def read_source_anchor(
         )
     projection, store = loaded
     snapshot = _snapshot_from_projection(projection)
-
     derivations = _projection_admitted_anchor_derivations(store=store, projection=projection)
     match = next(
         (item for item in derivations if item.anchor.anchor_id == request.anchor_id), None
@@ -1527,8 +1586,36 @@ def read_source_anchor(
                 )
             ],
         )
+    source_artifact = store.source_artifacts.get(match.anchor.source_artifact_id)
+    return AdmittedSourceAnchorMatch(
+        snapshot=snapshot,
+        derivation=match,
+        store=store,
+        graph_content_sha256=(
+            _admitted_source_content_sha256(source_artifact)
+            if source_artifact is not None
+            else None
+        ),
+    )
 
+
+def read_source_anchor(
+    root: Path,
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    repo_root: Path | None = None,
+) -> WorldGraphSourceAnchorReadResult:
+    request = _revalidate(WorldGraphSourceAnchorReadRequest, request)
+    resolved_repo_root = repo_root if repo_root is not None else _default_repo_root()
+
+    resolved = resolve_admitted_anchor_match(root, request)
+    if isinstance(resolved, WorldGraphSourceAnchorReadResult):
+        return resolved
+    snapshot = resolved.snapshot
+    match = resolved.derivation
+    store = resolved.store
     anchor = match.anchor
+
     if not anchor.readable or anchor.locator_kind == "unsupported":
         return WorldGraphSourceAnchorReadResult(
             outcome="partial",
@@ -1537,6 +1624,7 @@ def read_source_anchor(
             evidence_ref_id=anchor.evidence_ref_id,
             source_artifact_id=anchor.source_artifact_id,
             source_domain=anchor.source_domain,
+            source_span_ref_id=anchor.source_span_ref_id,
             locator_kind=anchor.locator_kind,
             trust_boundary=_trust_boundary(),
             diagnostics=[
@@ -1544,6 +1632,31 @@ def read_source_anchor(
                     code="unsupported_locator",
                     message="This source anchor's locator/URI scheme is not supported for reading.",
                     severity="warning",
+                )
+            ],
+        )
+
+    if anchor.locator_kind == "source_span":
+        # Registry-backed worldbuilding SourceSpan reads are composed by the
+        # live_control retrieval service — Kernel must not open registries.
+        return WorldGraphSourceAnchorReadResult(
+            outcome="unavailable",
+            snapshot=snapshot,
+            anchor_id=request.anchor_id,
+            evidence_ref_id=anchor.evidence_ref_id,
+            source_artifact_id=anchor.source_artifact_id,
+            source_domain=anchor.source_domain,
+            source_span_ref_id=anchor.source_span_ref_id,
+            locator_kind=anchor.locator_kind,
+            trust_boundary=_trust_boundary(),
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code="requires_registry_source_span_read",
+                    message=(
+                        "Worldbuilding source-span anchors require the registry-"
+                        "backed live retrieval reader."
+                    ),
+                    severity="info",
                 )
             ],
         )
@@ -1629,6 +1742,7 @@ def read_source_anchor(
             evidence_ref_id=anchor.evidence_ref_id,
             source_artifact_id=anchor.source_artifact_id,
             source_domain=anchor.source_domain,
+            source_span_ref_id=anchor.source_span_ref_id,
             locator_kind=anchor.locator_kind,
             trust_boundary=_trust_boundary(),
             diagnostics=[
@@ -1658,6 +1772,7 @@ def read_source_anchor(
         evidence_ref_id=anchor.evidence_ref_id,
         source_artifact_id=anchor.source_artifact_id,
         source_domain=anchor.source_domain,
+        source_span_ref_id=anchor.source_span_ref_id,
         locator_kind=anchor.locator_kind,
         media_type=read_outcome.media_type,
         content=read_outcome.content,
@@ -1671,10 +1786,12 @@ def read_source_anchor(
 
 
 __all__ = [
+    "AdmittedSourceAnchorMatch",
     "WorldGraphRetrievalError",
     "get_campaign_object",
     "get_object_evidence",
     "get_object_neighborhood",
     "read_source_anchor",
+    "resolve_admitted_anchor_match",
     "search_campaign_graph",
 ]

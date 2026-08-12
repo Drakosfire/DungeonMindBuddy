@@ -145,11 +145,13 @@ from graph_memory.kernel.world_read_runtime import (
     set_last_projection_observation,
 )
 from graph_memory.kernel.world_retrieval import (
+    AdmittedSourceAnchorMatch,
     WorldGraphRetrievalError,
     get_campaign_object,
     get_object_evidence,
     get_object_neighborhood,
     read_source_anchor,
+    resolve_admitted_anchor_match,
     search_campaign_graph,
 )
 from graph_memory.kernel.world_graph import (
@@ -343,10 +345,12 @@ __all__ = [
     "set_last_projection_observation",
     "validate_projection_request_policy",
     # Retrieval + source-anchor admission (PR010A)
+    "AdmittedSourceAnchorMatch",
     "WorldGraphRetrievalError",
     "get_campaign_object",
     "get_object_evidence",
     "get_object_neighborhood",
     "read_source_anchor",
+    "resolve_admitted_anchor_match",
     "search_campaign_graph",
 ]

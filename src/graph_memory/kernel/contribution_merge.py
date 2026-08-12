@@ -416,6 +416,11 @@ def _ensure_evidence(
         payload["source_span_ref_id"] = source_span_ref_id or f"span:{evidence_ref_id}"
     else:
         payload["locator"] = locator or f"contribution/{evidence_ref_id}"
+        # Sessionless worldbuilding evidence must retain the explicit SourceSpan
+        # identity alongside locator (often the same S). Do not invent a span.
+        cleaned_span = str(source_span_ref_id or "").strip()
+        if cleaned_span:
+            payload["source_span_ref_id"] = cleaned_span
     evidence[evidence_ref_id] = UnionSupergraphEvidence.model_validate(payload)
 
 
