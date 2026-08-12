@@ -29,6 +29,7 @@ Persistence: `out/registries/workspace_documents.json`
 | `document_id` | Opaque UUID. Equality-only. Never displayed as the document name. |
 | `title` | Editable human label. May collide. |
 | `campaign_id` | Campaign or world scope. Explicit field, not an ID substring. |
+| `world_id` | Optional exact world tenancy for new worldbuilding sources; null for legacy records. |
 | `target_session` | Optional numeric “prep for Session N” metadata. Optional for worldbuilding sources. |
 | `kind` | `plan`, `runbook`, or `worldbuilding_source`. |
 | `target_relpath` | Optional durable Markdown publish path. Registry-owned. |
@@ -48,9 +49,16 @@ Hard delete is not part of this contract. Discard sets `status=discarded` and ke
 For `kind=worldbuilding_source`:
 
 - Clients **must not** supply `target_relpath` on create or update.
-- The registry assigns `out/workspace/worldbuilding/{document_id}.md`.
-- The Markdown writer accepts only that exact registry-owned path.
-- Unsupported Markdown constructs (tables, HTML, images, thematic breaks) are commit-blocking; prepare returns `writer_ok=false` and commit rejects without mutation.
+- Optional `world_id` on create selects world-scoped tenancy when the world source root already exists.
+- When `world_id` is provided and valid, the registry assigns:
+
+  `corpus/<world_id>-markdown/_dungeonbuddy/sources/<document_id>/source.md`
+
+- When `world_id` is absent, legacy records use `out/workspace/worldbuilding/{document_id}.md` with `world_id=null`.
+- The Markdown writer accepts only the exact registry-owned path for each record.
+- Ordinary authoring blocks unsupported Markdown constructs (tables, HTML, images, thematic breaks); prepare returns `writer_ok=false` and commit rejects without mutation.
+- One-time `write_mode=source_import` preserves exact pasted Markdown for uninitialized worldbuilding sources; after commit, source_import is permanently unavailable for that record.
+- Rename updates title only and never moves `target_relpath`.
 
 Plan and runbook targets retain their existing allowlists.
 
@@ -74,10 +82,10 @@ Markdown writer:
 
 | Method | Path | Body |
 | --- | --- | --- |
-| `POST` | `/tiptap/markdown-write/prepare` | `{ document_id, markdown, expected_revision? }` |
-| `POST` | `/tiptap/markdown-write/commit` | `{ document_id, markdown, writer_confirm_token, expected_revision? }` |
+| `POST` | `/tiptap/markdown-write/prepare` | `{ document_id, markdown, expected_revision?, write_mode? }` |
+| `POST` | `/tiptap/markdown-write/commit` | `{ document_id, markdown, writer_confirm_token, expected_revision?, write_mode? }` |
 
-The writer resolves `title` and `target_relpath` from the registry. Clients must not supply them. Discarded documents and documents without `target_relpath` cannot be written. Confirm tokens bind `document_id + registry_revision + relpath + content + file_state`.
+`write_mode` is `"authoring"` (default when omitted) or `"source_import"` (one-time lossless initialization for empty worldbuilding sources). Confirm tokens bind `document_id + registry_revision + relpath + content + file_state + write_mode`.
 
 ---
 
