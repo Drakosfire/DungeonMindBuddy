@@ -8,14 +8,14 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
 
-## [DOING] Intentional Build document context via Surface Context — captured 2026-08-10, dispatched 2026-08-10
-**Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-context.md` (branch `agent/dogfood-polish-build-document-context`, base main after PR #551).
-**Depends on:** PR #551 Surface Context Host + World Graph chrome (merged).
-**Context:** Build still silent-creates Untitled worldbuilding sources on bare `/build`; Plan already publishes PREP into SurfaceContextHost. Build must be the second adopter with intentional load/create/switch.
-**Insight:** Opening Build must be read-only for document creation until New source; exact opaque documentId is identity; host stays generic.
-**Action:** Retire bare auto-create; Build DOCUMENT module + controller (resolve-before-navigate, shared create controller); MarkdownCanvas hideReadyHeader; falsify empty entry 0 POSTs + switch/history/create proofs.
-**Surfaces when:** Build Surface Context, DOCUMENT, Untitled worldbuilding source, bare /build auto-create, PR #551, MarkdownCanvas header
-**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-context.md`; `apps/live-control-ui/src/buildSurface/`
+## [DOING] Revision-safe Build document rename — captured 2026-08-11, dispatched 2026-08-11
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-rename.md` (branch `agent/dogfood-polish-build-document-rename`, base main after PR #558 `53424b6d`).
+**Depends on:** PR #558 Build document context campaign authority + single-lane admit (merged).
+**Context:** Durable Build sources need useful identity labels after creation; metadata PATCH advances the same registry revision used by Markdown CAS, so a naive rename would poison the next Save.
+**Insight:** Rename is a metadata-only revision rebase on the live MarkdownCanvasSession — same documentId/body/digest/dirty; expected_revision must come from Canvas, never controller preflight.
+**Action:** DOCUMENT Rename control → session.updateDocumentMetadata → adoptMetadataUpdate; move loaded BuildSurfaceContext inside Canvas provider; remove authoringStatusLabel mirror; prove dirty rename → Save → hard reopen.
+**Surfaces when:** Build rename, document.metadata.update, metadata-only rebase, Unsaved changes rename, DOCUMENT Surface Context, PR #558
+**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-rename.md`; `apps/live-control-ui/src/buildSurface/`; `apps/live-control-ui/src/markdownCanvas/`; `apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.ts`
 
 ## [DOING] Decouple Plan session affinity from draft storage (multi-prep) — captured 2026-08-10, dispatched 2026-08-10
 **Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md` (branch `agent/dogfood-polish-plan-session-affinity-workspace-drafts`, base PR #543 merge `b8e4dd21`). Design: Shape B — every Create New Prep gets server-owned `out/workspace/plan/<documentId>.md`; `target_session` is affinity only.
@@ -47,13 +47,13 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Refs:** `Docs/Design/DESIGN-authored-threat-statblock-domain-contract.md` §9–§10; `Docs/Plans/HANDOFF-STATBLOCK-ux-ui-world-object-reboot.md`; `LandingPage/src/styles/StatblockComponents.css`; `apps/live-control-ui/src/tiptap/tiptapSpike.css`
 
 ## [READY] Build Plan-parity chrome after composition — captured 2026-08-05
-**Note:** Untitled/auto-create on bare `/build` is addressed by DOING *Intentional Build document context*; graph-insert/Statblock remain successors.
+**Note:** Untitled/auto-create on bare `/build` addressed by DONE *Intentional Build document context* (#556/#558). Document rename is DOING (*Revision-safe Build document rename*). Graph-insert is present; Statblock/tool parity remain successors.
 **Context:** PR #507 Build workspace composition dogfood: Canvas-first bare `/build` passed (create → edit → Save → reload → Find Existing → ANything). Operator then reported the authoring chrome still feels empty vs Plan: cannot load/insert node chips; Edit/Tools inventories thin; wants Save/Load on a top bar like Plan; Tools should include Statblock generator. Follow-up review: every auto-created source is named “Untitled worldbuilding source” and the Canvas title is display-only — no rename/metadata-edit path after the form was removed.
 **Insight:** Composition (Canvas + hosts exist) is not Plan-parity authoring UX. Build currently publishes only Document→Save into Edit Host and Find Existing into Tool Host. Plan publishes rich Edit toolbar (lock, World Graph object search/insert chips, callouts, Copy Markdown, Save) plus Tools `{recap, party-registry, statblock}` and chip runtime on the canvas. Graph-reference insert/save/reload/reopen is already the named #507 successor; Statblock-on-Build and a visible top Save/Reload/Discard bar are additional product slices. Untitled-only identity makes repeated Canvas-first entry produce indistinguishable durable sources.
-**Action:** After #507 merges, sequence successors: (1) `BUILD: insert exact World Graph reference into Canvas` (chips); (2) Build canvas heading bar with Save / Reload / Discard **and document rename / light metadata edit** (title at minimum); (3) publish Statblock (and any other Plan tools Build should share) into Tool Host without forking Plan ownership. Do not fold these into the composition PR’s merge gate.
+**Action:** After #507 merges, sequence successors: (1) `BUILD: insert exact World Graph reference into Canvas` (chips) — present; (2) document rename / light metadata — DOING handoff; (3) publish Statblock (and any other Plan tools Build should share) into Tool Host without forking Plan ownership. Do not fold these into the composition PR’s merge gate.
 **Surfaces when:** Build Tools empty, Edit only Save, node chips, graph reference insert, Save Load top bar, Plan parity, Statblock on Build, Untitled worldbuilding source, rename document, PR #507, HANDOFF-BUILD-build-workspace-composition
 **Refs:** `Docs/Plans/HANDOFF-BUILD-build-workspace-composition.md` (named successor + out of scope); `PlanSurfaceCanvas.tsx` toolbarModel; `planSurfaceConfig.ts` tools; `buildBuildSurfaceInteractionPublication.ts`; `MarkdownCanvas.tsx` Reload/Discard
-
+**Refs (rename):** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-rename.md`
 ## [READY] MAGIC-D3: Threat glance/Hermes must be campaign-fun, not metadata — captured 2026-08-04, enriched 2026-08-05
 **Context:** MAGIC-D3 dogfood after governed Threat publish of “ANything” (2026-08-04) and preferred **Mireward Latchling** (2026-08-05). Workbench Publish → durable Threat → Plan insert + Hermes rediscovery works. Hover still useless metadata. 2026-08-05: navigating away from Plan appears to **restart full graph loading**; Plan load and Hermes agent loop both feel far too slow; operator wants agent-loop UX feedback while waiting. Hermes does find Latchling once the loop completes.
 **Insight:** Publication correctness is not product success. SBW10a/b proved exact hydration/projection contracts, but the default GM surfaces still speak engineering provenance. Campaign-facing glance and Hermes prose should lead with encounter usefulness; digests/IDs belong in inspect/trace. Latency is first-class: cold Plan graph load, reload-on-navigate, publication confirm, and Hermes turn silence are all product failures even when answers are correct. Presentation work is mostly **port + compose** existing parchment/PHB styling onto Threat Sheet / Hermes embed cards, not a greenfield design.

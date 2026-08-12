@@ -131,6 +131,13 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
     spec: DocumentCommandSpec,
     execute: (ctx: DocumentCommandExecuteContext) => Promise<T>,
   ) => Promise<DocumentCommandResult<T>>;
+  /**
+   * CAS-bound metadata PATCH (title today) followed by metadata-only revision rebase.
+   * Uses command id {@link DOCUMENT_METADATA_UPDATE_COMMAND_ID}.
+   */
+  updateDocumentMetadata: (patch: {
+    title: string;
+  }) => Promise<DocumentCommandResult<WorkspaceDocumentRecord>>;
 }
 
 export interface MarkdownCanvasSessionProviderProps {
@@ -151,3 +158,6 @@ export interface MarkdownCanvasSessionProviderProps {
 
 /** Generic document-save command id owned by the canvas session. */
 export const DOCUMENT_SAVE_COMMAND_ID = "document.save";
+
+/** Generic document-metadata update command id owned by the canvas session. */
+export const DOCUMENT_METADATA_UPDATE_COMMAND_ID = "document.metadata.update";

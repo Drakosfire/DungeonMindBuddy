@@ -71,6 +71,36 @@
   margin: 0;
 }
 
+.build-document-rename--context .build-document-rename__form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.build-document-rename--context .build-document-rename__field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.build-document-rename--context .build-document-rename__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.build-document-rename__field input {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 6px;
+  background: rgba(18, 20, 26, 0.85);
+  color: var(--fg, #e8eaef);
+}
+
+.build-document-rename__error {
+  color: #f7768e;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .build-surface-with-graph-context {
   width: min(960px, calc(100% - 2rem));
   margin: 0 auto;

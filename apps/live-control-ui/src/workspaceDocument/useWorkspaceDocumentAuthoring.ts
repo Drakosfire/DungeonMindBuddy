@@ -95,7 +95,20 @@ export interface WorkspaceDocumentAuthoringValue {
   reimportFromAuthoritativeMarkdown: () => void;
   reloadFromSnapshot: () => Promise<void>;
   discardLocalDraft: () => Promise<void>;
+  /**
+   * Adopt a successful metadata-only server mutation (e.g. title PATCH) without
+   * remounting the editor or changing body/digest/dirty. Fail closed on identity
+   * or revision invariant violations.
+   */
+  adoptMetadataUpdate: (args: {
+    previousRevision: number;
+    record: WorkspaceDocumentRecord;
+  }) => AdoptMetadataUpdateResult;
 }
+
+export type AdoptMetadataUpdateResult =
+  | { ok: true; record: WorkspaceDocumentRecord }
+  | { ok: false; reason: string };
 
 const ACCEPTED_RECORD_PHASES = new Set<WorkspaceDocumentAuthoringPhase>([
   "ready_clean",
@@ -578,6 +591,83 @@ export function useWorkspaceDocumentAuthoring(
     await openFromSnapshot();
   }, [dispatch, openFromSnapshot]);
 
+  const adoptMetadataUpdate = useCallback((update: {
+    previousRevision: number;
+    record: WorkspaceDocumentRecord;
+  }): AdoptMetadataUpdateResult => {
+    const snap = snapshotRef.current;
+    const current = localStateRef.current;
+    if (!snap || !current) {
+      return { ok: false, reason: "No admitted snapshot for metadata adoption." };
+    }
+    if (
+      update.record.document_id !== args.documentId
+      || update.record.document_id !== snap.record.document_id
+      || update.record.document_id !== current.document_id
+    ) {
+      return { ok: false, reason: "Metadata response document identity mismatch." };
+    }
+    if (snap.loaded_revision !== update.previousRevision) {
+      return {
+        ok: false,
+        reason: `Metadata adoption launched from revision ${update.previousRevision}, snapshot is ${snap.loaded_revision}.`,
+      };
+    }
+    if (current.base_revision !== update.previousRevision) {
+      return {
+        ok: false,
+        reason: `Metadata adoption launched from revision ${update.previousRevision}, local base is ${current.base_revision}.`,
+      };
+    }
+    if (update.record.revision !== update.previousRevision + 1) {
+      return {
+        ok: false,
+        reason: `Expected metadata successor revision ${update.previousRevision + 1}, got ${update.record.revision}.`,
+      };
+    }
+    if (update.record.kind !== args.kind) {
+      return { ok: false, reason: "Metadata response kind is not admissible for this session." };
+    }
+    if (update.record.status !== "active") {
+      return { ok: false, reason: "Metadata response status is not admissible for this session." };
+    }
+
+    const now = new Date().toISOString();
+    const nextSnapshot: WorkspaceDocumentSnapshot = {
+      ...snap,
+      record: update.record,
+      loaded_revision: update.record.revision,
+      // Body / digest / file identity deliberately unchanged.
+      markdown: snap.markdown,
+      content_sha256: snap.content_sha256,
+      file_fingerprint: snap.file_fingerprint,
+      file_exists: snap.file_exists,
+    };
+    const nextLocal: WorkspaceDocumentLocalState = {
+      ...current,
+      title: update.record.title,
+      base_revision: update.record.revision,
+      // Digest, dirty, TipTap JSON, exported markdown, and authority bit unchanged.
+      base_content_sha256: current.base_content_sha256,
+      dirty: current.dirty,
+      tiptap_json: current.tiptap_json,
+      exported_markdown: current.exported_markdown,
+      exported_markdown_authoritative: current.exported_markdown_authoritative,
+      updated_at: now,
+      last_local_save_at: now,
+    };
+
+    expectedRevisionRef.current = update.record.revision;
+    snapshotRef.current = nextSnapshot;
+    localStateRef.current = nextLocal;
+    localDirtyRef.current = nextLocal.dirty;
+    setSnapshot(nextSnapshot);
+    setLocalState(nextLocal);
+    writeWorkspaceDocumentLocalState(storage, nextLocal);
+    // documentKey intentionally unchanged — TipTap must not remount.
+    return { ok: true, record: update.record };
+  }, [args.documentId, args.kind, storage]);
+
   const dirty = localState?.dirty ?? false;
   const localAdmission = useMemo<WorkspaceDocumentLocalAdmission | null>(() => {
     if (!localState) return null;
@@ -645,5 +735,6 @@ export function useWorkspaceDocumentAuthoring(
     reimportFromAuthoritativeMarkdown,
     reloadFromSnapshot,
     discardLocalDraft,
+    adoptMetadataUpdate,
   };
 }

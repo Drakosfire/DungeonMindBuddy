@@ -7,6 +7,15 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Intentional Build document context via Surface Context — captured 2026-08-10, done 2026-08-11
+**Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-context.md`; corrective follow-up PR #558.
+**Context:** Build silent-created Untitled worldbuilding sources on bare `/build`; needed DOCUMENT Surface Context adopter.
+**Insight:** Exact opaque documentId is identity; host stays generic; create choices must track admissible Build scope, not harden known-entry IDs into a create allowlist.
+**Action:** Retired bare auto-create; Build DOCUMENT module + controller; campaign create from admissible scope; single-lane Canvas admission; owning proofs.
+**Surfaces when:** Build Surface Context, DOCUMENT, bare /build auto-create, PR #556, PR #558
+**Refs:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-context.md`; PRs #556, #558
+**Outcome:** Merged as PR #556 + corrective #558 (`53424b6dfcc4aab46fe53cab9496ba5ef9845df4`). Successor: revision-safe Build document rename.
+
 ## [DONE] Surface context layer + global World Graph status — captured 2026-08-10, done 2026-08-10
 **Dispatched:** `Docs/Plans/HANDOFF-BUILD-surface-context-layer-foundation.md` on `agent/surface-context-layer-foundation`.
 **Context:** Prep selector floated above Canvas; graph strip Plan+Build-only.

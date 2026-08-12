@@ -15,7 +15,6 @@ export function BuildSurfacePage() {
 
   return (
     <AppChrome activeRoute="build">
-      <BuildSurfaceContext {...controller} />
       {controller.activeDocumentId ? (
         <MarkdownCanvasSessionProvider
           key={controller.activeDocumentId}
@@ -24,15 +23,15 @@ export function BuildSurfacePage() {
           kind={BUILD_MARKDOWN_CANVAS.kind}
           saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
         >
+          <BuildSurfaceContext {...controller} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
             <BuildIngestToolbar documentId={controller.activeDocumentId} />
-            <BuildSurfaceShell
-              onAuthoringStatusChange={controller.setAuthoringStatusLabel}
-            />
+            <BuildSurfaceShell />
           </BuildReferenceCapability>
         </MarkdownCanvasSessionProvider>
       ) : (
         <>
+          <BuildSurfaceContext {...controller} />
           <main
             className={
               controller.loadStatus === "error"

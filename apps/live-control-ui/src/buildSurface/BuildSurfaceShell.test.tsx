@@ -16,6 +16,7 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { BUILD_AUTHORITY_REJECTION_AMBIENT, BuildSurfaceShell } from "./BuildSurfaceShell";
+import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 
 let buildShellTestEditor: Editor | null = null;
 
@@ -97,11 +98,27 @@ function buildWorldbuildingSnapshot(documentId: string) {
   };
 }
 
+function AuthoringStatusProbe() {
+  const session = useMarkdownCanvasSession();
+  return (
+    <>
+      <span data-testid="build-document-status">{session.statusLabel}</span>
+      <span data-testid="build-authoring-status" hidden>
+        {session.statusLabel}
+      </span>
+      <span data-testid="build-canvas-title" hidden>
+        {session.record?.title ?? ""}
+      </span>
+    </>
+  );
+}
+
 function BuildDocumentHarness({ documentId }: { documentId: string }) {
   return (
     <AgentInteractionProvider>
       <ScopeProbe />
       <BuildCanvasTestProvider documentId={documentId}>
+        <AuthoringStatusProbe />
         <BuildSurfaceShell />
       </BuildCanvasTestProvider>
     </AgentInteractionProvider>
@@ -146,7 +163,10 @@ describe("BuildSurfaceShell", () => {
     render(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <BuildCanvasTestProvider documentId={DOC_ID}>
+          <AuthoringStatusProbe />
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -191,7 +211,10 @@ describe("BuildSurfaceShell", () => {
     render(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <BuildCanvasTestProvider documentId={DOC_ID}>
+          <AuthoringStatusProbe />
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -267,7 +290,10 @@ describe("BuildSurfaceShell", () => {
     const { rerender } = render(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <BuildCanvasTestProvider documentId={DOC_ID}>
+          <AuthoringStatusProbe />
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -282,7 +308,10 @@ describe("BuildSurfaceShell", () => {
     rerender(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildCanvasTestProvider documentId={PLAN_DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <BuildCanvasTestProvider documentId={PLAN_DOC_ID}>
+          <AuthoringStatusProbe />
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -341,7 +370,10 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <BuildCanvasTestProvider documentId={DOC_ID}>
+          <AuthoringStatusProbe />
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -400,12 +432,17 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <BuildCanvasTestProvider documentId={DOC_ID}>
+          <AuthoringStatusProbe />
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
     expect(await screen.findByTestId("build-surface-conflict")).toBeInTheDocument();
-    expect(screen.getByText(/changed while a dirty local draft/i)).toBeInTheDocument();
+    expect(screen.getByTestId("build-surface-conflict")).toHaveTextContent(
+      /changed while a dirty local draft/i,
+    );
   });
 
   it("distinguishes dirty vs committed status labels", async () => {
@@ -453,7 +490,10 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <BuildCanvasTestProvider documentId={DOC_ID}>
+          <AuthoringStatusProbe />
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
