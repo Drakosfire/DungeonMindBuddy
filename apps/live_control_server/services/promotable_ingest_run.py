@@ -82,6 +82,9 @@ class PromotableIngestRun:
     registry_context_graph_path: Path | None = None
     diagnostics: list[str] = field(default_factory=list)
     source_domain: str = "recap"
+    # Exact SourceArtifact world identity for canonical Build ExtractionRuns.
+    # Legacy graph-ingest manifests leave this None; never invent DEFAULT_WORLD_ID.
+    world_id: str | None = None
     # Exact ExtractionRun path: the run-pinned source_span_index component path.
     # Review/prepare must load this URI — never re-derive the registry canonical
     # index from source_artifact_id alone.
@@ -396,6 +399,7 @@ def _resolve_promotable_extraction_run(
         repo, source_path=source_path, source_revision_id=source_revision_id
     )
     run_dir = candidate_path.parent
+    artifact_world_id = (artifact.world_id or "").strip() or None
 
     return PromotableIngestRun(
         run_id=run.run_id,
@@ -416,8 +420,10 @@ def _resolve_promotable_extraction_run(
             "resolved via canonical ExtractionRun registry",
             f"source_domain={run.source_domain}",
             f"session_scope={'null' if not (run.session_id or '').strip() else 'session'}",
+            f"world_id={artifact_world_id or 'null'}",
         ],
         source_domain=(run.source_domain or "worldbuilding").strip() or "worldbuilding",
+        world_id=artifact_world_id,
         source_span_index_path=span_index_path,
     )
 
