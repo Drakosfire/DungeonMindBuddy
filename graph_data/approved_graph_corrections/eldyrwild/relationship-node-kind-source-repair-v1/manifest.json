@@ -1,132 +1,17 @@
 {
- "aspect_splits": [
+ "base_graph_payload_sha256": "2632870ef70638969503de788cfdec97acd490875deff3e2630ac91dc96fe974",
+ "base_revision_id": "rev:5a7c13ae45c49a65b402920499be72ed",
+ "canonical_payload_sha256": "452341b9ef46f00d0596c2100d876fae7998315a405da161717ed7b377483ca7",
+ "deferred_dual_sense_stops": [
   {
-   "admissibility_after": [
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
-     "mapped_dm_term": "dnd5e:leads",
-     "note": "explicit adapter dnd5e:leads",
-     "predicate": "leads",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:headmaster_tinkerbright",
-     "target_kind": "faction",
-     "target_node_id": "faction:wizard_college"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:thalia:travels_to:loc:wizard_college",
-     "mapped_dm_term": "dnd5e:travels_to",
-     "note": "explicit adapter dnd5e:travels_to",
-     "predicate": "travels_to",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:thalia",
-     "target_kind": "location",
-     "target_node_id": "loc:wizard_college"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:torbin:travels_to:loc:wizard_college",
-     "mapped_dm_term": "dnd5e:travels_to",
-     "note": "explicit adapter dnd5e:travels_to",
-     "predicate": "travels_to",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:torbin",
-     "target_kind": "location",
-     "target_node_id": "loc:wizard_college"
-    },
-    {
-     "blocker": "RELATIONSHIP_PREDICATE",
-     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
-     "disposition": "ENDPOINT_ADMISSION_GAP",
-     "edge_id": "edge:loc:wizard_college:within:node:city_mirathorn",
-     "mapped_dm_term": "dnd5e:located_in",
-     "note": "within→dnd5e:located_in endpoint kinds dnd5e:location/dnd5e:party not admitted",
-     "predicate": "within",
-     "reverse_endpoints": false,
-     "source_kind": "location",
-     "source_node_id": "loc:wizard_college",
-     "target_kind": "party",
-     "target_node_id": "node:city_mirathorn"
-    }
+   "current_kind": "location",
+   "deferred_edge_ids": [
+    "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
    ],
-   "admissibility_before": [
-    {
-     "blocker": "RELATIONSHIP_PREDICATE",
-     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
-     "disposition": "ENDPOINT_ADMISSION_GAP",
-     "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
-     "mapped_dm_term": "dnd5e:leads",
-     "note": "leads→dnd5e:leads endpoint kinds dnd5e:npc/dnd5e:location not admitted",
-     "predicate": "leads",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:headmaster_tinkerbright",
-     "target_kind": "location",
-     "target_node_id": "loc:wizard_college"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:thalia:travels_to:loc:wizard_college",
-     "mapped_dm_term": "dnd5e:travels_to",
-     "note": "explicit adapter dnd5e:travels_to",
-     "predicate": "travels_to",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:thalia",
-     "target_kind": "location",
-     "target_node_id": "loc:wizard_college"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:torbin:travels_to:loc:wizard_college",
-     "mapped_dm_term": "dnd5e:travels_to",
-     "note": "explicit adapter dnd5e:travels_to",
-     "predicate": "travels_to",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:torbin",
-     "target_kind": "location",
-     "target_node_id": "loc:wizard_college"
-    },
-    {
-     "blocker": "RELATIONSHIP_PREDICATE",
-     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
-     "disposition": "ENDPOINT_ADMISSION_GAP",
-     "edge_id": "edge:loc:wizard_college:within:node:city_mirathorn",
-     "mapped_dm_term": "dnd5e:located_in",
-     "note": "within→dnd5e:located_in endpoint kinds dnd5e:location/dnd5e:party not admitted",
-     "predicate": "within",
-     "reverse_endpoints": false,
-     "source_kind": "location",
-     "source_node_id": "loc:wizard_college",
-     "target_kind": "party",
-     "target_node_id": "node:city_mirathorn"
-    }
-   ],
-   "aspect_kind": "faction",
-   "aspect_label": "Wizard's College (organization)",
-   "aspect_node_id": "faction:wizard_college",
-   "edges_retained_on_source": [
-    "edge:loc:wizard_college:within:node:city_mirathorn",
+   "node_id": "loc:wizard_college",
+   "retained_effective_edge_ids": [
     "edge:node:thalia:travels_to:loc:wizard_college",
     "edge:node:torbin:travels_to:loc:wizard_college"
-   ],
-   "edges_rewired_to_aspect": [
-    "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
    ],
    "source_artifact_ids": [
     "artifact:recap:longmont-c1:session-11"
@@ -137,8 +22,6 @@
    "source_contribution_payload_sha256": {
     "contribution:97f5ef69b6c6d14e": "b2f1ebea3b7bf0b495978f9abaab5a7c20450827d2df2b4e306a9c8d5914e349"
    },
-   "source_node_id": "loc:wizard_college",
-   "source_retained_kind": "location",
    "source_seals": [
     {
      "all_evidence_excerpt_sha256s": [
@@ -170,113 +53,63 @@
      "source_span_ref_id": "session-11:recap:paragraph:008"
     }
    ],
-   "split_basis": {
+   "stop_basis": {
+    "candidate_kind": "faction",
     "closure_unit_ids": [
      "closure-unit:051"
     ],
-    "conflict": "dual_sense_source_identity",
-    "kernel_split_identity_insufficient": true,
-    "note": "The sealed source gives the same node two senses: the physical college location and its organized collective led by the headmaster. Kernel split_identity is insufficient because it preserves the source kind and does not rewire selected deferred edges."
+    "deferred_edge_ids": [
+     "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+    ],
+    "kind_only_insufficient": true,
+    "note": "Changing the source to faction admits the headmaster's leads edge, but makes both retained travels_to edges residual because they require a location target. The source therefore has conflicting kind requirements; Stage B must stop.",
+    "proof": {
+     "candidate_kind": "faction",
+     "candidate_remaining_residual_edge_ids": [],
+     "current_kind": "location",
+     "deferred_edge_ids": [
+      "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+     ],
+     "deferred_edges_admitted": true,
+     "effective_conformance_path": "private_injectable_owner_boundary",
+     "kind_only_insufficient": true,
+     "node_id": "loc:wizard_college",
+     "retained_edges_residual_under_candidate": [
+      "edge:node:thalia:travels_to:loc:wizard_college",
+      "edge:node:torbin:travels_to:loc:wizard_college"
+     ],
+     "retained_edges_were_effective_on_base": true,
+     "retained_effective_edge_ids": [
+      "edge:node:thalia:travels_to:loc:wizard_college",
+      "edge:node:torbin:travels_to:loc:wizard_college"
+     ]
+    },
+    "retained_effective_edge_ids": [
+     "edge:node:thalia:travels_to:loc:wizard_college",
+     "edge:node:torbin:travels_to:loc:wizard_college"
+    ],
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+      "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+      "source_span_ref_id": "session-11:recap:paragraph:008"
+     }
+    ],
+    "source_rationales": {
+     "edge:node:headmaster_tinkerbright:leads:loc:wizard_college": "Head of the Wizard's College is organizational leadership; college is mistyped as location. Extending leads to locations would confuse path/escort senses."
+    }
    }
   },
   {
-   "admissibility_after": [
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
-     "mapped_dm_term": "dnd5e:participates_in",
-     "note": "explicit adapter dnd5e:participates_in",
-     "predicate": "participates_in",
-     "reverse_endpoints": false,
-     "source_kind": "group",
-     "source_node_id": "node:hempholm_townsfolk",
-     "target_kind": "event",
-     "target_node_id": "event:hempholm_folk_revelry"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
-     "mapped_dm_term": "dnd5e:participates_in",
-     "note": "explicit adapter dnd5e:participates_in",
-     "predicate": "participates_in",
-     "reverse_endpoints": false,
-     "source_kind": "pc",
-     "source_node_id": "pc:caelynn",
-     "target_kind": "event",
-     "target_node_id": "event:hempholm_folk_revelry"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:hempholm_folk_revelry:within:loc:hempholm",
-     "mapped_dm_term": "dnd5e:located_in",
-     "note": "explicit adapter dnd5e:located_in",
-     "predicate": "within",
-     "reverse_endpoints": false,
-     "source_kind": "group",
-     "source_node_id": "node:hempholm_folk_revelry",
-     "target_kind": "location",
-     "target_node_id": "loc:hempholm"
-    }
-   ],
-   "admissibility_before": [
-    {
-     "blocker": "RELATIONSHIP_PREDICATE",
-     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
-     "disposition": "ENDPOINT_ADMISSION_GAP",
-     "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
-     "mapped_dm_term": "dnd5e:participates_in",
-     "note": "participates_in→dnd5e:participates_in endpoint kinds dnd5e:group/dnd5e:group not admitted",
-     "predicate": "participates_in",
-     "reverse_endpoints": false,
-     "source_kind": "group",
-     "source_node_id": "node:hempholm_townsfolk",
-     "target_kind": "group",
-     "target_node_id": "node:hempholm_folk_revelry"
-    },
-    {
-     "blocker": "RELATIONSHIP_PREDICATE",
-     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
-     "disposition": "ENDPOINT_ADMISSION_GAP",
-     "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
-     "mapped_dm_term": "dnd5e:participates_in",
-     "note": "participates_in→dnd5e:participates_in endpoint kinds dnd5e:player_character/dnd5e:group not admitted",
-     "predicate": "participates_in",
-     "reverse_endpoints": false,
-     "source_kind": "pc",
-     "source_node_id": "pc:caelynn",
-     "target_kind": "group",
-     "target_node_id": "node:hempholm_folk_revelry"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:hempholm_folk_revelry:within:loc:hempholm",
-     "mapped_dm_term": "dnd5e:located_in",
-     "note": "explicit adapter dnd5e:located_in",
-     "predicate": "within",
-     "reverse_endpoints": false,
-     "source_kind": "group",
-     "source_node_id": "node:hempholm_folk_revelry",
-     "target_kind": "location",
-     "target_node_id": "loc:hempholm"
-    }
-   ],
-   "aspect_kind": "event",
-   "aspect_label": "Hempholm folk revelry",
-   "aspect_node_id": "event:hempholm_folk_revelry",
-   "edges_retained_on_source": [
-    "edge:node:hempholm_folk_revelry:within:loc:hempholm"
-   ],
-   "edges_rewired_to_aspect": [
+   "current_kind": "group",
+   "deferred_edge_ids": [
     "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
     "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+   ],
+   "node_id": "node:hempholm_folk_revelry",
+   "retained_effective_edge_ids": [
+    "edge:node:hempholm_folk_revelry:within:loc:hempholm"
    ],
    "source_artifact_ids": [
     "artifact:recap:longmont-c1:session-4"
@@ -287,8 +120,6 @@
    "source_contribution_payload_sha256": {
     "contribution:4766ca1187eeeac4": "2a49d8e3e5848bea46217913b6297501a6f8f25a825e89590f0061201717dc4f"
    },
-   "source_node_id": "node:hempholm_folk_revelry",
-   "source_retained_kind": "group",
    "source_seals": [
     {
      "all_evidence_excerpt_sha256s": [
@@ -349,143 +180,71 @@
      "source_span_ref_id": "session-4:recap:paragraph:004"
     }
    ],
-   "split_basis": {
+   "stop_basis": {
+    "candidate_kind": "event",
     "closure_unit_ids": [
      "closure-unit:052",
      "closure-unit:055"
     ],
-    "conflict": "dual_sense_source_identity",
-    "kernel_split_identity_insufficient": true,
-    "note": "The sealed source describes a revelry event attended by townsfolk and Caelynn while the original node label/kind is the revelers group. Preserve the group identity and introduce an event aspect."
+    "deferred_edge_ids": [
+     "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+     "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+    ],
+    "kind_only_insufficient": true,
+    "note": "Changing the source to event admits both participates_in edges, but makes its retained within-to-located_in edge residual because the source must remain a location-compatible group. Stage B must stop.",
+    "proof": {
+     "candidate_kind": "event",
+     "candidate_remaining_residual_edge_ids": [],
+     "current_kind": "group",
+     "deferred_edge_ids": [
+      "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+      "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+     ],
+     "deferred_edges_admitted": true,
+     "effective_conformance_path": "private_injectable_owner_boundary",
+     "kind_only_insufficient": true,
+     "node_id": "node:hempholm_folk_revelry",
+     "retained_edges_residual_under_candidate": [
+      "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+     ],
+     "retained_edges_were_effective_on_base": true,
+     "retained_effective_edge_ids": [
+      "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+     ]
+    },
+    "retained_effective_edge_ids": [
+     "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+    ],
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+      "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+      "source_span_ref_id": "session-4:recap:paragraph:004"
+     },
+     {
+      "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+      "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+      "source_span_ref_id": "session-4:recap:paragraph:004"
+     }
+    ],
+    "source_rationales": {
+     "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry": "Townsfolk gather for revelry; revelry is mistyped as group rather than event/encounter required by participates_in.",
+     "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry": "Caelynn joins festivities; revelry mistyped as group instead of event."
+    }
    }
   },
   {
-   "admissibility_after": [
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
-     "mapped_dm_term": "dnd5e:located_in",
-     "note": "explicit adapter dnd5e:located_in",
-     "predicate": "located_in",
-     "reverse_endpoints": false,
-     "source_kind": "location",
-     "source_node_id": "loc:central-office",
-     "target_kind": "location",
-     "target_node_id": "loc:meat_distribution_site_session9"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
-     "mapped_dm_term": "dnd5e:part_of",
-     "note": "explicit adapter dnd5e:part_of",
-     "predicate": "part_of",
-     "reverse_endpoints": false,
-     "source_kind": "location",
-     "source_node_id": "loc:packing-loading-area",
-     "target_kind": "location",
-     "target_node_id": "loc:meat_distribution_site_session9"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
-     "mapped_dm_term": "dnd5e:leads",
-     "note": "explicit adapter dnd5e:leads",
-     "predicate": "leads",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:captain_blart",
-     "target_kind": "party",
-     "target_node_id": "node:meat_distribution_network_session9"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:lyra:leads:node:meat_distribution_network_session9",
-     "mapped_dm_term": "dnd5e:leads",
-     "note": "explicit adapter dnd5e:leads",
-     "predicate": "leads",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:lyra",
-     "target_kind": "party",
-     "target_node_id": "node:meat_distribution_network_session9"
-    }
-   ],
-   "admissibility_before": [
-    {
-     "blocker": "RELATIONSHIP_PREDICATE",
-     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
-     "disposition": "ENDPOINT_ADMISSION_GAP",
-     "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
-     "mapped_dm_term": "dnd5e:located_in",
-     "note": "located_in→dnd5e:located_in endpoint kinds dnd5e:location/dnd5e:party not admitted",
-     "predicate": "located_in",
-     "reverse_endpoints": false,
-     "source_kind": "location",
-     "source_node_id": "loc:central-office",
-     "target_kind": "party",
-     "target_node_id": "node:meat_distribution_network_session9"
-    },
-    {
-     "blocker": "RELATIONSHIP_PREDICATE",
-     "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
-     "disposition": "ENDPOINT_ADMISSION_GAP",
-     "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
-     "mapped_dm_term": "dnd5e:part_of",
-     "note": "part_of→dnd5e:part_of endpoint kinds dnd5e:location/dnd5e:party not admitted",
-     "predicate": "part_of",
-     "reverse_endpoints": false,
-     "source_kind": "location",
-     "source_node_id": "loc:packing-loading-area",
-     "target_kind": "party",
-     "target_node_id": "node:meat_distribution_network_session9"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
-     "mapped_dm_term": "dnd5e:leads",
-     "note": "explicit adapter dnd5e:leads",
-     "predicate": "leads",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:captain_blart",
-     "target_kind": "party",
-     "target_node_id": "node:meat_distribution_network_session9"
-    },
-    {
-     "blocker": null,
-     "classification": "REPRESENTABLE_BY_EXPLICIT_ADAPTER",
-     "disposition": "EXISTING_EXPLICIT_ADAPTER",
-     "edge_id": "edge:node:lyra:leads:node:meat_distribution_network_session9",
-     "mapped_dm_term": "dnd5e:leads",
-     "note": "explicit adapter dnd5e:leads",
-     "predicate": "leads",
-     "reverse_endpoints": false,
-     "source_kind": "npc",
-     "source_node_id": "node:lyra",
-     "target_kind": "party",
-     "target_node_id": "node:meat_distribution_network_session9"
-    }
-   ],
-   "aspect_kind": "location",
-   "aspect_label": "Meat Distribution Site",
-   "aspect_node_id": "loc:meat_distribution_site_session9",
-   "edges_retained_on_source": [
-    "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
-    "edge:node:lyra:leads:node:meat_distribution_network_session9"
-   ],
-   "edges_rewired_to_aspect": [
+   "current_kind": "party",
+   "deferred_edge_ids": [
     "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
     "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+   ],
+   "node_id": "node:meat_distribution_network_session9",
+   "retained_effective_edge_ids": [
+    "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+    "edge:node:lyra:leads:node:meat_distribution_network_session9"
    ],
    "source_artifact_ids": [
     "artifact:recap:longmont-c1:session-9"
@@ -496,8 +255,6 @@
    "source_contribution_payload_sha256": {
     "contribution:b8d6018f51828276": "fd65d5994fac1668c4b9ea91be039c18a83b952519fe2b517ee62a15df8414bb"
    },
-   "source_node_id": "node:meat_distribution_network_session9",
-   "source_retained_kind": "party",
    "source_seals": [
     {
      "all_evidence_excerpt_sha256s": [
@@ -558,20 +315,65 @@
      "source_span_ref_id": "session-9:recap:paragraph:011"
     }
    ],
-   "split_basis": {
+   "stop_basis": {
+    "candidate_kind": "location",
     "closure_unit_ids": [
      "closure-unit:048",
      "closure-unit:049"
     ],
-    "conflict": "dual_sense_source_identity",
-    "kernel_split_identity_insufficient": true,
-    "note": "The sealed source describes both the meat distribution project as a party/collective led by Blart and Lyra and its physical site. Preserve the party source and introduce a location aspect."
+    "deferred_edge_ids": [
+     "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+     "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+    ],
+    "kind_only_insufficient": true,
+    "note": "Changing the source to location admits both containment edges, but makes the retained leads edges residual because leads requires a party/group/faction target. The source therefore has conflicting kind requirements; Stage B must stop.",
+    "proof": {
+     "candidate_kind": "location",
+     "candidate_remaining_residual_edge_ids": [],
+     "current_kind": "party",
+     "deferred_edge_ids": [
+      "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+      "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+     ],
+     "deferred_edges_admitted": true,
+     "effective_conformance_path": "private_injectable_owner_boundary",
+     "kind_only_insufficient": true,
+     "node_id": "node:meat_distribution_network_session9",
+     "retained_edges_residual_under_candidate": [
+      "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+      "edge:node:lyra:leads:node:meat_distribution_network_session9"
+     ],
+     "retained_edges_were_effective_on_base": true,
+     "retained_effective_edge_ids": [
+      "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+      "edge:node:lyra:leads:node:meat_distribution_network_session9"
+     ]
+    },
+    "retained_effective_edge_ids": [
+     "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+     "edge:node:lyra:leads:node:meat_distribution_network_session9"
+    ],
+    "seal_excerpt_refs": [
+     {
+      "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+      "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+      "source_span_ref_id": "session-9:recap:paragraph:011"
+     },
+     {
+      "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+      "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+      "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+      "source_span_ref_id": "session-9:recap:paragraph:011"
+     }
+    ],
+    "source_rationales": {
+     "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of": "Label 'site of' inverts containment and types the project as party; authored structure is wrong for located_in.",
+     "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9": "Packing area belongs to a logistics site/network mistyped as party; correct kinds before any part_of endpoint work."
+    }
    }
   }
  ],
- "base_graph_payload_sha256": "2632870ef70638969503de788cfdec97acd490875deff3e2630ac91dc96fe974",
- "base_revision_id": "rev:5a7c13ae45c49a65b402920499be72ed",
- "canonical_payload_sha256": "8b7bc61a5e41946256f470cdee86d0d0a44b928efe20f216935a441e2af86698",
  "expected_base_inventory": {
   "represented": 314,
   "residual": 9,
@@ -590,11 +392,18 @@
   "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
  ],
  "expected_projected_inventory": {
-  "represented": 323,
-  "residual": 0,
+  "represented": 318,
+  "residual": 5,
   "semantic": 323,
   "uses_statblock_mechanics": 3
  },
+ "expected_remaining_residual_edge_ids": [
+  "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+  "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+  "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+  "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+  "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+ ],
  "kind_repairs": [
   {
    "admissibility_after": [
@@ -661,6 +470,7 @@
    "source_contribution_payload_sha256": {
     "contribution:4766ca1187eeeac4": "2a49d8e3e5848bea46217913b6297501a6f8f25a825e89590f0061201717dc4f"
    },
+   "source_required_kind": "group",
    "source_seals": [
     {
      "all_evidence_excerpt_sha256s": [
@@ -760,6 +570,7 @@
     "contribution:f1700a77cda5ce95": "c9b77f7861036217d454b2dab9a2fc1bd50d28d1274d9fa4fed23868a03ecd57",
     "contribution:f2fbbf4f7c191d8e": "3a9fa174a6eb59ed0ed7d410b66f48c8fb880c3a04d998b347f12699a5f6f9e8"
    },
+   "source_required_kind": "location",
    "source_seals": [
     {
      "all_evidence_excerpt_sha256s": [
@@ -857,6 +668,7 @@
    "source_contribution_payload_sha256": {
     "contribution:97f5ef69b6c6d14e": "b2f1ebea3b7bf0b495978f9abaab5a7c20450827d2df2b4e306a9c8d5914e349"
    },
+   "source_required_kind": "faction",
    "source_seals": [
     {
      "all_evidence_excerpt_sha256s": [
@@ -956,6 +768,7 @@
     "contribution:f1700a77cda5ce95": "c9b77f7861036217d454b2dab9a2fc1bd50d28d1274d9fa4fed23868a03ecd57",
     "contribution:f2fbbf4f7c191d8e": "3a9fa174a6eb59ed0ed7d410b66f48c8fb880c3a04d998b347f12699a5f6f9e8"
    },
+   "source_required_kind": "location",
    "source_seals": [
     {
      "all_evidence_excerpt_sha256s": [
