@@ -276,6 +276,94 @@ def test_worldbuilding_source_issues_uuid_and_registry_owned_target(root: Path) 
     assert loaded.model_dump() == created.model_dump()
 
 
+def _ensure_eldyrwild_world_root(root: Path) -> None:
+    (root / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
+
+
+def test_worldbuilding_source_with_world_id_derives_managed_corpus_target(root: Path) -> None:
+    _ensure_eldyrwild_world_root(root)
+    created = create_workspace_document(
+        root,
+        title="Hesta's Apothecary",
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        world_id="eldyrwild",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+
+    assert created.world_id == "eldyrwild"
+    assert created.target_relpath == (
+        f"corpus/eldyrwild-markdown/_dungeonbuddy/sources/{created.document_id}/source.md"
+    )
+    loaded = get_workspace_document(root, created.document_id)
+    assert loaded.model_dump() == created.model_dump()
+
+
+def test_worldbuilding_source_rejects_unsafe_world_id(root: Path) -> None:
+    _ensure_eldyrwild_world_root(root)
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        create_workspace_document(
+            root,
+            title="Bad",
+            campaign_id="longmont-c2",
+            kind="worldbuilding_source",
+            world_id="../../tmp",
+            source_domain="worldbuilding",
+            document_class="lore",
+            authority_state="draft",
+            visibility_state="internal",
+        )
+    assert exc_info.value.status_code == 422
+    assert "world_id" in str(exc_info.value)
+
+
+def test_worldbuilding_source_rejects_missing_world_root_without_registry_row(root: Path) -> None:
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        create_workspace_document(
+            root,
+            title="Missing root",
+            campaign_id="longmont-c2",
+            kind="worldbuilding_source",
+            world_id="eldyrwild",
+            source_domain="worldbuilding",
+            document_class="lore",
+            authority_state="draft",
+            visibility_state="internal",
+        )
+    assert exc_info.value.status_code == 422
+    assert "world source root is missing" in str(exc_info.value)
+    assert list_workspace_documents(root, kind="worldbuilding_source") == []
+
+
+def test_worldbuilding_rename_does_not_move_world_scoped_target(root: Path) -> None:
+    _ensure_eldyrwild_world_root(root)
+    created = create_workspace_document(
+        root,
+        title="Original",
+        campaign_id="longmont-c1",
+        kind="worldbuilding_source",
+        world_id="eldyrwild",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    original_target = created.target_relpath
+
+    renamed = update_workspace_document_metadata(
+        root,
+        created.document_id,
+        title="Renamed",
+        expected_revision=1,
+    )
+    assert renamed.title == "Renamed"
+    assert renamed.target_relpath == original_target
+    assert renamed.world_id == "eldyrwild"
+
+
 def test_worldbuilding_source_rejects_client_supplied_target(root: Path) -> None:
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
         create_workspace_document(
