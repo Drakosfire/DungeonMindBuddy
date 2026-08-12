@@ -296,7 +296,7 @@ Every implementation change must be in this table or the bounded test-discovery 
 | Modify | `src/agent/planner_cache.py` | Exclude `_dungeonbuddy` from corpus fingerprint. |
 | Modify | `integrations/hermes/plugins/dungeonbuddy/__init__.py` | Ignore `_dungeonbuddy` in lexical markdown enumeration. |
 | Create/Modify | `tests/test_batch_ingest_managed_source_exclusion.py` | Ingest exclusion proof. |
-| Modify | `tests/test_planner.py` | Manifest/ref exclusion proof. |
+| Modify | `tests/test_planner.py` | Manifest/ref/fingerprint exclusion proofs. |
 | Modify | `tests/test_hermes_dungeonbuddy_plugin.py` | Lexical ignore proof. |
 
 ### Bounded discovery exception — adjacent owning tests only
@@ -525,7 +525,7 @@ Every guarantee is merge-blocking unless explicitly waived by the operator. The 
 | Imported unsupported source cannot be destroyed by later rich-editor Save | Canvas authoring fidelity | regression | `cd apps/live-control-ui && pnpm exec vitest run src/workspaceDocument/useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx` | exported Markdown remains authoritative and Save is blocked; disk/snapshot source unchanged | lossy Save is enabled or source bytes change |
 | Wire types remain compatible | UI API | regression | `cd apps/live-control-ui && pnpm exec vitest run src/api/liveApi.test.ts` | exact fields sent; omitted write mode retains authoring | unrelated API breakage |
 | Managed `_dungeonbuddy` storage is excluded from legacy whole-tree ingest | batch ingest collectors | contract | `uv run pytest tests/test_batch_ingest_managed_source_exclusion.py` | `_dungeonbuddy/sources/.../source.md` absent from collected paths; explicit `--paths-file` managed entries warn and skip | managed draft swept into legacy ingest |
-| Managed `_dungeonbuddy` storage is excluded from planner corpus authority | planner manifest/ref index + fingerprint | contract | `uv run pytest tests/test_planner.py -k dungeonbuddy` | managed path absent from `build_corpus_manifest` / `build_corpus_path_ref_index` | draft source becomes planner-queryable |
+| Managed `_dungeonbuddy` storage is excluded from planner corpus authority | planner manifest/ref index + fingerprint | contract | `uv run pytest tests/test_planner.py -k dungeonbuddy` | managed path absent from `build_corpus_manifest` / `build_corpus_path_ref_index`; `corpus_fingerprint` unchanged when managed Markdown is added/edited and changes when ordinary corpus Markdown changes | draft source becomes planner-queryable or invalidates planner cache |
 | Managed `_dungeonbuddy` storage is ignored by Hermes lexical fallback | Hermes plugin | contract | `uv run pytest tests/test_hermes_dungeonbuddy_plugin.py -k dungeonbuddy` | lexical matches exclude managed storage while ordinary corpus notes still match | draft source appears in lexical search |
 | Type/build integration | UI package | compile/build | `cd apps/live-control-ui && pnpm exec tsc -b && pnpm build` | success | new type/runtime build failure |
 | No hidden path expansion | git diff | scope | `git diff --name-only b466ce8dfebaf88366eee79bad795299103a5b58...HEAD` | only §4 + bounded test exception | production path outside allowlist |

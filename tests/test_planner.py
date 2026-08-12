@@ -19,6 +19,7 @@ from src.agent.planner import (
     merge_planning_turn_details_chain,
     PlanningTurnDetail,
 )
+from src.agent.planner_cache import corpus_fingerprint
 
 
 def test_build_corpus_manifest_excludes_dungeonbuddy_managed_storage(tmp_path: Path) -> None:
@@ -36,6 +37,31 @@ def test_build_corpus_manifest_excludes_dungeonbuddy_managed_storage(tmp_path: P
     assert "_dungeonbuddy/sources/doc-1/source.md" not in rels
     assert "_dungeonbuddy" not in tree
     assert "source.md" not in tree or "notes/visible.md" in tree
+
+
+def test_corpus_fingerprint_excludes_dungeonbuddy_managed_storage(tmp_path: Path) -> None:
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    visible = notes / "visible.md"
+    visible.write_text("# visible\n", encoding="utf-8")
+    managed = tmp_path / "_dungeonbuddy" / "sources" / "doc-1" / "source.md"
+    managed.parent.mkdir(parents=True)
+    managed.write_text("# managed draft v1\n", encoding="utf-8")
+
+    baseline = corpus_fingerprint(tmp_path)
+
+    managed.write_text("# managed draft v2 — should not affect fingerprint\n", encoding="utf-8")
+    assert corpus_fingerprint(tmp_path) == baseline
+
+    (tmp_path / "_dungeonbuddy" / "sources" / "doc-2").mkdir(parents=True)
+    (tmp_path / "_dungeonbuddy" / "sources" / "doc-2" / "source.md").write_text(
+        "# another managed draft\n",
+        encoding="utf-8",
+    )
+    assert corpus_fingerprint(tmp_path) == baseline
+
+    visible.write_text("# visible changed\n", encoding="utf-8")
+    assert corpus_fingerprint(tmp_path) != baseline
 
 
 def test_build_corpus_manifest_simple_tree(tmp_path: Path) -> None:
