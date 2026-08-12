@@ -100,7 +100,21 @@ FIXTURE_RELPATH = (
     "eldyrwild_cutover_reanchor_after_566_v1.json"
 )
 LOCKED_FIXTURE_SHA256 = (
-    "66f13f7c160babf7462a114222d66601bd1144a09ab16b3bcff9878954773923"
+    "012d112f0f5d37745bde6b08ae5d62c3295aff07914cddf44b1b06fe7b7fccfa"
+)
+
+# Named source/provenance families for T14 no-mutation proofs. Assertion support,
+# evidence, and source artifacts live inside revision/contribution payloads, so the
+# revisions + contributions digests cover those durable records without a second tree.
+_SOURCE_AUTHORITY_RELATIVE_PATHS: tuple[tuple[str, str], ...] = (
+    ("head", "head.json"),
+    ("contribution_index", "contribution_index.json"),
+    ("contributions", "contributions"),
+    ("contribution_rebuild", "contribution_rebuild"),
+    ("identity_decision_index", "identity_decision_index.json"),
+    ("identity_decisions", "identity_decisions"),
+    ("initialization", "initialization"),
+    ("revisions", "revisions"),
 )
 
 CutoverDisposition = Literal["CUTOVER_READY", "CUTOVER_NOT_READY"]
@@ -143,6 +157,7 @@ class CutoverWholeWorldReanchorReportV1(BaseModel):
     canonical_view: dict[str, Any]
     migration_projection: dict[str, Any]
     projection_delta: dict[str, Any]
+    blocker_carry_forward: dict[str, Any]
     adoption_seam: DurableAdoptionSeamStatusReport
     cutover_disposition: CutoverDisposition
     next_slice_recommendation: dict[str, Any]
@@ -185,6 +200,32 @@ def _fixture_path(repo: Path | None = None) -> Path:
 
 def _sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def _digest_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    if path.is_file():
+        digest.update(path.read_bytes())
+        return digest.hexdigest()
+    if not path.is_dir():
+        digest.update(b"missing")
+        return digest.hexdigest()
+    for child in sorted(p for p in path.rglob("*") if p.is_file()):
+        rel = child.relative_to(path).as_posix().encode("utf-8")
+        digest.update(rel)
+        digest.update(b"\0")
+        digest.update(child.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def snapshot_source_authority_inventory(root: Path, world_id: str = WORLD_ID) -> dict[str, str]:
+    """Per-family digests for contribution/identity/revision source authority (T14)."""
+    world_root = (root / "graph_memory" / "worlds" / world_id).resolve()
+    return {
+        name: _digest_path(world_root / relative)
+        for name, relative in _SOURCE_AUTHORITY_RELATIVE_PATHS
+    }
 
 
 def _json_bytes(payload: Mapping[str, Any]) -> bytes:
@@ -359,73 +400,245 @@ def _projection_diff(base_store: Any, overlay_store: Any) -> list[str]:
     return sorted(changes)
 
 
-def _blocker_dump(blocker: AdoptionBlocker) -> dict[str, Any]:
-    return blocker.model_dump(mode="json")
+PresenceScope = Literal["canonical_only", "projection_only", "both"]
+BlockingStage = Literal[
+    "adoption_package_construction",
+    "durable_adoption",
+    "shadow_parity",
+    "authority_promotion",
+]
+OwnershipScope = Literal["singular", "cross_repository"]
+
+# CUTOVER-normalized blocking stage for each whole-world blocker class.
+# Dual-sense RELATIONSHIP_PREDICATE is handled specially in _relationship_blocker.
+_BLOCKING_STAGE_BY_CLASS: dict[str, BlockingStage] = {
+    BlockerClass.WORLD_OBJECT_KIND.value: "adoption_package_construction",
+    BlockerClass.ATTRIBUTE_ASSERTION.value: "adoption_package_construction",
+    BlockerClass.EVIDENCE_PROVENANCE.value: "adoption_package_construction",
+    BlockerClass.SOURCE_INTEGRITY.value: "adoption_package_construction",
+    BlockerClass.CAMPAIGN_SCOPE.value: "adoption_package_construction",
+    BlockerClass.VISIBILITY_ADMISSIBILITY.value: "adoption_package_construction",
+    BlockerClass.EPISTEMIC_STATE.value: "adoption_package_construction",
+    BlockerClass.FICTIONAL_TIME.value: "adoption_package_construction",
+    BlockerClass.MECHANICS_ATTACHMENT.value: "adoption_package_construction",
+    BlockerClass.DUNGEONMIND_PROFILE.value: "adoption_package_construction",
+    BlockerClass.DUNGEONMIND_GRAPH_SCHEMA.value: "adoption_package_construction",
+    BlockerClass.RELATIONSHIP_PREDICATE.value: "adoption_package_construction",
+    BlockerClass.IDENTITY_HISTORY.value: "durable_adoption",
+    BlockerClass.CONTRIBUTION_HISTORY.value: "durable_adoption",
+    BlockerClass.DURABLE_ADOPTION_BOUNDARY.value: "durable_adoption",
+    BlockerClass.POSTGRES_ADOPTION.value: "durable_adoption",
+}
+
+_CASE_A_PRIORITY: tuple[str, ...] = (
+    BlockerClass.WORLD_OBJECT_KIND.value,
+    BlockerClass.DUNGEONMIND_PROFILE.value,
+    BlockerClass.DUNGEONMIND_GRAPH_SCHEMA.value,
+    BlockerClass.ATTRIBUTE_ASSERTION.value,
+    BlockerClass.EVIDENCE_PROVENANCE.value,
+    BlockerClass.CAMPAIGN_SCOPE.value,
+    BlockerClass.EPISTEMIC_STATE.value,
+    BlockerClass.FICTIONAL_TIME.value,
+    BlockerClass.VISIBILITY_ADMISSIBILITY.value,
+    BlockerClass.MECHANICS_ATTACHMENT.value,
+    BlockerClass.RELATIONSHIP_PREDICATE.value,
+)
+
+
+def _presence_scope(
+    blocker_class: str,
+    *,
+    canonical_classes: set[str],
+    migration_classes: set[str],
+) -> PresenceScope:
+    in_canonical = blocker_class in canonical_classes
+    in_migration = blocker_class in migration_classes
+    if in_canonical and in_migration:
+        return "both"
+    if in_canonical:
+        return "canonical_only"
+    return "projection_only"
 
 
 def _relationship_blocker(
     *,
     residual_edge_ids: list[str],
     projection: bool,
+    presence_scope: PresenceScope,
 ) -> dict[str, Any]:
     if projection:
         return {
             "blocker_class": BlockerClass.RELATIONSHIP_PREDICATE.value,
             "count": len(residual_edge_ids),
             "examples": residual_edge_ids[:10],
-            "responsible_repo": "DungeonMind",
-            "smallest_next_change": (
-                "Define the governed migration/materialization contract for the "
-                "five dual-sense source objects before any endpoint or identity write."
-            ),
+            "presence_scope": presence_scope,
+            "blocking_stage": "authority_promotion",
             "ownership_scope": "cross_repository",
+            "responsible_repo": None,
             "ownership_note": (
-                "Each STOP needs a Buddy source identity/decomposition decision and "
-                "a DungeonMind adoption/materialization capability; this report "
-                "does not choose either."
+                "Each dual-sense STOP needs a Buddy source identity/decomposition "
+                "decision and a DungeonMind adoption/materialization capability; "
+                "this report does not collapse either owner."
             ),
+            "smallest_next_change": (
+                "Retain the five dual-sense edges as an explicit migration decision "
+                "set; do not schedule live Buddy repair or a singular DM contract "
+                "from this row alone."
+            ),
+            "ledger_disposition": "replaced_by_effective_relationship",
             "relationship_authority": "eldyrwild-relationship-node-kind-source-repair-v1",
         }
     return {
         "blocker_class": BlockerClass.RELATIONSHIP_PREDICATE.value,
         "count": len(residual_edge_ids),
         "examples": residual_edge_ids[:10],
+        "presence_scope": presence_scope,
+        "blocking_stage": "adoption_package_construction",
+        "ownership_scope": "singular",
         "responsible_repo": "DungeonMindBuddy",
+        "ownership_note": "Canonical residual truth is the Buddy source-repair authority.",
         "smallest_next_change": (
             "Keep the nine canonical residuals source-sealed; use only the "
             "verified four-kind migration projection and do not publish it here."
         ),
-        "ownership_scope": "singular",
-        "ownership_note": "Canonical residual truth is the Buddy source-repair authority.",
+        "ledger_disposition": "replaced_by_effective_relationship",
         "relationship_authority": "dmb_dungeonmind_relationship_effective_conformance_v1",
     }
 
 
-def _normalized_blockers(
-    whole_world_report: Any,
+def _normalize_whole_world_blocker(
+    blocker: AdoptionBlocker,
     *,
-    residual_edge_ids: list[str],
-    projection: bool,
-) -> list[dict[str, Any]]:
-    blockers = [
-        _blocker_dump(blocker)
-        for blocker in whole_world_report.blockers
-        if blocker.blocker_class != BlockerClass.RELATIONSHIP_PREDICATE
-    ]
-    blockers.append(
-        _relationship_blocker(
-            residual_edge_ids=residual_edge_ids,
-            projection=projection,
-        )
-    )
+    presence_scope: PresenceScope,
+) -> dict[str, Any]:
+    blocker_class = blocker.blocker_class.value
+    stage = _BLOCKING_STAGE_BY_CLASS.get(blocker_class, "adoption_package_construction")
+    return {
+        "blocker_class": blocker_class,
+        "count": blocker.count,
+        "examples": list(blocker.examples),
+        "presence_scope": presence_scope,
+        "blocking_stage": stage,
+        "ownership_scope": "singular",
+        "responsible_repo": blocker.responsible_repo,
+        "ownership_note": None,
+        "smallest_next_change": blocker.smallest_next_change,
+        "ledger_disposition": "carried",
+    }
+
+
+def _sort_blockers(blockers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(
         blockers,
         key=lambda blocker: (
             blocker["blocker_class"],
-            blocker.get("responsible_repo", ""),
+            blocker.get("responsible_repo") or "",
+            blocker.get("blocking_stage") or "",
             json.dumps(blocker.get("examples", []), sort_keys=True),
         ),
     )
+
+
+def _normalized_blockers_for_view(
+    whole_world_report: Any,
+    *,
+    residual_edge_ids: list[str],
+    projection: bool,
+    canonical_classes: set[str],
+    migration_classes: set[str],
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    for blocker in whole_world_report.blockers:
+        if blocker.blocker_class == BlockerClass.RELATIONSHIP_PREDICATE:
+            continue
+        blocker_class = blocker.blocker_class.value
+        blockers.append(
+            _normalize_whole_world_blocker(
+                blocker,
+                presence_scope=_presence_scope(
+                    blocker_class,
+                    canonical_classes=canonical_classes,
+                    migration_classes=migration_classes,
+                ),
+            )
+        )
+    blockers.append(
+        _relationship_blocker(
+            residual_edge_ids=residual_edge_ids,
+            projection=projection,
+            presence_scope=_presence_scope(
+                BlockerClass.RELATIONSHIP_PREDICATE.value,
+                canonical_classes=canonical_classes,
+                migration_classes=migration_classes,
+            ),
+        )
+    )
+    return _sort_blockers(blockers)
+
+
+def _raw_blocker_classes(whole_world_report: Any) -> set[str]:
+    return {blocker.blocker_class.value for blocker in whole_world_report.blockers}
+
+
+def _blocker_carry_forward(
+    *,
+    canonical_report: Any,
+    migration_report: Any,
+    canonical_blockers: list[dict[str, Any]],
+    migration_blockers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """T11: every original whole-world blocker survives or is explicitly replaced."""
+
+    def _rows(report: Any, ledger: list[dict[str, Any]], view: str) -> list[dict[str, Any]]:
+        ledger_by_class = {row["blocker_class"]: row for row in ledger}
+        rows: list[dict[str, Any]] = []
+        for blocker in report.blockers:
+            blocker_class = blocker.blocker_class.value
+            if blocker_class == BlockerClass.RELATIONSHIP_PREDICATE.value:
+                replacement = ledger_by_class.get(blocker_class)
+                rows.append(
+                    {
+                        "view": view,
+                        "original_blocker_class": blocker_class,
+                        "original_count": blocker.count,
+                        "disposition": "replaced_by_effective_relationship",
+                        "cutover_blocker_class": blocker_class,
+                        "cutover_count": None
+                        if replacement is None
+                        else replacement["count"],
+                    }
+                )
+                continue
+            carried = ledger_by_class.get(blocker_class)
+            if carried is None:
+                raise _fail(
+                    f"whole-world blocker {blocker_class} missing from {view} CUTOVER ledger",
+                    "blocker_carry_forward_loss",
+                )
+            rows.append(
+                {
+                    "view": view,
+                    "original_blocker_class": blocker_class,
+                    "original_count": blocker.count,
+                    "disposition": "carried",
+                    "cutover_blocker_class": carried["blocker_class"],
+                    "cutover_count": carried["count"],
+                }
+            )
+        return rows
+
+    rows = _rows(canonical_report, canonical_blockers, "canonical") + _rows(
+        migration_report, migration_blockers, "migration"
+    )
+    return {
+        "lossless": True,
+        "rows": rows,
+        "non_blocking_operational_classifications": [],
+        "note": (
+            "Raw v4 RELATIONSHIP_PREDICATE rows are replaced by the owning effective "
+            "relationship residual ledger; all other whole-world blockers are carried."
+        ),
+    }
 
 
 def _non_relationship_inventory(whole_world_report: Any) -> dict[str, Any]:
@@ -569,32 +782,153 @@ def _projection_delta(
     }
 
 
+def _package_construction_blockers(
+    blockers: list[dict[str, Any]],
+    *,
+    responsible_repo: str | None = None,
+) -> list[dict[str, Any]]:
+    rows = [
+        blocker
+        for blocker in blockers
+        if blocker.get("blocking_stage") == "adoption_package_construction"
+        and blocker.get("ownership_scope") == "singular"
+    ]
+    if responsible_repo is None:
+        return rows
+    return [blocker for blocker in rows if blocker.get("responsible_repo") == responsible_repo]
+
+
+def _pick_case_a_gap(blockers: list[dict[str, Any]]) -> dict[str, Any]:
+    by_class = {blocker["blocker_class"]: blocker for blocker in blockers}
+    for blocker_class in _CASE_A_PRIORITY:
+        if blocker_class in by_class:
+            return by_class[blocker_class]
+    return sorted(blockers, key=lambda row: row["blocker_class"])[0]
+
+
 def _next_slice_recommendation(blockers: list[dict[str, Any]]) -> dict[str, Any]:
-    classes = {blocker["blocker_class"] for blocker in blockers}
-    if BlockerClass.DURABLE_ADOPTION_BOUNDARY.value in classes:
-        return {
-            "case": "CASE_B",
-            "repository": "DungeonMind",
-            "change": "Add governed existing-world adoption transaction",
-            "basis_blocker_classes": [
-                BlockerClass.DURABLE_ADOPTION_BOUNDARY.value,
-                BlockerClass.POSTGRES_ADOPTION.value,
-            ],
-            "nonclaim": "This report does not claim adoption readiness or CUTOVER completion.",
-        }
-    if BlockerClass.SOURCE_INTEGRITY.value in classes:
+    """Derive Case A/B/C/D from normalized blocker stage/ownership — never hardcode Case B."""
+
+    source_integrity = [
+        blocker
+        for blocker in blockers
+        if blocker["blocker_class"] == BlockerClass.SOURCE_INTEGRITY.value
+        and blocker.get("blocking_stage") == "adoption_package_construction"
+    ]
+    if source_integrity:
         return {
             "case": "CASE_C",
             "repository": "DungeonMindBuddy",
             "change": "Resolve the exact source/provenance integrity blocker in the ledger.",
             "basis_blocker_classes": [BlockerClass.SOURCE_INTEGRITY.value],
+            "basis_blocking_stages": ["adoption_package_construction"],
             "nonclaim": "Do not reopen broad relationship cleanup.",
         }
+
+    dm_package = _package_construction_blockers(
+        blockers, responsible_repo="DungeonMind"
+    )
+    if dm_package:
+        primary = _pick_case_a_gap(dm_package)
+        change = primary["smallest_next_change"]
+        if primary["blocker_class"] == BlockerClass.WORLD_OBJECT_KIND.value:
+            change = (
+                "Admit Buddy kind 'thread' into world-object vocabulary, or publish "
+                "an explicit Buddy→DM kind adapter with ADR "
+                f"(example: {primary['examples'][0]})."
+            )
+        return {
+            "case": "CASE_A",
+            "repository": "DungeonMind",
+            "change": change,
+            "basis_blocker_classes": [primary["blocker_class"]],
+            "basis_blocking_stages": ["adoption_package_construction"],
+            "basis_examples": list(primary.get("examples", [])[:5]),
+            "deferred_durable_adoption_gates": sorted(
+                {
+                    blocker["blocker_class"]
+                    for blocker in blockers
+                    if blocker.get("blocking_stage") == "durable_adoption"
+                }
+            ),
+            "cross_repository_decision_sets": sorted(
+                {
+                    blocker["blocker_class"]
+                    for blocker in blockers
+                    if blocker.get("ownership_scope") == "cross_repository"
+                }
+            ),
+            "nonclaim": (
+                "Case A does not authorize adopting an existing world while semantic "
+                "package-construction gaps remain; dual-sense STOPs stay undecided."
+            ),
+        }
+
+    buddy_package = _package_construction_blockers(
+        blockers, responsible_repo="DungeonMindBuddy"
+    )
+    if buddy_package:
+        primary = sorted(buddy_package, key=lambda row: row["blocker_class"])[0]
+        return {
+            "case": "CASE_C",
+            "repository": "DungeonMindBuddy",
+            "change": primary["smallest_next_change"],
+            "basis_blocker_classes": [primary["blocker_class"]],
+            "basis_blocking_stages": ["adoption_package_construction"],
+            "basis_examples": list(primary.get("examples", [])[:5]),
+            "nonclaim": "Do not reopen broad relationship cleanup.",
+        }
+
+    durable_gates = [
+        blocker
+        for blocker in blockers
+        if blocker.get("blocking_stage") == "durable_adoption"
+        and blocker.get("ownership_scope") == "singular"
+        and blocker.get("responsible_repo") == "DungeonMind"
+    ]
+    adoption_boundary = any(
+        blocker["blocker_class"] == BlockerClass.DURABLE_ADOPTION_BOUNDARY.value
+        for blocker in durable_gates
+    )
+    if adoption_boundary:
+        return {
+            "case": "CASE_B",
+            "repository": "DungeonMind",
+            "change": "Add governed existing-world adoption transaction",
+            "basis_blocker_classes": sorted(
+                {blocker["blocker_class"] for blocker in durable_gates}
+            ),
+            "basis_blocking_stages": ["durable_adoption"],
+            "nonclaim": (
+                "Case B is valid only because adoption-package construction is already "
+                "expressible; this report still does not claim CUTOVER completion."
+            ),
+        }
+
+    if not blockers:
+        return {
+            "case": "CASE_D",
+            "repository": "DungeonMindBuddy",
+            "change": (
+                "Dispatch a separate shadow-adoption/readiness proof; "
+                "do not switch product authority here."
+            ),
+            "basis_blocker_classes": [],
+            "basis_blocking_stages": [],
+            "nonclaim": "No adoption blockers remain in this ledger.",
+        }
+
     return {
         "case": "CASE_A",
         "repository": "DungeonMind",
         "change": "Dispatch the narrowest remaining contract gap from the ledger.",
-        "basis_blocker_classes": sorted(classes),
+        "basis_blocker_classes": sorted({blocker["blocker_class"] for blocker in blockers}),
+        "basis_blocking_stages": sorted(
+            {
+                blocker.get("blocking_stage") or "adoption_package_construction"
+                for blocker in blockers
+            }
+        ),
         "nonclaim": "Do not claim CUTOVER readiness from relationship counts.",
     }
 
@@ -608,6 +942,7 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldReanchorReportV1
         )
 
     head_before, manifest, base_store, tree_before = _open_exact_canonical(root)
+    source_before = snapshot_source_authority_inventory(root)
     canonical_v4 = whole_world_v4._analyze_loaded_buddy_world_store_v4(
         root=root,
         world_id=WORLD_ID,
@@ -664,23 +999,44 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldReanchorReportV1
         raise _fail("migration proof residual set mismatch", "migration_residual_mismatch")
 
     adoption_seam = whole_world_v4.inspect_dungeonmind_durable_adoption_seam()
+    canonical_classes = _raw_blocker_classes(canonical_v4)
+    migration_classes = _raw_blocker_classes(overlay_v4)
+    # Effective relationship residual always contributes RELATIONSHIP_PREDICATE.
+    canonical_classes = set(canonical_classes) | {
+        BlockerClass.RELATIONSHIP_PREDICATE.value
+    }
+    migration_classes = set(migration_classes) | {
+        BlockerClass.RELATIONSHIP_PREDICATE.value
+    }
+    canonical_blockers = _normalized_blockers_for_view(
+        canonical_v4,
+        residual_edge_ids=canonical_relationship["residual_edge_ids"],
+        projection=False,
+        canonical_classes=canonical_classes,
+        migration_classes=migration_classes,
+    )
+    migration_blockers = _normalized_blockers_for_view(
+        overlay_v4,
+        residual_edge_ids=migration_relationship["residual_edge_ids"],
+        projection=True,
+        canonical_classes=canonical_classes,
+        migration_classes=migration_classes,
+    )
+    carry_forward = _blocker_carry_forward(
+        canonical_report=canonical_v4,
+        migration_report=overlay_v4,
+        canonical_blockers=canonical_blockers,
+        migration_blockers=migration_blockers,
+    )
     canonical_view = _view(
         whole_world_report=canonical_v4,
         relationship_inventory=canonical_relationship,
-        blockers=_normalized_blockers(
-            canonical_v4,
-            residual_edge_ids=canonical_relationship["residual_edge_ids"],
-            projection=False,
-        ),
+        blockers=canonical_blockers,
     )
     migration_view = _view(
         whole_world_report=overlay_v4,
         relationship_inventory=migration_relationship,
-        blockers=_normalized_blockers(
-            overlay_v4,
-            residual_edge_ids=migration_relationship["residual_edge_ids"],
-            projection=True,
-        ),
+        blockers=migration_blockers,
     )
     projection_delta = _projection_delta(
         canonical_view,
@@ -693,6 +1049,8 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldReanchorReportV1
         "migration_relationship_authority:prove_isolated_repair_effect",
         "overlay_manifest_payload_sha_reflects_canonical_pin_for_domain_matching",
         "raw_v4_relationship_predicate_blockers_replaced_by_owning_ledgers",
+        "next_slice_derived_from_normalized_blocker_stages",
+        "historical_effective_conformance_suite_superseded_by_cutover_owned_proofs",
     ]
     report = CutoverWholeWorldReanchorReportV1(
         buddy_repository_base_sha=BUDDY_BASE_SHA,
@@ -715,6 +1073,7 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldReanchorReportV1
         canonical_view=canonical_view,
         migration_projection=migration_view,
         projection_delta=projection_delta,
+        blocker_carry_forward=carry_forward,
         adoption_seam=adoption_seam,
         cutover_disposition="CUTOVER_NOT_READY",
         next_slice_recommendation=_next_slice_recommendation(migration_view["blockers"]),
@@ -724,8 +1083,14 @@ def _compose_report(root: Path, repo: Path) -> CutoverWholeWorldReanchorReportV1
 
     head_after = kernel.open_world_graph_head(root, WORLD_ID)
     tree_after = snapshot_world_graph_tree_digest(root, WORLD_ID)
+    source_after = snapshot_source_authority_inventory(root)
     if head_after.head_revision_id != head_before.head_revision_id or tree_after != tree_before:
         raise _fail("CUTOVER analysis mutated the World Graph", "world_graph_mutated")
+    if source_after != source_before:
+        raise _fail(
+            "CUTOVER analysis mutated source/provenance authority families",
+            "source_authority_mutated",
+        )
     return report
 
 

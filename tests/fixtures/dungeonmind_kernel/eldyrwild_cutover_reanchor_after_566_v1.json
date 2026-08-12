@@ -10,6 +10,141 @@
       "rollback_head"
     ]
   },
+  "blocker_carry_forward": {
+    "lossless": true,
+    "non_blocking_operational_classifications": [],
+    "note": "Raw v4 RELATIONSHIP_PREDICATE rows are replaced by the owning effective relationship residual ledger; all other whole-world blockers are carried.",
+    "rows": [
+      {
+        "cutover_blocker_class": "ATTRIBUTE_ASSERTION",
+        "cutover_count": 29,
+        "disposition": "carried",
+        "original_blocker_class": "ATTRIBUTE_ASSERTION",
+        "original_count": 29,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "CONTRIBUTION_HISTORY",
+        "cutover_count": 5285,
+        "disposition": "carried",
+        "original_blocker_class": "CONTRIBUTION_HISTORY",
+        "original_count": 5285,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "cutover_count": 1,
+        "disposition": "carried",
+        "original_blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "original_count": 1,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "EVIDENCE_PROVENANCE",
+        "cutover_count": 8,
+        "disposition": "carried",
+        "original_blocker_class": "EVIDENCE_PROVENANCE",
+        "original_count": 8,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "IDENTITY_HISTORY",
+        "cutover_count": 14,
+        "disposition": "carried",
+        "original_blocker_class": "IDENTITY_HISTORY",
+        "original_count": 14,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "POSTGRES_ADOPTION",
+        "cutover_count": 1,
+        "disposition": "carried",
+        "original_blocker_class": "POSTGRES_ADOPTION",
+        "original_count": 1,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "RELATIONSHIP_PREDICATE",
+        "cutover_count": 9,
+        "disposition": "replaced_by_effective_relationship",
+        "original_blocker_class": "RELATIONSHIP_PREDICATE",
+        "original_count": 15,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "WORLD_OBJECT_KIND",
+        "cutover_count": 1,
+        "disposition": "carried",
+        "original_blocker_class": "WORLD_OBJECT_KIND",
+        "original_count": 1,
+        "view": "canonical"
+      },
+      {
+        "cutover_blocker_class": "ATTRIBUTE_ASSERTION",
+        "cutover_count": 29,
+        "disposition": "carried",
+        "original_blocker_class": "ATTRIBUTE_ASSERTION",
+        "original_count": 29,
+        "view": "migration"
+      },
+      {
+        "cutover_blocker_class": "CONTRIBUTION_HISTORY",
+        "cutover_count": 5285,
+        "disposition": "carried",
+        "original_blocker_class": "CONTRIBUTION_HISTORY",
+        "original_count": 5285,
+        "view": "migration"
+      },
+      {
+        "cutover_blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "cutover_count": 1,
+        "disposition": "carried",
+        "original_blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "original_count": 1,
+        "view": "migration"
+      },
+      {
+        "cutover_blocker_class": "EVIDENCE_PROVENANCE",
+        "cutover_count": 8,
+        "disposition": "carried",
+        "original_blocker_class": "EVIDENCE_PROVENANCE",
+        "original_count": 8,
+        "view": "migration"
+      },
+      {
+        "cutover_blocker_class": "IDENTITY_HISTORY",
+        "cutover_count": 14,
+        "disposition": "carried",
+        "original_blocker_class": "IDENTITY_HISTORY",
+        "original_count": 14,
+        "view": "migration"
+      },
+      {
+        "cutover_blocker_class": "POSTGRES_ADOPTION",
+        "cutover_count": 1,
+        "disposition": "carried",
+        "original_blocker_class": "POSTGRES_ADOPTION",
+        "original_count": 1,
+        "view": "migration"
+      },
+      {
+        "cutover_blocker_class": "RELATIONSHIP_PREDICATE",
+        "cutover_count": 5,
+        "disposition": "replaced_by_effective_relationship",
+        "original_blocker_class": "RELATIONSHIP_PREDICATE",
+        "original_count": 11,
+        "view": "migration"
+      },
+      {
+        "cutover_blocker_class": "WORLD_OBJECT_KIND",
+        "cutover_count": 1,
+        "disposition": "carried",
+        "original_blocker_class": "WORLD_OBJECT_KIND",
+        "original_count": 1,
+        "view": "migration"
+      }
+    ]
+  },
   "buddy_repository_base_sha": "9f08d72462f87b39073920f7726aa8f3e392ef08",
   "canonical_graph_payload_sha256": "2632870ef70638969503de788cfdec97acd490875deff3e2630ac91dc96fe974",
   "canonical_revision_id": "rev:5a7c13ae45c49a65b402920499be72ed",
@@ -17,6 +152,7 @@
     "blockers": [
       {
         "blocker_class": "ATTRIBUTE_ASSERTION",
+        "blocking_stage": "adoption_package_construction",
         "count": 29,
         "examples": [
           "node:item:session11:council-headquarters:state:last_identity_decision_id",
@@ -25,11 +161,16 @@
           "node:item_enormous_boulder:state:merged_into",
           "node:item_foot_of_statue:state:identity_state"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMindBuddy",
         "smallest_next_change": "Materialize attribute values or document DM assertion transport."
       },
       {
         "blocker_class": "CONTRIBUTION_HISTORY",
+        "blocking_stage": "durable_adoption",
         "count": 5285,
         "examples": [
           "node:combat_glowkindle_rat_fight:state:approval_state",
@@ -38,20 +179,30 @@
           "node:combat_glowkindle_rat_fight:state:memory_state",
           "node:combat_shatter_mages_tower_spider:state:approval_state"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Decide genesis policy A/B/C and add a durable adoption seam that preserves Buddy contribution/assertion reconstruction history."
       },
       {
         "blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "blocking_stage": "durable_adoption",
         "count": 1,
         "examples": [
           "WorldGraphRepository methods: get_head, get_revision, publish_revision, rollback_head"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Add public governed adopt-existing-world / bootstrap-complete-revision service."
       },
       {
         "blocker_class": "EVIDENCE_PROVENANCE",
+        "blocking_stage": "adoption_package_construction",
         "count": 8,
         "examples": [
           "node:item_foot_of_statue:field:aliases",
@@ -60,11 +211,16 @@
           "node:loc:the-council:field:aliases",
           "node:loc:underground-entrance:field:aliases"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMindBuddy",
         "smallest_next_change": "Reconstruct assertion-grain AliasAssertionRecord evidence only for substantive Buddy aliases (and non-derivable store.aliases entries). Canonical-label materialization and derivable lookup-index keys are not DM evidence-contract gaps; DungeonMind already admits alias_assertions."
       },
       {
         "blocker_class": "IDENTITY_HISTORY",
+        "blocking_stage": "durable_adoption",
         "count": 14,
         "examples": [
           "identity_redirect:redirect:identity-decision:3a8965f409e85911:0",
@@ -73,20 +229,30 @@
           "identity_redirect:redirect:identity-decision:1ff8bf27a0b1921c:3",
           "identity_redirect:redirect:identity-decision:c7f1cab745c8a1d2:4"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMindBuddy",
         "smallest_next_change": "Expose governed identity migration replay at adoption seam."
       },
       {
         "blocker_class": "POSTGRES_ADOPTION",
+        "blocking_stage": "durable_adoption",
         "count": 1,
         "examples": [
           "Postgres adoption not exercised"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Exercise Postgres adoption only after public seam exists."
       },
       {
         "blocker_class": "RELATIONSHIP_PREDICATE",
+        "blocking_stage": "adoption_package_construction",
         "count": 9,
         "examples": [
           "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
@@ -99,18 +265,25 @@
           "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
           "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
         ],
+        "ledger_disposition": "replaced_by_effective_relationship",
         "ownership_note": "Canonical residual truth is the Buddy source-repair authority.",
         "ownership_scope": "singular",
+        "presence_scope": "both",
         "relationship_authority": "dmb_dungeonmind_relationship_effective_conformance_v1",
         "responsible_repo": "DungeonMindBuddy",
         "smallest_next_change": "Keep the nine canonical residuals source-sealed; use only the verified four-kind migration projection and do not publish it here."
       },
       {
         "blocker_class": "WORLD_OBJECT_KIND",
+        "blocking_stage": "adoption_package_construction",
         "count": 1,
         "examples": [
           "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Extend world-object-v1 or publish explicit Buddy→DM kind adapters with ADR."
       }
@@ -620,7 +793,9 @@
     "canonical_relationship_authority:effective_conformance",
     "migration_relationship_authority:prove_isolated_repair_effect",
     "overlay_manifest_payload_sha_reflects_canonical_pin_for_domain_matching",
-    "raw_v4_relationship_predicate_blockers_replaced_by_owning_ledgers"
+    "raw_v4_relationship_predicate_blockers_replaced_by_owning_ledgers",
+    "next_slice_derived_from_normalized_blocker_stages",
+    "historical_effective_conformance_suite_superseded_by_cutover_owned_proofs"
   ],
   "dungeonmind_contract_pins": {
     "evidence_contract": "dm_evidence_ref_v2",
@@ -639,6 +814,7 @@
     "blockers": [
       {
         "blocker_class": "ATTRIBUTE_ASSERTION",
+        "blocking_stage": "adoption_package_construction",
         "count": 29,
         "examples": [
           "node:item:session11:council-headquarters:state:last_identity_decision_id",
@@ -647,11 +823,16 @@
           "node:item_enormous_boulder:state:merged_into",
           "node:item_foot_of_statue:state:identity_state"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMindBuddy",
         "smallest_next_change": "Materialize attribute values or document DM assertion transport."
       },
       {
         "blocker_class": "CONTRIBUTION_HISTORY",
+        "blocking_stage": "durable_adoption",
         "count": 5285,
         "examples": [
           "node:combat_glowkindle_rat_fight:state:approval_state",
@@ -660,20 +841,30 @@
           "node:combat_glowkindle_rat_fight:state:memory_state",
           "node:combat_shatter_mages_tower_spider:state:approval_state"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Decide genesis policy A/B/C and add a durable adoption seam that preserves Buddy contribution/assertion reconstruction history."
       },
       {
         "blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "blocking_stage": "durable_adoption",
         "count": 1,
         "examples": [
           "WorldGraphRepository methods: get_head, get_revision, publish_revision, rollback_head"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Add public governed adopt-existing-world / bootstrap-complete-revision service."
       },
       {
         "blocker_class": "EVIDENCE_PROVENANCE",
+        "blocking_stage": "adoption_package_construction",
         "count": 8,
         "examples": [
           "node:item_foot_of_statue:field:aliases",
@@ -682,11 +873,16 @@
           "node:loc:the-council:field:aliases",
           "node:loc:underground-entrance:field:aliases"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMindBuddy",
         "smallest_next_change": "Reconstruct assertion-grain AliasAssertionRecord evidence only for substantive Buddy aliases (and non-derivable store.aliases entries). Canonical-label materialization and derivable lookup-index keys are not DM evidence-contract gaps; DungeonMind already admits alias_assertions."
       },
       {
         "blocker_class": "IDENTITY_HISTORY",
+        "blocking_stage": "durable_adoption",
         "count": 14,
         "examples": [
           "identity_redirect:redirect:identity-decision:3a8965f409e85911:0",
@@ -695,20 +891,30 @@
           "identity_redirect:redirect:identity-decision:1ff8bf27a0b1921c:3",
           "identity_redirect:redirect:identity-decision:c7f1cab745c8a1d2:4"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMindBuddy",
         "smallest_next_change": "Expose governed identity migration replay at adoption seam."
       },
       {
         "blocker_class": "POSTGRES_ADOPTION",
+        "blocking_stage": "durable_adoption",
         "count": 1,
         "examples": [
           "Postgres adoption not exercised"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Exercise Postgres adoption only after public seam exists."
       },
       {
         "blocker_class": "RELATIONSHIP_PREDICATE",
+        "blocking_stage": "authority_promotion",
         "count": 5,
         "examples": [
           "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
@@ -717,18 +923,25 @@
           "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
           "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
         ],
-        "ownership_note": "Each STOP needs a Buddy source identity/decomposition decision and a DungeonMind adoption/materialization capability; this report does not choose either.",
+        "ledger_disposition": "replaced_by_effective_relationship",
+        "ownership_note": "Each dual-sense STOP needs a Buddy source identity/decomposition decision and a DungeonMind adoption/materialization capability; this report does not collapse either owner.",
         "ownership_scope": "cross_repository",
+        "presence_scope": "both",
         "relationship_authority": "eldyrwild-relationship-node-kind-source-repair-v1",
-        "responsible_repo": "DungeonMind",
-        "smallest_next_change": "Define the governed migration/materialization contract for the five dual-sense source objects before any endpoint or identity write."
+        "responsible_repo": null,
+        "smallest_next_change": "Retain the five dual-sense edges as an explicit migration decision set; do not schedule live Buddy repair or a singular DM contract from this row alone."
       },
       {
         "blocker_class": "WORLD_OBJECT_KIND",
+        "blocking_stage": "adoption_package_construction",
         "count": 1,
         "examples": [
           "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind"
         ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
         "responsible_repo": "DungeonMind",
         "smallest_next_change": "Extend world-object-v1 or publish explicit Buddy→DM kind adapters with ADR."
       }
@@ -1227,12 +1440,26 @@
   },
   "next_slice_recommendation": {
     "basis_blocker_classes": [
+      "WORLD_OBJECT_KIND"
+    ],
+    "basis_blocking_stages": [
+      "adoption_package_construction"
+    ],
+    "basis_examples": [
+      "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind"
+    ],
+    "case": "CASE_A",
+    "change": "Admit Buddy kind 'thread' into world-object vocabulary, or publish an explicit Buddy→DM kind adapter with ADR (example: node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind).",
+    "cross_repository_decision_sets": [
+      "RELATIONSHIP_PREDICATE"
+    ],
+    "deferred_durable_adoption_gates": [
+      "CONTRIBUTION_HISTORY",
       "DURABLE_ADOPTION_BOUNDARY",
+      "IDENTITY_HISTORY",
       "POSTGRES_ADOPTION"
     ],
-    "case": "CASE_B",
-    "change": "Add governed existing-world adoption transaction",
-    "nonclaim": "This report does not claim adoption readiness or CUTOVER completion.",
+    "nonclaim": "Case A does not authorize adopting an existing world while semantic package-construction gaps remain; dual-sense STOPs stay undecided.",
     "repository": "DungeonMind"
   },
   "projection_delta": {
@@ -1242,6 +1469,7 @@
         "blocker_class": "RELATIONSHIP_PREDICATE",
         "canonical": {
           "blocker_class": "RELATIONSHIP_PREDICATE",
+          "blocking_stage": "adoption_package_construction",
           "count": 9,
           "examples": [
             "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
@@ -1254,14 +1482,17 @@
             "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
             "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
           ],
+          "ledger_disposition": "replaced_by_effective_relationship",
           "ownership_note": "Canonical residual truth is the Buddy source-repair authority.",
           "ownership_scope": "singular",
+          "presence_scope": "both",
           "relationship_authority": "dmb_dungeonmind_relationship_effective_conformance_v1",
           "responsible_repo": "DungeonMindBuddy",
           "smallest_next_change": "Keep the nine canonical residuals source-sealed; use only the verified four-kind migration projection and do not publish it here."
         },
         "migration": {
           "blocker_class": "RELATIONSHIP_PREDICATE",
+          "blocking_stage": "authority_promotion",
           "count": 5,
           "examples": [
             "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
@@ -1270,11 +1501,13 @@
             "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
             "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
           ],
-          "ownership_note": "Each STOP needs a Buddy source identity/decomposition decision and a DungeonMind adoption/materialization capability; this report does not choose either.",
+          "ledger_disposition": "replaced_by_effective_relationship",
+          "ownership_note": "Each dual-sense STOP needs a Buddy source identity/decomposition decision and a DungeonMind adoption/materialization capability; this report does not collapse either owner.",
           "ownership_scope": "cross_repository",
+          "presence_scope": "both",
           "relationship_authority": "eldyrwild-relationship-node-kind-source-repair-v1",
-          "responsible_repo": "DungeonMind",
-          "smallest_next_change": "Define the governed migration/materialization contract for the five dual-sense source objects before any endpoint or identity write."
+          "responsible_repo": null,
+          "smallest_next_change": "Retain the five dual-sense edges as an explicit migration decision set; do not schedule live Buddy repair or a singular DM contract from this row alone."
         }
       }
     ],
