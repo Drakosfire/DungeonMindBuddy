@@ -520,10 +520,13 @@ Every guarantee is merge-blocking unless explicitly waived by the operator. The 
 | One-time mode is CAS/token bound and not replayable | write service | adversarial | same focused pytest | stale revision/token/mode/body mismatch fails closed; second import rejected | replay can overwrite ready source |
 | HTTP contract carries mode without widening arbitrary writes | live route | contract | `uv run pytest tests/test_live_tiptap_markdown_write.py` | prepare/commit exact mode behavior; omitted mode remains authoring | old callers change semantics |
 | SourceArtifact preserves exact world for new source | source artifact registry/schema | contract | `uv run pytest tests/test_source_artifact.py` | artifact has new record's world_id + exact workspace revision/digest; legacy compatibility explicit | campaign silently substitutes for world on new source |
-| Build import creates once and recovers on partial failures | Build controller | adversarial state-machine | `cd apps/live-control-ui && pnpm exec vitest run src/buildSurface/useBuildWorkspaceDocumentController.test.ts` | one create; create/prepare/commit/load failure paths retain/reuse exact identity; ambiguous commit resolves snapshot before retry | retry creates duplicate or blindly recommits |
+| Build import creates once and recovers on partial failures | Build controller | adversarial state-machine | `cd apps/live-control-ui && pnpm exec vitest run src/buildSurface/useBuildWorkspaceDocumentController.test.ts` | one create; pending-lifecycle recovery only (no active-draft reuse); create/prepare/commit/load failure paths retain/reuse exact identity; ambiguous commit requires exact Markdown; pending scope mismatch fails closed | retry creates duplicate, imports into active Canvas draft, or blindly recommits |
 | Import UI accepts title/scope/non-empty Markdown and prevents duplicate submit | Build component | component/adversarial | `cd apps/live-control-ui && pnpm exec vitest run src/buildSurface/BuildDocumentCreateControl.test.tsx` | empty validation; double submit blocked; failed import keeps Markdown; retained empty source can be retried | paste lost on ordinary recoverable failure or duplicate create |
 | Imported unsupported source cannot be destroyed by later rich-editor Save | Canvas authoring fidelity | regression | `cd apps/live-control-ui && pnpm exec vitest run src/workspaceDocument/useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx` | exported Markdown remains authoritative and Save is blocked; disk/snapshot source unchanged | lossy Save is enabled or source bytes change |
 | Wire types remain compatible | UI API | regression | `cd apps/live-control-ui && pnpm exec vitest run src/api/liveApi.test.ts` | exact fields sent; omitted write mode retains authoring | unrelated API breakage |
+| Managed `_dungeonbuddy` storage is excluded from legacy whole-tree ingest | batch ingest collectors | contract | `uv run pytest tests/test_batch_ingest_managed_source_exclusion.py` | `_dungeonbuddy/sources/.../source.md` absent from collected paths; explicit `--paths-file` managed entries warn and skip | managed draft swept into legacy ingest |
+| Managed `_dungeonbuddy` storage is excluded from planner corpus authority | planner manifest/ref index + fingerprint | contract | `uv run pytest tests/test_planner.py -k dungeonbuddy` | managed path absent from `build_corpus_manifest` / `build_corpus_path_ref_index` | draft source becomes planner-queryable |
+| Managed `_dungeonbuddy` storage is ignored by Hermes lexical fallback | Hermes plugin | contract | `uv run pytest tests/test_hermes_dungeonbuddy_plugin.py -k dungeonbuddy` | lexical matches exclude managed storage while ordinary corpus notes still match | draft source appears in lexical search |
 | Type/build integration | UI package | compile/build | `cd apps/live-control-ui && pnpm exec tsc -b && pnpm build` | success | new type/runtime build failure |
 | No hidden path expansion | git diff | scope | `git diff --name-only b466ce8dfebaf88366eee79bad795299103a5b58...HEAD` | only §4 + bounded test exception | production path outside allowlist |
 | Diff hygiene | git | hygiene | `git diff --check` | no whitespace errors | failure |
@@ -537,7 +540,10 @@ uv run pytest \
   tests/test_workspace_document_registry.py \
   tests/test_tiptap_markdown_write.py \
   tests/test_live_tiptap_markdown_write.py \
-  tests/test_source_artifact.py
+  tests/test_source_artifact.py \
+  tests/test_batch_ingest_managed_source_exclusion.py \
+  tests/test_planner.py \
+  tests/test_hermes_dungeonbuddy_plugin.py
 ```
 
 ## Required frontend focused run
