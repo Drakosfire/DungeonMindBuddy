@@ -975,19 +975,40 @@ def _prove_closure_operation_chain(
     root: Path,
     head_revision_id: str,
     manifest: dict[str, Any],
+    expected_operation_count: int | None = None,
 ) -> tuple[bool, list[str]]:
-    """Bind the post-Q₄ parent chain to the exact flat operation_plan.
+    """Bind the post-Q₄ parent chain to an exact ``operation_plan`` prefix.
 
     Walks ``head → … → Q₄`` and requires:
-    * exact descendant revision count == ``OPERATION_PLAN_COUNT`` (54);
+    * exact descendant revision count == ``expected_operation_count``;
     * each revision carries exactly one ``operation_id``;
-    * forward operation IDs match the locked authority IDs for ops 1..54.
+    * forward operation IDs match the locked authority IDs for ops ``1..k``.
+
+    ``expected_operation_count`` defaults to the full plan (54) for finalizer use.
+    Resume/preflight passes the currently applied op count so a foreign revision
+    interleaved into a partial prefix fails closed before further mutation.
     """
-    expected = _expected_operation_authority_ids(manifest)
-    if len(expected) != OPERATION_PLAN_COUNT:
+    expected_all = _expected_operation_authority_ids(manifest)
+    if len(expected_all) != OPERATION_PLAN_COUNT:
         return False, [
-            f"closure_chain_expected_length_mismatch:{len(expected)}"
+            f"closure_chain_expected_length_mismatch:{len(expected_all)}"
         ]
+    k = (
+        OPERATION_PLAN_COUNT
+        if expected_operation_count is None
+        else expected_operation_count
+    )
+    if k < 0 or k > OPERATION_PLAN_COUNT:
+        return False, [f"closure_chain_prefix_out_of_range:{k}"]
+    expected = expected_all[:k]
+
+    if k == 0:
+        if head_revision_id != BASE_REVISION_ID:
+            return False, [
+                "closure_chain_prefix_not_q4:"
+                f"expected {BASE_REVISION_ID} head {head_revision_id}"
+            ]
+        return True, ["closure_operation_chain_prefix_exact:0"]
 
     newest_first_op_ids: list[str] = []
     current = head_revision_id
@@ -996,9 +1017,9 @@ def _prove_closure_operation_chain(
         if current in seen:
             return False, [f"closure_chain_cycle:{current}"]
         seen.add(current)
-        if len(newest_first_op_ids) > OPERATION_PLAN_COUNT:
+        if len(newest_first_op_ids) > k:
             return False, [
-                f"closure_chain_too_long:{len(newest_first_op_ids)}"
+                f"closure_chain_too_long:{len(newest_first_op_ids)}>{k}"
             ]
         try:
             rev = kernel.load_world_graph_revision_manifest(
@@ -1016,11 +1037,16 @@ def _prove_closure_operation_chain(
         current = rev.parent_revision_id
 
     forward = list(reversed(newest_first_op_ids))
-    if len(forward) != OPERATION_PLAN_COUNT:
-        return False, [f"closure_chain_length_mismatch:{len(forward)}"]
+    if len(forward) != k:
+        return False, [f"closure_chain_length_mismatch:{len(forward)}!={k}"]
     if forward != expected:
         return False, ["closure_chain_operation_ids_mismatch"]
-    return True, ["closure_operation_chain_exact"]
+    diag = (
+        "closure_operation_chain_exact"
+        if k == OPERATION_PLAN_COUNT
+        else f"closure_operation_chain_prefix_exact:{k}"
+    )
+    return True, [diag]
 
 
 def _preflight(
@@ -1032,7 +1058,9 @@ def _preflight(
 ) -> list[str]:
     """Fail-closed whole-ledger verification. Returns diagnostics (empty = clean).
 
-    Resume-aware: applied ops must form an exact ``operation_plan`` prefix.
+    Resume-aware: applied ops must form an exact ``operation_plan`` prefix, and
+    the Q₄→head revision chain must be exactly that applied prefix (no foreign
+    interleaved revisions) before any further mutation.
     Deferred units are never mutated; they remain residual and seal-verified.
     """
     diagnostics: list[str] = []
@@ -1051,13 +1079,25 @@ def _preflight(
     if any(s.integrity_failure for s in states):
         diagnostics.append("unit_op_integrity_failure")
 
-    if applied_op_count == 0:
-        if head.head_revision_id != expected_base_revision_id:
+    # Bind head ancestry to the exact applied operation_plan prefix before any
+    # resumed mutation. k=0 ⇒ head must be exact Q₄.
+    chain_ok, chain_diags = _prove_closure_operation_chain(
+        root=root,
+        head_revision_id=head.head_revision_id or "",
+        manifest=manifest,
+        expected_operation_count=applied_op_count,
+    )
+    if not chain_ok:
+        diagnostics.extend(chain_diags)
+        if applied_op_count == 0 and head.head_revision_id != expected_base_revision_id:
             diagnostics.append(
                 "stale_base:"
                 f"expected {expected_base_revision_id} head {head.head_revision_id}"
             )
-            return diagnostics
+        # Chain ownership failed — refuse before further seal/mutation work.
+        return diagnostics
+
+    if applied_op_count == 0:
         eff = analyze_relationship_effective_conformance_v1(
             root=root, world_id=WORLD_ID, revision_id=expected_base_revision_id
         )
@@ -1221,17 +1261,39 @@ def get_relationship_semantic_closure_status(
     pending = [s for s in mutable_states if not s.applied]
     applied_op_count = sum(1 for _op, state, _d in plan_states if state == "applied")
 
+    chain_ok, chain_diags = _prove_closure_operation_chain(
+        root=world_root,
+        head_revision_id=_h.head_revision_id or "",
+        manifest=manifest,
+        expected_operation_count=applied_op_count,
+    )
+
     if prefix_diags or any(s.integrity_failure for s in states):
         eligibility: ClosureEligibility = "integrity_failure"
         reason = "applied ops are not an authority-safe operation_plan prefix"
-        diagnostics = ["integrity_failure", *prefix_diags]
+        diagnostics = ["integrity_failure", *prefix_diags, *chain_diags]
+    elif not chain_ok:
+        if applied_op_count == 0 and _h.head_revision_id != expected:
+            eligibility = "ineligible"
+            reason = (
+                f"head {_h.head_revision_id!r} is not the exact closure base "
+                f"{expected!r} and no closure op is applied"
+            )
+            diagnostics = ["stale_base", *chain_diags]
+        else:
+            eligibility = "integrity_failure"
+            reason = (
+                "Q4→head revision chain is not the exact applied operation_plan "
+                f"prefix ({applied_op_count} ops)"
+            )
+            diagnostics = ["integrity_failure", *chain_diags]
     elif not pending:
         eligibility = "already_applied"
         reason = (
             f"all {MUTABLE_UNIT_COUNT} mutable closure units are applied at head; "
             f"{DEFERRED_UNIT_COUNT} deferred kind-repair residuals remain open"
         )
-        diagnostics = ["status_ok", "already_applied"]
+        diagnostics = ["status_ok", "already_applied", *chain_diags]
     elif applied_op_count > 0 or fully_applied:
         eligibility = "partially_applied"
         reason = (
@@ -1239,21 +1301,21 @@ def get_relationship_semantic_closure_status(
             f"{len(pending)} pending "
             f"({applied_op_count}/{OPERATION_PLAN_COUNT} ops applied)"
         )
-        diagnostics = ["status_ok", "partially_applied"]
+        diagnostics = ["status_ok", "partially_applied", *chain_diags]
     elif _h.head_revision_id != expected:
         eligibility = "ineligible"
         reason = (
             f"head {_h.head_revision_id!r} is not the exact closure base "
             f"{expected!r} and no closure op is applied"
         )
-        diagnostics = ["stale_base"]
+        diagnostics = ["stale_base", *chain_diags]
     else:
         eligibility = "eligible"
         reason = (
             "head is the exact closure base; no mutable unit applied yet; "
             f"{DEFERRED_UNIT_COUNT} deferred residuals will remain open"
         )
-        diagnostics = ["status_ok"]
+        diagnostics = ["status_ok", *chain_diags]
 
     return RelationshipSemanticClosureStatus(
         head_revision_id=_h.head_revision_id,
