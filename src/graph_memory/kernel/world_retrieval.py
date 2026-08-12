@@ -770,33 +770,6 @@ def _admitted_source_content_sha256(source_artifact: Any) -> str | None:
     return None
 
 
-def _worldbuilding_source_span_id(
-    *,
-    source_domain: str | None,
-    source_span_ref_id: str | None,
-    locator: str | None,
-    session_id: str | None,
-) -> str | None:
-    """Resolve admitted worldbuilding SourceSpan identity without inventing lines.
-
-    Prefer explicit ``source_span_ref_id``. For CR02A sessionless evidence that
-    stored S only as ``locator`` (pre-merge-repair graphs), accept that locator
-    when it is already a SourceSpan id (``artifact:…:span:…``). Never treat
-    ``contribution/…`` locators as spans.
-    """
-    cleaned = str(source_span_ref_id or "").strip() or None
-    if cleaned:
-        return cleaned
-    if str(source_domain or "") != "worldbuilding":
-        return None
-    if session_id is not None:
-        return None
-    loc = str(locator or "").strip()
-    if loc.startswith("artifact:") and ":span:" in loc:
-        return loc
-    return None
-
-
 def _classify_locator(
     uri: str,
     locator: str | None,
@@ -808,34 +781,15 @@ def _classify_locator(
     source_span_ref_id: str | None = None,
     session_id: str | None = None,
 ) -> tuple[str, bool]:
-    cleaned_span = _worldbuilding_source_span_id(
-        source_domain=source_domain,
-        source_span_ref_id=source_span_ref_id,
-        locator=locator,
-        session_id=session_id,
-    )
+    cleaned_span = str(source_span_ref_id or "").strip() or None
     domain = str(source_domain or "")
     # Worldbuilding SourceSpan identity is an admitted provenance shape.
     # Prefer explicit S; never treat arbitrary contribution/... locators as spans.
     if domain == "worldbuilding" and cleaned_span:
         if session_id is None and locator is not None:
             cleaned_locator = str(locator).strip()
-            if (
-                cleaned_locator
-                and cleaned_locator != cleaned_span
-                and not (
-                    cleaned_locator.startswith("artifact:") and ":span:" in cleaned_locator
-                )
-            ):
-                # Non-span locator disagrees with explicit S — do not invent.
-                return "unsupported", False
-            if (
-                cleaned_locator
-                and cleaned_locator.startswith("artifact:")
-                and ":span:" in cleaned_locator
-                and cleaned_locator != cleaned_span
-            ):
-                # Two different span ids on the same evidence row — fail closed.
+            if cleaned_locator and cleaned_locator != cleaned_span:
+                # Locator disagrees with explicit S — do not invent span authority.
                 return "unsupported", False
         # Same spirit as heading: require a revision-bound admitted digest.
         if admitted_content_sha256 is None:
@@ -937,18 +891,13 @@ def _anchor_derivations_for_supports(
                 if source_artifact is None:
                     continue
                 locator = evidence.locator
-                source_span_ref_id = _worldbuilding_source_span_id(
-                    source_domain=str(evidence.source_domain),
-                    source_span_ref_id=(
-                        str(evidence.source_span_ref_id)
-                        if evidence.source_span_ref_id
-                        else None
-                    ),
-                    locator=locator,
-                    session_id=evidence.session_id,
-                )
-                # Prefer explicit/recovered S for stable identity when present
-                # (sessionless worldbuilding used S as locator after #567).
+                source_span_ref_id = (
+                    str(evidence.source_span_ref_id).strip()
+                    if evidence.source_span_ref_id
+                    else None
+                ) or None
+                # Prefer explicit S for stable identity when present (sessionless
+                # worldbuilding already used S as locator after #567).
                 locator_identity = source_span_ref_id or locator or ""
                 anchor_id = compute_source_anchor_id(
                     world_id=snapshot.world_id,

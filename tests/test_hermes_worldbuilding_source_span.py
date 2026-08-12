@@ -178,13 +178,13 @@ def _setup_hesta_registry(root: Path) -> tuple[str, str, str, str]:
 
     S1/S2 are body paragraphs selected by content (frontmatter also yields spans).
     """
-    (root / "corpus" / "the-glass-orchard-markdown").mkdir(parents=True, exist_ok=True)
+    (root / "corpus" / f"{WORLD_ID}-markdown").mkdir(parents=True, exist_ok=True)
     record = create_workspace_document(
         root,
         title="Hesta Source",
-        campaign_id=GLASS_ORCHARD_WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
         kind="worldbuilding_source",
-        world_id=GLASS_ORCHARD_WORLD_ID,
+        world_id=WORLD_ID,
         source_domain="worldbuilding",
         document_class="lore",
         authority_state="draft",
@@ -239,7 +239,7 @@ def _merge_hesta_worldbuilding(
     digest: str,
     span_ids: list[str],
     uri: str | None = None,
-    locator_only: bool = False,
+    omit_source_span_ref_id: bool = False,
 ) -> None:
     artifact = get_source_artifact(root, artifact_id)
     relative_uri = uri if uri is not None else artifact.uri
@@ -251,7 +251,7 @@ def _merge_hesta_worldbuilding(
             "source_domain": "worldbuilding",
             "locator": span_id,
         }
-        if not locator_only:
+        if not omit_source_span_ref_id:
             row["source_span_ref_id"] = span_id
         evidence_rows.append(row)
     node_assertion = kernel.build_assertion(
@@ -272,6 +272,7 @@ def _merge_hesta_worldbuilding(
                 {
                     "source_artifact_id": artifact_id,
                     "source_domain": "worldbuilding",
+                    "world_id": WORLD_ID,
                     "campaign_id": CAMPAIGN_ID,
                     "uri": relative_uri,
                     "content_sha256": digest,
@@ -370,8 +371,10 @@ def test_sessionless_ensure_evidence_does_not_invent_span() -> None:
     assert row.locator == "contribution/evidence:test:no-span"
 
 
-def test_legacy_locator_as_span_reads_exact_s2(tmp_path: Path, loaded_bundle) -> None:
-    """#567 sessionless graphs stored S only in locator; recover without inventing."""
+def test_locator_only_without_explicit_s_is_unsupported(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    """Stop condition: do not parse artifact:*:span:* locators as S."""
     _initialize(tmp_path, loaded_bundle)
     artifact_id, s1, s2, digest = _setup_hesta_registry(tmp_path)
     _merge_hesta_worldbuilding(
@@ -379,24 +382,48 @@ def test_legacy_locator_as_span_reads_exact_s2(tmp_path: Path, loaded_bundle) ->
         artifact_id=artifact_id,
         digest=digest,
         span_ids=[s1, s2],
-        locator_only=True,
+        omit_source_span_ref_id=True,
     )
     anchors = _hesta_anchors(tmp_path)
-    assert len(anchors) >= 2
+    assert anchors
     for anchor in anchors:
-        assert anchor.locator_kind == "source_span"
-        assert anchor.readable is True
-        assert anchor.source_span_ref_id in {s1, s2}
-    g2 = next(a for a in anchors if a.source_span_ref_id == s2)
-    result = read_source_anchor(
-        _anchor_read_request(g2.anchor_id),
-        root=tmp_path,
-        repo_root=tmp_path,
+        assert anchor.locator_kind != "source_span"
+        assert anchor.readable is False
+        assert not (anchor.source_span_ref_id or "").strip()
+
+
+def test_empty_session_denies_otherwise_valid_g(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    clear_sessions()
+    _initialize(tmp_path, loaded_bundle)
+    artifact_id, _s1, s2, digest = _setup_hesta_registry(tmp_path)
+    _merge_hesta_worldbuilding(
+        tmp_path, artifact_id=artifact_id, digest=digest, span_ids=[s2]
     )
-    assert result.outcome == "enough"
-    assert result.source_span_ref_id == s2
-    assert "copper pruning knife" in (result.content or "")
-    assert "first orchard terrace" not in (result.content or "")
+    g2 = next(a for a in _hesta_anchors(tmp_path) if a.source_span_ref_id == s2)
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ID,
+            revision_id="revision:test",
+        ),
+        question="What knife does Hesta keep?",
+        source_anchors=[],
+    )
+    create_session(session)
+    result = execute_read_graph_source(
+        {
+            "schema": "dmb_read_graph_source_request_v1",
+            "retrievalSessionId": session.id,
+            "anchorIds": [g2.anchor_id],
+        },
+        root=tmp_path,
+    )
+    assert result["outcome"] == "denied"
+    assert result.get("content") is None
+    codes = {d.get("code") for d in result.get("diagnostics") or []}
+    assert "anchor_not_in_session" in codes
 
 
 def test_g2_reads_exact_s2_not_s1(tmp_path: Path, loaded_bundle) -> None:
@@ -499,6 +526,52 @@ def test_graph_vs_registry_digest_mismatch_fail_closed(
     assert exc_info.value.code == "source_integrity_error"
 
 
+def test_registry_world_disagrees_with_snapshot_fail_closed(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    (tmp_path / "corpus" / "the-glass-orchard-markdown").mkdir(parents=True, exist_ok=True)
+    record = create_workspace_document(
+        tmp_path,
+        title="Foreign World Hesta",
+        campaign_id=GLASS_ORCHARD_WORLD_ID,
+        kind="worldbuilding_source",
+        world_id=GLASS_ORCHARD_WORLD_ID,
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    _commit_markdown(
+        tmp_path,
+        document_id=record.document_id,
+        markdown=HESTA_MARKDOWN,
+        expected_revision=1,
+    )
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=2,
+    )
+    index = load_source_span_index(tmp_path, artifact.source_artifact_id)
+    span_id = index.spans[0].source_span_id
+    digest = (artifact.content_sha256 or "").lower()
+    _merge_hesta_worldbuilding(
+        tmp_path,
+        artifact_id=artifact.source_artifact_id,
+        digest=digest,
+        span_ids=[span_id],
+    )
+    g = _hesta_anchors(tmp_path)[0]
+    with pytest.raises(WorldGraphRetrievalServiceError) as exc_info:
+        read_source_anchor(
+            _anchor_read_request(g.anchor_id),
+            root=tmp_path,
+            repo_root=tmp_path,
+        )
+    assert exc_info.value.code == "workspace_lineage_mismatch"
+
+
 def test_span_belongs_to_other_artifact_fail_closed(
     tmp_path: Path, loaded_bundle
 ) -> None:
@@ -511,9 +584,9 @@ def test_span_belongs_to_other_artifact_fail_closed(
     record = create_workspace_document(
         tmp_path,
         title="Other Source",
-        campaign_id=GLASS_ORCHARD_WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
         kind="worldbuilding_source",
-        world_id=GLASS_ORCHARD_WORLD_ID,
+        world_id=WORLD_ID,
         source_domain="worldbuilding",
         document_class="lore",
         authority_state="draft",
