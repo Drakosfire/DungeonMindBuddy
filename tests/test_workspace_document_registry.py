@@ -338,6 +338,33 @@ def test_worldbuilding_source_rejects_missing_world_root_without_registry_row(ro
     assert list_workspace_documents(root, kind="worldbuilding_source") == []
 
 
+def test_worldbuilding_source_succeeds_after_managed_world_container_creates_root(
+    root: Path,
+) -> None:
+    """Composition proof: world-container creates root; workspace create still requires it."""
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+    )
+
+    world = create_world_container(root, name="Managed Compose World")
+    created = create_workspace_document(
+        root,
+        title="First managed source",
+        campaign_id=world.world_id,
+        kind="worldbuilding_source",
+        world_id=world.world_id,
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    assert created.world_id == world.world_id
+    assert created.campaign_id == world.world_id
+    assert created.target_relpath == (
+        f"{world.source_root_relpath}/_dungeonbuddy/sources/{created.document_id}/source.md"
+    )
+
+
 def test_worldbuilding_rename_does_not_move_world_scoped_target(root: Path) -> None:
     _ensure_eldyrwild_world_root(root)
     created = create_workspace_document(
