@@ -239,20 +239,21 @@ def _merge_hesta_worldbuilding(
     digest: str,
     span_ids: list[str],
     uri: str | None = None,
+    locator_only: bool = False,
 ) -> None:
     artifact = get_source_artifact(root, artifact_id)
     relative_uri = uri if uri is not None else artifact.uri
     evidence_rows = []
     for span_id in span_ids:
-        evidence_rows.append(
-            {
-                "evidence_ref_id": f"evidence:{artifact_id}:{span_id}",
-                "source_artifact_id": artifact_id,
-                "source_domain": "worldbuilding",
-                "source_span_ref_id": span_id,
-                "locator": span_id,
-            }
-        )
+        row = {
+            "evidence_ref_id": f"evidence:{artifact_id}:{span_id}",
+            "source_artifact_id": artifact_id,
+            "source_domain": "worldbuilding",
+            "locator": span_id,
+        }
+        if not locator_only:
+            row["source_span_ref_id"] = span_id
+        evidence_rows.append(row)
     node_assertion = kernel.build_assertion(
         assertion_kind="node",
         acceptance_state="accepted",
@@ -367,6 +368,35 @@ def test_sessionless_ensure_evidence_does_not_invent_span() -> None:
     row = evidence["evidence:test:no-span"]
     assert row.source_span_ref_id is None
     assert row.locator == "contribution/evidence:test:no-span"
+
+
+def test_legacy_locator_as_span_reads_exact_s2(tmp_path: Path, loaded_bundle) -> None:
+    """#567 sessionless graphs stored S only in locator; recover without inventing."""
+    _initialize(tmp_path, loaded_bundle)
+    artifact_id, s1, s2, digest = _setup_hesta_registry(tmp_path)
+    _merge_hesta_worldbuilding(
+        tmp_path,
+        artifact_id=artifact_id,
+        digest=digest,
+        span_ids=[s1, s2],
+        locator_only=True,
+    )
+    anchors = _hesta_anchors(tmp_path)
+    assert len(anchors) >= 2
+    for anchor in anchors:
+        assert anchor.locator_kind == "source_span"
+        assert anchor.readable is True
+        assert anchor.source_span_ref_id in {s1, s2}
+    g2 = next(a for a in anchors if a.source_span_ref_id == s2)
+    result = read_source_anchor(
+        _anchor_read_request(g2.anchor_id),
+        root=tmp_path,
+        repo_root=tmp_path,
+    )
+    assert result.outcome == "enough"
+    assert result.source_span_ref_id == s2
+    assert "copper pruning knife" in (result.content or "")
+    assert "first orchard terrace" not in (result.content or "")
 
 
 def test_g2_reads_exact_s2_not_s1(tmp_path: Path, loaded_bundle) -> None:
