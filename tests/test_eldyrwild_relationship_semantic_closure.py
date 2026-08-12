@@ -854,6 +854,78 @@ def test_finalize_refuses_replayable_foreign_descendant_after_clean_closure(
     assert excinfo.value.code == "finalize_refused"
 
 
+def test_partial_resume_refuses_foreign_revision_interleaved_in_prefix(
+    tmp_path: Path,
+) -> None:
+    """Foreign ledger-backed publish mid-prefix must fail before further mutation."""
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    first_unit = next(u for u in manifest["units"] if not u.get("deferred"))
+    _apply_single_unit_ops(root, manifest, first_unit)
+
+    status = get_relationship_semantic_closure_status(root=root, repo=REPO)
+    assert status.eligibility == "partially_applied"
+    prefix_head = status.head_revision_id
+    assert prefix_head
+    applied_before = status.applied_unit_count
+
+    foreign = kernel.create_graph_contribution(
+        world_id=ELDYRWILD_WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:closure-foreign-partial-prefix-probe",
+        campaign_scope="eldyrwild",
+        authored_by="gm",
+        accepted_assertions=[
+            kernel.build_assertion(
+                assertion_kind="node",
+                acceptance_state="accepted",
+                subject_node_id="npc:closure_foreign_partial_prefix_probe",
+                label="closure foreign partial prefix probe",
+                campaign_scope="eldyrwild",
+                value={
+                    "kind": "npc",
+                    "role": "foreign_partial_probe",
+                    "source_domains": ["manual_seed"],
+                },
+                identity_resolution_outcome="created_new",
+            )
+        ],
+    )
+    merged = kernel.merge_contribution_to_revision(
+        root,
+        world_id=ELDYRWILD_WORLD_ID,
+        contribution=foreign,
+        expected_parent_revision_id=prefix_head,
+    )
+    assert merged.published is True
+    foreign_head = merged.revision_id
+    assert foreign_head != prefix_head
+
+    status_after = get_relationship_semantic_closure_status(root=root, repo=REPO)
+    assert status_after.eligibility == "integrity_failure"
+    assert status_after.head_revision_id == foreign_head
+    assert any(
+        d.startswith("closure_chain_") or "operation_ids_mismatch" in d
+        for d in status_after.diagnostics
+    )
+
+    with pytest.raises(RelationshipSemanticClosureError) as excinfo:
+        apply_relationship_semantic_closure(
+            expected_base_revision_id=BASE_REVISION_ID, root=root, repo=REPO
+        )
+    assert excinfo.value.code == "preflight_failed"
+    assert "closure_chain_" in str(excinfo.value) or "operation_ids_mismatch" in str(
+        excinfo.value
+    )
+
+    # No additional closure revisions published; head remains the foreign revision.
+    head_now = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
+    assert head_now == foreign_head
+    status_final = get_relationship_semantic_closure_status(root=root, repo=REPO)
+    assert status_final.applied_unit_count == applied_before
+    assert status_final.eligibility == "integrity_failure"
+
+
 def test_partial_resume_refuses_when_applied_unit_target_source_drifts(
     tmp_path: Path,
 ) -> None:
