@@ -20,6 +20,8 @@ Callers cannot inject different artifacts, unit/op order, targets, or semantics:
 the manifest bytes are sha256-locked here and child artifacts are verified
 against the manifest before any mutation. Apply is operation-plan prefix-safe:
 an already applied op prefix is skipped, a non-prefix applied set is refused.
+Before every pending write, the service re-proves that the current head is
+exactly the Q₄→head revision chain for the applied operation prefix.
 """
 
 from __future__ import annotations
@@ -113,6 +115,10 @@ MUTABLE_UNIT_COUNT = 46
 DEFERRED_UNIT_COUNT = 9
 TOTAL_UNIT_COUNT = 55
 OPERATION_PLAN_COUNT = 54
+
+# Test-only: invoked after each successful closure-op publish (lock released).
+# Signature: ``(world_root: Path, applied_operation_count: int) -> None``.
+_after_closure_operation_hook: Any = None
 
 ADJUDICATION_FIXTURES = {
     "A": "tests/fixtures/dungeonmind_kernel/eldyrwild_relationship_residual_adjudication_v1.json",
@@ -1408,14 +1414,42 @@ def apply_relationship_semantic_closure(
                             code="applied_ops_not_a_prefix",
                         )
 
-                head_now = kernel.open_world_graph_head(world_root, WORLD_ID)
-                parent = head_now.head_revision_id
                 _h, _r, store = kernel.open_current_world_graph(world_root, WORLD_ID)
                 if _op_applied(store, unit, op, root=world_root, manifest=manifest):
                     diagnostics.append(
                         f"op_already_applied:{unit['unit_id']}:{op['op']}"
                     )
                     continue
+
+                # Re-prove Q₄→head ownership immediately before each pending write
+                # so a foreign publish interleaved between closure ops fails closed
+                # before further mutation (CAS alone is insufficient across ops).
+                plan_states_now = _operation_plan_states(
+                    root=world_root, store=store, manifest=manifest
+                )
+                applied_so_far = sum(
+                    1 for _op, state, _d in plan_states_now if state == "applied"
+                )
+                head_now = kernel.open_world_graph_head(world_root, WORLD_ID)
+                parent = head_now.head_revision_id
+                if not parent:
+                    raise RelationshipSemanticClosureError(
+                        "closure head missing before pending operation",
+                        code="closure_chain_prefix_drift",
+                    )
+                chain_ok, chain_diags = _prove_closure_operation_chain(
+                    root=world_root,
+                    head_revision_id=parent,
+                    manifest=manifest,
+                    expected_operation_count=applied_so_far,
+                )
+                if not chain_ok:
+                    raise RelationshipSemanticClosureError(
+                        "closure chain prefix drift before "
+                        f"{unit['unit_id']}:{op['op']}: "
+                        + "; ".join(chain_diags[:5]),
+                        code="closure_chain_prefix_drift",
+                    )
                 if op["op"] == "contradict":
                     contribution = _unit_contribution(manifest, op["contribution_id"])
                     locked = op.get("source_payload_sha256")
@@ -1493,6 +1527,9 @@ def apply_relationship_semantic_closure(
                     diagnostics.append(
                         f"identity_merged:{unit['unit_id']}:{decision.decision_id}"
                     )
+                    hook = _after_closure_operation_hook
+                    if hook is not None:
+                        hook(world_root, applied_so_far + 1)
                     continue
                 else:  # pragma: no cover - manifest verified at load
                     raise RelationshipSemanticClosureError(
@@ -1507,6 +1544,9 @@ def apply_relationship_semantic_closure(
                     )
                 if merge.published and merge.revision_id:
                     published.append(merge.revision_id)
+                    hook = _after_closure_operation_hook
+                    if hook is not None:
+                        hook(world_root, applied_so_far + 1)
                 diagnostics.append(f"op_applied:{unit['unit_id']}:{op['op']}")
         except (ValueError, RelationshipSemanticClosureError) as exc:
             code = (
