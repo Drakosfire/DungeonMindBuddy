@@ -218,7 +218,7 @@ def test_normalized_blockers_carry_presence_stage_and_ownership(report: Any) -> 
     )
     assert dual_sense["ownership_scope"] == "cross_repository"
     assert dual_sense["responsible_repo"] is None
-    assert dual_sense["blocking_stage"] == "authority_promotion"
+    assert dual_sense["blocking_stage"] == "adoption_package_construction"
     assert dual_sense["presence_scope"] == "both"
 
     kind = next(
@@ -264,7 +264,7 @@ def test_cutover_recommends_case_a_for_thread_kind_gap(report: Any) -> None:
         "deferred_durable_adoption_gates"
     ]
     assert BlockerClass.RELATIONSHIP_PREDICATE.value in recommendation[
-        "cross_repository_decision_sets"
+        "cross_repository_package_construction"
     ]
 
 
@@ -296,6 +296,45 @@ def test_case_b_only_when_package_construction_is_clear() -> None:
     recommendation = cutover._next_slice_recommendation(durable_only)
     assert recommendation["case"] == "CASE_B"
     assert recommendation["basis_blocking_stages"] == ["durable_adoption"]
+
+
+def test_case_b_refuses_while_dual_sense_package_construction_remains() -> None:
+    """Dual-sense STOPs still block package construction; Case B must not fire."""
+    ledger = [
+        {
+            "blocker_class": BlockerClass.DURABLE_ADOPTION_BOUNDARY.value,
+            "count": 1,
+            "examples": ["WorldGraphRepository"],
+            "presence_scope": "both",
+            "blocking_stage": "durable_adoption",
+            "ownership_scope": "singular",
+            "responsible_repo": "DungeonMind",
+            "smallest_next_change": "Add public governed adopt-existing-world.",
+            "ledger_disposition": "carried",
+        },
+        {
+            "blocker_class": BlockerClass.RELATIONSHIP_PREDICATE.value,
+            "count": 5,
+            "examples": sorted(MIGRATION_RESIDUAL_EDGE_IDS)[:5],
+            "presence_scope": "both",
+            "blocking_stage": "adoption_package_construction",
+            "ownership_scope": "cross_repository",
+            "responsible_repo": None,
+            "smallest_next_change": (
+                "Keep the five dual-sense edges as an explicit migration decision set."
+            ),
+            "ledger_disposition": "replaced_by_effective_relationship",
+        },
+    ]
+    recommendation = cutover._next_slice_recommendation(ledger)
+    assert recommendation["case"] == "CASE_A"
+    assert recommendation["repository"] is None
+    assert recommendation["basis_blocker_classes"] == [
+        BlockerClass.RELATIONSHIP_PREDICATE.value
+    ]
+    assert recommendation["basis_blocking_stages"] == ["adoption_package_construction"]
+    assert recommendation["basis_ownership_scope"] == "cross_repository"
+    assert "Case B" in recommendation["nonclaim"]
 
 
 def test_build_and_verify_are_non_publishing(report: Any) -> None:
