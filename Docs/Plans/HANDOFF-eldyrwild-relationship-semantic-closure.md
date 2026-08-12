@@ -50,8 +50,8 @@ Kernel cannot retype node kinds (edge-only correct/contradict; additive node mer
 ## §4 Authority contracts (P1)
 
 1. **Applied detection** mirrors C₄: revision digest **value**, active replay-manifest entry with same digest, mutable ledger digest+`status==active`, contribution-index coherence, plus op-specific support/identity shape. Shape/digest without full authority → `integrity_failure`, never `already_applied`.
-2. **Resume** is an exact prefix of the flat `operation_plan` (not merely fully completed units). Intra-unit op2-without-op1 is refused.
-3. **Finalizer** requires inventory match, deferred residual set equality, Q₄ ancestry via `prove_revision_is_anchor_or_descendant_v1`, pinned + unpinned `rebuild_from_contributions` equivalence, revision-bound closure contributions, and durable active identity decisions.
+2. **Resume** is an exact prefix of the flat `operation_plan` (not merely fully completed units). Intra-unit op2-without-op1 is refused. Target-source seals run for **every** manifest unit before any `state.applied` early exit — original contribution authority remains sealed across the whole prefix-resume program.
+3. **Finalizer** requires inventory match, deferred residual set equality, Q₄ ancestry via `prove_revision_is_anchor_or_descendant_v1`, **exact post-Q₄ revision chain ownership** (descendant count == 54 and forward `operation_ids` == locked contribution/identity-decision IDs from `operation_plan`), pinned + unpinned `rebuild_from_contributions` equivalence, revision-bound closure contributions, durable active identity decisions, and live source + target-source seals for **all 55** rows.
 4. **Preflight** re-verifies sealed source artifacts via `resolve_evidence_excerpt` / `verify_excerpt_against_seal` and seals target contribution payloads against locked `target_source_payload_sha256`.
 
 ## §5 Artifacts

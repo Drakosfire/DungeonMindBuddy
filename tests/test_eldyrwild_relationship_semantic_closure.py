@@ -3,7 +3,8 @@
 Covers the locked 55-row closure manifest (46 mutable + 9 deferred kind-repair),
 whole-ledger preflight with live source seals, operation-plan prefix-safe apply
 on an exact-Q4 clone, authority-safe applied detection, deferred residual exit
-(323/314/9/3), and the finalizer pin contract (Q4 ancestry + rebuild equivalence).
+(323/314/9/3), and the finalizer pin contract (exact Q4→head operation_plan
+chain + rebuild equivalence; refuse replayable foreign descendants).
 """
 
 from __future__ import annotations
@@ -738,6 +739,9 @@ def test_finalize_emits_pin_after_closure(tmp_path: Path) -> None:
     assert pin.base_revision_id == BASE_REVISION_ID
     assert len(pin.final_graph_payload_sha256) == 64
     assert "q4_ancestry_proven" in pin.diagnostics
+    assert "closure_operation_chain_exact" in pin.diagnostics
+    assert "all_units_live_source_sealed" in pin.diagnostics
+    assert "all_units_target_source_sealed" in pin.diagnostics
     assert "rebuild_equivalent_to_pinned_revision" in pin.diagnostics
     assert (
         "rebuild_equivalent_to_head" in pin.diagnostics
@@ -758,6 +762,7 @@ def test_finalize_refuses_foreign_descendant_without_rebuild_equivalence(
     pin = verify_relationship_semantic_closure(root=root, repo=REPO)
     assert pin is not None
     assert "q4_ancestry_proven" in pin.diagnostics
+    assert "closure_operation_chain_exact" in pin.diagnostics
     assert "rebuild_equivalent_to_pinned_revision" in pin.diagnostics
 
     head = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
@@ -775,3 +780,103 @@ def test_finalize_refuses_foreign_descendant_without_rebuild_equivalence(
     with pytest.raises(RelationshipSemanticClosureError) as excinfo:
         finalize_relationship_semantic_closure(root=root, repo=REPO)
     assert excinfo.value.code == "finalize_refused"
+
+
+def test_finalize_refuses_replayable_foreign_descendant_after_clean_closure(
+    tmp_path: Path,
+) -> None:
+    """Valid ledger-backed foreign publish after clean closure must refuse finalize.
+
+    Inventory and rebuild can still hold; the post-Q4 operation_plan chain must not.
+    """
+    root = _clone_eldyrwild(tmp_path)
+    _apply_full(root)
+    assert verify_relationship_semantic_closure(root=root, repo=REPO) is not None
+
+    parent = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
+    foreign = kernel.create_graph_contribution(
+        world_id=ELDYRWILD_WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="artifact:closure-foreign-chain-probe",
+        campaign_scope="eldyrwild",
+        authored_by="gm",
+        accepted_assertions=[
+            kernel.build_assertion(
+                assertion_kind="node",
+                acceptance_state="accepted",
+                subject_node_id="npc:closure_foreign_chain_probe",
+                label="closure foreign chain probe",
+                campaign_scope="eldyrwild",
+                value={
+                    "kind": "npc",
+                    "role": "foreign_probe",
+                    "source_domains": ["manual_seed"],
+                },
+                identity_resolution_outcome="created_new",
+            )
+        ],
+    )
+    merged = kernel.merge_contribution_to_revision(
+        root,
+        world_id=ELDYRWILD_WORLD_ID,
+        contribution=foreign,
+        expected_parent_revision_id=parent,
+    )
+    assert merged.published is True
+    assert merged.revision_id != parent
+
+    # Inventory unchanged — foreign node does not touch relationship residuals.
+    eff = analyze_relationship_effective_conformance_v1(
+        root=root, world_id=ELDYRWILD_WORLD_ID, revision_id=merged.revision_id
+    )
+    assert {
+        "semantic": eff.relationship_semantic_count,
+        "represented": eff.relationship_effectively_represented_count,
+        "residual": eff.relationship_effective_residual_count,
+        "uses_statblock_mechanics": eff.uses_statblock_mechanics_count,
+    } == EXPECTED_FINAL_INVENTORY
+    assert set(eff.remaining_residual_edge_ids) == DEFERRED_RESIDUAL_EDGE_IDS
+
+    # Rebuild still succeeds for this ledger-backed foreign head.
+    pinned = kernel.rebuild_from_contributions(
+        root,
+        world_id=ELDYRWILD_WORLD_ID,
+        compare_revision_id=merged.revision_id,
+        publish=False,
+    )
+    assert "rebuild_equivalent_to_pinned_revision" in list(
+        getattr(pinned, "diagnostics", []) or []
+    )
+
+    assert verify_relationship_semantic_closure(root=root, repo=REPO) is None
+    with pytest.raises(RelationshipSemanticClosureError) as excinfo:
+        finalize_relationship_semantic_closure(root=root, repo=REPO)
+    assert excinfo.value.code == "finalize_refused"
+
+
+def test_partial_resume_refuses_when_applied_unit_target_source_drifts(
+    tmp_path: Path,
+) -> None:
+    """Applied-prefix units must keep original target-contribution authority sealed."""
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_record,
+        write_contribution_record,
+    )
+
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    # Apply a clean prefix of the first mutable unit, then drift its target source.
+    first_unit = next(u for u in manifest["units"] if not u.get("deferred"))
+    _apply_single_unit_ops(root, manifest, first_unit)
+
+    target_cid = first_unit["target_contribution_ids"][0]
+    ledger = load_contribution_record(root, ELDYRWILD_WORLD_ID, target_cid)
+    tampered = ledger.model_copy(update={"authored_by": "not-gm"})
+    write_contribution_record(root, ELDYRWILD_WORLD_ID, tampered)
+
+    with pytest.raises(RelationshipSemanticClosureError) as excinfo:
+        apply_relationship_semantic_closure(
+            expected_base_revision_id=BASE_REVISION_ID, root=root, repo=REPO
+        )
+    assert excinfo.value.code == "preflight_failed"
+    assert "target_source_" in str(excinfo.value)
