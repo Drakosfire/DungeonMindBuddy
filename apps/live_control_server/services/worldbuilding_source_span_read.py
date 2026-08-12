@@ -14,6 +14,16 @@ from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
     load_source_span_index,
 )
+from apps.live_control_server.services.source_navigation import (
+    SourceNavigationError,
+    _require_worldbuilding_lineage,
+    _validate_workspace_lineage,
+)
+from apps.live_control_server.services.workspace_document_registry import (
+    WorkspaceDocumentRegistryError,
+    get_workspace_document_snapshot,
+)
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.kernel.world_retrieval import WorldGraphRetrievalError
 from graph_memory.retrieval.models import (
     WorldGraphRetrievalDiagnostic,
@@ -80,6 +90,70 @@ def _trust_boundary() -> WorldGraphRetrievalTrustBoundary:
     )
 
 
+def _map_navigation_error(exc: SourceNavigationError) -> None:
+    _raise(str(exc), code=exc.code, status_code=exc.status_code)
+
+
+def _reconcile_graph_registry_scope(
+    *,
+    artifact: GraphMemorySourceArtifact,
+    snapshot: WorldGraphRetrievalSnapshot | None,
+    graph_artifact: GraphMemorySourceArtifact | None,
+) -> None:
+    """Fail closed when registry A is not the same scoped worldbuilding source."""
+    artifact_world = (artifact.world_id or "").strip()
+    artifact_campaign = (artifact.campaign_id or "").strip()
+    if snapshot is not None:
+        if not artifact_world:
+            _raise(
+                "Registry SourceArtifact is missing world_id lineage.",
+                code="workspace_lineage_mismatch",
+                status_code=422,
+            )
+        if artifact_world != snapshot.world_id:
+            _raise(
+                "Registry SourceArtifact world_id disagrees with the graph snapshot.",
+                code="workspace_lineage_mismatch",
+                status_code=409,
+            )
+        if artifact_campaign and artifact_campaign != snapshot.campaign_id:
+            _raise(
+                "Registry SourceArtifact campaign_id disagrees with the graph snapshot.",
+                code="workspace_lineage_mismatch",
+                status_code=409,
+            )
+    if graph_artifact is None:
+        return
+    if graph_artifact.source_artifact_id != artifact.source_artifact_id:
+        _raise(
+            "Graph SourceArtifact id disagrees with registry SourceArtifact id.",
+            code="source_integrity_error",
+            status_code=409,
+        )
+    graph_digest = _normalize_sha256(graph_artifact.content_sha256)
+    registry_digest = _normalize_sha256(artifact.content_sha256)
+    if graph_digest and registry_digest and graph_digest != registry_digest:
+        _raise(
+            "Graph SourceArtifact digest disagrees with registry SourceArtifact.",
+            code="source_integrity_error",
+            status_code=409,
+        )
+    graph_campaign = (graph_artifact.campaign_id or "").strip()
+    if graph_campaign and artifact_campaign and graph_campaign != artifact_campaign:
+        _raise(
+            "Graph SourceArtifact campaign_id disagrees with registry SourceArtifact.",
+            code="workspace_lineage_mismatch",
+            status_code=409,
+        )
+    graph_world = (graph_artifact.world_id or "").strip()
+    if graph_world and artifact_world and graph_world != artifact_world:
+        _raise(
+            "Graph SourceArtifact world_id disagrees with registry SourceArtifact.",
+            code="workspace_lineage_mismatch",
+            status_code=409,
+        )
+
+
 def read_admitted_worldbuilding_span(
     *,
     root: Path,
@@ -90,6 +164,7 @@ def read_admitted_worldbuilding_span(
     anchor_id: str,
     evidence_ref_id: str | None = None,
     snapshot: WorldGraphRetrievalSnapshot | None = None,
+    graph_artifact: GraphMemorySourceArtifact | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
     """Return exact admitted worldbuilding S text when current bytes still match A."""
     cleaned_artifact_id = source_artifact_id.strip()
@@ -122,6 +197,25 @@ def read_admitted_worldbuilding_span(
             code="unsupported_source_domain",
             status_code=422,
         )
+
+    try:
+        document_id = _require_worldbuilding_lineage(artifact)
+        workspace = get_workspace_document_snapshot(root, document_id)
+        _validate_workspace_lineage(artifact, workspace.record)
+    except SourceNavigationError as exc:
+        _map_navigation_error(exc)
+    except WorkspaceDocumentRegistryError as exc:
+        _raise(
+            str(exc),
+            code="workspace_document_error",
+            status_code=exc.status_code,
+        )
+
+    _reconcile_graph_registry_scope(
+        artifact=artifact,
+        snapshot=snapshot,
+        graph_artifact=graph_artifact,
+    )
 
     registry_digest = _normalize_sha256(artifact.content_sha256)
     graph_digest = _normalize_sha256(graph_content_sha256)

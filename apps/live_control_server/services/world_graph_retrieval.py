@@ -183,6 +183,9 @@ def read_source_anchor(
                 anchor_id=request.anchor_id,
                 evidence_ref_id=anchor.evidence_ref_id,
                 snapshot=resolved.snapshot,
+                graph_artifact=resolved.store.source_artifacts.get(
+                    anchor.source_artifact_id
+                ),
             )
         return kernel.read_source_anchor(
             graph_root, request, repo_root=file_root
