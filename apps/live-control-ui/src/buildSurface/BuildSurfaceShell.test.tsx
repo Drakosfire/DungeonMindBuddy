@@ -14,6 +14,7 @@ import {
   workspaceDocumentStorageKey,
   writeWorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
+import type { BuildSourceNavigationResponse } from "../api/types";
 import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { BUILD_AUTHORITY_REJECTION_AMBIENT, BuildSurfaceShell } from "./BuildSurfaceShell";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
@@ -43,12 +44,48 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getWorkspaceDocumentSnapshot: vi.fn(),
+    getBuildSourceNavigation: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
   };
 });
 
 const DOC_ID = "11111111-1111-4111-8111-111111111111";
+const ARTIFACT_ID = "artifact-glass-hesta";
+const SPAN_ID = "span-hesta-gate-passage";
+const OTHER_DOC_ID = "22222222-2222-4222-8222-222222222222";
+
+function buildExactSourceNavigationResult(
+  overrides: Partial<BuildSourceNavigationResponse> = {},
+): BuildSourceNavigationResponse {
+  return {
+    schema: "dmb_build_source_navigation_v1",
+    status: "exact",
+    sourceArtifactId: ARTIFACT_ID,
+    sourceSpanRefId: SPAN_ID,
+    documentId: DOC_ID,
+    worldId: "the-glass-orchard",
+    campaignId: "the-glass-orchard",
+    artifactDocumentRevision: 2,
+    currentDocumentRevision: 2,
+    artifactContentSha256: "sha-build",
+    currentContentSha256: "sha-build",
+    startLine: 5,
+    endLine: 5,
+    canHighlight: true,
+    message: "",
+    diagnostics: [],
+    ...overrides,
+  };
+}
+
+function pushBuildSourceNavigationUrl(documentId = DOC_ID) {
+  window.history.pushState(
+    {},
+    "",
+    `/build?documentId=${documentId}&campaign=the-glass-orchard&sourceArtifactId=${ARTIFACT_ID}&sourceSpanRefId=${SPAN_ID}`,
+  );
+}
 
 function ScopeProbe() {
   const { scope, activeSurfaceContext } = useAgentInteraction();
@@ -1125,5 +1162,137 @@ describe("BuildSurfaceShell", () => {
     expect(await screen.findByTestId("build-surface-error")).toBeInTheDocument();
     expect(screen.queryByTestId("build-source-reader")).not.toBeInTheDocument();
     expect(screen.queryByTestId("build-source-mode-toggle")).not.toBeInTheDocument();
+  });
+
+  it("re-resolves A/S on arrival and highlights an exact source span in Read", async () => {
+    const markdown = [
+      "---",
+      "title: Gate Notes",
+      "---",
+      "",
+      "# Gate Notes",
+      "",
+      "Hesta watches the orchard gate at dusk.",
+      "",
+    ].join("\n");
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      markdown,
+      content_sha256: "sha-build",
+    });
+    vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(
+      buildExactSourceNavigationResult({ startLine: 7, endLine: 7 }),
+    );
+    pushBuildSourceNavigationUrl();
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(liveApi.getBuildSourceNavigation).toHaveBeenCalledWith({
+        sourceArtifactId: ARTIFACT_ID,
+        sourceSpanRefId: SPAN_ID,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Hesta watches the orchard gate at dusk.").closest("[data-source-block='true']"))
+        .not.toBeNull();
+    });
+    expect(screen.queryByTestId("build-source-reader-navigation-status")).not.toBeInTheDocument();
+  });
+
+  it("shows stale navigation truthfully without applying a highlight", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(
+      buildExactSourceNavigationResult({
+        status: "stale",
+        canHighlight: false,
+        currentContentSha256: "sha-new",
+        message: "Source drift detected.",
+      }),
+    );
+    pushBuildSourceNavigationUrl();
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    const status = await screen.findByTestId("build-source-reader-navigation-status");
+    expect(status).toHaveAttribute("data-navigation-status", "stale");
+    expect(status).toHaveTextContent(/source drift detected/i);
+    expect(document.querySelector("[data-source-block='true']")).toBeNull();
+  });
+
+  it("blocks highlight when the resolved document differs from the active Build document", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(
+      buildExactSourceNavigationResult({
+        documentId: OTHER_DOC_ID,
+        message: "Evidence belongs elsewhere.",
+      }),
+    );
+    pushBuildSourceNavigationUrl(DOC_ID);
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    const status = await screen.findByTestId("build-source-reader-navigation-status");
+    expect(status).toHaveAttribute("data-navigation-status", "document_mismatch");
+    expect(status).toHaveTextContent(/evidence belongs elsewhere/i);
+    expect(document.querySelector("[data-source-block='true']")).toBeNull();
+  });
+
+  it("preserves a dirty draft when arriving from graph source navigation", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(buildExactSourceNavigationResult());
+    pushBuildSourceNavigationUrl();
+
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Build Source",
+      campaignId: "eldyrwild",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 1,
+      baseContentSha256: "sha-build",
+      starterContent: { type: "doc", content: [] },
+    });
+    local.dirty = true;
+    local.exported_markdown = "# Dirty local\n";
+    writeWorkspaceDocumentLocalState(window.localStorage, local);
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+
+    const user = (await import("@testing-library/user-event")).default.setup();
+    await user.click(screen.getByTestId("build-source-mode-read"));
+    expect(await screen.findByTestId("build-source-reader-navigation-dirty-notice")).toHaveTextContent(
+      /last saved source/i,
+    );
+    await waitFor(() => {
+      expect(liveApi.getBuildSourceNavigation).toHaveBeenCalled();
+    });
+  });
+
+  it("re-resolves A/S again on hard reload composition", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(buildExactSourceNavigationResult());
+    pushBuildSourceNavigationUrl();
+
+    const { unmount } = render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await waitFor(() => {
+      expect(liveApi.getBuildSourceNavigation).toHaveBeenCalledTimes(1);
+    });
+    unmount();
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await waitFor(() => {
+      expect(liveApi.getBuildSourceNavigation).toHaveBeenCalledTimes(2);
+    });
   });
 });

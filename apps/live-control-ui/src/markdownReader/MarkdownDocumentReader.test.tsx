@@ -167,4 +167,86 @@ describe("MarkdownDocumentReader", () => {
       spy.mockRestore();
     }
   });
+
+  it("highlights the body block after YAML frontmatter using full-source line numbers", () => {
+    const markdown = [
+      "---",
+      "title: Gate Notes",
+      "---",
+      "",
+      "# Gate Notes",
+      "",
+      "Hesta watches the orchard gate at dusk.",
+      "",
+    ].join("\n");
+
+    render(
+      <MarkdownDocumentReader
+        markdown={markdown}
+        sourceLineTarget={{ startLine: 7, endLine: 7, targetKey: "artifact:span" }}
+      />,
+    );
+
+    expect(screen.getByText("Hesta watches the orchard gate at dusk.").closest("[data-source-block='true']"))
+      .not.toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Gate Notes" }).closest("[data-source-block='true']"))
+      .toBeNull();
+  });
+
+  it("shows no-highlight when the target falls in frontmatter-only lines", () => {
+    const markdown = "---\ntitle: Gate Notes\n---\n\nBody paragraph.\n";
+
+    render(
+      <MarkdownDocumentReader
+        markdown={markdown}
+        sourceLineTarget={{ startLine: 2, endLine: 2, targetKey: "artifact:frontmatter" }}
+      />,
+    );
+
+    expect(screen.getByTestId("markdown-reader-source-no-highlight")).toHaveTextContent(
+      /could not be highlighted/i,
+    );
+    expect(document.querySelector("[data-source-block='true']")).toBeNull();
+  });
+
+  it("does not guess a paragraph when no rendered block intersects the target", () => {
+    render(
+      <MarkdownDocumentReader
+        markdown={"# Gate\n\nVisible paragraph.\n"}
+        sourceLineTarget={{ startLine: 99, endLine: 99, targetKey: "artifact:missing" }}
+      />,
+    );
+
+    expect(screen.getByTestId("markdown-reader-source-no-highlight")).toBeInTheDocument();
+    expect(document.querySelector("[data-source-block='true']")).toBeNull();
+  });
+
+  it("scrolls once per target identity across rerenders", () => {
+    const scrollIntoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      const markdown = "# Gate\n\nTarget paragraph.\n";
+      const target = { startLine: 3, endLine: 3, targetKey: "artifact:span" };
+      const { rerender } = render(
+        <MarkdownDocumentReader markdown={markdown} sourceLineTarget={target} />,
+      );
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+      rerender(<MarkdownDocumentReader markdown={markdown} sourceLineTarget={target} />);
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <MarkdownDocumentReader
+          markdown={markdown}
+          sourceLineTarget={{ ...target, targetKey: "artifact:other-span" }}
+        />,
+      );
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
 });

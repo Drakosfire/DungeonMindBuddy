@@ -22,6 +22,7 @@ const baseNode: GraphProjectionNodeView = {
       can_open_source: true,
       can_highlight_span: false,
       label: "Session recap mention",
+      source_span_ref_id: "span-hesta-2",
     },
   ],
   adjacency: [
@@ -87,9 +88,12 @@ describe("buildGraphObjectCardFromNodeView", () => {
         id: "ev-1",
         label: "Session recap mention",
         sourceArtifactId: "artifact-1",
+        sourceSpanRefId: "span-hesta-2",
         sourceDomain: "recap",
         sourcePath: null,
         excerpt: null,
+        canOpenSource: true,
+        canHighlightSpan: false,
       },
     ]);
     expect(model.sourceDomains).toEqual(["recap", "authored_overlay"]);

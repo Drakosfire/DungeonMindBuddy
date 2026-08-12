@@ -11,6 +11,7 @@ import {
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
+  getBuildSourceNavigation,
   getCapabilities,
   getGraphIngestRuns,
   getGoldGraphProjection,
@@ -629,6 +630,49 @@ describe("Threat publication API", () => {
       status: 409,
       message: "Draft version conflict.",
     });
+  });
+});
+
+describe("liveApi getBuildSourceNavigation", () => {
+  afterEach(() => {
+    clearProjectionRequestCache();
+    vi.restoreAllMocks();
+  });
+
+  it("GETs source-navigation with artifact and span query params", async () => {
+    const response = {
+      schema: "dmb_build_source_navigation_v1",
+      status: "exact",
+      sourceArtifactId: "artifact-hesta",
+      sourceSpanRefId: "span-2",
+      documentId: "11111111-1111-4111-8111-111111111111",
+      worldId: "the-glass-orchard",
+      campaignId: "the-glass-orchard",
+      artifactDocumentRevision: 2,
+      currentDocumentRevision: 2,
+      artifactContentSha256: "sha256:artifact",
+      currentContentSha256: "sha256:artifact",
+      startLine: 5,
+      endLine: 7,
+      canHighlight: true,
+      message: "",
+      diagnostics: [],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+
+    const result = await getBuildSourceNavigation({
+      sourceArtifactId: "artifact-hesta",
+      sourceSpanRefId: "span-2",
+    });
+
+    expect(result).toEqual(response);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(
+      "/api/live/source-navigation?source_artifact_id=artifact-hesta&source_span_ref_id=span-2",
+    );
+    expect(String(url)).not.toContain("documentId");
+    expect(String(url)).not.toContain("startLine");
   });
 });
 

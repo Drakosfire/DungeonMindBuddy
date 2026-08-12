@@ -4248,3 +4248,23 @@ export interface ThreatPublicationCommitResponseV1 {
   retry_allowed: boolean;
   message?: string | null;
 }
+
+/** Read-only Build source-navigation resolver (`dmb_build_source_navigation_v1`). */
+export interface BuildSourceNavigationResponse {
+  schema: "dmb_build_source_navigation_v1";
+  status: "exact" | "stale";
+  sourceArtifactId: string;
+  sourceSpanRefId: string;
+  documentId: string;
+  worldId: string;
+  campaignId: string;
+  artifactDocumentRevision: number;
+  currentDocumentRevision: number;
+  artifactContentSha256: string;
+  currentContentSha256: string;
+  startLine: number;
+  endLine: number;
+  canHighlight: boolean;
+  message: string;
+  diagnostics: string[];
+}

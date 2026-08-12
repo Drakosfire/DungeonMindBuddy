@@ -5,6 +5,7 @@ import { GraphObjectCard } from "./GraphObjectCard";
 import type {
   GraphObjectCardMode,
   GraphObjectCardViewModel,
+  GraphObjectEvidenceViewModel,
   GraphObjectRelationshipViewModel,
 } from "./types";
 import { buildGraphObjectCardFromNodeView } from "./buildGraphObjectCardFromNodeView";
@@ -33,6 +34,9 @@ export interface GraphObjectProjectionCardProps {
   disabled?: boolean;
   selectedRelationshipId?: string | null;
   showRelationshipProvenance?: boolean;
+  onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
+  resolvingEvidenceId?: string | null;
+  evidenceErrors?: Record<string, string>;
   className?: string;
   "aria-label"?: string;
 }
@@ -48,6 +52,9 @@ export function GraphObjectProjectionCard({
   disabled = false,
   selectedRelationshipId = null,
   showRelationshipProvenance = true,
+  onReadSourceEvidence,
+  resolvingEvidenceId = null,
+  evidenceErrors = {},
   className,
   "aria-label": ariaLabel,
 }: GraphObjectProjectionCardProps) {
@@ -94,6 +101,9 @@ export function GraphObjectProjectionCard({
         onSelectRelationship={handleSelectRelationship}
         selectedRelationshipId={selectedRelationshipId}
         relationshipsDisabled={disabled}
+        onReadSourceEvidence={onReadSourceEvidence}
+        resolvingEvidenceId={resolvingEvidenceId}
+        evidenceErrors={evidenceErrors}
         actionsSlot={actions ?? undefined}
       />
     </div>

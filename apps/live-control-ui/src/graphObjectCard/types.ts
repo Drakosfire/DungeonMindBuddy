@@ -30,9 +30,13 @@ export interface GraphObjectEvidenceViewModel {
   id: string;
   label?: string | null;
   sourceArtifactId?: string | null;
+  sourceSpanRefId?: string | null;
   sourceDomain?: string | null;
   sourcePath?: string | null;
   excerpt?: string | null;
+  canOpenSource?: boolean;
+  /** Hint only; server revalidates highlight eligibility on navigation. */
+  canHighlightSpan?: boolean;
 }
 
 export interface GraphObjectActionViewModel {

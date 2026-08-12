@@ -185,6 +185,30 @@
   font-size: 0.92rem;
 }
 
+.build-source-reader__navigation-dirty-notice {
+  margin: 0;
+  color: #e0af68;
+  font-size: 0.92rem;
+}
+
+.build-source-reader__navigation-status {
+  margin: 0;
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--fg, #e8eaef) 88%, transparent);
+}
+
+.build-source-reader__navigation-status--stale {
+  color: #e0af68;
+  border-left: 3px solid rgba(224, 175, 104, 0.55);
+  padding-left: 0.65rem;
+}
+
+.build-source-reader__navigation-status--error {
+  color: #f7768e;
+  border-left: 3px solid rgba(247, 118, 142, 0.55);
+  padding-left: 0.65rem;
+}
+
 .build-surface-editor-shell {
   display: grid;
   gap: 0.75rem;
@@ -301,4 +325,21 @@
 
 .markdown-reader-unresolved-media__ref {
   opacity: 0.75;
+}
+
+.markdown-reader-source-highlight {
+  border-left: 3px solid rgba(122, 162, 247, 0.75);
+  padding-left: 0.65rem;
+  background: rgba(80, 120, 200, 0.12);
+  border-radius: 4px;
+}
+
+.markdown-reader-source-no-highlight {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: rgba(18, 20, 26, 0.55);
+  color: #e0af68;
+  font-size: 0.92rem;
 }

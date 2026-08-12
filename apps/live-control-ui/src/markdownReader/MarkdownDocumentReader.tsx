@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import type {
   Content,
   Definition,
@@ -17,14 +17,25 @@ import type {
 } from "mdast";
 
 import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
-import { stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
+import { splitLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { createHeadingIdRegistry, type HeadingIdRegistry } from "./markdownReaderHeadingId";
 import { classifyImageUrl, classifyLinkUrl } from "./markdownReaderUrlPolicy";
+
+export interface MarkdownSourceLineTarget {
+  /** 1-based full saved-source line (includes YAML frontmatter). */
+  startLine: number;
+  /** 1-based full saved-source line (includes YAML frontmatter). */
+  endLine: number;
+  /** Scroll/highlight identity — scroll runs once per distinct key. */
+  targetKey: string;
+}
 
 export interface MarkdownDocumentReaderProps {
   /** Exact saved Markdown (may include leading YAML frontmatter). */
   markdown: string;
   className?: string;
+  /** When set, highlight rendered blocks intersecting the full-source line range. */
+  sourceLineTarget?: MarkdownSourceLineTarget | null;
 }
 
 type DefinitionMap = Map<string, Definition>;
@@ -33,7 +44,120 @@ type RenderContext = {
   bodyMarkdown: string;
   definitions: DefinitionMap;
   headingIds: HeadingIdRegistry;
+  highlightKeys: ReadonlySet<string> | null;
 };
+
+function countNewlines(text: string): number {
+  let count = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === "\n") count += 1;
+  }
+  return count;
+}
+
+function frontmatterLineOffset(fullMarkdown: string): number {
+  const split = splitLeadingYamlFrontmatter(fullMarkdown);
+  if (!split.removedLength) return 0;
+  return countNewlines(fullMarkdown.slice(0, split.removedLength));
+}
+
+function isHighlightableBlock(node: RootContent | Content): boolean {
+  switch (node.type) {
+    case "paragraph":
+    case "heading":
+    case "blockquote":
+    case "code":
+    case "list":
+    case "table":
+    case "html":
+    case "listItem":
+      return true;
+    default:
+      return false;
+  }
+}
+
+type PositionedBlock = {
+  key: string;
+  startFull: number;
+  endFull: number;
+};
+
+function collectIntersectingBlocks(
+  nodes: Array<RootContent | Content>,
+  keyPrefix: string,
+  lineOffset: number,
+  targetStart: number,
+  targetEnd: number,
+  out: PositionedBlock[],
+): void {
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+    const key = `${keyPrefix}.${index}`;
+    const startLine = node.position?.start?.line;
+    const endLine = node.position?.end?.line;
+    if (typeof startLine === "number" && typeof endLine === "number") {
+      const startFull = startLine + lineOffset;
+      const endFull = endLine + lineOffset;
+      if (startFull <= targetEnd && endFull >= targetStart && isHighlightableBlock(node)) {
+        out.push({ key, startFull, endFull });
+      }
+    }
+    if ("children" in node && Array.isArray(node.children)) {
+      collectIntersectingBlocks(
+        node.children as Array<RootContent | Content>,
+        key,
+        lineOffset,
+        targetStart,
+        targetEnd,
+        out,
+      );
+    }
+  }
+}
+
+function minimalHighlightKeys(blocks: PositionedBlock[]): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const block of blocks) {
+    const span = block.endFull - block.startFull;
+    const hasSmallerDescendant = blocks.some(
+      (other) =>
+        other.key !== block.key
+        && other.startFull >= block.startFull
+        && other.endFull <= block.endFull
+        && other.endFull - other.startFull < span,
+    );
+    if (!hasSmallerDescendant) {
+      keys.add(block.key);
+    }
+  }
+  return keys;
+}
+
+function resolveHighlightKeys(
+  ast: Root,
+  fullMarkdown: string,
+  target: MarkdownSourceLineTarget | null | undefined,
+): ReadonlySet<string> | null {
+  if (!target) return null;
+  const lineOffset = frontmatterLineOffset(fullMarkdown);
+  const blocks: PositionedBlock[] = [];
+  collectIntersectingBlocks(
+    ast.children,
+    "root",
+    lineOffset,
+    target.startLine,
+    target.endLine,
+    blocks,
+  );
+  if (blocks.length === 0) return new Set();
+  return minimalHighlightKeys(blocks);
+}
+
+function highlightClass(key: string, ctx: RenderContext): string | undefined {
+  if (!ctx.highlightKeys?.has(key)) return undefined;
+  return "markdown-reader-source-highlight";
+}
 
 function collectDefinitions(root: Root): DefinitionMap {
   const definitions: DefinitionMap = new Map();
@@ -57,7 +181,12 @@ function unknownFallback(node: { type: string; position?: { start?: { offset?: n
   const slice = sourceSlice(node, ctx.bodyMarkdown);
   if (slice != null && slice.length > 0) {
     return (
-      <pre key={key} className="markdown-reader-fallback markdown-reader-fallback--source" data-node-type={node.type}>
+      <pre
+        key={key}
+        className={["markdown-reader-fallback", "markdown-reader-fallback--source", highlightClass(key, ctx)].filter(Boolean).join(" ")}
+        data-node-type={node.type}
+        data-source-block={highlightClass(key, ctx) ? "true" : undefined}
+      >
         {slice}
       </pre>
     );
@@ -102,7 +231,6 @@ function renderSafeLink(args: {
       </a>
     );
   }
-  // relative_visible / unsafe — visible text, never an executable/navigating anchor
   return (
     <span
       key={args.key}
@@ -199,11 +327,16 @@ function renderImageReference(node: ImageReference, ctx: RenderContext, key: str
 
 function renderListItem(node: ListItem, ctx: RenderContext, key: string): ReactNode {
   const checked = node.checked;
+  const highlight = highlightClass(key, ctx);
   return (
     <li
       key={key}
-      className={checked === null || checked === undefined ? undefined : "markdown-reader-task-item"}
+      className={[
+        checked === null || checked === undefined ? undefined : "markdown-reader-task-item",
+        highlight,
+      ].filter(Boolean).join(" ") || undefined}
       data-checked={checked === null || checked === undefined ? undefined : String(checked)}
+      data-source-block={highlight ? "true" : undefined}
     >
       {checked === true || checked === false ? (
         <span className="markdown-reader-task-marker" aria-hidden="true">
@@ -219,14 +352,24 @@ function renderList(node: List, ctx: RenderContext, key: string): ReactNode {
   const items = (node.children ?? []).map((item, index) =>
     renderListItem(item, ctx, `${key}.${index}`),
   );
+  const highlight = highlightClass(key, ctx);
   if (node.ordered) {
     return (
-      <ol key={key} start={node.start ?? undefined}>
+      <ol
+        key={key}
+        start={node.start ?? undefined}
+        className={highlight}
+        data-source-block={highlight ? "true" : undefined}
+      >
         {items}
       </ol>
     );
   }
-  return <ul key={key}>{items}</ul>;
+  return (
+    <ul key={key} className={highlight} data-source-block={highlight ? "true" : undefined}>
+      {items}
+    </ul>
+  );
 }
 
 function renderTableCell(node: TableCell, ctx: RenderContext, key: string, header: boolean): ReactNode {
@@ -251,8 +394,13 @@ function renderTableRow(node: TableRow, ctx: RenderContext, key: string, header:
 function renderTable(node: Table, ctx: RenderContext, key: string): ReactNode {
   const rows = node.children ?? [];
   const [head, ...body] = rows;
+  const highlight = highlightClass(key, ctx);
   return (
-    <div key={key} className="markdown-reader-table-wrap">
+    <div
+      key={key}
+      className={["markdown-reader-table-wrap", highlight].filter(Boolean).join(" ")}
+      data-source-block={highlight ? "true" : undefined}
+    >
       <table>
         {head ? <thead>{renderTableRow(head, ctx, `${key}.head`, true)}</thead> : null}
         {body.length > 0 ? (
@@ -269,14 +417,21 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
   switch (node.type) {
     case "text":
       return <span key={key}>{node.value}</span>;
-    case "paragraph":
-      return <p key={key}>{renderPhrasing(node.children, ctx, key)}</p>;
+    case "paragraph": {
+      const highlight = highlightClass(key, ctx);
+      return (
+        <p key={key} className={highlight} data-source-block={highlight ? "true" : undefined}>
+          {renderPhrasing(node.children, ctx, key)}
+        </p>
+      );
+    }
     case "heading": {
       const depth = Math.min(6, Math.max(1, node.depth)) as 1 | 2 | 3 | 4 | 5 | 6;
       const Tag = `h${depth}` as const;
       const id = ctx.headingIds.allocate(node.children);
+      const highlight = highlightClass(key, ctx);
       return (
-        <Tag key={key} id={id}>
+        <Tag key={key} id={id} className={highlight} data-source-block={highlight ? "true" : undefined}>
           {renderPhrasing(node.children, ctx, key)}
         </Tag>
       );
@@ -293,14 +448,26 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
       return <br key={key} />;
     case "thematicBreak":
       return <hr key={key} />;
-    case "blockquote":
-      return <blockquote key={key}>{renderChildren(node.children, ctx, key)}</blockquote>;
-    case "code":
+    case "blockquote": {
+      const highlight = highlightClass(key, ctx);
       return (
-        <pre key={key} className="markdown-reader-code">
+        <blockquote key={key} className={highlight} data-source-block={highlight ? "true" : undefined}>
+          {renderChildren(node.children, ctx, key)}
+        </blockquote>
+      );
+    }
+    case "code": {
+      const highlight = highlightClass(key, ctx);
+      return (
+        <pre
+          key={key}
+          className={["markdown-reader-code", highlight].filter(Boolean).join(" ")}
+          data-source-block={highlight ? "true" : undefined}
+        >
           <code className={node.lang ? `language-${node.lang}` : undefined}>{node.value}</code>
         </pre>
       );
+    }
     case "list":
       return renderList(node, ctx, key);
     case "listItem":
@@ -319,21 +486,22 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
       return renderImage(node, key);
     case "imageReference":
       return renderImageReference(node, ctx, key);
-    case "html":
+    case "html": {
+      const highlight = highlightClass(key, ctx);
       return (
         <pre
           key={key}
-          className="markdown-reader-html-literal"
+          className={["markdown-reader-html-literal", highlight].filter(Boolean).join(" ")}
           data-testid="markdown-reader-html-literal"
+          data-source-block={highlight ? "true" : undefined}
         >
           {node.value}
         </pre>
       );
+    }
     case "definition":
-      // Definitions are consumed by reference resolution; omit from prose.
       return null;
     case "yaml":
-      // Frontmatter is stripped before parse; if present, omit from prose.
       return null;
     default:
       return unknownFallback(node, ctx, key);
@@ -344,26 +512,60 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
  * Read-only semantic React document from exact Markdown via the canonical MDAST parser.
  * Does not use TipTap. Never executes raw HTML. Never writes source.
  */
-export function MarkdownDocumentReader({ markdown, className }: MarkdownDocumentReaderProps) {
+export function MarkdownDocumentReader({
+  markdown,
+  className,
+  sourceLineTarget = null,
+}: MarkdownDocumentReaderProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrolledTargetKeyRef = useRef<string | null>(null);
+
   const bodyMarkdown = useMemo(
     () => stripLeadingYamlFrontmatter(markdown).markdown,
     [markdown],
   );
   const ast = useMemo(() => parseMarkdownAst(bodyMarkdown), [bodyMarkdown]);
   const definitions = useMemo(() => collectDefinitions(ast), [ast]);
-  // Fresh registry each render: allocate() is called during render and must not
-  // retain counters across re-renders of the same AST (would suffix-shift ids).
+  const highlightKeys = useMemo(
+    () => resolveHighlightKeys(ast, markdown, sourceLineTarget),
+    [ast, markdown, sourceLineTarget],
+  );
+
+  const showNoHighlightMessage =
+    sourceLineTarget != null && highlightKeys != null && highlightKeys.size === 0;
+
+  useEffect(() => {
+    if (!sourceLineTarget || !highlightKeys || highlightKeys.size === 0) return;
+    if (scrolledTargetKeyRef.current === sourceLineTarget.targetKey) return;
+    const first = containerRef.current?.querySelector("[data-source-block='true']");
+    if (first instanceof HTMLElement && typeof first.scrollIntoView === "function") {
+      first.scrollIntoView({ block: "center" });
+      scrolledTargetKeyRef.current = sourceLineTarget.targetKey;
+    }
+  }, [sourceLineTarget, highlightKeys, markdown]);
+
   const ctx: RenderContext = {
     bodyMarkdown,
     definitions,
     headingIds: createHeadingIdRegistry(),
+    highlightKeys,
   };
 
   return (
     <div
+      ref={containerRef}
       className={["markdown-document-reader", className].filter(Boolean).join(" ")}
       data-testid="markdown-document-reader"
     >
+      {showNoHighlightMessage ? (
+        <p
+          className="markdown-reader-source-no-highlight"
+          role="status"
+          data-testid="markdown-reader-source-no-highlight"
+        >
+          Exact passage could not be highlighted.
+        </p>
+      ) : null}
       {ast.children.map((child, index) => renderNode(child, ctx, `root.${index}`))}
     </div>
   );

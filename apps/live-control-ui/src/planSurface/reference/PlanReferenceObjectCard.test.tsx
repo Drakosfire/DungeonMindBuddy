@@ -27,7 +27,18 @@ vi.mock("../../api/liveApi", async () => {
   };
 });
 
+vi.mock("../../sourceNavigation/sourceNavigation", async () => {
+  const actual = await vi.importActual<typeof import("../../sourceNavigation/sourceNavigation")>(
+    "../../sourceNavigation/sourceNavigation",
+  );
+  return {
+    ...actual,
+    resolveAndNavigateToBuildSource: vi.fn(),
+  };
+});
+
 import * as liveApi from "../../api/liveApi";
+import { resolveAndNavigateToBuildSource } from "../../sourceNavigation/sourceNavigation";
 import { FIXTURE_DOC_ID } from "../config/planSessionDescriptor";
 
 const innNode: GraphProjectionNodeView = {
@@ -54,8 +65,13 @@ const glowkindleNode: GraphProjectionNodeView = {
     {
       evidence_ref_id: "ev-1",
       label: "Session recap mention",
-      source_domain: "recap",
+      source_domain: "worldbuilding",
       source_artifact_id: "artifact-1",
+      evidence_role: "mention",
+      is_focus_session_evidence: true,
+      can_open_source: true,
+      can_highlight_span: false,
+      source_span_ref_id: "span-glow-1",
     },
   ],
   adjacency: [
@@ -247,8 +263,16 @@ function mockBinding(
   };
 }
 
+/** Related-object clicks no-op while World Graph projection is still loading. */
+async function waitForRelatedObjectEnabled(name: RegExp) {
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name })).toBeEnabled();
+  });
+}
+
 describe("PlanReferenceObjectCard", () => {
   beforeEach(() => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockReset();
     vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
@@ -328,6 +352,68 @@ describe("PlanReferenceObjectCard", () => {
     expect(details).toHaveAttribute("open");
   });
 
+  it("resolves Read source through the server navigation client", async () => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockResolvedValue(undefined);
+    const resolution = resolvedGraphFromNode(glowkindleNode);
+    const user = userEvent.setup();
+
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    const card = screen.getByLabelText(/Glowkindle graph object/i);
+    await user.click(within(card).getByText("Details"));
+    await user.click(within(card).getByRole("button", { name: "Read source" }));
+
+    expect(resolveAndNavigateToBuildSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceArtifactId: "artifact-1",
+        sourceSpanRefId: "span-glow-1",
+        navigate: expect.any(Function),
+      }),
+    );
+  });
+
+  it("shows row-local error when Read source resolution fails", async () => {
+    vi.mocked(resolveAndNavigateToBuildSource).mockRejectedValue(
+      new Error("Source span not found."),
+    );
+    const resolution = resolvedGraphFromNode(glowkindleNode);
+    const user = userEvent.setup();
+
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    const card = screen.getByLabelText(/Glowkindle graph object/i);
+    await user.click(within(card).getByText("Details"));
+    await user.click(within(card).getByRole("button", { name: "Read source" }));
+
+    expect(await within(card).findByRole("alert")).toHaveTextContent("Source span not found.");
+  });
+
+  it("does not show Read source for recap evidence even when can_open_source is true", async () => {
+    const resolution = resolvedGraphFromNode({
+      ...glowkindleNode,
+      evidence_badges: [
+        {
+          evidence_ref_id: "ev-recap",
+          label: "Session recap mention",
+          source_domain: "recap",
+          source_artifact_id: "artifact-recap",
+          evidence_role: "mention",
+          is_focus_session_evidence: true,
+          can_open_source: true,
+          can_highlight_span: false,
+          source_span_ref_id: "span-recap-1",
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    const card = screen.getByLabelText(/Glowkindle graph object/i);
+    await user.click(within(card).getByText("Details"));
+    expect(within(card).queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+  });
+
   it("renders Open statblock tool for grounded statblock graph nodes when projection can open tools", async () => {
     const resolution = resolvedGraphFromNode({
       ...glowkindleNode,
@@ -384,6 +470,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
+    await waitForRelatedObjectEnabled(/Open related object .*Inn/i);
     await user.click(
       screen.getByRole("button", { name: /Open related object .*Inn/i }),
     );
@@ -506,6 +593,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
+    await waitForRelatedObjectEnabled(/Open related object .*Lysandra/i);
     await user.click(screen.getByRole("button", { name: /Open related object .*Lysandra/i }));
 
     await waitFor(() => {
@@ -552,6 +640,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
+    await waitForRelatedObjectEnabled(/Open related object .*Missing Gate/i);
     await user.click(screen.getByRole("button", { name: /Open related object .*Missing Gate/i }));
 
     await waitFor(() => {
@@ -604,6 +693,7 @@ describe("PlanReferenceObjectCard", () => {
     });
 
     // First empty-targetId row is ambiguous Lysandra. Clicking Inn must not first-win that row.
+    await waitForRelatedObjectEnabled(/Open related object .*Inn/i);
     await user.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
 
     await waitFor(() => {

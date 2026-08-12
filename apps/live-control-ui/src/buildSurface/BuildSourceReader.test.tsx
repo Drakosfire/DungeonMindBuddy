@@ -51,4 +51,61 @@ describe("BuildSourceReader", () => {
     expect(screen.queryByText("Frontmatter Title")).not.toBeInTheDocument();
     expect(screen.getByText("Body only.")).toBeInTheDocument();
   });
+
+  it("passes exact line targets to the reader and omits them when stale", () => {
+    const { rerender } = render(
+      <BuildSourceReader
+        title="Gate Notes"
+        markdown={"# Gate\n\nTarget paragraph.\n"}
+        dirty={false}
+        navigationTarget={{
+          status: "exact",
+          startLine: 3,
+          endLine: 3,
+          targetKey: "artifact:span",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Target paragraph.").closest("[data-source-block='true']")).not.toBeNull();
+    expect(screen.queryByTestId("build-source-reader-navigation-status")).not.toBeInTheDocument();
+
+    rerender(
+      <BuildSourceReader
+        title="Gate Notes"
+        markdown={"# Gate\n\nTarget paragraph.\n"}
+        dirty={false}
+        navigationTarget={{
+          status: "stale",
+          message: "Source drift detected.",
+          targetKey: "artifact:span",
+        }}
+      />,
+    );
+
+    const status = screen.getByTestId("build-source-reader-navigation-status");
+    expect(status).toHaveAttribute("data-navigation-status", "stale");
+    expect(status).toHaveTextContent(/source drift detected/i);
+    expect(document.querySelector("[data-source-block='true']")).toBeNull();
+  });
+
+  it("shows document mismatch status without highlight props", () => {
+    render(
+      <BuildSourceReader
+        title="Gate Notes"
+        markdown={"# Gate\n\nTarget paragraph.\n"}
+        dirty={false}
+        navigationTarget={{
+          status: "document_mismatch",
+          message: "Wrong document open.",
+          targetKey: "artifact:span",
+        }}
+      />,
+    );
+
+    const status = screen.getByTestId("build-source-reader-navigation-status");
+    expect(status).toHaveAttribute("data-navigation-status", "document_mismatch");
+    expect(status).toHaveTextContent(/wrong document open/i);
+    expect(document.querySelector("[data-source-block='true']")).toBeNull();
+  });
 });

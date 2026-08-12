@@ -1,9 +1,16 @@
+import { useCallback, useState } from "react";
+
 import type { GraphProjectionAdjacencyCandidate, GraphProjectionNodeView } from "../../api/types";
 import {
-  GraphObjectCard,
   buildGraphObjectCardFromNodeView,
   friendlyVisibilityCopy,
 } from "../../graphObjectCard";
+import {
+  GraphObjectCard,
+  GraphObjectEvidenceRows,
+} from "../../graphObjectCard/GraphObjectCard";
+import type { GraphObjectEvidenceViewModel } from "../../graphObjectCard";
+import { resolveAndNavigateToBuildSource } from "../../sourceNavigation/sourceNavigation";
 import { GraphReviewRelationshipChips } from "./GraphReviewRelationshipChips";
 import {
   GRAPH_REVIEW_RELATIONSHIP_PREDICATES,
@@ -192,10 +199,18 @@ function NodeDetailsPanel({
   viewModel,
   sourceAnchorShownAbove,
   onSelectEvidenceDelta,
+  evidence,
+  onReadSourceEvidence,
+  resolvingEvidenceId,
+  evidenceErrors,
 }: {
   viewModel: GraphReviewSelectedNodeViewModel;
   sourceAnchorShownAbove: boolean;
   onSelectEvidenceDelta?: (deltaId: string | null) => void;
+  evidence: GraphObjectEvidenceViewModel[];
+  onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
+  resolvingEvidenceId?: string | null;
+  evidenceErrors?: Record<string, string>;
 }) {
   const node = viewModel.node;
   const durableSummary = durableIdentitySummaryForNode(node);
@@ -267,6 +282,12 @@ function NodeDetailsPanel({
             <strong>Source phrase:</strong> {node.source_anchor_text}
           </p>
         ) : null}
+        <GraphObjectEvidenceRows
+          evidence={evidence}
+          onReadSourceEvidence={onReadSourceEvidence}
+          resolvingEvidenceId={resolvingEvidenceId}
+          evidenceErrors={evidenceErrors}
+        />
         {viewModel.deltaId && onSelectEvidenceDelta ? (
           <div className="graph-review-card-actions">
             <button type="button" onClick={() => onSelectEvidenceDelta(viewModel.deltaId ?? null)}>
@@ -364,6 +385,40 @@ export function GraphReviewNodeGameCard({
   const node = viewModel.node;
   const sourceAnchorShownAbove = false;
   const model = buildGraphObjectCardFromNodeView(node);
+  const [resolvingEvidenceId, setResolvingEvidenceId] = useState<string | null>(null);
+  const [evidenceErrors, setEvidenceErrors] = useState<Record<string, string>>({});
+
+  const onReadSourceEvidence = useCallback(
+    async (evidence: GraphObjectEvidenceViewModel) => {
+      if (evidence.sourceDomain !== "worldbuilding") return;
+      if (!evidence.sourceArtifactId || !evidence.sourceSpanRefId) return;
+      if (resolvingEvidenceId) return;
+
+      setResolvingEvidenceId(evidence.id);
+      setEvidenceErrors((previous) => {
+        const next = { ...previous };
+        delete next[evidence.id];
+        return next;
+      });
+      try {
+        await resolveAndNavigateToBuildSource({
+          sourceArtifactId: evidence.sourceArtifactId,
+          sourceSpanRefId: evidence.sourceSpanRefId,
+          navigate: (href) => {
+            window.location.assign(href);
+          },
+          currentSearch: typeof window !== "undefined" ? window.location.search : "",
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Source navigation is unavailable.";
+        setEvidenceErrors((previous) => ({ ...previous, [evidence.id]: message }));
+      } finally {
+        setResolvingEvidenceId(null);
+      }
+    },
+    [resolvingEvidenceId],
+  );
 
   return (
     <GraphObjectCard
@@ -392,6 +447,10 @@ export function GraphReviewNodeGameCard({
           viewModel={viewModel}
           sourceAnchorShownAbove={sourceAnchorShownAbove}
           onSelectEvidenceDelta={onSelectEvidenceDelta}
+          evidence={model.evidence ?? []}
+          onReadSourceEvidence={onReadSourceEvidence}
+          resolvingEvidenceId={resolvingEvidenceId}
+          evidenceErrors={evidenceErrors}
         />
       }
     />

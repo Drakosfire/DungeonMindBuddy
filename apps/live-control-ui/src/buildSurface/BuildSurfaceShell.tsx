@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { getBuildSourceNavigation } from "../api/liveApi";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import {
   useMarkdownCanvasSession,
@@ -7,11 +8,15 @@ import {
 } from "../markdownCanvas/MarkdownCanvasSession";
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
+import { parseBuildSourceNavigationQuery } from "../sourceNavigation/sourceNavigation";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
-import { BuildSourceReader } from "./BuildSourceReader";
+import {
+  BuildSourceReader,
+  type BuildSourceNavigationTarget,
+} from "./BuildSourceReader";
 
 /** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
 export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
@@ -44,12 +49,16 @@ export function initialSourceViewMode(args: {
  * Ephemeral Read/Edit chrome for one admitted document.
  * Mounted with `key={documentId}` so the initial mode decision runs once per document.
  */
+const IDLE_SOURCE_NAVIGATION_TARGET: BuildSourceNavigationTarget = { status: "none" };
+
 function BuildPresentableSourceView({
   session,
   editSlots,
+  navigationTarget,
 }: {
   session: MarkdownCanvasSessionValue;
   editSlots: MarkdownCanvasSlots;
+  navigationTarget: BuildSourceNavigationTarget;
 }) {
   const [sourceViewMode, setSourceViewMode] = useState<BuildSourceViewMode>(() =>
     initialSourceViewMode({
@@ -92,6 +101,7 @@ function BuildPresentableSourceView({
           title={session.record!.title}
           markdown={session.snapshot!.markdown}
           dirty={session.dirty}
+          navigationTarget={navigationTarget}
         />
       ) : (
         <MarkdownCanvas slots={editSlots} />
@@ -113,6 +123,9 @@ export function BuildSurfaceShell() {
   );
   const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave });
   const lastAcceptedCampaignRef = useRef<string>("build");
+  const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
+    IDLE_SOURCE_NAVIGATION_TARGET,
+  );
 
   const isPresentable =
     session.record != null
@@ -240,6 +253,83 @@ export function BuildSurfaceShell() {
     };
   }, [publishSurfaceContext, rehydrateScope]);
 
+  const sourceNavigationQuery = parseBuildSourceNavigationQuery(window.location.search);
+  const acceptedDocumentId = session.record?.document_id ?? null;
+  const savedContentSha256 = session.snapshot?.content_sha256 ?? null;
+
+  useEffect(() => {
+    if (!sourceNavigationQuery) {
+      setNavigationTarget(IDLE_SOURCE_NAVIGATION_TARGET);
+      return;
+    }
+
+    const targetKey = `${sourceNavigationQuery.sourceArtifactId}:${sourceNavigationQuery.sourceSpanRefId}`;
+    if (!acceptedDocumentId) {
+      setNavigationTarget({ status: "pending", targetKey });
+      return;
+    }
+
+    let cancelled = false;
+    setNavigationTarget({ status: "pending", targetKey });
+
+    void getBuildSourceNavigation(sourceNavigationQuery)
+      .then((result) => {
+        if (cancelled) return;
+
+        const resolvedTargetKey = `${result.sourceArtifactId}:${result.sourceSpanRefId}`;
+        if (result.documentId !== acceptedDocumentId) {
+          setNavigationTarget({
+            status: "document_mismatch",
+            message:
+              result.message
+              || "This source passage belongs to a different Build document than the one currently open.",
+            targetKey: resolvedTargetKey,
+          });
+          return;
+        }
+
+        const digestMatchesSaved =
+          savedContentSha256 != null
+          && result.currentContentSha256 === result.artifactContentSha256
+          && savedContentSha256 === result.currentContentSha256;
+
+        if (result.status === "stale" || !result.canHighlight || !digestMatchesSaved) {
+          setNavigationTarget({
+            status: "stale",
+            message:
+              result.message
+              || "Source has changed since this evidence was admitted. The cited line range cannot be highlighted exactly.",
+            targetKey: resolvedTargetKey,
+          });
+          return;
+        }
+
+        setNavigationTarget({
+          status: "exact",
+          startLine: result.startLine,
+          endLine: result.endLine,
+          targetKey: resolvedTargetKey,
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setNavigationTarget({
+          status: "error",
+          message: error instanceof Error ? error.message : "Source navigation could not be resolved.",
+          targetKey,
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    acceptedDocumentId,
+    savedContentSha256,
+    sourceNavigationQuery?.sourceArtifactId,
+    sourceNavigationQuery?.sourceSpanRefId,
+  ]);
+
   // Document-backed graph context must wait for an accepted record. While the
   // document is loading, conflicted, or rejected, session.record is null — mounting
   // then would skip scope admission and race a later rejection.
@@ -268,6 +358,7 @@ export function BuildSurfaceShell() {
           key={session.record!.document_id}
           session={session}
           editSlots={editSlots}
+          navigationTarget={navigationTarget}
         />
       )}
     </div>
