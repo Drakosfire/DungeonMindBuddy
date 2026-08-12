@@ -1,10 +1,9 @@
 """Tests for the Eldyrwild relationship semantic closure program.
 
-Covers the locked 55-row closure manifest, whole-ledger preflight, prefix-safe
-apply on an exact-Q4 clone, per-closure-kind effects (identity merges,
-governed replacements, compound decomposition, contradiction-only), durable
-identity-decision ledger sync, idempotent/partial resume, and the finalizer
-pin contract.
+Covers the locked 55-row closure manifest (46 mutable + 9 deferred kind-repair),
+whole-ledger preflight with live source seals, operation-plan prefix-safe apply
+on an exact-Q4 clone, authority-safe applied detection, deferred residual exit
+(323/314/9/3), and the finalizer pin contract (Q4 ancestry + rebuild equivalence).
 """
 
 from __future__ import annotations
@@ -31,9 +30,13 @@ from apps.live_control_server.services.eldyrwild_relationship_semantic_closure i
     BASE_REVISION_ID,
     CLOSURE_DIR_RELPATH,
     CLOSURE_ID,
+    DEFERRED_RESIDUAL_EDGE_IDS,
+    DEFERRED_UNIT_COUNT,
     EXPECTED_FINAL_INVENTORY,
     LOCKED_MANIFEST_SHA256,
     MANIFEST_RELPATH,
+    MUTABLE_UNIT_COUNT,
+    OPERATION_PLAN_COUNT,
     RelationshipSemanticClosureError,
     apply_relationship_semantic_closure,
     finalize_relationship_semantic_closure,
@@ -130,12 +133,20 @@ def _unit(manifest: dict[str, Any], edge_id: str) -> dict[str, Any]:
     return next(u for u in manifest["units"] if u["edge_id"] == edge_id)
 
 
-def _apply_single_unit_ops(root: Path, manifest: dict[str, Any], unit: dict) -> None:
-    """Apply one unit's ops directly through kernel seams (crash simulation)."""
-    for op in unit["operations"]:
+def _apply_ops(
+    root: Path,
+    manifest: dict[str, Any],
+    unit: dict[str, Any],
+    *,
+    ops: list[dict[str, Any]] | None = None,
+) -> None:
+    """Apply selected unit ops directly through kernel seams (crash simulation)."""
+    for op in ops if ops is not None else unit["operations"]:
         _h, _r, store = kernel.open_current_world_graph(root, ELDYRWILD_WORLD_ID)
         parent = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
-        if closure_service._op_applied(store, unit, op):
+        if closure_service._op_applied(
+            store, unit, op, root=root, manifest=manifest
+        ):
             continue
         if op["op"] == "identity_merge":
             from graph_memory.kernel.identity_decisions import merge_identity
@@ -183,6 +194,10 @@ def _apply_single_unit_ops(root: Path, manifest: dict[str, Any], unit: dict) -> 
             assert not result.failure_code, result.failure_message
 
 
+def _apply_single_unit_ops(root: Path, manifest: dict[str, Any], unit: dict) -> None:
+    _apply_ops(root, manifest, unit)
+
+
 # ---------------------------------------------------------------------------
 # Manifest integrity
 # ---------------------------------------------------------------------------
@@ -202,6 +217,10 @@ def test_manifest_structure_and_child_artifacts() -> None:
     assert manifest["expected_final_inventory"] == EXPECTED_FINAL_INVENTORY
     assert manifest["unit_count"] == 55
     assert len(manifest["units"]) == 55
+    assert manifest["mutable_unit_count"] == MUTABLE_UNIT_COUNT
+    assert manifest["deferred_unit_count"] == DEFERRED_UNIT_COUNT
+    assert len(manifest["operation_plan"]) == OPERATION_PLAN_COUNT
+    assert frozenset(manifest["deferred_residual_edge_ids"]) == DEFERRED_RESIDUAL_EDGE_IDS
     assert manifest["unit_order"] == [u["unit_id"] for u in manifest["units"]]
     assert [u["ordinal"] for u in manifest["units"]] == list(range(1, 56))
     assert set(manifest["artifacts"]) == {
@@ -210,24 +229,39 @@ def test_manifest_structure_and_child_artifacts() -> None:
         "identity-migrations",
         "unsupported-assertions",
     }
-    counts = {"identity_merge": 0, "contradicts_and_replaces": 0,
-              "compound_decomposition": 0, "contradiction_only": 0}
+    counts = {
+        "identity_merge": 0,
+        "contradicts_and_replaces": 0,
+        "compound_decomposition": 0,
+        "contradiction_only": 0,
+        "deferred_buddy_kind_repair": 0,
+    }
     for unit in manifest["units"]:
         counts[unit["closure_kind"]] += 1
+        if unit["closure_kind"] == "deferred_buddy_kind_repair":
+            assert unit.get("deferred") is True
+            assert unit.get("operations") == []
+        else:
+            assert not unit.get("deferred")
+            assert unit.get("operations")
     assert counts == {
         "identity_merge": 7,
         "contradicts_and_replaces": 2,
         "compound_decomposition": 1,
-        "contradiction_only": 45,
+        "contradiction_only": 36,
+        "deferred_buddy_kind_repair": 9,
     }
-    # Disposition ordering: identity -> source -> compound -> unsupported.
+    # Mutable units first by disposition rank; deferred kind-repair last.
+    mutable = [u for u in manifest["units"] if not u.get("deferred")]
+    deferred = [u for u in manifest["units"] if u.get("deferred")]
+    assert [u["ordinal"] for u in deferred] == list(range(47, 56))
     ranks = {
         "IDENTITY_NOT_RELATIONSHIP": 0,
         "SOURCE_CORRECTION_REQUIRED": 1,
         "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 2,
         "INSUFFICIENT_EVIDENCE": 3,
     }
-    order = [ranks[u["disposition"]] for u in manifest["units"]]
+    order = [ranks[u["disposition"]] for u in mutable]
     assert order == sorted(order)
 
 
@@ -269,8 +303,13 @@ def test_status_eligible_at_exact_q4(tmp_path: Path) -> None:
     assert status.eligibility == "eligible"
     assert status.head_revision_id == BASE_REVISION_ID
     assert status.unit_count == 55
+    assert status.mutable_unit_count == MUTABLE_UNIT_COUNT
+    assert status.deferred_unit_count == DEFERRED_UNIT_COUNT
     assert status.applied_unit_count == 0
     assert status.next_pending_unit_id == "closure-unit:001"
+    deferred_states = [u for u in status.units if u.deferred]
+    assert len(deferred_states) == 9
+    assert all(not u.applied and not u.pending_operations for u in deferred_states)
 
 
 def test_status_ineligible_when_world_missing(tmp_path: Path) -> None:
@@ -317,8 +356,44 @@ def test_finalize_refused_on_open_head(tmp_path: Path) -> None:
     assert excinfo.value.code == "finalize_refused"
 
 
+def test_preflight_live_seals_against_q4(tmp_path: Path) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    diagnostics = closure_service._preflight(
+        root=root,
+        manifest=manifest,
+        expected_base_revision_id=BASE_REVISION_ID,
+        repo=REPO,
+    )
+    assert diagnostics == []
+
+
+def test_preflight_fails_when_artifact_bytes_tampered(tmp_path: Path) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    # Tamper a sealed recap artifact that a deferred unit seals against.
+    deferred = next(u for u in manifest["units"] if u.get("deferred"))
+    seal = deferred["seal"]
+    uri = seal["artifact_uri"]
+    assert uri.startswith("repo://")
+    rel = uri[len("repo://") :]
+    artifact_path = root / rel
+    if not artifact_path.is_file():
+        pytest.skip(f"sealed artifact not present at clone path: {artifact_path}")
+    original = artifact_path.read_bytes()
+    artifact_path.write_bytes(original + b"\n# tampered\n")
+    diagnostics = closure_service._preflight(
+        root=root,
+        manifest=manifest,
+        expected_base_revision_id=BASE_REVISION_ID,
+        repo=REPO,
+    )
+    assert diagnostics
+    assert any(d.startswith("live_seal_failed:") for d in diagnostics)
+
+
 # ---------------------------------------------------------------------------
-# Full closure exit (§15)
+# Full closure exit
 # ---------------------------------------------------------------------------
 
 
@@ -333,9 +408,10 @@ def _apply_full(root: Path) -> Any:
 def test_full_closure_exit_inventory(tmp_path: Path) -> None:
     root = _clone_eldyrwild(tmp_path)
     result = _apply_full(root)
-    assert len(result.applied_unit_ids) == 55
+    assert len(result.applied_unit_ids) == MUTABLE_UNIT_COUNT
     assert result.already_applied_unit_ids == []
-    assert len(result.published_revision_ids) == 63
+    assert len(result.deferred_unit_ids) == DEFERRED_UNIT_COUNT
+    assert len(result.published_revision_ids) == OPERATION_PLAN_COUNT
     assert result.verify_passed
     assert result.final_inventory == EXPECTED_FINAL_INVENTORY
 
@@ -346,15 +422,11 @@ def test_full_closure_exit_inventory(tmp_path: Path) -> None:
     eff = analyze_relationship_effective_conformance_v1(
         root=root, world_id=ELDYRWILD_WORLD_ID, revision_id=head.head_revision_id
     )
-    assert eff.relationship_semantic_count == 314
+    assert eff.relationship_semantic_count == 323
     assert eff.relationship_effectively_represented_count == 314
-    assert eff.relationship_effective_residual_count == 0
+    assert eff.relationship_effective_residual_count == 9
     assert eff.uses_statblock_mechanics_count == 3
-    assert eff.unadjudicated_remaining_count == 0
-    assert eff.dungeonmind_owned_remaining_count == 0
-    assert eff.dungeonmindbuddy_owned_remaining_count == 0
-    assert eff.requires_readjudication_count == 0
-    assert eff.remaining_residual_edge_ids == []
+    assert set(eff.remaining_residual_edge_ids) == DEFERRED_RESIDUAL_EDGE_IDS
 
 
 def test_closure_idempotent_resume(tmp_path: Path) -> None:
@@ -366,7 +438,7 @@ def test_closure_idempotent_resume(tmp_path: Path) -> None:
     assert second.failed_unit_id is None
     assert second.published_revision_ids == []
     assert second.applied_unit_ids == []
-    assert len(second.already_applied_unit_ids) == 55
+    assert len(second.already_applied_unit_ids) == MUTABLE_UNIT_COUNT
     assert second.final_revision_id == first.final_revision_id
     assert second.verify_passed
     status = get_relationship_semantic_closure_status(root=root, repo=REPO)
@@ -387,7 +459,7 @@ def test_closure_partial_prefix_resume(tmp_path: Path) -> None:
     )
     assert result.failed_unit_id is None, result.failure_message
     assert result.already_applied_unit_ids == ["closure-unit:001"]
-    assert len(result.applied_unit_ids) == 54
+    assert len(result.applied_unit_ids) == MUTABLE_UNIT_COUNT - 1
     assert result.verify_passed
     assert result.final_inventory == EXPECTED_FINAL_INVENTORY
 
@@ -395,14 +467,92 @@ def test_closure_partial_prefix_resume(tmp_path: Path) -> None:
 def test_closure_non_prefix_applied_set_refused(tmp_path: Path) -> None:
     root = _clone_eldyrwild(tmp_path)
     manifest = _manifest()
-    # Apply unit 2 while unit 1 is pending: not a manifest-order prefix.
+    # Apply unit 2 while unit 1 is pending: not an operation_plan prefix.
     _apply_single_unit_ops(root, manifest, manifest["units"][1])
     with pytest.raises(RelationshipSemanticClosureError) as excinfo:
         apply_relationship_semantic_closure(
             expected_base_revision_id=BASE_REVISION_ID, root=root, repo=REPO
         )
     assert excinfo.value.code == "preflight_failed"
-    assert "applied_units_not_a_prefix" in str(excinfo.value)
+    assert "applied_ops_not_a_prefix" in str(excinfo.value)
+
+
+def test_operation_order_intra_unit_non_prefix_refused(tmp_path: Path) -> None:
+    """Apply only identity_merge (op2) without contradict (op1) → refused."""
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    identity_unit = next(
+        u for u in manifest["units"] if u["closure_kind"] == "identity_merge"
+    )
+    merge_op = next(o for o in identity_unit["operations"] if o["op"] == "identity_merge")
+    _apply_ops(root, manifest, identity_unit, ops=[merge_op])
+
+    with pytest.raises(RelationshipSemanticClosureError) as excinfo:
+        apply_relationship_semantic_closure(
+            expected_base_revision_id=BASE_REVISION_ID, root=root, repo=REPO
+        )
+    assert excinfo.value.code == "preflight_failed"
+    assert "applied_ops_not_a_prefix" in str(excinfo.value)
+
+    status = get_relationship_semantic_closure_status(root=root, repo=REPO)
+    assert status.eligibility == "integrity_failure"
+
+
+def test_partial_op_resume_within_identity_unit(tmp_path: Path) -> None:
+    """Apply only contradict of identity unit → resume completes identity_merge."""
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    identity_unit = next(
+        u for u in manifest["units"] if u["unit_id"] == "closure-unit:001"
+    )
+    contradict_op = next(o for o in identity_unit["operations"] if o["op"] == "contradict")
+    _apply_ops(root, manifest, identity_unit, ops=[contradict_op])
+
+    status = get_relationship_semantic_closure_status(root=root, repo=REPO)
+    assert status.eligibility == "partially_applied"
+    unit_state = next(u for u in status.units if u.unit_id == "closure-unit:001")
+    assert unit_state.applied_operations == ["contradict#0"]
+    assert unit_state.pending_operations == ["identity_merge#1"]
+
+    result = apply_relationship_semantic_closure(
+        expected_base_revision_id=BASE_REVISION_ID, root=root, repo=REPO
+    )
+    assert result.failed_unit_id is None, result.failure_message
+    assert result.verify_passed
+    assert result.final_inventory == EXPECTED_FINAL_INVENTORY
+
+
+def test_authority_weak_digest_only_is_integrity_failure(tmp_path: Path) -> None:
+    """Digest key present without full authority must not count as already_applied."""
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    plan_op = next(o for o in manifest["operation_plan"] if o["op"] == "contradict")
+    cid = plan_op["contribution_id"]
+    locked = plan_op["source_payload_sha256"]
+
+    parent = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
+    store = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, parent)
+    digests = dict(store.contribution_source_payload_sha256 or {})
+    digests[cid] = locked
+    store.contribution_source_payload_sha256 = digests
+    advanced = kernel.publish_world_revision(
+        root,
+        ELDYRWILD_WORLD_ID,
+        store,
+        operation_ids=["op:closure-false-already-applied-digest-probe"],
+    ).revision.revision_id
+
+    status = get_relationship_semantic_closure_status(root=root, repo=REPO)
+    assert status.head_revision_id == advanced
+    assert status.eligibility == "integrity_failure"
+    assert status.eligibility != "already_applied"
+    assert status.eligibility != "partially_applied"
+
+    with pytest.raises(RelationshipSemanticClosureError) as excinfo:
+        apply_relationship_semantic_closure(
+            expected_base_revision_id=BASE_REVISION_ID, root=root, repo=REPO
+        )
+    assert excinfo.value.code == "preflight_failed"
 
 
 # ---------------------------------------------------------------------------
@@ -501,7 +651,7 @@ def test_contradiction_only_units_not_current(tmp_path: Path) -> None:
     contradiction_units = [
         u for u in manifest["units"] if u["closure_kind"] == "contradiction_only"
     ]
-    assert len(contradiction_units) == 45
+    assert len(contradiction_units) == 36
     for unit in contradiction_units:
         row = _support_row(store, unit["target_assertion_id"])
         assert row["support_state"] == "contradicted"
@@ -509,18 +659,39 @@ def test_contradiction_only_units_not_current(tmp_path: Path) -> None:
         assert unit["edge_id"] not in current
 
 
+def test_deferred_kind_repair_units_remain_residual(tmp_path: Path) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    manifest = _manifest()
+    _apply_full(root)
+    store = _load_store(root)
+    current = _current_edge_ids(store)
+
+    deferred_units = [u for u in manifest["units"] if u.get("deferred")]
+    assert len(deferred_units) == 9
+    for unit in deferred_units:
+        assert unit["edge_id"] in DEFERRED_RESIDUAL_EDGE_IDS
+        row = _support_row(store, unit["target_assertion_id"])
+        assert row["support_state"] == "supported"
+        assert (row.get("active_contribution_ids") or [])
+        assert unit["edge_id"] in current
+
+
 def test_closure_preserves_unaffected_current_edges(tmp_path: Path) -> None:
     root = _clone_eldyrwild(tmp_path)
     before = _current_edge_ids(_load_store(root))
     manifest = _manifest()
-    target_edges = {u["edge_id"] for u in manifest["units"]}
-    assert target_edges <= before
+    mutable_target_edges = {
+        u["edge_id"] for u in manifest["units"] if not u.get("deferred")
+    }
+    deferred_edges = {u["edge_id"] for u in manifest["units"] if u.get("deferred")}
+    assert mutable_target_edges | deferred_edges <= before
 
     _apply_full(root)
     after = _current_edge_ids(_load_store(root))
 
-    assert before - target_edges <= after
-    new_edges = after - (before - target_edges)
+    assert before - mutable_target_edges <= after
+    assert deferred_edges <= after
+    new_edges = after - (before - mutable_target_edges)
     assert new_edges == {
         "edge:group_session24_refugees_of_edge:displaced_from:loc_3",
         "edge:item:session17:centipede_meat_creature:travels_to:loc:ceiling",
@@ -547,9 +718,9 @@ def test_closure_contribution_index_coherence(tmp_path: Path) -> None:
     for info in (manifest.get("artifacts") or {}).values():
         for entry in (info.get("_payload") or {}).get("entries") or []:
             closure_contribution_ids.update((entry.get("contributions") or {}).keys())
-    # 45 contradiction-only + 7 identity + 2 replacement + 1 decomposition
-    # contradiction + 1 decomposition additive = 56 closure contributions.
-    assert len(closure_contribution_ids) == 56
+    # 36 contradiction-only + 7 identity contradict + 2 replacement
+    # + 1 decomposition contradict + 1 additive = 47 closure contributions.
+    assert len(closure_contribution_ids) == 47
     for contribution_id in closure_contribution_ids:
         assert contribution_id in bound
         assert contribution_id in active_index
@@ -563,10 +734,44 @@ def test_finalize_emits_pin_after_closure(tmp_path: Path) -> None:
     pin = finalize_relationship_semantic_closure(root=root, repo=REPO)
     assert pin.final_revision_id == result.final_revision_id
     assert pin.final_inventory == EXPECTED_FINAL_INVENTORY
-    assert pin.residual_edge_ids == []
+    assert set(pin.residual_edge_ids) == DEFERRED_RESIDUAL_EDGE_IDS
     assert pin.base_revision_id == BASE_REVISION_ID
     assert len(pin.final_graph_payload_sha256) == 64
+    assert "q4_ancestry_proven" in pin.diagnostics
+    assert "rebuild_equivalent_to_pinned_revision" in pin.diagnostics
+    assert (
+        "rebuild_equivalent_to_head" in pin.diagnostics
+        or "rebuild_equivalent_to_published_head" in pin.diagnostics
+    )
 
     verify = verify_relationship_semantic_closure(root=root, repo=REPO)
     assert verify is not None
     assert verify.final_revision_id == pin.final_revision_id
+
+
+def test_finalize_refuses_foreign_descendant_without_rebuild_equivalence(
+    tmp_path: Path,
+) -> None:
+    """After full closure, an adversarial head that breaks rebuild must refuse finalize."""
+    root = _clone_eldyrwild(tmp_path)
+    _apply_full(root)
+    pin = verify_relationship_semantic_closure(root=root, repo=REPO)
+    assert pin is not None
+    assert "q4_ancestry_proven" in pin.diagnostics
+    assert "rebuild_equivalent_to_pinned_revision" in pin.diagnostics
+
+    head = kernel.open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id
+    store = kernel.load_world_graph_revision(root, ELDYRWILD_WORLD_ID, head)
+    # Strip replay-manifest entries so pinned rebuild cannot prove equivalence.
+    store.contribution_replay_manifest = []
+    kernel.publish_world_revision(
+        root,
+        ELDYRWILD_WORLD_ID,
+        store,
+        operation_ids=["op:closure-foreign-descendant-probe"],
+    )
+
+    assert verify_relationship_semantic_closure(root=root, repo=REPO) is None
+    with pytest.raises(RelationshipSemanticClosureError) as excinfo:
+        finalize_relationship_semantic_closure(root=root, repo=REPO)
+    assert excinfo.value.code == "finalize_refused"
