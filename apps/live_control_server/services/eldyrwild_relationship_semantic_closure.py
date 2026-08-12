@@ -954,6 +954,75 @@ def _verify_unit_target_source_seals(
     return diagnostics
 
 
+def _expected_operation_authority_ids(manifest: dict[str, Any]) -> list[str]:
+    """Locked per-op authority IDs in operation_plan order.
+
+    Contribution ops use the locked contribution_id; identity ops use the
+    locked identity-decision id. Each closure publish records exactly one of
+    these as the revision ``operation_ids`` entry.
+    """
+    ids: list[str] = []
+    for plan_op in manifest.get("operation_plan") or []:
+        if plan_op["op"] == "identity_merge":
+            ids.append(plan_op["expected_decision_id"])
+        else:
+            ids.append(plan_op["contribution_id"])
+    return ids
+
+
+def _prove_closure_operation_chain(
+    *,
+    root: Path,
+    head_revision_id: str,
+    manifest: dict[str, Any],
+) -> tuple[bool, list[str]]:
+    """Bind the post-Q₄ parent chain to the exact flat operation_plan.
+
+    Walks ``head → … → Q₄`` and requires:
+    * exact descendant revision count == ``OPERATION_PLAN_COUNT`` (54);
+    * each revision carries exactly one ``operation_id``;
+    * forward operation IDs match the locked authority IDs for ops 1..54.
+    """
+    expected = _expected_operation_authority_ids(manifest)
+    if len(expected) != OPERATION_PLAN_COUNT:
+        return False, [
+            f"closure_chain_expected_length_mismatch:{len(expected)}"
+        ]
+
+    newest_first_op_ids: list[str] = []
+    current = head_revision_id
+    seen: set[str] = set()
+    while current != BASE_REVISION_ID:
+        if current in seen:
+            return False, [f"closure_chain_cycle:{current}"]
+        seen.add(current)
+        if len(newest_first_op_ids) > OPERATION_PLAN_COUNT:
+            return False, [
+                f"closure_chain_too_long:{len(newest_first_op_ids)}"
+            ]
+        try:
+            rev = kernel.load_world_graph_revision_manifest(
+                root, WORLD_ID, current
+            )
+        except WorldGraphNotFoundError:
+            return False, [f"closure_chain_revision_missing:{current}"]
+        if rev.parent_revision_id is None:
+            return False, [f"closure_chain_broke_before_q4:{current}"]
+        if len(rev.operation_ids) != 1:
+            return False, [
+                f"closure_chain_operation_arity:{current}:{len(rev.operation_ids)}"
+            ]
+        newest_first_op_ids.append(rev.operation_ids[0])
+        current = rev.parent_revision_id
+
+    forward = list(reversed(newest_first_op_ids))
+    if len(forward) != OPERATION_PLAN_COUNT:
+        return False, [f"closure_chain_length_mismatch:{len(forward)}"]
+    if forward != expected:
+        return False, ["closure_chain_operation_ids_mismatch"]
+    return True, ["closure_operation_chain_exact"]
+
+
 def _preflight(
     *,
     root: Path,
@@ -1020,6 +1089,11 @@ def _preflight(
         diagnostics.extend(
             _verify_live_source_seal(store=store, root=root, unit=unit)
         )
+        # Original target-contribution authority stays sealed for the whole
+        # prefix-resume program — including already-applied mutable units.
+        diagnostics.extend(
+            _verify_unit_target_source_seals(root=root, store=store, unit=unit)
+        )
 
         if unit.get("deferred"):
             # Deferred residuals must remain supported residual edges.
@@ -1030,15 +1104,12 @@ def _preflight(
                 diagnostics.append(f"deferred_assertion_not_supported:{edge_id}")
             if not _active_edge_assertion_ids(store, edge_id):
                 diagnostics.append(f"deferred_edge_not_current:{edge_id}")
-            diagnostics.extend(
-                _verify_unit_target_source_seals(root=root, store=store, unit=unit)
-            )
             continue
 
         if state.applied:
             continue
 
-        # Pending mutable units: edge still residual at base; seals + targets.
+        # Pending mutable units: edge still residual at base; pending-op checks.
         if residual_set is not None and edge_id not in residual_set:
             diagnostics.append(f"unit_edge_not_residual:{edge_id}")
         edge = store.edges.get(edge_id)
@@ -1061,11 +1132,6 @@ def _preflight(
             diagnostics.append(f"unit_assertion_edge_mismatch:{edge_id}")
         if row.get("assertion_kind") != "edge":
             diagnostics.append(f"unit_assertion_not_edge:{edge_id}")
-
-        # Target source seals for pending mutable units (and partial units).
-        diagnostics.extend(
-            _verify_unit_target_source_seals(root=root, store=store, unit=unit)
-        )
 
         for index, op in enumerate(unit["operations"]):
             label = _op_label(op, index)
@@ -1453,6 +1519,15 @@ def verify_relationship_semantic_closure(
     if ancestry_detail:
         diagnostics.append(str(ancestry_detail))
 
+    chain_ok, chain_diags = _prove_closure_operation_chain(
+        root=world_root,
+        head_revision_id=head_revision_id,
+        manifest=manifest,
+    )
+    if not chain_ok:
+        return None
+    diagnostics.extend(chain_diags)
+
     try:
         pinned = kernel.rebuild_from_contributions(
             world_root,
@@ -1510,6 +1585,16 @@ def verify_relationship_semantic_closure(
     diagnostics.append("all_mutable_ops_applied")
 
     for unit in manifest["units"]:
+        seal_diags = _verify_live_source_seal(
+            store=store, root=world_root, unit=unit
+        )
+        if seal_diags:
+            return None
+        target_diags = _verify_unit_target_source_seals(
+            root=world_root, store=store, unit=unit
+        )
+        if target_diags:
+            return None
         if not unit.get("deferred"):
             continue
         edge_id = unit["edge_id"]
@@ -1520,11 +1605,8 @@ def verify_relationship_semantic_closure(
             return None
         if not _active_edge_assertion_ids(store, edge_id):
             return None
-        seal_diags = _verify_live_source_seal(
-            store=store, root=world_root, unit=unit
-        )
-        if seal_diags:
-            return None
+    diagnostics.append("all_units_live_source_sealed")
+    diagnostics.append("all_units_target_source_sealed")
     diagnostics.append("deferred_units_still_supported_residual")
 
     # Every closure contribution in the operation_plan is revision-bound.
@@ -1581,7 +1663,7 @@ def finalize_relationship_semantic_closure(
         raise RelationshipSemanticClosureError(
             "closure finalization refused: head does not verify as a complete "
             "closure exit (inventory 323/314/9/3 with deferred residuals intact, "
-            "Q4 ancestry, and rebuild equivalence)",
+            "exact Q4→head operation_plan chain, and rebuild equivalence)",
             code="finalize_refused",
         )
     return pin
