@@ -12,6 +12,7 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     prepare_tiptap_markdown_write,
 )
 from apps.live_control_server.services.workspace_document_registry import (
+    WorkspaceDocumentRegistryError,
     create_workspace_document,
     discard_workspace_document,
     get_workspace_document,
@@ -131,17 +132,18 @@ def test_discarded_document_blocks_prepare_and_commit(tmp_path: Path):
     assert exc.value.status_code == 409
 
 
-def test_missing_target_relpath_blocks_prepare(tmp_path: Path):
+def test_plan_create_without_target_assigns_workspace_path(tmp_path: Path):
+    """Plan create no longer leaves target_relpath unset; prepare must succeed."""
     doc = create_workspace_document(
         tmp_path,
         title="No path",
         campaign_id="longmont-c2",
         kind="plan",
     )
-    with pytest.raises(TiptapMarkdownWriteError) as exc:
-        prepare(tmp_path, doc.document_id)
-    assert exc.value.status_code == 422
-    assert "no target_relpath" in str(exc.value)
+    assert doc.target_relpath == f"out/workspace/plan/{doc.document_id}.md"
+    response = prepare(tmp_path, doc.document_id)
+    assert response.writer_ok is True
+    assert response.target_relpath == doc.target_relpath
 
 
 def test_stale_expected_revision_blocks_prepare(tmp_path: Path):
@@ -197,6 +199,14 @@ def test_rejects_path_traversal(tmp_path: Path, relpath: str):
     ],
 )
 def test_rejects_targets_outside_allowlist(tmp_path: Path, relpath: str):
+    # Illegal Plan Session Prep paths are rejected at create (registry + writer policy).
+    # Illegal runbook/eval paths still create, then fail at prepare/authorize.
+    if relpath.startswith("corpus/eldyrwild-markdown/"):
+        with pytest.raises(WorkspaceDocumentRegistryError) as exc:
+            create_doc(tmp_path, target=relpath)
+        assert "plan target_relpath" in str(exc.value)
+        return
+
     doc = create_doc(tmp_path, target=relpath)
     with pytest.raises(TiptapMarkdownWriteError):
         prepare(tmp_path, doc.document_id)
