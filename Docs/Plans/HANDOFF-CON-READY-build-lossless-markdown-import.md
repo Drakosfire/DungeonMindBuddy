@@ -198,7 +198,9 @@ Rules:
 
 Before implementation commits to this target, audit whether adding `_dungeonbuddy/sources/.../*.md` under `corpus/<worldId>-markdown` is automatically swept into any legacy manifest/index/publication path in a way that would make an imported **draft source** implicitly canonical or broadly queryable.
 
-If yes, **STOP**. Report the exact scanner/index and propose the narrowest world-level managed source root that preserves the user's world hierarchy without changing authority. Do not silently choose another location.
+Managed `_dungeonbuddy` paths **must** be excluded from legacy whole-tree corpus/index/publication authority: planner manifest/ref index, corpus fingerprint, batch ingest collectors, and Hermes lexical fallback. Residual eval/script walkers outside product authority are acknowledged residual risk for a later sweep — not a merge blocker for CR01A once the product paths in §4 exclude managed storage.
+
+If yes (after §4 exclusions land), **STOP**. Report the exact scanner/index and propose the narrowest world-level managed source root that preserves the user's world hierarchy without changing authority. Do not silently choose another location.
 
 ## Authoritative inputs to read before changing code
 
@@ -288,6 +290,14 @@ Every implementation change must be in this table or the bounded test-discovery 
 | Modify | `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.test.ts` | Full create/import/retry/no-duplicate/load/activation orchestration. |
 | Create | `apps/live-control-ui/src/buildSurface/BuildDocumentCreateControl.test.tsx` | User-facing import validation, double-submit, retained pasted draft and retry affordance. |
 | Modify | `apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx` | Prove unsupported imported Markdown remains authoritative and later lossy Save is blocked. |
+| Modify | `tools/batch_ingest_corpus.py` | Exclude `_dungeonbuddy` from legacy whole-tree ingest collection. |
+| Modify | `tools/corpus_batch.py` | Same exclusion for batch path collection. |
+| Modify | `src/agent/planner.py` | Exclude `_dungeonbuddy` from corpus manifest/ref index. |
+| Modify | `src/agent/planner_cache.py` | Exclude `_dungeonbuddy` from corpus fingerprint. |
+| Modify | `integrations/hermes/plugins/dungeonbuddy/__init__.py` | Ignore `_dungeonbuddy` in lexical markdown enumeration. |
+| Create/Modify | `tests/test_batch_ingest_managed_source_exclusion.py` | Ingest exclusion proof. |
+| Modify | `tests/test_planner.py` | Manifest/ref exclusion proof. |
+| Modify | `tests/test_hermes_dungeonbuddy_plugin.py` | Lexical ignore proof. |
 
 ### Bounded discovery exception — adjacent owning tests only
 
@@ -659,7 +669,7 @@ The reviewer accepts only when every bullet is true and each behavioral claim na
 - [ ] New Source rename does not move world-scoped target path.
 - [ ] SourceArtifact packaging for new records carries exact world identity rather than substituting campaign identity.
 - [ ] No graph extraction/promotion occurs as an implicit consequence of import.
-- [ ] No production path outside §4 changed.
+- [ ] No production path outside §4 changed (§4 includes managed-storage exclusion paths for planner, ingest, and Hermes lexical fallback).
 - [ ] Every formal review is numbered and increments the review-cycle count once.
 - [ ] The PR description was not treated as a review or merge gate.
 - [ ] The named successors remain unimplemented and unclaimed.
