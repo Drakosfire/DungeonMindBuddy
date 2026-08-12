@@ -19,21 +19,21 @@ pr_body_template: |
 
 # HANDOFF — INGEST: First World Graph from Reviewed Source
 
-**Created:** 2026-08-12.  
-**Status:** ACTIVE — dispatch exactly one implementation capability.  
-**Conversation / workstream:** `CON-READY`  
-**Flow / agent:** `INGEST`  
-**Handoff direction:** `DESIGN → CODE`  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-INGEST-first-world-graph-from-reviewed-source.md`  
-**Implementation branch:** `agent/con-ready-first-world-graph-initialization`  
-**PR title:** `INGEST: initialize a new world's graph from reviewed source`  
-**Base:** `main` at `0a6a1ab5ab0aab197ea16059ec20cd61dea16100`  
-**Merged predecessor:** PR #565 — `BUILD: read imported sources as rich documents`  
-**Roadmap slice:** `CR02A` — first reviewed source → durable World Graph  
-**Primary CON-READY behavior:** advances `CR-U3 — Get a useful semantic index`  
-**Secondary behavior:** first bounded piece of `CR-U4 — Inspect and correct what DungeonBuddy understood`  
-**Named immediate successor:** `CR02B — existing-world review/correction + duplicate binding`  
-**Following successor:** `CR02C — graph object → exact source passage navigation`  
+**Created:** 2026-08-12.
+**Status:** ACTIVE — dispatch exactly one implementation capability.
+**Conversation / workstream:** `CON-READY`
+**Flow / agent:** `INGEST`
+**Handoff direction:** `DESIGN → CODE`
+**Canonical handoff path:** `Docs/Plans/HANDOFF-INGEST-first-world-graph-from-reviewed-source.md`
+**Implementation branch:** `agent/con-ready-first-world-graph-initialization`
+**PR title:** `INGEST: initialize a new world's graph from reviewed source`
+**Base:** `main` at `0a6a1ab5ab0aab197ea16059ec20cd61dea16100`
+**Merged predecessor:** PR #565 — `BUILD: read imported sources as rich documents`
+**Roadmap slice:** `CR02A` — first reviewed source → durable World Graph
+**Primary CON-READY behavior:** advances `CR-U3 — Get a useful semantic index`
+**Secondary behavior:** first bounded piece of `CR-U4 — Inspect and correct what DungeonBuddy understood`
+**Named immediate successor:** `CR02B — existing-world review/correction + duplicate binding`
+**Following successor:** `CR02C — graph object → exact source passage navigation`
 
 > **Dispatch rule:** This checked-in handoff is authoritative once present on the implementation branch. It does not need to merge to `main` before INGEST starts.
 >
