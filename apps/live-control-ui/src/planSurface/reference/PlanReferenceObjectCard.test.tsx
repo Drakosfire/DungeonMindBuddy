@@ -65,7 +65,7 @@ const glowkindleNode: GraphProjectionNodeView = {
     {
       evidence_ref_id: "ev-1",
       label: "Session recap mention",
-      source_domain: "recap",
+      source_domain: "worldbuilding",
       source_artifact_id: "artifact-1",
       evidence_role: "mention",
       is_focus_session_evidence: true,
@@ -379,6 +379,32 @@ describe("PlanReferenceObjectCard", () => {
     await user.click(within(card).getByRole("button", { name: "Read source" }));
 
     expect(await within(card).findByRole("alert")).toHaveTextContent("Source span not found.");
+  });
+
+  it("does not show Read source for recap evidence even when can_open_source is true", async () => {
+    const resolution = resolvedGraphFromNode({
+      ...glowkindleNode,
+      evidence_badges: [
+        {
+          evidence_ref_id: "ev-recap",
+          label: "Session recap mention",
+          source_domain: "recap",
+          source_artifact_id: "artifact-recap",
+          evidence_role: "mention",
+          is_focus_session_evidence: true,
+          can_open_source: true,
+          can_highlight_span: false,
+          source_span_ref_id: "span-recap-1",
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+
+    const card = screen.getByLabelText(/Glowkindle graph object/i);
+    await user.click(within(card).getByText("Details"));
+    expect(within(card).queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
   });
 
   it("renders Open statblock tool for grounded statblock graph nodes when projection can open tools", async () => {

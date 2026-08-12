@@ -290,8 +290,9 @@ describe("GraphObjectCard", () => {
           id: "ev-closed",
           label: "Recap only",
           sourceArtifactId: "artifact-recap",
+          sourceSpanRefId: "span-recap",
           sourceDomain: "recap",
-          canOpenSource: false,
+          canOpenSource: true,
         },
       ],
       details: {
@@ -316,12 +317,16 @@ describe("GraphObjectCard", () => {
     expect(within(card).queryByText("Recap only · recap")).toBeInTheDocument();
     expect(within(card).queryAllByRole("button", { name: "Read source" })).toHaveLength(2);
 
-    await user.click(readButtons[0]!);
+    const recapRow = within(card).getByText("Recap only · recap").closest(".graph-object-card__evidence-row");
+    expect(recapRow).not.toBeNull();
+    expect(within(recapRow!).queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+
+    await user.click(readButtons[1]!);
     expect(onReadSourceEvidence).toHaveBeenCalledOnce();
     expect(onReadSourceEvidence).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: "ev-open-1",
-        sourceSpanRefId: "span-1",
+        id: "ev-open-2",
+        sourceSpanRefId: "span-2",
       }),
     );
   });

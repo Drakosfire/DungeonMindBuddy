@@ -29,7 +29,7 @@ const baseNode: GraphProjectionNodeView = {
     {
       evidence_ref_id: "ev-1",
       source_artifact_id: "artifact-1",
-      source_domain: "authored_overlay",
+      source_domain: "worldbuilding",
       evidence_role: "source_span",
       is_focus_session_evidence: true,
       can_open_source: true,

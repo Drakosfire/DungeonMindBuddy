@@ -390,6 +390,7 @@ export function GraphReviewNodeGameCard({
 
   const onReadSourceEvidence = useCallback(
     async (evidence: GraphObjectEvidenceViewModel) => {
+      if (evidence.sourceDomain !== "worldbuilding") return;
       if (!evidence.sourceArtifactId || !evidence.sourceSpanRefId) return;
       if (resolvingEvidenceId) return;
 

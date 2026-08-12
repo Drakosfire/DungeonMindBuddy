@@ -48,7 +48,10 @@ export interface GraphObjectCardProps {
 
 function evidenceRowCanReadSource(item: GraphObjectEvidenceViewModel): boolean {
   return Boolean(
-    item.canOpenSource && item.sourceArtifactId && item.sourceSpanRefId,
+    item.canOpenSource
+      && item.sourceArtifactId
+      && item.sourceSpanRefId
+      && item.sourceDomain === "worldbuilding",
   );
 }
 
