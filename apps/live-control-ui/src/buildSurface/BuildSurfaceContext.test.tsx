@@ -65,8 +65,23 @@ function renderBuildContext(
         createDocument={onCreate}
         retryCreatedDocument={vi.fn()}
         refreshDocuments={onRetryList}
-        creatableCampaignIds={["longmont-c1", "longmont-c2"]}
-        suggestedCreateCampaignId="longmont-c1"
+        destinationOptions={[
+          {
+            kind: "campaign",
+            campaignId: "longmont-c1",
+            worldId: "eldyrwild",
+            label: "longmont-c1",
+            value: "campaign:longmont-c1",
+          },
+          {
+            kind: "campaign",
+            campaignId: "longmont-c2",
+            worldId: "eldyrwild",
+            label: "longmont-c2",
+            value: "campaign:longmont-c2",
+          },
+        ]}
+        suggestedDestinationValue="campaign:longmont-c1"
         {...overrides}
       />
       <SurfaceContextHost />

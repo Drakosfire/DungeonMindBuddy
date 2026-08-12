@@ -12,6 +12,8 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     ...actual,
     getWorkspaceDocumentSnapshot: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
+    listWorldContainers: vi.fn(),
+    createWorldContainer: vi.fn(),
     createWorkspaceDocument: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
@@ -21,6 +23,14 @@ vi.mock("../api/liveApi", async (importOriginal) => {
 
 const DOC_A = "11111111-1111-4111-8111-111111111111";
 const DOC_B = "22222222-2222-4222-8222-222222222222";
+
+const GLASS_ORCHARD_WORLD = {
+  schema_version: "dmb_world_container_record_v1" as const,
+  world_id: "44444444-4444-4444-8444-444444444444",
+  name: "The Glass Orchard",
+  source_root_relpath: "corpus/the-glass-orchard-markdown",
+  created_at: "2026-07-22T00:00:00Z",
+};
 
 function buildRecord(
   documentId: string,
@@ -76,6 +86,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
       schema_version: "dmb_workspace_document_registry_v1",
       records: [buildRecord(DOC_A), buildRecord(DOC_B, { campaign_id: "longmont-c2" })],
+    });
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [],
     });
     vi.mocked(liveApi.updateWorkspaceDocumentMetadata).mockImplementation(
       async (documentId, request) =>
@@ -208,7 +222,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => expect(result.current.listStatus).toBe("ready"));
 
     await act(async () => {
-      result.current.createDocument({ title: "Ironveil Property", campaignId: "longmont-c2" });
+      result.current.createDocument({
+        title: "Ironveil Property",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
+      });
     });
 
     await waitFor(() => {
@@ -230,7 +247,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => expect(result.current.listStatus).toBe("ready"));
 
     await act(async () => {
-      result.current.createDocument({ title: "Foreign", campaignId: "eldyrwild" });
+      result.current.createDocument({
+        title: "Foreign",
+        destination: { kind: "campaign", campaignId: "unknown-scope" },
+      });
     });
 
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
@@ -260,7 +280,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(result.current.creatableCampaignIds).toContain("eldyrwild");
 
     await act(async () => {
-      result.current.createDocument({ title: "Eldyrwild Lore", campaignId: "eldyrwild" });
+      result.current.createDocument({
+        title: "Eldyrwild Lore",
+        destination: { kind: "campaign", campaignId: "eldyrwild" },
+      });
     });
 
     await waitFor(() => {
@@ -318,7 +341,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
 
     await act(async () => {
-      result.current.createDocument({ title: "Ironveil Property", campaignId: "longmont-c2" });
+      result.current.createDocument({
+        title: "Ironveil Property",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
+      });
     });
 
     await waitFor(() => {
@@ -357,7 +383,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
 
     await act(async () => {
-      result.current.createDocument({ title: "Pending", campaignId: "longmont-c2" });
+      result.current.createDocument({
+        title: "Pending",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
+      });
     });
 
     act(() => {
@@ -518,7 +547,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Hesta's Apothecary",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Hesta\n\n| a | b |\n",
       });
     });
@@ -557,7 +586,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Retry Source",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Retry\n",
       });
     });
@@ -676,7 +705,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Imported Source",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Imported\n",
       });
     });
@@ -751,7 +780,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Overlapping Import",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# First\n",
       });
     });
@@ -759,7 +788,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Overlapping Import",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Second\n",
       });
     });
@@ -832,7 +861,10 @@ describe("useBuildWorkspaceDocumentController", () => {
     await waitFor(() => expect(result.current.listStatus).toBe("ready"));
 
     await act(async () => {
-      result.current.createDocument({ title: "Blank Source", campaignId: "longmont-c2" });
+      result.current.createDocument({
+        title: "Blank Source",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
+      });
     });
     await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
@@ -840,7 +872,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Imported Source",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Imported\n",
       });
     });
@@ -914,7 +946,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Imported Source",
-        campaignId: "longmont-c1",
+        destination: { kind: "campaign", campaignId: "longmont-c1" },
         markdown: "# Imported\n",
       });
     });
@@ -972,7 +1004,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Ambiguous Import",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Imported\n",
       });
     });
@@ -1027,7 +1059,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Ambiguous Import",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Imported\n",
       });
     });
@@ -1109,7 +1141,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       reloaded.current.importSourceDocument({
         title: "Imported Source",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Imported\n",
       });
     });
@@ -1176,7 +1208,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Imported C2",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Imported\n",
       });
     });
@@ -1231,13 +1263,13 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Imported C1",
-        campaignId: "longmont-c1",
+        destination: { kind: "campaign", campaignId: "longmont-c1" },
         markdown: "# Imported\n",
       });
     });
 
     await waitFor(() => {
-      expect(result.current.importError).toMatch(/cannot be reused/i);
+      expect(result.current.importError).toMatch(/different destination/i);
     });
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
@@ -1302,7 +1334,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Imported Source",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "# Imported\n",
       });
     });
@@ -1330,12 +1362,276 @@ describe("useBuildWorkspaceDocumentController", () => {
     await act(async () => {
       result.current.importSourceDocument({
         title: "Whitespace",
-        campaignId: "longmont-c2",
+        destination: { kind: "campaign", campaignId: "longmont-c2" },
         markdown: "   \n\t  \n",
       });
     });
 
     expect(result.current.importError).toMatch(/Paste non-empty Markdown/i);
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+  });
+
+  it("new world create calls createWorldContainer once then posts document with matching world ids", async () => {
+    vi.mocked(liveApi.createWorldContainer).mockResolvedValue(GLASS_ORCHARD_WORLD);
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+      buildRecord(DOC_B, {
+        title: "Orchard Lore",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+      }),
+    );
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, {
+        title: "Orchard Lore",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+      }),
+    );
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.createDocument({
+        title: "Orchard Lore",
+        destination: { kind: "new_world", name: "The Glass Orchard" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorldContainer).toHaveBeenCalledWith({ name: "The Glass Orchard" });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Orchard Lore",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+        kind: "worldbuilding_source",
+      }),
+    );
+  });
+
+  it("new world import calls createWorldContainer then source_import with exact world ids", async () => {
+    const imported = buildRecord(DOC_B, {
+      title: "Imported Orchard",
+      campaign_id: GLASS_ORCHARD_WORLD.world_id,
+      world_id: GLASS_ORCHARD_WORLD.world_id,
+      target_relpath: `corpus/the-glass-orchard-markdown/_dungeonbuddy/sources/${DOC_B}/source.md`,
+    });
+    vi.mocked(liveApi.createWorldContainer).mockResolvedValue(GLASS_ORCHARD_WORLD);
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, {
+        title: "Imported Orchard",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+        content_status: "committed",
+        revision: 2,
+      }),
+    );
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Imported Orchard",
+        destination: { kind: "new_world", name: "The Glass Orchard" },
+        markdown: "# Orchard\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorldContainer).toHaveBeenCalledWith({ name: "The Glass Orchard" });
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Imported Orchard",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+      }),
+    );
+    expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: DOC_B,
+        write_mode: "source_import",
+      }),
+    );
+  });
+
+  it("retries source create after new world was created without minting a second distinct world", async () => {
+    vi.mocked(liveApi.createWorldContainer).mockResolvedValue(GLASS_ORCHARD_WORLD);
+    vi.mocked(liveApi.createWorkspaceDocument)
+      .mockRejectedValueOnce(new Error("create failed"))
+      .mockResolvedValueOnce(
+        buildRecord(DOC_B, {
+          title: "Retry Lore",
+          campaign_id: GLASS_ORCHARD_WORLD.world_id,
+          world_id: GLASS_ORCHARD_WORLD.world_id,
+        }),
+      );
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, {
+        title: "Retry Lore",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+      }),
+    );
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.createDocument({
+        title: "Retry Lore",
+        destination: { kind: "new_world", name: "The Glass Orchard" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createError).toMatch(/world was created/i);
+    });
+    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      result.current.createDocument({
+        title: "Retry Lore",
+        destination: { kind: "new_world", name: "The Glass Orchard" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(2);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
+    for (const [request] of vi.mocked(liveApi.createWorkspaceDocument).mock.calls) {
+      expect(request.world_id).toBe(GLASS_ORCHARD_WORLD.world_id);
+      expect(request.campaign_id).toBe(GLASS_ORCHARD_WORLD.world_id);
+    }
+  });
+
+  it("reconciles ambiguous world create via listWorldContainers without duplicate world", async () => {
+    vi.mocked(liveApi.createWorldContainer).mockRejectedValueOnce(new Error("network lost"));
+    vi.mocked(liveApi.listWorldContainers).mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [GLASS_ORCHARD_WORLD],
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
+      buildRecord(DOC_B, {
+        title: "Reconciled Orchard",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+      }),
+    );
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, {
+        title: "Reconciled Orchard",
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+      }),
+    );
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.createDocument({
+        title: "Reconciled Orchard",
+        destination: { kind: "new_world", name: "The Glass Orchard" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
+    });
+    expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+      }),
+    );
+  });
+
+  it("fails closed when pending import destination world differs from form destination", async () => {
+    const pendingCommitted = buildRecord(DOC_B, {
+      title: "Pending World",
+      campaign_id: GLASS_ORCHARD_WORLD.world_id,
+      world_id: GLASS_ORCHARD_WORLD.world_id,
+      content_status: "committed",
+      revision: 2,
+    });
+    sessionStorage.setItem(
+      "dmb.build.pendingSourceImport.v1",
+      JSON.stringify({ documentId: DOC_B }),
+    );
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(
+        id,
+        {
+          campaign_id: id === DOC_B ? GLASS_ORCHARD_WORLD.world_id : "longmont-c1",
+          world_id: id === DOC_B ? GLASS_ORCHARD_WORLD.world_id : "eldyrwild",
+          content_status: "committed",
+          revision: 2,
+          title: id === DOC_B ? pendingCommitted.title : `Source ${id.slice(0, 4)}`,
+        },
+        {
+          markdown: id === DOC_B ? "# Imported\n" : "",
+          file_exists: id === DOC_B,
+        },
+      ),
+    );
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.activeRecord?.document_id).toBe(DOC_A));
+    expect(result.current.pendingImportDocumentId).toBe(DOC_B);
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: "Different World Import",
+        destination: { kind: "world", worldId: "eldyrwild" },
+        markdown: "# Imported\n",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.importError).toMatch(/different destination/i);
+    });
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    expect(liveApi.createWorldContainer).not.toHaveBeenCalled();
+    expect(result.current.activeRecord?.document_id).toBe(DOC_A);
+    expect(result.current.pendingImportDocumentId).toBe(DOC_B);
   });
 });

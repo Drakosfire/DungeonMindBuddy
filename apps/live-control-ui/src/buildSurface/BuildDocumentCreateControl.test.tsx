@@ -5,8 +5,16 @@ import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 
 describe("BuildDocumentCreateControl", () => {
   const baseProps = {
-    creatableCampaignIds: ["longmont-c2"],
-    suggestedCampaignId: "longmont-c2",
+    destinationOptions: [
+      {
+        kind: "campaign" as const,
+        campaignId: "longmont-c2",
+        worldId: "eldyrwild",
+        label: "longmont-c2",
+        value: "campaign:longmont-c2",
+      },
+    ],
+    suggestedDestinationValue: "campaign:longmont-c2",
     onSubmit: vi.fn(),
     onImportSubmit: vi.fn(),
   };
@@ -78,7 +86,7 @@ describe("BuildDocumentCreateControl", () => {
     expect(onRetryImport).toHaveBeenCalledWith({ markdown: "# Keep me\n" });
   });
 
-  it("submits import with title campaign and markdown", () => {
+  it("submits import with title destination and markdown", () => {
     const onImportSubmit = vi.fn();
     render(
       <BuildDocumentCreateControl {...baseProps} onImportSubmit={onImportSubmit} />,
@@ -95,7 +103,7 @@ describe("BuildDocumentCreateControl", () => {
 
     expect(onImportSubmit).toHaveBeenCalledWith({
       title: "Imported",
-      campaignId: "longmont-c2",
+      destination: { kind: "campaign", campaignId: "longmont-c2" },
       markdown: expect.stringContaining("# Imported"),
     });
   });
@@ -138,8 +146,62 @@ describe("BuildDocumentCreateControl", () => {
 
     expect(onImportSubmit).toHaveBeenCalledWith({
       title: "Imported",
-      campaignId: "longmont-c2",
+      destination: { kind: "campaign", campaignId: "longmont-c2" },
       markdown,
     });
+  });
+
+  it("requires world name before new-world submit is enabled", () => {
+    render(<BuildDocumentCreateControl {...baseProps} />);
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Orchard Notes" },
+    });
+
+    expect(screen.getByTestId("build-document-create-submit")).toBeDisabled();
+    expect(screen.getByTestId("build-document-create-world-name")).toBeInTheDocument();
+  });
+
+  it("submits new world destination with trimmed world name", () => {
+    const onSubmit = vi.fn();
+    render(<BuildDocumentCreateControl {...baseProps} onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-world-name"), {
+      target: { value: "The Glass Orchard" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Orchard Notes" },
+    });
+    fireEvent.click(screen.getByTestId("build-document-create-submit"));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: "Orchard Notes",
+      destination: { kind: "new_world", name: "The Glass Orchard" },
+    });
+  });
+
+  it("disables destination and world name fields while creating", () => {
+    const { rerender } = render(<BuildDocumentCreateControl {...baseProps} />);
+
+    fireEvent.click(screen.getByTestId("build-document-create-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-destination"), {
+      target: { value: "__new_world__" },
+    });
+    fireEvent.change(screen.getByTestId("build-document-create-world-name"), {
+      target: { value: "The Glass Orchard" },
+    });
+
+    rerender(<BuildDocumentCreateControl {...baseProps} creating />);
+
+    expect(screen.getByTestId("build-document-create-destination")).toBeDisabled();
+    expect(screen.getByTestId("build-document-create-world-name")).toBeDisabled();
   });
 });
