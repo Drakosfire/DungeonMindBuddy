@@ -103,6 +103,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     createWorkspaceDocument: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
+    updateWorkspaceDocumentMetadata: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
     postWorldGraphProjection: vi.fn(),
@@ -1258,5 +1259,246 @@ describe("BuildSurfacePage", () => {
 
     expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
+  it("dirty rename → Save → hard reopen keeps new title and body", async () => {
+    const user = userEvent.setup();
+    const dirtyMarkdown = "The western warehouse is empty during festival season.\n";
+    const editorJson = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "The western warehouse is empty during festival season." }],
+        },
+      ],
+    };
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property", "# Ironveil Property\n");
+
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [snapshot.record],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionWithGlowkindle());
+
+    const local = buildInitialWorkspaceDocumentLocalState({
+      documentId: DOC_ID,
+      title: "Ironveil Property",
+      campaignId: "longmont-c1",
+      kind: "worldbuilding_source",
+      targetSession: null,
+      surface: "build",
+      baseRevision: 2,
+      baseContentSha256: snapshot.content_sha256,
+      starterContent: editorJson,
+    });
+    local.dirty = true;
+    local.exported_markdown = dirtyMarkdown;
+    local.tiptap_json = editorJson;
+    window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
+
+    // Hold registry refresh so the list stays stale after rename; selector must overlay live title.
+    let resolveList: ((value: Awaited<ReturnType<typeof liveApi.listWorkspaceDocuments>>) => void) | null =
+      null;
+    let listCalls = 0;
+    vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(() => {
+      listCalls += 1;
+      if (listCalls === 1) {
+        return Promise.resolve({
+          schema_version: "dmb_workspace_document_registry_v1",
+          records: [snapshot.record],
+        });
+      }
+      return new Promise((resolve) => {
+        resolveList = resolve;
+      });
+    });
+
+    vi.mocked(liveApi.updateWorkspaceDocumentMetadata).mockResolvedValue({
+      ...snapshot.record,
+      title: "Ironveil Manufactory Grounds",
+      revision: 3,
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    const { unmount } = renderBuildPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+    expect(screen.getByTestId("build-document-rename-open")).not.toBeDisabled();
+
+    await user.click(screen.getByTestId("build-document-rename-open"));
+    const titleInput = screen.getByTestId("build-document-rename-title");
+    await user.clear(titleInput);
+    await user.type(titleInput, "Ironveil Manufactory Grounds");
+    await user.click(screen.getByTestId("build-document-rename-submit"));
+
+    await waitFor(() => {
+      expect(liveApi.updateWorkspaceDocumentMetadata).toHaveBeenCalledWith(
+        DOC_ID,
+        expect.objectContaining({
+          title: "Ironveil Manufactory Grounds",
+          expected_revision: 2,
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
+    });
+    // Stale list still held — selector must already show Canvas title.
+    expect(
+      within(screen.getByTestId("build-document-select")).getByRole("option", {
+        name: "Ironveil Manufactory Grounds",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "Ironveil Manufactory Grounds",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 3,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+dirty\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "Ironveil Manufactory Grounds",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 4,
+      committed_revision: 4,
+      committed_record: {
+        ...snapshot.record,
+        title: "Ironveil Manufactory Grounds",
+        revision: 4,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha-renamed-saved",
+      writer_ok: true,
+      bytes_written: 64,
+      file_fingerprint: "fp-renamed-saved",
+      diagnostics: [],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(
+      within(screen.getByTestId("surface-edit-host")).getByRole("button", { name: /Save/i }),
+    );
+
+    await waitFor(() => {
+      expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document_id: DOC_ID,
+          expected_revision: 3,
+        }),
+      );
+      expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    });
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...snapshot,
+      markdown: dirtyMarkdown,
+      content_sha256: "sha-renamed-saved",
+      file_fingerprint: "fp-renamed-saved",
+      loaded_revision: 4,
+      record: {
+        ...snapshot.record,
+        title: "Ironveil Manufactory Grounds",
+        revision: 4,
+        content_status: "committed",
+      },
+    });
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [
+        {
+          ...snapshot.record,
+          title: "Ironveil Manufactory Grounds",
+          revision: 4,
+          content_status: "committed",
+        },
+      ],
+    });
+
+    unmount();
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    renderBuildPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
+    });
+    expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent(
+      /western warehouse is empty during festival season/i,
+    );
+
+    // Avoid leaking the held list promise.
+    resolveList?.({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [
+        {
+          ...snapshot.record,
+          title: "Ironveil Manufactory Grounds",
+          revision: 4,
+          content_status: "committed",
+        },
+      ],
+    });
+  });
+
+  it("rename does not cold-reload World Graph projection", async () => {
+    const user = userEvent.setup();
+    const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property");
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [snapshot.record],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(graphProjectionWithGlowkindle());
+    vi.mocked(liveApi.updateWorkspaceDocumentMetadata).mockResolvedValue({
+      ...snapshot.record,
+      title: "Ironveil Manufactory Grounds",
+      revision: 3,
+    });
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
+    renderBuildPage();
+
+    await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await user.click(screen.getByRole("button", { name: /Find existing object/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
+    });
+    const projectionCallsBefore = vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length;
+    expect(projectionCallsBefore).toBeGreaterThan(0);
+
+    await user.click(screen.getByTestId("build-document-rename-open"));
+    const titleInput = screen.getByTestId("build-document-rename-title");
+    await user.clear(titleInput);
+    await user.type(titleInput, "Ironveil Manufactory Grounds");
+    await user.click(screen.getByTestId("build-document-rename-submit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
+    });
+    expect(vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length).toBe(projectionCallsBefore);
+
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    await user.click(screen.getByRole("button", { name: "View" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    });
   });
 });

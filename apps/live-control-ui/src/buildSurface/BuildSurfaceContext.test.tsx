@@ -17,6 +17,7 @@ const sessionMock = vi.hoisted(() => ({
     statusLabel: string;
     activeCommand: { id: string; documentId: string; startedAt: number } | null;
     updateDocumentMetadata: ReturnType<typeof vi.fn>;
+    lookupAdmission: ReturnType<typeof vi.fn>;
   },
 }));
 
@@ -88,6 +89,17 @@ describe("BuildSurfaceContext", () => {
       statusLabel: "Committed",
       activeCommand: null,
       updateDocumentMetadata: vi.fn(),
+      lookupAdmission: vi.fn(() => ({
+        ok: true,
+        envelope: {
+          documentId: DOC_A,
+          revision: 1,
+          contentSha256: "sha",
+          contentStatus: "committed" as const,
+          documentKind: "worldbuilding_source" as const,
+          surfaceId: "build" as const,
+        },
+      })),
     };
   });
 
@@ -139,9 +151,39 @@ describe("BuildSurfaceContext", () => {
       statusLabel: "Unsaved changes",
       activeCommand: null,
       updateDocumentMetadata: vi.fn(),
+      lookupAdmission: vi.fn(() => ({
+        ok: true,
+        envelope: {
+          documentId: DOC_A,
+          revision: 2,
+          contentSha256: "sha",
+          contentStatus: "draft" as const,
+          documentKind: "worldbuilding_source" as const,
+          surfaceId: "build" as const,
+        },
+      })),
     };
-    renderBuildContext();
+    renderBuildContext({
+      documents: [
+        fixtureWorkspaceDocumentRecord({
+          document_id: DOC_A,
+          title: "Stale List Title",
+          campaign_id: "longmont-c1",
+          kind: "worldbuilding_source",
+        }),
+      ],
+    });
     expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Renamed On Canvas");
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved changes");
+    expect(
+      within(screen.getByTestId("build-document-select")).getByRole("option", {
+        name: "Renamed On Canvas",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("build-document-select")).queryByRole("option", {
+        name: "Stale List Title",
+      }),
+    ).not.toBeInTheDocument();
   });
 });

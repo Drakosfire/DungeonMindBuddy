@@ -56,8 +56,14 @@ export function BuildDocumentSelector({
       }
     }
 
+    // Live Canvas/active record wins over a stale registry list entry for the same id
+    // (rename can adopt before refreshDocuments completes or if refresh fails).
+    const listed = (documents ?? []).map((entry) =>
+      activeRecord && entry.document_id === activeRecord.document_id ? activeRecord : entry,
+    );
+
     const byCampaign = new Map<string, WorkspaceDocumentRecord[]>();
-    for (const record of documents ?? []) {
+    for (const record of listed) {
       const bucket = byCampaign.get(record.campaign_id) ?? [];
       bucket.push(record);
       byCampaign.set(record.campaign_id, bucket);
@@ -95,7 +101,7 @@ export function BuildDocumentSelector({
 
     if (
       activeRecord &&
-      !documents?.some((entry) => entry.document_id === activeRecord.document_id)
+      !listed.some((entry) => entry.document_id === activeRecord.document_id)
     ) {
       const orphanCampaign = activeRecord.campaign_id;
       groups.unshift({

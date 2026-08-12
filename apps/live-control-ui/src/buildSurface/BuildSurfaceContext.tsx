@@ -82,6 +82,7 @@ export function BuildSurfaceContext({
     session?.activeCommand?.id === DOCUMENT_METADATA_UPDATE_COMMAND_ID;
   const saveBusy = session?.activeCommand?.id === DOCUMENT_SAVE_COMMAND_ID;
   const documentMutationBusy = metadataBusy || saveBusy || switching || creating;
+  const renameAdmitted = Boolean(session?.lookupAdmission("editable").ok);
 
   const content = useMemo(
     () => (
@@ -125,7 +126,7 @@ export function BuildSurfaceContext({
                 <BuildDocumentRenameControl
                   currentTitle={displayTitle ?? ""}
                   renaming={metadataBusy}
-                  disabled={documentMutationBusy && !metadataBusy}
+                  disabled={!renameAdmitted || (documentMutationBusy && !metadataBusy)}
                   onRename={async (title) => {
                     const result = await session.updateDocumentMetadata({ title });
                     if (result.ok) {
@@ -193,6 +194,7 @@ export function BuildSurfaceContext({
       liveRecord,
       metadataBusy,
       refreshDocuments,
+      renameAdmitted,
       retryCreatedDocument,
       selectDocument,
       session,

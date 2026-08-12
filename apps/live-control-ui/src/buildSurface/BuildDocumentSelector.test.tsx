@@ -113,4 +113,29 @@ describe("BuildDocumentSelector", () => {
     await user.selectOptions(screen.getByTestId("build-document-select"), DOC_B);
     expect(onSelect).toHaveBeenCalledWith(DOC_B);
   });
+
+  it("overlays live activeRecord title over a stale documents list entry", () => {
+    const staleList = record(DOC_A, "Ironveil Property", "longmont-c1");
+    const liveRenamed = {
+      ...record(DOC_A, "Ironveil Manufactory Grounds", "longmont-c1"),
+      revision: 2,
+    };
+
+    render(
+      <BuildDocumentSelector
+        documents={[staleList, record(DOC_B, "Beta", "longmont-c2")]}
+        listStatus="ready"
+        activeDocumentId={DOC_A}
+        activeRecord={liveRenamed}
+        preferredCampaignId="longmont-c1"
+        switching={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByTestId("build-document-select");
+    expect(within(select).getByRole("option", { name: "Ironveil Manufactory Grounds" })).toBeInTheDocument();
+    expect(within(select).queryByRole("option", { name: "Ironveil Property" })).not.toBeInTheDocument();
+    expect(select).toHaveValue(DOC_A);
+  });
 });
