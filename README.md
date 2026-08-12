@@ -33,9 +33,29 @@ DungeonMind work has advanced from broad compatibility inventory to an exact,
 source-grounded relationship residual ledger with descendant-safe effective
 conformance. The next semantic write gap is assertion-granular correction:
 fixing one adjudicated durable assertion without retiring unrelated assertions
-from the same source contribution. Surface integration, candidate-path cleanup,
-Play migration, and governed agent writes remain separate active or blocked
-workstreams under the Campaign Supergraph tracker.
+from the same source contribution. Candidate-path cleanup, Play migration, and
+governed agent writes remain separate active or blocked workstreams under the
+Campaign Supergraph tracker.
+
+The Plan/Build **DOGFOOD-POLISH** workstream closed on 2026-08-11 after
+establishing the shared surface/document-authoring baseline. AppChrome now owns
+persistent World Graph status and shared interaction hosts; a generic
+`SurfaceContextHost` answers what each surface has loaded without learning
+surface-specific semantics. Plan can select and intentionally create exact prep
+workspace documents, including multiple distinct preps with the same session
+affinity. Build no longer auto-creates a source on entry; it can select, create,
+and rename exact worldbuilding sources while `MarkdownCanvasSession` remains
+the sole content/revision/dirty-draft authority. Workspace `documentId` is the
+opaque work-object identity; session affinity, graph lens, conversation
+continuity, and document identity remain separate concepts.
+
+The closeout deliberately leaves several product tracks open rather than
+smuggling them into the finished workstream: Plan Ask continuity across prep
+switches, shared Threat/Statblock projection and tool parity, Build lifecycle
+and recovery UX, Play Surface Context, Hermes/graph-load performance, and
+worldbuilding authority elevation. See
+[DOGFOOD-POLISH closeout](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md)
+for the completed PR chain and residual ownership.
 
 The current phase status and critical path are maintained in the
 [Campaign Supergraph roadmap](Docs/Roadmaps/ROADMAP-campaign-supergraph.md).

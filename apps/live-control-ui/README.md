@@ -1,11 +1,81 @@
-# Live Control UI (C2 L4)
+# DungeonMindBuddy Live Control UI
 
-React surface shell for the C2 Live Control product. The UI talks only to the merged L3 FastAPI server — it does not read or write session seed files directly.
+React product surfaces for DungeonMindBuddy. The UI talks to the merged FastAPI
+server; it does not treat corpus files, browser state, or surface-local state as
+a substitute for server/graph authority.
+
+The root launcher is the normal product entry. Plan, Ingest / Graph Review,
+Build, and Combat Tracker are first-class doors; the older `/surface` Live
+Control module board remains reachable for legacy smoke coverage but is not the
+current product composition model.
+
+## Current surface model
+
+The shared chrome and document model are now explicit:
+
+```text
+AppChrome
+  ├─ global World Graph status / lens
+  ├─ Agent + Projection host
+  ├─ Tool host
+  ├─ Edit host
+  └─ SurfaceContextHost
+       └─ active surface publishes its own context modules
+
+active surface
+  └─ Canvas / work object
+       └─ exact workspace documentId when document-backed
+```
+
+The governing distinction is:
+
+> **World Graph tells DungeonBuddy what world is available. Surface Context tells each surface what the operator has loaded into it. Canvas tells us what work object is being edited.**
+
+Important ownership rules:
+
+- workspace `documentId` is opaque server-issued work-object identity;
+- campaign/session graph lens is application context, not document identity;
+- Surface Context owns context presentation; individual surfaces own what their
+  modules mean and how their controls behave;
+- `MarkdownCanvasSession` owns accepted document record, revision, body,
+  content SHA, dirty draft, reconciliation, and Markdown Save CAS;
+- shared Tool/Edit/Agent/Projection hosts consume surface publications rather
+  than requiring each surface to own duplicate floating bars;
+- graph writes and worldbuilding authority elevation remain governed operations,
+  not ordinary document metadata edits.
+
+### Plan
+
+Plan publishes `PREP` into Surface Context. The operator can choose an exact
+active prep document or intentionally create a new one. Multiple prep documents
+may share the same **For session** affinity; each remains a distinct server-owned
+workspace document with its own opaque `documentId` and workspace path.
+
+Session affinity is planning metadata. It does not name the file, identify the
+document, or imply promotion to a canonical `Session N Prep.md` artifact.
+
+### Build
+
+Build publishes `DOCUMENT` into Surface Context. Bare `/build` is read-only with
+respect to document creation: no worldbuilding source is created until the
+operator chooses **New source**. Existing sources can be selected across the
+admissible Build scope by exact `documentId`.
+
+The final DOGFOOD-POLISH slice adds source rename from DOCUMENT context. Rename
+is metadata-only but revision-aware: it PATCHes against the live Canvas
+revision, rebases the returned revision into the same Canvas, preserves body,
+content digest, dirty state, and editor identity, and serializes against Save.
+Build graph-reference search/insert already uses the active World Graph
+projection; rename does not cold-reload that projection.
+
+See [`Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](../../Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md)
+for the closed workstream and residual product tracks.
 
 ## Prerequisites
 
 - Node.js 20+
-- L3 server running with Session 22 files on disk (default session dir from `apps/live_control_server/config.py`)
+- DungeonBuddy live-control FastAPI server running (defaults from
+  `apps/live_control_server/config.py`)
 
 ## Environment
 
@@ -13,74 +83,104 @@ React surface shell for the C2 Live Control product. The UI talks only to the me
 |----------|---------|---------|
 | `VITE_LIVE_API_BASE_URL` | `""` (same-origin) | API base URL when not using the Vite dev proxy |
 | `VITE_LIVE_API_PROXY_TARGET` | `http://127.0.0.1:8000` | Dev-server proxy target (see `vite.config.ts`) |
-| `VITE_LIVE_PLANNING_MANIFEST_PATH` | `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json` | Repo-relative manifest for Chat `context_lookup` (hub/world dogfood: set to `c2s23_dogfood_full_manifest.json`) |
+| `VITE_LIVE_PLANNING_MANIFEST_PATH` | `evals/c2_live_prep/benchmarks/c2s23_planning_corpus_manifest.json` | Repo-relative manifest for legacy Chat `context_lookup` dogfood |
 
-**L3 server (repo `.env`):** live turns are classified with an LLM (`src/live_play/classify_live_turn.py`). Requires `OPENAI_API_KEY` via `src/bootstrap_env`. Optional: `LIVE_TURN_CLASSIFIER_MODEL`, `MODEL_POLICY.json` action `live_turn_classifier` (defaults to `cheapest`). Set `LIVE_TURN_CLASSIFIER_ALLOW_HEURISTIC_FALLBACK=1` only for offline/deterministic runs (pytest sets this automatically).
+**Server (repo `.env`):** LLM-backed paths require `OPENAI_API_KEY` via
+`src/bootstrap_env`. Optional model/runtime settings are controlled by the
+server and `MODEL_POLICY.json`; do not put API keys into Vite/client env.
 
 ## Commands
 
 ```bash
 cd apps/live-control-ui
-npm install
-npm run dev      # http://localhost:5173 — proxies /api to L3
-npm test         # Vitest unit tests (mocked fetch)
-npm run build    # typecheck + production bundle
+pnpm install
+pnpm dev        # http://localhost:5173 — proxies /api to the server
+pnpm test       # Vitest
+pnpm build      # typecheck + production bundle
 ```
 
-## Troubleshooting
+Focused verification commonly uses:
 
-**`Unexpected token '<', "<!doctype "... is not valid JSON`** — the browser received Vite’s `index.html` (or another HTML page), not the FastAPI JSON API. Fix:
+```bash
+pnpm exec vitest run src/workspaceDocument/ src/markdownCanvas/ src/planSurface/ src/buildSurface/
+pnpm exec tsc -b
+pnpm build
+```
 
-1. Start the L3 server first (terminal 1 below) and confirm `curl -s http://127.0.0.1:8000/api/live/surface | head -c 40` prints `{"catalog"`.
-2. Use `npm run dev` (port 5173 proxies `/api` → `http://127.0.0.1:8000`). Do **not** use `npm run preview` without also serving the API.
-3. Leave `VITE_LIVE_API_BASE_URL` unset unless you point it at a running server base URL (never at the Vite dev URL alone).
-
-## Manual smoke (with L3)
+## Manual smoke
 
 Terminal 1:
 
 ```bash
 cd /path/to/DungeonMindBuddy
-export DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22
 uv run uvicorn apps.live_control_server.main:app --reload
 ```
 
 Terminal 2:
 
 ```bash
-cd apps/live-control-ui && npm run dev
+cd apps/live-control-ui
+pnpm dev
 ```
 
-**Always start at the launcher:** open [http://127.0.0.1:5173/](http://127.0.0.1:5173/) — not a deep-linked `/ingest?…` or `/plan?…` URL. The index is the product entry; pick Plan, Ingest, Build, or Combat Tracker from the cards (or the site nav).
+**Start at the launcher:** open `http://127.0.0.1:5173/`, then choose the
+surface from the launcher or site nav. Deep links are useful for targeted
+verification but are not the normal product door.
 
-**Combat Tracker** opens the mature Mireward command-board tracker (`evals/c2_live_prep/mireward-prep/combat.html`) at `/combat` (alias `/combat.html`) — circular initiative, HP, statblock drilldown, import/export. It is not the Live Control React `CombatRosterModule`. The full Live Control board (`/surface`), other eval HTML prep pages, and `/tiptap-callout-spike` remain URL-reachable but are not primary nav.
+### Plan smoke
 
-For Combat Tracker smoke: from `/` open **Combat Tracker**, confirm North Reach Gate combat loads (localStorage or `saves/combat/…` bootstrap).
+1. Open **Plan**.
+2. Confirm World Graph status remains in global nav and `PREP` appears directly
+   below it in Surface Context.
+3. Select an existing prep by title; confirm the URL/Canvas converge on one exact
+   `documentId`.
+4. Create a distinctly titled prep. `For session` is affinity only; creating a
+   second prep for the same session must produce a different `documentId` and
+   remain independently editable/savable.
+5. Switch A → B → A and confirm any unsaved local draft for A returns.
 
-For legacy Live Control Chat smoke: open `/surface` directly, then submit:
+### Build smoke
 
-```text
-Weather 7. Caelynn Nature 19.
-```
+1. Open bare **Build** and confirm `DOCUMENT` shows no source loaded and no new
+   source is created merely by entering the route.
+2. Select an existing source; confirm Canvas appears only after exact-document
+   admission.
+3. Create a meaningfully named source and verify selector/URL/Canvas converge on
+   the server-issued `documentId`.
+4. Rename the active source from DOCUMENT context. With an unsaved sentence in
+   Canvas, confirm rename leaves the sentence and `Unsaved changes` state intact;
+   Save, hard reload, and verify both the new title and body survive.
+5. Open **Tools → Find existing object**, inspect/insert a graph reference, and
+   verify document rename itself does not restart World Graph loading.
 
-Expect answer containing `Hail dent`, badges `fast_live` and `roll_result`, and a new Record row.
+### Combat Tracker
 
-## Modules (v0)
+**Combat Tracker** opens the mature Mireward command-board tracker
+(`evals/c2_live_prep/mireward-prep/combat.html`) at `/combat` (alias
+`/combat.html`) — circular initiative, HP, statblock drilldown, import/export.
+It is not the older Live Control React `CombatRosterModule`.
 
-- **Required:** Chat, Record
-- **Implemented optional:** Roll stack (human table labels), Now (when enabled in layout)
-- **Unsupported:** catalog modules without a React implementation show a placeholder
+From `/`, open **Combat Tracker** and confirm the saved/bootstrap combat state
+loads as expected.
 
-Layout changes persist through `PUT /api/live/surface/layout` only (no localStorage authority).
+## Legacy `/surface` board
 
-## Tiptap callout spike state
+The full Live Control board at `/surface` and the old module-layout APIs remain
+reachable for legacy regression coverage. They are not the architecture to
+copy when adding new product capabilities. New Plan/Build composition should go
+through AppChrome + Surface Interaction + Surface Context instead.
 
-The isolated `/tiptap-callout-spike` route is an intentional exception to the
-layout rule above: its editable working-board document is stored only in browser
-`localStorage`. Tiptap JSON is the editable source, and semantic Markdown is a
-derived export. The spike performs no backend or corpus writes. See
-[`src/tiptap/state/README.md`](src/tiptap/state/README.md) for the schema and
-data-flow boundary.
+Legacy Chat smoke, when specifically needed, still uses `/surface` and the
+existing server live-turn path.
+
+## Tiptap spike routes
+
+The isolated `/tiptap-callout-spike` route remains an experimental exception:
+its editable working-board document is stored only in browser `localStorage`.
+Tiptap JSON is the editable source and semantic Markdown is a derived export.
+The spike performs no backend or corpus writes. See
+[`src/tiptap/state/README.md`](src/tiptap/state/README.md) for that experiment's
+schema and data-flow boundary.
 
 ## Backend regression
 
