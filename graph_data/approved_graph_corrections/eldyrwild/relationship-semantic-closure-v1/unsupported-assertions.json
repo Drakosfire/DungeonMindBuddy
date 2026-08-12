@@ -1,0 +1,107 @@
+{
+ "closure_id": "eldyrwild-relationship-semantic-closure-v1",
+ "entries": [
+  {
+   "contributions": {
+    "contribution:8a8a8caad57179e0": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:ed52069926bd2948",
+       "target_contribution_id": "contribution:4c89cbbf15da5d10"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:8a8a8caad57179e0",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u055",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u055",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "INSUFFICIENT_EVIDENCE",
+    "edge_id": "edge:loc:wizard_college:within:node:city_mirathorn",
+    "edge_shape": {
+     "label": "within",
+     "predicate": "within",
+     "source": "loc:wizard_college",
+     "target": "node:city_mirathorn"
+    },
+    "next_action": "GATHER_OR_CLARIFY_EVIDENCE",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:8a8a8caad57179e0",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 55,
+    "rationale": "Durable evidence mentions the Wizard's College and Mirathorn in nearby session-12 spans (potion delivery to Lesandra at the College; Wolf's regret at betraying Mirathorn) but does not assert that the college is within the city. Kind-miscoding of Mirathorn as party cannot substitute for missing spatial support.",
+    "reason_code": "INSUFFICIENT_SOURCE_SUPPORT",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "c7f81353fc4892aaa7fdee62a25b021f6f3f8a0ffe0565ae0b8bb85fa6557180",
+      "d711a26f9a4301621720edfe0be06f551f50f52533827425f8c8f0a856a88773"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+      "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39"
+     ],
+     "artifact_content_sha256": "7184000a8cfbbd993e5e871b48d83fa274cd36d83f5e05a05cdc408b349ca5c9",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-12/20260727T181554Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:wizard_college:within:node:city_mirathorn",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37",
+       "excerpt_sha256": "d711a26f9a4301621720edfe0be06f551f50f52533827425f8c8f0a856a88773",
+       "locator": "37-37",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "As Bonogo deals the killing blow the oily sheen fades from the Wolf\u2019s eyes and is replaced with only regret at betraying the city of Mirathorn.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+       "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:37-37"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
+       "excerpt_sha256": "c7f81353fc4892aaa7fdee62a25b021f6f3f8a0ffe0565ae0b8bb85fa6557180",
+       "locator": "39-39",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Finally, Caelynn instructs Thalia to bring a potion to Lesandra at the Wizard\u2019s College. Thalia creates a plan to make sure each guard in the city also receives a potion. Now the group must decide what to do with the Wolf.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+       "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39"
+      }
+     ],
+     "excerpt_sha256": "c7f81353fc4892aaa7fdee62a25b021f6f3f8a0ffe0565ae0b8bb85fa6557180",
+     "locator": "39-39",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Finally, Caelynn instructs Thalia to bring a potion to Lesandra at the Wizard\u2019s College. Thalia creates a plan to make sure each guard in the city also receives a potion. Now the group must decide what to do with the Wolf.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+     "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:39-39"
+    },
+    "target_assertion_id": "assertion:ed52069926bd2948",
+    "target_contribution_ids": [
+     "contribution:4c89cbbf15da5d10"
+    ],
+    "unit_id": "closure-unit:055"
+   }
+  }
+ ],
+ "produced_at": "2026-08-12T00:00:00Z",
+ "schema": "dmb_eldyrwild_relationship_semantic_closure_unsupported_assertions_v1",
+ "unit_count": 1
+}

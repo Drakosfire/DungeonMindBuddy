@@ -1,0 +1,3446 @@
+{
+ "closure_id": "eldyrwild-relationship-semantic-closure-v1",
+ "entries": [
+  {
+   "contributions": {
+    "contribution:5d0891d64dd368ba": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:5125d69ad4757c3c",
+       "target_contribution_id": "contribution:f1700a77cda5ce95"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:5125d69ad4757c3c",
+       "target_contribution_id": "contribution:f2fbbf4f7c191d8e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:5d0891d64dd368ba",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u008",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u008",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+    "edge_shape": {
+     "label": "located in",
+     "predicate": "located_in",
+     "source": "combat_shatter_mages_tower_spider",
+     "target": "item_shatter_mages_tower"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "item_shatter_mages_tower is mistyped as item; a Buddy-side retype to location would admit located_in. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:5d0891d64dd368ba",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 8,
+    "rationale": "Encounter is inside Shatter Mage's tower; tower is mistyped as item. located_in would admit once the place is a location \u2014 do not widen located_in object to arbitrary items for this case.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009"
+     ],
+     "artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+     "edge_id": "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009",
+       "excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550",
+       "locator": "paragraph:009",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Finally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools. As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+       "source_span_ref_id": "session-1:recap:paragraph:009"
+      }
+     ],
+     "excerpt_sha256": "fb8623982e8dd94486af94586a8abf077ccb282f48cb9640cb73d623d02c4550",
+     "locator": "paragraph:009",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Finally, free to explore the team found a beautifully tiled hallway, a trapped mosaic on the ground, a room full of broken alchemical tools. As Karsemine wisely searched the room, eventually looking up, she made eye contact with another resident of the shatter mages tower. Some kind of flaming magma infused spider monstrosity.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:009",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+     "source_span_ref_id": "session-1:recap:paragraph:009"
+    },
+    "target_assertion_id": "assertion:5125d69ad4757c3c",
+    "target_contribution_ids": [
+     "contribution:f1700a77cda5ce95",
+     "contribution:f2fbbf4f7c191d8e"
+    ],
+    "unit_id": "closure-unit:008"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:4a057534afbbcf0c": {
+     "accepted_assertions": [
+      {
+       "acceptance_state": "accepted",
+       "assertion_id": "assertion:edf987b5b8fc64cb",
+       "assertion_kind": "edge",
+       "campaign_scope": "longmont-c2",
+       "contribution_id": "contribution:4a057534afbbcf0c",
+       "epistemic_kind": "source_derived_candidate",
+       "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011"
+       ],
+       "identity_resolution_outcome": "created_new",
+       "label": "displaced from",
+       "predicate": "displaced_from",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+       "source_revision_id": "sha256:603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+       "subject_node_id": "group_session24_refugees_of_edge",
+       "target_node_id": "loc_3",
+       "temporal_scope": {
+        "session_id": "session-24"
+       },
+       "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_session24_refugees_of_edge:displaced_from:loc_3",
+        "evidence": [
+         {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+          "session_id": "session-24",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_domain": "recap",
+          "source_ref_id": "source-ref:artifact:recap:longmont-c2:session-24",
+          "source_span_ref_id": "session-24:recap:paragraph:011"
+         }
+        ],
+        "predicate": "displaced_from",
+        "session_ids": [
+         "session-24"
+        ],
+        "source_artifacts": [
+         {
+          "campaign_id": "longmont-c2",
+          "content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+          "session_id": "session-24",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+          "source_domain": "recap",
+          "uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md"
+         }
+        ],
+        "source_domains": [
+         "recap"
+        ]
+       },
+       "visibility": "gm"
+      }
+     ],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts_and_replaces",
+       "replacement_assertion_id": "assertion:edf987b5b8fc64cb",
+       "target_assertion_id": "assertion:65ac0b1a0b35261f",
+       "target_contribution_id": "contribution:fe483d91c47590a1"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:4a057534afbbcf0c",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u009",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u009",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradicts_and_replaces",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:group_session24_refugees_of_edge:part_of:loc_3",
+    "edge_shape": {
+     "label": "from Edge",
+     "predicate": "part_of",
+     "source": "group_session24_refugees_of_edge",
+     "target": "loc_3"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "Refugees 'from Edge' encodes displacement origin; dnd5e:displaced_from (group->location) restores the source-grounded durable fact."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:4a057534afbbcf0c",
+      "op": "correct"
+     }
+    ],
+    "ordinal": 9,
+    "rationale": "Refugees 'from Edge' encodes origin/provenance, not mereological part_of a location.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+     "edge_id": "edge:group_session24_refugees_of_edge:part_of:loc_3",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+       "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+       "source_span_ref_id": "session-24:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+     "source_span_ref_id": "session-24:recap:paragraph:011"
+    },
+    "target_assertion_id": "assertion:65ac0b1a0b35261f",
+    "target_contribution_ids": [
+     "contribution:fe483d91c47590a1"
+    ],
+    "unit_id": "closure-unit:009"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:b73ef80f273398b5": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:2c6d31ae71be39cb",
+       "target_contribution_id": "contribution:728ad4422e4b079f"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:2c6d31ae71be39cb",
+       "target_contribution_id": "contribution:b935179b0ceda432"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:b73ef80f273398b5",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u010",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u010",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:group_the_group:participates_in:location_007",
+    "edge_shape": {
+     "label": "clearing rats out of basements",
+     "predicate": "participates_in",
+     "source": "group_the_group",
+     "target": "location_007"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:b73ef80f273398b5",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 10,
+    "rationale": "Clearing rats from basements is activity at a place, not participates_in a location (object must be encounter/event).",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "035939a163504e7defa959b5b918e9d81f2e2a8b7d8cee9538273047ce178f14"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005"
+     ],
+     "artifact_content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md",
+     "edge_id": "edge:group_the_group:participates_in:location_007",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005",
+       "excerpt_sha256": "035939a163504e7defa959b5b918e9d81f2e2a8b7d8cee9538273047ce178f14",
+       "locator": "paragraph:005",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "After making pretty good money, 25 gp each, a bit of loot, and learning a lot about the dangers of clearing rats out of basements, the group decided to stick together and see where the winds take them.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+       "source_span_ref_id": "session-2:recap:paragraph:005"
+      }
+     ],
+     "excerpt_sha256": "035939a163504e7defa959b5b918e9d81f2e2a8b7d8cee9538273047ce178f14",
+     "locator": "paragraph:005",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "After making pretty good money, 25 gp each, a bit of loot, and learning a lot about the dangers of clearing rats out of basements, the group decided to stick together and see where the winds take them.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+     "source_span_ref_id": "session-2:recap:paragraph:005"
+    },
+    "target_assertion_id": "assertion:2c6d31ae71be39cb",
+    "target_contribution_ids": [
+     "contribution:728ad4422e4b079f",
+     "contribution:b935179b0ceda432"
+    ],
+    "unit_id": "closure-unit:010"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:053ca54b606070e6": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:21881ee68c6556f0",
+       "target_contribution_id": "contribution:a4231edb9a228963"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:053ca54b606070e6",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u011",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u011",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "S25",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item:crossbow_bolt_light_source:controls_comms_with:loc:north-road",
+    "edge_shape": {
+     "label": "illuminates north road",
+     "predicate": "controls_comms_with",
+     "source": "item:crossbow_bolt_light_source",
+     "target": "loc:north-road"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:053ca54b606070e6",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 11,
+    "rationale": "Stafl casts Light on a crossbow bolt and illuminates part of the north road; the durable `controls_comms_with` claim is a predicate misapplication.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25"
+     ],
+     "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+     "edge_id": "edge:item:crossbow_bolt_light_source:controls_comms_with:loc:north-road",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+       "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1",
+       "locator": "25-25",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Back on the north wall, Stafl casts light on another crossbow bolt and illuminates a portion of the north road. This light will last the full hour of the group\u2019s short rest. Because it is quiet, Stafl strikes up a conversation with the other town guards on the wall. He discovers that the town was in the midst of a celebration when the messenger on the horse came racing into town; a sort of anti-establishment, anti-Mirathorn, festival. Needing additional intel on the area north of the gate, Ephanna entrusts Thrin to scout out the area, with directions to stay well hidden. While they wait, Stafl strums a soothing tune.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25"
+      }
+     ],
+     "excerpt_sha256": "70084b785ac9246c9138218919ccc054bc68d2cbebeea9dcca5cc91deeb446e1",
+     "locator": "25-25",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Back on the north wall, Stafl casts light on another crossbow bolt and illuminates a portion of the north road. This light will last the full hour of the group\u2019s short rest. Because it is quiet, Stafl strikes up a conversation with the other town guards on the wall. He discovers that the town was in the midst of a celebration when the messenger on the horse came racing into town; a sort of anti-establishment, anti-Mirathorn, festival. Needing additional intel on the area north of the gate, Ephanna entrusts Thrin to scout out the area, with directions to stay well hidden. While they wait, Stafl strums a soothing tune.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+     "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:25-25"
+    },
+    "target_assertion_id": "assertion:21881ee68c6556f0",
+    "target_contribution_ids": [
+     "contribution:a4231edb9a228963"
+    ],
+    "unit_id": "closure-unit:011"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:be60bd2318cf6e19": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:b4c18da4234bcdbf",
+       "target_contribution_id": "contribution:97f5ef69b6c6d14e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:be60bd2318cf6e19",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u012",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u012",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat",
+    "edge_shape": {
+     "label": "leads to",
+     "predicate": "leads_to",
+     "source": "item:session11:magical-runes",
+     "target": "item:session11:tainted-meat"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:be60bd2318cf6e19",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 12,
+    "rationale": "Runes are a detection tool for corrupted meat \u2014 investigative/causal use, not dnd5e:leads_to path connectivity between locations.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "64ed8eda7657b05085265c6d5ba344750aabb67ca89be27c8cf37c1fdd91c383",
+      "fdd89dc2aeaabb89c2153f434b1a4fa6d846d5857fa196f3015d97f719e207d0"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:016",
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:023"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:item:session11:magical-runes:leads_to:item:session11:tainted-meat",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:016",
+       "excerpt_sha256": "64ed8eda7657b05085265c6d5ba344750aabb67ca89be27c8cf37c1fdd91c383",
+       "locator": "paragraph:016",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Headmaster Tinkerbright will be first to present his plan. He plans to magically lock the city down and use a rune to find the corrupted meat.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:016"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:023",
+       "excerpt_sha256": "fdd89dc2aeaabb89c2153f434b1a4fa6d846d5857fa196f3015d97f719e207d0",
+       "locator": "paragraph:023",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "After hearing each plan the party comes up with a plan of their own. They meet with the Headmaster and convince him to combine plans with Merril. Then with the votes from Barin and Grobnok they have enough to convince the Mayor of the best plan. Using a covert approach they will use the magic runes to locate the meat and the Cultists. They will then use the potions from Merril to purify anyone while at the festival.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:023"
+      }
+     ],
+     "excerpt_sha256": "fdd89dc2aeaabb89c2153f434b1a4fa6d846d5857fa196f3015d97f719e207d0",
+     "locator": "paragraph:023",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "After hearing each plan the party comes up with a plan of their own. They meet with the Headmaster and convince him to combine plans with Merril. Then with the votes from Barin and Grobnok they have enough to convince the Mayor of the best plan. Using a covert approach they will use the magic runes to locate the meat and the Cultists. They will then use the potions from Merril to purify anyone while at the festival.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:023",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:023"
+    },
+    "target_assertion_id": "assertion:b4c18da4234bcdbf",
+    "target_contribution_ids": [
+     "contribution:97f5ef69b6c6d14e"
+    ],
+    "unit_id": "closure-unit:012"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:cf10f4dee78e7fea": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:ec4df0911de929ac",
+       "target_contribution_id": "contribution:97f5ef69b6c6d14e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:cf10f4dee78e7fea",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u013",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u013",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item:session11:paper-bird-summons:present_at:npc_grobnok",
+    "edge_shape": {
+     "label": "present at",
+     "predicate": "present_at",
+     "source": "item:session11:paper-bird-summons",
+     "target": "npc_grobnok"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:cf10f4dee78e7fea",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 13,
+    "rationale": "Paper bird flies around Grobnok; present_at object should be a place/event, not a person. Widening would weaken present_at.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "5701aea8ac277922b05cf4ff855176468cd87bd0a862d6eabc584f2e1f418b67"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:003"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:item:session11:paper-bird-summons:present_at:npc_grobnok",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:003",
+       "excerpt_sha256": "5701aea8ac277922b05cf4ff855176468cd87bd0a862d6eabc584f2e1f418b67",
+       "locator": "paragraph:003",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "While discussing what all has happened, a small paper bird flies around Grobnok\u2019s head. The paper is a summons for an emergency council meeting. Grobnok decides it is best to take the adventuring party with him.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:003"
+      }
+     ],
+     "excerpt_sha256": "5701aea8ac277922b05cf4ff855176468cd87bd0a862d6eabc584f2e1f418b67",
+     "locator": "paragraph:003",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "While discussing what all has happened, a small paper bird flies around Grobnok\u2019s head. The paper is a summons for an emergency council meeting. Grobnok decides it is best to take the adventuring party with him.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:003",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:003"
+    },
+    "target_assertion_id": "assertion:ec4df0911de929ac",
+    "target_contribution_ids": [
+     "contribution:97f5ef69b6c6d14e"
+    ],
+    "unit_id": "closure-unit:013"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:6967f8b851a99af7": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:82dbeeddc50499df",
+       "target_contribution_id": "contribution:4c89cbbf15da5d10"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:6967f8b851a99af7",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u014",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u014",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item:session12:invisibility_potion:carries:node:wolf",
+    "edge_shape": {
+     "label": "carries",
+     "predicate": "carries",
+     "source": "item:session12:invisibility_potion",
+     "target": "node:wolf"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:6967f8b851a99af7",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 14,
+    "rationale": "Source: Wolf downs an Invisibility Potion and disappears \u2014 consumption/use, not carriage. Reversing to dnd5e:carries would invent a different fact; requires authored correction.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "d73faeb3e932af23f8d0f084971c1783dfa42a898ca0b898d2345df7a62e22ff"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21"
+     ],
+     "artifact_content_sha256": "7184000a8cfbbd993e5e871b48d83fa274cd36d83f5e05a05cdc408b349ca5c9",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-12/20260727T181554Z/normalized_recap_source.md",
+     "edge_id": "edge:item:session12:invisibility_potion:carries:node:wolf",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21",
+       "excerpt_sha256": "d73faeb3e932af23f8d0f084971c1783dfa42a898ca0b898d2345df7a62e22ff",
+       "locator": "21-21",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Despite this ominous sign, Ephanna applies Hex to one of the Elite Guards and hits them with Eldritch Blast for big damage. Stafl finally shows his true form, unfurling his incorporeal wings and casting Radiant Soul. He flies up near the ceiling and casts Heat Metal on the Wolf. The Wolf, sensing danger, downs an Invisibility Potion and disappears. Kasrsemine quickly uses Hunter\u2019s Mark and deals a major blow to a guard.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+       "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21"
+      }
+     ],
+     "excerpt_sha256": "d73faeb3e932af23f8d0f084971c1783dfa42a898ca0b898d2345df7a62e22ff",
+     "locator": "21-21",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Despite this ominous sign, Ephanna applies Hex to one of the Elite Guards and hits them with Eldritch Blast for big damage. Stafl finally shows his true form, unfurling his incorporeal wings and casting Radiant Soul. He flies up near the ceiling and casts Heat Metal on the Wolf. The Wolf, sensing danger, downs an Invisibility Potion and disappears. Kasrsemine quickly uses Hunter\u2019s Mark and deals a major blow to a guard.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-12:7184000a8cfb:artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb",
+     "source_span_ref_id": "artifact:recap:longmont-c1:session-12:7184000a8cfb:span:7184000a8cfb:21-21"
+    },
+    "target_assertion_id": "assertion:82dbeeddc50499df",
+    "target_contribution_ids": [
+     "contribution:4c89cbbf15da5d10"
+    ],
+    "unit_id": "closure-unit:014"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:24d51c70cc54897d": {
+     "accepted_assertions": [
+      {
+       "acceptance_state": "accepted",
+       "assertion_id": "assertion:1bf6e6e22ea57d44",
+       "assertion_kind": "edge",
+       "campaign_scope": "longmont-c1",
+       "contribution_id": "contribution:24d51c70cc54897d",
+       "epistemic_kind": "source_derived_candidate",
+       "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011"
+       ],
+       "identity_resolution_outcome": "created_new",
+       "label": "travels to",
+       "predicate": "travels_to",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+       "source_revision_id": "sha256:90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+       "subject_node_id": "item:session17:centipede_meat_creature",
+       "target_node_id": "loc:ceiling",
+       "temporal_scope": {
+        "session_id": "session-17"
+       },
+       "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:item:session17:centipede_meat_creature:travels_to:loc:ceiling",
+        "evidence": [
+         {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011",
+          "session_id": "session-17",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_domain": "recap",
+          "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-17",
+          "source_span_ref_id": "session-17:recap:paragraph:011"
+         }
+        ],
+        "predicate": "travels_to",
+        "session_ids": [
+         "session-17"
+        ],
+        "source_artifacts": [
+         {
+          "campaign_id": "longmont-c1",
+          "content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+          "session_id": "session-17",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+          "source_domain": "recap",
+          "uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md"
+         }
+        ],
+        "source_domains": [
+         "recap"
+        ]
+       },
+       "visibility": "gm"
+      }
+     ],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts_and_replaces",
+       "replacement_assertion_id": "assertion:1bf6e6e22ea57d44",
+       "target_assertion_id": "assertion:00cc719b5929b44d",
+       "target_contribution_id": "contribution:55047c991813532c"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:24d51c70cc54897d",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u015",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u015",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradicts_and_replaces",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling",
+    "edge_shape": {
+     "label": "leads_to",
+     "predicate": "leads_to",
+     "source": "item:session17:centipede_meat_creature",
+     "target": "loc:ceiling"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "The creature climbs toward the ceiling; dnd5e:travels_to (item->location) restores the source-grounded motion without path-connectivity invention."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:24d51c70cc54897d",
+      "op": "correct"
+     }
+    ],
+    "ordinal": 15,
+    "rationale": "Creature climbs toward the ceiling; motion/approach, not location path leads_to.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "3655bfc33cd7d1bcc9d771a66815311a285bbdaec110fc769ef3f076529315fb"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+     "edge_id": "edge:item:session17:centipede_meat_creature:leads_to:loc:ceiling",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011",
+       "excerpt_sha256": "3655bfc33cd7d1bcc9d771a66815311a285bbdaec110fc769ef3f076529315fb",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Sensing that both Bonogo and Karsemine are hanging on to the creature, the walls of meat reach out and grapple them. Karsemine dodges the grapple, but is attached to the creature as it continues to climb up the wall. The creature flips around and crushes Karsemine, downing her well above the reach of any of the party. Worse, the creature is very close to reaching the ceiling and breaking through.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+       "source_span_ref_id": "session-17:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "3655bfc33cd7d1bcc9d771a66815311a285bbdaec110fc769ef3f076529315fb",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Sensing that both Bonogo and Karsemine are hanging on to the creature, the walls of meat reach out and grapple them. Karsemine dodges the grapple, but is attached to the creature as it continues to climb up the wall. The creature flips around and crushes Karsemine, downing her well above the reach of any of the party. Worse, the creature is very close to reaching the ceiling and breaking through.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+     "source_span_ref_id": "session-17:recap:paragraph:011"
+    },
+    "target_assertion_id": "assertion:00cc719b5929b44d",
+    "target_contribution_ids": [
+     "contribution:55047c991813532c"
+    ],
+    "unit_id": "closure-unit:015"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:767eca526fdd240f": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:f6b05b692d626705",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:767eca526fdd240f",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u016",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u016",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item:torch:carries:pc:baergrom:passed-to",
+    "edge_shape": {
+     "label": "passed to",
+     "predicate": "carries",
+     "source": "item:torch",
+     "target": "pc:baergrom"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:767eca526fdd240f",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 16,
+    "rationale": "Source/label: torch tossed/passed to Baergrom \u2014 transfer/handoff event, not durable carries. Reversing to carries invents carriage instead of preserving the asserted pass.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:item:torch:carries:pc:baergrom:passed-to",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+       "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+       "locator": "paragraph:005",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo\u2019s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:005"
+      }
+     ],
+     "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+     "locator": "paragraph:005",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo\u2019s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:005"
+    },
+    "target_assertion_id": "assertion:f6b05b692d626705",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:016"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:87167a6ad473af14": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:4be81a05df692370",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:87167a6ad473af14",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u017",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u017",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item:torch:carries:pc:karsemine:passed-to",
+    "edge_shape": {
+     "label": "passed to",
+     "predicate": "carries",
+     "source": "item:torch",
+     "target": "pc:karsemine"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:87167a6ad473af14",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 17,
+    "rationale": "Source/label: torch tossed/passed to Karsemine \u2014 transfer/handoff event, not durable carries. Reversing to carries invents carriage instead of preserving the asserted pass.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:item:torch:carries:pc:karsemine:passed-to",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+       "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+       "locator": "paragraph:005",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo\u2019s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:005"
+      }
+     ],
+     "excerpt_sha256": "e2408133a4bd7d7e9cff3fdc10131b9e503bc85b8bf09651042693d915716016",
+     "locator": "paragraph:005",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Lesandra, barely able to fight back, pulls a torch from Bonogo\u2019s pack and casts Leadership on him. In a daring feat of swashbuckling,Bonogo jump on to the top of one of the cages, slips on some ice and falls to the ground, tossing the torch over to Karsemine and Baergrom.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:005",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:005"
+    },
+    "target_assertion_id": "assertion:4be81a05df692370",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:017"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:a22c76364867deb0": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:a00db506df974764",
+       "target_contribution_id": "contribution:f1700a77cda5ce95"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:a00db506df974764",
+       "target_contribution_id": "contribution:f2fbbf4f7c191d8e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:a22c76364867deb0",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u018",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u018",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:item_glowkindle_help_request:located_in:item_job_board",
+    "edge_shape": {
+     "label": "located in",
+     "predicate": "located_in",
+     "source": "item_glowkindle_help_request",
+     "target": "item_job_board"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:a22c76364867deb0",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 18,
+    "rationale": "Source: help request posted on the jobs board. dnd5e:located_in means subject is spatially/contextually inside a Location; admitting item objects so 'posted on a board' fits would change the relation's spatial meaning, not merely widen endpoints.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003"
+     ],
+     "artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+     "edge_id": "edge:item_glowkindle_help_request:located_in:item_job_board",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+       "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+       "locator": "paragraph:003",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+       "source_span_ref_id": "session-1:recap:paragraph:003"
+      }
+     ],
+     "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+     "locator": "paragraph:003",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+     "source_span_ref_id": "session-1:recap:paragraph:003"
+    },
+    "target_assertion_id": "assertion:a00db506df974764",
+    "target_contribution_ids": [
+     "contribution:f1700a77cda5ce95",
+     "contribution:f2fbbf4f7c191d8e"
+    ],
+    "unit_id": "closure-unit:018"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:53759031e245603c": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:a533599f29d2c9da",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:53759031e245603c",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u019",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u019",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+    "edge_shape": {
+     "label": "site of",
+     "predicate": "located_in",
+     "source": "loc:central-office",
+     "target": "node:meat_distribution_network_session9"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "node:meat_distribution_network_session9 is mistyped as party; a Buddy-side retype of the logistics site would admit containment. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:53759031e245603c",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 19,
+    "rationale": "Label 'site of' inverts containment and types the project as party; authored structure is wrong for located_in.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+       "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:011"
+    },
+    "target_assertion_id": "assertion:a533599f29d2c9da",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:019"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:ee7e8e33a43f7e1e": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:f230822292783811",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:ee7e8e33a43f7e1e",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u020",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u020",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+    "edge_shape": {
+     "label": "part of",
+     "predicate": "part_of",
+     "source": "loc:packing-loading-area",
+     "target": "node:meat_distribution_network_session9"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "node:meat_distribution_network_session9 is mistyped as party; a Buddy-side retype of the logistics site would admit part_of. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:ee7e8e33a43f7e1e",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 20,
+    "rationale": "Packing area belongs to a logistics site/network mistyped as party; correct kinds before any part_of endpoint work.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+       "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "0cf9c6d35fd3c40e2e8fe98d40857c25eb5268abb48c8502026aabd899a219e8",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "At the next junction the party finds where meat is being packedand loaded into carts. There is a crowd of workers, guards and carts. While considering next steps, Ephanna hears something in the tunnel behind the party. The barred door must not have held. Stafl and Karsemine take up their prior disguise sand confront the cultists. The distract them and learn some new things. The cultists are working for Captain Fairfield and that Captain Blart is coordinating the meat distribution at the central office. Further, the rioter Lyra is nearby and leading the distribution project.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:011"
+    },
+    "target_assertion_id": "assertion:f230822292783811",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:020"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:14a34a129e286338": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:84d88fb6b7705ef3",
+       "target_contribution_id": "contribution:f1700a77cda5ce95"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:84d88fb6b7705ef3",
+       "target_contribution_id": "contribution:f2fbbf4f7c191d8e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:14a34a129e286338",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u021",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u021",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+    "edge_shape": {
+     "label": "contains river",
+     "predicate": "contains",
+     "source": "loc:stone_bridge",
+     "target": "mystery_stone_bridge_river_name"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "mystery_stone_bridge_river_name is mistyped as mystery; the river is a location and a Buddy-side retype would admit contains. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:14a34a129e286338",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 21,
+    "rationale": "River beside/under Stone Bridge is a location mistyped as mystery; do not widen contains to mysteries.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003"
+     ],
+     "artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+       "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+       "locator": "paragraph:003",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+       "source_span_ref_id": "session-1:recap:paragraph:003"
+      }
+     ],
+     "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+     "locator": "paragraph:003",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+     "source_span_ref_id": "session-1:recap:paragraph:003"
+    },
+    "target_assertion_id": "assertion:84d88fb6b7705ef3",
+    "target_contribution_ids": [
+     "contribution:f1700a77cda5ce95",
+     "contribution:f2fbbf4f7c191d8e"
+    ],
+    "unit_id": "closure-unit:021"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:89dbba8dd5208c52": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:5a3d93fd17c2522a",
+       "target_contribution_id": "contribution:fe483d91c47590a1"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:89dbba8dd5208c52",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u022",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u022",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:mystery_1:within:item-001",
+    "edge_shape": {
+     "label": "contained by",
+     "predicate": "within",
+     "source": "mystery_1",
+     "target": "item-001"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:89dbba8dd5208c52",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 22,
+    "rationale": "Source: Ogonob is inside the magically dark cube. dnd5e:located_in requires a Location object ('inside a Location'); admitting item containers would change that meaning. The durable mystery\u2192item within edge also does not cleanly encode the person-in-cube claim.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002"
+     ],
+     "artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+     "edge_id": "edge:mystery_1:within:item-001",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002",
+       "excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609",
+       "locator": "paragraph:002",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The disgusting hybrid monsters continue their march toward the wall, but unable to reach it yet. One of them reaches the magically dark cube with Ogonob inside and lashes out with a tentacle, managing to hit Ogonob three times, but avoiding being grappled by the monster. Back on the wall, Karsemine launches a Firebolt at the tripod monster, dealing massive damage igniting the many escaping gases. Whether it\u2019s the sounds of gases ignited or screams of pain, the monster writhes in agony, but is still alive. Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them. Ephanna climbs over and down the wall in an attempt to get to the closest meatwing, but still manages to resist long enough to attack the hybrid monster attacking Ogonob. With two powerful Eldritch Blasts the monster is destroyed, leaving behind a smoldering pile and crackling purple energy. Ogonob then uses Misty Step to get within striking range of the tripod, but misses the attack.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+       "source_span_ref_id": "session-24:recap:paragraph:002"
+      }
+     ],
+     "excerpt_sha256": "5b3f91b9addeb2e140b72678de5660871cad2832a198c3990080f4213a17a609",
+     "locator": "paragraph:002",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The disgusting hybrid monsters continue their march toward the wall, but unable to reach it yet. One of them reaches the magically dark cube with Ogonob inside and lashes out with a tentacle, managing to hit Ogonob three times, but avoiding being grappled by the monster. Back on the wall, Karsemine launches a Firebolt at the tripod monster, dealing massive damage igniting the many escaping gases. Whether it\u2019s the sounds of gases ignited or screams of pain, the monster writhes in agony, but is still alive. Ephanna and Bonogo both fail to resist the effect of the meatwings and are now compelled to only move to the monsters and consume them. Ephanna climbs over and down the wall in an attempt to get to the closest meatwing, but still manages to resist long enough to attack the hybrid monster attacking Ogonob. With two powerful Eldritch Blasts the monster is destroyed, leaving behind a smoldering pile and crackling purple energy. Ogonob then uses Misty Step to get within striking range of the tripod, but misses the attack.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:002",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+     "source_span_ref_id": "session-24:recap:paragraph:002"
+    },
+    "target_assertion_id": "assertion:5a3d93fd17c2522a",
+    "target_contribution_ids": [
+     "contribution:fe483d91c47590a1"
+    ],
+    "unit_id": "closure-unit:022"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:1b0845c667fb5e04": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:9f42435e37258c54",
+       "target_contribution_id": "contribution:97f5ef69b6c6d14e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:1b0845c667fb5e04",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u023",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u023",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:barin_coppergleam:leads_to:node:guardhouse",
+    "edge_shape": {
+     "label": "leads to",
+     "predicate": "leads_to",
+     "source": "node:barin_coppergleam",
+     "target": "node:guardhouse"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:1b0845c667fb5e04",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 23,
+    "rationale": "Barin proposes operations at guardhouses; plan involvement, not a path edge from NPC to location.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "195469db602a6a8495c6baf78a121514a32fd53034ae657479a1dfcfd78b04c1"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:017"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:node:barin_coppergleam:leads_to:node:guardhouse",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:017",
+       "excerpt_sha256": "195469db602a6a8495c6baf78a121514a32fd53034ae657479a1dfcfd78b04c1",
+       "locator": "paragraph:017",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Barin proposes a much more covert operation going to each guardhouse and using magic runes to locate and dispose of the meat.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:017"
+      }
+     ],
+     "excerpt_sha256": "195469db602a6a8495c6baf78a121514a32fd53034ae657479a1dfcfd78b04c1",
+     "locator": "paragraph:017",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Barin proposes a much more covert operation going to each guardhouse and using magic runes to locate and dispose of the meat.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:017",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:017"
+    },
+    "target_assertion_id": "assertion:9f42435e37258c54",
+    "target_contribution_ids": [
+     "contribution:97f5ef69b6c6d14e"
+    ],
+    "unit_id": "closure-unit:023"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:65315db7200d3aca": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:0b4e8e45a943e1de",
+       "target_contribution_id": "contribution:55047c991813532c"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:65315db7200d3aca",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u024",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u024",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:cultist:serves:item:session17:centipede_meat_creature",
+    "edge_shape": {
+     "label": "serves",
+     "predicate": "serves",
+     "source": "node:cultist",
+     "target": "item:session17:centipede_meat_creature"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:65315db7200d3aca",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 24,
+    "rationale": "Source: trance-bound cultist spills blood onto the meat and heals the creature \u2014 ritual sacrifice/healing. dnd5e:serves means serving a person or organized collective (NPC/PC/faction/group/party); widening objects to item/threat would change the service relation's meaning.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "e73cd0ebc7f62b6ee75f3ffffd520cf7fbcf3a6e9762e021f0eca80d336409e9"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:006"
+     ],
+     "artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+     "edge_id": "edge:node:cultist:serves:item:session17:centipede_meat_creature",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:006",
+       "excerpt_sha256": "e73cd0ebc7f62b6ee75f3ffffd520cf7fbcf3a6e9762e021f0eca80d336409e9",
+       "locator": "paragraph:006",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Caelynn quickly casts Ray of Frost on the centipede, slowing its movement speed. She then dumps out some of her water and collects some of the goo that has pooled up on the floor. One of the nearby Cultists begins to fall into a trance. Despite Stafl landing a hit on them, they continue until they reach the center where they spill some of their blood onto the meat where it is absorbed and heals the large creature.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+       "source_span_ref_id": "session-17:recap:paragraph:006"
+      }
+     ],
+     "excerpt_sha256": "e73cd0ebc7f62b6ee75f3ffffd520cf7fbcf3a6e9762e021f0eca80d336409e9",
+     "locator": "paragraph:006",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Caelynn quickly casts Ray of Frost on the centipede, slowing its movement speed. She then dumps out some of her water and collects some of the goo that has pooled up on the floor. One of the nearby Cultists begins to fall into a trance. Despite Stafl landing a hit on them, they continue until they reach the center where they spill some of their blood onto the meat where it is absorbed and heals the large creature.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:006",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+     "source_span_ref_id": "session-17:recap:paragraph:006"
+    },
+    "target_assertion_id": "assertion:0b4e8e45a943e1de",
+    "target_contribution_ids": [
+     "contribution:55047c991813532c"
+    ],
+    "unit_id": "closure-unit:024"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:85415b770746bf5d": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:0709d42687e4763c",
+       "target_contribution_id": "contribution:d3d244474789879c"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:85415b770746bf5d",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u025",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u025",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
+    "edge_shape": {
+     "label": "contains",
+     "predicate": "contains",
+     "source": "node:grit_and_grime",
+     "target": "node:goblins_hobgoblins_bugbears"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:85415b770746bf5d",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 25,
+    "rationale": "Warehouse club 'for' goblinoids is venue association; party contains faction is the wrong structural encoding.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "86093a00e717bbbf0344ed80101e20639937c029a2c8cca3a5cc7dd24d446647"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md",
+     "edge_id": "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+       "excerpt_sha256": "86093a00e717bbbf0344ed80101e20639937c029a2c8cca3a5cc7dd24d446647",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "When the trapdoor is lifted they discover a huge party happening at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears. The party decides to continue on.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+       "source_span_ref_id": "session-10:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "86093a00e717bbbf0344ed80101e20639937c029a2c8cca3a5cc7dd24d446647",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "When the trapdoor is lifted they discover a huge party happening at the Grit and Grime, a warehouse turned club for Goblins, Hobgoblins and Bugbears. The party decides to continue on.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+     "source_span_ref_id": "session-10:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:0709d42687e4763c",
+    "target_contribution_ids": [
+     "contribution:d3d244474789879c"
+    ],
+    "unit_id": "closure-unit:025"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:f46f24abc5188429": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:de34daecea7f41d5",
+       "target_contribution_id": "contribution:97f5ef69b6c6d14e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:f46f24abc5188429",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u026",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u026",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+    "edge_shape": {
+     "label": "leads",
+     "predicate": "leads",
+     "source": "node:headmaster_tinkerbright",
+     "target": "loc:wizard_college"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "loc:wizard_college is mistyped as location for organizational leadership; a Buddy-side retype to an organized collective would admit leads. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:f46f24abc5188429",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 26,
+    "rationale": "Head of the Wizard's College is organizational leadership; college is mistyped as location. Extending leads to locations would confuse path/escort senses.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+       "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+       "locator": "paragraph:008",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Headmaster Tinkerbright - Head of the Wizard\u2019s College",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:008"
+      }
+     ],
+     "excerpt_sha256": "3696fafba3933cc5170d28dcf69b93e2b769ad46cd728b5b8b75986daeb0af8d",
+     "locator": "paragraph:008",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Headmaster Tinkerbright - Head of the Wizard\u2019s College",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:008",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:008"
+    },
+    "target_assertion_id": "assertion:de34daecea7f41d5",
+    "target_contribution_ids": [
+     "contribution:97f5ef69b6c6d14e"
+    ],
+    "unit_id": "closure-unit:026"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:d050e7d8a13f4241": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:15e7323f300456fa",
+       "target_contribution_id": "contribution:4766ca1187eeeac4"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:d050e7d8a13f4241",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u027",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u027",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+    "edge_shape": {
+     "label": "gathers for revelry",
+     "predicate": "participates_in",
+     "source": "node:hempholm_townsfolk",
+     "target": "node:hempholm_folk_revelry"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "node:hempholm_folk_revelry is mistyped as group; the revelry is an event and a Buddy-side retype would admit participates_in. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:d050e7d8a13f4241",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 27,
+    "rationale": "Townsfolk gather for revelry; revelry is mistyped as group rather than event/encounter required by participates_in.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+     "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+       "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_span_ref_id": "session-4:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+     "source_span_ref_id": "session-4:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:15e7323f300456fa",
+    "target_contribution_ids": [
+     "contribution:4766ca1187eeeac4"
+    ],
+    "unit_id": "closure-unit:027"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:de8f3d81d4ab94cf": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:0e56d77fd13a4096",
+       "target_contribution_id": "contribution:a4231edb9a228963"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:de8f3d81d4ab94cf",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u028",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u028",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "S25",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:hesta-bramblewood:governs:organization:merchant-s-crossroads-apothecary",
+    "edge_shape": {
+     "label": "runs apothecary",
+     "predicate": "governs",
+     "source": "node:hesta-bramblewood",
+     "target": "organization:merchant-s-crossroads-apothecary"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:de8f3d81d4ab94cf",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 28,
+    "rationale": "Hesta answers the apothecary door, holds potions, and agrees to brew more; the source does not establish organizational `governs` authority.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "e65b7c63fce1ddffbc8558a26ac0dec94ee8aef966bc130af0a49a206efad0f7",
+      "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29"
+     ],
+     "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+     "edge_id": "edge:node:hesta-bramblewood:governs:organization:merchant-s-crossroads-apothecary",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+       "excerpt_sha256": "e65b7c63fce1ddffbc8558a26ac0dec94ee8aef966bc130af0a49a206efad0f7",
+       "locator": "27-27",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Back with the other group, they head to the Merchant\u2019s Crossroads, looking for the apothecary. After knocking repeatedly, a very, very old halfling woman finally answers the door. Hesta Bramblewood was fast asleep and is now wondering why they woke her up. They quickly recount the battle and tell her they need her help with some potions. Initially Karsemine starts explaining the saturation they are in and the help they need, but Caelynn soon swoops in and tries to convince the old woman to help them right away. Despite trying to tell her how little time there is to get this done, Hesta takes her time and brews some tea, giving a cup to a reluctant Caelynn, who cautiously does not drink it.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29",
+       "excerpt_sha256": "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9",
+       "locator": "29-29",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Karsemine decides to use a different approach and uses intimidation and finally convinces Hesta of the dire nature of their situation. Karsemine can almost see the moment it clicks and Hesta snaps back to reality, immediately telling Caelynn not to drink the tea. She agrees to make the sleep potions, but will take lots of time without any help. After the mayor leaves to find some help, Hesta gives the group the five sleep potions she has on hand. On their way out, Bonogo whispers to her that maybe the situation is dire enough that no one wakes back up from their sleep. So instead they will prioritize people with the infected eyes. They make their way to the warehouse and meet Brin out front. He informs the group that they have locked off the area with people with the infection and Caelynn receives praise from the mayor for her help. Then, they head back to the north wall.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29"
+      }
+     ],
+     "excerpt_sha256": "e65b7c63fce1ddffbc8558a26ac0dec94ee8aef966bc130af0a49a206efad0f7",
+     "locator": "27-27",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Back with the other group, they head to the Merchant\u2019s Crossroads, looking for the apothecary. After knocking repeatedly, a very, very old halfling woman finally answers the door. Hesta Bramblewood was fast asleep and is now wondering why they woke her up. They quickly recount the battle and tell her they need her help with some potions. Initially Karsemine starts explaining the saturation they are in and the help they need, but Caelynn soon swoops in and tries to convince the old woman to help them right away. Despite trying to tell her how little time there is to get this done, Hesta takes her time and brews some tea, giving a cup to a reluctant Caelynn, who cautiously does not drink it.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+     "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:27-27"
+    },
+    "target_assertion_id": "assertion:0e56d77fd13a4096",
+    "target_contribution_ids": [
+     "contribution:a4231edb9a228963"
+    ],
+    "unit_id": "closure-unit:028"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:3aa0e50577b262cc": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:1175060310dd871c",
+       "target_contribution_id": "contribution:a4231edb9a228963"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:3aa0e50577b262cc",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u029",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u029",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "S25",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:orik:participates_in:organization:warehouse-gate-sheltering-group",
+    "edge_shape": {
+     "label": "helps manage refugees at warehouse",
+     "predicate": "participates_in",
+     "source": "node:orik",
+     "target": "organization:warehouse-gate-sheltering-group"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:3aa0e50577b262cc",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 29,
+    "rationale": "Orik helps coordinate refugee sheltering and leaves to find help; the source does not establish membership/`participates_in` an organization identified as warehouse-gate-sheltering-group.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+      "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29"
+     ],
+     "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+     "edge_id": "edge:node:orik:participates_in:organization:warehouse-gate-sheltering-group",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+       "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+       "locator": "23-23",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29",
+       "excerpt_sha256": "48459137829cabd3aba987b1242ac8ecca7fec54a4f2799dd18468a76b926ad9",
+       "locator": "29-29",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Karsemine decides to use a different approach and uses intimidation and finally convinces Hesta of the dire nature of their situation. Karsemine can almost see the moment it clicks and Hesta snaps back to reality, immediately telling Caelynn not to drink the tea. She agrees to make the sleep potions, but will take lots of time without any help. After the mayor leaves to find some help, Hesta gives the group the five sleep potions she has on hand. On their way out, Bonogo whispers to her that maybe the situation is dire enough that no one wakes back up from their sleep. So instead they will prioritize people with the infected eyes. They make their way to the warehouse and meet Brin out front. He informs the group that they have locked off the area with people with the infection and Caelynn receives praise from the mayor for her help. Then, they head back to the north wall.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:29-29"
+      }
+     ],
+     "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+     "locator": "23-23",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+     "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23"
+    },
+    "target_assertion_id": "assertion:1175060310dd871c",
+    "target_contribution_ids": [
+     "contribution:a4231edb9a228963"
+    ],
+    "unit_id": "closure-unit:029"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:18dfca2a55a3bab8": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:c3812620da99c697",
+       "target_contribution_id": "contribution:0768f20cf288a4c1"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:18dfca2a55a3bab8",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u030",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u030",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:pippa:travels_to:node:bubbles",
+    "edge_shape": {
+     "label": "rides with",
+     "predicate": "travels_to",
+     "source": "node:pippa",
+     "target": "node:bubbles"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:18dfca2a55a3bab8",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 30,
+    "rationale": "Pippa hitches Bubbles to the wagon \u2014 accompaniment/harness, not travels_to a creature destination.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+     ],
+     "artifact_content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T225156Z/normalized_recap_source.md",
+     "edge_id": "edge:node:pippa:travels_to:node:bubbles",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+       "excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4",
+       "locator": "paragraph:017",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to Stone Bridge with Pippa. Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river. Along the way down river, they encountered an elderly fisherman, whose net was stuck. Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn\u2019t have a fish, stupid useless net. With some trial and error and stradling of boats Stafl and Baergrom I think pulled the net to surface to see it looked to be the corner beams of a roof.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+       "source_span_ref_id": "session-3:recap:paragraph:017"
+      }
+     ],
+     "excerpt_sha256": "ebdd6b5edb7de8d328b71c232edd32973af6985baae104adefc0896673f6b1e4",
+     "locator": "paragraph:017",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Ready for some rest, ready to not be covered in the sweat and ichor of the day, Caelynn, Karsemine, Stafl, Baergrom, and Ephanna accepted the offer of a ride to Stone Bridge with Pippa. Pippa a bright and talkative Gnome obsessed with crafting and understanding beer, hitched up Bubbles the Float Goat to her wagon full of kegs and led the crew to a dock and barge on the river. Along the way down river, they encountered an elderly fisherman, whose net was stuck. Without missing a beat Bonogo out of selflessness and hopes for a giant fish to eat, dove into the water to find the damned net didn\u2019t have a fish, stupid useless net. With some trial and error and stradling of boats Stafl and Baergrom I think pulled the net to surface to see it looked to be the corner beams of a roof.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+     "source_span_ref_id": "session-3:recap:paragraph:017"
+    },
+    "target_assertion_id": "assertion:c3812620da99c697",
+    "target_contribution_ids": [
+     "contribution:0768f20cf288a4c1"
+    ],
+    "unit_id": "closure-unit:030"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:7efac6cecb6128f5": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:58e891177be6e21b",
+       "target_contribution_id": "contribution:a5f8e745364e182c"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:58e891177be6e21b",
+       "target_contribution_id": "contribution:cc2574b7d2d274a9"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:58e891177be6e21b",
+       "target_contribution_id": "contribution:f43a2446902be8a9"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:7efac6cecb6128f5",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u031",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u031",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:session6_item_dead_horse:serves:pc:ephanna:served-for-ephanna",
+    "edge_shape": {
+     "label": "served for Ephanna",
+     "predicate": "serves",
+     "source": "node:session6_item_dead_horse",
+     "target": "pc:ephanna"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:7efac6cecb6128f5",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 31,
+    "rationale": "Recap: dead horse served for Bonogo by Ephanna; durable edge subject/object and label disagree with source food-service claim.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+     "edge_id": "edge:node:session6_item_dead_horse:serves:pc:ephanna:served-for-ephanna",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+       "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "On to Mirathorn, it\u2019d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn\u2019t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse\u2019s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+       "source_span_ref_id": "session-6:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "On to Mirathorn, it\u2019d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn\u2019t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse\u2019s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+     "source_span_ref_id": "session-6:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:58e891177be6e21b",
+    "target_contribution_ids": [
+     "contribution:a5f8e745364e182c",
+     "contribution:cc2574b7d2d274a9",
+     "contribution:f43a2446902be8a9"
+    ],
+    "unit_id": "closure-unit:031"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:be262aed39be2711": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:64a2ccdc7cc36ba0",
+       "target_contribution_id": "contribution:a5f8e745364e182c"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:64a2ccdc7cc36ba0",
+       "target_contribution_id": "contribution:cc2574b7d2d274a9"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:64a2ccdc7cc36ba0",
+       "target_contribution_id": "contribution:f43a2446902be8a9"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:be262aed39be2711",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u032",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u032",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:session6_item_runaway_cart:participates_in:pc:baergrom:stopped-by-baergrom",
+    "edge_shape": {
+     "label": "stopped by Baergrom",
+     "predicate": "participates_in",
+     "source": "node:session6_item_runaway_cart",
+     "target": "pc:baergrom"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:be262aed39be2711",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 32,
+    "rationale": "Runaway cart stopped by Baergrom is patient/agent inversion under participates_in; requires source correction.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+     "edge_id": "edge:node:session6_item_runaway_cart:participates_in:pc:baergrom:stopped-by-baergrom",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+       "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "On to Mirathorn, it\u2019d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn\u2019t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse\u2019s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+       "source_span_ref_id": "session-6:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "On to Mirathorn, it\u2019d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn\u2019t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse\u2019s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+     "source_span_ref_id": "session-6:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:64a2ccdc7cc36ba0",
+    "target_contribution_ids": [
+     "contribution:a5f8e745364e182c",
+     "contribution:cc2574b7d2d274a9",
+     "contribution:f43a2446902be8a9"
+    ],
+    "unit_id": "closure-unit:032"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:ea208bbd307f72b7": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:954cba6ffaf2ba72",
+       "target_contribution_id": "contribution:a4231edb9a228963"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:ea208bbd307f72b7",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u033",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u033",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "S25",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:thrin-branchborn:caused_by:mystery:session25:thrin-ambush-by-hybrid-creatures",
+    "edge_shape": {
+     "label": "victim of ambush",
+     "predicate": "caused_by",
+     "source": "node:thrin-branchborn",
+     "target": "mystery:session25:thrin-ambush-by-hybrid-creatures"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:ea208bbd307f72b7",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 33,
+    "rationale": "Thrin is ambushed and dragged; durable `Thrin --caused_by--> ambush` contradicts source direction/meaning and requires authored correction rather than auto-reverse.",
+    "reason_code": "DIRECTION_CONTRADICTION",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "9d9be2c8d59ed5d75554911864ca11713504bdb6d4a513b7c23f32336917e8e4",
+      "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37"
+     ],
+     "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+     "edge_id": "edge:node:thrin-branchborn:caused_by:mystery:session25:thrin-ambush-by-hybrid-creatures",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+       "excerpt_sha256": "9d9be2c8d59ed5d75554911864ca11713504bdb6d4a513b7c23f32336917e8e4",
+       "locator": "31-31",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Ephanna is listening to Stafl play while listening for any secret calls from Thrin out in the field. They hear a shrill call before it is abruptly cut off, followed by a crashing sound. Baergrom immediately sets up his shield, beginning to boost the HP of the rest of the team. Then Karsemine, casting Pass without Trace, is joined by Bonogo and Ogonob as they venture out into the field in search of Thrin. Stafl directs the town guards along the wall to fire arrows out into the field to provide light. With just enough light the group is able to make out three new hybrid creatures wrapped around something and beginning to burrow into the ground.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37",
+       "excerpt_sha256": "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429",
+       "locator": "37-37",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Lysandra uses her Commanding Shout and directs Karsmine, Stafl and Caelynn to attack or move. Karsemine uses her bow, and Caylynn her crossbow, to deal more damage to the remaining monster. Then Lysandra casts Leadership and gives Karsemine a boost to her next attack, which she uses to cast Fire Bolt on the monster, killing it by fully engulfing it in flames. Now she has a chance to head down the length of the wall to where she heard the screaming before. As she starts she can feel the ground begin to shake and sees town guards gesturing over the wall where she can just make out dark shapes moving below. Just before Bonogo is able to turn to help Thrin get up, Thrin is again pulled into the ground and fully disappears out of sight.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37"
+      }
+     ],
+     "excerpt_sha256": "9d9be2c8d59ed5d75554911864ca11713504bdb6d4a513b7c23f32336917e8e4",
+     "locator": "31-31",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Ephanna is listening to Stafl play while listening for any secret calls from Thrin out in the field. They hear a shrill call before it is abruptly cut off, followed by a crashing sound. Baergrom immediately sets up his shield, beginning to boost the HP of the rest of the team. Then Karsemine, casting Pass without Trace, is joined by Bonogo and Ogonob as they venture out into the field in search of Thrin. Stafl directs the town guards along the wall to fire arrows out into the field to provide light. With just enough light the group is able to make out three new hybrid creatures wrapped around something and beginning to burrow into the ground.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+     "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:31-31"
+    },
+    "target_assertion_id": "assertion:954cba6ffaf2ba72",
+    "target_contribution_ids": [
+     "contribution:a4231edb9a228963"
+    ],
+    "unit_id": "closure-unit:033"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:a8625c66ecfe29df": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:96c74ad557171ddd",
+       "target_contribution_id": "contribution:97f5ef69b6c6d14e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:a8625c66ecfe29df",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u034",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u034",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+    "edge_shape": {
+     "label": "represents",
+     "predicate": "serves",
+     "source": "node:torrin_flamescale",
+     "target": "loc:guilds"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "loc:guilds is mistyped as location; a Buddy-side retype to faction would admit serves. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:a8625c66ecfe29df",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 34,
+    "rationale": "Representative of the Guilds; guilds mistyped as location. serves to a faction would already be endpoint-admitted.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010",
+       "excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4",
+       "locator": "paragraph:010",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Torrin Flamescale - Master Smith and Representative of the Guilds",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:010"
+      }
+     ],
+     "excerpt_sha256": "c2ef1f090529b0d2c8011892361eddde7d1042c72ba6c9e89565cd4b4fbebad4",
+     "locator": "paragraph:010",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Torrin Flamescale - Master Smith and Representative of the Guilds",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:010",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:010"
+    },
+    "target_assertion_id": "assertion:96c74ad557171ddd",
+    "target_contribution_ids": [
+     "contribution:97f5ef69b6c6d14e"
+    ],
+    "unit_id": "closure-unit:034"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:38c7541a5b183b8b": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:cf0b69636c7c75e6",
+       "target_contribution_id": "contribution:4766ca1187eeeac4"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:38c7541a5b183b8b",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u035",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u035",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+    "edge_shape": {
+     "label": "associated caravan",
+     "predicate": "member_of",
+     "source": "node:torvak_hempdealer_crew",
+     "target": "item:torvak-hemp-caravan"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "item:torvak-hemp-caravan is mistyped as item; a Buddy-side retype to group would admit member_of. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:38c7541a5b183b8b",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 35,
+    "rationale": "Crew belongs to Torvak's caravan group mistyped as item; member_of already admits group/faction/party objects.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002"
+     ],
+     "artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+     "edge_id": "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+       "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+       "locator": "paragraph:002",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak\u2019s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_span_ref_id": "session-4:recap:paragraph:002"
+      }
+     ],
+     "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+     "locator": "paragraph:002",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak\u2019s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+     "source_span_ref_id": "session-4:recap:paragraph:002"
+    },
+    "target_assertion_id": "assertion:cf0b69636c7c75e6",
+    "target_contribution_ids": [
+     "contribution:4766ca1187eeeac4"
+    ],
+    "unit_id": "closure-unit:035"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:0ec99561c3a67596": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:76822d75d181b8d4",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:0ec99561c3a67596",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u036",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u036",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward",
+    "edge_shape": {
+     "label": "crawls toward",
+     "predicate": "routes_to",
+     "source": "obj:session9:corrupted_meat_pile",
+     "target": "obj:session9:meat_rack"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:0ec99561c3a67596",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 36,
+    "rationale": "Meat pile crawls toward rack \u2014 locomotion toward an object, not routes_to/leads_to path semantics.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "3fcf9824d52cfd9df98f8131a4beba73abbb2fdf480f651299ddc4fc3e918a3b"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:002"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:obj:session9:corrupted_meat_pile:routes_to:obj:session9:meat_rack:crawls-toward",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:002",
+       "excerpt_sha256": "3fcf9824d52cfd9df98f8131a4beba73abbb2fdf480f651299ddc4fc3e918a3b",
+       "locator": "paragraph:002",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "A fierce battle begins. Bonogo is first to strike, and he makes sure it counts. With deadly precision he kills one of large disgusting meat creatures - a Corrupted Meat Mound. However, with his final slice against the creature a chunk of meat falls off to the ground to form a smaller creature - a Corrupted Meat Pile. It quickly crawls toward the nearest rack of meat and disappears inside. Stafl casts Light on the center cage and fires off a bolt from his crossbow for a nice clean hit. However, another chunk falls off and again crawls toward the rack of meat.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:002"
+      }
+     ],
+     "excerpt_sha256": "3fcf9824d52cfd9df98f8131a4beba73abbb2fdf480f651299ddc4fc3e918a3b",
+     "locator": "paragraph:002",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "A fierce battle begins. Bonogo is first to strike, and he makes sure it counts. With deadly precision he kills one of large disgusting meat creatures - a Corrupted Meat Mound. However, with his final slice against the creature a chunk of meat falls off to the ground to form a smaller creature - a Corrupted Meat Pile. It quickly crawls toward the nearest rack of meat and disappears inside. Stafl casts Light on the center cage and fires off a bolt from his crossbow for a nice clean hit. However, another chunk falls off and again crawls toward the rack of meat.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:002",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:002"
+    },
+    "target_assertion_id": "assertion:76822d75d181b8d4",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:036"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:e753141dbed16a34": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:38ff70a1236d37cd",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:e753141dbed16a34",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u037",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u037",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:obj:session9:oil:carries:obj:session9:meat_rack:applied-to",
+    "edge_shape": {
+     "label": "applied to",
+     "predicate": "carries",
+     "source": "obj:session9:oil",
+     "target": "obj:session9:meat_rack"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:e753141dbed16a34",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 37,
+    "rationale": "Oil poured/applied onto the meat rack; application, not carries.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "2c3449ed115e829099df1d49a628c0a1286297eae4bc8f6147d02fc6457363af"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:007"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:obj:session9:oil:carries:obj:session9:meat_rack:applied-to",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:007",
+       "excerpt_sha256": "2c3449ed115e829099df1d49a628c0a1286297eae4bc8f6147d02fc6457363af",
+       "locator": "paragraph:007",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Karsemine, inspired by the torch begins pouring oil on the meat rack, and tosses the torch to start a blaze, then slashes out at the Meat Mound and cuts off another chunk.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:007"
+      }
+     ],
+     "excerpt_sha256": "2c3449ed115e829099df1d49a628c0a1286297eae4bc8f6147d02fc6457363af",
+     "locator": "paragraph:007",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Karsemine, inspired by the torch begins pouring oil on the meat rack, and tosses the torch to start a blaze, then slashes out at the Meat Mound and cuts off another chunk.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:007",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:007"
+    },
+    "target_assertion_id": "assertion:38ff70a1236d37cd",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:037"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:3c8720fd6507fe8a": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:847e578310b85f6e",
+       "target_contribution_id": "contribution:97f5ef69b6c6d14e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:3c8720fd6507fe8a",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u038",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u038",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:obj:session9:oil:identified_as:node:wolf",
+    "edge_shape": {
+     "label": "identified as",
+     "predicate": "identified_as",
+     "source": "obj:session9:oil",
+     "target": "node:wolf"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:3c8720fd6507fe8a",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 38,
+    "rationale": "Evidence discusses oily eyes on Wolf/guards, not that oil is identified as Wolf.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "1c538e8a1a5530d5c0a57578086a3195a27cb4ba0f92ac0ffd6bb1bb2485de56",
+      "2ab46b40de6d49e6899c09b3c0b66a962ae5697420e05189bc06b984b827a2ea"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:013",
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:025"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:obj:session9:oil:identified_as:node:wolf",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:013",
+       "excerpt_sha256": "2ab46b40de6d49e6899c09b3c0b66a962ae5697420e05189bc06b984b827a2ea",
+       "locator": "paragraph:013",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The party also notices a ring of guards placed along the wall. There are 8 guards, 2 elite guards, and standing at Thalia\u2019s shoulder is Wolf. The party checks each guard, including Wolf, and discovers all have an oily sheen to their eyes. However, they see that Thalia does not.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:013"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:025",
+       "excerpt_sha256": "1c538e8a1a5530d5c0a57578086a3195a27cb4ba0f92ac0ffd6bb1bb2485de56",
+       "locator": "paragraph:025",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "After all the commotion dies down, Ephanna finally convinces Thalia to look at the eyes of all the guards. She now realizes how dire the situation truly is. Ephanna ushers the other council members out as Caelynn talks with Thalia about the plans. Stafl is set up to distract Wolf when suddenly, with a flash of a dagger, Bonogo attacks Wolf from behind, dealing major damage.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:025"
+      }
+     ],
+     "excerpt_sha256": "2ab46b40de6d49e6899c09b3c0b66a962ae5697420e05189bc06b984b827a2ea",
+     "locator": "paragraph:013",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The party also notices a ring of guards placed along the wall. There are 8 guards, 2 elite guards, and standing at Thalia\u2019s shoulder is Wolf. The party checks each guard, including Wolf, and discovers all have an oily sheen to their eyes. However, they see that Thalia does not.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:013",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:013"
+    },
+    "target_assertion_id": "assertion:847e578310b85f6e",
+    "target_contribution_ids": [
+     "contribution:97f5ef69b6c6d14e"
+    ],
+    "unit_id": "closure-unit:038"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:d3613d98d1ac52dc": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:9ca326006985a02b",
+       "target_contribution_id": "contribution:55047c991813532c"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:d3613d98d1ac52dc",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u039",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u039",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:pc:bonogo:travels_to:pc:karsemine",
+    "edge_shape": {
+     "label": "travels_to",
+     "predicate": "travels_to",
+     "source": "pc:bonogo",
+     "target": "pc:karsemine"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:d3613d98d1ac52dc",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 39,
+    "rationale": "Bonogo climbs to reach/heal Karsemine \u2014 approach to a person, not travels_to a location; widening destinations to PCs would weaken the term.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "a3a1f2d05e1314437a3294f0da71498b393c62b6a6c2efd3848ef8480cbe8230"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:012"
+     ],
+     "artifact_content_sha256": "90823bf0610beca9fee22df4806a318b1f892c3c194a434563f6f37250b0690f",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-17/20260724T031429Z/normalized_recap_source.md",
+     "edge_id": "edge:pc:bonogo:travels_to:pc:karsemine",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:012",
+       "excerpt_sha256": "a3a1f2d05e1314437a3294f0da71498b393c62b6a6c2efd3848ef8480cbe8230",
+       "locator": "paragraph:012",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "In a desperate attempt to save her friends Caelynn casts Magic Missile on the wall holding Bonogo. Bonogo climbs up the creature, reaching Karsemine, and healing her with a potion. He follows up with a stab from his dagger. Karsemine is now able to break free and uses her bonus action to attack, and Stafl sends a bolt from his crossbow. The centipede-like creature looks to be finally on its last leg.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+       "source_span_ref_id": "session-17:recap:paragraph:012"
+      }
+     ],
+     "excerpt_sha256": "a3a1f2d05e1314437a3294f0da71498b393c62b6a6c2efd3848ef8480cbe8230",
+     "locator": "paragraph:012",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "In a desperate attempt to save her friends Caelynn casts Magic Missile on the wall holding Bonogo. Bonogo climbs up the creature, reaching Karsemine, and healing her with a potion. He follows up with a stab from his dagger. Karsemine is now able to break free and uses her bonus action to attack, and Stafl sends a bolt from his crossbow. The centipede-like creature looks to be finally on its last leg.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-17:session-17:recap:paragraph:012",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-17",
+     "source_span_ref_id": "session-17:recap:paragraph:012"
+    },
+    "target_assertion_id": "assertion:9ca326006985a02b",
+    "target_contribution_ids": [
+     "contribution:55047c991813532c"
+    ],
+    "unit_id": "closure-unit:039"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:c07a8fe7a3c5cf6a": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:59d9bd5ebb1bb6cc",
+       "target_contribution_id": "contribution:4766ca1187eeeac4"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:c07a8fe7a3c5cf6a",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u040",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u040",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+    "edge_shape": {
+     "label": "present at revelry",
+     "predicate": "participates_in",
+     "source": "pc:caelynn",
+     "target": "node:hempholm_folk_revelry"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [
+     "node:hempholm_folk_revelry is mistyped as group; the revelry is an event and a Buddy-side retype would admit participates_in. Tracked as a Buddy source repair successor."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:c07a8fe7a3c5cf6a",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 40,
+    "rationale": "Caelynn joins festivities; revelry mistyped as group instead of event.",
+    "reason_code": "ENDPOINT_BLOCKED_BY_KIND_MISCODING",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+     "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+       "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_span_ref_id": "session-4:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "ca79b8149347e737b112caa3421a774217b799514c1eff1d534db33cc98f6f6b",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town is overjoyed at the death of the tree and gathers for a drunken revelry that stretches into the evening hours and gets the crew good and drunk. Caelynn abstains from the drink but not the festivities. At some point some asshole human named Steve makes some shitty remarks about non-humans. As the the hours of party stretch and folk are gathered around bonfires the ground begins to rumble anew. The shaking turns to bellows and screams as dozens on dozens of root like beatles crawl up from tunnels underneath the town. Townsfolk begin to fall, Steve the racist is shredded and knocked into a fire and a night of revelry turns to nightmare.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+     "source_span_ref_id": "session-4:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:59d9bd5ebb1bb6cc",
+    "target_contribution_ids": [
+     "contribution:4766ca1187eeeac4"
+    ],
+    "unit_id": "closure-unit:040"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:b40d78b83bceb086": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:06a8c2bfdcae6f8f",
+       "target_contribution_id": "contribution:0768f20cf288a4c1"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:b40d78b83bceb086",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u041",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u041",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso",
+    "edge_shape": {
+     "label": "uses to lasso Bubbles",
+     "predicate": "controls_comms_with",
+     "source": "pc:ephanna",
+     "target": "item:mage_hand_lasso"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:b40d78b83bceb086",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 41,
+    "rationale": "Ephanna uses mage hand to lasso Bubbles \u2014 tool use, not communications.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "986582e883b98309d4995fd863959f62b2fe970241301843eeb65d9ed0a11d42",
+      "f77a82ae716694358809fe6bd22e50f262a10279a158b1fa59ca18979681dd53"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+      "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015"
+     ],
+     "artifact_content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T225156Z/normalized_recap_source.md",
+     "edge_id": "edge:pc:ephanna:controls_comms_with:item:mage_hand_lasso",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+       "excerpt_sha256": "986582e883b98309d4995fd863959f62b2fe970241301843eeb65d9ed0a11d42",
+       "locator": "paragraph:010",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Ephanna uses mage hand to lasso Bubbles on the rock. Bubbles is too panicked and bites the mage hand.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+       "source_span_ref_id": "session-3:recap:paragraph:010"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015",
+       "excerpt_sha256": "f77a82ae716694358809fe6bd22e50f262a10279a158b1fa59ca18979681dd53",
+       "locator": "paragraph:015",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Ephanna\u2019s mage hand succeeds the second time and lassos Bubbles, lead her to Ephanna.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+       "source_span_ref_id": "session-3:recap:paragraph:015"
+      }
+     ],
+     "excerpt_sha256": "986582e883b98309d4995fd863959f62b2fe970241301843eeb65d9ed0a11d42",
+     "locator": "paragraph:010",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Ephanna uses mage hand to lasso Bubbles on the rock. Bubbles is too panicked and bites the mage hand.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+     "source_span_ref_id": "session-3:recap:paragraph:010"
+    },
+    "target_assertion_id": "assertion:06a8c2bfdcae6f8f",
+    "target_contribution_ids": [
+     "contribution:0768f20cf288a4c1"
+    ],
+    "unit_id": "closure-unit:041"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:132493444bf615f7": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:6e633173f13fc790",
+       "target_contribution_id": "contribution:8b046da9ec0f4275"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:132493444bf615f7",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u042",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u042",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:pc:ephanna:participates_in:node:shepherds_flock",
+    "edge_shape": {
+     "label": "joins with crowd group",
+     "predicate": "participates_in",
+     "source": "pc:ephanna",
+     "target": "node:shepherds_flock"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:132493444bf615f7",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 42,
+    "rationale": "Source: Ephanna goes along with Lyra's followers, wants to help, then discovers they are called The Shepherds Flock \u2014 accompaniment/affiliation discovery, not membership and not participates_in an event. Mapping to dnd5e:member_of would invent a different fact.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "0af02db4e37ab7b55139b4ce09717b224d3146bfc799576da21424c91a3193b3"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:006"
+     ],
+     "artifact_content_sha256": "8443eb3113eb57236bcd303d21d60b332f659e72048d81a2e32e48fd31ebb471",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-7/20260721T141659Z/normalized_recap_source.md",
+     "edge_id": "edge:pc:ephanna:participates_in:node:shepherds_flock",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:006",
+       "excerpt_sha256": "0af02db4e37ab7b55139b4ce09717b224d3146bfc799576da21424c91a3193b3",
+       "locator": "paragraph:006",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Lyra, the leader of the crowd, and her followers leave to go back to their base and Ephanna decides to take Torbin and go along with them, wanting to help with their plans. Ephanna discovers that the group is called The Shepherds Flock. Each is wearing a symbol of their group and there is talk of their leader, The Shepherd, back in the Swamp to the north.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+       "source_span_ref_id": "session-7:recap:paragraph:006"
+      }
+     ],
+     "excerpt_sha256": "0af02db4e37ab7b55139b4ce09717b224d3146bfc799576da21424c91a3193b3",
+     "locator": "paragraph:006",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Lyra, the leader of the crowd, and her followers leave to go back to their base and Ephanna decides to take Torbin and go along with them, wanting to help with their plans. Ephanna discovers that the group is called The Shepherds Flock. Each is wearing a symbol of their group and there is talk of their leader, The Shepherd, back in the Swamp to the north.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:006",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+     "source_span_ref_id": "session-7:recap:paragraph:006"
+    },
+    "target_assertion_id": "assertion:6e633173f13fc790",
+    "target_contribution_ids": [
+     "contribution:8b046da9ec0f4275"
+    ],
+    "unit_id": "closure-unit:042"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:676d1b451b8d7b63": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:26defc5c0b6a0009",
+       "target_contribution_id": "contribution:a5f8e745364e182c"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:26defc5c0b6a0009",
+       "target_contribution_id": "contribution:cc2574b7d2d274a9"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:26defc5c0b6a0009",
+       "target_contribution_id": "contribution:f43a2446902be8a9"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:676d1b451b8d7b63",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u043",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u043",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "disposition": "SOURCE_CORRECTION_REQUIRED",
+    "edge_id": "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party",
+    "edge_shape": {
+     "label": "performed for the party",
+     "predicate": "participates_in",
+     "source": "pc:stafl",
+     "target": "node:heroes-party"
+    },
+    "next_action": "AUTHOR_BUDDY_SOURCE_CORRECTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:676d1b451b8d7b63",
+      "op": "contradict"
+     }
+    ],
+    "ordinal": 43,
+    "rationale": "Source/label: epic performance spreading the song of the party \u2014 performance-for-audience, not membership. Independent party membership cannot replace this assertion's meaning; do not adapt to member_of.",
+    "reason_code": "PREDICATE_MISAPPLIED",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+     "edge_id": "edge:pc:stafl:participates_in:node:heroes-party:performed-for-the-party",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+       "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "On to Mirathorn, it\u2019d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn\u2019t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse\u2019s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+       "source_span_ref_id": "session-6:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "86942b4ab9e8e983c016e69f13a4c91a92d9a37618074a32eb7c02727f8a4571",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "On to Mirathorn, it\u2019d be two days, made all the more interesting for traveling with Saladin and his weird magical or mechanical wagon with no horses. Not a lot happened on the way. During the watch, which no one fell asleep during, Bongo was visited by a ghost child walking the road. To confirm it wasn\u2019t food he woke up Karsemine, who confirmed it was spectral. There was a runaway cart stopped by Baergrom. A dead horse served for Bonogo by Ephanna. An escalation turned friendly with the dead horse\u2019s owner by Stafl (I think), and some pre festivities with an epic performance by Stafl, spreading the song of the party to all who would listen. Even Bonogo was moved to play along!",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+     "source_span_ref_id": "session-6:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:26defc5c0b6a0009",
+    "target_contribution_ids": [
+     "contribution:a5f8e745364e182c",
+     "contribution:cc2574b7d2d274a9",
+     "contribution:f43a2446902be8a9"
+    ],
+    "unit_id": "closure-unit:043"
+   }
+  }
+ ],
+ "produced_at": "2026-08-12T00:00:00Z",
+ "schema": "dmb_eldyrwild_relationship_semantic_closure_source_corrections_v1",
+ "unit_count": 36
+}

@@ -1,0 +1,687 @@
+{
+ "closure_id": "eldyrwild-relationship-semantic-closure-v1",
+ "entries": [
+  {
+   "contributions": {
+    "contribution:681e6db3893d493c": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:8540acec0a9e125c",
+       "target_contribution_id": "contribution:97f5ef69b6c6d14e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:681e6db3893d493c",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u001",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u001",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "identity_merge",
+    "disposition": "IDENTITY_NOT_RELATIONSHIP",
+    "edge_id": "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
+    "edge_shape": {
+     "label": "same place as",
+     "predicate": "same_as",
+     "source": "item:session11:council-headquarters",
+     "target": "loc:the-council"
+    },
+    "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:681e6db3893d493c",
+      "op": "contradict"
+     },
+     {
+      "expected_decision_id": "identity-decision:3a8965f409e85911",
+      "merge_reason": "Council headquarters and 'the Council' place are the same site; the kind-correct location identity (broader evidence and reference authority) survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
+      "op": "identity_merge",
+      "source_node_id": "item:session11:council-headquarters",
+      "target_node_id": "loc:the-council"
+     }
+    ],
+    "ordinal": 1,
+    "rationale": "Council headquarters and 'the Council' place are the same site.",
+    "reason_code": "IDENTITY_EQUIVALENCE",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "60158de242616baf7d5704fe2d414bbde98db5c005b0a238d0143208d37aca24"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "902326bb759b3411298eee461f4b800da2dcfab293a163b8c4f4ee8c2e75c186",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-11/20260724T031850Z/normalized_recap_source.md",
+     "edge_id": "edge:item:session11:council-headquarters:same_as:loc:the-council:same-place-as",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:004",
+       "excerpt_sha256": "60158de242616baf7d5704fe2d414bbde98db5c005b0a238d0143208d37aca24",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The Council headquarters are in the very center of town. This is the original and oldest part of town and was originally a defensive position made of old stone. The party is taken inside where they find a large circular room where they meet the other Council members.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+       "source_span_ref_id": "session-11:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "60158de242616baf7d5704fe2d414bbde98db5c005b0a238d0143208d37aca24",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The Council headquarters are in the very center of town. This is the original and oldest part of town and was originally a defensive position made of old stone. The party is taken inside where they find a large circular room where they meet the other Council members.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-11:session-11:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-11",
+     "source_span_ref_id": "session-11:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:8540acec0a9e125c",
+    "target_contribution_ids": [
+     "contribution:97f5ef69b6c6d14e"
+    ],
+    "unit_id": "closure-unit:001"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:b3f5dbbf689d5e8b": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:4a75e8edbf2adba5",
+       "target_contribution_id": "contribution:f1700a77cda5ce95"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:4a75e8edbf2adba5",
+       "target_contribution_id": "contribution:f2fbbf4f7c191d8e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:b3f5dbbf689d5e8b",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u002",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u002",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "identity_merge",
+    "disposition": "IDENTITY_NOT_RELATIONSHIP",
+    "edge_id": "edge:item_enormous_boulder:same_as:item_foot_of_statue",
+    "edge_shape": {
+     "label": "same as",
+     "predicate": "same_as",
+     "source": "item_enormous_boulder",
+     "target": "item_foot_of_statue"
+    },
+    "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:b3f5dbbf689d5e8b",
+      "op": "contradict"
+     },
+     {
+      "expected_decision_id": "identity-decision:622b690ffe07c2c6",
+      "merge_reason": "The enormous boulder resolves into the foot of a once enormous statue; the resolved object identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
+      "op": "identity_merge",
+      "source_node_id": "item_enormous_boulder",
+      "target_node_id": "item_foot_of_statue"
+     }
+    ],
+    "ordinal": 2,
+    "rationale": "Boulder resolves into the statue foot \u2014 same object identity.",
+    "reason_code": "IDENTITY_EQUIVALENCE",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "b25cee02104801fdf963ac08e66c775d33b82a20cab04ed6cac8fcf54e80a580"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:005"
+     ],
+     "artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+     "edge_id": "edge:item_enormous_boulder:same_as:item_foot_of_statue",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:005",
+       "excerpt_sha256": "b25cee02104801fdf963ac08e66c775d33b82a20cab04ed6cac8fcf54e80a580",
+       "locator": "paragraph:005",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Grishna was true to her word, the directions were sound. There was a clear trail along the river to an enormous boulder.  As the group approached it resolved into what must have been the foot of a once enormous statue. Or a mad sculptures dedication to someone's foot, probably the  former but who really knows with art anyway.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+       "source_span_ref_id": "session-1:recap:paragraph:005"
+      }
+     ],
+     "excerpt_sha256": "b25cee02104801fdf963ac08e66c775d33b82a20cab04ed6cac8fcf54e80a580",
+     "locator": "paragraph:005",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Grishna was true to her word, the directions were sound. There was a clear trail along the river to an enormous boulder.  As the group approached it resolved into what must have been the foot of a once enormous statue. Or a mad sculptures dedication to someone's foot, probably the  former but who really knows with art anyway.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:005",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+     "source_span_ref_id": "session-1:recap:paragraph:005"
+    },
+    "target_assertion_id": "assertion:4a75e8edbf2adba5",
+    "target_contribution_ids": [
+     "contribution:f1700a77cda5ce95",
+     "contribution:f2fbbf4f7c191d8e"
+    ],
+    "unit_id": "closure-unit:002"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:f9bbf15530970f49": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:c3fdbf62ed1361f2",
+       "target_contribution_id": "contribution:728ad4422e4b079f"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:f9bbf15530970f49",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u003",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u003",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "identity_merge",
+    "disposition": "IDENTITY_NOT_RELATIONSHIP",
+    "edge_id": "edge:item_session2_hidden_alchemy_room:same_as:location_003",
+    "edge_shape": {
+     "label": "the hidden alchemy room",
+     "predicate": "same_as",
+     "source": "item_session2_hidden_alchemy_room",
+     "target": "location_003"
+    },
+    "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:f9bbf15530970f49",
+      "op": "contradict"
+     },
+     {
+      "expected_decision_id": "identity-decision:6a4d736c16cab085",
+      "merge_reason": "The hidden alchemy room item/location pair is one place; the kind-correct location identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
+      "op": "identity_merge",
+      "source_node_id": "item_session2_hidden_alchemy_room",
+      "target_node_id": "location_003"
+     }
+    ],
+    "ordinal": 3,
+    "rationale": "Hidden alchemy room item/location duplicate of one place.",
+    "reason_code": "IDENTITY_EQUIVALENCE",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "40fc0bd571ff9becd666837ccd4b20ec4ab78147a2b1b8d8cc275594269c4cce"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004"
+     ],
+     "artifact_content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md",
+     "edge_id": "edge:item_session2_hidden_alchemy_room:same_as:location_003",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+       "excerpt_sha256": "40fc0bd571ff9becd666837ccd4b20ec4ab78147a2b1b8d8cc275594269c4cce",
+       "locator": "paragraph:004",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Since this room was not part of the original contract, and really neither was the rest of this god forsaken place, they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room. It's not much but it's a start.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+       "source_span_ref_id": "session-2:recap:paragraph:004"
+      }
+     ],
+     "excerpt_sha256": "40fc0bd571ff9becd666837ccd4b20ec4ab78147a2b1b8d8cc275594269c4cce",
+     "locator": "paragraph:004",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Since this room was not part of the original contract, and really neither was the rest of this god forsaken place, they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room. It's not much but it's a start.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+     "source_span_ref_id": "session-2:recap:paragraph:004"
+    },
+    "target_assertion_id": "assertion:c3fdbf62ed1361f2",
+    "target_contribution_ids": [
+     "contribution:728ad4422e4b079f"
+    ],
+    "unit_id": "closure-unit:003"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:d37fd3297400f729": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:2d19564e007a9634",
+       "target_contribution_id": "contribution:d3d244474789879c"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:2d19564e007a9634",
+       "target_contribution_id": "contribution:dfadb94646dd9d3c"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:d37fd3297400f729",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u004",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u004",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "identity_merge",
+    "disposition": "IDENTITY_NOT_RELATIONSHIP",
+    "edge_id": "edge:loc:last_warehouse:same_as:loc:chilled_warehouse",
+    "edge_shape": {
+     "label": "same_as",
+     "predicate": "same_as",
+     "source": "loc:last_warehouse",
+     "target": "loc:chilled_warehouse"
+    },
+    "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:d37fd3297400f729",
+      "op": "contradict"
+     },
+     {
+      "expected_decision_id": "identity-decision:1ff8bf27a0b1921c",
+      "merge_reason": "The last warehouse reached is the chilled warehouse; the substantive, more-referenced location identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
+      "op": "identity_merge",
+      "source_node_id": "loc:last_warehouse",
+      "target_node_id": "loc:chilled_warehouse"
+     }
+    ],
+    "ordinal": 4,
+    "rationale": "Last warehouse reached is the chilled warehouse \u2014 same place.",
+    "reason_code": "IDENTITY_EQUIVALENCE",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "4cdafd47f4280d9a563f33fda4cc49b40f5649ab193b77fd32e6c2aa2dc6006d"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+     ],
+     "artifact_content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:last_warehouse:same_as:loc:chilled_warehouse",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+       "excerpt_sha256": "4cdafd47f4280d9a563f33fda4cc49b40f5649ab193b77fd32e6c2aa2dc6006d",
+       "locator": "paragraph:007",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo. Now it's a straight shot to the last warehouse through this tunnel. Caelynn fills Thraxx in on the details of the quest on the way to the last ladder leading up to another trap door. Bonogo sneaks a look. Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+       "source_span_ref_id": "session-10:recap:paragraph:007"
+      }
+     ],
+     "excerpt_sha256": "4cdafd47f4280d9a563f33fda4cc49b40f5649ab193b77fd32e6c2aa2dc6006d",
+     "locator": "paragraph:007",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo. Now it's a straight shot to the last warehouse through this tunnel. Caelynn fills Thraxx in on the details of the quest on the way to the last ladder leading up to another trap door. Bonogo sneaks a look. Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+     "source_span_ref_id": "session-10:recap:paragraph:007"
+    },
+    "target_assertion_id": "assertion:2d19564e007a9634",
+    "target_contribution_ids": [
+     "contribution:d3d244474789879c",
+     "contribution:dfadb94646dd9d3c"
+    ],
+    "unit_id": "closure-unit:004"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:ac90b06c0ef6d06c": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:79a6f141de14712b",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:ac90b06c0ef6d06c",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u005",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u005",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "identity_merge",
+    "disposition": "IDENTITY_NOT_RELATIONSHIP",
+    "edge_id": "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance",
+    "edge_shape": {
+     "label": "same as",
+     "predicate": "same_as",
+     "source": "loc:underground-entrance",
+     "target": "mystery:session9:second_underground_entrance"
+    },
+    "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:ac90b06c0ef6d06c",
+      "op": "contradict"
+     },
+     {
+      "expected_decision_id": "identity-decision:c7f1cab745c8a1d2",
+      "merge_reason": "The second underground entrance is one durable place; the location identity survives and the mystery node is the discovery framing. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
+      "op": "identity_merge",
+      "source_node_id": "mystery:session9:second_underground_entrance",
+      "target_node_id": "loc:underground-entrance"
+     }
+    ],
+    "ordinal": 5,
+    "rationale": "Discovered entrance location duplicates the mystery node.",
+    "reason_code": "IDENTITY_EQUIVALENCE",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:underground-entrance:same_as:mystery:session9:second_underground_entrance",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+       "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+       "locator": "paragraph:009",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn\u2019s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:009"
+      }
+     ],
+     "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+     "locator": "paragraph:009",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn\u2019s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:009"
+    },
+    "target_assertion_id": "assertion:79a6f141de14712b",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:005"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:7d795899fbb4b353": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:713d06dba9acbe73",
+       "target_contribution_id": "contribution:b8d6018f51828276"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:7d795899fbb4b353",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u006",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u006",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "identity_merge",
+    "disposition": "IDENTITY_NOT_RELATIONSHIP",
+    "edge_id": "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language",
+    "edge_shape": {
+     "label": "identified as",
+     "predicate": "identified_as",
+     "source": "obj:session9:scroll_abyssal",
+     "target": "mystery:session9:scroll_in_strange_language"
+    },
+    "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:7d795899fbb4b353",
+      "op": "contradict"
+     },
+     {
+      "expected_decision_id": "identity-decision:ac8e5efc25de3804",
+      "merge_reason": "The strange-language scroll mystery and the recovered abyssal scroll item are one object; the durable item identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
+      "op": "identity_merge",
+      "source_node_id": "mystery:session9:scroll_in_strange_language",
+      "target_node_id": "obj:session9:scroll_abyssal"
+     }
+    ],
+    "ordinal": 6,
+    "rationale": "Scroll item and mystery describing the same discovered scroll are identity duplicates, not a factual relationship.",
+    "reason_code": "IDENTITY_EQUIVALENCE",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009"
+     ],
+     "artifact_content_sha256": "74b7fb39ee0915ebfa6957538d5f0a07ec7ad230e8b7c45accd5addf882bbc5b",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-9/20260722T020243Z/normalized_recap_source.md",
+     "edge_id": "edge:obj:session9:scroll_abyssal:identified_as:mystery:session9:scroll_in_strange_language",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+       "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+       "locator": "paragraph:009",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn\u2019s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+       "source_span_ref_id": "session-9:recap:paragraph:009"
+      }
+     ],
+     "excerpt_sha256": "0a1b3980424252f108244014f596a6572d9a23a0065caae6f9a5d4bd838b3ce5",
+     "locator": "paragraph:009",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "With the battle over and the fire out, the hard part starts. What to do about all this bullshit. Looting the cultists and searching the room reveals a second underground entrance, and a scroll in a strange language. Caelynn\u2019s aptitude with languages allow her to know it is written in something like Abyssal from other planes than this one. Without much recourse, Lesandra is dispatched with one of the scrolls, heading to the Mages College at Stormspire Academy.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-9:session-9:recap:paragraph:009",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-9",
+     "source_span_ref_id": "session-9:recap:paragraph:009"
+    },
+    "target_assertion_id": "assertion:713d06dba9acbe73",
+    "target_contribution_ids": [
+     "contribution:b8d6018f51828276"
+    ],
+    "unit_id": "closure-unit:006"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:356341354c4463a4": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:ed2ead678cdddea3",
+       "target_contribution_id": "contribution:a4231edb9a228963"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:356341354c4463a4",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u007",
+     "source_kind": "graph_review_authored_assertion",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u007",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "S25",
+    "closure_kind": "identity_merge",
+    "disposition": "IDENTITY_NOT_RELATIONSHIP",
+    "edge_id": "edge:organization:merchant-s-crossroads-apothecary:same_as:loc:crooked-retort",
+    "edge_shape": {
+     "label": "identified as Crooked Retort",
+     "predicate": "same_as",
+     "source": "organization:merchant-s-crossroads-apothecary",
+     "target": "loc:crooked-retort"
+    },
+    "next_action": "MIGRATE_VIA_IDENTITY_SEAM",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:356341354c4463a4",
+      "op": "contradict"
+     },
+     {
+      "expected_decision_id": "identity-decision:adab1e19800e24d7",
+      "merge_reason": "The Session-25 recap identifies the Merchant's Crossroads apothecary as the Crooked Retort; the kind-correct place identity survives. Closure unit of eldyrwild-relationship-semantic-closure-v1.",
+      "op": "identity_merge",
+      "source_node_id": "organization:merchant-s-crossroads-apothecary",
+      "target_node_id": "loc:crooked-retort"
+     }
+    ],
+    "ordinal": 7,
+    "rationale": "The recap identifies the Merchant's Crossroads apothecary as the Crooked Retort \u2014 two graph identities for one place/business, not a durable `same_as` semantic relationship.",
+    "reason_code": "IDENTITY_EQUIVALENCE",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23"
+     ],
+     "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+     "edge_id": "edge:organization:merchant-s-crossroads-apothecary:same_as:loc:crooked-retort",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+       "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+       "locator": "23-23",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23"
+      }
+     ],
+     "excerpt_sha256": "3e5481257e28ace11546348106dd0d58651b8b61c2661cdd3dadec5e8dfc5037",
+     "locator": "23-23",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Orik and Brin agree with the plan to house the refugees in the warehouse and use a sleeping potion to help keep the peace. The only change they want to see is that everyone is put to sleep, making it easier to manage the entire group. They pick some of the older children to stand guard outside the warehouse doors. With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+     "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:23-23"
+    },
+    "target_assertion_id": "assertion:ed2ead678cdddea3",
+    "target_contribution_ids": [
+     "contribution:a4231edb9a228963"
+    ],
+    "unit_id": "closure-unit:007"
+   }
+  }
+ ],
+ "produced_at": "2026-08-12T00:00:00Z",
+ "schema": "dmb_eldyrwild_relationship_semantic_closure_identity_migrations_v1",
+ "unit_count": 7
+}
