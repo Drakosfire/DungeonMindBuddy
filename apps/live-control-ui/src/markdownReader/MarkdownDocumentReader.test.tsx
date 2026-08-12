@@ -46,7 +46,9 @@ describe("MarkdownDocumentReader", () => {
     render(<MarkdownDocumentReader markdown={HESTA_FIXTURE} />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Hesta at the Gate" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Supplies" })).toBeInTheDocument();
+    const suppliesHeading = screen.getByRole("heading", { level: 2, name: "Supplies" });
+    expect(suppliesHeading).toBeInTheDocument();
+    expect(suppliesHeading).toHaveAttribute("id", "supplies");
     expect(screen.getByText("walked").closest("strong")).not.toBeNull();
     expect(screen.getByText("care").closest("em")).not.toBeNull();
     expect(screen.getByText("old").closest("del")).not.toBeNull();
@@ -71,6 +73,9 @@ describe("MarkdownDocumentReader", () => {
 
     expect(screen.getByRole("link", { name: "ops" })).toHaveAttribute("href", "mailto:ops@example.com");
     expect(screen.getByRole("link", { name: "local heading" })).toHaveAttribute("href", "#supplies");
+    expect(document.getElementById("supplies")).toBe(
+      screen.getByRole("heading", { level: 2, name: "Supplies" }),
+    );
     expect(screen.getByRole("link", { name: "rules" })).toHaveAttribute("href", "https://example.com/rules");
 
     const unsafe = screen.getByText("x");
@@ -109,6 +114,36 @@ describe("MarkdownDocumentReader", () => {
     const link = screen.getByRole("link", { name: "the gate" });
     expect(link).toHaveAttribute("href", "https://example.com/gate");
     expect(link).toHaveAttribute("title", "Gate");
+  });
+
+  it("assigns unique ids to duplicate heading titles", () => {
+    render(
+      <MarkdownDocumentReader
+        markdown={"## Notes\n\n## Notes\n\n## Notes\n"}
+      />,
+    );
+
+    const headings = screen.getAllByRole("heading", { level: 2, name: "Notes" });
+    expect(headings).toHaveLength(3);
+    expect(headings[0]).toHaveAttribute("id", "notes");
+    expect(headings[1]).toHaveAttribute("id", "notes-1");
+    expect(headings[2]).toHaveAttribute("id", "notes-2");
+  });
+
+  it("keeps stable heading ids across parent re-renders of the same Markdown", () => {
+    const { rerender } = render(<MarkdownDocumentReader markdown={HESTA_FIXTURE} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Supplies" })).toHaveAttribute(
+      "id",
+      "supplies",
+    );
+    rerender(<MarkdownDocumentReader markdown={HESTA_FIXTURE} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Supplies" })).toHaveAttribute(
+      "id",
+      "supplies",
+    );
+    expect(document.getElementById("supplies")).toBe(
+      screen.getByRole("heading", { level: 2, name: "Supplies" }),
+    );
   });
 
   it("falls back visibly for unknown parsed constructs instead of silent omission", async () => {

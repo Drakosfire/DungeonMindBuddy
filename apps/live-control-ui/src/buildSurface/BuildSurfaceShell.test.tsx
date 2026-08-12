@@ -966,6 +966,69 @@ describe("BuildSurfaceShell", () => {
     expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 
+  it("sealed lossy Read → Edit keeps Save guard and Read still shows exact source", async () => {
+    const sealedLossyMarkdown = [
+      "# Hesta's Apothecary",
+      "",
+      "| Item | Note |",
+      "| --- | --- |",
+      "| Tonic | Rare |",
+      "",
+      "![Floor plan](assets/hesta-floor.png)",
+      "",
+      "---",
+      "",
+      "<div class=\"gm-note\">Hidden shelf</div>",
+      "",
+    ].join("\n");
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      record: {
+        ...buildWorldbuildingSnapshot(DOC_ID).record,
+        content_status: "committed",
+        target_relpath:
+          `corpus/eldyrwild-markdown/_dungeonbuddy/sources/${DOC_ID}/source.md`,
+      },
+      markdown: sealedLossyMarkdown,
+      file_fingerprint: "fp-sealed",
+      file_exists: true,
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { level: 1, name: "Hesta's Apothecary" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Tonic" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("markdown-reader-unresolved-media").some((el) =>
+      el.textContent?.includes("assets/hesta-floor.png"),
+    )).toBe(true);
+    expect(screen.getByTestId("markdown-reader-html-literal")).toHaveTextContent(
+      '<div class="gm-note">Hidden shelf</div>',
+    );
+
+    const user = await enterEditMode();
+    expect(screen.getByTestId("build-reimport-authoritative-button")).toBeInTheDocument();
+    const saveButton = screen.getByTestId("build-save-button");
+    expect(saveButton).toBeDisabled();
+
+    if (!saveButton.hasAttribute("disabled")) {
+      await user.click(saveButton);
+    }
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId("build-source-mode-read"));
+    expect(await screen.findByTestId("build-source-reader")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByTestId("markdown-reader-html-literal")).toHaveTextContent(
+      '<div class="gm-note">Hidden shelf</div>',
+    );
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
   it("defaults blank sources to Edit", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
       ...buildWorldbuildingSnapshot(DOC_ID),

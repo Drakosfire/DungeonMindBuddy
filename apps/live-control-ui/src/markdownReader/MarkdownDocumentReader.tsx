@@ -18,6 +18,7 @@ import type {
 
 import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
 import { stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
+import { createHeadingIdRegistry, type HeadingIdRegistry } from "./markdownReaderHeadingId";
 import { classifyImageUrl, classifyLinkUrl } from "./markdownReaderUrlPolicy";
 
 export interface MarkdownDocumentReaderProps {
@@ -31,6 +32,7 @@ type DefinitionMap = Map<string, Definition>;
 type RenderContext = {
   bodyMarkdown: string;
   definitions: DefinitionMap;
+  headingIds: HeadingIdRegistry;
 };
 
 function collectDefinitions(root: Root): DefinitionMap {
@@ -272,7 +274,12 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
     case "heading": {
       const depth = Math.min(6, Math.max(1, node.depth)) as 1 | 2 | 3 | 4 | 5 | 6;
       const Tag = `h${depth}` as const;
-      return <Tag key={key}>{renderPhrasing(node.children, ctx, key)}</Tag>;
+      const id = ctx.headingIds.allocate(node.children);
+      return (
+        <Tag key={key} id={id}>
+          {renderPhrasing(node.children, ctx, key)}
+        </Tag>
+      );
     }
     case "emphasis":
       return <em key={key}>{renderPhrasing(node.children, ctx, key)}</em>;
@@ -344,10 +351,13 @@ export function MarkdownDocumentReader({ markdown, className }: MarkdownDocument
   );
   const ast = useMemo(() => parseMarkdownAst(bodyMarkdown), [bodyMarkdown]);
   const definitions = useMemo(() => collectDefinitions(ast), [ast]);
-  const ctx = useMemo<RenderContext>(
-    () => ({ bodyMarkdown, definitions }),
-    [bodyMarkdown, definitions],
-  );
+  // Fresh registry each render: allocate() is called during render and must not
+  // retain counters across re-renders of the same AST (would suffix-shift ids).
+  const ctx: RenderContext = {
+    bodyMarkdown,
+    definitions,
+    headingIds: createHeadingIdRegistry(),
+  };
 
   return (
     <div
