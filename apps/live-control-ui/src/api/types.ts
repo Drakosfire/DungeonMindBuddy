@@ -1360,6 +1360,7 @@ export interface WorkspaceDocumentRecord {
   document_id: string;
   title: string;
   campaign_id: string;
+  world_id?: string | null;
   target_session: number | null;
   kind: WorkspaceDocumentKind;
   target_relpath: string | null;
@@ -1382,6 +1383,7 @@ export interface WorkspaceDocumentsListResponse {
 export interface CreateWorkspaceDocumentRequest {
   title: string;
   campaign_id: string;
+  world_id?: string | null;
   kind: WorkspaceDocumentKind;
   target_session?: number | null;
   target_relpath?: string | null;
@@ -1419,6 +1421,7 @@ export interface TiptapMarkdownWritePrepareRequest {
   document_id: string;
   markdown: string;
   expected_revision?: number | null;
+  write_mode?: "authoring" | "source_import" | null;
 }
 
 export interface TiptapMarkdownWritePrepareResponse {
@@ -1444,6 +1447,7 @@ export interface TiptapMarkdownWriteCommitRequest {
   markdown: string;
   writer_confirm_token: string;
   expected_revision?: number | null;
+  write_mode?: "authoring" | "source_import" | null;
 }
 
 export interface TiptapMarkdownWriteCommitResponse {

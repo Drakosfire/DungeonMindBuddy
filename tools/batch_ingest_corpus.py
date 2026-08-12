@@ -73,6 +73,49 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _is_managed_dungeonbuddy_storage(path: Path) -> bool:
+    # corpus/<worldId>-markdown/_dungeonbuddy/ is managed product storage, not legacy corpus.
+    return "_dungeonbuddy" in path.parts
+
+
+def collect_legacy_corpus_markdown_paths(
+    corpus_root: Path,
+    *,
+    paths_file: Path | None = None,
+    limit: int = 0,
+) -> list[Path]:
+    """Collect markdown paths for legacy whole-tree ingest; excludes managed _dungeonbuddy storage."""
+    if paths_file:
+        raw_lines = paths_file.read_text(encoding="utf-8").splitlines()
+        rels: list[str] = []
+        for line in raw_lines:
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            rels.append(s)
+        paths: list[Path] = []
+        for rel in rels:
+            p = Path(rel)
+            path = p.resolve() if p.is_absolute() else (corpus_root / rel).resolve()
+            if not path.is_file():
+                raise FileNotFoundError(f"path from --paths-file not found: {path}")
+            if _is_managed_dungeonbuddy_storage(path):
+                print(
+                    f"Warning: skipping managed _dungeonbuddy path from --paths-file: {path}",
+                    file=sys.stderr,
+                )
+                continue
+            paths.append(path)
+    else:
+        paths = sorted(
+            p for p in corpus_root.rglob("*.md") if not _is_managed_dungeonbuddy_storage(p)
+        )
+
+    if limit > 0:
+        paths = paths[:limit]
+    return paths
+
+
 def _load_model_policy(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -547,28 +590,15 @@ def main() -> int:
     log_path = args.log or (store_dir / "logs" / "batch_ingest.log")
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if args.paths_file:
-        raw_lines = args.paths_file.read_text(encoding="utf-8").splitlines()
-        rels: list[str] = []
-        for line in raw_lines:
-            s = line.strip()
-            if not s or s.startswith("#"):
-                continue
-            rels.append(s)
-        paths = []
-        for rel in rels:
-            p = Path(rel)
-            path = p.resolve() if p.is_absolute() else (corpus_root / rel).resolve()
-            if not path.is_file():
-                print(f"Error: path from --paths-file not found: {path}", file=sys.stderr)
-                return 1
-            paths.append(path)
-        if args.limit > 0:
-            paths = paths[: args.limit]
-    else:
-        paths = sorted(corpus_root.rglob("*.md"))
-        if args.limit > 0:
-            paths = paths[: args.limit]
+    try:
+        paths = collect_legacy_corpus_markdown_paths(
+            corpus_root,
+            paths_file=args.paths_file,
+            limit=args.limit,
+        )
+    except FileNotFoundError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
 
     started = datetime.now(timezone.utc).isoformat()
     progress_path = store_dir / "logs" / "batch_progress.json"

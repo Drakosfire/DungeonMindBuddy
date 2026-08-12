@@ -253,12 +253,20 @@ def _assign_unique_path_refs(sorted_relpaths: list[str]) -> tuple[dict[str, str]
     return ref_to_rel, rel_to_ref
 
 
+def _is_managed_dungeonbuddy_storage(path: Path) -> bool:
+    return "_dungeonbuddy" in path.parts
+
+
 def build_corpus_path_ref_index(corpus_dir: Path) -> dict[str, str]:
     """Map ``ref_hex`` -> corpus-relative ``.md`` path (posix). Empty when corpus is missing."""
     root = corpus_dir.resolve()
     if not root.is_dir():
         return {}
-    rels = sorted(p.relative_to(root).as_posix() for p in root.rglob("*.md") if p.is_file())
+    rels = sorted(
+        p.relative_to(root).as_posix()
+        for p in root.rglob("*.md")
+        if p.is_file() and not _is_managed_dungeonbuddy_storage(p)
+    )
     ref_to_rel, _ = _assign_unique_path_refs(rels)
     return ref_to_rel
 
@@ -274,13 +282,24 @@ def build_corpus_manifest_and_ref_index(corpus_dir: Path) -> tuple[str, dict[str
     if not root.is_dir():
         return (f"(corpus directory not found: {root})", {})
 
-    rels = sorted(p.relative_to(root).as_posix() for p in root.rglob("*.md") if p.is_file())
+    rels = sorted(
+        p.relative_to(root).as_posix()
+        for p in root.rglob("*.md")
+        if p.is_file() and not _is_managed_dungeonbuddy_storage(p)
+    )
     ref_to_rel, rel_to_ref = _assign_unique_path_refs(rels)
 
     lines: list[str] = [f"Corpus root: {root.name}/", ""]
 
     def walk(directory: Path, prefix: str) -> None:
-        entries = sorted(directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        entries = sorted(
+            (
+                entry
+                for entry in directory.iterdir()
+                if not (entry.is_dir() and entry.name == "_dungeonbuddy")
+            ),
+            key=lambda p: (not p.is_dir(), p.name.lower()),
+        )
         for idx, entry in enumerate(entries):
             is_last = idx == len(entries) - 1
             branch = "└── " if is_last else "├── "

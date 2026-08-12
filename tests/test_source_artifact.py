@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -73,3 +74,109 @@ def test_workspace_id_cannot_equal_source_artifact_id() -> None:
             workspace_document_id=workspace_id,
             workspace_document_revision=1,
         )
+
+
+def test_world_scoped_source_artifact_uses_record_world_id(tmp_path: Path) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_source_artifact_from_workspace_document,
+    )
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        create_workspace_document,
+    )
+
+    (tmp_path / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
+    record = create_workspace_document(
+        tmp_path,
+        title="World Source",
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        world_id="eldyrwild",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    markdown = "# Lore\n\nImported bytes.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=2,
+    )
+    assert artifact.world_id == "eldyrwild"
+    assert artifact.campaign_id == "longmont-c2"
+
+
+def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: Path) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_source_artifact_from_workspace_document,
+    )
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        create_workspace_document,
+    )
+
+    record = create_workspace_document(
+        tmp_path,
+        title="Legacy Source",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    markdown = "# Legacy\n\nBody.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+        ),
+    )
+    commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+        ),
+    )
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=2,
+    )
+    assert artifact.world_id == "eldyrwild"
+    assert record.world_id is None

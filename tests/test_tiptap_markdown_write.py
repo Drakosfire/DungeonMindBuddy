@@ -6,6 +6,7 @@ import pytest
 
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWriteConflictError,
     TiptapMarkdownWriteError,
     TiptapMarkdownWritePrepareRequest,
     authorize_target_for_record,
@@ -184,7 +185,7 @@ def test_lossy_markdown_blocks_prepare_and_commit_for_worldbuilding(tmp_path: Pa
                 expected_revision=1,
             ),
         )
-    assert "lossy" in str(exc_info.value)
+    assert exc_info.value.status_code in {409, 422}
     assert not (tmp_path / record.target_relpath).exists()
 
 
@@ -690,3 +691,203 @@ def test_stale_revision_prepare_conflicts(tmp_path: Path) -> None:
             ),
         )
     assert exc_info.value.status_code == 409
+
+
+LOSSY_IMPORT_MARKDOWN = """# Hesta's Apothecary
+
+![Hesta behind the counter](assets/hesta.webp)
+
+| Item | Price |
+|---|---:|
+| Healing draught | 25 gp |
+
+---
+
+<section data-source-note="preserve-me">
+Awkward HTML block.
+</section>
+"""
+
+
+def _ensure_eldyrwild_world_root(root: Path) -> None:
+    (root / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
+
+
+def _create_world_scoped_source(root: Path):
+    _ensure_eldyrwild_world_root(root)
+    return create_workspace_document(
+        root,
+        title="Imported Source",
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        world_id="eldyrwild",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+
+
+def test_source_import_preserves_lossy_markdown_byte_for_byte(tmp_path: Path) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=LOSSY_IMPORT_MARKDOWN,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert prepared.writer_ok is True
+    assert prepared.writer_confirm_token
+    assert markdown_lossy_diagnostics(LOSSY_IMPORT_MARKDOWN)
+
+    committed = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=LOSSY_IMPORT_MARKDOWN,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert committed.writer_ok is True
+    target = tmp_path / (record.target_relpath or "")
+    assert target.read_text(encoding="utf-8") == LOSSY_IMPORT_MARKDOWN
+
+
+def test_source_import_preserves_trailing_blank_lines_without_normalization(
+    tmp_path: Path,
+) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    exact_markdown = "# Exact import\n\nBody line.\n\n\n\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    committed = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert committed.writer_ok is True
+    target = tmp_path / (record.target_relpath or "")
+    assert target.read_text(encoding="utf-8") == exact_markdown
+
+
+def test_source_import_preserves_markdown_without_trailing_newline(tmp_path: Path) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    exact_markdown = "# No trailing newline"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    committed = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=exact_markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert committed.writer_ok is True
+    target = tmp_path / (record.target_relpath or "")
+    assert target.read_text(encoding="utf-8") == exact_markdown
+
+
+def test_source_import_blocks_same_body_in_authoring_mode(tmp_path: Path) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=LOSSY_IMPORT_MARKDOWN,
+            expected_revision=1,
+        ),
+    )
+    assert prepared.writer_ok is False
+    assert prepared.writer_confirm_token is None
+
+
+def test_second_source_import_rejected_after_initial_commit(tmp_path: Path) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=LOSSY_IMPORT_MARKDOWN,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=LOSSY_IMPORT_MARKDOWN,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    with pytest.raises(TiptapMarkdownWriteConflictError):
+        prepare_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWritePrepareRequest(
+                document_id=record.document_id,
+                markdown=LOSSY_IMPORT_MARKDOWN,
+                expected_revision=2,
+                write_mode="source_import",
+            ),
+        )
+
+
+def test_source_import_stale_revision_and_mode_mismatch_fail_closed(tmp_path: Path) -> None:
+    record = _create_world_scoped_source(tmp_path)
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=LOSSY_IMPORT_MARKDOWN,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    with pytest.raises(TiptapMarkdownWriteConflictError):
+        commit_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWriteCommitRequest(
+                document_id=record.document_id,
+                markdown=LOSSY_IMPORT_MARKDOWN,
+                writer_confirm_token=prepared.writer_confirm_token or "",
+                expected_revision=1,
+                write_mode="authoring",
+            ),
+        )
+
+
+def test_normalize_allows_world_scoped_corpus_source_target() -> None:
+    document_id = "11111111-1111-4111-8111-111111111111"
+    relpath = (
+        f"corpus/eldyrwild-markdown/_dungeonbuddy/sources/{document_id}/source.md"
+    )
+    assert normalize_tiptap_target_relpath(relpath) == relpath

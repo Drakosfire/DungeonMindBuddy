@@ -9,6 +9,13 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 > **Workstream closeout (2026-08-11):** `DOGFOOD-POLISH` is closed. Completed Plan/Build document-authoring slices are no longer active backlog items; see [`Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md). READY/IDEA items below that touch Plan, Build, Hermes, Threats, or Play are independent product work, not implied successors under the closed workstream.
 
+## [IDEA] Build Import should be able to designate a new world or campaign — captured 2026-08-11
+**Context:** CON-READY CR01A Hesta dogfood of lossless Markdown import. Import currently requires an already-admitted campaign/world; missing world root is a truthful failure and new-world bootstrap is an explicit successor.
+**Insight:** During Build import/create, the GM naturally wants to name a new world or campaign rather than only picking from currently admitted scopes. That is product placement authority, not a side effect of source ingress.
+**Action:** Design Build-side new-world / new-campaign designation (create hierarchy + admit into Build scope) as a successor to CR01A, then reuse the same world-scoped source import contract. Do not smuggle world bootstrap into lossless import.
+**Surfaces when:** Build Import source, New Source, admitted campaign list, missing corpus world root, new-world bootstrap, CR01A successor, CON-READY
+**Refs:** `Docs/Plans/HANDOFF-CON-READY-build-lossless-markdown-import.md`; `Docs/Roadmaps/ROADMAP-con-ready.md`; `apps/live-control-ui/src/buildSurface/`
+
 ## [READY] Preserve Plan Ask continuity across prep-document switches — captured 2026-08-11
 **Context:** DOGFOOD-POLISH made exact prep selection, intentional creation, and same-session multi-prep normal. `documentId` correctly scopes the Canvas work object, but switching prep documents must not accidentally define Agent/Hermes conversation identity.
 **Insight:** Conversation continuity and document identity are separate authorities. Plan should update the active prep context supplied to Agent Interaction while an existing Hermes thread remains continuous unless the GM explicitly starts or switches a thread.

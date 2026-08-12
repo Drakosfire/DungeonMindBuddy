@@ -363,6 +363,11 @@ def _notify(title: str, message: str, *, skip: bool = False) -> None:
     print(f"[notify] {title}: {message}", flush=True)
 
 
+def _is_managed_dungeonbuddy_storage(path: Path) -> bool:
+    # corpus/<worldId>-markdown/_dungeonbuddy/ is managed product storage, not legacy corpus.
+    return "_dungeonbuddy" in path.parts
+
+
 def _resolve_paths(
     corpus_root: Path,
     paths_file: Path | None,
@@ -383,9 +388,17 @@ def _resolve_paths(
             if not path.is_file():
                 print(f"Error: path from --paths-file not found: {path}", file=sys.stderr)
                 sys.exit(1)
+            if _is_managed_dungeonbuddy_storage(path):
+                print(
+                    f"Warning: skipping managed _dungeonbuddy path from --paths-file: {path}",
+                    file=sys.stderr,
+                )
+                continue
             paths.append(path)
     else:
-        paths = sorted(corpus_root.rglob("*.md"))
+        paths = sorted(
+            p for p in corpus_root.rglob("*.md") if not _is_managed_dungeonbuddy_storage(p)
+        )
 
     if limit > 0:
         paths = paths[:limit]

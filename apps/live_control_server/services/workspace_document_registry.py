@@ -1,6 +1,7 @@
 """File-backed opaque workspace document registry for /plan authoring."""
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,8 @@ DEFAULT_REGISTRY_REL = "out/registries/workspace_documents.json"
 REGISTRY_SCHEMA = "dmb_workspace_document_registry_v1"
 RECORD_SCHEMA = "dmb_workspace_document_record_v1"
 
+_SAFE_WORLD_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
+
 _UNSET: Any = object()
 
 
@@ -35,6 +38,7 @@ class WorkspaceDocumentRecord(BaseModel):
     document_id: str
     title: str
     campaign_id: str
+    world_id: str | None = None
     target_session: int | None = None
     kind: Literal["plan", "runbook", "worldbuilding_source"]
     target_relpath: str | None = None
@@ -63,6 +67,7 @@ class WorkspaceDocumentsListResponse(BaseModel):
 class CreateWorkspaceDocumentRequest(BaseModel):
     title: str
     campaign_id: str
+    world_id: str | None = None
     kind: Literal["plan", "runbook", "worldbuilding_source"]
     target_session: int | None = None
     target_relpath: str | None = None
@@ -241,6 +246,36 @@ def _worldbuilding_target_relpath(document_id: str) -> str:
     return f"out/workspace/worldbuilding/{document_id}.md"
 
 
+def _validate_world_id(world_id: str) -> str:
+    cleaned = world_id.strip()
+    if not cleaned or not _SAFE_WORLD_ID_RE.fullmatch(cleaned):
+        raise WorkspaceDocumentRegistryError(
+            "world_id must match ^[a-z][a-z0-9_-]{0,62}$",
+            status_code=422,
+        )
+    return cleaned
+
+
+def _world_markdown_root_relpath(world_id: str) -> str:
+    return f"corpus/{world_id}-markdown"
+
+
+def _worldbuilding_world_scoped_target_relpath(world_id: str, document_id: str) -> str:
+    return (
+        f"{_world_markdown_root_relpath(world_id)}"
+        f"/_dungeonbuddy/sources/{document_id}/source.md"
+    )
+
+
+def _require_existing_world_markdown_root(root: Path, world_id: str) -> None:
+    world_root = root / _world_markdown_root_relpath(world_id)
+    if not world_root.is_dir():
+        raise WorkspaceDocumentRegistryError(
+            f"world source root is missing: {_world_markdown_root_relpath(world_id)}",
+            status_code=422,
+        )
+
+
 def _plan_workspace_target_relpath(document_id: str) -> str:
     return f"out/workspace/plan/{document_id}.md"
 
@@ -317,6 +352,7 @@ def create_workspace_document(
     title: str,
     campaign_id: str,
     kind: Literal["plan", "runbook", "worldbuilding_source"],
+    world_id: str | None = None,
     target_session: int | None = None,
     target_relpath: str | None = None,
     source_domain: Literal["worldbuilding"] | None = None,
@@ -337,6 +373,7 @@ def create_workspace_document(
         "visibility_state": None,
     }
     resolved_target = target_relpath
+    resolved_world_id: str | None = None
 
     if kind == "worldbuilding_source":
         if target_relpath is not None:
@@ -350,8 +387,21 @@ def create_workspace_document(
             authority_state=authority_state,
             visibility_state=visibility_state,
         )
-        resolved_target = _worldbuilding_target_relpath(document_id)
+        if world_id is not None and world_id.strip():
+            resolved_world_id = _validate_world_id(world_id)
+            _require_existing_world_markdown_root(root, resolved_world_id)
+            resolved_target = _worldbuilding_world_scoped_target_relpath(
+                resolved_world_id,
+                document_id,
+            )
+        else:
+            resolved_target = _worldbuilding_target_relpath(document_id)
     else:
+        if world_id is not None and world_id.strip():
+            raise WorkspaceDocumentRegistryError(
+                "world_id is only valid for kind=worldbuilding_source",
+                status_code=422,
+            )
         if source_domain is not None or document_class is not None or authority_state is not None or visibility_state is not None:
             raise WorkspaceDocumentRegistryError(
                 "worldbuilding metadata is only valid for kind=worldbuilding_source",
@@ -385,6 +435,7 @@ def create_workspace_document(
         document_id=document_id,
         title=cleaned_title,
         campaign_id=cleaned_campaign,
+        world_id=resolved_world_id,
         target_session=target_session,
         kind=kind,
         target_relpath=resolved_target,
@@ -395,6 +446,8 @@ def create_workspace_document(
     path = workspace_documents_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
+        if kind == "worldbuilding_source" and resolved_world_id is not None:
+            _require_existing_world_markdown_root(root, resolved_world_id)
         _require_unique_target_relpath(document, resolved_target)
         document.records.append(record)
         _save_cas(root, document, expected_token=token)

@@ -55,6 +55,7 @@ def post_workspace_document(body: CreateWorkspaceDocumentRequest) -> dict[str, A
             title=body.title,
             campaign_id=body.campaign_id,
             kind=body.kind,
+            world_id=body.world_id,
             target_session=body.target_session,
             target_relpath=body.target_relpath,
             source_domain=body.source_domain,

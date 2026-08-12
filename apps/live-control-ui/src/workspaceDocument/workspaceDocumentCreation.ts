@@ -29,6 +29,7 @@ export type WorkspaceDocumentCreateIntent =
       kind: "worldbuilding_source";
       campaignId: string;
       title: string;
+      worldId?: string;
       documentClass: string;
       authorityState: WorldbuildingAuthorityState;
       visibilityState: WorldbuildingVisibilityState;
@@ -81,7 +82,7 @@ export function createWorkspaceDocumentRequestFromIntent(
   intent: WorkspaceDocumentCreateIntent,
 ): CreateWorkspaceDocumentRequest {
   if (intent.kind === "worldbuilding_source") {
-    return {
+    const request: CreateWorkspaceDocumentRequest = {
       title: intent.title,
       campaign_id: intent.campaignId,
       kind: "worldbuilding_source",
@@ -90,6 +91,10 @@ export function createWorkspaceDocumentRequestFromIntent(
       authority_state: intent.authorityState,
       visibility_state: intent.visibilityState,
     };
+    if (intent.worldId) {
+      request.world_id = intent.worldId;
+    }
+    return request;
   }
 
   if (intent.kind === "plan") {

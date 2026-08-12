@@ -41,6 +41,29 @@ def test_handle_dungeon_search_disabled_by_default(plugin, monkeypatch):
     assert "dungeon_context_lookup" in data["error"]
 
 
+def test_handle_dungeon_search_ignores_dungeonbuddy_managed_storage(
+    tmp_path, monkeypatch, plugin
+):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "note.md").write_text("# Session\nLysandra checks the wagon again.\n", encoding="utf-8")
+    managed = corpus / "_dungeonbuddy" / "sources" / "doc-1" / "source.md"
+    managed.parent.mkdir(parents=True)
+    managed.write_text("# Managed\nZorbaxian uniqueterm managed only.\n", encoding="utf-8")
+    monkeypatch.setenv("DUNGEONBUDDY_CORPUS_ROOT", str(corpus))
+    monkeypatch.setenv("DUNGEONBUDDY_HERMES_LEXICAL_FALLBACK", "1")
+
+    raw = plugin.handle_dungeon_search({"query": "Zorbaxian uniqueterm", "top_k": 5})
+    data = json.loads(raw)
+    assert data["success"] is True
+    assert data["match_count"] == 0
+
+    raw_visible = plugin.handle_dungeon_search({"query": "Lysandra wagon", "top_k": 5})
+    visible = json.loads(raw_visible)
+    assert visible["success"] is True
+    assert visible["match_count"] >= 1
+
+
 def test_handle_dungeon_search_finds_term_when_fallback_enabled(tmp_path, monkeypatch, plugin):
     corpus = tmp_path / "corpus"
     corpus.mkdir()

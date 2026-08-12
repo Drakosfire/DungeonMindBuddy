@@ -32,6 +32,13 @@ _ALLOWED_WORLDBUILDING_WORKSPACE_RE = re.compile(
     r"^out/workspace/worldbuilding/"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.md$"
 )
+_ALLOWED_WORLDBUILDING_CORPUS_SOURCE_RE = re.compile(
+    r"^corpus/"
+    r"(?P<world_id>[a-z][a-z0-9_-]{0,62})-markdown/"
+    r"_dungeonbuddy/sources/"
+    r"(?P<document_id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/"
+    r"source\.md$"
+)
 _ALLOWED_PLAN_WORKSPACE_RE = re.compile(
     r"^out/workspace/plan/"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.md$"
@@ -44,12 +51,20 @@ def _is_allowed_tiptap_target_relpath(value: str) -> bool:
         _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE.fullmatch(value)
         or _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(value)
         or _ALLOWED_WORLDBUILDING_WORKSPACE_RE.fullmatch(value)
+        or _ALLOWED_WORLDBUILDING_CORPUS_SOURCE_RE.fullmatch(value)
         or _ALLOWED_PLAN_WORKSPACE_RE.fullmatch(value)
     )
 
 
 def _is_corpus_tiptap_target_relpath(value: str) -> bool:
-    return value.startswith("corpus/eldyrwild-markdown/")
+    return value.startswith("corpus/")
+
+
+WriteMode = Literal["authoring", "source_import"]
+
+
+def _normalize_write_mode(value: WriteMode | None) -> WriteMode:
+    return value or "authoring"
 
 
 def markdown_lossy_diagnostics(markdown: str) -> list[str]:
@@ -119,7 +134,13 @@ def authorize_target_for_record(record: WorkspaceDocumentRecord) -> str:
         )
 
     if record.kind == "worldbuilding_source":
-        expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
+        if record.world_id:
+            expected_target = (
+                f"corpus/{record.world_id}-markdown"
+                f"/_dungeonbuddy/sources/{record.document_id}/source.md"
+            )
+        else:
+            expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
         if relpath != expected_target:
             raise TiptapMarkdownWriteError(
                 "worldbuilding_source target_relpath does not match registry policy"
@@ -149,6 +170,7 @@ class TiptapMarkdownWritePrepareRequest(BaseModel):
     document_id: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
     expected_revision: int | None = None
+    write_mode: WriteMode | None = None
 
 
 class TiptapMarkdownWritePrepareResponse(BaseModel):
@@ -176,6 +198,7 @@ class TiptapMarkdownWriteCommitRequest(BaseModel):
     markdown: str = Field(min_length=1)
     writer_confirm_token: str = Field(min_length=1)
     expected_revision: int | None = None
+    write_mode: WriteMode | None = None
 
 
 class TiptapMarkdownWriteCommitResponse(BaseModel):
@@ -232,6 +255,18 @@ def _final_content(markdown: str) -> str:
     return markdown.rstrip("\n") + "\n"
 
 
+def _source_import_content(markdown: str) -> str:
+    if markdown == "":
+        raise TiptapMarkdownWriteError("markdown must not be empty")
+    return markdown
+
+
+def _content_for_write_mode(markdown: str, write_mode: WriteMode) -> str:
+    if write_mode == "source_import":
+        return _source_import_content(markdown)
+    return _final_content(markdown)
+
+
 def _file_state_token(target: Path) -> str:
     if not target.exists():
         return "absent"
@@ -245,9 +280,10 @@ def _confirm_token(
     relpath: str,
     content: str,
     file_state: str,
+    write_mode: WriteMode,
 ) -> str:
     payload = (
-        f"{document_id}\0{registry_revision}\0{relpath}\0{content}\0{file_state}"
+        f"{document_id}\0{registry_revision}\0{relpath}\0{content}\0{file_state}\0{write_mode}"
     ).encode()
     return blake3.blake3(payload).hexdigest()
 
@@ -295,8 +331,13 @@ def _prepare_warnings(
     writer_ok: bool,
     blocking_lossy: list[str],
     advisory_lossy: list[str],
+    write_mode: WriteMode,
 ) -> list[str]:
-    if exists and writer_ok:
+    if write_mode == "source_import" and blocking_lossy:
+        warnings = [
+            "Lossy Markdown diagnostics are informational for source_import; commit is allowed."
+        ]
+    elif exists and writer_ok:
         warnings = ["Existing file will be replaced after explicit commit."]
     elif blocking_lossy:
         warnings = ["Commit blocked: unsupported Markdown would be lossy."]
@@ -310,9 +351,39 @@ def _prepare_warnings(
     return warnings
 
 
+def _assert_source_import_eligible(
+    record: WorkspaceDocumentRecord,
+    target: Path,
+) -> None:
+    if record.kind != "worldbuilding_source":
+        raise TiptapMarkdownWriteError(
+            "source_import is only valid for worldbuilding_source documents"
+        )
+    if record.status != "active":
+        raise TiptapMarkdownWriteConflictError(
+            f"workspace document is not active: {record.document_id}"
+        )
+    if record.content_status != "draft":
+        raise TiptapMarkdownWriteConflictError(
+            "source_import is only valid for uninitialized draft sources"
+        )
+    if target.is_file():
+        try:
+            existing = target.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise TiptapMarkdownWriteError(
+                f"failed to read existing source target: {exc}"
+            ) from exc
+        if existing.strip():
+            raise TiptapMarkdownWriteConflictError(
+                "source_import is only valid for empty/uninitialized sources"
+            )
+
+
 def prepare_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWritePrepareRequest
 ) -> TiptapMarkdownWritePrepareResponse:
+    write_mode = _normalize_write_mode(request.write_mode)
     record = _resolve_writable_document(
         root,
         request.document_id,
@@ -320,9 +391,13 @@ def prepare_tiptap_markdown_write(
     )
     relpath = authorize_target_for_record(record)
     target = resolve_tiptap_markdown_target(root, relpath)
-    content = _final_content(request.markdown)
+    if write_mode == "source_import":
+        _assert_source_import_eligible(record, target)
+    content = _content_for_write_mode(request.markdown, write_mode)
     lossy = markdown_lossy_diagnostics(request.markdown)
-    blocking_lossy = _commit_blocking_lossy(record.kind, request.markdown)
+    blocking_lossy = (
+        [] if write_mode == "source_import" else _commit_blocking_lossy(record.kind, request.markdown)
+    )
     advisory_lossy = lossy if not blocking_lossy and lossy else []
     exists = target.is_file()
     existing = target.read_text(encoding="utf-8") if exists else ""
@@ -352,6 +427,7 @@ def prepare_tiptap_markdown_write(
             relpath,
             content,
             _file_state_token(target),
+            write_mode,
         ),
         writer_diff=diff,
         existing_size_bytes=len(existing.encode()) if exists else None,
@@ -361,6 +437,7 @@ def prepare_tiptap_markdown_write(
             writer_ok=writer_ok,
             blocking_lossy=blocking_lossy,
             advisory_lossy=advisory_lossy,
+            write_mode=write_mode,
         ),
         diagnostics=[*_prepare_diagnostics(relpath), *lossy],
     )
@@ -455,30 +532,36 @@ def commit_tiptap_markdown_write(
 def _commit_tiptap_markdown_write_unlocked(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
+    write_mode = _normalize_write_mode(request.write_mode)
     record = _resolve_writable_document(
         root,
         request.document_id,
         expected_revision=request.expected_revision,
     )
-    blocking_lossy = _commit_blocking_lossy(record.kind, request.markdown)
-    if blocking_lossy:
-        raise TiptapMarkdownWriteError(
-            "commit blocked: unsupported Markdown would be lossy; "
-            + "; ".join(blocking_lossy[:3])
-        )
     relpath = authorize_target_for_record(record)
     target = resolve_tiptap_markdown_target(root, relpath)
-    content = _final_content(request.markdown)
+    content = _content_for_write_mode(request.markdown, write_mode)
     expected = _confirm_token(
         record.document_id,
         record.revision,
         relpath,
         content,
         _file_state_token(target),
+        write_mode,
     )
     if request.writer_confirm_token != expected:
         raise TiptapMarkdownWriteConflictError(
             "stale writer confirm token; prepare file write again"
+        )
+    if write_mode == "source_import":
+        _assert_source_import_eligible(record, target)
+    blocking_lossy = (
+        [] if write_mode == "source_import" else _commit_blocking_lossy(record.kind, request.markdown)
+    )
+    if blocking_lossy:
+        raise TiptapMarkdownWriteError(
+            "commit blocked: unsupported Markdown would be lossy; "
+            + "; ".join(blocking_lossy[:3])
         )
 
     prior_existed = target.exists()
@@ -556,6 +639,8 @@ def _commit_diagnostics(relpath: str) -> list[str]:
         "local Tiptap JSON remains browser-local",
         "backend wrote Markdown only; no graph memory or ingest mutation occurred",
     ]
-    if not _is_corpus_tiptap_target_relpath(relpath):
+    if _is_corpus_tiptap_target_relpath(relpath):
+        diagnostics.append("corpus target was written under managed world source path")
+    else:
         diagnostics.append("corpus was not mutated")
     return diagnostics

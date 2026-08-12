@@ -257,3 +257,70 @@ def test_eval_prepare_diagnostics_still_claim_corpus_untouched(tmp_path: Path):
     doc = create_doc(tmp_path)
     response = prepare(tmp_path, doc.document_id)
     assert "corpus was not mutated" in response.diagnostics
+
+
+def test_omitted_write_mode_remains_authoring_for_worldbuilding(tmp_path: Path):
+    from apps.live_control_server.services.workspace_document_registry import (
+        create_workspace_document,
+    )
+
+    record = create_workspace_document(
+        tmp_path,
+        title="Legacy",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    markdown = "# Title\n\n| a | b |\n"
+    response = prepare(
+        tmp_path,
+        record.document_id,
+        markdown,
+        expected_revision=1,
+    )
+    assert response.writer_ok is False
+
+
+def test_source_import_write_mode_threads_through_prepare_commit(tmp_path: Path):
+    from apps.live_control_server.services.workspace_document_registry import (
+        create_workspace_document,
+    )
+
+    (tmp_path / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
+    record = create_workspace_document(
+        tmp_path,
+        title="Imported",
+        campaign_id="longmont-c2",
+        kind="worldbuilding_source",
+        world_id="eldyrwild",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    markdown = "# Imported\n\n| a | b |\n"
+    preview = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert preview.writer_ok is True
+    response = commit_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            writer_confirm_token=preview.writer_confirm_token or "",
+            expected_revision=1,
+            write_mode="source_import",
+        ),
+    )
+    assert response.writer_ok is True
+    assert (tmp_path / (record.target_relpath or "")).read_text(encoding="utf-8") == markdown
