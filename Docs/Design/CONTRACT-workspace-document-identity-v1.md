@@ -54,6 +54,8 @@ For `kind=worldbuilding_source`:
 
   `corpus/<world_id>-markdown/_dungeonbuddy/sources/<document_id>/source.md`
 
+- Paths under `corpus/<world_id>-markdown/_dungeonbuddy/` are managed DungeonBuddy product storage. Legacy whole-tree corpus ingest/index sweeps (`rglob`, batch walkers) **must exclude** any path whose segments include `_dungeonbuddy`. Presence under `_dungeonbuddy/` alone is not publication or legacy corpus authority; explicit `--paths-file` entries pointing at managed storage are filtered with a warning rather than force-ingested.
+
 - When `world_id` is absent, legacy records use `out/workspace/worldbuilding/{document_id}.md` with `world_id=null`.
 - The Markdown writer accepts only the exact registry-owned path for each record.
 - Ordinary authoring blocks unsupported Markdown constructs (tables, HTML, images, thematic breaks); prepare returns `writer_ok=false` and commit rejects without mutation.
