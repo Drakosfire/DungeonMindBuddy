@@ -46,6 +46,7 @@ import { GraphReviewDiagnosticsProjectionBinding } from "./GraphReviewDiagnostic
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
+import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
 import {
   type GraphReviewAppliedSelection,
   resolvePersistedAppliedSelection,
@@ -694,6 +695,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     setLoadDialogOpen(false);
   };
 
+  const exactRunFirstWorldEligible = exactReview?.firstWorldPublishEligible === true;
   const exactRunReviewable = exactRun?.status === "reviewable";
   const exactRunPromotable =
     exactRunReviewable
@@ -899,6 +901,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
               exactReviewError={exactReviewError}
               exactRunReviewable={exactRunReviewable}
               exactRunPromotable={exactRunPromotable}
+              exactRunFirstWorldEligible={exactRunFirstWorldEligible}
               exactRunNonPromotableReason={exactRunNonPromotableReason}
               exactPreparing={exactPreparing}
               exactConfirmInFlight={exactConfirmInFlight}
@@ -960,6 +963,7 @@ function GraphReviewExactRunBranch(props: {
   exactReviewError: string | null;
   exactRunReviewable: boolean;
   exactRunPromotable: boolean;
+  exactRunFirstWorldEligible: boolean;
   exactRunNonPromotableReason: string | null;
   exactPreparing: boolean;
   exactConfirmInFlight: boolean;
@@ -1009,6 +1013,14 @@ function GraphReviewExactRunBranch(props: {
           Run status is <code>{props.exactRun.status}</code> and is not reviewable for
           promotion.
         </p>
+      ) : props.exactRunFirstWorldEligible && props.exactReview ? (
+        props.exactReviewStatus === "error" ? null : (
+          <GraphReviewFirstWorldPublishSheet
+            review={props.exactReview}
+            onConfirmInFlightChange={props.onConfirmInFlightChange}
+            onCatalogRefresh={props.onCatalogRefresh}
+          />
+        )
       ) : !props.exactRunPromotable ? (
         <p data-testid="graph-review-exact-run-not-promotable">
           {props.exactRunNonPromotableReason

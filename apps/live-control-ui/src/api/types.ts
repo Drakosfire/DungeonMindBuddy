@@ -3192,6 +3192,12 @@ export interface ExactRunReviewAssertion {
   evidence: ExactRunReviewEvidence[];
 }
 
+export type FirstWorldGraphState =
+  | "uninitialized"
+  | "initialized"
+  | "unreadable"
+  | "unmanaged";
+
 export interface ExactRunReviewPackage {
   schema: "dmb_extract_promote_exact_run_review_v1";
   runId: string;
@@ -3206,6 +3212,84 @@ export interface ExactRunReviewPackage {
   /** False for worldbuilding_draft inspect-only runs (BLD-07 narrowed). */
   promotable?: boolean;
   promotableReason?: string | null;
+  /** Target world for first-world publish (exact SourceArtifact lineage). */
+  worldId?: string | null;
+  worldState?: FirstWorldGraphState | null;
+  firstWorldPublishEligible?: boolean;
+  firstWorldPublishReason?: string | null;
+}
+
+export type FirstWorldDecision = "create_new" | "reject" | "accept";
+
+export interface FirstWorldDisposition {
+  assertionId: string;
+  decision: FirstWorldDecision;
+}
+
+export interface FirstWorldGraphPrepareRequest {
+  schema: "dmb_first_world_graph_prepare_request_v1";
+  runId: string;
+  decisions: FirstWorldDisposition[];
+}
+
+export interface FirstWorldGraphPlanSummary {
+  createNewNodeCount: number;
+  acceptedEdgeCount: number;
+  rejectedCandidateCount: number;
+  acceptedAssertionCount: number;
+}
+
+export interface FirstWorldGraphPlan {
+  schema: "dmb_first_world_graph_plan_v1";
+  planId: string;
+  planDigest: string;
+  decisionDigest: string;
+  worldId: string;
+  runId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  workspaceDocumentId: string;
+  workspaceDocumentRevision: string;
+  campaignScope?: string | null;
+  sessionScope?: null;
+  extractionProfile: "worldbuilding_shepherds_flock_v0@0.1";
+  acceptedAssertionIds: string[];
+  rejectedAssertionIds: string[];
+  contributionId: string;
+  contributionPayloadSha256: string;
+  reviewedEffect: Record<string, unknown>;
+  summary: FirstWorldGraphPlanSummary;
+  confirmable: boolean;
+  diagnostics: string[];
+}
+
+export interface FirstWorldGraphConfirmRequest {
+  schema: "dmb_first_world_graph_confirm_request_v1";
+  plan: FirstWorldGraphPlan;
+}
+
+export type FirstWorldConfirmOutcome =
+  | "initialized"
+  | "already_initialized"
+  | "published_audit_degraded";
+
+export interface FirstWorldGraphConfirmReceipt {
+  schema: "dmb_first_world_graph_confirm_v1";
+  outcome: FirstWorldConfirmOutcome;
+  worldId: string;
+  planId: string;
+  planDigest: string;
+  decisionDigest: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  contributionId: string;
+  baselineRevisionId?: string | null;
+  committedRevisionId?: string | null;
+  appliedAssertionCount: number;
+  acceptedAssertionIds: string[];
+  rejectedAssertionIds: string[];
+  auditStatus: "ok" | "degraded";
+  warnings: string[];
 }
 
 export interface ExtractPromotePrepareRequest {
