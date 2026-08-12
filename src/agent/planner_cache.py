@@ -11,6 +11,7 @@ import blake3
 from src.agent.planner import (
     PLANNER_MANIFEST_BUILDER_ID,
     _build_system_prompt,
+    _is_managed_dungeonbuddy_storage,
     build_corpus_manifest,
 )
 from src.prompts.corpus_session_planner import INSTRUCTIONS_TEMPLATE_ID
@@ -23,6 +24,8 @@ def corpus_fingerprint(corpus_dir: Path) -> str:
     if not root.is_dir():
         return blake3.blake3(b"").hexdigest()[:32]
     for path in sorted(root.rglob("*.md")):
+        if _is_managed_dungeonbuddy_storage(path):
+            continue
         try:
             rel = path.relative_to(root).as_posix()
             st = path.stat()

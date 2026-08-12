@@ -26,6 +26,7 @@ IGNORED_DIRS = {
     "node_modules",
     "out",
     ".hermes-runtime",
+    "_dungeonbuddy",
 }
 
 _STRONG_ROLES = frozenset({"play_recap", "hub_evidence"})

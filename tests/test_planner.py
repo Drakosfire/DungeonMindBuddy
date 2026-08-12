@@ -21,6 +21,23 @@ from src.agent.planner import (
 )
 
 
+def test_build_corpus_manifest_excludes_dungeonbuddy_managed_storage(tmp_path: Path) -> None:
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes" / "visible.md").write_text("# visible\n", encoding="utf-8")
+    managed = tmp_path / "_dungeonbuddy" / "sources" / "doc-1" / "source.md"
+    managed.parent.mkdir(parents=True)
+    managed.write_text("# managed draft\n", encoding="utf-8")
+
+    tree = build_corpus_manifest(tmp_path)
+    idx = build_corpus_path_ref_index(tmp_path)
+    rels = set(idx.values())
+
+    assert "notes/visible.md" in rels
+    assert "_dungeonbuddy/sources/doc-1/source.md" not in rels
+    assert "_dungeonbuddy" not in tree
+    assert "source.md" not in tree or "notes/visible.md" in tree
+
+
 def test_build_corpus_manifest_simple_tree(tmp_path: Path) -> None:
     (tmp_path / "Alpha").mkdir()
     (tmp_path / "Alpha" / "one.md").write_text("# one\n", encoding="utf-8")
