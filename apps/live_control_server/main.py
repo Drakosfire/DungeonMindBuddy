@@ -52,6 +52,9 @@ from apps.live_control_server.routes.threat_query_hydration import (
 from apps.live_control_server.routes.statblock_candidates import (
     router as statblock_candidates_router,
 )
+from apps.live_control_server.routes.source_navigation import (
+    router as source_navigation_router,
+)
 from apps.live_control_server.services.hermes_graph_agent_host import (
     get_hermes_graph_agent_host,
     shutdown_hermes_graph_agent_host,
@@ -108,6 +111,7 @@ def create_app() -> FastAPI:
     application.include_router(threat_publication_commits_router)
     application.include_router(threat_query_hydration_router)
     application.include_router(statblock_candidates_router)
+    application.include_router(source_navigation_router)
 
     @application.get("/health")
     def health() -> dict[str, str]:
