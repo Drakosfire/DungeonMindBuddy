@@ -1,11 +1,11 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-12 — Post-#566 CUTOVER whole-world re-anchor active
-**Repository anchor:** branch `cutover/reanchor-whole-world-after-566` (based on PR #566 merge `9f08d724…`)
+**Updated:** 2026-08-12 — Post-DM#30 CUTOVER whole-world re-pin active
+**Repository anchor:** branch `cutover/repin-dungeonmind-v5-after-pr30` (based on PR #568 merge `e5aaaf1d…`)
 **#538 design predecessor / docs base:** PR #538 merge
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
-**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
+**DungeonMind pin:** `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30; world-object-v5 / world-property-v3)
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)
@@ -24,7 +24,7 @@ approved migration projection = in-memory only
 323 semantic / 318 represented / 5 residual / 3 uses_statblock
 ```
 
-PR #566 is merged and non-publishing: canonical bytes remain unchanged, while its locked authority proves exactly four source-sealed kind repairs and leaves five dual-sense STOP edges. This CUTOVER re-anchor is diagnostic/compositional only; whole-world adoption and product-authority cutover remain `BLOCKED`.
+PR #566 is merged and non-publishing: canonical bytes remain unchanged, while its locked authority proves exactly four source-sealed kind repairs and leaves five dual-sense STOP edges. PR #568 sealed the historical v4/v2 CUTOVER ledger (Case A → admit `thread`). DungeonMind PR #30 published `dnd5e:thread`. This CUTOVER re-pin remeasures against v5/v3 only; whole-world adoption and product-authority cutover remain `BLOCKED`.
 
 ## Rules
 
@@ -88,8 +88,9 @@ PR #566 is merged and non-publishing: canonical bytes remain unchanged, while it
 | `eldyrwild-effective-conformance-after-fourth-correction` | DONE | #559 merged + canonical C₄ live exit | Re-anchored current effective fixture/replay baseline to exact `R_current = Q₄ = rev:3759d8d6a02f09306397918234a2ded2` (`366 / 311 / 55 / 3`); composed A+S25 authority unchanged; absorbed as first implementation commit of the closure PR |
 | `eldyrwild-relationship-semantic-closure` | DONE | Q₄ re-anchor + canonical closure exit | Canonical effective state is `323 / 314 / 9 / 3`; nine deferred kind-miscoding residuals remain source-sealed for migration authority |
 | `eldyrwild-relationship-node-kind-source-repair` / #566 | DONE | #563 closure + exact canonical pin | Non-publishing locked authority proves four in-memory kind repairs and five dual-sense STOP edges; manifest SHA `96cc26fc…` |
-| `cutover-whole-world-reanchor-after-566` | DOING | #566 + exact canonical revision/payload | Compose canonical `323/314/9/3` and migration `323/318/5/3` whole-world views, preserve zero-unaccounted ledgers, and select the next bounded cross-repository slice from normalized blocker stages (current ledger → Case A: admit Buddy `thread` kind) |
-| `dungeonmind-whole-world-authority-cutover` | BLOCKED | CUTOVER re-anchor + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until the blocker ledger and durable adoption proof both authorize it |
+| `cutover-whole-world-reanchor-after-566` / #568 | DONE | #566 + exact canonical revision/payload | Sealed historical v4/v2 CUTOVER ledger; Case A admitted Buddy `thread` into DungeonMind via PR #30; fixture SHA `6c978f89…` |
+| `cutover-repin-dungeonmind-v5-after-pr30` | DOING | #568 + DungeonMind #30 (`be76acc…`) | Remeasure canonical + four-kind projection against world-object-v5 / world-property-v3; prove `WORLD_OBJECT_KIND` cleared; relationship inventories unchanged; refreshed ledger → Case C Buddy `ATTRIBUTE_ASSERTION` |
+| `dungeonmind-whole-world-authority-cutover` | BLOCKED | CUTOVER package-construction clear + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until the blocker ledger and durable adoption proof both authorize it |
 
 ### Parallel product backlog retained from the July sequence
 
@@ -109,14 +110,14 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Verify and merge `cutover-whole-world-reanchor-after-566` against canonical `rev:5a7c13ae…` and payload SHA `2632870e…`.
-2. Use its blocker ledger to dispatch exactly one bounded successor. Current ledger-derived recommendation is **Case A**: DungeonMind admit Buddy kind `thread` (or explicit Buddy→DM kind adapter). Do **not** dispatch the existing-world adoption seam while package-construction semantic gaps remain.
+1. Verify and merge `cutover-repin-dungeonmind-v5-after-pr30` against DM pin `be76acc…`, world-object-v5 `f9fd5420…`, world-property-v3 `aa94df78…`, and fixture SHA `cf44b403…`.
+2. Use its refreshed migration blocker ledger to dispatch exactly one bounded successor. Current ledger-derived recommendation is **Case C**: DungeonMindBuddy resolve singular `ATTRIBUTE_ASSERTION` package-construction blockers (count 28). Do **not** dispatch Case B adoption-seam work while any package-construction blockers remain (including the five dual-sense cross-repository `RELATIONSHIP_PREDICATE` STOPs and Buddy `EVIDENCE_PROVENANCE`).
 3. Keep the five dual-sense STOP edges as migration decisions; do not reopen broad Buddy relationship cleanup.
 4. Do not schedule DungeonMind product-authority cutover until whole-world adoption and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
-The following remain true after PR #566 and the CUTOVER re-anchor:
+The following remain true after PR #566, PR #568, DungeonMind PR #30, and the CUTOVER re-pin:
 
 - Integrity heal for `contribution:d3d244474789879c` is `DONE` (merged #540 + canonical live heal exit).
 - Lysandra threat-direction correction is `DONE` (merged #537 + canonical `P_live→Q_live` exit).
@@ -124,6 +125,8 @@ The following remain true after PR #566 and the CUTOVER re-anchor:
 - Session-24 Lysandra→Caelynn false-leads contradiction is `DONE` (merged #550 + canonical `P→Q₃` exit).
 - Canonical effective conformance is pinned to `rev:5a7c13ae45c49a65b402920499be72ed` (`323 / 314 / 9 / 3`) with exact payload SHA `2632870e…`; the approved migration projection is non-publishing (`323 / 318 / 5 / 3`).
 - PR #566 is verified against locked manifest SHA `96cc26fc…`; four kind-only paths are approved for in-memory projection and five dual-sense edges remain explicit STOP decisions.
+- Historical #568 fixture SHA `6c978f89…` still reproduces under explicit world-object-v4 / world-property-v2 loaders.
+- Post-PR30 re-pin clears `WORLD_OBJECT_KIND`; `ATTRIBUTE_ASSERTION` remeasures 29→28 (thread role now representable); disposition remains `CUTOVER_NOT_READY`.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.
