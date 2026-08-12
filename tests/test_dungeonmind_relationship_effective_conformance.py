@@ -86,16 +86,16 @@ APPROVED_SESSION24_FALSE_LEADS_CORRECTION_PATH = (
     / "session24-lysandra-caelynn-false-leads-v1.json"
 )
 
-# Previous formal current baseline (after #549 / #550 parent P).
-R_PREV_REVISION_ID = "rev:b8dfc063bc13a4fb297e83f5f9b313d9"
+# Previous formal current baseline (C₃ live exit Q₃).
+R_PREV_REVISION_ID = "rev:ba3abde1bfc3659795bcd77bb55eb9f7"
 R_PREV_PAYLOAD_SHA256 = (
-    "4539afb0e25ccca42f4a2ec479ab470f7c14cf31803f6caa581e0d03a1f0c776"
-)
-# Current effective-conformance baseline after C₃ live exit (Q₃).
-# Distinct from immutable adjudication anchor ELDYRWILD_REVISION_ID (A).
-R_CURRENT_REVISION_ID = "rev:ba3abde1bfc3659795bcd77bb55eb9f7"
-R_CURRENT_PAYLOAD_SHA256 = (
     "8aa2b90bd6d16fce4b034417e72b5e613deb0ec3baf029aeea5a426ffed7a7b4"
+)
+# Current effective-conformance baseline after C₄ live exit (Q₄).
+# Distinct from immutable adjudication anchor ELDYRWILD_REVISION_ID (A).
+R_CURRENT_REVISION_ID = "rev:3759d8d6a02f09306397918234a2ded2"
+R_CURRENT_PAYLOAD_SHA256 = (
+    "da9875f9e42b2cf0532ef0e75200ea600911d82a8a963d10ee417a5f59a1f6ce"
 )
 Q_REVISION_ID = R_CURRENT_REVISION_ID
 P_REVISION_ID = R_PREV_REVISION_ID
@@ -139,6 +139,15 @@ SESSION24_FALSE_LEADS_TARGET_ASSERTION_ID = "assertion:fed9280859610fd0"
 SESSION24_FALSE_LEADS_TARGET_EDGE_ID = "edge:npc_lysandra:leads:pc:caelynn"
 SESSION24_FALSE_LEADS_TARGET_CONTRIBUTION_ID = "contribution:fe483d91c47590a1"
 
+# C₄ — Session-25 Ephanna→Thrin false-hires contradiction (no replacement)
+SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID = "contribution:d044a019d814968e"
+SESSION25_FALSE_HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256 = (
+    "b9f0c283316057e859a00ae7374dd061260a5d21f8f00538ede3335e5a55a53c"
+)
+SESSION25_FALSE_HIRES_TARGET_ASSERTION_ID = "assertion:9b68a1cbcbd9015b"
+SESSION25_FALSE_HIRES_TARGET_EDGE_ID = "edge:pc:ephanna:hires:node:thrin-branchborn"
+SESSION25_FALSE_HIRES_TARGET_CONTRIBUTION_ID = "contribution:a4231edb9a228963"
+
 _HISTORICAL_ADJUDICATION_FIXTURE_SHA256 = (
     "9aeade076defff7258a0cc25b93c18dcb64e6cdf94533d1b9b8f8ca409a6fbd8"
 )
@@ -162,7 +171,7 @@ _SEVENTH_EDGE_ID = (
 )
 
 _EXPECTED_CURRENT_REMAINING_DISPOSITIONS = {
-    "SOURCE_CORRECTION_REQUIRED": 37,
+    "SOURCE_CORRECTION_REQUIRED": 36,
     "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 11,
     "IDENTITY_NOT_RELATIONSHIP": 7,
     "INSUFFICIENT_EVIDENCE": 1,
@@ -563,14 +572,14 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
     assert payload["world_id"] == ELDYRWILD_WORLD_ID
     assert payload["source_revision_id"] == R_CURRENT_REVISION_ID
     assert payload["source_graph_payload_sha256"] == R_CURRENT_PAYLOAD_SHA256
-    assert payload["relationship_semantic_count"] == 367
+    assert payload["relationship_semantic_count"] == 366
     assert payload["relationship_effectively_represented_count"] == 311
-    assert payload["relationship_effective_residual_count"] == 56
+    assert payload["relationship_effective_residual_count"] == 55
     assert payload["uses_statblock_mechanics_count"] == 3
     assert payload["base_relationship_represented_count"] == 305
-    assert payload["base_relationship_residual_count"] == 62
+    assert payload["base_relationship_residual_count"] == 61
     assert payload["dungeonmind_owned_remaining_count"] == 0
-    assert payload["dungeonmindbuddy_owned_remaining_count"] == 56
+    assert payload["dungeonmindbuddy_owned_remaining_count"] == 55
     assert payload["unadjudicated_remaining_count"] == 0
     assert payload["requires_readjudication_count"] == 0
     assert len(payload["active_adjudicated_edge_ids"]) == 59
@@ -581,6 +590,12 @@ def test_committed_eldyrwild_effective_fixture_is_durable_regression_contract() 
         "remaining_residual_edge_ids"
     ]
     assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in payload["active_adjudicated_edge_ids"]
+    assert SESSION25_FALSE_HIRES_TARGET_EDGE_ID not in payload[
+        "remaining_residual_edge_ids"
+    ]
+    assert SESSION25_FALSE_HIRES_TARGET_EDGE_ID not in payload[
+        "active_adjudicated_edge_ids"
+    ]
     assert payload["explicit_adapter_applied_count"] == 3
     assert payload["pr29_interpretation_applied_count"] == 3
     assert set(payload["newly_represented_by_continuity_edge_ids"]) == _SPECIAL_SIX
@@ -946,9 +961,9 @@ def test_eldyrwild_effective_conformance_integration_when_present() -> None:
     assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID not in compact[
         "remaining_residual_edge_ids"
     ]
-    assert compact["relationship_semantic_count"] == 367
+    assert compact["relationship_semantic_count"] == 366
     assert compact["relationship_effectively_represented_count"] == 311
-    assert compact["relationship_effective_residual_count"] == 56
+    assert compact["relationship_effective_residual_count"] == 55
     assert compact["uses_statblock_mechanics_count"] == 3
 
 
@@ -1426,6 +1441,114 @@ def test_r_current_retains_session24_false_leads_correction_authority(
     assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in report.active_adjudicated_edge_ids
 
 
+def test_r_current_retains_session25_false_hires_correction_authority(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.eldyrwild_session25_ephanna_thrin_false_hires_correction import (
+        get_session25_ephanna_thrin_false_hires_correction_status,
+    )
+    from graph_memory.kernel.contributions import (
+        compute_contribution_source_payload_sha256,
+    )
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        load_contribution_record,
+    )
+
+    root = _clone_eldyrwild_world(tmp_path)
+    store = kernel.load_world_graph_revision(
+        root, ELDYRWILD_WORLD_ID, R_CURRENT_REVISION_ID
+    )
+    assert SESSION25_FALSE_HIRES_TARGET_EDGE_ID in store.edges
+    x4 = store.assertion_support[SESSION25_FALSE_HIRES_TARGET_ASSERTION_ID]
+    assert x4["support_state"] == "contradicted"
+    assert not (x4.get("active_contribution_ids") or [])
+    assert SESSION25_FALSE_HIRES_TARGET_CONTRIBUTION_ID in set(
+        x4.get("contradicted_contribution_ids") or []
+    )
+    # No replacement assertion for X₄ may appear under C₄ authority.
+    for row in store.assertion_support.values():
+        if not isinstance(row, dict):
+            continue
+        if (
+            row.get("introduced_by_contribution_id")
+            != SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID
+        ):
+            continue
+        assert row.get("support_state") != "supported" or row.get(
+            "assertion_id"
+        ) == SESSION25_FALSE_HIRES_TARGET_ASSERTION_ID
+
+    ledger = load_contribution_record(
+        root, ELDYRWILD_WORLD_ID, SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID
+    )
+    assert ledger.status == "active"
+    assert (
+        compute_contribution_source_payload_sha256(ledger)
+        == SESSION25_FALSE_HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    digests = getattr(store, "contribution_source_payload_sha256", {}) or {}
+    assert digests.get(SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID) == (
+        SESSION25_FALSE_HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    assert SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID in set(
+        index.all_contribution_ids
+    )
+    assert SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID in set(
+        index.active_contribution_ids
+    )
+    assert SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID not in set(
+        index.superseded_contribution_ids
+    )
+    assert SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID not in set(
+        index.retracted_contribution_ids
+    )
+    assert SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID not in set(
+        index.failed_contribution_ids
+    )
+    manifest = list(getattr(store, "contribution_replay_manifest", []) or [])
+    c4_entries = [
+        entry
+        for entry in manifest
+        if (
+            getattr(entry, "contribution_id", None)
+            if not isinstance(entry, dict)
+            else entry.get("contribution_id")
+        )
+        == SESSION25_FALSE_HIRES_CORRECTION_CONTRIBUTION_ID
+    ]
+    assert c4_entries
+    for entry in c4_entries:
+        status = (
+            getattr(entry, "status", None)
+            if not isinstance(entry, dict)
+            else entry.get("status")
+        )
+        digest = (
+            getattr(entry, "source_payload_sha256", None)
+            if not isinstance(entry, dict)
+            else entry.get("source_payload_sha256")
+        )
+        assert status == "active"
+        assert digest == SESSION25_FALSE_HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256
+
+    st = get_session25_ephanna_thrin_false_hires_correction_status(
+        root=root, expected_parent_revision_id=R_CURRENT_REVISION_ID
+    )
+    assert st.eligibility == "already_applied"
+
+    report = analyze_relationship_effective_conformance_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=R_CURRENT_REVISION_ID,
+    )
+    assert SESSION25_FALSE_HIRES_TARGET_EDGE_ID not in report.remaining_residual_edge_ids
+    assert (
+        SESSION25_FALSE_HIRES_TARGET_EDGE_ID not in report.active_adjudicated_edge_ids
+    )
+
+
 def test_historical_x_continuity_remains_source_grounded(tmp_path: Path) -> None:
     from apps.live_control_server.integrations.dungeonmind_kernel.relationship_adjudication_continuity_v1 import (
         analyze_relationship_adjudication_continuity_v1,
@@ -1548,6 +1671,19 @@ def test_r_current_rebuilds_pinned_and_unpinned(tmp_path: Path) -> None:
         or []
     )
     assert SESSION24_FALSE_LEADS_TARGET_EDGE_ID in store.edges
+    assert (
+        store.assertion_support[SESSION25_FALSE_HIRES_TARGET_ASSERTION_ID][
+            "support_state"
+        ]
+        == "contradicted"
+    )
+    assert not (
+        store.assertion_support[SESSION25_FALSE_HIRES_TARGET_ASSERTION_ID].get(
+            "active_contribution_ids"
+        )
+        or []
+    )
+    assert SESSION25_FALSE_HIRES_TARGET_EDGE_ID in store.edges
 
 
 def test_effective_reanchor_tests_do_not_mutate_canonical_world() -> None:

@@ -114,6 +114,7 @@ V4_FIXTURE_PATH = FIXTURES / "eldyrwild_post_v29_conformance_v1.json"
 
 A_REVISION_ID = ELDYRWILD_REVISION_ID  # rev:3413bf6f5044cf2680233f5e37c90dcf
 Q3_REVISION_ID = "rev:ba3abde1bfc3659795bcd77bb55eb9f7"
+Q4_REVISION_ID = "rev:3759d8d6a02f09306397918234a2ded2"
 
 _DESCENDANT_SEALS_SHA256 = (
     "a056f19338b321bc42e8d4c01e9e0b2fd91443b0f5cb6c794e1b6edf5abc838c"
@@ -633,6 +634,12 @@ def test_composed_rejects_mixed_requested_revision_or_payload(
 
 @pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
 def test_t7_effective_inventory_transition_at_q3() -> None:
+    """Q₃ remains the immutable pre-C₄ S25 transition point.
+
+    The committed effective fixture is anchored to the current effective
+    baseline (Q₄ after the C₄ live exit); this revision-pinned proof keeps the
+    exact Q₃ composed-inventory transition inspectable forever.
+    """
     root = _require_eldyrwild()
     report = analyze_relationship_effective_conformance_v1(
         root=root,
@@ -653,6 +660,43 @@ def test_t7_effective_inventory_transition_at_q3() -> None:
     }
     assert dispositions == _EXPECTED_Q3_REMAINING_DISPOSITIONS
     assert set(EXACT_U7_EDGE_IDS) <= set(report.remaining_residual_edge_ids)
+    assert "UNADJUDICATED" not in dispositions
+
+    compact = compact_relationship_effective_conformance_report_v1(report)
+    assert compact["source_revision_id"] == Q3_REVISION_ID
+    committed = json.loads(EFFECTIVE_FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert committed["source_revision_id"] == Q4_REVISION_ID
+
+
+@pytest.mark.skipif(not _eldyrwild_available(), reason="Eldyrwild world graph not present")
+def test_t7b_effective_inventory_transition_at_q4() -> None:
+    """Q₄ is the post-C₄ transition: X₄ resolved, U₁–U₆ still current residual."""
+    root = _require_eldyrwild()
+    report = analyze_relationship_effective_conformance_v1(
+        root=root,
+        world_id=ELDYRWILD_WORLD_ID,
+        revision_id=Q4_REVISION_ID,
+    )
+    assert report.relationship_semantic_count == 366
+    assert report.relationship_effectively_represented_count == 311
+    assert report.relationship_effective_residual_count == 55
+    assert report.uses_statblock_mechanics_count == 3
+    assert report.unadjudicated_remaining_count == 0
+    assert report.dungeonmind_owned_remaining_count == 0
+    assert report.dungeonmindbuddy_owned_remaining_count == 55
+    assert report.requires_readjudication_count == 0
+
+    dispositions = {
+        row.key: row.count for row in report.remaining_residual_disposition_inventory
+    }
+    assert dispositions == {
+        "SOURCE_CORRECTION_REQUIRED": 36,
+        "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP": 11,
+        "IDENTITY_NOT_RELATIONSHIP": 7,
+        "INSUFFICIENT_EVIDENCE": 1,
+    }
+    assert set(EXACT_U7_EDGE_IDS[:6]) <= set(report.remaining_residual_edge_ids)
+    assert EXACT_U7_EDGE_IDS[6] not in report.remaining_residual_edge_ids
     assert "UNADJUDICATED" not in dispositions
 
     compact = compact_relationship_effective_conformance_report_v1(report)
@@ -1090,4 +1134,4 @@ def test_t12_no_canonical_world_mutation() -> None:
 
     assert open_world_graph_head(root, ELDYRWILD_WORLD_ID).head_revision_id == before_head
     assert snapshot_world_graph_tree_digest(root, ELDYRWILD_WORLD_ID) == before_tree
-    assert before_head == Q3_REVISION_ID
+    assert before_head == Q4_REVISION_ID

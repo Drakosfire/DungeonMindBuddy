@@ -1,8 +1,8 @@
 # HANDOFF — Eldyrwild Session-25 Ephanna→Thrin false `hires` correction
 
 **Created:** 2026-08-11
-**Updated:** 2026-08-11 — BUILD implementation complete; awaiting review/merge (no live apply yet)
-**Status:** IMPLEMENTATION COMPLETE — merge-ready package; canonical live apply gate remains post-merge
+**Updated:** 2026-08-12 — merged as `8abfca285a780adb33797c71fd5ff6878caa6a76` (#559); canonical live apply exit proven (`Q₃→Q₄ = rev:3759d8d6a02f09306397918234a2ded2`, retry `already_applied`)
+**Status:** DONE — merged package + canonical live apply exit proof captured; absorbed into `eldyrwild-relationship-semantic-closure` Phase 0
 **Canonical handoff path:** `Docs/Plans/HANDOFF-eldyrwild-session25-ephanna-thrin-false-hires-correction.md`
 **Conversation name:** `DUNGEONMIND-CUTOVER`
 **Flow / agent:** `BUILD`

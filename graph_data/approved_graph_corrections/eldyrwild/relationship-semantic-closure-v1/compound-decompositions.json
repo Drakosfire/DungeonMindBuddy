@@ -1,0 +1,1197 @@
+{
+ "closure_id": "eldyrwild-relationship-semantic-closure-v1",
+ "entries": [
+  {
+   "contributions": {
+    "contribution:5af729b078d5459d": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:23c427afe318aaeb",
+       "target_contribution_id": "contribution:a4231edb9a228963"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:5af729b078d5459d",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u035",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "0d6e20c3340e4b60c16ba27ca5dc603d7b82e3f3eb1443f553e8c481ee8df486",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u035",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "S25",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:faction:town-guards-mireward-gate:reports_threat_in:mystery:session25:west-wall-screaming-and-dark-shapes-below",
+    "edge_shape": {
+     "label": "observe threat along west wall",
+     "predicate": "reports_threat_in",
+     "source": "faction:town-guards-mireward-gate",
+     "target": "mystery:session25:west-wall-screaming-and-dark-shapes-below"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:5af729b078d5459d",
+      "op": "contradict",
+      "op_ordinal": 42,
+      "source_payload_sha256": "0d6e20c3340e4b60c16ba27ca5dc603d7b82e3f3eb1443f553e8c481ee8df486",
+      "unit_id": "closure-unit:035",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 35,
+    "rationale": "Session-25 recap collapses observation/reporting, threat identification, and west-wall spatial context into `reports_threat_in`; follow A-era compound precedent for this predicate family.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "e4dc2bf579d59f9ca64dbe6fa4e86760787f649cb7bfb9f3c9767646b918a37d",
+      "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+      "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37"
+     ],
+     "artifact_content_sha256": "fd38b5915b32beb77142c0334c578e7ff0d46ef6d91deb545801761508d26d0d",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-25/20260808T182149Z/normalized_recap_source.md",
+     "edge_id": "edge:faction:town-guards-mireward-gate:reports_threat_in:mystery:session25:west-wall-screaming-and-dark-shapes-below",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+       "excerpt_sha256": "e4dc2bf579d59f9ca64dbe6fa4e86760787f649cb7bfb9f3c9767646b918a37d",
+       "locator": "35-35",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Stafl jumps up from behind the wall and takes aim with his crossbow, landing a perfect shot and killing the second monster. The third monster releases Thrin and charges at Bonogo. Ogonob gets a decent hit in before the creature attacks Bonogo with a claw attack and bite, dealing big damage and leaving behind festering wounds. It then attempts to grapple Bonogo, but he dodges out of reach. Karsemine watches and Thrin once again is being pulled into the ground and then suddenly hears screaming coming from the west along the wall. Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35"
+      },
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37",
+       "excerpt_sha256": "5b8a6ce3d3da7681f3c733aae6634187beaa3645342b43d793d46a33c5543429",
+       "locator": "37-37",
+       "locator_kind": "line_span",
+       "normalized_excerpt": "Lysandra uses her Commanding Shout and directs Karsmine, Stafl and Caelynn to attack or move. Karsemine uses her bow, and Caylynn her crossbow, to deal more damage to the remaining monster. Then Lysandra casts Leadership and gives Karsemine a boost to her next attack, which she uses to cast Fire Bolt on the monster, killing it by fully engulfing it in flames. Now she has a chance to head down the length of the wall to where she heard the screaming before. As she starts she can feel the ground begin to shake and sees town guards gesturing over the wall where she can just make out dark shapes moving below. Just before Bonogo is able to turn to help Thrin get up, Thrin is again pulled into the ground and fully disappears out of sight.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+       "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:37-37"
+      }
+     ],
+     "excerpt_sha256": "e4dc2bf579d59f9ca64dbe6fa4e86760787f649cb7bfb9f3c9767646b918a37d",
+     "locator": "35-35",
+     "locator_kind": "line_span",
+     "normalized_excerpt": "Stafl jumps up from behind the wall and takes aim with his crossbow, landing a perfect shot and killing the second monster. The third monster releases Thrin and charges at Bonogo. Ogonob gets a decent hit in before the creature attacks Bonogo with a claw attack and bite, dealing big damage and leaving behind festering wounds. It then attempts to grapple Bonogo, but he dodges out of reach. Karsemine watches and Thrin once again is being pulled into the ground and then suddenly hears screaming coming from the west along the wall. Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-25:fd38b5915b32:artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32",
+     "source_span_ref_id": "artifact:recap:longmont-c2:session-25:fd38b5915b32:span:fd38b5915b32:35-35"
+    },
+    "target_assertion_id": "assertion:23c427afe318aaeb",
+    "target_contribution_ids": [
+     "contribution:a4231edb9a228963"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:a4231edb9a228963": "2cf28604655f23e43846e389e5dce9920f98dfd670a0717ca3bf12e48703380c"
+    },
+    "unit_id": "closure-unit:035"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:97b4e6395891e402": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:f7c5ea9768641294",
+       "target_contribution_id": "contribution:fe483d91c47590a1"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c2",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:97b4e6395891e402",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u036",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "e1f235a4096b277ab4faca238c7a2a8d05e9082083fff19bde9cf8f1ff0d3665",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u036",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:group_session24_refugees_of_edge:part_of_group:mystery_7",
+    "edge_shape": {
+     "label": "unresolved refugee situation",
+     "predicate": "part_of_group",
+     "source": "group_session24_refugees_of_edge",
+     "target": "mystery_7"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:97b4e6395891e402",
+      "op": "contradict",
+      "op_ordinal": 43,
+      "source_payload_sha256": "e1f235a4096b277ab4faca238c7a2a8d05e9082083fff19bde9cf8f1ff0d3665",
+      "unit_id": "closure-unit:036",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 36,
+    "rationale": "part_of_group bundles group membership with an unresolved refugee mystery/situation; cannot flatten to one relationship term.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c2/session-24/20260713T181934Z/normalized_recap_source.md",
+     "edge_id": "edge:group_session24_refugees_of_edge:part_of_group:mystery_7",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+       "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees.",
+       "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+       "source_span_ref_id": "session-24:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "0e26c466fde5b1690954ff973f9199e8db47463af1f32994db8b3e50afba8bf4",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Surveying the field, Karsemine and Ephanna decide the first thing they should do is burn as many remaining piles of meat as they can. However, as soon as they cast Firebolt and Bonfire the remaining piles turn to goo and are sucked into the ground. With the battle over and full night upon them, the group must decide what to do next. Something needs to be done with the refugees from Edge, while some members need a much needed rest to regain spells. The group decides to split up along those lines: Ephanna, Stafl and Baergorm will stand watch at the wall above the gate, taking a short rest and recovering. The others will go check on the town and create a plan for the refugees.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-24:session-24:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c2:session-24",
+     "source_span_ref_id": "session-24:recap:paragraph:011"
+    },
+    "target_assertion_id": "assertion:f7c5ea9768641294",
+    "target_contribution_ids": [
+     "contribution:fe483d91c47590a1"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:fe483d91c47590a1": "36d172c4396728494439e919bf5a184151e6b921b537856fe6fa3decf566140b"
+    },
+    "unit_id": "closure-unit:036"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:9e2d4b3105442a97": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:3f2c52c5e3e82864",
+       "target_contribution_id": "contribution:f1700a77cda5ce95"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:3f2c52c5e3e82864",
+       "target_contribution_id": "contribution:f2fbbf4f7c191d8e"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:9e2d4b3105442a97",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u037",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "544b3beb68a82ccf86e63931df16637ac2c257d828ba60dcd9c8fae1ef8f9eb2",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u037",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:item_glowkindle_help_request:mission_targets:group_mercenaries",
+    "edge_shape": {
+     "label": "mission targets",
+     "predicate": "mission_targets",
+     "source": "item_glowkindle_help_request",
+     "target": "group_mercenaries"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:9e2d4b3105442a97",
+      "op": "contradict",
+      "op_ordinal": 44,
+      "source_payload_sha256": "544b3beb68a82ccf86e63931df16637ac2c257d828ba60dcd9c8fae1ef8f9eb2",
+      "unit_id": "closure-unit:037",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 37,
+    "rationale": "Job posting solicits mercenaries \u2014 audience/mission targeting plus request semantics; not one atomic relationship.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003"
+     ],
+     "artifact_content_sha256": "b01733e7c2a943ac8db29e338c4e57204db1148069f3050ad9bac9e484ba8284",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-1/20260701T215207Z/normalized_recap_source.md",
+     "edge_id": "edge:item_glowkindle_help_request:mission_targets:group_mercenaries",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+       "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+       "locator": "paragraph:003",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+       "source_span_ref_id": "session-1:recap:paragraph:003"
+      }
+     ],
+     "excerpt_sha256": "6d75a5b57ad8a19e92ee8c5ad953ecc6a8f5405451f10411feaaa54f20aab662",
+     "locator": "paragraph:003",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The town of Stone Bridge is known for very few things, in fact Stone Bridge is hardly known. It has the Stone Bridge over the river [River name], it's tavern  The River's Edge Pub run by Grishna the Half-orc, and that's about it. It did have a job board, and most importantly the local brewer Glowkindle had posted a help request on the jobs board and spread word all around town of his need of a band of mercenaries to help clean up some rats.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-1:session-1:recap:paragraph:003",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-1",
+     "source_span_ref_id": "session-1:recap:paragraph:003"
+    },
+    "target_assertion_id": "assertion:3f2c52c5e3e82864",
+    "target_contribution_ids": [
+     "contribution:f1700a77cda5ce95",
+     "contribution:f2fbbf4f7c191d8e"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:f1700a77cda5ce95": "c9b77f7861036217d454b2dab9a2fc1bd50d28d1274d9fa4fed23868a03ecd57",
+     "contribution:f2fbbf4f7c191d8e": "3a9fa174a6eb59ed0ed7d410b66f48c8fb880c3a04d998b347f12699a5f6f9e8"
+    },
+    "unit_id": "closure-unit:037"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:997c5b42d831e8e0": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:c302ef63e3a52200",
+       "target_contribution_id": "contribution:8b046da9ec0f4275"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:997c5b42d831e8e0",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u038",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "f9694e278a52fe0fb5a13359ec745776d58943b04fb1062073cfadd0d2333471",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u038",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:loc:stormspire-academy:objective_of:mystery:session7:glowing_mushrooms",
+    "edge_shape": {
+     "label": "academy tied to potion-making use of mushrooms",
+     "predicate": "objective_of",
+     "source": "loc:stormspire-academy",
+     "target": "mystery:session7:glowing_mushrooms"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:997c5b42d831e8e0",
+      "op": "contradict",
+      "op_ordinal": 45,
+      "source_payload_sha256": "f9694e278a52fe0fb5a13359ec745776d58943b04fb1062073cfadd0d2333471",
+      "unit_id": "closure-unit:038",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 38,
+    "rationale": "Academy tied to potion-making use of mushrooms mixes institution, objective, and mystery topic.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010"
+     ],
+     "artifact_content_sha256": "8443eb3113eb57236bcd303d21d60b332f659e72048d81a2e32e48fd31ebb471",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-7/20260721T141659Z/normalized_recap_source.md",
+     "edge_id": "edge:loc:stormspire-academy:objective_of:mystery:session7:glowing_mushrooms",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+       "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+       "locator": "paragraph:010",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+       "source_span_ref_id": "session-7:recap:paragraph:010"
+      }
+     ],
+     "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+     "locator": "paragraph:010",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+     "source_span_ref_id": "session-7:recap:paragraph:010"
+    },
+    "target_assertion_id": "assertion:c302ef63e3a52200",
+    "target_contribution_ids": [
+     "contribution:8b046da9ec0f4275"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:8b046da9ec0f4275": "01be14a6cac3eece5695794d8d4b27ad549cb8153e8de9a97e6c83afa5f7c703"
+    },
+    "unit_id": "closure-unit:038"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:5d22078273786565": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:9498fbf2b364762b",
+       "target_contribution_id": "contribution:8b046da9ec0f4275"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:5d22078273786565",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u039",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "157d3bb7327e8feb578407fae56b39b755d98818d54363a6d3caf99d6693badb",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u039",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:mystery:session7:glowing_mushrooms:leads_to:loc:stormspire-academy",
+    "edge_shape": {
+     "label": "to be taken to academy",
+     "predicate": "leads_to",
+     "source": "mystery:session7:glowing_mushrooms",
+     "target": "loc:stormspire-academy"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:5d22078273786565",
+      "op": "contradict",
+      "op_ordinal": 46,
+      "source_payload_sha256": "157d3bb7327e8feb578407fae56b39b755d98818d54363a6d3caf99d6693badb",
+      "unit_id": "closure-unit:039",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 39,
+    "rationale": "Mushrooms 'to be taken to academy' mixes transport intent, destination, and mystery topic \u2014 not path leads_to.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010"
+     ],
+     "artifact_content_sha256": "8443eb3113eb57236bcd303d21d60b332f659e72048d81a2e32e48fd31ebb471",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-7/20260721T141659Z/normalized_recap_source.md",
+     "edge_id": "edge:mystery:session7:glowing_mushrooms:leads_to:loc:stormspire-academy",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+       "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+       "locator": "paragraph:010",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+       "source_span_ref_id": "session-7:recap:paragraph:010"
+      }
+     ],
+     "excerpt_sha256": "e80780183215131ab667678977937251e7f721a48d55d8b73c4af5bdacbe7b40",
+     "locator": "paragraph:010",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Meanwhile, Caelynn and Baergrom enter the herbal shop and are met with the overwhelming scent of herbs. Elara Greenleaf, an Elf Druid, greets the new visitors. The first question she asks is if Caelynn is elvish. She then yells to the back and Talia, a half-elf, comes out to help as well. Despite a shop full of herbs, Caelynn is most interested in finding out information about the glowing mushrooms. She offers 1 pound in exchange for information and 2 gold for a copy of the information from the book. (A very cool mushroom card is given with details hidden under a scratch off area). They soon discover that the mushrooms are very rare and extremely dangerous. Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-7:session-7:recap:paragraph:010",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-7",
+     "source_span_ref_id": "session-7:recap:paragraph:010"
+    },
+    "target_assertion_id": "assertion:9498fbf2b364762b",
+    "target_contribution_ids": [
+     "contribution:8b046da9ec0f4275"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:8b046da9ec0f4275": "01be14a6cac3eece5695794d8d4b27ad549cb8153e8de9a97e6c83afa5f7c703"
+    },
+    "unit_id": "closure-unit:039"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:5a1b02112689da68": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:655a33aeb3d3d38f",
+       "target_contribution_id": "contribution:86ea8a3d97dd18cc"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:5a1b02112689da68",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u040",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "8f945c1e36cc9add91bb78895a944087d3bd793a690cb803d618865a36aad157",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u040",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:node:berin_ironfoot:carries_report_to:loc:stormspire-academy:sends-meat-sample-for-analysis",
+    "edge_shape": {
+     "label": "sends meat sample for analysis",
+     "predicate": "carries_report_to",
+     "source": "node:berin_ironfoot",
+     "target": "loc:stormspire-academy"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:5a1b02112689da68",
+      "op": "contradict",
+      "op_ordinal": 47,
+      "source_payload_sha256": "8f945c1e36cc9add91bb78895a944087d3bd793a690cb803d618865a36aad157",
+      "unit_id": "closure-unit:040",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 40,
+    "rationale": "carries_report_to encodes courier + report + destination/analysis request in one predicate.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "81757b6e05c1e9c7056c342e2439fd41a156912fa12f2c46be87c9c48b33b4f3"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:011"
+     ],
+     "artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+     "edge_id": "edge:node:berin_ironfoot:carries_report_to:loc:stormspire-academy:sends-meat-sample-for-analysis",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:011",
+       "excerpt_sha256": "81757b6e05c1e9c7056c342e2439fd41a156912fa12f2c46be87c9c48b33b4f3",
+       "locator": "paragraph:011",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Back at the Inn the party meets up with Lysandra and Berin to discuss the meat and the tunnel they found. Berin has no knowledge of any tunnels, but Lysandra tells us they were used in the past for military movements. She is also concerned about the meat. The next day is supposed to be a city wide barbeque and she is unsure where all the meat may have been stored. She will take 3-4 guards she trusts to meet us in the Warehouse District where she believes the tunnel comes up. An arcana check reveals the meat to be from another plane of existence. Berin will have the orc bartender take a sample of the meat to Stormspire Academy for analysis.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+       "source_span_ref_id": "session-8:recap:paragraph:011"
+      }
+     ],
+     "excerpt_sha256": "81757b6e05c1e9c7056c342e2439fd41a156912fa12f2c46be87c9c48b33b4f3",
+     "locator": "paragraph:011",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Back at the Inn the party meets up with Lysandra and Berin to discuss the meat and the tunnel they found. Berin has no knowledge of any tunnels, but Lysandra tells us they were used in the past for military movements. She is also concerned about the meat. The next day is supposed to be a city wide barbeque and she is unsure where all the meat may have been stored. She will take 3-4 guards she trusts to meet us in the Warehouse District where she believes the tunnel comes up. An arcana check reveals the meat to be from another plane of existence. Berin will have the orc bartender take a sample of the meat to Stormspire Academy for analysis.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:011",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+     "source_span_ref_id": "session-8:recap:paragraph:011"
+    },
+    "target_assertion_id": "assertion:655a33aeb3d3d38f",
+    "target_contribution_ids": [
+     "contribution:86ea8a3d97dd18cc"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:040"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:be78ce930cc1814e": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:e1f1b3fc68e5fe9b",
+       "target_contribution_id": "contribution:86ea8a3d97dd18cc"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:be78ce930cc1814e",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u041",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "e0294a843650bbeea2c43ffc57c2308d7a488808984e6c635acb40fc23f8a753",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u041",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain",
+    "edge_shape": {
+     "label": "offers Torbin over as part of the bargain",
+     "predicate": "objective_of",
+     "source": "node:fey_entity",
+     "target": "node:torbin"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:be78ce930cc1814e",
+      "op": "contradict",
+      "op_ordinal": 48,
+      "source_payload_sha256": "e0294a843650bbeea2c43ffc57c2308d7a488808984e6c635acb40fc23f8a753",
+      "unit_id": "closure-unit:041",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 41,
+    "rationale": "Fey bargain offering Torbin mixes deal terms, objective, and custody \u2014 not one relationship.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "7b1b712d624ba58dfaba2b93d5d81b6589e2fa7bf92e80ba141617fc914f30f5"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:006"
+     ],
+     "artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+     "edge_id": "edge:node:fey_entity:objective_of:node:torbin:offers-torbin-over-as-part-of-the-bargain",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:006",
+       "excerpt_sha256": "7b1b712d624ba58dfaba2b93d5d81b6589e2fa7bf92e80ba141617fc914f30f5",
+       "locator": "paragraph:006",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "The first deal the Fey offers is to help Ephanna escape, but Torbin will be turned over to the Fey and raised by them. The second deal is to teach a lock picking spell, however it will cost 1d10 life to cast it. After some deliberation, Ephanna chooses option 2 and receives the new spell.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+       "source_span_ref_id": "session-8:recap:paragraph:006"
+      }
+     ],
+     "excerpt_sha256": "7b1b712d624ba58dfaba2b93d5d81b6589e2fa7bf92e80ba141617fc914f30f5",
+     "locator": "paragraph:006",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "The first deal the Fey offers is to help Ephanna escape, but Torbin will be turned over to the Fey and raised by them. The second deal is to teach a lock picking spell, however it will cost 1d10 life to cast it. After some deliberation, Ephanna chooses option 2 and receives the new spell.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:006",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+     "source_span_ref_id": "session-8:recap:paragraph:006"
+    },
+    "target_assertion_id": "assertion:e1f1b3fc68e5fe9b",
+    "target_contribution_ids": [
+     "contribution:86ea8a3d97dd18cc"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:041"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:f94a2efad6dc6058": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:593198ed888580b1",
+       "target_contribution_id": "contribution:86ea8a3d97dd18cc"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:f94a2efad6dc6058",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u042",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "9309eaba86792a253c06e39b2aa860e86fd79c1d301220d1628a4374b186d1ab",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u042",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
+    "edge_shape": {
+     "label": "begins showing oily-eye symptoms",
+     "predicate": "identified_as",
+     "source": "node:torbin",
+     "target": "mystery:session8:torbin-oily-eyes"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:f94a2efad6dc6058",
+      "op": "contradict",
+      "op_ordinal": 49,
+      "source_payload_sha256": "9309eaba86792a253c06e39b2aa860e86fd79c1d301220d1628a4374b186d1ab",
+      "unit_id": "closure-unit:042",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 42,
+    "rationale": "Torbin begins showing oily-eye symptoms \u2014 condition attribution linked to a mystery node, not identity and not a single relationship.",
+    "reason_code": "CONDITION_ATTRIBUTION_NOT_IDENTITY",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "1c78227f9d50f667d613f4a373264f87cd0770e3013771607c881f6527283cc3"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:008"
+     ],
+     "artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+     "edge_id": "edge:node:torbin:identified_as:mystery:session8:torbin-oily-eyes:begins-showing-oily-eye-symptoms",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:008",
+       "excerpt_sha256": "1c78227f9d50f667d613f4a373264f87cd0770e3013771607c881f6527283cc3",
+       "locator": "paragraph:008",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Now that the party is back together we need a plan. Stafl comes up with a plan to walk right in with Karsemine. She will use her Thaumaturgy spell to change her eyes to match the guard's and he will have brought his artifact to add to the storeroom. Ephanna will start in our room across the street, keeping an eye on the street and on Torbin (who also started to show signs of the oily eyes). Bonogo will guard the back door, while Baergrom and Caelynn will create a minor distraction in the street.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+       "source_span_ref_id": "session-8:recap:paragraph:008"
+      }
+     ],
+     "excerpt_sha256": "1c78227f9d50f667d613f4a373264f87cd0770e3013771607c881f6527283cc3",
+     "locator": "paragraph:008",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Now that the party is back together we need a plan. Stafl comes up with a plan to walk right in with Karsemine. She will use her Thaumaturgy spell to change her eyes to match the guard's and he will have brought his artifact to add to the storeroom. Ephanna will start in our room across the street, keeping an eye on the street and on Torbin (who also started to show signs of the oily eyes). Bonogo will guard the back door, while Baergrom and Caelynn will create a minor distraction in the street.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:008",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+     "source_span_ref_id": "session-8:recap:paragraph:008"
+    },
+    "target_assertion_id": "assertion:593198ed888580b1",
+    "target_contribution_ids": [
+     "contribution:86ea8a3d97dd18cc"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:042"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:13e49118072e8377": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:8156a959433e159b",
+       "target_contribution_id": "contribution:4766ca1187eeeac4"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:13e49118072e8377",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u043",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "ab55fe8244d7c10a8bcbaf3f9705472ba60e1fb3e9a61b08d17e09601a765fc6",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u043",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    },
+    "contribution:507314081f704d56": {
+     "accepted_assertions": [
+      {
+       "acceptance_state": "accepted",
+       "assertion_id": "assertion:2c3536c8a74ddf67",
+       "assertion_kind": "edge",
+       "campaign_scope": "longmont-c1",
+       "contribution_id": "contribution:507314081f704d56",
+       "epistemic_kind": "source_derived_candidate",
+       "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002"
+       ],
+       "identity_resolution_outcome": "created_new",
+       "label": "knows about",
+       "predicate": "knows_about",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_revision_id": "sha256:60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+       "subject_node_id": "node:torvak_hempdealer",
+       "target_node_id": "mystery:session4:hempholm-moving-tree",
+       "temporal_scope": {
+        "session_id": "session-4"
+       },
+       "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:torvak_hempdealer:knows_about:mystery:session4:hempholm-moving-tree",
+        "evidence": [
+         {
+          "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+          "session_id": "session-4",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+          "source_domain": "recap",
+          "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-4",
+          "source_span_ref_id": "session-4:recap:paragraph:002"
+         }
+        ],
+        "predicate": "knows_about",
+        "session_ids": [
+         "session-4"
+        ],
+        "source_artifacts": [
+         {
+          "campaign_id": "longmont-c1",
+          "content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+          "session_id": "session-4",
+          "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+          "source_domain": "recap",
+          "uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md"
+         }
+        ],
+        "source_domains": [
+         "recap"
+        ]
+       },
+       "visibility": "gm"
+      }
+     ],
+     "assertion_corrections": [],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:507314081f704d56",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u043:atomics",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "d281019541ee67d694bf73b64010fb447c2a0488a26cc167d9633985bb42d19a",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u043:atomics",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "compound_decomposition",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree",
+    "edge_shape": {
+     "label": "reports disaster about",
+     "predicate": "reports_threat_in",
+     "source": "node:torvak_hempdealer",
+     "target": "mystery:session4:hempholm-moving-tree"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [
+     "Torvak tells the party the story of the moving tree; the single source-grounded atomic is dnd5e:knows_about (npc->mystery). The compound reporting/threat/place bundle has no other legal atomic."
+    ],
+    "operations": [
+     {
+      "contribution_id": "contribution:13e49118072e8377",
+      "op": "contradict",
+      "op_ordinal": 50,
+      "source_payload_sha256": "ab55fe8244d7c10a8bcbaf3f9705472ba60e1fb3e9a61b08d17e09601a765fc6",
+      "unit_id": "closure-unit:043",
+      "unit_op_index": 0
+     },
+     {
+      "contribution_id": "contribution:507314081f704d56",
+      "op": "merge_additive",
+      "op_ordinal": 51,
+      "source_payload_sha256": "d281019541ee67d694bf73b64010fb447c2a0488a26cc167d9633985bb42d19a",
+      "unit_id": "closure-unit:043",
+      "unit_op_index": 1
+     }
+    ],
+    "ordinal": 43,
+    "rationale": "reports_threat_in bundles reporting speech act + threat topic + place context.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002"
+     ],
+     "artifact_content_sha256": "60854a0537bbd5d7a621c76c3837c1a91b11a7ab0e3269193069349df76cb8f3",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-4/20260719T154730Z/normalized_recap_source.md",
+     "edge_id": "edge:node:torvak_hempdealer:reports_threat_in:mystery:session4:hempholm-moving-tree",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+       "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+       "locator": "paragraph:002",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak\u2019s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+       "source_span_ref_id": "session-4:recap:paragraph:002"
+      }
+     ],
+     "excerpt_sha256": "ad059b2cc6cec8dcbfe6469402adf95ebfa21405b9e58698bfb4d32b0c645954",
+     "locator": "paragraph:002",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn. After some time on this bucolic walk past fields, with an ominous forest to the south they encounter the hemp caravan led by Torvak Hempdealer. In between pitches of all the glorious ways hemp could improve the heroes lives Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster, telling a story of a tree growing huge overnight and seeming to move. Without so much as considering buying any of Torvak\u2019s incredible Hemp, the team marched on eager to investigate this bizarre tree.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-4:session-4:recap:paragraph:002",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-4",
+     "source_span_ref_id": "session-4:recap:paragraph:002"
+    },
+    "target_assertion_id": "assertion:8156a959433e159b",
+    "target_contribution_ids": [
+     "contribution:4766ca1187eeeac4"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:4766ca1187eeeac4": "2a49d8e3e5848bea46217913b6297501a6f8f25a825e89590f0061201717dc4f"
+    },
+    "unit_id": "closure-unit:043"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:b97e4ea2e899d542": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:baf2189ad8b8f9e7",
+       "target_contribution_id": "contribution:86ea8a3d97dd18cc"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:b97e4ea2e899d542",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u044",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "f771476d3639a32d9c16d8b2a88f5632c344cfdec7f3fbb725c4e48ad7b29651",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u044",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms",
+    "edge_shape": {
+     "label": "shows oily-eye symptoms",
+     "predicate": "identified_as",
+     "source": "npc:bill_the_belly",
+     "target": "mystery:session8:oil-eyed-guards"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:b97e4ea2e899d542",
+      "op": "contradict",
+      "op_ordinal": 52,
+      "source_payload_sha256": "f771476d3639a32d9c16d8b2a88f5632c344cfdec7f3fbb725c4e48ad7b29651",
+      "unit_id": "closure-unit:044",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 44,
+    "rationale": "Bill shows oily-eye symptoms / link to oily-eyed guards mystery \u2014 condition attribution, not identity.",
+    "reason_code": "CONDITION_ATTRIBUTION_NOT_IDENTITY",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "a19b300fc2d9b2256225687f444298c4223778886cc93aa3c23841a0e387388c"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:003"
+     ],
+     "artifact_content_sha256": "8463945d7548f8a7a31ea4d96d1d61b95a28830c57f2deead99627aac8271bc2",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-8/20260721T231221Z/normalized_recap_source.md",
+     "edge_id": "edge:npc:bill_the_belly:identified_as:mystery:session8:oil-eyed-guards:shows-oily-eye-symptoms",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:003",
+       "excerpt_sha256": "a19b300fc2d9b2256225687f444298c4223778886cc93aa3c23841a0e387388c",
+       "locator": "paragraph:003",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Bonogo and Baergrom can sense something wrong with one of the guards (Bill). His eyes appear to have a slight oily sheen to them. Lysandra also informs us that she is also being kept out of the city guard's store room, which never happened before. She believes something is happening between some guards and the cultists.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+       "source_span_ref_id": "session-8:recap:paragraph:003"
+      }
+     ],
+     "excerpt_sha256": "a19b300fc2d9b2256225687f444298c4223778886cc93aa3c23841a0e387388c",
+     "locator": "paragraph:003",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Bonogo and Baergrom can sense something wrong with one of the guards (Bill). His eyes appear to have a slight oily sheen to them. Lysandra also informs us that she is also being kept out of the city guard's store room, which never happened before. She believes something is happening between some guards and the cultists.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-8:session-8:recap:paragraph:003",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-8",
+     "source_span_ref_id": "session-8:recap:paragraph:003"
+    },
+    "target_assertion_id": "assertion:baf2189ad8b8f9e7",
+    "target_contribution_ids": [
+     "contribution:86ea8a3d97dd18cc"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:86ea8a3d97dd18cc": "fc7b4a27b6035f3c5b5f6c0e3229a4abab71f1ec09b1b40ef114b4b080ca95b0"
+    },
+    "unit_id": "closure-unit:044"
+   }
+  },
+  {
+   "contributions": {
+    "contribution:a65e1d63ef28e504": {
+     "accepted_assertions": [],
+     "assertion_corrections": [
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:96256a5767326afb",
+       "target_contribution_id": "contribution:a5f8e745364e182c"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:96256a5767326afb",
+       "target_contribution_id": "contribution:cc2574b7d2d274a9"
+      },
+      {
+       "correction_kind": "contradicts",
+       "replacement_assertion_id": null,
+       "target_assertion_id": "assertion:96256a5767326afb",
+       "target_contribution_id": "contribution:f43a2446902be8a9"
+      }
+     ],
+     "authored_by": "gm",
+     "campaign_scope": "longmont-c1",
+     "candidate_assertions": [],
+     "contribution_id": "contribution:a65e1d63ef28e504",
+     "diagnostics": [],
+     "extraction_profile": null,
+     "identity_decision_ids": [],
+     "produced_at": "2026-08-12T00:00:00Z",
+     "rejected_assertions": [],
+     "source_artifact_id": "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:u045",
+     "source_kind": "graph_review_authored_assertion",
+     "source_payload_sha256": "67d16a38769725285ea4a3fbf548363bb759b022936cfcf1be769cabe860c9f5",
+     "source_revision_id": "correction:eldyrwild:eldyrwild-relationship-semantic-closure-v1:u045",
+     "status": "active",
+     "supersedes_contribution_id": null,
+     "unresolved_mentions": [],
+     "world_id": "eldyrwild"
+    }
+   },
+   "unit": {
+    "authority": "A",
+    "closure_kind": "contradiction_only",
+    "deferred": false,
+    "disposition": "COMPOUND_ASSERTION_NOT_SINGLE_RELATIONSHIP",
+    "edge_id": "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate",
+    "edge_shape": {
+     "label": "may close gate",
+     "predicate": "controls_comms_with",
+     "source": "npc_lysandra",
+     "target": "loc:mirathorn_gate"
+    },
+    "next_action": "DECOMPOSE_COMPOUND_ASSERTION",
+    "notes": [],
+    "operations": [
+     {
+      "contribution_id": "contribution:a65e1d63ef28e504",
+      "op": "contradict",
+      "op_ordinal": 53,
+      "source_payload_sha256": "67d16a38769725285ea4a3fbf548363bb759b022936cfcf1be769cabe860c9f5",
+      "unit_id": "closure-unit:045",
+      "unit_op_index": 0
+     }
+    ],
+    "ordinal": 45,
+    "rationale": "may-close-gate mixes authority/control over a location with a communications-shaped predicate name.",
+    "reason_code": "COMPOUND_MULTI_CLAIM",
+    "seal": {
+     "all_evidence_excerpt_sha256s": [
+      "008e827d51c5f5c149993950ec4e3d7003d48018dbadb1ff6c5053caaea9b422"
+     ],
+     "all_evidence_ref_ids": [
+      "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:006"
+     ],
+     "artifact_content_sha256": "d5ea4c32d3072bb4263eceed78d5e45caef45df609a689c1d4fcd048116dbeda",
+     "artifact_uri": "repo://out/graph_memory/runs/longmont-c1/session-6/20260719T230553Z/normalized_recap_source.md",
+     "edge_id": "edge:npc_lysandra:controls_comms_with:loc:mirathorn_gate:may-close-gate",
+     "evidence_excerpts": [
+      {
+       "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:006",
+       "excerpt_sha256": "008e827d51c5f5c149993950ec4e3d7003d48018dbadb1ff6c5053caaea9b422",
+       "locator": "paragraph:006",
+       "locator_kind": "paragraph",
+       "normalized_excerpt": "Torbin, immediately spend all 10 of his gold (which is a lot of fucking money for a kid, like, his father\u2019s life savings) on candy. So much candy! After exploring a few shops, they decide it\u2019s time to head into the city. Which is where they find a group gathering, passing out fliers chanting about how unfair the toll is. While they observe and chat with Captain Lysandra Ironveil, the crowd grows to around 50 people. The guards looking tense send a large contingent of troops out to disperse the crowd. Excusing herself, the Captain walks to joining the other guards, complaining of what a headache and ass chewing she will get if she has to close the gate.",
+       "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+       "source_span_ref_id": "session-6:recap:paragraph:006"
+      }
+     ],
+     "excerpt_sha256": "008e827d51c5f5c149993950ec4e3d7003d48018dbadb1ff6c5053caaea9b422",
+     "locator": "paragraph:006",
+     "locator_kind": "paragraph",
+     "normalized_excerpt": "Torbin, immediately spend all 10 of his gold (which is a lot of fucking money for a kid, like, his father\u2019s life savings) on candy. So much candy! After exploring a few shops, they decide it\u2019s time to head into the city. Which is where they find a group gathering, passing out fliers chanting about how unfair the toll is. While they observe and chat with Captain Lysandra Ironveil, the crowd grows to around 50 people. The guards looking tense send a large contingent of troops out to disperse the crowd. Excusing herself, the Captain walks to joining the other guards, complaining of what a headache and ass chewing she will get if she has to close the gate.",
+     "primary_evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-6:session-6:recap:paragraph:006",
+     "source_artifact_id": "artifact:recap:longmont-c1:session-6",
+     "source_span_ref_id": "session-6:recap:paragraph:006"
+    },
+    "target_assertion_id": "assertion:96256a5767326afb",
+    "target_contribution_ids": [
+     "contribution:a5f8e745364e182c",
+     "contribution:cc2574b7d2d274a9",
+     "contribution:f43a2446902be8a9"
+    ],
+    "target_source_payload_sha256": {
+     "contribution:a5f8e745364e182c": "ef84a1cbd36367c1ee930b85961f37a77ee935a9ce73baf6c683e0b678420146",
+     "contribution:cc2574b7d2d274a9": "5d4d1791314dddaf57a37b4e36b20163471176f21cbda2204ac0de1ceaa0fbf9",
+     "contribution:f43a2446902be8a9": "300cd7bf6014630b4c5aa7f26504124d9e138cce14b766d0305cbdca5db16c7a"
+    },
+    "unit_id": "closure-unit:045"
+   }
+  }
+ ],
+ "produced_at": "2026-08-12T00:00:00Z",
+ "schema": "dmb_eldyrwild_relationship_semantic_closure_compound_decompositions_v1",
+ "unit_count": 11
+}

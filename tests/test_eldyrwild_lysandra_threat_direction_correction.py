@@ -62,6 +62,7 @@ from graph_memory.world_supergraph.contribution_store import (
     save_contribution_index,
     write_contribution_record,
 )
+from graph_memory.world_supergraph.storage import list_revision_ids
 
 REPO = Path(__file__).resolve().parents[1]
 SOURCE_SEAL_PATH = (
@@ -120,19 +121,55 @@ def _strip_contribution_from_clone(root: Path, contribution_id: str) -> None:
         contrib_path.unlink()
 
 
-def _drop_revision_material(root: Path, revision_id: str) -> None:
-    post_c_dir = world_paths.revision_dir(root, ELDYRWILD_WORLD_ID, revision_id)
-    if post_c_dir.is_dir():
-        shutil.rmtree(post_c_dir)
+def _restore_pre_c_revision_scope(root: Path) -> None:
+    """Restore the clone to the exact pre-C revision scope.
+
+    Later live cutovers (C₂/C₃/C₄ and any successor closure steps) leave
+    descendant revision dirs and mutable contribution authority in a copied
+    canonical world. The Kernel refuses mutation while any indexed non-failed
+    contribution lacks revision-bound source authority at the current head, so
+    eligible/apply/replay proofs keep exactly the pre-C ancestor chain and the
+    contributions revision-bound at the pre-C parent.
+    """
+    keep_revisions: set[str] = set()
+    revision_id: str | None = PRE_C_PARENT_REVISION_ID
+    while revision_id:
+        keep_revisions.add(revision_id)
+        manifest = kernel.load_world_graph_revision_manifest(
+            root, ELDYRWILD_WORLD_ID, revision_id
+        )
+        revision_id = getattr(manifest, "parent_revision_id", None)
+
+    for candidate in list_revision_ids(root, ELDYRWILD_WORLD_ID):
+        if candidate in keep_revisions:
+            continue
+        rev_dir = world_paths.revision_dir(root, ELDYRWILD_WORLD_ID, candidate)
+        if rev_dir.is_dir():
+            shutil.rmtree(rev_dir)
+
+    parent_store = kernel.load_world_graph_revision(
+        root, ELDYRWILD_WORLD_ID, PRE_C_PARENT_REVISION_ID
+    )
+    bound = set((parent_store.contribution_source_payload_sha256 or {}).keys())
+    index = load_contribution_index(root, ELDYRWILD_WORLD_ID)
+    for contribution_id in list(index.all_contribution_ids):
+        if contribution_id not in bound:
+            _strip_contribution_from_clone(root, contribution_id)
+
+    rebuild_latest = world_paths.contribution_rebuild_latest_path(
+        root, ELDYRWILD_WORLD_ID
+    )
+    if rebuild_latest.is_file():
+        rebuild_latest.unlink()
 
 
 def _ensure_pre_c_eligible_root(root: Path) -> None:
     """Force a clone onto explicit pre-C parent P with C absent from the ledger.
 
     Copying canonical Eldyrwild after later live cutovers inherits descendants and
-    mutable stores that already contain locked C (and later Session-24 C₂).
-    Eligible/apply/replay proofs require the pre-C parent instead, so restore
-    that state inside the clone.
+    mutable stores that already contain locked C (and later Session-24/Session-25
+    corrections). Eligible/apply/replay proofs require the pre-C parent instead,
+    so restore that state inside the clone.
     """
     try:
         kernel.load_world_graph_revision(
@@ -144,24 +181,7 @@ def _ensure_pre_c_eligible_root(root: Path) -> None:
     kernel.rollback_world_graph_head(
         root, ELDYRWILD_WORLD_ID, PRE_C_PARENT_REVISION_ID
     )
-
-    _strip_contribution_from_clone(root, LOCKED_CORRECTION_CONTRIBUTION_ID)
-    _strip_contribution_from_clone(root, SESSION24_CORRECTION_CONTRIBUTION_ID)
-    _strip_contribution_from_clone(
-        root, SESSION24_FALSE_LEADS_CORRECTION_CONTRIBUTION_ID
-    )
-
-    # Drop post-C descendant material so the clone is not a mixed P-head/Q-history
-    # store. Eligible apply must publish a fresh child from P.
-    _drop_revision_material(root, POST_C_CHILD_REVISION_ID)
-    _drop_revision_material(root, SESSION24_POST_C_CHILD_REVISION_ID)
-    _drop_revision_material(root, SESSION24_FALSE_LEADS_POST_C_CHILD_REVISION_ID)
-
-    rebuild_latest = world_paths.contribution_rebuild_latest_path(
-        root, ELDYRWILD_WORLD_ID
-    )
-    if rebuild_latest.is_file():
-        rebuild_latest.unlink()
+    _restore_pre_c_revision_scope(root)
 
 
 def _clone_eldyrwild(tmp_path: Path) -> Path:
