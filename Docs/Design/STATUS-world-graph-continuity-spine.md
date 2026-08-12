@@ -1,9 +1,9 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-11 — C₄ false-hires correction BUILD against `R_current = Q₃`; #557 descendant adjudication DONE
+**Updated:** 2026-08-12 — relationship semantic closure BUILD against `R_current = Q₄`; C₄ #559 merged + live exit DONE
 
-Active correction slice: `eldyrwild-session25-ephanna-thrin-false-hires-correction` (C₄) targets `edge:pc:ephanna:hires:node:thrin-branchborn` / `assertion:9b68a1cbcbd9015b` with contradiction-without-replacement on exact Q₃. Formal `R_current` remains Q₃ until post-merge live apply + fourth re-anchor.
+Active correction slice: `eldyrwild-relationship-semantic-closure` — one governed omnibus over all 55 Q₄ residuals (7 identity merges, 2 governed replacements, 1 compound decomposition, 45 contradiction-only) via the sha-locked closure manifest at `graph_data/approved_graph_corrections/eldyrwild/relationship-semantic-closure-v1/`. Formal `R_current` is Q₄ (`rev:3759d8d6a02f09306397918234a2ded2`, `366 / 311 / 55 / 3`); expected post-live closure exit is `314 / 314 / 0 / 3`.
 **Repository anchor:** `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde`
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`
@@ -286,11 +286,11 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `buddy-remaining-relationship-correction-slices` — READY: select one bounded Buddy residual from the Q residual ledger by correction class; do not make one omnibus residual-zeroing PR.
+1. `eldyrwild-relationship-semantic-closure` — DOING: merge the omnibus closure package, then run the canonical live closure apply + finalize exit; re-anchor `R_current` to the final pinned revision (`314 / 314 / 0 / 3`).
 2. Keep DungeonMind product-authority cutover blocked until Buddy semantic closure and a public existing-world adoption seam both prove ready.
 3. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` DONE, Session-25 descendant residual adjudication BUILD package (S25-anchored U₇ composed with immutable A; `UNADJUDICATED: 7 → 0` without representation change).
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` DONE, Session-25 descendant residual adjudication BUILD package (S25-anchored U₇ composed with immutable A; `UNADJUDICATED: 7 → 0` without representation change), Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `R_current = Q₄` `DONE`.
 
 ## Fast diagnostic questions
 
