@@ -27,7 +27,7 @@ pr_body_template: |
 **Base revision:** `{{TODO: immutable SHA/revision}}`  
 **PR title:** `{{TODO: FLOW: short capability}}`
 
-> Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`../SKILL.md`](../SKILL.md).
+> Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
 ## §1 Mission and merge-ready invariant
 
