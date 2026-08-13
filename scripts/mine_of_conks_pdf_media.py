@@ -39,7 +39,7 @@ NAMED_TARGETS: list[tuple[str, tuple[int, int]]] = [
     ("cover-of-conks.jpg", (992, 1403)),
     ("map-greenfields.jpg", (840, 649)),
     ("map-hempholm.jpg", (1000, 773)),
-    ("fig-1-the-shacks.jpg", (1000, 773)),  # same village map plate
+    # fig-1-the-shacks.jpg is copied from map-hempholm after write
     ("art-greenfields-oaks.jpg", (780, 600)),  # first 780x600 pastoral (page 6)
     ("art-area-5-harvest.jpg", (780, 600)),  # later harvest plate (page 11)
     ("art-pastoral-cattle.jpg", (780, 600)),
@@ -126,10 +126,6 @@ def main() -> int:
                 if pastoral_idx < len(pastorals):
                     chosen = pastorals[pastoral_idx]
                     pastoral_idx += 1
-            elif name == "fig-1-the-shacks.jpg":
-                # Same embedded plate as the Hempholm village map.
-                pool = by_size.get((tw, th), [])
-                chosen = pool[0] if pool else None
             else:
                 pool = by_size.get((tw, th), [])
                 for item in pool:
@@ -152,6 +148,20 @@ def main() -> int:
                 }
             )
             print(f"wrote {dest.relative_to(ROOT)} ({w}x{h}, {dest.stat().st_size} bytes)")
+            if name == "map-hempholm.jpg":
+                # Fig.1 is the same village-map plate in this PDF.
+                fig = MEDIA_DIR / "fig-1-the-shacks.jpg"
+                shutil.copyfile(dest, fig)
+                files.append(
+                    {
+                        "file": fig.name,
+                        "width": w,
+                        "height": h,
+                        "bytes": fig.stat().st_size,
+                        "alias_of": name,
+                    }
+                )
+                print(f"wrote {fig.relative_to(ROOT)} (alias of {name})")
 
     inventory = {
         "schema": "of_conks_module_media_v1",
