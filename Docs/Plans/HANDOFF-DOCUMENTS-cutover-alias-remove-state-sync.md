@@ -503,8 +503,18 @@ PY
 git diff --check
 
 git diff --name-only \
-  3a52d309a606608c9338147b78e0a2f708084042...HEAD
+  71d11169cc56880ed09f457ddd9a6069429d0b96...HEAD
 ```
+
+The ancestor check remains against design base `3a52d309…`. The changed-path inventory must use the actual dispatch base `71d11169…`. Diffing against the design base would mix in the independent `Docs/Sources/design-agent/**` export-mirror commits that advanced `origin/main` after PR #580; those paths are out of this lease.
+
+`scripts/steward_preflight.py --local-only` reports `status=block` because three historical handoffs still say `**Status:** ACTIVE` and lease `Backlog.md`, `Backlog-DONE.md`, or the campaign-supergraph tracker:
+
+- `HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md`
+- `HANDOFF-c2s23-mireward-siege-clocks-threats.md`
+- `HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`
+
+Those are not current CUTOVER lanes. PR011A3 already merged as #366; DOGFOOD-POLISH is closed; C2S23 Mireward is campaign-prep from 2026-06. No open PR owns those leases. Do not edit those handoffs in this slice to make preflight green.
 
 Expected changed-path set:
 
