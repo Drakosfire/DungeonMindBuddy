@@ -126,6 +126,10 @@ def main() -> int:
                 if pastoral_idx < len(pastorals):
                     chosen = pastorals[pastoral_idx]
                     pastoral_idx += 1
+            elif name == "fig-1-the-shacks.jpg":
+                # Same embedded plate as the Hempholm village map.
+                pool = by_size.get((tw, th), [])
+                chosen = pool[0] if pool else None
             else:
                 pool = by_size.get((tw, th), [])
                 for item in pool:
