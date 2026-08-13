@@ -22,7 +22,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER reconstruct alias assertion adoption package after PR #575
 
 **Created:** 2026-08-12.  
-**Status:** DESIGN READY — **DO NOT DISPATCH until PR #576 (this post-PR #575 atomic state-authority sync) is merged.**  
+**Status:** SUPERSEDED / DO NOT DISPATCH — PR #577 reached the correct STOP (two source-grounded aliases, six merge-shadow aliases). Direct eight-alias packaging and classifying the six as history are both unauthorized. Next authority is [`HANDOFF-KERNEL-alias-remove-identity-decision.md`](HANDOFF-KERNEL-alias-remove-identity-decision.md). Resume a two-alias package only after the Kernel primitive exists and the six Eldyrwild `alias_remove` decisions are applied.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-575.md`  
 **Conversation name:** `CUTOVER — alias assertion adoption package after PR 575`  
 **Flow / agent:** `CUTOVER`  
