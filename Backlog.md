@@ -9,11 +9,18 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 > **Workstream closeout (2026-08-11):** `DOGFOOD-POLISH` is closed. Completed Plan/Build document-authoring slices are no longer active backlog items; see [`Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md). READY/IDEA items below that touch Plan, Build, Hermes, Threats, or Play are independent product work, not implied successors under the closed workstream.
 
+## [READY] KERNEL replay-safe alias_remove before alias-package — captured 2026-08-13
+**Context:** PR #577 forensic STOP after PR #576: eight `EVIDENCE_PROVENANCE` alias blockers split into two source-grounded current-node aliases (`Captain`, `Thrin Branchborn`) and six merge-shadow aliases materialized by `merge_identity()` unioning merged-away labels onto survivors. Direct JSON cleanup would not survive replay; classifying the six as `SOURCE_MIGRATION_HISTORY` crossed an explicit STOP.
+**Insight:** This is a missing governed identity-materialization capability, not a six-object data-cleanup problem. `IdentityDecisionKind.alias_remove` is already reserved but append-only. The smallest next slice is a generic replay-safe `alias_remove` primitive; Eldyrwild application and the remaining two-alias package are successors.
+**Action:** Dispatch `HANDOFF-KERNEL-alias-remove-identity-decision.md` after this design-authority PR merges. Do not change `merge_identity` union semantics. Do not merge or extend PR #577. After the primitive, apply exactly six Eldyrwild `alias_remove` decisions, then resume alias-package construction for the two keepers.
+**Surfaces when:** CUTOVER alias package, EVIDENCE_PROVENANCE, identity-shadow aliases, alias_remove, merge_identity, PR #577, PR #576, Captain, Thrin Branchborn
+**Refs:** `Docs/Plans/HANDOFF-KERNEL-alias-remove-identity-decision.md`; `src/graph_memory/kernel/identity_decisions.py`; `src/graph_memory/kernel/contribution_rebuild.py`
+
 ## [READY] CUTOVER Case C Buddy EVIDENCE_PROVENANCE after identity-lifecycle history — captured 2026-08-12
-**Context:** After PR #571 and the identity-lifecycle successor, `ATTRIBUTE_ASSERTION` clears 28→0; migration ledger selects Case C (`EVIDENCE_PROVENANCE`, count 8). Five dual-sense STOPs remain cross-repository package-construction; `IDENTITY_HISTORY` remains 14 at durable adoption; Case B still forbidden.
-**Insight:** Identity bookkeeping is not a world-property gap. The next singular Buddy package-construction blocker is alias/evidence reconstruction, not identity replay and not relationship cleanup.
-**Action:** Design the smallest deterministic Buddy alias/evidence reconstruction slice for the remaining EVIDENCE_PROVENANCE rows; do not invent identity properties, reopen relationship cleanup, or start Case B.
-**Surfaces when:** CUTOVER identity lifecycle history, whole-world blocker ledger, Case A/B/C/D selection, EVIDENCE_PROVENANCE, ATTRIBUTE_ASSERTION, dual-sense STOP, PR #571
+**Context:** After PR #571 and the identity-lifecycle successor, `ATTRIBUTE_ASSERTION` clears 28→0; migration ledger selects Case C (`EVIDENCE_PROVENANCE`, count 8). Five dual-sense STOPs remain cross-repository package-construction; `IDENTITY_HISTORY` remains 14 at durable adoption; Case B still forbidden. PR #577 later proved 6/8 are merge-shadow aliases; packaging all eight is blocked until Kernel `alias_remove` and the six Eldyrwild retirements land.
+**Insight:** Identity bookkeeping is not a world-property gap. Alias/evidence reconstruction remains the Buddy package-construction blocker, but merge-shadow aliases must be retired from current identity materialization first rather than packaged or classified as contribution history.
+**Action:** Do not dispatch the eight-alias package. After Kernel `alias_remove` and the six Eldyrwild applications, reconstruct only the remaining source-grounded aliases (`Captain`, `Thrin Branchborn`); do not invent identity properties, reopen relationship cleanup, or start Case B.
+**Surfaces when:** CUTOVER identity lifecycle history, whole-world blocker ledger, Case A/B/C/D selection, EVIDENCE_PROVENANCE, ATTRIBUTE_ASSERTION, dual-sense STOP, PR #571, PR #577, alias_remove
 
 ## [READY] CUTOVER Case B only after package-construction is expressible — captured 2026-08-12
 **Context:** PR #568 review: `_next_slice_recommendation` returned Case B whenever `DURABLE_ADOPTION_BOUNDARY` existed, while `WORLD_OBJECT_KIND` (`thread`) and other package-construction blockers remained.
