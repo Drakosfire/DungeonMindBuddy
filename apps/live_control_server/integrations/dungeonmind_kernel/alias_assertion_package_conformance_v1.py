@@ -112,12 +112,9 @@ class AliasAssertionPackageConformanceV1(BaseModel):
     alias_inventory: list[AliasBlockerInventoryRowV1]
     package_rows: list[AliasAssertionPackageRowV1]
     covered_blocker_element_ids: list[str]
-    identity_derived_blocker_element_ids: list[str] = Field(default_factory=list)
-    identity_derived_rows: list[AliasPackageResidualV1] = Field(default_factory=list)
     residuals: list[AliasPackageResidualV1]
     reconstructable_count: int
     residual_count: int
-    identity_derived_count: int = 0
     passed: bool
 
 
@@ -606,9 +603,7 @@ def prove_alias_assertion_package_v1(
 
     package_rows: list[AliasAssertionPackageRowV1] = []
     residuals: list[AliasPackageResidualV1] = []
-    identity_derived_rows: list[AliasPackageResidualV1] = []
     covered: list[str] = []
-    identity_derived_ids: list[str] = []
     used_dm_ids: dict[str, str] = {}
 
     for item in inventory:
@@ -675,15 +670,6 @@ def prove_alias_assertion_package_v1(
                 )
             )
         if uncovered:
-            if item_rows:
-                residuals.extend(uncovered)
-                continue
-            if uncovered and all(
-                row.reason_code == IDENTITY_DERIVED_REASON for row in uncovered
-            ):
-                identity_derived_rows.extend(uncovered)
-                identity_derived_ids.append(item.element_id)
-                continue
             residuals.extend(uncovered)
             continue
         for row in item_rows:
@@ -700,11 +686,7 @@ def prove_alias_assertion_package_v1(
 
     package_rows.sort(key=lambda row: (row.blocker_element_id, row.dungeonmind_assertion_id))
     residuals.sort(key=lambda row: (row.blocker_element_id, row.alias_value or "", row.reason_code))
-    identity_derived_rows.sort(
-        key=lambda row: (row.blocker_element_id, row.alias_value or "", row.reason_code)
-    )
-    disposed = set(covered) | set(identity_derived_ids)
-    passed = not residuals and disposed == set(blocker_ids) and bool(blocker_ids)
+    passed = not residuals and set(covered) == set(blocker_ids) and bool(blocker_ids)
     return AliasAssertionPackageConformanceV1(
         world_id=world_id,
         canonical_revision_id=canonical_revision_id,
@@ -713,11 +695,8 @@ def prove_alias_assertion_package_v1(
         alias_inventory=inventory,
         package_rows=package_rows,
         covered_blocker_element_ids=covered,
-        identity_derived_blocker_element_ids=identity_derived_ids,
-        identity_derived_rows=identity_derived_rows,
         residuals=residuals,
         reconstructable_count=len(package_rows),
         residual_count=len(residuals),
-        identity_derived_count=len(identity_derived_ids),
         passed=passed,
     )

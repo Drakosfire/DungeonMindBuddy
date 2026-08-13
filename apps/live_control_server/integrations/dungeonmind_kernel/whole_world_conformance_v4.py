@@ -181,10 +181,6 @@ _PROVEN_PACKAGED_ALIAS_NOTE = (
     "validated DungeonMind-compatible alias assertion reconstructed from "
     "revision-bound Buddy source authority"
 )
-_PROVEN_IDENTITY_DERIVED_ALIAS_NOTE = (
-    "identity-merge shadow alias; not an independent world assertion; "
-    "durable obligation remains IDENTITY_HISTORY"
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,7 +224,6 @@ class WholeWorldAliasPackagePolicy:
 
     policy_id: str
     proven_packaged_alias_element_ids: frozenset[str]
-    proven_identity_derived_alias_element_ids: frozenset[str]
     _token: object = dataclass_field(repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -242,7 +237,6 @@ class WholeWorldAliasPackagePolicy:
 LEGACY_ALIAS_PACKAGE_POLICY = WholeWorldAliasPackagePolicy(
     policy_id=LEGACY_ALIAS_PACKAGE_POLICY_ID,
     proven_packaged_alias_element_ids=frozenset(),
-    proven_identity_derived_alias_element_ids=frozenset(),
     _token=_ALIAS_PACKAGE_POLICY_TOKEN,
 )
 
@@ -281,13 +275,13 @@ def source_history_policy_from_identity_lifecycle_proof(
 
 
 def alias_package_policy_from_proof(proof: Any) -> WholeWorldAliasPackagePolicy:
-    """Admit proven alias-package and identity-derived alias element IDs.
+    """Admit proven reconstructable alias-package element IDs.
 
     Revalidates the proof. Does not accept an arbitrary durable-element set.
+    Identity-derived residuals remain STOPs; they cannot enter this policy.
     """
     from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_package_conformance_v1 import (
         ALIAS_ASSERTION_PACKAGE_SCHEMA,
-        IDENTITY_DERIVED_REASON,
     )
 
     schema = getattr(proof, "schema_", None)
@@ -300,27 +294,18 @@ def alias_package_policy_from_proof(proof: Any) -> WholeWorldAliasPackagePolicy:
         raise ValueError("alias-package proof still has unresolved residuals")
     blocker_ids = list(getattr(proof, "blocker_element_ids", []))
     covered = list(getattr(proof, "covered_blocker_element_ids", []))
-    identity_derived = list(getattr(proof, "identity_derived_blocker_element_ids", []))
     if not blocker_ids:
         raise ValueError("alias-package proof has no blocker element IDs")
-    if set(covered) | set(identity_derived) != set(blocker_ids):
-        raise ValueError("alias-package proof did not dispose the exact blocker set")
-    if set(covered) & set(identity_derived):
-        raise ValueError("alias-package proof overlapping covered and identity-derived IDs")
+    if set(covered) != set(blocker_ids):
+        raise ValueError("alias-package proof did not cover the exact blocker set")
     package_rows = list(getattr(proof, "package_rows", []))
     if not all(getattr(row, "reconstructable", False) for row in package_rows):
         raise ValueError("alias-package proof contains a non-reconstructable row")
     if set(covered) != {row.blocker_element_id for row in package_rows}:
         raise ValueError("alias-package covered IDs drifted from package rows")
-    history_rows = list(getattr(proof, "identity_derived_rows", []))
-    if not all(getattr(row, "reason_code", None) == IDENTITY_DERIVED_REASON for row in history_rows):
-        raise ValueError("alias-package identity-derived rows are not identity-history dispositions")
-    if set(identity_derived) != {row.blocker_element_id for row in history_rows}:
-        raise ValueError("alias-package identity-derived IDs drifted from history rows")
     return WholeWorldAliasPackagePolicy(
         policy_id=ALIAS_PACKAGE_POLICY_ID,
         proven_packaged_alias_element_ids=frozenset(covered),
-        proven_identity_derived_alias_element_ids=frozenset(identity_derived),
         _token=_ALIAS_PACKAGE_POLICY_TOKEN,
     )
 
@@ -344,23 +329,19 @@ def _classify_node_state_field_v4(
 def _contribution_history_classified_items(
     classified: list[ClassifiedElement],
     source_history_policy: WholeWorldSourceHistoryPolicy,
-    alias_package_policy: WholeWorldAliasPackagePolicy = LEGACY_ALIAS_PACKAGE_POLICY,
 ) -> list[ClassifiedElement]:
     """SOURCE_MIGRATION_HISTORY items that remain contribution/genesis history.
 
-    Proven identity-lifecycle shadow IDs and identity-derived alias IDs stay
-    classified as SOURCE_MIGRATION_HISTORY, but their durable obligation is
-    IDENTITY_HISTORY, not CONTRIBUTION_HISTORY.
+    Proven identity-lifecycle shadow IDs stay classified as
+    SOURCE_MIGRATION_HISTORY, but their durable obligation is IDENTITY_HISTORY,
+    not CONTRIBUTION_HISTORY.
     """
-    excluded = (
-        source_history_policy.proven_node_state_history_element_ids
-        | alias_package_policy.proven_identity_derived_alias_element_ids
-    )
+    proven = source_history_policy.proven_node_state_history_element_ids
     return [
         item
         for item in classified
         if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
-        and item.element_id not in excluded
+        and item.element_id not in proven
     ]
 
 
@@ -1465,12 +1446,6 @@ def _classify_node_aliases_field_v4(
             None,
             _PROVEN_PACKAGED_ALIAS_NOTE,
         )
-    if element_id in alias_package_policy.proven_identity_derived_alias_element_ids:
-        return (
-            SemanticClassification.SOURCE_MIGRATION_HISTORY,
-            None,
-            _PROVEN_IDENTITY_DERIVED_ALIAS_NOTE,
-        )
     aliases = _node_alias_strings(node)
     if not aliases:
         return (
@@ -2446,7 +2421,7 @@ def _analyze_loaded_buddy_world_store_v4(
         adjudication_domain=adjudication_domain,
     )
     history_items = _contribution_history_classified_items(
-        classified, source_history_policy, alias_package_policy
+        classified, source_history_policy
     )
     history_count = len(history_items)
     if history_count:
