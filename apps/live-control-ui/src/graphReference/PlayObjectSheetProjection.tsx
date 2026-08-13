@@ -13,6 +13,11 @@ import {
 import type { PlayObjectBody, PlayObjectKind } from "./ofConksPlayObjectBridge";
 import { playObjectBodyForNodeId } from "./ofConksPlayObjectBridge";
 import { mediaForOfConksNodeId } from "./ofConksNodeMedia";
+import { mapOverlayForMediaSrc } from "./ofConksMapOverlays";
+import {
+  openPinAsRelationship,
+  PlayMapOverlaySection,
+} from "./PlayMapOverlaySection";
 import type { GraphReferenceResolution } from "./types";
 
 export type PlayObjectSheetProjectionProps = {
@@ -96,6 +101,7 @@ export function PlayObjectSheetProjection({
   }
 
   const media = mediaForOfConksNodeId(resolution.graphNodeId);
+  const mapOverlay = mapOverlayForMediaSrc(media?.src);
   const titles = sectionTitles(body.kind);
   const typeBadge = graphObjectTypeBadgeLabel(model.kind, model.role);
   const aliases = model.aliases ?? [];
@@ -143,7 +149,19 @@ export function PlayObjectSheetProjection({
         ) : null}
       </header>
 
-      {media ? (
+      {media && mapOverlay ? (
+        <PlayMapOverlaySection
+          media={media}
+          overlay={mapOverlay}
+          activeNodeId={resolution.graphNodeId}
+          disabled={relationshipsDisabled}
+          onSelectPin={
+            onSelectRelationship
+              ? (pin) => openPinAsRelationship(pin, onSelectRelationship)
+              : undefined
+          }
+        />
+      ) : media ? (
         <figure className="play-object-sheet__media" data-testid="play-object-sheet-media">
           <img src={media.src} alt={media.alt} loading="lazy" />
           {media.caption ? <figcaption>{media.caption}</figcaption> : null}

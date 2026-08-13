@@ -50,11 +50,8 @@ describe("PlayObjectSheetProjection", () => {
     expect(screen.getByText(/Attitude/i)).toBeInTheDocument();
     expect(screen.getByText(/Offers & hooks/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Open Saladin/i })).toBeInTheDocument();
-    expect(screen.getByTestId("play-object-sheet-media")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /Map of Hempholm/i })).toHaveAttribute(
-      "src",
-      expect.stringContaining("map-hempholm.jpg"),
-    );
+    expect(screen.getByTestId("play-map-overlay")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open 1\. The Shacks/i })).toBeInTheDocument();
   });
 
   it("shouldRenderPlayObjectSheet is true only for bridged nodes", () => {
