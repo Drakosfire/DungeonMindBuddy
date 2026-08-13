@@ -27,7 +27,7 @@ Historical / research / proposal docs cannot direct implementation.
 ```
 
 Full governance: [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md).  
-Process template: [`Docs/Plans/JUMPSTART-docs-relevance-first.md`](../Plans/JUMPSTART-docs-relevance-first.md).
+Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md).
 
 ## Compact active source set
 
@@ -61,17 +61,18 @@ Upload or attach **these repository paths** (or regenerated equivalents) when re
 |---|---|---|
 | Corpus paths | [`../Anchors/CORPUS-ANCHOR.md`](../Anchors/CORPUS-ANCHOR.md) | Where Eldyrwild / Longmont markdown lives |
 
-### PROCESS_TEMPLATE
+### PROCESS_REFERENCE
 
 | Role | Document | Purpose |
 |---|---|---|
-| Slice steward jumpstart | [`../Plans/JUMPSTART-docs-relevance-first.md`](../Plans/JUMPSTART-docs-relevance-first.md) | Select / dispatch / review / re-anchor one slice |
-| PR handoff template | [`../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md) | Canonical checked-in handoff skeleton |
+| Steward cycle | [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md) | Select / decompose / allocate lanes / dispatch / review / re-anchor one slice |
+| PR handoff template | [`../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md) | Canonical checked-in one-slice payload skeleton |
 
 ### Explicitly historical / superseded (do not use as current authority)
 
 | Classification | Document | Replacement |
 |---|---|---|
+| SUPERSEDED process stub | [`../Plans/JUMPSTART-docs-relevance-first.md`](../Plans/JUMPSTART-docs-relevance-first.md) | `Docs/Process/STEWARD-CYCLE.md` |
 | SUPERSEDED stub | [`GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`](GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md) | Campaign Supergraph architecture + roadmap + tracker |
 | HISTORICAL archive body | [`../Archive/Architecture/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`](../Archive/Architecture/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md) | Same replacements; archive evidence only |
 | SUPERSEDED / HISTORICAL | [`dungeonbuddy_spec_architecture_v0_2.md`](dungeonbuddy_spec_architecture_v0_2.md) | `ARCHITECTURE-campaign-supergraph.md` (+ roadmap + tracker) |
@@ -82,18 +83,18 @@ The design-agent Sources pane listed these **basenames**. Exact content was not 
 
 | # | Project Source basename | Repo counterpart | Classification | Conflict / note |
 |---:|---|---|---|---|
-| 1 | `TEMPLATE-pr-handoff(1).md` | none found; use `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md` | **SOURCE_ONLY** → map to **PROCESS_TEMPLATE** | Download-style `(1)` name; not checked in under that basename |
+| 1 | `TEMPLATE-pr-handoff(1).md` | none found; use `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md` | **SOURCE_ONLY** → map to **PROCESS_REFERENCE** | Download-style `(1)` name; not checked in under that basename |
 | 2 | `README.md` | [`README.md`](../../README.md) | **ACTIVE_REFERENCE** | Exact repository root path; product overview only, not architecture or sequencing authority |
 | 3 | `GRAPH-MEMORY-PROJECT-LAYOUT.md` | [`Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md`](GRAPH-MEMORY-PROJECT-LAYOUT.md) | **ACTIVE_REFERENCE** | MATCH |
 | 4 | `ARCHITECTURE-plan-surface-toolbox.md` | [`Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md) | **ACTIVE_REFERENCE** | MATCH — Plan composition only; UI chrome → surface-interaction architecture |
 | 5 | `GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | [`Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`](GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md) | **SUPERSEDED** | MATCH stub; must not direct sequencing |
 | 6 | `archived-full-GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | none under that name; body at [`Docs/Archive/Architecture/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`](../Archive/Architecture/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md) | **SOURCE_ONLY** name → **HISTORICAL** counterpart | Prefer Design stub + Archive path; do not treat archive body as current |
 | 7 | `dungeonbuddy_spec_architecture_v0_2.md` | [`Docs/Design/dungeonbuddy_spec_architecture_v0_2.md`](dungeonbuddy_spec_architecture_v0_2.md) | **SUPERSEDED** / **HISTORICAL** | MATCH with banner; conceptual ancestor only |
-| 8 | `PROPOSAL-context-audit-source-reanchor.md` | **not found** under DungeonOverMind | **SOURCE_ONLY** / **PROPOSAL** | Do not recreate; absorbed intent lives in this audit + jumpstart |
+| 8 | `PROPOSAL-context-audit-source-reanchor.md` | **not found** under DungeonOverMind | **SOURCE_ONLY** / **PROPOSAL** | Do not recreate; absorbed intent lives in this audit + Steward Cycle |
 | 9 | `source-reconciliation-report(2).md` | **not found** under DungeonOverMind | **SOURCE_ONLY** | Local/operator report; not repository authority |
 | 10 | `LLM-graph-construction.md` | **not found** under DungeonOverMind | **SOURCE_ONLY** / **RESEARCH_ONLY** | Extraction/eval patterns only if attached; never roadmap |
 | 11 | `CORPUS-ANCHOR.md` | [`Docs/Anchors/CORPUS-ANCHOR.md`](../Anchors/CORPUS-ANCHOR.md) | **SOURCE_ANCHOR** | MATCH |
-| 12 | `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **not found**; nearest process docs are Jumpstart + this manifest | **SOURCE_ONLY** → map to **PROCESS_TEMPLATE** counterparts | Prefer Jumpstart + this INDEX over recreating the missing template |
+| 12 | `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **not found**; nearest process docs are Steward Cycle + this manifest | **SOURCE_ONLY** → map to **PROCESS_REFERENCE** counterparts | Prefer Steward Cycle + this INDEX over recreating the missing template |
 
 ### Unresolved source-only items
 
@@ -112,7 +113,7 @@ These basenames remain **outside the GitHub tree**. Agents must not invent conte
 1. Operator-approved ACTIVE AUTHORITY documents on the current main tip
 2. PR tracker for Campaign Supergraph sequencing (never overridden by Project Sources)
 3. ACTIVE REFERENCE / KEEP contracts for domain context
-4. PROCESS templates (Jumpstart, HANDOFF.template, this INDEX)
+4. PROCESS references (Steward Cycle, HANDOFF.template, this INDEX)
 5. SOURCE_ANCHOR path indexes
 6. Historical / superseded docs (evidence only)
 7. Attached Project Sources and chat summaries
@@ -141,7 +142,7 @@ Do **not** put these in the design-agent active source set as architecture or se
 - Stale or completed handoffs that still say ACTIVE / IN FLIGHT without merged banners
 - Archived evidence under `Docs/Archive/`, `Docs/**/archive/`, and historical dogfood reports (except when researching a named past decision)
 - Runtime TypeScript/Python sources used as if they were normative design authority
-- Competing PR sequences invented in Project Sources, jumpstarts, or chat
+- Competing PR sequences invented in Project Sources, process references, or chat
 
 ## Related indexes
 
