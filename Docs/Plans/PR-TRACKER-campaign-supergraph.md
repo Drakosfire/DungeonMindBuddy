@@ -111,7 +111,7 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Verify and merge `cutover-identity-lifecycle-history-after-571` against PR #571 fixture SHA `a666a2bc…`, identity-lifecycle proof of the exact 28 shadow IDs, and successor fixture SHA `a6738d27…`.
+1. Verify and merge `cutover-identity-lifecycle-history-after-571` against PR #571 fixture SHA `a666a2bc…`, identity-lifecycle proof of the exact 28 shadow IDs, and successor fixture SHA `1a2cd8f9…`.
 2. Use its refreshed migration blocker ledger to dispatch exactly one bounded successor. Current ledger-derived recommendation is **Case C**: DungeonMindBuddy resolve singular `EVIDENCE_PROVENANCE` package-construction blockers (count 8). Do **not** dispatch Case B adoption-seam work while any package-construction blockers remain (including the five dual-sense cross-repository `RELATIONSHIP_PREDICATE` STOPs).
 3. Keep the five dual-sense STOP edges as migration decisions; do not reopen broad Buddy relationship cleanup.
 4. Do not schedule DungeonMind product-authority cutover until whole-world adoption and the public existing-world adoption seam are proven.
@@ -127,7 +127,7 @@ The following remain true after PR #566, PR #568, DungeonMind PR #30, and the CU
 - Canonical effective conformance is pinned to `rev:5a7c13ae45c49a65b402920499be72ed` (`323 / 314 / 9 / 3`) with exact payload SHA `2632870e…`; the approved migration projection is non-publishing (`323 / 318 / 5 / 3`).
 - PR #566 is verified against locked manifest SHA `96cc26fc…`; four kind-only paths are approved for in-memory projection and five dual-sense edges remain explicit STOP decisions.
 - Historical #568 fixture SHA `6c978f89…` still reproduces under explicit world-object-v4 / world-property-v2 loaders.
-- Post-PR30 re-pin (#571) clears `WORLD_OBJECT_KIND`; identity-lifecycle successor clears `ATTRIBUTE_ASSERTION` 28→0 by classifying proven merge-shadow fields as `SOURCE_MIGRATION_HISTORY`; `IDENTITY_HISTORY` remains 14; disposition remains `CUTOVER_NOT_READY`.
+- Post-PR30 re-pin (#571) clears `WORLD_OBJECT_KIND`; identity-lifecycle successor clears `ATTRIBUTE_ASSERTION` 28→0 by classifying proven merge-shadow fields as `SOURCE_MIGRATION_HISTORY`; `IDENTITY_HISTORY` remains 14; `CONTRIBUTION_HISTORY` remains 5285; disposition remains `CUTOVER_NOT_READY`.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.

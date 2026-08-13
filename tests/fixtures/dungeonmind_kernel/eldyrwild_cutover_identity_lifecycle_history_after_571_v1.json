@@ -24,15 +24,6 @@
           "successor_count": null,
           "successor_owner": null,
           "successor_stage": null
-        },
-        {
-          "blocker_class": "CONTRIBUTION_HISTORY",
-          "predecessor_count": 5285,
-          "predecessor_owner": "DungeonMind",
-          "predecessor_stage": "durable_adoption",
-          "successor_count": 5313,
-          "successor_owner": "DungeonMind",
-          "successor_stage": "durable_adoption"
         }
       ]
     },
@@ -49,15 +40,6 @@
           "successor_count": null,
           "successor_owner": null,
           "successor_stage": null
-        },
-        {
-          "blocker_class": "CONTRIBUTION_HISTORY",
-          "predecessor_count": 5285,
-          "predecessor_owner": "DungeonMind",
-          "predecessor_stage": "durable_adoption",
-          "successor_count": 5313,
-          "successor_owner": "DungeonMind",
-          "successor_stage": "durable_adoption"
         }
       ]
     }
@@ -70,7 +52,7 @@
       {
         "blocker_class": "CONTRIBUTION_HISTORY",
         "blocking_stage": "durable_adoption",
-        "count": 5313,
+        "count": 5285,
         "examples": [
           "node:combat_glowkindle_rat_fight:state:approval_state",
           "node:combat_glowkindle_rat_fight:state:identity_canon_state",
@@ -670,7 +652,7 @@
       "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
     ],
     "unaccounted_durable_elements": 0,
-    "whole_world_report_digest": "2ff8ae73db89d210b0024dc47713c321cb15ee30a194813de51fdeec4eedb7da"
+    "whole_world_report_digest": "8f635ef5c01c86dfe1a43881ee61d1c7eb03164cdf8a8adb174a047e3dbdb545"
   },
   "classification_delta": {
     "count": 28,
@@ -1731,6 +1713,7 @@
     "legacy_source_history_policy_preserved",
     "attribute_assertion_cleared_without_source_mutation",
     "identity_history_preserved",
+    "contribution_history_excludes_identity_lifecycle_shadow",
     "next_slice_derived_from_normalized_blocker_stages"
   ],
   "dungeonmind_contract_pins": {
@@ -2245,7 +2228,7 @@
       {
         "blocker_class": "CONTRIBUTION_HISTORY",
         "blocking_stage": "durable_adoption",
-        "count": 5313,
+        "count": 5285,
         "examples": [
           "node:combat_glowkindle_rat_fight:state:approval_state",
           "node:combat_glowkindle_rat_fight:state:identity_canon_state",
@@ -2834,7 +2817,7 @@
       "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
     ],
     "unaccounted_durable_elements": 0,
-    "whole_world_report_digest": "416f3e1553290afe20325c2bc3b98213b47ed4683c24a4e1f1951cdeab13a428"
+    "whole_world_report_digest": "b209667fc0d1e4de271bfa23c0dcfd6b780cd08a9cf48ecbf3bd56cadb37d3ca"
   },
   "mutation_proof": {
     "graph_tree_digest": {

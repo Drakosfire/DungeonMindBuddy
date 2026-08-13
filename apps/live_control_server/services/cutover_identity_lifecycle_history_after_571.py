@@ -98,11 +98,12 @@ FIXTURE_RELPATH = (
 )
 # Empty until first seal; nonempty enforces exact match thereafter.
 LOCKED_FIXTURE_SHA256 = (
-    "a6738d2711a1318b9cebb2361e582e13c2598a2c0cae271d441bbe688add3b23"
+    "1a2cd8f9c47b223d4623fccbe1c988dd8d3eb1c8796078a32a32720f51ef000b"
 )
 
 EXPECTED_ATTRIBUTE_ASSERTION_COUNT = 28
 EXPECTED_IDENTITY_HISTORY_COUNT = 14
+EXPECTED_CONTRIBUTION_HISTORY_COUNT = 5285
 EXPECTED_EVIDENCE_PROVENANCE_COUNT = 8
 EXPECTED_FIELD_COUNTS = dict(EXPECTED_ELDRYWILD_FIELD_COUNTS)
 
@@ -688,6 +689,30 @@ def _compose_report(
             "IDENTITY_HISTORY blocking_stage drifted",
             "identity_history_weakened",
         )
+    for view_name, blockers, previous in (
+        ("canonical", canonical_blockers, predecessor_canonical_blockers),
+        ("migration", migration_blockers, predecessor_migration_blockers),
+    ):
+        contribution_row = _blocker_row(blockers, BlockerClass.CONTRIBUTION_HISTORY.value)
+        predecessor_contribution = _blocker_row(
+            previous, BlockerClass.CONTRIBUTION_HISTORY.value
+        )
+        if contribution_row is None or predecessor_contribution is None:
+            raise _fail(
+                f"{view_name} CONTRIBUTION_HISTORY missing after identity-lifecycle reclassification",
+                "contribution_history_identity_shadow_leak",
+            )
+        if contribution_row["count"] != predecessor_contribution["count"]:
+            raise _fail(
+                f"{view_name} CONTRIBUTION_HISTORY absorbed identity-lifecycle shadow "
+                f"({predecessor_contribution['count']} -> {contribution_row['count']})",
+                "contribution_history_identity_shadow_leak",
+            )
+        if contribution_row["count"] != EXPECTED_CONTRIBUTION_HISTORY_COUNT:
+            raise _fail(
+                f"{view_name} CONTRIBUTION_HISTORY count drifted",
+                "contribution_history_identity_shadow_leak",
+            )
     evidence_count = _blocker_count(
         migration_blockers, BlockerClass.EVIDENCE_PROVENANCE.value
     )
@@ -818,6 +843,7 @@ def _compose_report(
         "legacy_source_history_policy_preserved",
         "attribute_assertion_cleared_without_source_mutation",
         "identity_history_preserved",
+        "contribution_history_excludes_identity_lifecycle_shadow",
         "next_slice_derived_from_normalized_blocker_stages",
     ]
     report = CutoverIdentityLifecycleHistoryAfter571ReportV1(
@@ -887,6 +913,26 @@ def _assert_report_invariants(
         identity = _blocker_row(view["blockers"], BlockerClass.IDENTITY_HISTORY.value)
         if identity is None or identity["count"] != EXPECTED_IDENTITY_HISTORY_COUNT:
             raise _fail(f"{view_name} IDENTITY_HISTORY drifted", "identity_history_weakened")
+        contribution = _blocker_row(view["blockers"], BlockerClass.CONTRIBUTION_HISTORY.value)
+        if contribution is None or contribution["count"] != EXPECTED_CONTRIBUTION_HISTORY_COUNT:
+            raise _fail(
+                f"{view_name} CONTRIBUTION_HISTORY drifted",
+                "contribution_history_identity_shadow_leak",
+            )
+    for delta_view in ("canonical", "migration"):
+        changed = {
+            row["blocker_class"] for row in report.blocker_delta[delta_view]["rows"]
+        }
+        if BlockerClass.CONTRIBUTION_HISTORY.value in changed:
+            raise _fail(
+                f"{delta_view} blocker_delta recorded CONTRIBUTION_HISTORY change",
+                "contribution_history_identity_shadow_leak",
+            )
+        if BlockerClass.IDENTITY_HISTORY.value in changed:
+            raise _fail(
+                f"{delta_view} blocker_delta recorded IDENTITY_HISTORY change",
+                "identity_history_weakened",
+            )
     if report.relationship_invariants["migration"]["residual_edge_ids"] != sorted(
         MIGRATION_RESIDUAL_EDGE_IDS
     ):

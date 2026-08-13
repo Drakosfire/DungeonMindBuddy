@@ -255,6 +255,44 @@ def _classify_node_state_field_v4(
     return _classify_state_field_v4(field, value)
 
 
+def _contribution_history_classified_items(
+    classified: list[ClassifiedElement],
+    source_history_policy: WholeWorldSourceHistoryPolicy,
+) -> list[ClassifiedElement]:
+    """SOURCE_MIGRATION_HISTORY items that remain contribution/genesis history.
+
+    Proven identity-lifecycle shadow IDs stay classified as
+    SOURCE_MIGRATION_HISTORY, but their durable obligation is IDENTITY_HISTORY,
+    not CONTRIBUTION_HISTORY.
+    """
+    proven = source_history_policy.proven_node_state_history_element_ids
+    return [
+        item
+        for item in classified
+        if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+        and item.element_id not in proven
+    ]
+
+
+def _contribution_history_classified_items(
+    classified: list[ClassifiedElement],
+    source_history_policy: WholeWorldSourceHistoryPolicy,
+) -> list[ClassifiedElement]:
+    """SOURCE_MIGRATION_HISTORY items that remain contribution/genesis history.
+
+    Proven identity-lifecycle shadow IDs stay classified as
+    SOURCE_MIGRATION_HISTORY, but their durable obligation is IDENTITY_HISTORY,
+    not CONTRIBUTION_HISTORY.
+    """
+    proven = source_history_policy.proven_node_state_history_element_ids
+    return [
+        item
+        for item in classified
+        if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+        and item.element_id not in proven
+    ]
+
+
 CURRENT_V5_TARGET = WholeWorldTargetContract(
     target_id="current_v5",
     dungeonmind_dependency_ref=_DUNGEONMIND_DEPENDENCY_REF_V5,
@@ -2314,21 +2352,16 @@ def _analyze_loaded_buddy_world_store_v4(
         unadjudicated=unadjudicated_residual_count,
         adjudication_domain=adjudication_domain,
     )
-    history_count = sum(
-        1
-        for item in classified
-        if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+    history_items = _contribution_history_classified_items(
+        classified, source_history_policy
     )
+    history_count = len(history_items)
     if history_count:
         blockers.append(
             AdoptionBlocker(
                 blocker_class=BlockerClass.CONTRIBUTION_HISTORY,
                 count=history_count,
-                examples=[
-                    item.element_id
-                    for item in classified
-                    if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
-                ][:_REPRESENTATIVE_ID_LIMIT],
+                examples=[item.element_id for item in history_items][:_REPRESENTATIVE_ID_LIMIT],
                 responsible_repo="DungeonMind",
                 smallest_next_change=(
                     "Decide genesis policy A/B/C and add a durable adoption seam that "

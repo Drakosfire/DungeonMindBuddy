@@ -10,9 +10,14 @@ from apps.live_control_server.integrations.dungeonmind_kernel.identity_lifecycle
     IdentityLifecycleHistoryConformanceError,
     prove_identity_lifecycle_history_v1,
 )
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    ClassifiedElement,
+    SemanticClassification,
+)
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
     LEGACY_SOURCE_HISTORY_POLICY,
     WholeWorldSourceHistoryPolicy,
+    _contribution_history_classified_items,
     source_history_policy_from_identity_lifecycle_proof,
 )
 from graph_memory.kernel.identity_models import IdentityDecisionRecord
@@ -233,3 +238,40 @@ def test_policy_factory_accepts_passed_proof() -> None:
     policy = source_history_policy_from_identity_lifecycle_proof(proof)
     assert policy.policy_id == "identity_lifecycle_history_v1"
     assert policy.proven_node_state_history_element_ids == frozenset(proof.element_ids)
+
+
+def _history_element(element_id: str) -> ClassifiedElement:
+    return ClassifiedElement(
+        element_id=element_id,
+        element_family="node_state",
+        classification=SemanticClassification.SOURCE_MIGRATION_HISTORY,
+        blocker_class=None,
+        note="test",
+    )
+
+
+def test_contribution_history_excludes_proven_identity_shadow_ids() -> None:
+    proof = _prove(_store())
+    policy = source_history_policy_from_identity_lifecycle_proof(proof)
+    contribution = _history_element("node:x:state:approval_state")
+    identity_shadow = _history_element(proof.element_ids[0])
+    unrelated = ClassifiedElement(
+        element_id="node:x:field:kind",
+        element_family="node_field",
+        classification=SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER,
+        blocker_class=None,
+        note="test",
+    )
+    items = _contribution_history_classified_items(
+        [contribution, identity_shadow, unrelated],
+        policy,
+    )
+    assert [item.element_id for item in items] == [contribution.element_id]
+    legacy_items = _contribution_history_classified_items(
+        [contribution, identity_shadow],
+        LEGACY_SOURCE_HISTORY_POLICY,
+    )
+    assert {item.element_id for item in legacy_items} == {
+        contribution.element_id,
+        identity_shadow.element_id,
+    }

@@ -31,6 +31,7 @@ from apps.live_control_server.services.cutover_identity_lifecycle_history_after_
     CANONICAL_REVISION_ID,
     DUNGEONMIND_DEPENDENCY_REF,
     EXPECTED_ATTRIBUTE_ASSERTION_COUNT,
+    EXPECTED_CONTRIBUTION_HISTORY_COUNT,
     EXPECTED_EVIDENCE_PROVENANCE_COUNT,
     EXPECTED_FIELD_COUNTS,
     EXPECTED_IDENTITY_HISTORY_COUNT,
@@ -232,6 +233,26 @@ def test_t20_identity_history_remains_exact(report: Any) -> None:
         assert row["count"] == EXPECTED_IDENTITY_HISTORY_COUNT
         assert row["blocking_stage"] == "durable_adoption"
         assert "identity migration replay" in row["smallest_next_change"]
+
+
+def test_contribution_history_stays_separate_from_identity_history(report: Any) -> None:
+    for view_name in ("canonical_view", "migration_projection"):
+        blockers = getattr(report, view_name)["blockers"]
+        contribution = _blocker(blockers, BlockerClass.CONTRIBUTION_HISTORY.value)
+        identity = _blocker(blockers, BlockerClass.IDENTITY_HISTORY.value)
+        assert contribution is not None
+        assert contribution["count"] == EXPECTED_CONTRIBUTION_HISTORY_COUNT
+        assert contribution["count"] == 5285
+        assert identity is not None
+        assert identity["count"] == EXPECTED_IDENTITY_HISTORY_COUNT
+        assert identity["count"] == 14
+        assert contribution["blocking_stage"] == "durable_adoption"
+        assert identity["blocking_stage"] == "durable_adoption"
+    for view in ("canonical", "migration"):
+        changed = {row["blocker_class"] for row in report.blocker_delta[view]["rows"]}
+        assert BlockerClass.CONTRIBUTION_HISTORY.value not in changed
+        assert BlockerClass.IDENTITY_HISTORY.value not in changed
+        assert changed == {BlockerClass.ATTRIBUTE_ASSERTION.value}
 
 
 def test_t21_evidence_provenance_unchanged(report: Any) -> None:
