@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import subprocess
 from typing import Any
 
@@ -24,16 +23,18 @@ from apps.live_control_server.services.cutover_alias_assertion_package_after_575
     EXPECTED_CONTRIBUTION_HISTORY_COUNT,
     EXPECTED_EVIDENCE_PROVENANCE_COUNT,
     EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT,
+    EXPECTED_IDENTITY_DERIVED_ALIAS_IDS,
     EXPECTED_IDENTITY_HISTORY_COUNT,
     EXPECTED_PACKAGED_ALIAS_COUNT,
+    EXPECTED_PACKAGED_ALIAS_IDS,
     FIXTURE_RELPATH,
-    LOCKED_FIXTURE_SHA256,
     PREDECESSOR_FIXTURE_RELPATH,
     PREDECESSOR_FIXTURE_SHA256,
     CutoverAliasAssertionPackageAfter575Error,
     _compose_report,
     build_alias_classification_delta,
     get_cutover_alias_assertion_package_after_575_status,
+    verify_cutover_alias_assertion_package_after_575,
 )
 from apps.live_control_server.services.cutover_identity_lifecycle_history_after_571 import (
     verify_cutover_identity_lifecycle_history_after_571,
@@ -133,43 +134,36 @@ def test_status_eligible() -> None:
 
 def test_exact_eight_alias_blockers(report: Any) -> None:
     proof = report.alias_assertion_proof
-    assert proof["passed"] is True
+    assert proof["passed"] is False
     assert len(proof["blocker_element_ids"]) == EXPECTED_EVIDENCE_PROVENANCE_COUNT
+    assert set(proof["covered_blocker_element_ids"]) == EXPECTED_PACKAGED_ALIAS_IDS
     assert len(proof["covered_blocker_element_ids"]) == EXPECTED_PACKAGED_ALIAS_COUNT
-    assert len(proof["identity_derived_blocker_element_ids"]) == EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT
-    assert proof["residual_count"] == 0
+    residual_ids = {row["blocker_element_id"] for row in proof["residuals"]}
+    assert residual_ids == EXPECTED_IDENTITY_DERIVED_ALIAS_IDS
+    assert len(residual_ids) == EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT
+    assert {row["reason_code"] for row in proof["residuals"]} == {
+        "identity_derived_alias_requires_identity_replay"
+    }
     assert set(proof["covered_blocker_element_ids"]) == {
         "node:node:captain-lysandra-ironveil:field:aliases",
         "node:node:thrin-branchborn:field:aliases",
     }
 
 
-def test_classification_delta_is_lossless_eight(report: Any) -> None:
+def test_classification_delta_is_empty(report: Any) -> None:
     delta = report.classification_delta
     assert delta["lossless"] is True
-    assert delta["count"] == 8
-    assert delta["packaged_count"] == 2
-    assert delta["identity_derived_count"] == 6
-    packaged = set(report.alias_assertion_proof["covered_blocker_element_ids"])
-    history = set(report.alias_assertion_proof["identity_derived_blocker_element_ids"])
-    for row in delta["transitions"]:
-        previous = row["previous"]
-        current = row["current"]
-        assert previous["classification"] == SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP.value
-        assert previous["blocker_class"] == BlockerClass.EVIDENCE_PROVENANCE.value
-        assert current["blocker_class"] is None
-        if row["element_id"] in packaged:
-            assert current["classification"] == SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER.value
-        elif row["element_id"] in history:
-            assert current["classification"] == SemanticClassification.SOURCE_MIGRATION_HISTORY.value
-        else:
-            raise AssertionError(row["element_id"])
+    assert delta["count"] == 0
+    assert delta["transitions"] == []
+    assert delta["identity_derived_count"] == EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT
 
 
-def test_evidence_provenance_clears(report: Any) -> None:
+def test_evidence_provenance_remains(report: Any) -> None:
     for view_name in ("canonical_view", "migration_projection"):
         blockers = getattr(report, view_name)["blockers"]
-        assert _blocker(blockers, BlockerClass.EVIDENCE_PROVENANCE.value) is None
+        evidence = _blocker(blockers, BlockerClass.EVIDENCE_PROVENANCE.value)
+        assert evidence is not None
+        assert evidence["count"] == EXPECTED_EVIDENCE_PROVENANCE_COUNT
         assert _blocker(blockers, BlockerClass.ATTRIBUTE_ASSERTION.value) is None
 
 
@@ -184,7 +178,7 @@ def test_history_counts_stay_separate(report: Any) -> None:
         assert identity["count"] == EXPECTED_IDENTITY_HISTORY_COUNT
     for view in ("canonical", "migration"):
         changed = {row["blocker_class"] for row in report.blocker_delta[view]["rows"]}
-        assert changed == {BlockerClass.EVIDENCE_PROVENANCE.value}
+        assert BlockerClass.EVIDENCE_PROVENANCE.value not in changed
 
 
 def test_relationships_unchanged(report: Any) -> None:
@@ -205,8 +199,6 @@ def test_no_mutation(report: Any) -> None:
 
 
 def test_compensating_classification_change_fails() -> None:
-    packaged = {"node:a:field:aliases"}
-    history = {"node:b:field:aliases"}
     previous = [
         _element(
             "node:a:field:aliases",
@@ -217,11 +209,6 @@ def test_compensating_classification_change_fails() -> None:
             "node:b:field:aliases",
             classification=SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP,
             blocker_class=BlockerClass.EVIDENCE_PROVENANCE,
-        ),
-        _element(
-            "node:unrelated:field:kind",
-            classification=SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER,
-            blocker_class=None,
         ),
     ]
     current = [
@@ -235,27 +222,22 @@ def test_compensating_classification_change_fails() -> None:
             classification=SemanticClassification.SOURCE_MIGRATION_HISTORY,
             blocker_class=None,
         ),
-        _element(
-            "node:unrelated:field:kind",
-            classification=SemanticClassification.SOURCE_MIGRATION_HISTORY,
-            blocker_class=None,
-        ),
     ]
     with pytest.raises(CutoverAliasAssertionPackageAfter575Error) as exc:
         build_alias_classification_delta(
             view="canonical",
             previous_elements=previous,
             current_elements=current,
-            packaged_ids=packaged,
-            identity_derived_ids=history,
         )
     assert exc.value.code == "classification_delta_mismatch"
 
 
-def test_sealed_fixture_digest() -> None:
-    digest = hashlib.sha256(FIXTURE_PATH.read_bytes()).hexdigest()
-    assert digest == LOCKED_FIXTURE_SHA256
-    stored = json.loads(FIXTURE_PATH.read_bytes())
-    assert stored["schema"] == "dmb_cutover_alias_assertion_package_after_575_v1"
-    assert stored["cutover_disposition"] == "CUTOVER_NOT_READY"
-    assert stored["classification_delta"]["count"] == 8
+def test_partial_package_is_not_sealed() -> None:
+    assert not FIXTURE_PATH.is_file()
+
+
+def test_residual_stop_verifies_without_fixture(report: Any) -> None:
+    del report
+    result = verify_cutover_alias_assertion_package_after_575(root=ROOT, repo=REPO)
+    assert result.verified is True
+    assert "residual_stop_verified" in result.diagnostics

@@ -1,15 +1,14 @@
-"""CUTOVER successor: package proven aliases and classify identity-derived aliases as history.
+"""CUTOVER successor: reconstruct source-grounded aliases and STOP on identity-derived residuals.
 
 Non-publishing measurement after PR #575 / dispatch base PR #576. Packages the two
-current-node source-grounded alias blockers and classifies the six identity-merge
-shadow aliases as SOURCE_MIGRATION_HISTORY without mutating graph truth.
+current-node source-grounded alias blockers as diagnostic rows. The six
+identity-merge shadow aliases remain EVIDENCE_PROVENANCE residuals. This slice
+does not seal a partial 8→N package or reclassify those residuals as history.
 """
 
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
@@ -24,6 +23,7 @@ from apps.live_control_server.integrations.dungeonmind_kernel import (
     whole_world_conformance_v5 as whole_world_v5,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_package_conformance_v1 import (
+    IDENTITY_DERIVED_REASON,
     AliasAssertionPackageConformanceError,
     prove_alias_assertion_package_v1,
 )
@@ -38,13 +38,11 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_effec
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
     BlockerClass,
     DurableAdoptionSeamStatusReport,
-    SemanticClassification,
     enumerate_durable_element_ids,
     snapshot_world_graph_tree_digest,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
     CURRENT_V5_TARGET,
-    alias_package_policy_from_proof,
     source_history_policy_from_identity_lifecycle_proof,
 )
 from apps.live_control_server.services import (
@@ -67,7 +65,6 @@ from apps.live_control_server.services.cutover_whole_world_reanchor import (
     EXPECTED_MIGRATION_RELATIONSHIP_INVENTORY,
     MIGRATION_NEWLY_REPRESENTED_EDGE_IDS,
     MIGRATION_RESIDUAL_EDGE_IDS,
-    _json_bytes,
     _next_slice_recommendation,
     _normalized_blockers_for_view,
     _projection_diff,
@@ -105,13 +102,26 @@ FIXTURE_RELPATH = (
     "tests/fixtures/dungeonmind_kernel/"
     "eldyrwild_cutover_alias_assertion_package_after_575_v1.json"
 )
-LOCKED_FIXTURE_SHA256 = (
-    "13955c14352fc35d9895d06697c7e6fb931819d95534488c8e69f20335479f52"
-)
 
 EXPECTED_EVIDENCE_PROVENANCE_COUNT = 8
 EXPECTED_PACKAGED_ALIAS_COUNT = 2
 EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT = 6
+EXPECTED_PACKAGED_ALIAS_IDS = frozenset(
+    {
+        "node:node:captain-lysandra-ironveil:field:aliases",
+        "node:node:thrin-branchborn:field:aliases",
+    }
+)
+EXPECTED_IDENTITY_DERIVED_ALIAS_IDS = frozenset(
+    {
+        "node:item_foot_of_statue:field:aliases",
+        "node:loc:chilled_warehouse:field:aliases",
+        "node:loc:crooked-retort:field:aliases",
+        "node:loc:the-council:field:aliases",
+        "node:loc:underground-entrance:field:aliases",
+        "node:obj:session9:scroll_abyssal:field:aliases",
+    }
+)
 EXPECTED_FIELD_COUNTS = dict(EXPECTED_ELDRYWILD_FIELD_COUNTS)
 
 CutoverDisposition = Literal["CUTOVER_READY", "CUTOVER_NOT_READY"]
@@ -256,8 +266,6 @@ def build_alias_classification_delta(
     view: str,
     previous_elements: list[Any],
     current_elements: list[Any],
-    packaged_ids: set[str],
-    identity_derived_ids: set[str],
 ) -> dict[str, Any]:
     previous_index = _classified_index(previous_elements)
     current_index = _classified_index(current_elements)
@@ -268,71 +276,21 @@ def build_alias_classification_delta(
             f"{view} classified element id set drifted (missing={missing[:5]}, added={added[:5]})",
             "classified_element_id_set_drift",
         )
-    expected_ids = packaged_ids | identity_derived_ids
     transitions: list[dict[str, Any]] = []
     for element_id in sorted(previous_index):
         previous = previous_index[element_id]
         current = current_index[element_id]
         if _semantic_key(previous) == _semantic_key(current):
             continue
-        if element_id in packaged_ids:
-            explanation = "reconstructable current-node alias assertion package row"
-            expected_classification = SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER.value
-        elif element_id in identity_derived_ids:
-            explanation = "identity-merge shadow alias; not an independent world assertion"
-            expected_classification = SemanticClassification.SOURCE_MIGRATION_HISTORY.value
-        else:
-            raise _fail(
-                f"{view} unexpected classified-element transition {element_id}",
-                "classification_delta_mismatch",
-            )
-        if previous["classification"] != SemanticClassification.DUNGEONMIND_DURABILITY_CONTRACT_GAP.value:
-            raise _fail(
-                f"{view} {element_id} previous classification is not durability gap",
-                "classification_delta_mismatch",
-            )
-        if previous["blocker_class"] != BlockerClass.EVIDENCE_PROVENANCE.value:
-            raise _fail(
-                f"{view} {element_id} previous blocker is not EVIDENCE_PROVENANCE",
-                "classification_delta_mismatch",
-            )
-        if current["classification"] != expected_classification:
-            raise _fail(
-                f"{view} {element_id} current classification is not {expected_classification}",
-                "classification_delta_mismatch",
-            )
-        if current["blocker_class"] is not None:
-            raise _fail(
-                f"{view} {element_id} current still carries a blocker",
-                "classification_delta_mismatch",
-            )
-        transitions.append(
-            {
-                "view": view,
-                "element_id": element_id,
-                "element_family": current["element_family"],
-                "previous": previous,
-                "current": current,
-                "explanation": explanation,
-            }
-        )
-    observed = {row["element_id"] for row in transitions}
-    if observed != expected_ids:
         raise _fail(
-            f"{view} classification transitions {sorted(observed)} != proof {sorted(expected_ids)}",
-            "classification_delta_mismatch",
-        )
-    if len(transitions) != EXPECTED_EVIDENCE_PROVENANCE_COUNT:
-        raise _fail(
-            f"{view} classification transition count {len(transitions)} != "
-            f"{EXPECTED_EVIDENCE_PROVENANCE_COUNT}",
+            f"{view} unexpected classified-element transition {element_id}",
             "classification_delta_mismatch",
         )
     return {
-        "count": len(transitions),
-        "packaged_count": len(packaged_ids),
-        "identity_derived_count": len(identity_derived_ids),
-        "element_ids": [row["element_id"] for row in transitions],
+        "count": 0,
+        "packaged_count": 0,
+        "identity_derived_count": EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT,
+        "element_ids": [],
         "transitions": transitions,
         "lossless": True,
     }
@@ -411,24 +369,31 @@ def _compose_report(
         )
     except AliasAssertionPackageConformanceError as exc:
         raise _fail(str(exc), exc.code) from exc
-    if not proof.passed:
+    if proof.passed or proof.residual_count == 0:
         raise _fail(
-            f"alias-package proof unresolved: {[row.reason_code for row in proof.residuals]}",
-            "alias_package_proof_failed",
+            "alias-package proof cannot pass while identity-derived residuals remain STOPs",
+            "identity_derived_alias_requires_identity_replay",
         )
     if set(proof.blocker_element_ids) != set(evidence_ids):
         raise _fail(
             "alias-package blocker IDs drifted from EVIDENCE_PROVENANCE inventory",
             "alias_blocker_set_mismatch",
         )
-    if len(proof.covered_blocker_element_ids) != EXPECTED_PACKAGED_ALIAS_COUNT:
-        raise _fail("packaged alias count drifted", "alias_package_proof_failed")
-    if len(proof.identity_derived_blocker_element_ids) != EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT:
+    if set(proof.covered_blocker_element_ids) != EXPECTED_PACKAGED_ALIAS_IDS:
+        raise _fail("packaged alias IDs drifted", "alias_package_proof_failed")
+    residual_ids = {row.blocker_element_id for row in proof.residuals}
+    if residual_ids != EXPECTED_IDENTITY_DERIVED_ALIAS_IDS:
+        raise _fail(
+            f"identity-derived residual IDs drifted: {sorted(residual_ids)}",
+            "identity_derived_alias_requires_identity_replay",
+        )
+    if any(row.reason_code != IDENTITY_DERIVED_REASON for row in proof.residuals):
+        raise _fail(
+            "alias residuals include a non-identity-derived reason",
+            "alias_package_proof_failed",
+        )
+    if len(residual_ids) != EXPECTED_IDENTITY_DERIVED_ALIAS_COUNT:
         raise _fail("identity-derived alias count drifted", "alias_package_proof_failed")
-
-    alias_policy = alias_package_policy_from_proof(proof)
-    packaged_ids = set(proof.covered_blocker_element_ids)
-    identity_derived_ids = set(proof.identity_derived_blocker_element_ids)
 
     canonical_classified: list[Any] = []
     canonical_v5 = whole_world_v5._analyze_loaded_buddy_world_store_v5(
@@ -439,7 +404,6 @@ def _compose_report(
         store=base_store,
         classified_out=canonical_classified,
         source_history_policy=identity_policy,
-        alias_package_policy=alias_policy,
     )
     _verify_contract_pins(canonical_v5)
 
@@ -507,7 +471,6 @@ def _compose_report(
         store=overlay_store,
         classified_out=migration_classified,
         source_history_policy=identity_policy,
-        alias_package_policy=alias_policy,
     )
     if overlay_v5.unaccounted_durable_elements != 0:
         raise _fail("migration overlay has unaccounted durable elements", "overlay_unaccounted")
@@ -567,9 +530,10 @@ def _compose_report(
     )
 
     for view_name, blockers in (("canonical", canonical_blockers), ("migration", migration_blockers)):
-        if any(row["blocker_class"] == BlockerClass.EVIDENCE_PROVENANCE.value for row in blockers):
+        evidence = _blocker_row(blockers, BlockerClass.EVIDENCE_PROVENANCE.value)
+        if evidence is None or evidence["count"] != EXPECTED_EVIDENCE_PROVENANCE_COUNT:
             raise _fail(
-                f"EVIDENCE_PROVENANCE remains after alias-package policy in {view_name}",
+                f"EVIDENCE_PROVENANCE drifted after residual STOP in {view_name}",
                 "evidence_provenance_not_cleared",
             )
         if any(row["blocker_class"] == BlockerClass.ATTRIBUTE_ASSERTION.value for row in blockers):
@@ -588,15 +552,11 @@ def _compose_report(
         view="canonical",
         previous_elements=predecessor_classified,
         current_elements=canonical_classified,
-        packaged_ids=packaged_ids,
-        identity_derived_ids=identity_derived_ids,
     )
     migration_delta = build_alias_classification_delta(
         view="migration",
         previous_elements=predecessor_migration_classified,
         current_elements=migration_classified,
-        packaged_ids=packaged_ids,
-        identity_derived_ids=identity_derived_ids,
     )
     if canonical_delta["element_ids"] != migration_delta["element_ids"]:
         raise _fail(
@@ -632,9 +592,9 @@ def _compose_report(
             current_blockers=migration_blockers,
         ),
     }
-    if BlockerClass.EVIDENCE_PROVENANCE.value not in blocker_delta["migration"]["cleared_blocker_classes"]:
+    if BlockerClass.EVIDENCE_PROVENANCE.value in blocker_delta["migration"]["cleared_blocker_classes"]:
         raise _fail(
-            "blocker_delta did not record EVIDENCE_PROVENANCE clearance",
+            "blocker_delta cleared EVIDENCE_PROVENANCE despite identity-derived residuals",
             "blocker_delta_incomplete",
         )
     recommendation = _next_slice_recommendation(migration_view["blockers"])
@@ -704,9 +664,9 @@ def _compose_report(
         "non_publishing",
         "predecessor:PR575",
         "dispatch_base:PR576",
-        "alias_package_policy:explicit",
-        "identity_derived_aliases_classified_as_history",
-        "contribution_history_excludes_identity_derived_aliases",
+        "alias_package_policy:legacy",
+        "identity_derived_aliases_remain_residuals",
+        "partial_package_not_sealed",
         "node_aliases_unchanged",
         "next_slice_derived_from_normalized_blocker_stages",
     ]
@@ -747,17 +707,28 @@ def _assert_report_invariants(report: CutoverAliasAssertionPackageAfter575Report
     if report.cutover_disposition != "CUTOVER_NOT_READY":
         raise _fail("CUTOVER disposition must remain NOT_READY", "cutover_ready_regression")
     proof = report.alias_assertion_proof
-    if proof.get("passed") is not True:
-        raise _fail("report alias-package proof is not passed", "alias_package_proof_failed")
-    if proof.get("residual_count") != 0:
-        raise _fail("report still has alias residuals", "alias_package_proof_failed")
+    residual_ids = {row["blocker_element_id"] for row in proof.get("residuals", [])}
+    if proof.get("passed") is True or residual_ids != EXPECTED_IDENTITY_DERIVED_ALIAS_IDS:
+        raise _fail(
+            "report alias-package proof is not the identity-derived residual STOP",
+            "identity_derived_alias_requires_identity_replay",
+        )
+    if set(proof.get("covered_blocker_element_ids", [])) != EXPECTED_PACKAGED_ALIAS_IDS:
+        raise _fail("report packaged alias IDs drifted", "alias_package_proof_failed")
     delta = report.classification_delta
-    if not delta.get("lossless") or delta.get("count") != EXPECTED_EVIDENCE_PROVENANCE_COUNT:
-        raise _fail("classification_delta is not the sealed 8-element set", "classification_delta_mismatch")
+    if not delta.get("lossless") or delta.get("count") != 0:
+        raise _fail(
+            "classification_delta must be empty while identity-derived residuals remain STOPs",
+            "classification_delta_mismatch",
+        )
     for view_name in ("canonical_view", "migration_projection"):
         view = getattr(report, view_name)
-        if any(row["blocker_class"] == BlockerClass.EVIDENCE_PROVENANCE.value for row in view["blockers"]):
-            raise _fail(f"{view_name} still contains EVIDENCE_PROVENANCE", "evidence_provenance_not_cleared")
+        evidence = _blocker_row(view["blockers"], BlockerClass.EVIDENCE_PROVENANCE.value)
+        if evidence is None or evidence["count"] != EXPECTED_EVIDENCE_PROVENANCE_COUNT:
+            raise _fail(
+                f"{view_name} EVIDENCE_PROVENANCE drifted",
+                "evidence_provenance_not_cleared",
+            )
         contribution = _blocker_row(view["blockers"], BlockerClass.CONTRIBUTION_HISTORY.value)
         if contribution is None or contribution["count"] != EXPECTED_CONTRIBUTION_HISTORY_COUNT:
             raise _fail(f"{view_name} CONTRIBUTION_HISTORY drifted", "contribution_history_identity_shadow_leak")
@@ -778,10 +749,6 @@ def _assert_report_invariants(report: CutoverAliasAssertionPackageAfter575Report
             )
     if not report.mutation_proof.get("unchanged"):
         raise _fail("mutation proof is not unchanged", "world_graph_mutated")
-
-
-def _report_bytes(report: CutoverAliasAssertionPackageAfter575ReportV1) -> bytes:
-    return _json_bytes(report.model_dump(mode="json", by_alias=True))
 
 
 def get_cutover_alias_assertion_package_after_575_status(
@@ -837,64 +804,16 @@ def build_cutover_alias_assertion_package_after_575(
     del allow_live_world
     world_root = _root(root)
     repository = _repo(repo)
-    predecessor_path = _predecessor_fixture_path(repository)
-    predecessor_before = (
-        _sha256_bytes(predecessor_path.read_bytes()) if predecessor_path.is_file() else None
-    )
-    report = _compose_report(world_root, repository)
-    raw = _report_bytes(report)
-    fixture_sha = _sha256_bytes(raw)
-    locked = LOCKED_FIXTURE_SHA256.strip()
-    if locked and fixture_sha != locked:
-        raise _fail(
-            "generated alias-package CUTOVER fixture digest does not match locked digest",
-            "fixture_digest_mismatch",
-        )
+    _compose_report(world_root, repository)
     path = _fixture_path(repository)
-    diagnostics = ["non_publishing"]
     if path.is_file():
-        existing_sha = _sha256_bytes(path.read_bytes())
-        if existing_sha != fixture_sha:
-            raise _fail(
-                "existing alias-package CUTOVER fixture differs from generated bytes; refuse overwrite",
-                "locked_fixture_overwrite_refused",
-            )
-        if predecessor_path.is_file() and predecessor_before is not None:
-            if _sha256_bytes(predecessor_path.read_bytes()) != predecessor_before:
-                raise _fail("build mutated PR #575 predecessor fixture", "predecessor_fixture_mutated")
-        diagnostics.append("already_built")
-        return CutoverAliasAssertionPackageAfter575BuildResultV1(
-            fixture_path=str(path),
-            fixture_sha256=fixture_sha,
-            report=report,
-            diagnostics=diagnostics,
+        raise _fail(
+            "partial alias-package fixture must not exist while identity-derived residuals remain",
+            "identity_derived_alias_requires_identity_replay",
         )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as handle:
-            temp_path = Path(handle.name)
-            handle.write(raw)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, path)
-    except OSError as exc:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-        raise _fail(f"atomic alias-package CUTOVER fixture write failed: {exc}", "fixture_write_failed") from exc
-    diagnostics.append("first_seal_unlocked")
-    diagnostics.append("sealed")
-    return CutoverAliasAssertionPackageAfter575BuildResultV1(
-        fixture_path=str(path),
-        fixture_sha256=fixture_sha,
-        report=report,
-        diagnostics=diagnostics,
+    raise _fail(
+        "six identity-derived alias residuals remain; do not seal a partial 8→N package",
+        "identity_derived_alias_requires_identity_replay",
     )
 
 
@@ -906,35 +825,14 @@ def verify_cutover_alias_assertion_package_after_575(
     world_root = _root(root)
     repository = _repo(repo)
     path = _fixture_path(repository)
-    if not path.is_file():
+    if path.is_file():
         return CutoverAliasAssertionPackageAfter575VerifyResultV1(
             verified=False,
             fixture_path=str(path),
-            diagnostics=["fixture_missing"],
+            diagnostics=["partial_alias_package_fixture_must_not_exist"],
         )
-    raw = path.read_bytes()
-    fixture_sha = _sha256_bytes(raw)
-    locked = LOCKED_FIXTURE_SHA256.strip()
-    diagnostics: list[str] = []
-    if locked and fixture_sha != locked:
-        return CutoverAliasAssertionPackageAfter575VerifyResultV1(
-            verified=False,
-            fixture_path=str(path),
-            fixture_sha256=fixture_sha,
-            diagnostics=["fixture_digest_mismatch"],
-        )
-    if not locked:
-        diagnostics.append("first_seal_unlocked")
     try:
-        stored = CutoverAliasAssertionPackageAfter575ReportV1.model_validate(json.loads(raw))
         reproduced = _compose_report(world_root, repository)
-        if _report_bytes(stored) != _report_bytes(reproduced):
-            return CutoverAliasAssertionPackageAfter575VerifyResultV1(
-                verified=False,
-                fixture_path=str(path),
-                fixture_sha256=fixture_sha,
-                diagnostics=[*diagnostics, "fixture_bytes_not_deterministic"],
-            )
         _assert_report_invariants(reproduced)
     except (
         CutoverAliasAssertionPackageAfter575Error,
@@ -945,12 +843,10 @@ def verify_cutover_alias_assertion_package_after_575(
         return CutoverAliasAssertionPackageAfter575VerifyResultV1(
             verified=False,
             fixture_path=str(path),
-            fixture_sha256=fixture_sha,
-            diagnostics=[*diagnostics, type(exc).__name__ + ":" + str(exc)],
+            diagnostics=[type(exc).__name__ + ":" + str(exc)],
         )
     return CutoverAliasAssertionPackageAfter575VerifyResultV1(
         verified=True,
         fixture_path=str(path),
-        fixture_sha256=fixture_sha,
-        diagnostics=[*diagnostics, "verified"],
+        diagnostics=["residual_stop_verified"],
     )
