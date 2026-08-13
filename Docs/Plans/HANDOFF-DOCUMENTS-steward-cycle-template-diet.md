@@ -1,14 +1,18 @@
 # HANDOFF — Steward Cycle and handoff template diet
 
 **Created:** 2026-08-12  
-**Status:** ACTIVE — one process-structure capability.  
+**Status:** COMPLETE — merged as PR #573  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOCUMENTS-steward-cycle-template-diet.md`  
 **Conversation:** DungeonBuddy development-process optimization  
 **Flow / agent:** `DOCUMENTS`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `a9461a9f5c94699f17970b797450d024e5fb39f6`  
+**Merged revision:** `760b39b68c6d5af238deb03244a9d664f384e3a7`  
 **Predecessor:** PR #572 / foundational steward law  
-**PR title:** `DOCUMENTS: replace Jumpstart with Steward Cycle`
+**PR:** #573 — `DOCUMENTS: replace Jumpstart with Steward Cycle`  
+**Review cycles:** 2
+
+**Completion note:** Review Cycle 1 found one destination-relative link defect in the slimmed template; Review Cycle 2 approved the repaired and polished layering. `STEWARD-CYCLE.md` is now canonical steward process, Jumpstart is a forwarding stub, the HANDOFF template is slice-specific, and the external-agent skill is mechanics-first. Named successor remains lane/preflight automation; no review-tool behavior changed in this slice.
 
 ## §1 Mission and merge-ready invariant
 
@@ -133,10 +137,10 @@ Record Review Cycle N, exact head SHA, responsibility-layer findings, parser-sha
 
 ## §9 Acceptance rubric
 
-- [ ] `STEWARD-CYCLE.md` is the canonical steward process/judgment document.
-- [ ] Jumpstart is a superseded forwarding stub rather than an active competing process template.
-- [ ] HANDOFF template preserves §1–§9 parser-critical shapes while removing universal policy/tutorial duplication.
-- [ ] External-agent skill is an operational runbook rather than a second process constitution.
-- [ ] Active source-governance docs point fresh agents to Steward Cycle.
-- [ ] Historical handoff links to Jumpstart remain resolvable through the stub.
-- [ ] No automation or product behavior is introduced in this slice.
+- [x] `STEWARD-CYCLE.md` is the canonical steward process/judgment document.
+- [x] Jumpstart is a superseded forwarding stub rather than an active competing process template.
+- [x] HANDOFF template preserves §1–§9 parser-critical shapes while removing universal policy/tutorial duplication.
+- [x] External-agent skill is an operational runbook rather than a second process constitution.
+- [x] Active source-governance docs point fresh agents to Steward Cycle.
+- [x] Historical handoff links to Jumpstart remain resolvable through the stub.
+- [x] No automation or product behavior is introduced in this slice.
