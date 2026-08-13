@@ -13,6 +13,7 @@ from enum import StrEnum
 from pathlib import Path
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from typing import Any, Literal
 
 from dungeonmind.application.graph_snapshot import GRAPH_SCHEMA_V5
@@ -165,6 +166,113 @@ HISTORICAL_V4_TARGET = WholeWorldTargetContract(
     world_object_revision_label="world-object-v4",
     world_property_revision_label="world-property-v2",
 )
+
+_SOURCE_HISTORY_POLICY_TOKEN = object()
+IDENTITY_LIFECYCLE_SOURCE_HISTORY_POLICY_ID = "identity_lifecycle_history_v1"
+LEGACY_SOURCE_HISTORY_POLICY_ID = "legacy_source_history_v4"
+_PROVEN_IDENTITY_LIFECYCLE_NOTE = (
+    "validated identity lifecycle shadow; durable authority is the "
+    "identity decision/redirect history, not a world-property assertion"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class WholeWorldSourceHistoryPolicy:
+    """Explicit source-history classification policy.
+
+    Historical/default analysis uses LEGACY_SOURCE_HISTORY_POLICY (empty proven
+    set). Successor analysis must be constructed from a passed identity-lifecycle
+    proof via ``source_history_policy_from_identity_lifecycle_proof``. Arbitrary
+    durable-element allowlists are not a public constructor.
+    """
+
+    policy_id: str
+    proven_node_state_history_element_ids: frozenset[str]
+    _token: object = dataclass_field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self._token is not _SOURCE_HISTORY_POLICY_TOKEN:
+            raise TypeError(
+                "WholeWorldSourceHistoryPolicy is not a public constructor; "
+                "use LEGACY_SOURCE_HISTORY_POLICY or "
+                "source_history_policy_from_identity_lifecycle_proof"
+            )
+
+
+LEGACY_SOURCE_HISTORY_POLICY = WholeWorldSourceHistoryPolicy(
+    policy_id=LEGACY_SOURCE_HISTORY_POLICY_ID,
+    proven_node_state_history_element_ids=frozenset(),
+    _token=_SOURCE_HISTORY_POLICY_TOKEN,
+)
+
+
+def source_history_policy_from_identity_lifecycle_proof(
+    proof: Any,
+) -> WholeWorldSourceHistoryPolicy:
+    """Admit proven identity-lifecycle element IDs as source-migration history.
+
+    Revalidates the proof. Does not accept an arbitrary durable-element set.
+    """
+    schema = getattr(proof, "schema_", None)
+    if schema != "dmb_identity_lifecycle_history_conformance_v1":
+        raise ValueError("source-history policy requires a passed identity-lifecycle proof")
+    if not getattr(proof, "passed", False):
+        raise ValueError("identity-lifecycle proof has not passed; refusing history policy")
+    unresolved = list(getattr(proof, "unresolved_element_ids", ["missing"]))
+    if unresolved:
+        raise ValueError("identity-lifecycle proof still has unresolved element IDs")
+    rows = list(getattr(proof, "rows", []))
+    element_ids = list(getattr(proof, "element_ids", []))
+    if not element_ids:
+        raise ValueError("identity-lifecycle proof has no proven element IDs")
+    if [row.element_id for row in rows] != element_ids:
+        raise ValueError("identity-lifecycle proof element_ids drifted from rows")
+    if not all(getattr(row, "reconstructable", False) for row in rows):
+        raise ValueError("identity-lifecycle proof contains a non-reconstructable row")
+    reconstructable = int(getattr(proof, "reconstructable_count", -1))
+    if reconstructable != len(element_ids):
+        raise ValueError("identity-lifecycle reconstructable_count drifted")
+    return WholeWorldSourceHistoryPolicy(
+        policy_id=IDENTITY_LIFECYCLE_SOURCE_HISTORY_POLICY_ID,
+        proven_node_state_history_element_ids=frozenset(element_ids),
+        _token=_SOURCE_HISTORY_POLICY_TOKEN,
+    )
+
+
+def _classify_node_state_field_v4(
+    *,
+    element_id: str,
+    field: str,
+    value: Any,
+    source_history_policy: WholeWorldSourceHistoryPolicy,
+) -> tuple[SemanticClassification, BlockerClass | None, str]:
+    if element_id in source_history_policy.proven_node_state_history_element_ids:
+        return (
+            SemanticClassification.SOURCE_MIGRATION_HISTORY,
+            None,
+            _PROVEN_IDENTITY_LIFECYCLE_NOTE,
+        )
+    return _classify_state_field_v4(field, value)
+
+
+def _contribution_history_classified_items(
+    classified: list[ClassifiedElement],
+    source_history_policy: WholeWorldSourceHistoryPolicy,
+) -> list[ClassifiedElement]:
+    """SOURCE_MIGRATION_HISTORY items that remain contribution/genesis history.
+
+    Proven identity-lifecycle shadow IDs stay classified as
+    SOURCE_MIGRATION_HISTORY, but their durable obligation is IDENTITY_HISTORY,
+    not CONTRIBUTION_HISTORY.
+    """
+    proven = source_history_policy.proven_node_state_history_element_ids
+    return [
+        item
+        for item in classified
+        if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+        and item.element_id not in proven
+    ]
+
 
 CURRENT_V5_TARGET = WholeWorldTargetContract(
     target_id="current_v5",
@@ -1805,6 +1913,7 @@ def _analyze_loaded_buddy_world_store_v4(
     manifest: Any,
     store: UnionSupergraphStore,
     target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
+    source_history_policy: WholeWorldSourceHistoryPolicy = LEGACY_SOURCE_HISTORY_POLICY,
     classified_out: list[ClassifiedElement] | None = None,
 ) -> WholeWorldConformanceReportV4:
     """Classify an already integrity-loaded Buddy store against an exact target.
@@ -1814,6 +1923,9 @@ def _analyze_loaded_buddy_world_store_v4(
     intentionally preserve the canonical manifest pins.
 
     Default ``target`` is HISTORICAL_V4_TARGET so existing callers remain byte-stable.
+    Default ``source_history_policy`` is LEGACY_SOURCE_HISTORY_POLICY so historical
+    reports remain byte-stable. Successor identity-lifecycle history must be
+    selected explicitly from a passed proof.
 
     When ``classified_out`` is provided, append every durable classified element
     (full inventory, not truncated mapping-bucket representatives) for lossless
@@ -1843,7 +1955,12 @@ def _analyze_loaded_buddy_world_store_v4(
             if field == "state":
                 for state_key, state_value in (value or {}).items():
                     element_id = f"node:{node_id}:state:{state_key}"
-                    f_class, f_blocker, f_note = _classify_state_field_v4(state_key, state_value)
+                    f_class, f_blocker, f_note = _classify_node_state_field_v4(
+                        element_id=element_id,
+                        field=state_key,
+                        value=state_value,
+                        source_history_policy=source_history_policy,
+                    )
                     _append_classification(
                         classified=classified,
                         buckets=buckets,
@@ -2216,21 +2333,16 @@ def _analyze_loaded_buddy_world_store_v4(
         unadjudicated=unadjudicated_residual_count,
         adjudication_domain=adjudication_domain,
     )
-    history_count = sum(
-        1
-        for item in classified
-        if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
+    history_items = _contribution_history_classified_items(
+        classified, source_history_policy
     )
+    history_count = len(history_items)
     if history_count:
         blockers.append(
             AdoptionBlocker(
                 blocker_class=BlockerClass.CONTRIBUTION_HISTORY,
                 count=history_count,
-                examples=[
-                    item.element_id
-                    for item in classified
-                    if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
-                ][:_REPRESENTATIVE_ID_LIMIT],
+                examples=[item.element_id for item in history_items][:_REPRESENTATIVE_ID_LIMIT],
                 responsible_repo="DungeonMind",
                 smallest_next_change=(
                     "Decide genesis policy A/B/C and add a durable adoption seam that "

@@ -1,0 +1,2961 @@
+{
+  "adoption_seam": {
+    "missing_public_adoption_service": true,
+    "rationale": "Pinned DungeonMind WorldGraphRepository public callables are ['get_head', 'get_revision', 'publish_revision', 'rollback_head']; none match adopt/bootstrap_complete/import_existing. There is no public governed adopt-existing-world service for pre-existing Buddy worlds.",
+    "status": "DURABLE_ADOPTION_BOUNDARY_MISSING",
+    "world_graph_repository_methods": [
+      "get_head",
+      "get_revision",
+      "publish_revision",
+      "rollback_head"
+    ]
+  },
+  "blocker_delta": {
+    "canonical": {
+      "cleared_blocker_classes": [
+        "ATTRIBUTE_ASSERTION"
+      ],
+      "rows": [
+        {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "predecessor_count": 28,
+          "predecessor_owner": "DungeonMindBuddy",
+          "predecessor_stage": "adoption_package_construction",
+          "successor_count": null,
+          "successor_owner": null,
+          "successor_stage": null
+        }
+      ]
+    },
+    "migration": {
+      "cleared_blocker_classes": [
+        "ATTRIBUTE_ASSERTION"
+      ],
+      "rows": [
+        {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "predecessor_count": 28,
+          "predecessor_owner": "DungeonMindBuddy",
+          "predecessor_stage": "adoption_package_construction",
+          "successor_count": null,
+          "successor_owner": null,
+          "successor_stage": null
+        }
+      ]
+    }
+  },
+  "buddy_repository_base_sha": "9d5efb7eaa92a4890bd49db45130e5843777c8b9",
+  "canonical_graph_payload_sha256": "2632870ef70638969503de788cfdec97acd490875deff3e2630ac91dc96fe974",
+  "canonical_revision_id": "rev:5a7c13ae45c49a65b402920499be72ed",
+  "canonical_view": {
+    "blockers": [
+      {
+        "blocker_class": "CONTRIBUTION_HISTORY",
+        "blocking_stage": "durable_adoption",
+        "count": 5285,
+        "examples": [
+          "node:combat_glowkindle_rat_fight:state:approval_state",
+          "node:combat_glowkindle_rat_fight:state:identity_canon_state",
+          "node:combat_glowkindle_rat_fight:state:introduced_by_contribution_id",
+          "node:combat_glowkindle_rat_fight:state:memory_state",
+          "node:combat_shatter_mages_tower_spider:state:approval_state"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMind",
+        "smallest_next_change": "Decide genesis policy A/B/C and add a durable adoption seam that preserves Buddy contribution/assertion reconstruction history."
+      },
+      {
+        "blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "blocking_stage": "durable_adoption",
+        "count": 1,
+        "examples": [
+          "WorldGraphRepository methods: get_head, get_revision, publish_revision, rollback_head"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMind",
+        "smallest_next_change": "Add public governed adopt-existing-world / bootstrap-complete-revision service."
+      },
+      {
+        "blocker_class": "EVIDENCE_PROVENANCE",
+        "blocking_stage": "adoption_package_construction",
+        "count": 8,
+        "examples": [
+          "node:item_foot_of_statue:field:aliases",
+          "node:loc:chilled_warehouse:field:aliases",
+          "node:loc:crooked-retort:field:aliases",
+          "node:loc:the-council:field:aliases",
+          "node:loc:underground-entrance:field:aliases"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMindBuddy",
+        "smallest_next_change": "Reconstruct assertion-grain AliasAssertionRecord evidence only for substantive Buddy aliases (and non-derivable store.aliases entries). Canonical-label materialization and derivable lookup-index keys are not DM evidence-contract gaps; DungeonMind already admits alias_assertions."
+      },
+      {
+        "blocker_class": "IDENTITY_HISTORY",
+        "blocking_stage": "durable_adoption",
+        "count": 14,
+        "examples": [
+          "identity_redirect:redirect:identity-decision:3a8965f409e85911:0",
+          "identity_redirect:redirect:identity-decision:622b690ffe07c2c6:1",
+          "identity_redirect:redirect:identity-decision:6a4d736c16cab085:2",
+          "identity_redirect:redirect:identity-decision:1ff8bf27a0b1921c:3",
+          "identity_redirect:redirect:identity-decision:c7f1cab745c8a1d2:4"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMindBuddy",
+        "smallest_next_change": "Expose governed identity migration replay at adoption seam."
+      },
+      {
+        "blocker_class": "POSTGRES_ADOPTION",
+        "blocking_stage": "durable_adoption",
+        "count": 1,
+        "examples": [
+          "Postgres adoption not exercised"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMind",
+        "smallest_next_change": "Exercise Postgres adoption only after public seam exists."
+      },
+      {
+        "blocker_class": "RELATIONSHIP_PREDICATE",
+        "blocking_stage": "adoption_package_construction",
+        "count": 9,
+        "examples": [
+          "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+          "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+          "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+          "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+          "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+          "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+          "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+          "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+          "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+        ],
+        "ledger_disposition": "replaced_by_effective_relationship",
+        "ownership_note": "Canonical residual truth is the Buddy source-repair authority.",
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "relationship_authority": "dmb_dungeonmind_relationship_effective_conformance_v1",
+        "responsible_repo": "DungeonMindBuddy",
+        "smallest_next_change": "Keep the nine canonical residuals source-sealed; use only the verified four-kind migration projection and do not publish it here."
+      }
+    ],
+    "durable_inventory": {
+      "artifact_source_domain_inventory": [
+        {
+          "count": 2,
+          "key": "manual_seed"
+        },
+        {
+          "count": 1,
+          "key": "party_registry"
+        },
+        {
+          "count": 17,
+          "key": "recap"
+        },
+        {
+          "count": 4,
+          "key": "statblock"
+        },
+        {
+          "count": 5,
+          "key": "worldbuilding"
+        }
+      ],
+      "classification_inventory": [
+        {
+          "count": 3707,
+          "key": "BUDDY_OPERATIONAL_ONLY"
+        },
+        {
+          "count": 8,
+          "key": "DUNGEONMIND_DURABILITY_CONTRACT_GAP"
+        },
+        {
+          "count": 15,
+          "key": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
+        },
+        {
+          "count": 4477,
+          "key": "EXACTLY_REPRESENTABLE"
+        },
+        {
+          "count": 6197,
+          "key": "REPRESENTABLE_BY_EXPLICIT_ADAPTER"
+        },
+        {
+          "count": 5313,
+          "key": "SOURCE_MIGRATION_HISTORY"
+        }
+      ],
+      "evidence_source_domain_inventory": [
+        {
+          "count": 14,
+          "key": "manual_seed"
+        },
+        {
+          "count": 1,
+          "key": "party_registry"
+        },
+        {
+          "count": 168,
+          "key": "recap"
+        },
+        {
+          "count": 11,
+          "key": "statblock"
+        },
+        {
+          "count": 5,
+          "key": "worldbuilding"
+        }
+      ],
+      "inventory": {
+        "aliases": 460,
+        "assertion_support": 1040,
+        "contribution_replay_manifest": 87,
+        "durable_element_paths": 19717,
+        "edges": 376,
+        "evidence": 199,
+        "nodes": 472,
+        "source_artifacts": 29
+      },
+      "kind_inventory": [
+        {
+          "count": 4,
+          "key": "creature"
+        },
+        {
+          "count": 2,
+          "key": "encounter"
+        },
+        {
+          "count": 2,
+          "key": "event"
+        },
+        {
+          "count": 3,
+          "key": "external_resource"
+        },
+        {
+          "count": 15,
+          "key": "faction"
+        },
+        {
+          "count": 29,
+          "key": "group"
+        },
+        {
+          "count": 130,
+          "key": "item"
+        },
+        {
+          "count": 112,
+          "key": "location"
+        },
+        {
+          "count": 99,
+          "key": "mystery"
+        },
+        {
+          "count": 52,
+          "key": "npc"
+        },
+        {
+          "count": 13,
+          "key": "party"
+        },
+        {
+          "count": 6,
+          "key": "pc"
+        },
+        {
+          "count": 1,
+          "key": "thread"
+        },
+        {
+          "count": 4,
+          "key": "threat"
+        }
+      ],
+      "predicate_inventory": [
+        {
+          "count": 2,
+          "key": "allied_with"
+        },
+        {
+          "count": 1,
+          "key": "appeared_in"
+        },
+        {
+          "count": 10,
+          "key": "associated_with"
+        },
+        {
+          "count": 26,
+          "key": "attacks"
+        },
+        {
+          "count": 4,
+          "key": "aware_of"
+        },
+        {
+          "count": 1,
+          "key": "belongs_to"
+        },
+        {
+          "count": 18,
+          "key": "carries"
+        },
+        {
+          "count": 1,
+          "key": "carries_report_to"
+        },
+        {
+          "count": 1,
+          "key": "caused_by"
+        },
+        {
+          "count": 4,
+          "key": "causes"
+        },
+        {
+          "count": 10,
+          "key": "commands"
+        },
+        {
+          "count": 17,
+          "key": "contains"
+        },
+        {
+          "count": 4,
+          "key": "controls_comms_with"
+        },
+        {
+          "count": 1,
+          "key": "cooperates_with"
+        },
+        {
+          "count": 1,
+          "key": "defends_weakened_location"
+        },
+        {
+          "count": 3,
+          "key": "displaced_from"
+        },
+        {
+          "count": 1,
+          "key": "governs"
+        },
+        {
+          "count": 1,
+          "key": "hires"
+        },
+        {
+          "count": 12,
+          "key": "holds"
+        },
+        {
+          "count": 4,
+          "key": "identified_as"
+        },
+        {
+          "count": 9,
+          "key": "knows_about"
+        },
+        {
+          "count": 11,
+          "key": "leads"
+        },
+        {
+          "count": 11,
+          "key": "leads_to"
+        },
+        {
+          "count": 1,
+          "key": "linked_to"
+        },
+        {
+          "count": 51,
+          "key": "located_in"
+        },
+        {
+          "count": 24,
+          "key": "member_of"
+        },
+        {
+          "count": 1,
+          "key": "mission_targets"
+        },
+        {
+          "count": 4,
+          "key": "near"
+        },
+        {
+          "count": 2,
+          "key": "objective_of"
+        },
+        {
+          "count": 2,
+          "key": "occurred_at"
+        },
+        {
+          "count": 5,
+          "key": "owns"
+        },
+        {
+          "count": 1,
+          "key": "parent_of"
+        },
+        {
+          "count": 11,
+          "key": "part_of"
+        },
+        {
+          "count": 1,
+          "key": "part_of_group"
+        },
+        {
+          "count": 2,
+          "key": "participated_in"
+        },
+        {
+          "count": 10,
+          "key": "participates_in"
+        },
+        {
+          "count": 2,
+          "key": "path_to"
+        },
+        {
+          "count": 4,
+          "key": "possesses"
+        },
+        {
+          "count": 16,
+          "key": "present_at"
+        },
+        {
+          "count": 3,
+          "key": "pursues"
+        },
+        {
+          "count": 3,
+          "key": "recruits_for"
+        },
+        {
+          "count": 2,
+          "key": "reports_threat_in"
+        },
+        {
+          "count": 5,
+          "key": "results_in"
+        },
+        {
+          "count": 1,
+          "key": "rivals"
+        },
+        {
+          "count": 2,
+          "key": "routes_to"
+        },
+        {
+          "count": 6,
+          "key": "same_as"
+        },
+        {
+          "count": 7,
+          "key": "serves"
+        },
+        {
+          "count": 1,
+          "key": "south_of"
+        },
+        {
+          "count": 1,
+          "key": "sublocation_of"
+        },
+        {
+          "count": 1,
+          "key": "suspects"
+        },
+        {
+          "count": 7,
+          "key": "threatens"
+        },
+        {
+          "count": 18,
+          "key": "travels_to"
+        },
+        {
+          "count": 1,
+          "key": "trusts"
+        },
+        {
+          "count": 3,
+          "key": "uses_statblock"
+        },
+        {
+          "count": 15,
+          "key": "within"
+        },
+        {
+          "count": 10,
+          "key": "works_with"
+        }
+      ],
+      "property_gap_inventory": [],
+      "state_family_inventory": [
+        {
+          "count": 359,
+          "key": "edge.session_ids"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.approval_state"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.campaign_scope"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.canon_state"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.epistemic_kind"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.introduced_by_contribution_id"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.memory_state"
+        },
+        {
+          "count": 178,
+          "key": "edge.state.support_state"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.visibility"
+        },
+        {
+          "count": 472,
+          "key": "node.state.approval_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.campaign_scope"
+        },
+        {
+          "count": 472,
+          "key": "node.state.canon_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.epistemic_kind"
+        },
+        {
+          "count": 472,
+          "key": "node.state.identity_canon_state"
+        },
+        {
+          "count": 7,
+          "key": "node.state.identity_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.introduced_by_contribution_id"
+        },
+        {
+          "count": 14,
+          "key": "node.state.last_identity_decision_id"
+        },
+        {
+          "count": 472,
+          "key": "node.state.memory_state"
+        },
+        {
+          "count": 7,
+          "key": "node.state.merged_into"
+        },
+        {
+          "count": 105,
+          "key": "node.state.support_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.visibility"
+        }
+      ]
+    },
+    "relationship_inventory": {
+      "authority": "dmb_dungeonmind_relationship_effective_conformance_v1",
+      "newly_represented_edge_ids": [
+        "edge:item:session17:seed:located_in:pc:stafl",
+        "edge:node:cultists_of_longmont:part_of:node:lesandra:led-by",
+        "edge:node:fey_entity:present_at:pc:ephanna:appears-to-ephanna-in-prison",
+        "edge:node:pippa:leads_to:loc:stone_bridge",
+        "edge:pc:bonogo:defends_weakened_location:node:prisoners_session9:protects",
+        "edge:pc:caelynn:controls_comms_with:npc_grobnok"
+      ],
+      "represented": 314,
+      "residual": 9,
+      "residual_disposition_inventory": [
+        {
+          "count": 9,
+          "key": "SOURCE_CORRECTION_REQUIRED"
+        }
+      ],
+      "residual_edge_ids": [
+        "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+        "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+        "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+        "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+        "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+        "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+        "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+        "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+        "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+      ],
+      "semantic": 323,
+      "uses_statblock_mechanics": 3
+    },
+    "relationship_residual_edge_ids": [
+      "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+      "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+      "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+      "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+      "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+      "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+      "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+      "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+      "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+    ],
+    "unaccounted_durable_elements": 0,
+    "whole_world_report_digest": "8f635ef5c01c86dfe1a43881ee61d1c7eb03164cdf8a8adb174a047e3dbdb545"
+  },
+  "classification_delta": {
+    "count": 28,
+    "element_ids": [
+      "node:item:session11:council-headquarters:state:last_identity_decision_id",
+      "node:item:session11:council-headquarters:state:merged_into",
+      "node:item_enormous_boulder:state:last_identity_decision_id",
+      "node:item_enormous_boulder:state:merged_into",
+      "node:item_foot_of_statue:state:identity_state",
+      "node:item_foot_of_statue:state:last_identity_decision_id",
+      "node:item_session2_hidden_alchemy_room:state:last_identity_decision_id",
+      "node:item_session2_hidden_alchemy_room:state:merged_into",
+      "node:loc:chilled_warehouse:state:identity_state",
+      "node:loc:chilled_warehouse:state:last_identity_decision_id",
+      "node:loc:crooked-retort:state:identity_state",
+      "node:loc:crooked-retort:state:last_identity_decision_id",
+      "node:loc:last_warehouse:state:last_identity_decision_id",
+      "node:loc:last_warehouse:state:merged_into",
+      "node:loc:the-council:state:identity_state",
+      "node:loc:the-council:state:last_identity_decision_id",
+      "node:loc:underground-entrance:state:identity_state",
+      "node:loc:underground-entrance:state:last_identity_decision_id",
+      "node:location_003:state:identity_state",
+      "node:location_003:state:last_identity_decision_id",
+      "node:mystery:session9:scroll_in_strange_language:state:last_identity_decision_id",
+      "node:mystery:session9:scroll_in_strange_language:state:merged_into",
+      "node:mystery:session9:second_underground_entrance:state:last_identity_decision_id",
+      "node:mystery:session9:second_underground_entrance:state:merged_into",
+      "node:obj:session9:scroll_abyssal:state:identity_state",
+      "node:obj:session9:scroll_abyssal:state:last_identity_decision_id",
+      "node:organization:merchant-s-crossroads-apothecary:state:last_identity_decision_id",
+      "node:organization:merchant-s-crossroads-apothecary:state:merged_into"
+    ],
+    "field_counts": {
+      "identity_state": 7,
+      "last_identity_decision_id": 14,
+      "merged_into": 7
+    },
+    "lossless": true,
+    "migration_transitions": [
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item:session11:council-headquarters:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item:session11:council-headquarters:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_enormous_boulder:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_enormous_boulder:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_foot_of_statue:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_foot_of_statue:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_session2_hidden_alchemy_room:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_session2_hidden_alchemy_room:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:chilled_warehouse:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:chilled_warehouse:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:crooked-retort:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:crooked-retort:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:last_warehouse:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:last_warehouse:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:the-council:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:the-council:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:underground-entrance:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:underground-entrance:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:location_003:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:location_003:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:scroll_in_strange_language:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:scroll_in_strange_language:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:second_underground_entrance:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:second_underground_entrance:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:obj:session9:scroll_abyssal:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:obj:session9:scroll_abyssal:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:organization:merchant-s-crossroads-apothecary:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "migration"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:organization:merchant-s-crossroads-apothecary:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "migration"
+      }
+    ],
+    "transitions": [
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item:session11:council-headquarters:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item:session11:council-headquarters:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_enormous_boulder:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_enormous_boulder:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_foot_of_statue:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_foot_of_statue:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_session2_hidden_alchemy_room:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:item_session2_hidden_alchemy_room:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:chilled_warehouse:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:chilled_warehouse:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:crooked-retort:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:crooked-retort:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:last_warehouse:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:last_warehouse:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:the-council:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:the-council:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:underground-entrance:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:loc:underground-entrance:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:location_003:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:location_003:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:scroll_in_strange_language:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:scroll_in_strange_language:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:second_underground_entrance:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:mystery:session9:second_underground_entrance:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:obj:session9:scroll_abyssal:state:identity_state",
+        "explanation": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'identity_state'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:obj:session9:scroll_abyssal:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:organization:merchant-s-crossroads-apothecary:state:last_identity_decision_id",
+        "explanation": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'last_identity_decision_id'"
+        },
+        "view": "canonical"
+      },
+      {
+        "current": {
+          "blocker_class": null,
+          "classification": "SOURCE_MIGRATION_HISTORY",
+          "element_family": "node_state",
+          "note": "validated identity lifecycle shadow; durable authority is the identity decision/redirect history, not a world-property assertion"
+        },
+        "element_family": "node_state",
+        "element_id": "node:organization:merchant-s-crossroads-apothecary:state:merged_into",
+        "explanation": "reconstructable merged_into from merge decision target and active redirect",
+        "previous": {
+          "blocker_class": "ATTRIBUTE_ASSERTION",
+          "classification": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP",
+          "element_family": "node_state",
+          "note": "unclassified state field 'merged_into'"
+        },
+        "view": "canonical"
+      }
+    ]
+  },
+  "cutover_disposition": "CUTOVER_NOT_READY",
+  "diagnostics": [
+    "non_publishing",
+    "predecessor:PR571",
+    "identity_lifecycle_history_policy:explicit",
+    "legacy_source_history_policy_preserved",
+    "attribute_assertion_cleared_without_source_mutation",
+    "identity_history_preserved",
+    "contribution_history_excludes_identity_lifecycle_shadow",
+    "next_slice_derived_from_normalized_blocker_stages"
+  ],
+  "dungeonmind_contract_pins": {
+    "evidence_contract": "dm_evidence_ref_v2",
+    "graph_schema": "dm_union_graph_v5",
+    "knowledge_assertion_metadata": "dm_knowledge_assertion_metadata_v1",
+    "semantic_profile": "dnd5e-profile-v3",
+    "semantic_profile_descriptor_sha256": "2199e8fb96e917c22718e6aec59cbbf55a37ee81575e1bcf16ce13fae0393496",
+    "source_artifact_contract": "dm_source_artifact_v2",
+    "world_object_vocabulary": "world-object-v5",
+    "world_object_vocabulary_sha256": "f9fd5420e0ab3849224e0d58cf83dd432ca2e5da22ce661b25654406ec9c60d8",
+    "world_property_vocabulary": "world-property-v3",
+    "world_property_vocabulary_sha256": "aa94df78c10a913e7ca6774198f080131f8f447c90cc917b9b840ed88bd856e4"
+  },
+  "dungeonmind_dependency_ref": "be76acc997c5fbcb8ceaa090969ec051afa6051d",
+  "identity_lifecycle_proof": {
+    "canonical_graph_payload_sha256": "2632870ef70638969503de788cfdec97acd490875deff3e2630ac91dc96fe974",
+    "canonical_revision_id": "rev:5a7c13ae45c49a65b402920499be72ed",
+    "element_ids": [
+      "node:item:session11:council-headquarters:state:last_identity_decision_id",
+      "node:item:session11:council-headquarters:state:merged_into",
+      "node:item_enormous_boulder:state:last_identity_decision_id",
+      "node:item_enormous_boulder:state:merged_into",
+      "node:item_foot_of_statue:state:identity_state",
+      "node:item_foot_of_statue:state:last_identity_decision_id",
+      "node:item_session2_hidden_alchemy_room:state:last_identity_decision_id",
+      "node:item_session2_hidden_alchemy_room:state:merged_into",
+      "node:loc:chilled_warehouse:state:identity_state",
+      "node:loc:chilled_warehouse:state:last_identity_decision_id",
+      "node:loc:crooked-retort:state:identity_state",
+      "node:loc:crooked-retort:state:last_identity_decision_id",
+      "node:loc:last_warehouse:state:last_identity_decision_id",
+      "node:loc:last_warehouse:state:merged_into",
+      "node:loc:the-council:state:identity_state",
+      "node:loc:the-council:state:last_identity_decision_id",
+      "node:loc:underground-entrance:state:identity_state",
+      "node:loc:underground-entrance:state:last_identity_decision_id",
+      "node:location_003:state:identity_state",
+      "node:location_003:state:last_identity_decision_id",
+      "node:mystery:session9:scroll_in_strange_language:state:last_identity_decision_id",
+      "node:mystery:session9:scroll_in_strange_language:state:merged_into",
+      "node:mystery:session9:second_underground_entrance:state:last_identity_decision_id",
+      "node:mystery:session9:second_underground_entrance:state:merged_into",
+      "node:obj:session9:scroll_abyssal:state:identity_state",
+      "node:obj:session9:scroll_abyssal:state:last_identity_decision_id",
+      "node:organization:merchant-s-crossroads-apothecary:state:last_identity_decision_id",
+      "node:organization:merchant-s-crossroads-apothecary:state:merged_into"
+    ],
+    "field_counts": {
+      "identity_state": 7,
+      "last_identity_decision_id": 14,
+      "merged_into": 7
+    },
+    "passed": true,
+    "reconstructable_count": 28,
+    "rows": [
+      {
+        "decision_id": "identity-decision:3a8965f409e85911",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item:session11:council-headquarters:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_source",
+        "node_id": "item:session11:council-headquarters",
+        "rationale": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:3a8965f409e85911",
+        "redirect_status": "active",
+        "stored_value": "identity-decision:3a8965f409e85911",
+        "subject_node_id": "item:session11:council-headquarters",
+        "target_node_id": "loc:the-council"
+      },
+      {
+        "decision_id": "identity-decision:3a8965f409e85911",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item:session11:council-headquarters:state:merged_into",
+        "field": "merged_into",
+        "lifecycle_role": "merge_source",
+        "node_id": "item:session11:council-headquarters",
+        "rationale": "reconstructable merged_into from merge decision target and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:3a8965f409e85911",
+        "redirect_status": "active",
+        "stored_value": "loc:the-council",
+        "subject_node_id": "item:session11:council-headquarters",
+        "target_node_id": "loc:the-council"
+      },
+      {
+        "decision_id": "identity-decision:622b690ffe07c2c6",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item_enormous_boulder:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_source",
+        "node_id": "item_enormous_boulder",
+        "rationale": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:622b690ffe07c2c6",
+        "redirect_status": "active",
+        "stored_value": "identity-decision:622b690ffe07c2c6",
+        "subject_node_id": "item_enormous_boulder",
+        "target_node_id": "item_foot_of_statue"
+      },
+      {
+        "decision_id": "identity-decision:622b690ffe07c2c6",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item_enormous_boulder:state:merged_into",
+        "field": "merged_into",
+        "lifecycle_role": "merge_source",
+        "node_id": "item_enormous_boulder",
+        "rationale": "reconstructable merged_into from merge decision target and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:622b690ffe07c2c6",
+        "redirect_status": "active",
+        "stored_value": "item_foot_of_statue",
+        "subject_node_id": "item_enormous_boulder",
+        "target_node_id": "item_foot_of_statue"
+      },
+      {
+        "decision_id": "identity-decision:622b690ffe07c2c6",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item_foot_of_statue:state:identity_state",
+        "field": "identity_state",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "item_foot_of_statue",
+        "rationale": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "survivor",
+        "subject_node_id": "item_enormous_boulder",
+        "target_node_id": "item_foot_of_statue"
+      },
+      {
+        "decision_id": "identity-decision:622b690ffe07c2c6",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item_foot_of_statue:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "item_foot_of_statue",
+        "rationale": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "identity-decision:622b690ffe07c2c6",
+        "subject_node_id": "item_enormous_boulder",
+        "target_node_id": "item_foot_of_statue"
+      },
+      {
+        "decision_id": "identity-decision:6a4d736c16cab085",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item_session2_hidden_alchemy_room:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_source",
+        "node_id": "item_session2_hidden_alchemy_room",
+        "rationale": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:6a4d736c16cab085",
+        "redirect_status": "active",
+        "stored_value": "identity-decision:6a4d736c16cab085",
+        "subject_node_id": "item_session2_hidden_alchemy_room",
+        "target_node_id": "location_003"
+      },
+      {
+        "decision_id": "identity-decision:6a4d736c16cab085",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:item_session2_hidden_alchemy_room:state:merged_into",
+        "field": "merged_into",
+        "lifecycle_role": "merge_source",
+        "node_id": "item_session2_hidden_alchemy_room",
+        "rationale": "reconstructable merged_into from merge decision target and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:6a4d736c16cab085",
+        "redirect_status": "active",
+        "stored_value": "location_003",
+        "subject_node_id": "item_session2_hidden_alchemy_room",
+        "target_node_id": "location_003"
+      },
+      {
+        "decision_id": "identity-decision:1ff8bf27a0b1921c",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:chilled_warehouse:state:identity_state",
+        "field": "identity_state",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:chilled_warehouse",
+        "rationale": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "survivor",
+        "subject_node_id": "loc:last_warehouse",
+        "target_node_id": "loc:chilled_warehouse"
+      },
+      {
+        "decision_id": "identity-decision:1ff8bf27a0b1921c",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:chilled_warehouse:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:chilled_warehouse",
+        "rationale": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "identity-decision:1ff8bf27a0b1921c",
+        "subject_node_id": "loc:last_warehouse",
+        "target_node_id": "loc:chilled_warehouse"
+      },
+      {
+        "decision_id": "identity-decision:adab1e19800e24d7",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:crooked-retort:state:identity_state",
+        "field": "identity_state",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:crooked-retort",
+        "rationale": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "survivor",
+        "subject_node_id": "organization:merchant-s-crossroads-apothecary",
+        "target_node_id": "loc:crooked-retort"
+      },
+      {
+        "decision_id": "identity-decision:adab1e19800e24d7",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:crooked-retort:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:crooked-retort",
+        "rationale": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "identity-decision:adab1e19800e24d7",
+        "subject_node_id": "organization:merchant-s-crossroads-apothecary",
+        "target_node_id": "loc:crooked-retort"
+      },
+      {
+        "decision_id": "identity-decision:1ff8bf27a0b1921c",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:last_warehouse:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_source",
+        "node_id": "loc:last_warehouse",
+        "rationale": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:1ff8bf27a0b1921c",
+        "redirect_status": "active",
+        "stored_value": "identity-decision:1ff8bf27a0b1921c",
+        "subject_node_id": "loc:last_warehouse",
+        "target_node_id": "loc:chilled_warehouse"
+      },
+      {
+        "decision_id": "identity-decision:1ff8bf27a0b1921c",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:last_warehouse:state:merged_into",
+        "field": "merged_into",
+        "lifecycle_role": "merge_source",
+        "node_id": "loc:last_warehouse",
+        "rationale": "reconstructable merged_into from merge decision target and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:1ff8bf27a0b1921c",
+        "redirect_status": "active",
+        "stored_value": "loc:chilled_warehouse",
+        "subject_node_id": "loc:last_warehouse",
+        "target_node_id": "loc:chilled_warehouse"
+      },
+      {
+        "decision_id": "identity-decision:3a8965f409e85911",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:the-council:state:identity_state",
+        "field": "identity_state",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:the-council",
+        "rationale": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "survivor",
+        "subject_node_id": "item:session11:council-headquarters",
+        "target_node_id": "loc:the-council"
+      },
+      {
+        "decision_id": "identity-decision:3a8965f409e85911",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:the-council:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:the-council",
+        "rationale": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "identity-decision:3a8965f409e85911",
+        "subject_node_id": "item:session11:council-headquarters",
+        "target_node_id": "loc:the-council"
+      },
+      {
+        "decision_id": "identity-decision:c7f1cab745c8a1d2",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:underground-entrance:state:identity_state",
+        "field": "identity_state",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:underground-entrance",
+        "rationale": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "survivor",
+        "subject_node_id": "mystery:session9:second_underground_entrance",
+        "target_node_id": "loc:underground-entrance"
+      },
+      {
+        "decision_id": "identity-decision:c7f1cab745c8a1d2",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:loc:underground-entrance:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "loc:underground-entrance",
+        "rationale": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "identity-decision:c7f1cab745c8a1d2",
+        "subject_node_id": "mystery:session9:second_underground_entrance",
+        "target_node_id": "loc:underground-entrance"
+      },
+      {
+        "decision_id": "identity-decision:6a4d736c16cab085",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:location_003:state:identity_state",
+        "field": "identity_state",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "location_003",
+        "rationale": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "survivor",
+        "subject_node_id": "item_session2_hidden_alchemy_room",
+        "target_node_id": "location_003"
+      },
+      {
+        "decision_id": "identity-decision:6a4d736c16cab085",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:location_003:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "location_003",
+        "rationale": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "identity-decision:6a4d736c16cab085",
+        "subject_node_id": "item_session2_hidden_alchemy_room",
+        "target_node_id": "location_003"
+      },
+      {
+        "decision_id": "identity-decision:ac8e5efc25de3804",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:mystery:session9:scroll_in_strange_language:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_source",
+        "node_id": "mystery:session9:scroll_in_strange_language",
+        "rationale": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:ac8e5efc25de3804",
+        "redirect_status": "active",
+        "stored_value": "identity-decision:ac8e5efc25de3804",
+        "subject_node_id": "mystery:session9:scroll_in_strange_language",
+        "target_node_id": "obj:session9:scroll_abyssal"
+      },
+      {
+        "decision_id": "identity-decision:ac8e5efc25de3804",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:mystery:session9:scroll_in_strange_language:state:merged_into",
+        "field": "merged_into",
+        "lifecycle_role": "merge_source",
+        "node_id": "mystery:session9:scroll_in_strange_language",
+        "rationale": "reconstructable merged_into from merge decision target and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:ac8e5efc25de3804",
+        "redirect_status": "active",
+        "stored_value": "obj:session9:scroll_abyssal",
+        "subject_node_id": "mystery:session9:scroll_in_strange_language",
+        "target_node_id": "obj:session9:scroll_abyssal"
+      },
+      {
+        "decision_id": "identity-decision:c7f1cab745c8a1d2",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:mystery:session9:second_underground_entrance:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_source",
+        "node_id": "mystery:session9:second_underground_entrance",
+        "rationale": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:c7f1cab745c8a1d2",
+        "redirect_status": "active",
+        "stored_value": "identity-decision:c7f1cab745c8a1d2",
+        "subject_node_id": "mystery:session9:second_underground_entrance",
+        "target_node_id": "loc:underground-entrance"
+      },
+      {
+        "decision_id": "identity-decision:c7f1cab745c8a1d2",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:mystery:session9:second_underground_entrance:state:merged_into",
+        "field": "merged_into",
+        "lifecycle_role": "merge_source",
+        "node_id": "mystery:session9:second_underground_entrance",
+        "rationale": "reconstructable merged_into from merge decision target and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:c7f1cab745c8a1d2",
+        "redirect_status": "active",
+        "stored_value": "loc:underground-entrance",
+        "subject_node_id": "mystery:session9:second_underground_entrance",
+        "target_node_id": "loc:underground-entrance"
+      },
+      {
+        "decision_id": "identity-decision:ac8e5efc25de3804",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:obj:session9:scroll_abyssal:state:identity_state",
+        "field": "identity_state",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "obj:session9:scroll_abyssal",
+        "rationale": "reconstructable identity_state=survivor from merge decision target and canonical identity_canon_state",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "survivor",
+        "subject_node_id": "mystery:session9:scroll_in_strange_language",
+        "target_node_id": "obj:session9:scroll_abyssal"
+      },
+      {
+        "decision_id": "identity-decision:ac8e5efc25de3804",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:obj:session9:scroll_abyssal:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_survivor",
+        "node_id": "obj:session9:scroll_abyssal",
+        "rationale": "reconstructable merge-survivor last_identity_decision_id from durable merge decision target",
+        "reconstructable": true,
+        "redirect_id": null,
+        "redirect_status": null,
+        "stored_value": "identity-decision:ac8e5efc25de3804",
+        "subject_node_id": "mystery:session9:scroll_in_strange_language",
+        "target_node_id": "obj:session9:scroll_abyssal"
+      },
+      {
+        "decision_id": "identity-decision:adab1e19800e24d7",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:organization:merchant-s-crossroads-apothecary:state:last_identity_decision_id",
+        "field": "last_identity_decision_id",
+        "lifecycle_role": "merge_source",
+        "node_id": "organization:merchant-s-crossroads-apothecary",
+        "rationale": "reconstructable merge-source last_identity_decision_id from durable merge decision and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:adab1e19800e24d7",
+        "redirect_status": "active",
+        "stored_value": "identity-decision:adab1e19800e24d7",
+        "subject_node_id": "organization:merchant-s-crossroads-apothecary",
+        "target_node_id": "loc:crooked-retort"
+      },
+      {
+        "decision_id": "identity-decision:adab1e19800e24d7",
+        "decision_kind": "merge",
+        "decision_status": "active",
+        "element_id": "node:organization:merchant-s-crossroads-apothecary:state:merged_into",
+        "field": "merged_into",
+        "lifecycle_role": "merge_source",
+        "node_id": "organization:merchant-s-crossroads-apothecary",
+        "rationale": "reconstructable merged_into from merge decision target and active redirect",
+        "reconstructable": true,
+        "redirect_id": "redirect:identity-decision:adab1e19800e24d7",
+        "redirect_status": "active",
+        "stored_value": "loc:crooked-retort",
+        "subject_node_id": "organization:merchant-s-crossroads-apothecary",
+        "target_node_id": "loc:crooked-retort"
+      }
+    ],
+    "schema": "dmb_identity_lifecycle_history_conformance_v1",
+    "unresolved_element_ids": [],
+    "world_id": "eldyrwild"
+  },
+  "migration_projection": {
+    "blockers": [
+      {
+        "blocker_class": "CONTRIBUTION_HISTORY",
+        "blocking_stage": "durable_adoption",
+        "count": 5285,
+        "examples": [
+          "node:combat_glowkindle_rat_fight:state:approval_state",
+          "node:combat_glowkindle_rat_fight:state:identity_canon_state",
+          "node:combat_glowkindle_rat_fight:state:introduced_by_contribution_id",
+          "node:combat_glowkindle_rat_fight:state:memory_state",
+          "node:combat_shatter_mages_tower_spider:state:approval_state"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMind",
+        "smallest_next_change": "Decide genesis policy A/B/C and add a durable adoption seam that preserves Buddy contribution/assertion reconstruction history."
+      },
+      {
+        "blocker_class": "DURABLE_ADOPTION_BOUNDARY",
+        "blocking_stage": "durable_adoption",
+        "count": 1,
+        "examples": [
+          "WorldGraphRepository methods: get_head, get_revision, publish_revision, rollback_head"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMind",
+        "smallest_next_change": "Add public governed adopt-existing-world / bootstrap-complete-revision service."
+      },
+      {
+        "blocker_class": "EVIDENCE_PROVENANCE",
+        "blocking_stage": "adoption_package_construction",
+        "count": 8,
+        "examples": [
+          "node:item_foot_of_statue:field:aliases",
+          "node:loc:chilled_warehouse:field:aliases",
+          "node:loc:crooked-retort:field:aliases",
+          "node:loc:the-council:field:aliases",
+          "node:loc:underground-entrance:field:aliases"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMindBuddy",
+        "smallest_next_change": "Reconstruct assertion-grain AliasAssertionRecord evidence only for substantive Buddy aliases (and non-derivable store.aliases entries). Canonical-label materialization and derivable lookup-index keys are not DM evidence-contract gaps; DungeonMind already admits alias_assertions."
+      },
+      {
+        "blocker_class": "IDENTITY_HISTORY",
+        "blocking_stage": "durable_adoption",
+        "count": 14,
+        "examples": [
+          "identity_redirect:redirect:identity-decision:3a8965f409e85911:0",
+          "identity_redirect:redirect:identity-decision:622b690ffe07c2c6:1",
+          "identity_redirect:redirect:identity-decision:6a4d736c16cab085:2",
+          "identity_redirect:redirect:identity-decision:1ff8bf27a0b1921c:3",
+          "identity_redirect:redirect:identity-decision:c7f1cab745c8a1d2:4"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMindBuddy",
+        "smallest_next_change": "Expose governed identity migration replay at adoption seam."
+      },
+      {
+        "blocker_class": "POSTGRES_ADOPTION",
+        "blocking_stage": "durable_adoption",
+        "count": 1,
+        "examples": [
+          "Postgres adoption not exercised"
+        ],
+        "ledger_disposition": "carried",
+        "ownership_note": null,
+        "ownership_scope": "singular",
+        "presence_scope": "both",
+        "responsible_repo": "DungeonMind",
+        "smallest_next_change": "Exercise Postgres adoption only after public seam exists."
+      },
+      {
+        "blocker_class": "RELATIONSHIP_PREDICATE",
+        "blocking_stage": "adoption_package_construction",
+        "count": 5,
+        "examples": [
+          "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+          "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+          "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+          "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+          "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+        ],
+        "ledger_disposition": "replaced_by_effective_relationship",
+        "ownership_note": "Each dual-sense STOP needs a Buddy source identity/decomposition decision and a DungeonMind adoption/materialization capability; this report does not collapse either owner.",
+        "ownership_scope": "cross_repository",
+        "presence_scope": "both",
+        "relationship_authority": "eldyrwild-relationship-node-kind-source-repair-v1",
+        "responsible_repo": null,
+        "smallest_next_change": "Keep the five dual-sense edges as an explicit migration decision set that still blocks adoption-package construction until a pinned contract can carry unresolved identity/decomposition semantics losslessly; do not schedule live Buddy repair or Case B adoption from this row alone."
+      }
+    ],
+    "durable_inventory": {
+      "artifact_source_domain_inventory": [
+        {
+          "count": 2,
+          "key": "manual_seed"
+        },
+        {
+          "count": 1,
+          "key": "party_registry"
+        },
+        {
+          "count": 17,
+          "key": "recap"
+        },
+        {
+          "count": 4,
+          "key": "statblock"
+        },
+        {
+          "count": 5,
+          "key": "worldbuilding"
+        }
+      ],
+      "classification_inventory": [
+        {
+          "count": 3707,
+          "key": "BUDDY_OPERATIONAL_ONLY"
+        },
+        {
+          "count": 8,
+          "key": "DUNGEONMIND_DURABILITY_CONTRACT_GAP"
+        },
+        {
+          "count": 11,
+          "key": "DUNGEONMIND_SEMANTIC_CONTRACT_GAP"
+        },
+        {
+          "count": 4477,
+          "key": "EXACTLY_REPRESENTABLE"
+        },
+        {
+          "count": 6201,
+          "key": "REPRESENTABLE_BY_EXPLICIT_ADAPTER"
+        },
+        {
+          "count": 5313,
+          "key": "SOURCE_MIGRATION_HISTORY"
+        }
+      ],
+      "evidence_source_domain_inventory": [
+        {
+          "count": 14,
+          "key": "manual_seed"
+        },
+        {
+          "count": 1,
+          "key": "party_registry"
+        },
+        {
+          "count": 168,
+          "key": "recap"
+        },
+        {
+          "count": 11,
+          "key": "statblock"
+        },
+        {
+          "count": 5,
+          "key": "worldbuilding"
+        }
+      ],
+      "inventory": {
+        "aliases": 460,
+        "assertion_support": 1040,
+        "contribution_replay_manifest": 87,
+        "durable_element_paths": 19717,
+        "edges": 376,
+        "evidence": 199,
+        "nodes": 472,
+        "source_artifacts": 29
+      },
+      "kind_inventory": [
+        {
+          "count": 4,
+          "key": "creature"
+        },
+        {
+          "count": 2,
+          "key": "encounter"
+        },
+        {
+          "count": 2,
+          "key": "event"
+        },
+        {
+          "count": 3,
+          "key": "external_resource"
+        },
+        {
+          "count": 16,
+          "key": "faction"
+        },
+        {
+          "count": 30,
+          "key": "group"
+        },
+        {
+          "count": 128,
+          "key": "item"
+        },
+        {
+          "count": 113,
+          "key": "location"
+        },
+        {
+          "count": 98,
+          "key": "mystery"
+        },
+        {
+          "count": 52,
+          "key": "npc"
+        },
+        {
+          "count": 13,
+          "key": "party"
+        },
+        {
+          "count": 6,
+          "key": "pc"
+        },
+        {
+          "count": 1,
+          "key": "thread"
+        },
+        {
+          "count": 4,
+          "key": "threat"
+        }
+      ],
+      "predicate_inventory": [
+        {
+          "count": 2,
+          "key": "allied_with"
+        },
+        {
+          "count": 1,
+          "key": "appeared_in"
+        },
+        {
+          "count": 10,
+          "key": "associated_with"
+        },
+        {
+          "count": 26,
+          "key": "attacks"
+        },
+        {
+          "count": 4,
+          "key": "aware_of"
+        },
+        {
+          "count": 1,
+          "key": "belongs_to"
+        },
+        {
+          "count": 18,
+          "key": "carries"
+        },
+        {
+          "count": 1,
+          "key": "carries_report_to"
+        },
+        {
+          "count": 1,
+          "key": "caused_by"
+        },
+        {
+          "count": 4,
+          "key": "causes"
+        },
+        {
+          "count": 10,
+          "key": "commands"
+        },
+        {
+          "count": 17,
+          "key": "contains"
+        },
+        {
+          "count": 4,
+          "key": "controls_comms_with"
+        },
+        {
+          "count": 1,
+          "key": "cooperates_with"
+        },
+        {
+          "count": 1,
+          "key": "defends_weakened_location"
+        },
+        {
+          "count": 3,
+          "key": "displaced_from"
+        },
+        {
+          "count": 1,
+          "key": "governs"
+        },
+        {
+          "count": 1,
+          "key": "hires"
+        },
+        {
+          "count": 12,
+          "key": "holds"
+        },
+        {
+          "count": 4,
+          "key": "identified_as"
+        },
+        {
+          "count": 9,
+          "key": "knows_about"
+        },
+        {
+          "count": 11,
+          "key": "leads"
+        },
+        {
+          "count": 11,
+          "key": "leads_to"
+        },
+        {
+          "count": 1,
+          "key": "linked_to"
+        },
+        {
+          "count": 51,
+          "key": "located_in"
+        },
+        {
+          "count": 24,
+          "key": "member_of"
+        },
+        {
+          "count": 1,
+          "key": "mission_targets"
+        },
+        {
+          "count": 4,
+          "key": "near"
+        },
+        {
+          "count": 2,
+          "key": "objective_of"
+        },
+        {
+          "count": 2,
+          "key": "occurred_at"
+        },
+        {
+          "count": 5,
+          "key": "owns"
+        },
+        {
+          "count": 1,
+          "key": "parent_of"
+        },
+        {
+          "count": 11,
+          "key": "part_of"
+        },
+        {
+          "count": 1,
+          "key": "part_of_group"
+        },
+        {
+          "count": 2,
+          "key": "participated_in"
+        },
+        {
+          "count": 10,
+          "key": "participates_in"
+        },
+        {
+          "count": 2,
+          "key": "path_to"
+        },
+        {
+          "count": 4,
+          "key": "possesses"
+        },
+        {
+          "count": 16,
+          "key": "present_at"
+        },
+        {
+          "count": 3,
+          "key": "pursues"
+        },
+        {
+          "count": 3,
+          "key": "recruits_for"
+        },
+        {
+          "count": 2,
+          "key": "reports_threat_in"
+        },
+        {
+          "count": 5,
+          "key": "results_in"
+        },
+        {
+          "count": 1,
+          "key": "rivals"
+        },
+        {
+          "count": 2,
+          "key": "routes_to"
+        },
+        {
+          "count": 6,
+          "key": "same_as"
+        },
+        {
+          "count": 7,
+          "key": "serves"
+        },
+        {
+          "count": 1,
+          "key": "south_of"
+        },
+        {
+          "count": 1,
+          "key": "sublocation_of"
+        },
+        {
+          "count": 1,
+          "key": "suspects"
+        },
+        {
+          "count": 7,
+          "key": "threatens"
+        },
+        {
+          "count": 18,
+          "key": "travels_to"
+        },
+        {
+          "count": 1,
+          "key": "trusts"
+        },
+        {
+          "count": 3,
+          "key": "uses_statblock"
+        },
+        {
+          "count": 15,
+          "key": "within"
+        },
+        {
+          "count": 10,
+          "key": "works_with"
+        }
+      ],
+      "property_gap_inventory": [],
+      "state_family_inventory": [
+        {
+          "count": 359,
+          "key": "edge.session_ids"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.approval_state"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.campaign_scope"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.canon_state"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.epistemic_kind"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.introduced_by_contribution_id"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.memory_state"
+        },
+        {
+          "count": 178,
+          "key": "edge.state.support_state"
+        },
+        {
+          "count": 376,
+          "key": "edge.state.visibility"
+        },
+        {
+          "count": 472,
+          "key": "node.state.approval_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.campaign_scope"
+        },
+        {
+          "count": 472,
+          "key": "node.state.canon_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.epistemic_kind"
+        },
+        {
+          "count": 472,
+          "key": "node.state.identity_canon_state"
+        },
+        {
+          "count": 7,
+          "key": "node.state.identity_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.introduced_by_contribution_id"
+        },
+        {
+          "count": 14,
+          "key": "node.state.last_identity_decision_id"
+        },
+        {
+          "count": 472,
+          "key": "node.state.memory_state"
+        },
+        {
+          "count": 7,
+          "key": "node.state.merged_into"
+        },
+        {
+          "count": 105,
+          "key": "node.state.support_state"
+        },
+        {
+          "count": 472,
+          "key": "node.state.visibility"
+        }
+      ]
+    },
+    "relationship_inventory": {
+      "authority": "eldyrwild-relationship-node-kind-source-repair-v1",
+      "newly_represented_edge_ids": [
+        "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+        "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+        "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+        "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan"
+      ],
+      "proof_diagnostics": [
+        "effective_conformance_path:private_injectable_owner_boundary"
+      ],
+      "represented": 318,
+      "residual": 5,
+      "residual_disposition_inventory": [
+        {
+          "count": 5,
+          "key": "DUAL_SENSE_MIGRATION_STOP"
+        }
+      ],
+      "residual_edge_ids": [
+        "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+        "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+        "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+        "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+        "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+      ],
+      "semantic": 323,
+      "uses_statblock_mechanics": 3
+    },
+    "relationship_residual_edge_ids": [
+      "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+      "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+      "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+      "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+      "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+    ],
+    "unaccounted_durable_elements": 0,
+    "whole_world_report_digest": "b209667fc0d1e4de271bfa23c0dcfd6b780cd08a9cf48ecbf3bd56cadb37d3ca"
+  },
+  "mutation_proof": {
+    "graph_tree_digest": {
+      "after": "3561146fdf672c4845599d3499e8ceaff782110b11ff33def3e7059b982540d4",
+      "before": "3561146fdf672c4845599d3499e8ceaff782110b11ff33def3e7059b982540d4"
+    },
+    "head_revision_id": {
+      "after": "rev:5a7c13ae45c49a65b402920499be72ed",
+      "before": "rev:5a7c13ae45c49a65b402920499be72ed"
+    },
+    "identity_authority": {
+      "after": {
+        "identity_decisions": "8b7ebc67c8c5ddaeaf055d2fd614bf602f9fb8ea7b38dec7f22cbb66f64427b2",
+        "identity_merge_records": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "identity_redirects": "ac4cadeb0db7151f413e7ba0217b9c0b2366ee2e5b5d3a44257ab120572e1aa9",
+        "node_state": "f8d4587a52d1cfaa28b02410522b5d97d34a2f7eb16e67df1bec16cc14c502a9"
+      },
+      "before": {
+        "identity_decisions": "8b7ebc67c8c5ddaeaf055d2fd614bf602f9fb8ea7b38dec7f22cbb66f64427b2",
+        "identity_merge_records": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "identity_redirects": "ac4cadeb0db7151f413e7ba0217b9c0b2366ee2e5b5d3a44257ab120572e1aa9",
+        "node_state": "f8d4587a52d1cfaa28b02410522b5d97d34a2f7eb16e67df1bec16cc14c502a9"
+      }
+    },
+    "predecessor_fixture_sha256": {
+      "after": "a666a2bc0d7fabe7a8b66e1dc93698a29bb911efede7c3089df28887477c13b5",
+      "before": "a666a2bc0d7fabe7a8b66e1dc93698a29bb911efede7c3089df28887477c13b5"
+    },
+    "repair_manifest_sha256": {
+      "after": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+      "before": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247"
+    },
+    "source_authority": {
+      "after": {
+        "contribution_index": "5c4b0631bcc890e4cb491930135dbe54ece17fbd81b30abb87111a56ad19d788",
+        "contribution_rebuild": "829b38f34d9a58e7f5739fe3c4b5f6e7248f2452a904721996613231faa037ad",
+        "contributions": "25b0be81659be0feea3cf3f459cec15e2773ebb51f3c64344b70848638251462",
+        "head": "4c29049bca7e9ebec877293673713b60455ff05f4ef1b8ff61e301c7f1e91f48",
+        "identity_decision_index": "68b100c7b0857004c7919e7b01d5d6c21d889a2c402048c54439e3721de3d9d8",
+        "identity_decisions": "fc624c45c79b8c41fa71eb36e2a379c2e9d26bb4b7607bcfbc03085cf5bf3358",
+        "initialization": "d93073e0c9ea180691b663579e13351ffe368de4db50f9a2bf99b8628f8f6381",
+        "revisions": "0003b1e5abf0bf51ef79ecd467efb578c3acc24308782593f7b963a730c21fe3"
+      },
+      "before": {
+        "contribution_index": "5c4b0631bcc890e4cb491930135dbe54ece17fbd81b30abb87111a56ad19d788",
+        "contribution_rebuild": "829b38f34d9a58e7f5739fe3c4b5f6e7248f2452a904721996613231faa037ad",
+        "contributions": "25b0be81659be0feea3cf3f459cec15e2773ebb51f3c64344b70848638251462",
+        "head": "4c29049bca7e9ebec877293673713b60455ff05f4ef1b8ff61e301c7f1e91f48",
+        "identity_decision_index": "68b100c7b0857004c7919e7b01d5d6c21d889a2c402048c54439e3721de3d9d8",
+        "identity_decisions": "fc624c45c79b8c41fa71eb36e2a379c2e9d26bb4b7607bcfbc03085cf5bf3358",
+        "initialization": "d93073e0c9ea180691b663579e13351ffe368de4db50f9a2bf99b8628f8f6381",
+        "revisions": "0003b1e5abf0bf51ef79ecd467efb578c3acc24308782593f7b963a730c21fe3"
+      }
+    },
+    "unchanged": true
+  },
+  "next_slice_recommendation": {
+    "basis_blocker_classes": [
+      "EVIDENCE_PROVENANCE"
+    ],
+    "basis_blocking_stages": [
+      "adoption_package_construction"
+    ],
+    "basis_examples": [
+      "node:item_foot_of_statue:field:aliases",
+      "node:loc:chilled_warehouse:field:aliases",
+      "node:loc:crooked-retort:field:aliases",
+      "node:loc:the-council:field:aliases",
+      "node:loc:underground-entrance:field:aliases"
+    ],
+    "case": "CASE_C",
+    "change": "Reconstruct assertion-grain AliasAssertionRecord evidence only for substantive Buddy aliases (and non-derivable store.aliases entries). Canonical-label materialization and derivable lookup-index keys are not DM evidence-contract gaps; DungeonMind already admits alias_assertions.",
+    "cross_repository_package_construction": [
+      "RELATIONSHIP_PREDICATE"
+    ],
+    "nonclaim": "Do not reopen broad relationship cleanup.",
+    "repository": "DungeonMindBuddy"
+  },
+  "predecessor": {
+    "attribute_assertion_count": 28,
+    "bytes_unchanged": true,
+    "fixture_path": "tests/fixtures/dungeonmind_kernel/eldyrwild_cutover_repin_after_dm30_v1.json",
+    "fixture_sha256": "a666a2bc0d7fabe7a8b66e1dc93698a29bb911efede7c3089df28887477c13b5",
+    "thread_classified_element_ids": [
+      "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:kind",
+      "node:mystery:session25:light-and-sound-as-search-tools-during-night-response:field:role"
+    ],
+    "verified": true
+  },
+  "relationship_invariants": {
+    "canonical": {
+      "represented": 314,
+      "residual": 9,
+      "residual_edge_ids": [
+        "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+        "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+        "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+        "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+        "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+        "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+        "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+        "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan",
+        "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+      ],
+      "semantic": 323,
+      "uses_statblock_mechanics": 3
+    },
+    "migration": {
+      "newly_represented_edge_ids": [
+        "edge:combat_shatter_mages_tower_spider:located_in:item_shatter_mages_tower",
+        "edge:loc:stone_bridge:contains:mystery_stone_bridge_river_name",
+        "edge:node:torrin_flamescale:serves:loc:guilds:represents",
+        "edge:node:torvak_hempdealer_crew:member_of:item:torvak-hemp-caravan"
+      ],
+      "represented": 318,
+      "residual": 5,
+      "residual_edge_ids": [
+        "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+        "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+        "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+        "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+        "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+      ],
+      "semantic": 323,
+      "uses_statblock_mechanics": 3
+    }
+  },
+  "repair_authority": {
+    "changed_node_kind_paths": [
+      "nodes[item_shatter_mages_tower].kind",
+      "nodes[mystery_stone_bridge_river_name].kind",
+      "nodes[loc:guilds].kind",
+      "nodes[item:torvak-hemp-caravan].kind"
+    ],
+    "manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+    "repair_id": "eldyrwild-relationship-node-kind-source-repair-v1",
+    "verified": true
+  },
+  "schema": "dmb_cutover_identity_lifecycle_history_after_571_v1",
+  "world_id": "eldyrwild"
+}

@@ -13,7 +13,9 @@ from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
     CURRENT_V5_TARGET,
+    LEGACY_SOURCE_HISTORY_POLICY,
     WholeWorldConformanceReportV4,
+    WholeWorldSourceHistoryPolicy,
     _analyze_loaded_buddy_world_store_v4,
     _load_exact_buddy_revision,
     compact_whole_world_conformance_report_v4,
@@ -50,6 +52,7 @@ def _analyze_loaded_buddy_world_store_v5(
     manifest: Any,
     store: UnionSupergraphStore,
     classified_out: list[Any] | None = None,
+    source_history_policy: WholeWorldSourceHistoryPolicy = LEGACY_SOURCE_HISTORY_POLICY,
 ) -> WholeWorldConformanceReportV4:
     """Private loaded-store path for in-memory migration projections under v5."""
     return _analyze_loaded_buddy_world_store_v4(
@@ -59,6 +62,7 @@ def _analyze_loaded_buddy_world_store_v5(
         manifest=manifest,
         store=store,
         target=CURRENT_V5_TARGET,
+        source_history_policy=source_history_policy,
         classified_out=classified_out,
     )
 
