@@ -12,6 +12,15 @@ from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_pa
     derive_bundled_alias_assertion_id,
     prove_alias_assertion_package_v1,
 )
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+    ClassifiedElement,
+    SemanticClassification,
+)
+from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+    LEGACY_SOURCE_HISTORY_POLICY,
+    _contribution_history_classified_items,
+    alias_package_policy_from_proof,
+)
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.contribution_models import GraphContribution, GraphContributionAssertion
 from graph_memory.kernel.contributions import compute_contribution_source_payload_sha256
@@ -220,7 +229,7 @@ def test_duplicate_text_from_distinct_assertions_is_not_collapsed() -> None:
     }
 
 
-def test_identity_derived_alias_is_residual() -> None:
+def test_identity_derived_alias_is_history_disposition() -> None:
     survivor = _node(
         "item_foot",
         label="Foot of a statue",
@@ -254,13 +263,17 @@ def test_identity_derived_alias_is_residual() -> None:
         redirects=[redirect],
     )
     proof = _prove(store, contributions)
-    assert proof.passed is False
-    assert proof.residual_count == 1
-    residual = proof.residuals[0]
-    assert residual.reason_code == IDENTITY_DERIVED_REASON
-    assert residual.alias_value == "Enormous boulder"
-    assert "item_boulder" in residual.source_candidate_ids
+    assert proof.passed is True
+    assert proof.residual_count == 0
+    assert proof.identity_derived_count == 1
     assert proof.covered_blocker_element_ids == []
+    assert proof.identity_derived_blocker_element_ids == [
+        "node:item_foot:field:aliases"
+    ]
+    history = proof.identity_derived_rows[0]
+    assert history.reason_code == IDENTITY_DERIVED_REASON
+    assert history.alias_value == "Enormous boulder"
+    assert "item_boulder" in history.source_candidate_ids
 
 
 def test_digest_drift_fails_closed() -> None:
@@ -319,3 +332,61 @@ def test_child_id_is_deterministic() -> None:
     assert first == second
     assert first.startswith("assertion:cutover-alias:")
     assert first != other
+
+
+def test_identity_derived_aliases_are_excluded_from_contribution_history() -> None:
+    survivor = _node(
+        "item_foot",
+        label="Foot of a statue",
+        aliases=["Foot of a statue", "Enormous boulder"],
+        identity_state="survivor",
+    )
+    merged = _node(
+        "item_boulder",
+        label="Enormous boulder",
+        aliases=["Enormous boulder"],
+        merged_into="item_foot",
+        memory_state="merged_away",
+    )
+    assertion = _assertion(
+        assertion_id="assertion:foot",
+        kind="node",
+        subject="item_foot",
+        contribution_id="contribution:1",
+        aliases=["Foot of a statue"],
+        label="Foot of a statue",
+    )
+    redirect = SimpleNamespace(
+        redirect_id="redirect:1",
+        from_node_id="item_boulder",
+        to_node_id="item_foot",
+        status="active",
+    )
+    store, contributions = _store(
+        nodes={survivor.node_id: survivor, merged.node_id: merged},
+        assertions=[assertion],
+        redirects=[redirect],
+    )
+    proof = _prove(store, contributions)
+    policy = alias_package_policy_from_proof(proof)
+    contribution = ClassifiedElement(
+        element_id="node:x:extra:created_at",
+        element_family="node_extra",
+        classification=SemanticClassification.SOURCE_MIGRATION_HISTORY,
+        blocker_class=None,
+        note="test",
+    )
+    identity_alias = ClassifiedElement(
+        element_id=proof.identity_derived_blocker_element_ids[0],
+        element_family="node_field",
+        classification=SemanticClassification.SOURCE_MIGRATION_HISTORY,
+        blocker_class=None,
+        note="test",
+    )
+    items = _contribution_history_classified_items(
+        [contribution, identity_alias],
+        LEGACY_SOURCE_HISTORY_POLICY,
+        policy,
+    )
+    assert [item.element_id for item in items] == [contribution.element_id]
+
