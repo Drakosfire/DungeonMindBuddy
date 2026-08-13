@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import graph_memory.kernel as kernel
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
@@ -543,6 +546,104 @@ def test_unmerge_refuses_after_later_alias_remove() -> None:
     assert original["status"] == "active"
 
 
+def test_unmerge_after_reintroduction_is_not_blocked_by_earlier_alias_remove() -> None:
+    merged, merge_one = _merge_shadow()
+    removed, first_remove = kernel.remove_identity_alias(
+        merged,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire merge-shadow alias",
+    )
+    reintroduced, merge_two = kernel.merge_identity(
+        _add_node(removed, _npc("npc_shadow_src2", "Shadow Name", "Shadow Name")),
+        world_id="eldyrwild",
+        source_node_id="npc_shadow_src2",
+        target_node_id="npc_shadow_tgt",
+        actor="gm:drakosfire",
+        reason="later merge reintroduces shadow",
+    )
+    assert "Shadow Name" in reintroduced.nodes["npc_shadow_tgt"].aliases
+    assert "Shadow Name" in merge_two.merge_side_effects.aliases_added_to_target
+
+    restored, unmerge = kernel.unmerge_identity(
+        reintroduced,
+        world_id="eldyrwild",
+        decision_id=merge_two.decision_id,
+        actor="gm:drakosfire",
+        reason="undo reintroducing merge",
+    )
+    assert unmerge.decision_kind == "unmerge"
+    assert "Shadow Name" not in restored.nodes["npc_shadow_tgt"].aliases
+    merge_two_row = next(
+        item
+        for item in restored.identity_decisions
+        if item["decision_id"] == merge_two.decision_id
+    )
+    assert merge_two_row["status"] == "superseded"
+    merge_one_row = next(
+        item
+        for item in restored.identity_decisions
+        if item["decision_id"] == merge_one.decision_id
+    )
+    assert merge_one_row["status"] == "active"
+    assert any(
+        item["decision_id"] == first_remove.decision_id
+        for item in restored.identity_decisions
+    )
+    try:
+        kernel.unmerge_identity(
+            restored,
+            world_id="eldyrwild",
+            decision_id=merge_one.decision_id,
+            actor="gm:drakosfire",
+            reason="undo original merge after earlier remove",
+        )
+        raise AssertionError("expected original merge to stay blocked")
+    except ValueError as exc:
+        assert "later alias_remove" in str(exc)
+
+
+def _write_contribution(root: Path, contribution) -> None:
+    directory = (
+        root / "graph_memory" / "worlds" / contribution.world_id / "contributions"
+    )
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{contribution.contribution_id.replace(':', '__')}.json"
+    path.write_text(
+        json.dumps(contribution.model_dump(mode="json"), indent=2, ensure_ascii=True)
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _attach_support(store: UnionSupergraphStore, support) -> UnionSupergraphStore:
+    assertion_support = dict(store.assertion_support or {})
+    assertion_support[support.assertion_id] = support.model_dump(mode="json")
+    return store.model_copy(update={"assertion_support": assertion_support})
+
+
+def _node_assertion(*, subject_node_id: str, label: str, aliases: list[str], artifact: str):
+    return kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=subject_node_id,
+        label=label,
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": aliases,
+        },
+        source_artifact_id=artifact,
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+
+
 def test_remove_identity_alias_refuses_unresolved_support() -> None:
     merged, _ = _merge_shadow()
     support = kernel.DurableAssertionSupport(
@@ -693,3 +794,226 @@ def test_remove_identity_alias_refuses_explicit_alias_assertion(tmp_path) -> Non
         raise AssertionError("expected explicit alias assertion refusal")
     except ValueError as exc:
         assert "independent semantic support" in str(exc)
+
+
+def test_remove_identity_alias_refuses_when_later_active_copy_lists_alias(
+    tmp_path: Path,
+) -> None:
+    merged, _ = _merge_shadow()
+    with_alias = _node_assertion(
+        subject_node_id="npc_shadow_tgt",
+        label="Canonical Name",
+        aliases=["Canonical Name", "Shadow Name"],
+        artifact="artifact:shadow-later-copy",
+    )
+    without_alias = _node_assertion(
+        subject_node_id="npc_shadow_tgt",
+        label="Canonical Name",
+        aliases=["Canonical Name"],
+        artifact="artifact:shadow-later-copy",
+    )
+    first = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:shadow-later-copy",
+        source_revision_id="shadow-copy-without",
+        authored_by="gm",
+        accepted_assertions=[without_alias],
+    )
+    second = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:shadow-later-copy",
+        source_revision_id="shadow-copy-with",
+        authored_by="gm",
+        accepted_assertions=[with_alias],
+    )
+    forced = first.accepted_assertions[0].model_copy(
+        update={
+            "assertion_id": second.accepted_assertions[0].assertion_id,
+            "contribution_id": first.contribution_id,
+        }
+    )
+    first = first.model_copy(update={"accepted_assertions": [forced]})
+    _write_contribution(tmp_path, first)
+    _write_contribution(tmp_path, second)
+    support = kernel.DurableAssertionSupport(
+        assertion_id=second.accepted_assertions[0].assertion_id,
+        active_contribution_ids=[first.contribution_id, second.contribution_id],
+        support_state="supported",
+        assertion_kind="node",
+        graph_object_id="npc_shadow_tgt",
+    )
+    blocked = _attach_support(merged, support)
+    try:
+        kernel.remove_identity_alias(
+            blocked,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Shadow Name",
+            actor="gm:drakosfire",
+            reason="later copy still lists alias",
+            root=tmp_path,
+        )
+        raise AssertionError("expected later active copy to count as support")
+    except ValueError as exc:
+        assert "independent semantic support" in str(exc)
+
+
+def test_remove_identity_alias_refuses_incomplete_active_support(tmp_path: Path) -> None:
+    merged, _ = _merge_shadow()
+    missing = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:shadow-incomplete",
+        source_revision_id="shadow-missing-assertion",
+        authored_by="gm",
+        accepted_assertions=[
+            _node_assertion(
+                subject_node_id="npc_unrelated",
+                label="Unrelated",
+                aliases=["Unrelated"],
+                artifact="artifact:shadow-incomplete",
+            )
+        ],
+    )
+    present = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:shadow-incomplete",
+        source_revision_id="shadow-present-without-alias",
+        authored_by="gm",
+        accepted_assertions=[
+            _node_assertion(
+                subject_node_id="npc_shadow_tgt",
+                label="Canonical Name",
+                aliases=["Canonical Name"],
+                artifact="artifact:shadow-incomplete",
+            )
+        ],
+    )
+    _write_contribution(tmp_path, missing)
+    _write_contribution(tmp_path, present)
+    support = kernel.DurableAssertionSupport(
+        assertion_id=present.accepted_assertions[0].assertion_id,
+        active_contribution_ids=[missing.contribution_id, present.contribution_id],
+        support_state="supported",
+        assertion_kind="node",
+        graph_object_id="npc_shadow_tgt",
+    )
+    blocked = _attach_support(merged, support)
+    try:
+        kernel.remove_identity_alias(
+            blocked,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Shadow Name",
+            actor="gm:drakosfire",
+            reason="incomplete active support",
+            root=tmp_path,
+        )
+        raise AssertionError("expected incomplete active support refusal")
+    except ValueError as exc:
+        assert "does not contain the assertion" in str(exc)
+
+
+def test_remove_identity_alias_refuses_subject_object_mismatch(tmp_path: Path) -> None:
+    merged, _ = _merge_shadow()
+    assertion = _node_assertion(
+        subject_node_id="npc_other",
+        label="Other Node",
+        aliases=["Other Node"],
+        artifact="artifact:shadow-mismatch",
+    )
+    contribution = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:shadow-mismatch",
+        source_revision_id="shadow-object-mismatch",
+        authored_by="gm",
+        accepted_assertions=[assertion],
+    )
+    _write_contribution(tmp_path, contribution)
+    support = kernel.DurableAssertionSupport(
+        assertion_id=contribution.accepted_assertions[0].assertion_id,
+        active_contribution_ids=[contribution.contribution_id],
+        support_state="supported",
+        assertion_kind="node",
+        graph_object_id="npc_shadow_tgt",
+    )
+    blocked = _attach_support(merged, support)
+    try:
+        kernel.remove_identity_alias(
+            blocked,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Shadow Name",
+            actor="gm:drakosfire",
+            reason="object mismatch",
+            root=tmp_path,
+        )
+        raise AssertionError("expected subject/object mismatch refusal")
+    except ValueError as exc:
+        assert "does not match" in str(exc)
+
+
+def test_remove_identity_alias_refuses_divergent_active_copies(tmp_path: Path) -> None:
+    merged, _ = _merge_shadow()
+    first_assertion = _node_assertion(
+        subject_node_id="npc_shadow_tgt",
+        label="Canonical Name",
+        aliases=["Canonical Name"],
+        artifact="artifact:shadow-divergent",
+    )
+    second_assertion = _node_assertion(
+        subject_node_id="npc_shadow_tgt",
+        label="Divergent Label",
+        aliases=["Canonical Name"],
+        artifact="artifact:shadow-divergent",
+    )
+    first = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:shadow-divergent",
+        source_revision_id="shadow-divergent-a",
+        authored_by="gm",
+        accepted_assertions=[first_assertion],
+    )
+    second = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:shadow-divergent",
+        source_revision_id="shadow-divergent-b",
+        authored_by="gm",
+        accepted_assertions=[second_assertion],
+    )
+    forced = second.accepted_assertions[0].model_copy(
+        update={
+            "assertion_id": first.accepted_assertions[0].assertion_id,
+            "contribution_id": second.contribution_id,
+        }
+    )
+    second = second.model_copy(update={"accepted_assertions": [forced]})
+    _write_contribution(tmp_path, first)
+    _write_contribution(tmp_path, second)
+    support = kernel.DurableAssertionSupport(
+        assertion_id=first.accepted_assertions[0].assertion_id,
+        active_contribution_ids=[first.contribution_id, second.contribution_id],
+        support_state="supported",
+        assertion_kind="node",
+        graph_object_id="npc_shadow_tgt",
+    )
+    blocked = _attach_support(merged, support)
+    try:
+        kernel.remove_identity_alias(
+            blocked,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Shadow Name",
+            actor="gm:drakosfire",
+            reason="divergent copies",
+            root=tmp_path,
+        )
+        raise AssertionError("expected divergent active copy refusal")
+    except ValueError as exc:
+        assert "semantically divergent active copies" in str(exc)
