@@ -1,13 +1,18 @@
 # HANDOFF — Steward preflight snapshot
 
 **Created:** 2026-08-12  
-**Status:** ACTIVE — one implementation capability  
+**Status:** COMPLETE — merged as PR #574  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOCUMENTS-steward-preflight.md`  
 **Conversation/workstream:** `DungeonBuddy development-process optimization`  
 **Flow / owner:** `DOCUMENTS`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `964a360286d1c2e4444787002c00b40257dae34f`  
-**PR title:** `DOCUMENTS: add steward preflight snapshot`
+**Merged revision:** `89aedbc3a860a20d227617b3463b7d3d070cbab8`  
+**PR:** #574 — `DOCUMENTS: add steward preflight snapshot`  
+**Review cycles:** 2  
+**Execution-evidence waiver:** no repository CI/check runs or connector-accessible checkout was available; pytest/ruff were not claimed green.
+
+**Completion note:** Review Cycle 1 found three truthfulness defects: over-broad same-branch suppression, false remote-complete semantics under `--local-only`, and silent reliance on potentially stale local `main`. Review Cycle 2 approved the repaired/polished head with the execution-evidence gap explicitly recorded. The merged helper remains read-only and leaves handoff authoring, lane transfer, and decomposition to steward judgment.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
@@ -173,7 +178,7 @@ git diff --name-only 964a360286d1c2e4444787002c00b40257dae34f...HEAD
 Existing surface: repository process itself.  
 Smallest realistic scenario: run preflight against this handoff while another unrelated product PR is open.  
 Expected observation: current worktrees/PR lane appear; no false collision unless an actual §4 path overlaps.  
-Evidence captured: CLI JSON in review handback when an execution environment is available.
+Evidence captured: execution not available in this connector-only review environment; static and mocked test design were reviewed, and the waiver is recorded above.
 
 ### Baseline failure handling
 
@@ -185,12 +190,12 @@ Record Review Cycle N, exact PR/head, unit/lint/help results with provenance, ca
 
 ## §9 Acceptance rubric
 
-- [ ] One read-only preflight command produces the complete mechanical steward snapshot defined by §6.
-- [ ] Concrete active-handoff or open-PR write overlap blocks; same-lane PR identity does not self-conflict.
-- [ ] GitHub unavailability is a visible warning and never masquerades as “no remote conflicts.”
-- [ ] Base drift is reported without the tool making semantic invalidation decisions.
-- [ ] Review-cycle metadata follows explicit-label + distinct-head semantics and reports anomalies.
-- [ ] No Git/GitHub/process state is mutated.
-- [ ] Tests exercise the adversarial sequences at the owning parser/aggregation boundaries.
-- [ ] Actual changed paths stay inside §4.
-- [ ] The tool does not author handoffs or decide collision resolution; those remain steward responsibilities.
+- [x] One read-only preflight command produces the mechanical steward snapshot defined by §6 at the static contract level; execution provenance is waived above.
+- [x] Concrete active-handoff or open-PR write overlap blocks; same-lane PR identity does not self-conflict in the reviewed implementation/tests.
+- [x] GitHub unavailability is a visible warning and never masquerades as “no remote conflicts.”
+- [x] Base drift is reported without the tool making semantic invalidation decisions; local vs observed `origin/main` are distinguished.
+- [x] Review-cycle metadata follows explicit-label + distinct-head semantics and reports anomalies.
+- [x] No Git/GitHub/process state mutation path exists in the reviewed CLI.
+- [x] Tests cover the adversarial sequences, with execution provenance explicitly unavailable/waived rather than claimed green.
+- [x] Actual changed paths stayed inside §4.
+- [x] The tool does not author handoffs or decide collision resolution; those remain steward responsibilities.
