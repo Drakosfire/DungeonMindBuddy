@@ -72,7 +72,7 @@ HANDOFF §4 is both the expected diff allowlist and the lane's **exclusive expec
 - The steward must split the seam, serialize the work, explicitly transfer ownership, or re-brief the slice.
 - Git merge conflicts are not the normal collision detector.
 
-Parallel worktree source isolation does not prove runtime isolation; shared ports, services, DBs, `out/`, caches, generated state, fixtures, or external resources must be handled separately when relevant.
+Parallel worktree/checkout source isolation does not prove runtime isolation; shared ports, services, DBs, `out/`, caches, generated state, fixtures, or external resources must be handled separately when relevant.
 
 ## Invariants — do not regress
 
@@ -84,7 +84,7 @@ Parallel worktree source isolation does not prove runtime isolation; shared port
 6. **Evidence must exercise the owning boundary.** Lower-level helper coverage can support but cannot prove a higher-level service/workflow/persistence/concurrency/surface guarantee.
 7. **Use the canonical review tooling.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the normal external-PR path; do not rebuild the manual `gh + git + sed` dance when the handoff is parseable.
 8. **Implementation review and state sync are distinct concerns.** Do not smuggle current-state roadmap/checklist/status edits into implementation fixes merely to make the PR narrative look current.
-9. **Atomic state-authority sync closes the cycle.** After merge or another sequencing transition, identify every mutable workstream document that claims current status, sequence, predecessor, evidence gate, or next action and update the applicable set coherently before dispatching a dependent successor. `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set; active roadmaps, trackers, status docs, and indexes join the sync when they carry current state.
+9. **Atomic state-authority sync closes the cycle.** After merge or another sequencing transition, identify every mutable workstream document that claims current status, sequence, predecessor, evidence gate, or next action and update the applicable set before dispatching a dependent successor. Prefer one commit/PR transaction. When tooling only supports sequential file writes, the steward holds the transaction boundary: no dependent dispatch or cycle-complete claim occurs between partial writes, and the complete set is re-read/verified before release. `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set; active roadmaps, trackers, status docs, and indexes join the sync when they carry current state.
 10. **Stable authorities change only when their claims change.** Architecture/contracts/reference docs are not mandatory merge bookkeeping.
 11. **The judgment/rubric is a learning surface.** Accepted review findings should tighten future critique, evidence, or repository law when the lesson generalizes. Copying an unchanged rubric forever is a smell.
 12. **Stale-note discipline.** Notes about what a PR did age well; notes about what is still pending age badly. Re-verify temporal claims before quoting them downstream.
@@ -103,6 +103,8 @@ STATUS / current-state guide
 source/index manifest that claims the active source set
 ```
 
+Prefer one commit or one small sync PR containing the applicable set. If the transport cannot update multiple files atomically, sequential writes are permitted only inside one guarded sync operation: do not dispatch another dependent lane while the set is partially updated, then re-read the final files and exact repository head before declaring the sync complete.
+
 The operation must leave a fresh worker with one coherent current-state hypothesis. If two state authorities disagree with each other or with `main`, fix that contradiction before dispatch.
 
 Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **coherent state transition**, not "edit every planning file."
@@ -120,6 +122,7 @@ Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **
 - Stopping review after an arbitrary number of rounds.
 - Calling a fix commit a new review cycle before a new formal judgment.
 - Treating merge as cycle completion while current-state documents still say pending.
+- Dispatching between partial writes of one state-authority sync.
 - Updating architecture solely because an implementation PR merged.
 - Reusing stale "still pending" notes without verification.
 
