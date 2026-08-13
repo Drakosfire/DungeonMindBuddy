@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Mine Of Conks PDF pages into local gitignored media for Play sheet projection.
+"""Mine Of Conks illustrated PDF art into local gitignored media.
 
-The DriveThru PDF ``1399969-20190116_Conks-Cons_PF_v21.pdf`` has **no embedded
-adventure illustrations** (map / Fig.1 slots are empty white plates). This script
-rasterizes the key module pages at 200 DPI for table reference and writes an
-inventory under ``corpus/of-conks-cons-markdown/media/``.
+Default source is the illustrated DriveThru PDF::
+
+  ~/Downloads/1399969-20190116_Conks-Cons_v21.pdf
+
+(Do **not** use the text-only ``…_PF_v21.pdf`` — its figure slots are empty.)
+
+Extracts named maps/cover/plates via ``pdfimages``, writes
+``corpus/of-conks-cons-markdown/media/``, and an inventory JSON.
 
 Example::
 
@@ -14,91 +18,143 @@ Example::
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
+from PIL import Image
+
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PDF = Path.home() / "Downloads" / "1399969-20190116_Conks-Cons_PF_v21.pdf"
+DEFAULT_PDF = Path.home() / "Downloads" / "1399969-20190116_Conks-Cons_v21.pdf"
 MEDIA_DIR = ROOT / "corpus" / "of-conks-cons-markdown" / "media"
 
-# printed_page → (pdf_page, output_filename, caption)
-# This PDF: file page 1 == printed TOC page 2, so pdf_page = printed_page - 1.
-PAGE_PLAN: list[tuple[int, int, str, str]] = [
-    (4, 3, "page-04-greenfields.jpg", "The Greenfields"),
-    (7, 6, "page-07-area-1-the-shacks.jpg", "Area 1: The Shacks"),
-    (9, 8, "page-09-area-2-3-store-wagon.jpg", "Area 2–3: Store + Saladin"),
-    (10, 9, "page-10-area-4-jove-home.jpg", "Area 4: The Jove's Home"),
-    (11, 10, "page-11-area-5-grotesque-tree.jpg", "Area 5: The Grotesque Tree"),
-    (15, 14, "page-15-descent-marrow.jpg", "Descent / The Marrow"),
+# Stable names projected by ofConksNodeMedia.ts. Values are (min_w, min_h, max_w, max_h)
+# selection hints applied after chroma/size filtering + perceptual dedupe, then
+# ordered by discovery. We also prefer known pixel sizes from the illustrated PDF.
+NAMED_TARGETS: list[tuple[str, tuple[int, int]]] = [
+    ("cover-of-conks.jpg", (992, 1403)),
+    ("map-greenfields.jpg", (840, 649)),
+    ("map-hempholm.jpg", (1000, 773)),
+    ("fig-1-the-shacks.jpg", (1000, 773)),  # same village map plate
+    ("art-greenfields-oaks.jpg", (780, 600)),  # first 780x600 pastoral (page 6)
+    ("art-area-5-harvest.jpg", (780, 600)),  # later harvest plate (page 11)
+    ("art-pastoral-cattle.jpg", (780, 600)),
+    ("art-road-travelers.jpg", (780, 600)),
 ]
+
+
+def _sample_stats(im: Image.Image) -> tuple[float, float, str]:
+    rgb = im.convert("RGB")
+    sample = rgb.resize((48, 48))
+    pixels = list(sample.getdata())
+    mean = sum(sum(c) for c in pixels) / (3 * len(pixels))
+    chroma = sum(max(c) - min(c) for c in pixels) / len(pixels)
+    digest = hashlib.md5(sample.tobytes()).hexdigest()
+    return mean, chroma, digest
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pdf", type=Path, default=DEFAULT_PDF)
-    parser.add_argument("--dpi", type=int, default=200)
     args = parser.parse_args()
 
     if not args.pdf.is_file():
         print(f"PDF not found: {args.pdf}", file=sys.stderr)
         return 2
-    if shutil.which("pdftoppm") is None:
-        print("pdftoppm not found (poppler-utils)", file=sys.stderr)
+    if shutil.which("pdfimages") is None:
+        print("pdfimages not found (poppler-utils)", file=sys.stderr)
+        return 2
+    if "PF_v21" in args.pdf.name:
+        print(
+            "Refusing text-only PF PDF (empty figure slots). "
+            "Use 1399969-20190116_Conks-Cons_v21.pdf",
+            file=sys.stderr,
+        )
         return 2
 
     MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-    work = MEDIA_DIR / ".work"
-    if work.exists():
-        shutil.rmtree(work)
-    work.mkdir()
+    for stale in MEDIA_DIR.glob("page-*.jpg"):
+        stale.unlink()
 
-    files: list[dict[str, object]] = []
-    for printed, pdf_page, filename, caption in PAGE_PLAN:
-        prefix = work / f"p{pdf_page}"
+    with tempfile.TemporaryDirectory(prefix="of-conks-media-") as tmp:
+        work = Path(tmp)
+        prefix = work / "img"
         subprocess.run(
-            [
-                "pdftoppm",
-                "-jpeg",
-                "-r",
-                str(args.dpi),
-                "-f",
-                str(pdf_page),
-                "-l",
-                str(pdf_page),
-                str(args.pdf),
-                str(prefix),
-            ],
+            ["pdfimages", "-all", str(args.pdf), str(prefix)],
             check=True,
         )
-        produced = sorted(work.glob(f"p{pdf_page}*.jpg"))
-        if not produced:
-            print(f"No raster for PDF page {pdf_page}", file=sys.stderr)
-            return 1
-        dest = MEDIA_DIR / filename
-        shutil.copyfile(produced[0], dest)
-        files.append(
-            {
-                "file": filename,
-                "printed_page": printed,
-                "pdf_page": pdf_page,
-                "caption": caption,
-                "bytes": dest.stat().st_size,
-            }
-        )
-        print(f"wrote {dest.relative_to(ROOT)} ({dest.stat().st_size} bytes)")
 
-    shutil.rmtree(work)
+        candidates: list[tuple[Path, int, int, float, float]] = []
+        seen: set[str] = set()
+        for path in sorted(work.iterdir()):
+            if path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".ppm", ".tif", ".tiff"}:
+                continue
+            im = Image.open(path)
+            w, h = im.size
+            if w * h < 200_000:
+                continue
+            mean, chroma, digest = _sample_stats(im)
+            if digest in seen:
+                continue
+            seen.add(digest)
+            # Skip blank plates / parchment page textures.
+            if mean > 220 and chroma < 10:
+                continue
+            if abs(w - 794) < 20 and abs(h - 1123) < 20 and chroma < 30:
+                continue
+            if chroma < 15 and mean > 150:
+                continue
+            candidates.append((path, w, h, mean, chroma))
+
+        # Bucket 780x600 pastorals in discovery order for sequential naming.
+        pastorals = [c for c in candidates if abs(c[1] - 780) < 15 and abs(c[2] - 600) < 15]
+        by_size: dict[tuple[int, int], list[tuple[Path, int, int, float, float]]] = {}
+        for c in candidates:
+            by_size.setdefault((c[1], c[2]), []).append(c)
+
+        files: list[dict[str, object]] = []
+        pastoral_idx = 0
+        used_paths: set[Path] = set()
+
+        for name, (tw, th) in NAMED_TARGETS:
+            chosen: tuple[Path, int, int, float, float] | None = None
+            if name.startswith("art-") and (tw, th) == (780, 600):
+                if pastoral_idx < len(pastorals):
+                    chosen = pastorals[pastoral_idx]
+                    pastoral_idx += 1
+            else:
+                pool = by_size.get((tw, th), [])
+                for item in pool:
+                    if item[0] not in used_paths:
+                        chosen = item
+                        break
+            if chosen is None:
+                print(f"missing target {name} @ {tw}x{th}", file=sys.stderr)
+                return 1
+            src, w, h, _mean, _chroma = chosen
+            used_paths.add(src)
+            dest = MEDIA_DIR / name
+            Image.open(src).convert("RGB").save(dest, quality=92)
+            files.append(
+                {
+                    "file": name,
+                    "width": w,
+                    "height": h,
+                    "bytes": dest.stat().st_size,
+                }
+            )
+            print(f"wrote {dest.relative_to(ROOT)} ({w}x{h}, {dest.stat().st_size} bytes)")
+
     inventory = {
         "schema": "of_conks_module_media_v1",
         "source_pdf": args.pdf.name,
-        "dpi": args.dpi,
         "note": (
-            "This PDF has no embedded adventure illustrations "
-            "(Fig.1 / maps are empty plates). Mined assets are high-res "
-            "module page rasters for table reference."
+            "Illustrated PDF art via pdfimages. Maps/cover/pastoral plates "
+            "named for Play Object Sheet / Threat sheet projection."
         ),
         "files": files,
     }

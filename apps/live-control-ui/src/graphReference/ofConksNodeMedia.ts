@@ -1,9 +1,10 @@
 /**
  * Of Conks module media associations for Play / Threat sheets.
  *
- * The source PDF has no embedded adventure illustrations (map / Fig.1 slots are
- * empty). Mined assets are high-res module **page rasters** for table reference.
- * Files live under gitignored `corpus/of-conks-cons-markdown/media/`.
+ * Source: illustrated PDF `1399969-20190116_Conks-Cons_v21.pdf` (not the
+ * text-only `…_PF_v21.pdf`). Files live under gitignored
+ * `corpus/of-conks-cons-markdown/media/` — regenerate with
+ * `scripts/mine_of_conks_pdf_media.py`.
  */
 
 export type OfConksNodeMedia = {
@@ -11,80 +12,98 @@ export type OfConksNodeMedia = {
   src: string;
   alt: string;
   caption?: string;
-  /** Provenance of the bitmap. */
-  kind: "module-page";
+  kind: "figure" | "map" | "cover" | "plate";
 };
 
 const MEDIA_ROOT = "/corpus/of-conks-cons-markdown/media";
 
-function page(
+function asset(
   filename: string,
   alt: string,
   caption: string,
+  kind: OfConksNodeMedia["kind"],
 ): OfConksNodeMedia {
   return {
     src: `${MEDIA_ROOT}/${filename}`,
     alt,
     caption,
-    kind: "module-page",
+    kind,
   };
 }
 
-const GREENFIELDS = page(
-  "page-04-greenfields.jpg",
-  "Of Conks module page — The Greenfields",
-  "Module p.4 · region context (PDF has no separate map art)",
+const COVER = asset(
+  "cover-of-conks.jpg",
+  "Of Conks & Cons cover",
+  "Module cover · Greenfields Adventure Series",
+  "cover",
 );
-const SHACKS = page(
-  "page-07-area-1-the-shacks.jpg",
-  "Of Conks module page — Area 1: The Shacks",
-  "Module p.7 · The Shacks (Fig.1 plate empty in this PDF)",
+const MAP_GREENFIELDS = asset(
+  "map-greenfields.jpg",
+  "Map of the Greenfields",
+  "Module map · Greenfields region (Hempholm marked)",
+  "map",
 );
-const STORE_WAGON = page(
-  "page-09-area-2-3-store-wagon.jpg",
-  "Of Conks module page — Area 2–3: Store and Saladin’s wagon",
-  "Module p.9 · Morwin’s store + Saladin’s Mobile Emporium",
+const MAP_HEMPHOLM = asset(
+  "map-hempholm.jpg",
+  "Map of Hempholm",
+  "Module map · village areas 1–5",
+  "map",
 );
-const JOVE = page(
-  "page-10-area-4-jove-home.jpg",
-  "Of Conks module page — Area 4: The Jove's Home",
-  "Module p.10 · Jove home / garden approach",
+const FIG_SHACKS = asset(
+  "fig-1-the-shacks.jpg",
+  "Fig. 1 — The Shacks / Hempholm village",
+  "Module Fig.1 · Hempholm village map",
+  "figure",
 );
-const TREE = page(
-  "page-11-area-5-grotesque-tree.jpg",
-  "Of Conks module page — Area 5: The Grotesque Tree",
-  "Module p.11 · tree site tactics and treasure",
+const ART_OAKS = asset(
+  "art-greenfields-oaks.jpg",
+  "Greenfields pastoral plate",
+  "Module plate · pastoral Greenfields mood",
+  "plate",
 );
-const MARROW = page(
-  "page-15-descent-marrow.jpg",
-  "Of Conks module page — Descent / The Marrow",
-  "Module p.15 · root corridors and Marrow",
+const ART_HARVEST = asset(
+  "art-area-5-harvest.jpg",
+  "Harvest field pastoral plate",
+  "Module plate · near the grotesque-tree beat",
+  "plate",
+);
+const ART_CATTLE = asset(
+  "art-pastoral-cattle.jpg",
+  "Pastoral cattle plate",
+  "Module plate · village / farm mood",
+  "plate",
+);
+const ART_TRAVELERS = asset(
+  "art-road-travelers.jpg",
+  "Road travelers pastoral plate",
+  "Module plate · arrival / road mood",
+  "plate",
 );
 
 const BY_NODE_ID: Readonly<Record<string, OfConksNodeMedia>> = {
-  "location:hempholm": SHACKS,
-  "location:the-shacks": SHACKS,
-  "npc:nar-granitetooth": SHACKS,
-  "npc:lord-fiddlestick": GREENFIELDS,
-  "item:the-conk": GREENFIELDS,
-  "location:morwins-store": STORE_WAGON,
-  "npc:morwin-blackwell": STORE_WAGON,
-  "location:saladins-wagon": STORE_WAGON,
-  "npc:saladin": STORE_WAGON,
-  "item:maglubiyets-statue": STORE_WAGON,
-  "location:jove-home": JOVE,
-  "npc:mark-jove": JOVE,
-  "npc:torbin-jove": JOVE,
-  "location:grotesque-tree-site": TREE,
-  "threat:grotesque-tree": TREE,
-  "item:metal-leaves": TREE,
-  "location:root-corridors": MARROW,
-  "location:the-marrow": MARROW,
-  "threat:guardian": MARROW,
-  "threat:caretakers": MARROW,
-  "npc:helix-child": MARROW,
-  "npc:paelias-sian": MARROW,
-  "faction:baldurs-gate-mages-guild": GREENFIELDS,
+  "location:hempholm": MAP_HEMPHOLM,
+  "location:the-shacks": FIG_SHACKS,
+  "npc:nar-granitetooth": FIG_SHACKS,
+  "npc:lord-fiddlestick": MAP_GREENFIELDS,
+  "item:the-conk": MAP_GREENFIELDS,
+  "location:morwins-store": MAP_HEMPHOLM,
+  "npc:morwin-blackwell": MAP_HEMPHOLM,
+  "location:saladins-wagon": MAP_HEMPHOLM,
+  "npc:saladin": MAP_HEMPHOLM,
+  "item:maglubiyets-statue": MAP_HEMPHOLM,
+  "location:jove-home": MAP_HEMPHOLM,
+  "npc:mark-jove": MAP_HEMPHOLM,
+  "npc:torbin-jove": MAP_HEMPHOLM,
+  "location:grotesque-tree-site": MAP_HEMPHOLM,
+  "threat:grotesque-tree": ART_HARVEST,
+  "item:metal-leaves": ART_HARVEST,
+  "location:root-corridors": ART_OAKS,
+  "location:the-marrow": ART_OAKS,
+  "threat:guardian": ART_OAKS,
+  "threat:caretakers": ART_CATTLE,
+  "npc:helix-child": ART_TRAVELERS,
+  "npc:paelias-sian": COVER,
+  "faction:baldurs-gate-mages-guild": MAP_GREENFIELDS,
 };
 
 export function mediaForOfConksNodeId(nodeId: string): OfConksNodeMedia | null {
