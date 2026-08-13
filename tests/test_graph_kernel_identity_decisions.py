@@ -253,3 +253,443 @@ def test_merge_rejects_merged_away_target() -> None:
         raise AssertionError("expected ValueError for merged_away merge target")
     except ValueError as exc:
         assert "merged_away" in str(exc)
+
+
+def _merge_shadow(
+    source_id: str = "npc_shadow_src",
+    target_id: str = "npc_shadow_tgt",
+    source_label: str = "Shadow Name",
+    target_label: str = "Canonical Name",
+) -> tuple[UnionSupergraphStore, object]:
+    store = _base_store()
+    store = _add_node(store, _npc(source_id, source_label, source_label))
+    store = _add_node(store, _npc(target_id, target_label, target_label))
+    return kernel.merge_identity(
+        store,
+        world_id="eldyrwild",
+        source_node_id=source_id,
+        target_node_id=target_id,
+        actor="gm:drakosfire",
+        reason="merge shadow source into survivor",
+    )
+
+
+def test_remove_identity_alias_retires_merge_shadow_and_preserves_history() -> None:
+    merged, merge_decision = _merge_shadow()
+    merge_before = dict(next(
+        item for item in merged.identity_decisions
+        if item["decision_id"] == merge_decision.decision_id
+    ))
+    redirects_before = [item.model_dump(mode="json") for item in merged.identity_redirects]
+    evidence_before = list(merged.nodes["npc_shadow_tgt"].evidence_ref_ids)
+
+    updated, decision = kernel.remove_identity_alias(
+        merged,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire merge-shadow alias",
+    )
+
+    assert decision.decision_kind == "alias_remove"
+    assert decision.subject_node_id == "npc_shadow_tgt"
+    assert decision.target_node_id is None
+    assert decision.alias == "Shadow Name"
+    assert decision.merge_side_effects is None
+    assert decision.affected_node_ids == ["npc_shadow_tgt"]
+    assert "Shadow Name" not in updated.nodes["npc_shadow_tgt"].aliases
+    assert updated.aliases.get("shadow name") is None
+    assert updated.aliases.get("canonical name") == "npc_shadow_tgt"
+
+    merge_after = dict(next(
+        item for item in updated.identity_decisions
+        if item["decision_id"] == merge_decision.decision_id
+    ))
+    assert merge_after == merge_before
+    assert "Shadow Name" in merge_decision.merge_side_effects.aliases_added_to_target
+    assert [item.model_dump(mode="json") for item in updated.identity_redirects] == redirects_before
+    assert updated.nodes["npc_shadow_src"].state.get("memory_state") == "merged_away"
+    assert list(updated.nodes["npc_shadow_tgt"].evidence_ref_ids) == evidence_before
+    assert any(item["decision_id"] == decision.decision_id for item in updated.identity_decisions)
+
+
+def test_remove_identity_alias_retains_shared_remaining_index_key() -> None:
+    store = _base_store()
+    store = _add_node(store, _npc("npc_src", "Extra Alias", "Extra Alias"))
+    store = _add_node(store, _npc("npc_tgt", "Keep Key", "Keep Key", "Extra Alias"))
+    merged, _ = kernel.merge_identity(
+        store,
+        world_id="eldyrwild",
+        source_node_id="npc_src",
+        target_node_id="npc_tgt",
+        actor="gm:drakosfire",
+        reason="union extra alias",
+    )
+    # Target label still produces keep key after Extra Alias is retired.
+    updated, _ = kernel.remove_identity_alias(
+        merged,
+        world_id="eldyrwild",
+        subject_node_id="npc_tgt",
+        alias="Extra Alias",
+        actor="gm:drakosfire",
+        reason="drop extra alias only",
+    )
+    assert updated.aliases.get("extra alias") is None
+    assert updated.aliases.get("keep key") == "npc_tgt"
+
+
+def test_remove_identity_alias_exact_retry_is_noop() -> None:
+    merged, _ = _merge_shadow()
+    first, decision = kernel.remove_identity_alias(
+        merged,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire merge-shadow alias",
+    )
+    second, retry = kernel.remove_identity_alias(
+        first,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire merge-shadow alias",
+    )
+    assert retry.decision_id == decision.decision_id
+    assert second.identity_decisions == first.identity_decisions
+    assert second.nodes["npc_shadow_tgt"].aliases == first.nodes["npc_shadow_tgt"].aliases
+    assert second.aliases == first.aliases
+
+
+def test_remove_identity_alias_same_reason_after_reintroduction_refuses() -> None:
+    merged, _ = _merge_shadow()
+    removed, _ = kernel.remove_identity_alias(
+        merged,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire merge-shadow alias",
+    )
+    reintroduced, _ = kernel.merge_identity(
+        _add_node(removed, _npc("npc_shadow_src2", "Shadow Name", "Shadow Name")),
+        world_id="eldyrwild",
+        source_node_id="npc_shadow_src2",
+        target_node_id="npc_shadow_tgt",
+        actor="gm:drakosfire",
+        reason="later merge reintroduces shadow",
+    )
+    assert "Shadow Name" in reintroduced.nodes["npc_shadow_tgt"].aliases
+    try:
+        kernel.remove_identity_alias(
+            reintroduced,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Shadow Name",
+            actor="gm:drakosfire",
+            reason="retire merge-shadow alias",
+        )
+        raise AssertionError("expected reintroduction collision")
+    except ValueError as exc:
+        assert "reintroduction collision" in str(exc)
+    assert "Shadow Name" in reintroduced.nodes["npc_shadow_tgt"].aliases
+
+
+def test_remove_identity_alias_new_reason_after_reintroduction_succeeds() -> None:
+    merged, first_merge = _merge_shadow()
+    removed, first_remove = kernel.remove_identity_alias(
+        merged,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire merge-shadow alias",
+    )
+    reintroduced, _ = kernel.merge_identity(
+        _add_node(removed, _npc("npc_shadow_src2", "Shadow Name", "Shadow Name")),
+        world_id="eldyrwild",
+        source_node_id="npc_shadow_src2",
+        target_node_id="npc_shadow_tgt",
+        actor="gm:drakosfire",
+        reason="later merge reintroduces shadow",
+    )
+    updated, second_remove = kernel.remove_identity_alias(
+        reintroduced,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire reintroduced shadow",
+    )
+    assert second_remove.decision_id != first_remove.decision_id
+    assert "Shadow Name" not in updated.nodes["npc_shadow_tgt"].aliases
+    assert any(item["decision_id"] == first_remove.decision_id for item in updated.identity_decisions)
+    merge_row = next(
+        item for item in updated.identity_decisions
+        if item["decision_id"] == first_merge.decision_id
+    )
+    assert "Shadow Name" in merge_row["merge_side_effects"]["aliases_added_to_target"]
+
+
+def test_remove_identity_alias_refuses_missing_alias() -> None:
+    merged, _ = _merge_shadow()
+    try:
+        kernel.remove_identity_alias(
+            merged,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Not Present",
+            actor="gm:drakosfire",
+            reason="missing",
+        )
+        raise AssertionError("expected missing alias to fail")
+    except ValueError as exc:
+        assert "not currently materialized" in str(exc)
+
+
+def test_remove_identity_alias_refuses_canonical_label() -> None:
+    merged, _ = _merge_shadow()
+    try:
+        kernel.remove_identity_alias(
+            merged,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Canonical Name",
+            actor="gm:drakosfire",
+            reason="unlabel",
+        )
+        raise AssertionError("expected canonical label refusal")
+    except ValueError as exc:
+        assert "canonical label" in str(exc)
+
+
+def test_remove_identity_alias_refuses_merged_away_subject() -> None:
+    merged, _ = _merge_shadow()
+    try:
+        kernel.remove_identity_alias(
+            merged,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_src",
+            alias="Shadow Name",
+            actor="gm:drakosfire",
+            reason="wrong subject",
+        )
+        raise AssertionError("expected merged-away subject refusal")
+    except ValueError as exc:
+        assert "merged_away" in str(exc)
+
+
+def test_remove_identity_alias_refuses_unknown_subject() -> None:
+    store = _base_store()
+    try:
+        kernel.remove_identity_alias(
+            store,
+            world_id="eldyrwild",
+            subject_node_id="npc_missing",
+            alias="X",
+            actor="gm:drakosfire",
+            reason="missing node",
+        )
+        raise AssertionError("expected unknown subject")
+    except KeyError as exc:
+        assert "npc_missing" in str(exc)
+
+
+def test_record_identity_decision_refuses_alias_remove() -> None:
+    store = _base_store()
+    decision = kernel.build_identity_decision_record(
+        world_id="eldyrwild",
+        decision_kind="alias_remove",
+        actor="gm:drakosfire",
+        reason="append only",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+    )
+    try:
+        kernel.record_identity_decision(store, decision)
+        raise AssertionError("expected append-only alias_remove refusal")
+    except ValueError as exc:
+        assert "remove_identity_alias" in str(exc)
+
+
+def test_unmerge_refuses_after_later_alias_remove() -> None:
+    merged, merge_decision = _merge_shadow()
+    removed, _ = kernel.remove_identity_alias(
+        merged,
+        world_id="eldyrwild",
+        subject_node_id="npc_shadow_tgt",
+        alias="Shadow Name",
+        actor="gm:drakosfire",
+        reason="retire merge-shadow alias",
+    )
+    try:
+        kernel.unmerge_identity(
+            removed,
+            world_id="eldyrwild",
+            decision_id=merge_decision.decision_id,
+            actor="gm:drakosfire",
+            reason="undo merge after remove",
+        )
+        raise AssertionError("expected unmerge composition refusal")
+    except ValueError as exc:
+        assert "later alias_remove" in str(exc)
+    assert "Shadow Name" not in removed.nodes["npc_shadow_tgt"].aliases
+    original = next(
+        item for item in removed.identity_decisions
+        if item["decision_id"] == merge_decision.decision_id
+    )
+    assert original["status"] == "active"
+
+
+def test_remove_identity_alias_refuses_unresolved_support() -> None:
+    merged, _ = _merge_shadow()
+    support = kernel.DurableAssertionSupport(
+        assertion_id="assertion:unresolved-alias",
+        active_contribution_ids=["contribution:missing"],
+        support_state="supported",
+        assertion_kind="alias",
+        graph_object_id="npc_shadow_tgt",
+    )
+    blocked = merged.model_copy(
+        update={
+            "assertion_support": {
+                support.assertion_id: support.model_dump(mode="json"),
+            }
+        }
+    )
+    try:
+        kernel.remove_identity_alias(
+            blocked,
+            world_id="eldyrwild",
+            subject_node_id="npc_shadow_tgt",
+            alias="Shadow Name",
+            actor="gm:drakosfire",
+            reason="unresolved",
+        )
+        raise AssertionError("expected unresolved support refusal")
+    except ValueError as exc:
+        assert "cannot resolve assertion support" in str(exc)
+
+
+def test_remove_identity_alias_refuses_bundled_node_alias(tmp_path) -> None:
+    from graph_memory.union_supergraph.load import load_union_supergraph_store
+
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    kernel.publish_world_revision(
+        tmp_path,
+        "eldyrwild",
+        store,
+        operation_ids=["op:alias-remove-node-support"],
+    )
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_grounded_node",
+        label="Grounded Node",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Grounded Node", "Bundled Alias"],
+        },
+        source_artifact_id="artifact:grounded-node",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    authored = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:grounded-node",
+        source_revision_id="authored-grounded-node",
+        authored_by="gm",
+        accepted_assertions=[assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        tmp_path, world_id="eldyrwild", contribution=authored
+    )
+    assert merge.published is True
+    _head, _rev, current = kernel.open_current_world_graph(tmp_path, "eldyrwild")
+    try:
+        kernel.remove_identity_alias(
+            current,
+            world_id="eldyrwild",
+            subject_node_id="npc_grounded_node",
+            alias="Bundled Alias",
+            actor="gm:drakosfire",
+            reason="source grounded",
+            root=tmp_path,
+        )
+        raise AssertionError("expected bundled node alias refusal")
+    except ValueError as exc:
+        assert "independent semantic support" in str(exc)
+
+
+def test_remove_identity_alias_refuses_explicit_alias_assertion(tmp_path) -> None:
+    from graph_memory.union_supergraph.load import load_union_supergraph_store
+
+    store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    kernel.publish_world_revision(
+        tmp_path,
+        "eldyrwild",
+        store,
+        operation_ids=["op:alias-remove-alias-support"],
+    )
+    node_assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_grounded_alias",
+        label="Grounded Alias Node",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Grounded Alias Node"],
+        },
+        source_artifact_id="artifact:grounded-alias",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    alias_assertion = kernel.build_assertion(
+        assertion_kind="alias",
+        acceptance_state="accepted",
+        subject_node_id="npc_grounded_alias",
+        label="Explicit Alias",
+        value={"alias": "Explicit Alias"},
+        source_artifact_id="artifact:grounded-alias",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="resolved_existing",
+    )
+    authored = kernel.create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:grounded-alias",
+        source_revision_id="authored-grounded-alias",
+        authored_by="gm",
+        accepted_assertions=[node_assertion, alias_assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        tmp_path, world_id="eldyrwild", contribution=authored
+    )
+    assert merge.published is True
+    _head, _rev, current = kernel.open_current_world_graph(tmp_path, "eldyrwild")
+    try:
+        kernel.remove_identity_alias(
+            current,
+            world_id="eldyrwild",
+            subject_node_id="npc_grounded_alias",
+            alias="Explicit Alias",
+            actor="gm:drakosfire",
+            reason="source grounded alias assertion",
+            root=tmp_path,
+        )
+        raise AssertionError("expected explicit alias assertion refusal")
+    except ValueError as exc:
+        assert "independent semantic support" in str(exc)
