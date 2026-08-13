@@ -46,12 +46,13 @@ describe("PlayObjectSheetProjection", () => {
 
     expect(screen.getByTestId("play-object-sheet")).toBeInTheDocument();
     expect(screen.getByText(/At the table/i)).toBeInTheDocument();
-    expect(screen.getByText(/eyes and ears/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/eyes and ears/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Attitude/i)).toBeInTheDocument();
     expect(screen.getByText(/Offers & hooks/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Open Saladin/i })).toBeInTheDocument();
     expect(screen.getByTestId("play-map-overlay")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Open 1\. The Shacks/i })).toBeInTheDocument();
+    expect(screen.getByTestId("play-object-sheet-provenance")).toHaveTextContent(/Area 2/i);
   });
 
   it("renders Maglubiyet Rules now and Items tool link", () => {
@@ -132,6 +133,35 @@ describe("PlayObjectSheetProjection", () => {
     );
     expect(screen.getByText(/sickly green light/i)).toBeInTheDocument();
     expect(screen.getByTestId("play-object-sheet-rules")).toHaveTextContent(/200 gp/i);
+  });
+
+  it("renders Nar full module source and provenance", () => {
+    const resolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }> = {
+      ...morwinResolution(),
+      locator: "dmb-node:npc:nar-granitetooth",
+      graphNodeId: "npc:nar-granitetooth",
+      graphObject: buildGraphObjectCardFromNodeView({
+        node_id: "npc:nar-granitetooth",
+        label: "Nar Granitetooth",
+        kind: "npc",
+        role: "npc",
+        aliases: [],
+        source_domains: ["worldbuilding"],
+        evidence_badges: [],
+        adjacency: [],
+        anchored_to_focus_session: true,
+        summary: null,
+      }),
+    };
+    render(
+      <PlayObjectSheetProjection resolution={resolution} model={resolution.graphObject} />,
+    );
+    const source = screen.getByTestId("play-object-sheet-source");
+    expect(source).toHaveTextContent(/slit Sarni/i);
+    expect(source).toHaveTextContent(/wandering life/i);
+    expect(source).toHaveTextContent(/Sharindlar/i);
+    const provenance = screen.getByTestId("play-object-sheet-provenance");
+    expect(provenance).toHaveTextContent(/Area 1: The Shacks/i);
   });
 
   it("shouldRenderPlayObjectSheet is true only for bridged nodes", () => {

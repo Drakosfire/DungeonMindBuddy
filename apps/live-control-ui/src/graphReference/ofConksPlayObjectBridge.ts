@@ -1,6 +1,7 @@
 /**
  * Of Conks play projection bodies for Reference Play Object Sheets.
- * Table-facing copy only — not graph canon. Threats stay on ThreatSheetProjection.
+ * Table-facing digests aid scanning; sourceBlocks + provenance are the fidelity contract.
+ * Threats stay on ThreatSheetProjection.
  *
  * Content placement (audit):
  * - Sheet `rulesNow` / hooks: Maglubiyet charges, Shacks celebration+fire, Marrow chamber,
@@ -23,6 +24,22 @@ export type PlayObjectToolLink = {
   panel: "items" | "roll" | "combat" | "statblocks";
 };
 
+/** Verbatim module prose for the sheet (do not paraphrase). */
+export type PlayObjectSourceBlock = {
+  heading?: string | null;
+  text: string;
+};
+
+/** Exact locator into the Of Conks extract / Play beats. */
+export type PlayObjectProvenance = {
+  /** PDF / extract heading (prefer ofConksHempholmPdfHomes strings). */
+  pdfHeading: string;
+  /** Optional page labels from the extract, e.g. "7–8". */
+  pages?: string | null;
+  /** Related Play beat ids for cross-nav context. */
+  beatIds?: string[] | null;
+};
+
 export type PlayObjectBody = {
   kind: PlayObjectKind;
   /** Primary run voice / arrival feel (2–4 sentences). */
@@ -37,6 +54,10 @@ export type PlayObjectBody = {
   connectedNow: PlayObjectConnectedChip[];
   /** One-line jumps into Play tool panels. */
   toolLinks?: PlayObjectToolLink[] | null;
+  /** Full module prose when it fits; omit only when provenance alone is enough. */
+  sourceBlocks?: PlayObjectSourceBlock[] | null;
+  /** Required: never leave a sheet looking sourceless. */
+  provenance: PlayObjectProvenance;
 };
 
 const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
@@ -57,6 +78,21 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Saladin", nodeId: "npc:saladin" },
       { label: "Hempholm", nodeId: "location:hempholm" },
     ],
+    sourceBlocks: [
+      {
+        heading: "Area 2: The Store",
+        text: "The only store in Hempholm—popularly called Morwin’s—is run by Morwin Blackwell. Morwin is an old man and has problems with his eyes and ears. He will often mistake the characters for someone else if they find their way to his shop. Morwin is in a black mood since Saladin arrived in Hempholm and he curses Saladin’s name in every other sentence he mutters.\n\nItems For Sale. The shop offers items from the Adventuring Gear table which are worth 10 gp or less (PHB 150) and basic farming equipment. Additionally, Morwin sells potent hemp in household quantities and offers his personal blends Green Cracker and Ancient Green Dragon.",
+      },
+      {
+        heading: "Diamonds In the Rough",
+        text: "Morwin Blackwell recently acquired a handful of uncut gems. He traded an old amulet he had laying around against 10 uncut blue quartz crystals—each worth 2 gp. Morwin asks each and every dwarf he encounters if they could cut the stones for him and offers 20 gp for the service. If there is no dwarf among the characters to initiate the encounter, consider adding banter of the village people who joke about Morwin’s funny idea that all dwarfs are into gems. A character must succeed in a DC 10 Dexterity (Jeweler’s Tools) check to properly cut one of the gems. During the work, the responsible character notices that two of the gems are not blue quartz but tourmalines worth 100 gp each—once properly cut.",
+      },
+    ],
+    provenance: {
+      pdfHeading: "Area 2: The Store",
+      pages: "9, 12",
+      beatIds: ["morwin-store", "gem-job"],
+    },
   },
   "npc:nar-granitetooth": {
     kind: "npc",
@@ -74,6 +110,25 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "The Shacks", nodeId: "location:the-shacks" },
       { label: "Hempholm", nodeId: "location:hempholm" },
     ],
+    sourceBlocks: [
+      {
+        heading: "The Dwarven Lady",
+        text: "One grim customer in the Shacks never rests her mug-arm: A dwarf who gives visitors the evil eye if they dare to approach her. Nar Granitetooth (NG female dwarf priest MM 348) is a perpetually drunk dwarven woman who lost her daughter and will to carry on. In the olden times, Nar and her child Sarni were simple wanderers who healed for board and lodging. One day, Sarni fell victim to a murderer they rescued from a roving band of brigands.\n\nThe monster slit Sarni’s throat during the night, stole her gold, and tried to pull the same stunt with Nar. She managed to slay her assailant, but for Sarni, help came too late. Since then Nar wastes away in the Shacks and trashes the locals if they grow too chummy. A character who is proficient in Religion can set Nar straight with a successful DC 20 Charisma (Persuasion) check. Thereupon Nar bethinks her convictions and the teachings of Sharindlar and considers going back to her wandering life. Additionally, she looks upon the characters kindly.",
+      },
+      {
+        heading: "Sharindlar",
+        text: "Sharindlar is the dwarven goddess of healing, fertility, life, and mercy. Sharindlar’s priests are known as Thalornor which means those who are merciful. Her symbol is that of a burning needle.",
+      },
+      {
+        heading: "Later in the adventure",
+        text: "The villagers ask the characters to help carry these brave souls to Nar who might be able to stop the bleeding. However, Nar is only willing to help after a character succeeds in a DC 15 Charisma (Persuasion) check. A character who appeals to her faith and dedication to her god must succeed in a DC 10 Intelligence (Religion) check to secure her help. Nar helps of her own accord, if the characters managed to get into her good graces before.\n\nBoth Nar and Saladin would care for the child should the characters ask for their help.\n\nShould the characters have given the child into the care of a different person like Nar, she will catch up to them before Paelias arrives and get the characters up to speed.",
+      },
+    ],
+    provenance: {
+      pdfHeading: "Area 1: The Shacks",
+      pages: "7–8, 13, 16–17",
+      beatIds: ["shacks-arrival", "axe-villagers", "cut-sack", "paelias"],
+    },
   },
   "npc:saladin": {
     kind: "npc",
@@ -90,6 +145,25 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Maglubiyet’s Statue", nodeId: "item:maglubiyets-statue" },
       { label: "Morwin Blackwell", nodeId: "npc:morwin-blackwell" },
     ],
+    sourceBlocks: [
+      {
+        heading: "Area 3: Saladin’s Wagon",
+        text: "Saladin (N male elf mage MM 347) is a traveling merchant who stopped in Hempholm to stock up on tradable goods and to rest. His wagon is approximately 10 feet high, 12 feet long, and 8 feet wide. On the inside, it can stretch for 600 feet in each possible direction. Saladin was a well-respected mage in the past but is now almost forgotten. He is well past his prime, almost 500 years old, and is often visited by unbidden thoughts. Where other elves turn inward and return to their home and family in old age, Saladin created a home for himself on the road. He decided to spend his last centuries as a simple trader who travels the world. The friendships and rivalries he forges on his journey invigorate him, he hopes, and ward off the calcification of his mind.\n\nOn the Record. Saladin often ceases talking mid-sentence, draws out a small notebook, and notes the unbidden thoughts that come to him. He intends to collect all the unbidden thoughts he has, to allow scholars to piece together a complete story or cross-reference with other records. Upon request, Saladin explains the concept of unbidden thoughts and his reasoning behind the notes.\n\nA Traveling Merchant’s Lack of Wares. Saladin sold out his stock and looks to buy. He will acquire almost anything and pays fair prices to boot. With around 10,000 gp securely stored in his bag of holding he won’t run out of coin soon. Saladin has only one item left which is Maglubiyet’s Statue (Appendix B). He looted from the corpse of a hobgoblin priest and would part with it for the measly price of 500 gp. The disgusting looking statue which seems to ooze blood stands right next to him on Saladin’s desk.",
+      },
+      {
+        heading: "Unbidden Thoughts",
+        text: "When elves reach a high age or lead an exciting life of adventure, they are inevitably visited by unbidden thoughts—allegedly arbitrary memories of past lives or hallucinations of unknown origin. These unbidden thoughts mark an upheaval in the life of an elf and are regarded as a blessing by most and as a burden by some.",
+      },
+      {
+        heading: "Later in the adventure",
+        text: "Both Nar and Saladin would care for the child should the characters ask for their help.",
+      },
+    ],
+    provenance: {
+      pdfHeading: "Area 3: Saladin’s Wagon",
+      pages: "9–10, 16",
+      beatIds: ["saladin-wagon", "cut-sack"],
+    },
   },
   "npc:mark-jove": {
     kind: "npc",
@@ -105,6 +179,17 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "The Jove's Home", nodeId: "location:jove-home" },
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
     ],
+    sourceBlocks: [
+      {
+        heading: "Area 4: The Jove's Home",
+        text: "Most of the village's buildings are arranged in a circle around the village square, the house of the Jove's being one of them. The grotesque tree occupies the garden directly behind the house. The house itself took some damage due to the wild nature of the tree, and the boy Torbin is occupied with roof repairs. The characters encounter Mark Jove when they enter or knock. Mark is the father of Torbin, who is the boy who bought the magical conk. Mark is a fair bit distraught and tells the characters the following:\n\nMark Jove. By the gods, did you see the tree growing behind our home? We have enough problems already. I hope you are not here to add anything to it! My stupid boy brought this bewitched 'tato home and now look at it! A tree two stories high which attacks everything in sight. Now I can't even harvest the vegetables I grew. We will starve before the winter finds the time to come around! He planted it just the day before. I don't even want to think about its size when the morrow comes! You look like the adventuring sort, can't you figure this out somehow? Then we can talk about a reward. The whole village will chip in; I'm sure of it!",
+      },
+    ],
+    provenance: {
+      pdfHeading: "Area 4: The Jove's Home",
+      pages: "10",
+      beatIds: ["jove-plea"],
+    },
   },
   "npc:torbin-jove": {
     kind: "npc",
@@ -122,6 +207,17 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
       { label: "Lord Fiddlestick", nodeId: "npc:lord-fiddlestick" },
     ],
+    sourceBlocks: [
+      {
+        heading: "Torbin Jove",
+        text: "Torbin Jove tells the characters the following in case they speak to him:\n\nTorbin Jove. By golly! You look like real adventurers! Are you here to fell that tree in our garden? I think my pa will chase me out of the village if nothing is done! I can't tell you anything useful, honest! There was this little man on the market, and he was very friendly. He told me that this strange 'tato will be enough to feed my whole family for the span of a year. But now this... I told my pa to just burn it down. But he warned me that we would put the whole village to the torch if we are not careful. And I'm never careful, or so he says.",
+      },
+    ],
+    provenance: {
+      pdfHeading: "Area 4: The Jove's Home",
+      pages: "10",
+      beatIds: ["jove-plea"],
+    },
   },
   "npc:paelias-sian": {
     kind: "npc",
@@ -135,6 +231,17 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Baldur’s Gate mages’ guild", nodeId: "faction:baldurs-gate-mages-guild" },
       { label: "Child in the helix", nodeId: "npc:helix-child" },
     ],
+    sourceBlocks: [
+      {
+        heading: "An Agent of the Mages’ Guild",
+        text: "Naturally, the mages’ guild which is responsible for the creation of the conk is highly interested in erasing any evidence of the matter. A wizard named Paelias Sian (N male elf) is sent to investigate the matter, pay off any witnesses, and destroy the tree. Paelias Sian has the statistics of a mage (MM 347), except that he has only access to 1st and 2nd level spells. Paelias quickly finds out about the occurrences in Hempholm and visits the village. He pays reparations to the affected families in return for their silence, and acquires information about the characters and the tree’s child. Paelias pursues the characters and catches up eventually. Should the characters have given the child into the care of a different person like Nar, she will catch up to them before Paelias arrives and get the characters up to speed. Paelias’ goal is to erase any evidence, including the strange offspring.",
+      },
+    ],
+    provenance: {
+      pdfHeading: "An Agent of the Mages’ Guild",
+      pages: "16–17",
+      beatIds: ["paelias"],
+    },
   },
   "npc:helix-child": {
     kind: "npc",
@@ -151,6 +258,17 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Saladin", nodeId: "npc:saladin" },
       { label: "Paelias Sian", nodeId: "npc:paelias-sian" },
     ],
+    sourceBlocks: [
+      {
+        heading: "The Fate of the Child",
+        text: "In case the characters decide to cut the child out of the helix and open the strange cocoon, the child emerges alive and well but not fully grown. To become a proper adult it must consume metal, no matter what—simple iron will do. It's a magical creature, an amalgam of earth, wood, and metallic blood. Its growth will be quite rapid and it has no ascertainable sex and since it's a blank slate it will quickly learn. Its ultimate alignment depends on the characters’ teachings.\n\nIf the villagers catch a glimpse of the strange creature the characters dug out of the earth, they tell the characters that they are thankful, but the characters need to leave the village as soon as possible. They had their share of magic, and it’s high time that peace returns to the village. Both Nar and Saladin would care for the child should the characters ask for their help.",
+      },
+    ],
+    provenance: {
+      pdfHeading: "The Fate of the Child",
+      pages: "16",
+      beatIds: ["cut-sack"],
+    },
   },
   "npc:lord-fiddlestick": {
     kind: "npc",
@@ -167,6 +285,21 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Torbin Jove", nodeId: "npc:torbin-jove" },
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
+    sourceBlocks: [
+      {
+        heading: "Adventure Background",
+        text: "Lord Fiddlestick—a gnomish bard, hasardeur, sneak thief, and entrepreneur—lifted a strange tubercle from a traveling alchemist’s rucksack. In the face of this disappointment—A potato? What has my life become!—Lord Fiddlestick decided to rip off a hapless farm boy at Greenest's market. He only needed a mere fraction of a second to make out his mark: A simple boy who understood the fields and the earth, but not the cruelty of man. With promises of great fertility and prosperity, Lord Fiddlestick sold the alleged magical tuber for an outrageous price. The boy gave away all of the day's earnings with which he should have bought provisions for his ever-growing family. Winter was fast approaching, and with the new baby girl Laura, the family had another mouth to feed! Little did Lord Fiddlestick know, that the take was an enchanted plant indeed, ready for its first field test in one of the Greenfields’ many provincial backwaters.",
+      },
+      {
+        heading: "In Service of the Guild",
+        text: "You tracked down the culprit—a gnome who calls himself Lord Fiddlestick—but he already sold the package to a hapless boy! Fortunately, the boy told the thief about the village he hails from.",
+      },
+    ],
+    provenance: {
+      pdfHeading: "Adventure Background",
+      pages: "5",
+      beatIds: ["hook-guild"],
+    },
   },
   "location:the-shacks": {
     kind: "location",
@@ -191,6 +324,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Caretakers", nodeId: "threat:caretakers" },
     ],
     toolLinks: [{ label: "Open names on Roll", panel: "roll" }],
+    provenance: {
+      pdfHeading: "Area 1: The Shacks",
+      pages: "7–8",
+      beatIds: ["shacks-arrival", "meal-moonshine", "celebration-party", "never-split", "firefighting"],
+    },
   },
   "location:morwins-store": {
     kind: "location",
@@ -205,6 +343,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Morwin Blackwell", nodeId: "npc:morwin-blackwell" },
       { label: "Hempholm", nodeId: "location:hempholm" },
     ],
+    provenance: {
+      pdfHeading: "Area 2: The Store",
+      pages: "9",
+      beatIds: ["morwin-store", "gem-job"],
+    },
   },
   "location:saladins-wagon": {
     kind: "location",
@@ -219,6 +362,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Maglubiyet’s Statue", nodeId: "item:maglubiyets-statue" },
       { label: "Hempholm", nodeId: "location:hempholm" },
     ],
+    provenance: {
+      pdfHeading: "Area 3: Saladin’s Wagon",
+      pages: "9–10",
+      beatIds: ["saladin-wagon"],
+    },
   },
   "location:jove-home": {
     kind: "location",
@@ -235,6 +383,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Grotesque Tree (garden)", nodeId: "location:grotesque-tree-site" },
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
     ],
+    provenance: {
+      pdfHeading: "Area 4: The Jove's Home",
+      pages: "10",
+      beatIds: ["jove-plea"],
+    },
   },
   "location:grotesque-tree-site": {
     kind: "location",
@@ -255,6 +408,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "metal leaves", nodeId: "item:metal-leaves" },
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
+    provenance: {
+      pdfHeading: "Area 5: The Grotesque Tree",
+      pages: "11",
+      beatIds: ["tree-tactics"],
+    },
   },
   "location:hempholm": {
     kind: "location",
@@ -274,6 +432,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
     ],
     toolLinks: [{ label: "Open names on Roll", panel: "roll" }],
+    provenance: {
+      pdfHeading: "Part 1: Enter Hempholm",
+      pages: "7",
+      beatIds: ["hook-hill", "shacks-arrival"],
+    },
   },
   "location:root-corridors": {
     kind: "location",
@@ -288,6 +451,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "The Marrow", nodeId: "location:the-marrow" },
       { label: "Guardian", nodeId: "threat:guardian" },
     ],
+    provenance: {
+      pdfHeading: "Down Into the Rabbit Hole",
+      pages: "15",
+      beatIds: ["rabbit-hole"],
+    },
   },
   "location:the-marrow": {
     kind: "location",
@@ -306,6 +474,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Guardian", nodeId: "threat:guardian" },
       { label: "Child in the helix", nodeId: "npc:helix-child" },
     ],
+    provenance: {
+      pdfHeading: "The Marrow",
+      pages: "15–16",
+      beatIds: ["marrow-fight", "cut-sack"],
+    },
   },
   "item:maglubiyets-statue": {
     kind: "item",
@@ -322,6 +495,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Saladin's Mobile Emporium", nodeId: "location:saladins-wagon" },
     ],
     toolLinks: [{ label: "Open full text on Items", panel: "items" }],
+    provenance: {
+      pdfHeading: "Maglubiyet’s Statue",
+      pages: "Appendix B",
+      beatIds: ["saladin-wagon"],
+    },
   },
   "item:bellys-mouthwash": {
     kind: "item",
@@ -339,6 +517,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
     toolLinks: [{ label: "Open full text on Items", panel: "items" }],
+    provenance: {
+      pdfHeading: "Belly’s Mouthwash",
+      pages: "Appendix B",
+      beatIds: ["meal-moonshine"],
+    },
   },
   "item:metal-leaves": {
     kind: "item",
@@ -350,6 +533,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Grotesque Tree (garden)", nodeId: "location:grotesque-tree-site" },
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
     ],
+    provenance: {
+      pdfHeading: "Area 5: The Grotesque Tree",
+      pages: "11",
+      beatIds: ["tree-tactics"],
+    },
   },
   "item:the-conk": {
     kind: "item",
@@ -361,6 +549,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Lord Fiddlestick", nodeId: "npc:lord-fiddlestick" },
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
+    provenance: {
+      pdfHeading: "Adventure Background",
+      pages: "5",
+      beatIds: ["hook-alchemist", "hook-guild"],
+    },
   },
   "faction:baldurs-gate-mages-guild": {
     kind: "faction",
@@ -369,6 +562,11 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
     attitude: "Aftermath institutional pressure, not opening cast.",
     offersHooks: ["Foreground only after the child / Marrow secrets are in play."],
     connectedNow: [{ label: "Paelias Sian", nodeId: "npc:paelias-sian" }],
+    provenance: {
+      pdfHeading: "An Agent of the Mages’ Guild",
+      pages: "16–17",
+      beatIds: ["paelias"],
+    },
   },
 };
 
@@ -385,4 +583,9 @@ export function playObjectBodyForNodeId(nodeId: string): PlayObjectBody | null {
 
 export function hasOfConksPlayObjectBody(nodeId: string): boolean {
   return playObjectBodyForNodeId(nodeId) !== null;
+}
+
+/** All authored Of Conks play object node ids (test / inventory). */
+export function ofConksPlayObjectNodeIds(): string[] {
+  return Object.keys(BY_NODE_ID);
 }

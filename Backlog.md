@@ -7,6 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Configurable document styles (same markdown, projected theme) — start Sci-Fi borrow — captured 2026-08-13
+**Context:** Operator wants styles that project onto documents: keep the same markdown AST/HTML, swap configured presentation. First theme should be Sci-Fi; prefer borrowing an existing look over inventing tokens from scratch.
+**Insight:** This is the document-side twin of `data-md-theme` / configurable markdown rendering — content authority stays markdown; visual skin is a wrapper theme. Starting from a borrowed Sci-Fi stylesheet (CSS/theme pack or known open reference) validates the projection seam before designing fantasy parchment variants.
+**Action:** Inventory borrowable Sci-Fi markdown/doc CSS (open theme packs, existing monorepo/LandingPage skins, or a single public CSS reference). Wire one `md-theme-scifi` (or equivalent) via the existing `data-md-theme` / wrapper-class plan onto Build/Plan document canvas; falsify: same source markdown, theme switch changes look only. Do not invent a full design system first.
+**Surfaces when:** document theme, md-theme, TipTap styling, markdown canvas appearance, Sci-Fi style, configurable rendering, Build document projection, PLAN-configurable-markdown
+**Refs:** `Docs/Plans/PLAN-configurable-markdown-rendering-and-tiptap-styling.md`; `evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css`; `apps/live-control-ui/src/tiptap/tiptapSpike.css`; `apps/live-control-ui/src/markdownCanvas/`
+
 ## [IDEA] In-game / stall clocks on surface chrome — captured 2026-08-13
 **Context:** Of Conks Hempholm run packet uses table clocks (tree growth / false victory: “Advance a clock when the table stalls or leaves the tree alone”). Operator: backlog or session-custom; likes the idea and sees it easily living on the surface nav bar as an in-game time clock.
 **Insight:** Packet clocks are encounter pressure; a chrome-level in-game clock is shared run-state the GM glances without leaving Plan/Play. Same affordance family, different authority (packet narrative clocks vs session now-time / stall pressure).

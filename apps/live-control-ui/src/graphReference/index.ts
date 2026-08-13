@@ -42,10 +42,13 @@ export {
 } from "./openGraphReferencePolicy";
 export {
   hasOfConksPlayObjectBody,
+  ofConksPlayObjectNodeIds,
   playObjectBodyForNodeId,
   type PlayObjectBody,
   type PlayObjectConnectedChip,
   type PlayObjectKind,
+  type PlayObjectProvenance,
+  type PlayObjectSourceBlock,
 } from "./ofConksPlayObjectBridge";
 export {
   mediaForOfConksNodeId,

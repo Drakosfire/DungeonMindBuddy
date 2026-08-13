@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   hasOfConksPlayObjectBody,
+  ofConksPlayObjectNodeIds,
   playObjectBodyForNodeId,
 } from "./ofConksPlayObjectBridge";
 
@@ -14,6 +15,7 @@ describe("ofConksPlayObjectBridge", () => {
     expect(body?.attitude).toMatch(/Saladin/i);
     expect(body?.offersHooks?.some((line) => /gem/i.test(line))).toBe(true);
     expect(body?.connectedNow.some((chip) => chip.nodeId === "npc:saladin")).toBe(true);
+    expect(body?.provenance.pdfHeading).toMatch(/Area 2/i);
   });
 
   it("surfaces Maglubiyet charges without Build", () => {
@@ -49,9 +51,21 @@ describe("ofConksPlayObjectBridge", () => {
     expect(hasOfConksPlayObjectBody("item:bellys-mouthwash")).toBe(true);
   });
 
-  it("gives Nar a Sarni grief beat", () => {
+  it("gives Nar full Sarni source prose and wandering-life outcome", () => {
     const body = playObjectBodyForNodeId("npc:nar-granitetooth");
     expect(body?.attitude).toMatch(/Sarni/i);
+    const source = (body?.sourceBlocks ?? []).map((b) => b.text).join("\n");
+    expect(source).toMatch(/slit Sarni/i);
+    expect(source).toMatch(/Sharindlar/i);
+    expect(source).toMatch(/wandering life/i);
+    expect(body?.provenance.pdfHeading).toBe("Area 1: The Shacks");
+  });
+
+  it("requires provenance.pdfHeading on every play object body", () => {
+    for (const nodeId of ofConksPlayObjectNodeIds()) {
+      const body = playObjectBodyForNodeId(nodeId);
+      expect(body?.provenance.pdfHeading?.trim(), nodeId).toBeTruthy();
+    }
   });
 
   it("resolves packet locations and items", () => {

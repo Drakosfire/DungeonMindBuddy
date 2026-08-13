@@ -213,6 +213,46 @@ export function PlayObjectSheetProjection({
         </section>
       ) : null}
 
+      {body.sourceBlocks?.length ? (
+        <section
+          className="play-object-sheet__section play-object-sheet__source"
+          aria-label="From the module"
+          data-testid="play-object-sheet-source"
+        >
+          <h5>From the module</h5>
+          {body.sourceBlocks.map((block, index) => (
+            <div
+              key={`${block.heading ?? "block"}:${index}`}
+              className="play-object-sheet__source-block"
+            >
+              {block.heading?.trim() ? (
+                <p className="play-object-sheet__source-heading">{block.heading}</p>
+              ) : null}
+              {block.text.split(/\n\n+/).map((paragraph) => (
+                <p key={paragraph.slice(0, 48)} className="play-object-sheet__source-text">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      <footer
+        className="play-object-sheet__provenance"
+        data-testid="play-object-sheet-provenance"
+      >
+        <p>
+          Source: {body.provenance.pdfHeading}
+          {body.provenance.pages?.trim() ? ` · p. ${body.provenance.pages}` : ""}
+        </p>
+        {body.provenance.beatIds?.length ? (
+          <p className="play-object-sheet__muted">
+            Beats: {body.provenance.beatIds.join(", ")}
+          </p>
+        ) : null}
+      </footer>
+
       {body.toolLinks?.length ? (
         <section
           className="play-object-sheet__section play-object-sheet__tools"

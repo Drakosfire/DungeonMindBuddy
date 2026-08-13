@@ -7,6 +7,13 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Play Object Sheets: full source on page or exact provenance — no silent compress — captured 2026-08-13, done 2026-08-13
+**Context:** Dogfood of Nar Granitetooth Play Object Sheet. Sheet held a compressed digest; PDF “The Dwarven Lady” + later Nar beats are not that long and comfortably fit a page. Operator rejects compress-by-default when volume is small.
+**Insight:** Glance digests that drop explicit module prose create a false “that’s all there is” reading. For one-shot Play objects, prefer **full authored source on the sheet** when it fits; if a sheet must stay short, it must still expose **exact provenance** (source heading / page / beat id / Build doc locator) so the GM can open the full text without guessing.
+**Action:** DONE. Extended `PlayObjectBody` with `sourceBlocks` + required `provenance`; sheet renders “From the module” + Source footer; all Of Conks NPCs got verbatim extract prose; every body has `pdfHeading`. Falsified: Nar sheet shows Sarni throat/gold/slay + wandering-life + Sharindlar and Area 1 provenance. Vitest: ofConksPlayObjectBridge + PlayObjectSheetProjection + PlayReferenceCapability + ofConksHempholmBeats.
+**Surfaces when:** Play Object Sheet, ofConksPlayObjectBridge, Nar Granitetooth, compress facts, provenance, full source, one-shot packet fidelity
+**Refs:** `apps/live-control-ui/src/graphReference/ofConksPlayObjectBridge.ts`; `apps/live-control-ui/src/graphReference/PlayObjectSheetProjection.tsx`; `Of-Conks-and-Cons-v21` Area 1 “The Dwarven Lady”; Beats `shacks-arrival`
+
 ## [DONE] CUTOVER Case C Buddy ATTRIBUTE_ASSERTION after DM v5 re-pin — captured 2026-08-12, done 2026-08-12
 **Context:** Post-DungeonMind #30 / Buddy re-pin: `WORLD_OBJECT_KIND` for `thread` cleared; migration ledger selected Case C (`ATTRIBUTE_ASSERTION`, count 28).
 **Insight:** The 28 paths were identity-lifecycle shadow (`identity_state` / `merged_into` / `last_identity_decision_id`), not world-property assertions. Classifying them as `SOURCE_MIGRATION_HISTORY` after reconstructability proof does not solve `IDENTITY_HISTORY`.
