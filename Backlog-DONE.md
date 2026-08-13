@@ -7,6 +7,14 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] KERNEL replay-safe alias_remove before alias-package — captured 2026-08-13, done 2026-08-13
+**Context:** PR #577 forensic STOP after PR #576: eight `EVIDENCE_PROVENANCE` alias blockers split into two source-grounded current-node aliases (`Captain`, `Thrin Branchborn`) and six merge-shadow aliases materialized by `merge_identity()` unioning merged-away labels onto survivors. Direct JSON cleanup would not survive replay; classifying the six as `SOURCE_MIGRATION_HISTORY` crossed an explicit STOP.
+**Insight:** This was a missing governed identity-materialization capability, not a six-object data-cleanup problem. `IdentityDecisionKind.alias_remove` was already reserved but append-only.
+**Action:** Completed by PR #580: public replay-safe `remove_identity_alias`; merge `3a52d309a606608c9338147b78e0a2f708084042`; head `5d4d43f01bc99729f6d6e577ec33553d9b5249b4`; 2 review cycles. No Eldyrwild mutation occurred.
+**Surfaces when:** CUTOVER alias package, EVIDENCE_PROVENANCE, identity-shadow aliases, alias_remove, merge_identity, PR #577, PR #576, PR #580, Captain, Thrin Branchborn
+**Refs:** `Docs/Plans/HANDOFF-KERNEL-alias-remove-identity-decision.md`; `src/graph_memory/kernel/identity_decisions.py`; `src/graph_memory/kernel/contribution_rebuild.py`
+**Outcome:** Merged as PR #580. Author-local focused verification: 47 tests, Ruff clean, `git diff --check` clean. No GitHub Actions / commit-status evidence on the reviewed head. `tests/test_graph_kernel_boundaries.py` 4 failed / 4 passed on both base and head. Successor: exact-six Eldyrwild `alias_remove` application.
+
 ## [DONE] CUTOVER Case C Buddy ATTRIBUTE_ASSERTION after DM v5 re-pin — captured 2026-08-12, done 2026-08-12
 **Context:** Post-DungeonMind #30 / Buddy re-pin: `WORLD_OBJECT_KIND` for `thread` cleared; migration ledger selected Case C (`ATTRIBUTE_ASSERTION`, count 28).
 **Insight:** The 28 paths were identity-lifecycle shadow (`identity_state` / `merged_into` / `last_identity_decision_id`), not world-property assertions. Classifying them as `SOURCE_MIGRATION_HISTORY` after reconstructability proof does not solve `IDENTITY_HISTORY`.
