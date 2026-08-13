@@ -22,7 +22,7 @@ pr_body_template: |
 # HANDOFF — CUTOVER reconstruct alias assertion adoption package after PR #575
 
 **Created:** 2026-08-12.  
-**Status:** DESIGN READY — **DO NOT DISPATCH until the post-PR #575 atomic state-authority sync is complete.**  
+**Status:** DESIGN READY — **DO NOT DISPATCH until PR #576 (this post-PR #575 atomic state-authority sync) is merged.**  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-575.md`  
 **Conversation name:** `CUTOVER — alias assertion adoption package after PR 575`  
 **Flow / agent:** `CUTOVER`  
@@ -94,24 +94,24 @@ instead of being packaged.
 
 ### Dispatch gate before implementation
 
-PR #575 is merged, but at handoff creation current `main` still has mutable sequencing documents that describe the PR #575 slice as active/DOING.
-
-Before the code agent starts, complete one guarded post-#575 state-authority sync:
+PR #576 is the guarded post-#575 atomic state-authority sync. It is the dispatch gate for this slice. Do not start alias implementation from PR #575 merge `d32c244e...`.
 
 ```text
-PR #575 merge:
-d32c244e8505b2d35d1aa536f6ef6cc097d735ce
-
-required sync intent:
-- mark PR #575 / cutover-identity-lifecycle-history-after-571 DONE
-- record cumulative review cycles = 3
-- record merge d32c244e...
-- make this alias-assertion package the next bounded CUTOVER slice
-- update the current-state guide to the post-575 anchor
-- preserve Backlog's already-correct READY EVIDENCE_PROVENANCE item unless its claim actually changed
+PR #576 merges
+→ re-anchor to merged PR #576 / current main
+→ start alias implementation from that descendant
+→ record exact dispatch-base SHA in implementation handback
 ```
 
-Expected mutable authorities to inspect in that guarded sync:
+Semantic predecessor remains PR #575 merge:
+
+```text
+d32c244e8505b2d35d1aa536f6ef6cc097d735ce
+```
+
+PR #576 records that predecessor as DONE and makes this alias-assertion package the next bounded CUTOVER slice. It is not a second semantic predecessor.
+
+Expected mutable authorities in this guarded sync:
 
 ```text
 Docs/Plans/HANDOFF-cutover-identity-lifecycle-history-after-571.md
@@ -123,7 +123,7 @@ Backlog-DONE.md
 
 Only files whose current-state claim actually changed should be edited.
 
-The implementation branch must then start from the exact checked-in handoff/state-sync descendant. If any product/kernel code lands between `d32c244e...` and dispatch, re-anchor instead of assuming semantic equivalence.
+The implementation branch must start from the exact merged PR #576 / current `main` descendant. If any product/kernel code lands between that merge and dispatch, re-anchor instead of assuming semantic equivalence.
 
 ---
 
@@ -134,7 +134,7 @@ The implementation branch must then start from the exact checked-in handoff/stat
 | Parent authority | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` CUTOVER dispatch ladder; `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; PR #575 successor ledger |
 | Repository rules | `AGENTS.md`; `.cursor/skills/external-agent-pr-loop/SKILL.md`; re-anchor, isolated lane, write lease, review every distinct head, atomic state sync |
 | Semantic base revision | `d32c244e8505b2d35d1aa536f6ef6cc097d735ce` — PR #575 merge |
-| Dispatch base | Exact post-#575 state-sync / checked-in-handoff descendant of `d32c244e...`; record exact SHA in handback |
+| Dispatch base | Merged PR #576 / current `main`; record exact SHA in implementation handback. Do not dispatch from `d32c244e...`. |
 | Predecessor contract | PR #575 successor fixture `eldyrwild_cutover_identity_lifecycle_history_after_571_v1.json`, SHA `1a2cd8f9c47b223d4623fccbe1c988dd8d3eb1c8796078a32a32720f51ef000b` |
 | DungeonMind semantic pin | `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30) |
 | DungeonMind graph contract | `dm_union_graph_v5`; v5 reuses v4 alias assertion record semantics |
@@ -967,6 +967,7 @@ The implementation handback must include all of the following.
 ### Git identity
 
 ```text
+PR576 merge SHA:
 dispatch base SHA:
 head SHA:
 branch:
@@ -976,9 +977,10 @@ PR URL:
 ### Pre-dispatch sync proof
 
 ```text
-PR575 post-merge state sync SHA:
+PR576 merge SHA:
 predecessor handoff status:
 tracker current slice:
+tracker dispatch base:
 status current slice:
 Backlog current item:
 ```
@@ -1175,7 +1177,7 @@ stop conditions encountered:
 
 The reviewer accepts only when every item is true.
 
-- [ ] Post-PR575 atomic state-authority sync was completed before dispatch, and the implementation base is an exact descendant of `d32c244e...`.
+- [ ] PR #576 is merged; the implementation base is an exact descendant of that merge / current `main`. Semantic predecessor remains PR #575 merge `d32c244e...`.
 - [ ] PR #575 predecessor fixture SHA `1a2cd8f9...` reproduces byte-for-byte.
 - [ ] The predecessor/default analyzer behavior remains unchanged.
 - [ ] The full classified inventory contains exactly eight `EVIDENCE_PROVENANCE` blocker element IDs.

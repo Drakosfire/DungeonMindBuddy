@@ -1,8 +1,9 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-12 — post-PR #575 CUTOVER state-authority sync
-**Repository anchor:** `d32c244e8505b2d35d1aa536f6ef6cc097d735ce` (PR #575 merge; 3 review cycles)
+**Updated:** 2026-08-12 — PR #576 post-PR #575 CUTOVER state-authority sync (review cycle 1: dispatch-base repair)
+**Repository anchor:** `d32c244e8505b2d35d1aa536f6ef6cc097d735ce` (PR #575 merge; current `main` until this PR merges)
+**Dispatch gate:** this PR #576. Do not dispatch `cutover-alias-assertion-package-after-575` from `d32c244e…`. After this PR merges, re-anchor to merged PR #576 / current `main` and record that SHA as the implementation dispatch base.
 **#538 design predecessor / docs base:** PR #538 merge
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
 **DungeonMind pin:** `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30; world-object-v5 / world-property-v3)
@@ -91,7 +92,7 @@ PR #566 is merged and non-publishing: canonical bytes remain unchanged, while it
 | `cutover-whole-world-reanchor-after-566` / #568 | DONE | #566 + exact canonical revision/payload | Sealed historical v4/v2 CUTOVER ledger; Case A admitted Buddy `thread` into DungeonMind via PR #30; fixture SHA `6c978f89…` |
 | `cutover-repin-dungeonmind-v5-after-pr30` / #571 | DONE | #568 + DungeonMind #30 (`be76acc…`) | Remeasured canonical + four-kind projection against world-object-v5 / world-property-v3; `WORLD_OBJECT_KIND` cleared; relationship inventories unchanged; fixture SHA `a666a2bc…` |
 | `cutover-identity-lifecycle-history-after-571` / #575 | DONE | #571 + exact identity-lifecycle proof | Proved the 28 `ATTRIBUTE_ASSERTION` paths are reconstructable identity-lifecycle shadow; classified only those proven paths as `SOURCE_MIGRATION_HISTORY`; `IDENTITY_HISTORY=14`; `CONTRIBUTION_HISTORY=5285`; merge `d32c244e…`; 3 review cycles; fixture SHA `1a2cd8f9…` |
-| `cutover-alias-assertion-package-after-575` | READY | #575 + exact eight `EVIDENCE_PROVENANCE` alias blockers | Reconstruct every post-#575 substantive alias blocker as a DungeonMind-compatible alias assertion from revision-bound Buddy authority; do not mutate graph truth or invent provenance |
+| `cutover-alias-assertion-package-after-575` | READY | #575 + merged PR #576 (this state-sync) + exact eight `EVIDENCE_PROVENANCE` alias blockers | Reconstruct every post-#575 substantive alias blocker as a DungeonMind-compatible alias assertion from revision-bound Buddy authority; do not mutate graph truth or invent provenance |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | CUTOVER package-construction clear + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until the blocker ledger and durable adoption proof both authorize it |
 
 ### Parallel product backlog retained from the July sequence
@@ -112,7 +113,7 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. Dispatch `cutover-alias-assertion-package-after-575` from merge `d32c244e…` against PR #575 fixture SHA `1a2cd8f9…`. Reconstruct the exact eight `EVIDENCE_PROVENANCE` alias blockers as DungeonMind-compatible alias assertions from revision-bound Buddy authority; do not mutate graph truth.
+1. After this PR #576 merges, re-anchor to merged PR #576 / current `main`, then start `cutover-alias-assertion-package-after-575` from that descendant against PR #575 fixture SHA `1a2cd8f9…`. Record the exact dispatch-base SHA in the implementation handback. Reconstruct the exact eight `EVIDENCE_PROVENANCE` alias blockers as DungeonMind-compatible alias assertions from revision-bound Buddy authority; do not mutate graph truth.
 2. Use its refreshed migration blocker ledger to dispatch exactly one bounded successor. Do **not** dispatch Case B adoption-seam work while any package-construction blockers remain (including the five dual-sense cross-repository `RELATIONSHIP_PREDICATE` STOPs).
 3. Keep the five dual-sense STOP edges as migration decisions; do not reopen broad Buddy relationship cleanup.
 4. Do not schedule DungeonMind product-authority cutover until whole-world adoption and the public existing-world adoption seam are proven.

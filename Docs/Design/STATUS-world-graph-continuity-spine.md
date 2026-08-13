@@ -1,9 +1,10 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-12 — post-PR #575 CUTOVER state-authority sync
-**Active CUTOVER slice:** `cutover-alias-assertion-package-after-575` — non-publishing reconstruction of the eight PR #575 `EVIDENCE_PROVENANCE` alias blockers into DungeonMind-compatible alias assertions from revision-bound Buddy authority. Canonical Eldyrwild remains `rev:5a7c13ae45c49a65b402920499be72ed` / payload `2632870e…` with relationship inventories `323 / 314 / 9 / 3` (canonical) and `323 / 318 / 5 / 3` (four-kind migration projection). PR #575 is merged (`d32c244e…`, 3 review cycles); its fixture still reproduces (`1a2cd8f9…`). `ATTRIBUTE_ASSERTION` remains 0; `IDENTITY_HISTORY` remains 14 and `CONTRIBUTION_HISTORY` remains 5285 at durable adoption. Current package-construction work is Buddy `EVIDENCE_PROVENANCE` (count 8). Five dual-sense `RELATIONSHIP_PREDICATE` STOPs remain cross-repository package-construction blockers; Case B is still forbidden.
-**Repository anchor:** `d32c244e8505b2d35d1aa536f6ef6cc097d735ce` (PR #575 merge pin)
+**Updated:** 2026-08-12 — PR #576 post-PR #575 CUTOVER state-authority sync (review cycle 1: dispatch-base repair)
+**Active CUTOVER slice:** `cutover-alias-assertion-package-after-575` — non-publishing reconstruction of the eight PR #575 `EVIDENCE_PROVENANCE` alias blockers into DungeonMind-compatible alias assertions from revision-bound Buddy authority. Canonical Eldyrwild remains `rev:5a7c13ae45c49a65b402920499be72ed` / payload `2632870e…` with relationship inventories `323 / 314 / 9 / 3` (canonical) and `323 / 318 / 5 / 3` (four-kind migration projection). PR #575 is merged (`d32c244e…`, 3 review cycles); its fixture still reproduces (`1a2cd8f9…`). `ATTRIBUTE_ASSERTION` remains 0; `IDENTITY_HISTORY` remains 14 and `CONTRIBUTION_HISTORY` remains 5285 at durable adoption. Current package-construction work is Buddy `EVIDENCE_PROVENANCE` (count 8). Five dual-sense `RELATIONSHIP_PREDICATE` STOPs remain cross-repository package-construction blockers; Case B is still forbidden. Dispatch waits for this PR #576 to merge; do not start alias implementation from `d32c244e…`.
+**Repository anchor:** `d32c244e8505b2d35d1aa536f6ef6cc097d735ce` (PR #575 merge pin; current `main` until this PR merges)
+**Dispatch gate:** this PR #576. After merge, re-anchor to merged PR #576 / current `main` and record that SHA as the alias implementation dispatch base.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30 semantic authority; world-object-v5 `f9fd5420…`, world-property-v3 `aa94df78…`)
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
@@ -315,7 +316,7 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. `cutover-alias-assertion-package-after-575` — READY: reconstruct the exact eight post-PR #575 `EVIDENCE_PROVENANCE` alias blockers as DungeonMind-compatible alias assertions from revision-bound Buddy authority, without mutating graph truth.
+1. After this PR #576 merges, re-anchor to merged PR #576 / current `main`, then start `cutover-alias-assertion-package-after-575` from that descendant. Reconstruct the exact eight post-PR #575 `EVIDENCE_PROVENANCE` alias blockers as DungeonMind-compatible alias assertions from revision-bound Buddy authority, without mutating graph truth. Do not dispatch from `d32c244e…`.
 2. Use the refreshed blocker ledger after that package to dispatch one bounded successor. Do not dispatch Case B adoption-seam work while package-construction gaps remain (including five dual-sense STOPs).
 3. Keep the five dual-sense edges as migration decisions and keep DungeonMind product-authority cutover blocked.
 4. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
