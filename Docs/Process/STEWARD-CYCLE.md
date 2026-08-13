@@ -124,6 +124,29 @@ Do not let merge conflicts make this decision after both agents have already don
 
 Central routers, registries, lockfiles, root configuration, active state-authority docs, and generated schemas deserve extra scrutiny even when there is no current overlap.
 
+### Mechanical preflight
+
+After the candidate HANDOFF exists, use the read-only preflight helper to replace manual copy/paste reconciliation:
+
+```bash
+uv run python scripts/steward_preflight.py \
+  --handoff Docs/Plans/HANDOFF-<FLOW>-<slug>.md
+```
+
+When reviewing an open PR, optionally include explicit review-cycle metadata:
+
+```bash
+uv run python scripts/steward_preflight.py \
+  --handoff Docs/Plans/HANDOFF-<FLOW>-<slug>.md \
+  --pr <N>
+```
+
+Use `--local-only` when GitHub discovery is intentionally unavailable. The JSON snapshot reports candidate write lease, local worktrees, active top-level handoffs, open PR path overlap when available, base relation, declared runtime/state ownership, and explicitly labelled review-cycle judgments.
+
+`pass` means no observed mechanical conflict. `warn` means the steward still has an incomplete or changed fact to judge (for example `main` advanced or GitHub discovery was unavailable). `block` means a concrete write-lease overlap or invalid/empty candidate lease was observed.
+
+The command never decides whether a base change invalidates the slice, transfers ownership, authors a handoff, or mutates Git/GitHub. A clean snapshot is evidence for lane allocation, not a substitute for the steward's invariant/dependency judgment.
+
 ## 4. Dispatch-readiness gate
 
 Do not author the final handoff until these answers are concrete:
