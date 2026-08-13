@@ -7,6 +7,13 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] CUTOVER Case C Buddy ATTRIBUTE_ASSERTION after DM v5 re-pin — captured 2026-08-12, done 2026-08-12
+**Context:** Post-DungeonMind #30 / Buddy re-pin: `WORLD_OBJECT_KIND` for `thread` cleared; migration ledger selected Case C (`ATTRIBUTE_ASSERTION`, count 28).
+**Insight:** The 28 paths were identity-lifecycle shadow (`identity_state` / `merged_into` / `last_identity_decision_id`), not world-property assertions. Classifying them as `SOURCE_MIGRATION_HISTORY` after reconstructability proof does not solve `IDENTITY_HISTORY`.
+**Action:** Completed by `cutover-identity-lifecycle-history-after-571`: exact 28-element proof, explicit source-history policy, predecessor #571 reproduction, `ATTRIBUTE_ASSERTION` 28→0, `IDENTITY_HISTORY` remains 14.
+**Surfaces when:** CUTOVER re-pin after DM#30, whole-world blocker ledger, Case A/B/C/D selection, ATTRIBUTE_ASSERTION, EVIDENCE_PROVENANCE, dual-sense STOP, world-object-v5
+**Refs:** `Docs/Plans/HANDOFF-cutover-identity-lifecycle-history-after-571.md`; `apps/live_control_server/integrations/dungeonmind_kernel/identity_lifecycle_history_conformance_v1.py`
+
 ## [DONE] Intentional Build document context via Surface Context — captured 2026-08-10, done 2026-08-11
 **Dispatched:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-build-document-context.md`; corrective follow-up PR #558.
 **Context:** Build silent-created Untitled worldbuilding sources on bare `/build`; needed DOCUMENT Surface Context adopter.

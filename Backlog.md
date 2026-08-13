@@ -9,11 +9,11 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 > **Workstream closeout (2026-08-11):** `DOGFOOD-POLISH` is closed. Completed Plan/Build document-authoring slices are no longer active backlog items; see [`Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md). READY/IDEA items below that touch Plan, Build, Hermes, Threats, or Play are independent product work, not implied successors under the closed workstream.
 
-## [READY] CUTOVER Case C Buddy ATTRIBUTE_ASSERTION after DM v5 re-pin — captured 2026-08-12
-**Context:** Post-DungeonMind #30 / Buddy re-pin: `WORLD_OBJECT_KIND` for `thread` cleared; migration ledger selects Case C (`ATTRIBUTE_ASSERTION`, count 28). Five dual-sense STOPs remain cross-repository package-construction; Case B still forbidden.
-**Insight:** Clearing a DM kind gap does not authorize adoption. Remeasure first; dispatch the smallest singular Buddy package-construction blocker while dual-sense STOPs stay undecided.
-**Action:** Design the smallest deterministic Buddy attribute/assertion materialization or transport contract for the remaining ATTRIBUTE_ASSERTION rows; do not reopen relationship cleanup or start Case B.
-**Surfaces when:** CUTOVER re-pin after DM#30, whole-world blocker ledger, Case A/B/C/D selection, ATTRIBUTE_ASSERTION, EVIDENCE_PROVENANCE, dual-sense STOP, world-object-v5
+## [READY] CUTOVER Case C Buddy EVIDENCE_PROVENANCE after identity-lifecycle history — captured 2026-08-12
+**Context:** After PR #571 and the identity-lifecycle successor, `ATTRIBUTE_ASSERTION` clears 28→0; migration ledger selects Case C (`EVIDENCE_PROVENANCE`, count 8). Five dual-sense STOPs remain cross-repository package-construction; `IDENTITY_HISTORY` remains 14 at durable adoption; Case B still forbidden.
+**Insight:** Identity bookkeeping is not a world-property gap. The next singular Buddy package-construction blocker is alias/evidence reconstruction, not identity replay and not relationship cleanup.
+**Action:** Design the smallest deterministic Buddy alias/evidence reconstruction slice for the remaining EVIDENCE_PROVENANCE rows; do not invent identity properties, reopen relationship cleanup, or start Case B.
+**Surfaces when:** CUTOVER identity lifecycle history, whole-world blocker ledger, Case A/B/C/D selection, EVIDENCE_PROVENANCE, ATTRIBUTE_ASSERTION, dual-sense STOP, PR #571
 
 ## [READY] CUTOVER Case B only after package-construction is expressible — captured 2026-08-12
 **Context:** PR #568 review: `_next_slice_recommendation` returned Case B whenever `DURABLE_ADOPTION_BOUNDARY` existed, while `WORLD_OBJECT_KIND` (`thread`) and other package-construction blockers remained.
