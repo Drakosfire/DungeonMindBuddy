@@ -22,7 +22,7 @@ pr_body_template: |
 # HANDOFF — make `alias_remove` identity decisions replay-safe
 
 **Created:** 2026-08-13.
-**Status:** DESIGN READY — **DO NOT DISPATCH implementation until this handoff is merged to `main`.**
+**Status:** DONE / HISTORICAL — implemented by PR #580. Do not redispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-KERNEL-alias-remove-identity-decision.md`
 **Conversation name:** `KERNEL — replay-safe alias_remove identity decision`
 **Flow / agent:** `KERNEL`
@@ -31,6 +31,33 @@ pr_body_template: |
 **Code agent:** fresh KERNEL code agent using the same conversation name
 **PR title:** `KERNEL: make alias_remove identity decisions replay-safe`
 **Suggested branch:** `kernel/alias-remove-identity-decision`
+
+### Completion record
+
+```text
+DONE / HISTORICAL — implemented by PR #580.
+Do not redispatch.
+
+PR: #580
+final head: 5d4d43f01bc99729f6d6e577ec33553d9b5249b4
+merge: 3a52d309a606608c9338147b78e0a2f708084042
+review cycles: 2
+
+author-local focused verification:
+  47 focused tests passed
+  Ruff clean on repair paths
+  git diff --check clean
+
+GitHub Actions / commit-status evidence:
+  none attached to reviewed head
+
+tests/test_graph_kernel_boundaries.py:
+  base: 4 failed, 4 passed
+  head: 4 failed, 4 passed
+  same four failures pre-existing outside #580 changed paths
+```
+
+Do not rewrite this as “CI green.” No Eldyrwild mutation occurred. The exact-six application is a separate CUTOVER successor: [`HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md`](HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md).
 
 > **Dispatch gate:** Before the first code change, record the exact `origin/main` SHA, prove it is a descendant of `fda746b99a8a9830280bf1beac126a8221ddedfc` (PR #576), and prove this canonical handoff exists on that base. If the tracker no longer names `kernel-alias-remove-identity-decision` as next, stop and return to design.
 >
