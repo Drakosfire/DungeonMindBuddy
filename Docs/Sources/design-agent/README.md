@@ -1,13 +1,13 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Pinned repository revision:** `3a52d309a606608c9338147b78e0a2f708084042`  
-**Refreshed:** 2026-08-13  
+**Source capture base:** `3a52d309a606608c9338147b78e0a2f708084042`  
+**Export refreshed:** 2026-08-13  
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate / Project Sources.
 
-The files under this directory are copies of canonical repository files at the pinned revision. They are **not a second source of truth**. If an export copy and its canonical repository path ever differ, the canonical path wins and this export needs refresh.
+The 15 unchanged mapped sources reuse the exact canonical Git blobs from the source capture base. `INDEX-design-agent-source-set.md` is refreshed by this same change and its canonical and export paths use the same new blob. Export copies are **not a second source of truth**. If an export copy and its canonical repository path ever differ, the canonical path wins and this export needs refresh.
 
 ## Upload set
 
@@ -74,4 +74,4 @@ Do not upload unresolved source-only/historical drafts by default. See the canon
 
 ## Maintenance rule
 
-Never repair an export copy in place. Repair/update the canonical repository file first, then refresh its export copy. A bundle refresh should preserve byte equality for every mapped file and should update this README's pinned revision.
+Never repair an export copy in place. Repair/update the canonical repository file first, then refresh its export copy. A bundle refresh should preserve byte equality for every mapped file and should update this README's source capture base.
