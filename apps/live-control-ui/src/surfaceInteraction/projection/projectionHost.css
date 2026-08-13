@@ -174,6 +174,23 @@
   line-height: 1;
 }
 
+.surface-projection-close {
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border-color: rgba(248, 250, 252, 0.45);
+  background: rgba(248, 250, 252, 0.12);
+  color: #f8fafc;
+  font-size: 1.85rem;
+  font-weight: 600;
+}
+
+.surface-projection-close:hover {
+  border-color: #ffffff;
+  background: rgba(248, 250, 252, 0.22);
+  color: #ffffff;
+}
+
 .surface-projection-body {
   flex: 1;
   padding: 0.85rem 1rem 1rem;

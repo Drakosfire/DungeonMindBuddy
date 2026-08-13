@@ -104,6 +104,42 @@ describe("PlaySurfacePage", () => {
     document.getElementById("play-prep-themes-css")?.remove();
   });
 
+  it("renders native Beats panel as the default Play tab", async () => {
+    window.history.replaceState({}, "", "/play?campaigns=of-conks-cons");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/api/live/play-run-state/")) {
+          return new Response(
+            JSON.stringify({
+              schema_version: "dmb_play_run_state_v1",
+              run_id: "of-conks-cons--hempholm",
+              campaign_id: "of-conks-cons",
+              adventure_id: "hempholm",
+              updated_at: "2026-08-13T00:00:00Z",
+              current_scene_id: "hook",
+              branch: { hook: "hill", aftermath: null },
+              resolved_beat_ids: [],
+              scene_notes: {},
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    render(createElement(PlaySurfacePage, { initialPanel: "beats" }), { wrapper });
+
+    expect(screen.getByRole("link", { name: "Beats" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("play-surface-native")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-panel")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Hempholm — Of Conks/i)).toBeInTheDocument();
+  });
+
   it("renders AppChrome Play nav, tool tabs, and inlines the prep panel (no iframe)", async () => {
     render(createElement(PlaySurfacePage, { initialPanel: "combat" }), { wrapper });
 
@@ -154,5 +190,64 @@ describe("PlaySurfacePage", () => {
       "/prep/statblocks?",
     );
     expect(screen.getByRole("link", { name: "Play" })).toHaveClass("active");
+  });
+
+  it("returns to native Beats after visiting a prep panel", async () => {
+    window.history.replaceState({}, "", "/play/beats?campaigns=of-conks-cons");
+    const user = await import("@testing-library/user-event").then((m) => m.default.setup());
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/live/play-run-state/")) {
+        return new Response(
+          JSON.stringify({
+            schema_version: "dmb_play_run_state_v1",
+            run_id: "of-conks-cons--hempholm",
+            campaign_id: "of-conks-cons",
+            adventure_id: "hempholm",
+            updated_at: "2026-08-13T00:00:00Z",
+            current_scene_id: "village-sandbox",
+            branch: { hook: "hill", aftermath: null },
+            resolved_beat_ids: [],
+            scene_notes: {},
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.includes("/prep/roll")) {
+        return new Response(
+          `<!doctype html><html><body><div class="wrap"><h1>Roll</h1><div id="rolltable-corpus-index"></div></div></body></html>`,
+          { status: 200, headers: { "Content-Type": "text/html" } },
+        );
+      }
+      if (url.includes("/prep/assets/prep.css")) {
+        return new Response("body { color: red; }", {
+          status: 200,
+          headers: { "Content-Type": "text/css" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(createElement(PlaySurfacePage, { initialPanel: "beats" }), { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-panel")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("link", { name: "Roll" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("play-surface")).toHaveAttribute("data-play-panel", "roll");
+      expect(screen.getByTestId("play-surface-host").querySelector("h1")?.textContent).toBe("Roll");
+    });
+    expect(screen.queryByTestId("beats-panel")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("link", { name: "Beats" }));
+    expect(window.location.pathname).toBe("/play/beats");
+    expect(screen.getByTestId("play-surface")).toHaveAttribute("data-play-panel", "beats");
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-panel")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("play-surface-host")).not.toBeInTheDocument();
   });
 });

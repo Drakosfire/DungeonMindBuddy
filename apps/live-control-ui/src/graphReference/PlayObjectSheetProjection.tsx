@@ -10,6 +10,8 @@ import {
   graphObjectTypeBadgeLabel,
   selectDefaultRelationshipRows,
 } from "../graphObjectCard/graphObjectDisplay";
+import { appendLensQueryToHref } from "../graphLens/sessionCampaignContext";
+import { playPanelHref } from "../playSurface/playPanels";
 import type { PlayObjectBody, PlayObjectKind } from "./ofConksPlayObjectBridge";
 import { playObjectBodyForNodeId } from "./ofConksPlayObjectBridge";
 import { mediaForOfConksNodeId } from "./ofConksNodeMedia";
@@ -37,6 +39,7 @@ function sectionTitles(kind: PlayObjectKind): {
   atTable: string;
   attitude: string;
   offers: string;
+  rules: string;
 } {
   switch (kind) {
     case "location":
@@ -44,18 +47,21 @@ function sectionTitles(kind: PlayObjectKind): {
         atTable: "Arrival",
         attitude: "What’s happening",
         offers: "Who’s here / what can happen",
+        rules: "Rules now",
       };
     case "item":
       return {
         atTable: "What it does",
         attitude: "Who wants it",
         offers: "Hooks",
+        rules: "Rules now",
       };
     case "faction":
       return {
         atTable: "At the table",
         attitude: "Pressure",
         offers: "Hooks",
+        rules: "Rules now",
       };
     case "npc":
     default:
@@ -63,6 +69,7 @@ function sectionTitles(kind: PlayObjectKind): {
         atTable: "At the table",
         attitude: "Attitude",
         offers: "Offers & hooks",
+        rules: "Rules now",
       };
   }
 }
@@ -187,6 +194,43 @@ export function PlayObjectSheetProjection({
             {body.offersHooks.map((line) => (
               <li key={line}>{line}</li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {body.rulesNow?.length ? (
+        <section
+          className="play-object-sheet__section play-object-sheet__rules"
+          aria-label={titles.rules}
+          data-testid="play-object-sheet-rules"
+        >
+          <h5>{titles.rules}</h5>
+          <ul>
+            {body.rulesNow.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {body.toolLinks?.length ? (
+        <section
+          className="play-object-sheet__section play-object-sheet__tools"
+          aria-label="Open in Play"
+          data-testid="play-object-sheet-tools"
+        >
+          <h5>Open in Play</h5>
+          <ul className="play-object-sheet__tool-list">
+            {body.toolLinks.map((link) => {
+              const href = appendLensQueryToHref(playPanelHref(link.panel));
+              return (
+                <li key={`${link.panel}:${link.label}`}>
+                  <a className="play-object-sheet__tool-link" href={href}>
+                    {link.label}
+                  </a>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

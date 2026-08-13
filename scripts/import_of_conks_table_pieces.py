@@ -151,6 +151,12 @@ A hemp village has a two-story attacking tree in the Jove garden. The tree is th
 > [!GM-NOTE]
 > If you used a different hook, skip this boxed text and start in [The Shacks](dmb-node:location:the-shacks) or at [the Jove home](dmb-node:location:jove-home).
 
+> [!GM-NOTE]
+> **Alt hooks (pick one — do not stack as simultaneous canon).**
+> - *The Alchemist's Despair:* In Greenest, Korden begs help recovering a stolen conk for the Baldur’s Gate mages’ guild; a merchant points you to a village with a strange plant.
+> - *In Service of the Guild:* Deliver to Berdusk fails — Lord Fiddlestick already sold the package to a village boy. Retrieve it or face wizardly consequences.
+> Default table open is the hill arrival above.
+
 ## Clocks
 
 > [!WARNING]
@@ -255,16 +261,35 @@ Gear ≤ 10 gp, farm tools, household hemp. He hates Saladin. Optional: gem-cutt
 
 Treasure if they search: 100 gp [precious metal leaves](dmb-node:item:metal-leaves).
 
+## Side jobs
+
+Lean side beats — open chips for full play RULES.
+
+- **Distillery (blacksmith yard):** DC 15 Dexterity (Tinker’s Tools) or DC 20 Dexterity (Smith’s Tools). Reward: 10 gp + engraving offer.
+- **Gem job:** [Morwin Blackwell](dmb-node:npc:morwin-blackwell) — ten stones, DC 10 Jeweler’s Tools; two tourmalines (100 gp cut).
+- **Meal n’ Moonshine:** [The Shacks](dmb-node:location:the-shacks) — cook’s utensils or brewer’s supplies; 1d6+2 contenders roll d20; prize [Belly’s Mouthwash](dmb-node:item:bellys-mouthwash).
+
 ## If they wait
 
 Growth spurt. Villagers with axes get mauled. Carry them to Nar.
 
-## If they win (surface)
+## Aftermath (surface)
 
-Celebration in the Shacks. Children, ale.
+Celebration **or** firefighting — then caretakers hours later. Open [The Shacks](dmb-node:location:the-shacks) for RULES now.
+
+### Celebration
+
+Heroes’ party in The Shacks. Children, ale, stories. Children may borrow weapons and reenact on the hill north of The Shacks. Overnight pairings can split the party (**Never Split the Party**).
 
 > [!RULES]
 > Drinking: DC 10 Con / hour or poisoned.
+
+### Firefighting
+
+Homes burning → villagers shelter in The Shacks while rebuilding.
+
+> [!RULES]
+> Firefighting: DC 12 Strength (Athletics) or gain 1 level of exhaustion. d4 houses destroyed.
 
 > [!WARNING]
 > Do not telegraph the second fight. See **Combat handoff → Unexpected — caretakers**.
@@ -274,7 +299,13 @@ Celebration in the Shacks. Children, ale.
 > [!READ-ALOUD]
 > The air down in these tunnels is dank… hollow roots are warm… more like stone or metal than wood.
 
+> [!READ-ALOUD]
+> You reach a large chamber where many of the root-corridors converge. The room is faintly lit by a sickly green light from a translucent sack cradled about 20 feet up in a wooden helix. Movement at the corner of your eye — [Guardian](dmb-node:threat:guardian) + 2 caretakers.
+
 [Hollow root corridors](dmb-node:location:root-corridors) · [The Marrow](dmb-node:location:the-marrow) · [Guardian](dmb-node:threat:guardian) + 2 caretakers.
+
+> [!RULES]
+> Safe resin 200 gp. Greedy +200 gp → collapse risk → DC 10 Athletics or the village falls in.
 
 ## The child
 

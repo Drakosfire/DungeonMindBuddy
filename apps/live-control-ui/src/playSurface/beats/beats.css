@@ -1,0 +1,429 @@
+.beats-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 0;
+  height: 100%;
+  padding: 0.65rem 1rem 1rem;
+  color: #1f1a14;
+  background: #f4efe6;
+}
+
+.beats-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  align-items: flex-end;
+}
+
+.beats-panel__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6a5a45;
+}
+
+.beats-panel__title {
+  margin: 0.15rem 0 0;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  color: #3a2412;
+}
+
+.beats-panel__status-row {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: #6a5a45;
+}
+
+.beats-panel__saved {
+  color: #3d6b45;
+}
+
+/* Scene deck — horizontal top strip */
+.beats-deck-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #c9b896;
+  border-radius: 0.4rem;
+  background: #fffaf0;
+}
+
+.beats-deck-nav__stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.beats-deck-nav__step {
+  border: 1px solid #b59a6d;
+  background: #fff;
+  color: #3a2412;
+  border-radius: 0.3rem;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.beats-deck-nav__step:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.beats-deck-nav__position {
+  font-size: 0.75rem;
+  color: #6a5a45;
+  white-space: nowrap;
+}
+
+.beats-deck-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.beats-deck-nav__scene {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #3a2412;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.beats-deck-nav__scene--active {
+  border-color: #a11d18;
+  background: #fff4e5;
+  font-weight: 650;
+}
+
+/* Beats — condensed horizontal strip under scenes */
+.beats-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #c9b896;
+  border-radius: 0.4rem;
+  background: #fffaf0;
+  min-height: 0;
+}
+
+.beats-strip__label {
+  flex-shrink: 0;
+  align-self: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6a5a45;
+  padding: 0 0.15rem;
+}
+
+.beats-strip__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 0.15rem;
+}
+
+.beats-strip__item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  padding: 0.2rem 0.35rem 0.2rem 0.25rem;
+  border-radius: 0.35rem;
+  border: 1px solid transparent;
+  background: #fff;
+}
+
+.beats-strip__item--selected {
+  border-color: #a11d18;
+  background: #f7ebe0;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #a11d18 35%, transparent);
+}
+
+.beats-strip__resolve {
+  display: flex;
+  align-items: center;
+}
+
+.beats-strip__beat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.1rem 0.15rem;
+  color: inherit;
+  font: inherit;
+  max-width: 11rem;
+}
+
+.beats-strip__kind {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a6b3a;
+  line-height: 1.1;
+}
+
+.beats-strip__beat[data-beat-kind="interrupt"] .beats-strip__kind {
+  color: #a11d18;
+}
+
+.beats-strip__beat[data-beat-kind="optional"] .beats-strip__kind {
+  color: #4a6b8a;
+}
+
+.beats-strip__title {
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10.5rem;
+}
+
+/* Wide stage: beat detail dominates; scene context below/secondary */
+.beats-panel__stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.beats-detail--stage {
+  flex: 1 1 auto;
+  min-height: 14rem;
+}
+
+.beats-detail {
+  padding: 1rem 1.15rem 1.15rem;
+  border: 1px solid #c9b896;
+  border-radius: 0.45rem;
+  background: #fffaf0;
+}
+
+.beats-detail--empty {
+  margin: 0;
+  color: #6a5a45;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.beats-detail__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid color-mix(in srgb, #c9b896 70%, transparent);
+}
+
+.beats-detail__kind {
+  margin: 0 0 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #8a6b3a;
+}
+
+.beats-detail__kind[data-beat-kind="interrupt"] {
+  color: #a11d18;
+}
+
+.beats-detail__kind[data-beat-kind="optional"] {
+  color: #4a6b8a;
+}
+
+.beats-detail__header h3 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  color: #3a2412;
+}
+
+.beats-detail__close {
+  border: 1px solid #b59a6d;
+  background: #fff;
+  border-radius: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.beats-detail__body {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 52rem;
+}
+
+.beats-detail__summary {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.beats-detail__rules {
+  margin: 0;
+  border: 1px solid #e0b4a8;
+  border-radius: 0.35rem;
+  padding: 0.65rem 0.65rem 0.65rem 1.4rem;
+  background: #fff5f2;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.beats-scene--context {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #c9b896;
+  border-radius: 0.4rem;
+  background: #fffaf0;
+}
+
+.beats-scene__intent {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: #5a4632;
+}
+
+.beats-scene__clocks {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.84rem;
+  color: #5a4632;
+}
+
+.beats-scene__ra {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-left: 3px solid #a11d18;
+  background: #f7ebe0;
+  font-style: italic;
+  line-height: 1.45;
+  font-size: 1rem;
+}
+
+.beats-scene__gm {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #5a4632;
+}
+
+.beats-branch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+}
+
+.beats-branch__btn {
+  border: 1px solid #b59a6d;
+  background: #fff;
+  color: #3a2412;
+  border-radius: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.beats-branch__btn--active {
+  border-color: #a11d18;
+  background: #fde8e4;
+  font-weight: 650;
+}
+
+.beats-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.beats-notes__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #6a5a45;
+}
+
+.beats-notes__input {
+  width: 100%;
+  min-height: 3.5rem;
+  resize: vertical;
+  border: 1px solid #c9b896;
+  border-radius: 0.3rem;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  background: #fff;
+  color: #1f1a14;
+}
+
+.beats-chip-list,
+.beats-tool-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.beats-chip,
+.beats-tool-link {
+  display: inline-flex;
+  border: 1px solid #b59a6d;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  background: #fff;
+  color: #3a2412;
+  font-size: 0.88rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.beats-chip:hover,
+.beats-tool-link:hover {
+  border-color: #a11d18;
+  color: #a11d18;
+}

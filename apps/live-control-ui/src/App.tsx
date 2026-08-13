@@ -295,7 +295,7 @@ export function App() {
   } else if (route === "play") {
     content = (
       <PlaySurfacePage
-        initialPanel={playPanelFromPath(window.location.pathname) ?? "combat"}
+        initialPanel={playPanelFromPath(window.location.pathname) ?? "beats"}
       />
     );
   } else {

@@ -54,6 +54,86 @@ describe("PlayObjectSheetProjection", () => {
     expect(screen.getByRole("button", { name: /Open 1\. The Shacks/i })).toBeInTheDocument();
   });
 
+  it("renders Maglubiyet Rules now and Items tool link", () => {
+    const resolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }> = {
+      ...morwinResolution(),
+      locator: "dmb-node:item:maglubiyets-statue",
+      graphNodeId: "item:maglubiyets-statue",
+      graphObject: buildGraphObjectCardFromNodeView({
+        node_id: "item:maglubiyets-statue",
+        label: "Maglubiyet’s Statue",
+        kind: "item",
+        role: "item",
+        aliases: [],
+        source_domains: ["worldbuilding"],
+        evidence_badges: [],
+        adjacency: [],
+        anchored_to_focus_session: true,
+        summary: null,
+      }),
+    };
+    render(
+      <PlayObjectSheetProjection resolution={resolution} model={resolution.graphObject} />,
+    );
+    expect(screen.getByTestId("play-object-sheet-rules")).toHaveTextContent(/3 charges/i);
+    expect(screen.getByTestId("play-object-sheet-rules")).toHaveTextContent(/DC 15/i);
+    expect(screen.getByTestId("play-object-sheet-tools")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open full text on Items/i })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/play/items"),
+    );
+  });
+
+  it("renders Shacks firefighting RULES without Build", () => {
+    const resolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }> = {
+      ...morwinResolution(),
+      locator: "dmb-node:location:the-shacks",
+      graphNodeId: "location:the-shacks",
+      graphObject: buildGraphObjectCardFromNodeView({
+        node_id: "location:the-shacks",
+        label: "The Shacks",
+        kind: "location",
+        role: "location",
+        aliases: [],
+        source_domains: ["worldbuilding"],
+        evidence_badges: [],
+        adjacency: [],
+        anchored_to_focus_session: true,
+        summary: null,
+      }),
+    };
+    render(
+      <PlayObjectSheetProjection resolution={resolution} model={resolution.graphObject} />,
+    );
+    expect(screen.getByTestId("play-object-sheet-rules")).toHaveTextContent(/Firefighting/i);
+    expect(screen.getByTestId("play-object-sheet-rules")).toHaveTextContent(/DC 12/i);
+  });
+
+  it("renders Marrow chamber arrival text", () => {
+    const resolution: Extract<GraphReferenceResolution, { kind: "resolved_graph" }> = {
+      ...morwinResolution(),
+      locator: "dmb-node:location:the-marrow",
+      graphNodeId: "location:the-marrow",
+      graphObject: buildGraphObjectCardFromNodeView({
+        node_id: "location:the-marrow",
+        label: "The Marrow",
+        kind: "location",
+        role: "location",
+        aliases: [],
+        source_domains: ["worldbuilding"],
+        evidence_badges: [],
+        adjacency: [],
+        anchored_to_focus_session: true,
+        summary: null,
+      }),
+    };
+    render(
+      <PlayObjectSheetProjection resolution={resolution} model={resolution.graphObject} />,
+    );
+    expect(screen.getByText(/sickly green light/i)).toBeInTheDocument();
+    expect(screen.getByTestId("play-object-sheet-rules")).toHaveTextContent(/200 gp/i);
+  });
+
   it("shouldRenderPlayObjectSheet is true only for bridged nodes", () => {
     expect(shouldRenderPlayObjectSheet(morwinResolution())).toBe(true);
     const other = {

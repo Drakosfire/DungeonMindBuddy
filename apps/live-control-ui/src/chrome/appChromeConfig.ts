@@ -14,8 +14,8 @@ export interface AppNavItem {
 }
 
 /**
- * Primary product surfaces. Play hosts Combat / Roll / Items / Statblocks
- * as sub-tabs (prep HTML inlined from `/prep/*`).
+ * Primary product surfaces. Play hosts Beats (native) plus Combat / Roll /
+ * Items / Statblocks as sub-tabs (prep HTML inlined from `/prep/*`).
  */
 export const APP_NAV_ITEMS: AppNavItem[] = [
   {

@@ -31,6 +31,9 @@ from apps.live_control_server.routes.world_containers import (
 from apps.live_control_server.routes.admitted_campaign_worlds import (
     router as admitted_campaign_worlds_router,
 )
+from apps.live_control_server.routes.play_run_state import (
+    router as play_run_state_router,
+)
 from apps.live_control_server.routes.statblock_integration import (
     router as statblock_integration_router,
 )
@@ -107,6 +110,7 @@ def create_app() -> FastAPI:
     application.include_router(workspace_documents_router)
     application.include_router(world_containers_router)
     application.include_router(admitted_campaign_worlds_router)
+    application.include_router(play_run_state_router)
     application.include_router(statblock_integration_router)
     application.include_router(threat_drafts_router)
     application.include_router(threat_publication_router)

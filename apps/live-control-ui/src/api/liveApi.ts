@@ -55,6 +55,7 @@ import type {
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
   AdmittedCampaignWorldsResponse,
+  PlayRunStateDocument,
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
   WorkspaceDocumentRevisionRequest,
@@ -1619,6 +1620,25 @@ export async function createWorldContainer(
 
 export async function getAdmittedCampaignWorlds(): Promise<AdmittedCampaignWorldsResponse> {
   return apiFetch<AdmittedCampaignWorldsResponse>("/api/live/admitted-campaign-worlds");
+}
+
+export async function getPlayRunState(runId: string): Promise<PlayRunStateDocument> {
+  return apiFetch<PlayRunStateDocument>(
+    `/api/live/play-run-state/${encodeURIComponent(runId)}`,
+  );
+}
+
+export async function putPlayRunState(
+  runId: string,
+  body: PlayRunStateDocument,
+): Promise<PlayRunStateDocument> {
+  return apiFetch<PlayRunStateDocument>(
+    `/api/live/play-run-state/${encodeURIComponent(runId)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {

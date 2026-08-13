@@ -88,6 +88,17 @@ function resolveProjectionHostPolicy(
     return { kind: "native-build", publication };
   }
 
+  // Play publishes graph-reference content without toolbox tools (Beats chips).
+  if (
+    publication
+    && publication.surfaceId === "play"
+    && publication.projections.some(
+      (entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID && entry.kind === "content",
+    )
+  ) {
+    return { kind: "native-build", publication };
+  }
+
   return { kind: "none" };
 }
 

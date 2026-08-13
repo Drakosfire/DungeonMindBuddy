@@ -41,6 +41,12 @@
   overflow: visible;
 }
 
+.play-surface__native {
+  display: block;
+  width: 100%;
+  min-height: 0;
+}
+
 .play-surface__host.prep-embed .wrap {
   max-width: none;
   margin: 0;

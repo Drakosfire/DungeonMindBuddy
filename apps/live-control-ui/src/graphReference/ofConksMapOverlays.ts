@@ -31,8 +31,9 @@ const HEMPHOLM_VILLAGE: OfConksMapOverlay = {
       id: "area-1",
       label: "The Shacks",
       nodeId: "location:the-shacks",
-      xPct: 82,
-      yPct: 40,
+      // Large L-shaped building + huts on the east outskirts (map key 1).
+      xPct: 72,
+      yPct: 52,
       areaNumber: 1,
     },
     {

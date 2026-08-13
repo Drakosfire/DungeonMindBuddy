@@ -117,6 +117,7 @@ export function ProjectionHost({
             ) : null}
             <button
               type="button"
+              className="surface-projection-close"
               ref={closeButtonRef}
               onClick={onClose}
               aria-label={labels.closeLabel}

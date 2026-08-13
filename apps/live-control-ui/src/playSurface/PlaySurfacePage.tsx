@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
-import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
-import { ROUTE_COMPATIBILITY_PUBLICATIONS } from "../agentInteraction/surfaceInteractionCompat";
 import { AppChrome } from "../chrome/AppChrome";
 import { appendLensQueryToHref, useOptionalPlanGraphLens } from "../graphLens";
+import { BeatsPanel } from "./beats";
 import { mountPlayPrepPanel } from "./playPrepHost";
 import {
   PLAY_PANEL_IDS,
   PLAY_PANELS,
   buildPlayPanelEmbedSrc,
+  isPrepPlayPanel,
   playPanelFromPath,
   playPanelHref,
   type PlayPanelId,
 } from "./playPanels";
+import { PlayReferenceCapability } from "./reference/PlayReferenceCapability";
 import "./playSurface.css";
 
 export interface PlaySurfacePageProps {
@@ -40,26 +41,25 @@ function PlaySurfacePublisher({ panel }: { panel: PlayPanelId }) {
       [campaignId, def.label, lens?.lens.focus?.sessionNumber, panel],
     ),
   );
-  usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
-  return null;
+  return <PlayReferenceCapability panelId={panel} />;
 }
 
-function resolvePlayPanel(fallback: PlayPanelId = "combat"): PlayPanelId {
+function resolvePlayPanel(fallback: PlayPanelId = "beats"): PlayPanelId {
   return playPanelFromPath(window.location.pathname) ?? fallback;
 }
 
 /**
- * Play surface: one AppChrome entry with sub-tabs for Combat / Roll / Items / Statblocks.
- * Tab switches use history.pushState so World Graph / App providers stay mounted.
- * Prep HTML is inlined (no iframe) so AppChrome owns the only scrollbar.
+ * Play surface: AppChrome + sub-tabs. Beats is a native React panel; other tabs
+ * inline prep HTML from `/prep/*`.
  */
-export function PlaySurfacePage({ initialPanel = "combat" }: PlaySurfacePageProps) {
+export function PlaySurfacePage({ initialPanel = "beats" }: PlaySurfacePageProps) {
   const lens = useOptionalPlanGraphLens();
   const [panel, setPanel] = useState<PlayPanelId>(() => resolvePlayPanel(initialPanel));
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => isPrepPlayPanel(resolvePlayPanel(initialPanel)));
   const hostRef = useRef<HTMLDivElement | null>(null);
   const campaignKey = (lens?.lens.selectedCampaignIds ?? []).join(",");
+  const prepPanel = isPrepPlayPanel(panel);
 
   useEffect(() => {
     const syncFromLocation = () => {
@@ -81,7 +81,12 @@ export function PlaySurfacePage({ initialPanel = "combat" }: PlaySurfacePageProp
 
   useEffect(() => {
     const host = hostRef.current;
-    if (!host) return;
+    if (!prepPanel || !host || !embedSrc) {
+      setLoading(false);
+      setLoadError(null);
+      if (host) host.innerHTML = "";
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -101,7 +106,7 @@ export function PlaySurfacePage({ initialPanel = "combat" }: PlaySurfacePageProp
       cancelled = true;
       host.innerHTML = "";
     };
-  }, [embedSrc, panel]);
+  }, [embedSrc, panel, prepPanel]);
 
   function onSelectPanel(event: MouseEvent<HTMLAnchorElement>, next: PlayPanelId) {
     if (
@@ -144,20 +149,31 @@ export function PlaySurfacePage({ initialPanel = "combat" }: PlaySurfacePageProp
             );
           })}
         </nav>
-        {loading ? <p className="play-surface__status">Loading…</p> : null}
-        {loadError ? (
+        {prepPanel && loading ? <p className="play-surface__status">Loading…</p> : null}
+        {prepPanel && loadError ? (
           <p className="play-surface__status play-surface__status--error" role="alert">
             {loadError}
           </p>
         ) : null}
-        <div
-          ref={hostRef}
-          className="play-surface__host prep-embed"
-          data-testid="play-surface-host"
-          data-play-surface-host={panel}
-          data-play-embed-src={embedSrc}
-          hidden={Boolean(loadError)}
-        />
+        {panel === "beats" ? (
+          <div
+            key="play-native"
+            className="play-surface__native"
+            data-testid="play-surface-native"
+          >
+            <BeatsPanel />
+          </div>
+        ) : (
+          <div
+            key="play-host"
+            ref={hostRef}
+            className="play-surface__host prep-embed"
+            data-testid="play-surface-host"
+            data-play-surface-host={panel}
+            data-play-embed-src={embedSrc ?? undefined}
+            hidden={Boolean(loadError)}
+          />
+        )}
       </main>
     </AppChrome>
   );

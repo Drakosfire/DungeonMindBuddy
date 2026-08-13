@@ -1409,6 +1409,26 @@ export interface AdmittedCampaignWorldsResponse {
   mappings: AdmittedCampaignWorldMapping[];
 }
 
+export type PlayRunHookBranch = "hill" | "alchemist" | "guild";
+export type PlayRunAftermathBranch = "celebration" | "fire";
+
+export interface PlayRunBranchState {
+  hook: PlayRunHookBranch | null;
+  aftermath: PlayRunAftermathBranch | null;
+}
+
+export interface PlayRunStateDocument {
+  schema_version: "dmb_play_run_state_v1";
+  run_id: string;
+  campaign_id: string;
+  adventure_id: string;
+  updated_at: string;
+  current_scene_id: string;
+  branch: PlayRunBranchState;
+  resolved_beat_ids: string[];
+  scene_notes: Record<string, string>;
+}
+
 export interface CreateWorkspaceDocumentRequest {
   title: string;
   campaign_id: string;
