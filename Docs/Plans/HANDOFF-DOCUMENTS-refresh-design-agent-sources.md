@@ -1,7 +1,7 @@
 # HANDOFF — Refresh design-agent immediate-source export
 
 **Created:** 2026-08-13  
-**Status:** ACTIVE — one documentation/export capability  
+**Status:** COMPLETE — PR #581 merged as `bb250f25ac92075c1ed38524afe73f3364622b1a`; 2 review cycles  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOCUMENTS-refresh-design-agent-sources.md`  
 **Conversation/workstream:** `DungeonBuddy development-process optimization`  
 **Flow / owner:** `DOCUMENTS`  
@@ -9,6 +9,8 @@
 **Base revision:** `3a52d309a606608c9338147b78e0a2f708084042`  
 **PR title:** `DOCUMENTS: refresh design-agent source export`
 
+> **Completion:** PR #581 merged. Review Cycle 1 caught an over-broad provenance sentence in the export README; Review Cycle 2 passed after distinguishing the 15 unchanged base blobs from the same-change refreshed source index. The operator-facing Project Sources snapshot date remains 2026-08-02 until the user actually uploads/re-observes the new bundle.
+>
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md).
 
 ## §1 Mission and merge-ready invariant
@@ -179,14 +181,16 @@ cmp .cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md Docs/Sou
 
 Record Review Cycle N, exact base/head, export inventory count, canonical→mirror identity result, Jumpstart absence, new AGENTS/layout presence, source-index temporal claims, changed paths, and any divergence from the visible attached-source set.
 
+**Review handback:** PR #581; head `317c815983e8bf815ddbc86e4d34cf621d191390`; 2 review cycles. Cycle 1 required provenance wording repair only. Cycle 2 passed. Canonical and exported source index share blob `925b1c6243fcf2350128098b2cbb22602c5e85b3`. Export includes AGENTS / Steward Cycle / current handoff template / Graph Memory Project Layout; active Jumpstart is absent. Merge commit: `bb250f25ac92075c1ed38524afe73f3364622b1a`.
+
 ## §9 Acceptance rubric
 
-- [ ] A clean repo-resident source export exists at `Docs/Sources/design-agent/`.
-- [ ] The export has exactly the current 16-file upload set plus its README.
-- [ ] Mirror files are byte-identical to canonical repository sources at the pinned refresh revision.
-- [ ] The refreshed source index and its exported copy are identical.
-- [ ] `AGENTS.md`, `STEWARD-CYCLE.md`, and current slim `HANDOFF.template.md` are in PROCESS.
-- [ ] `GRAPH-MEMORY-PROJECT-LAYOUT.md` is included as ACTIVE_REFERENCE.
-- [ ] Superseded Jumpstart and unresolved source-only/historical materials are absent from the clean active export.
-- [ ] The index does not claim the operator's Project Sources UI was already refreshed.
-- [ ] No product authority or implementation sequence is changed by this export PR.
+- [x] A clean repo-resident source export exists at `Docs/Sources/design-agent/`.
+- [x] The export has exactly the current 16-file upload set plus its README.
+- [x] Mirror files are byte-identical to canonical repository sources at the pinned refresh revision, with the documented same-change source-index exception.
+- [x] The refreshed source index and its exported copy are identical.
+- [x] `AGENTS.md`, `STEWARD-CYCLE.md`, and current slim `HANDOFF.template.md` are in PROCESS.
+- [x] `GRAPH-MEMORY-PROJECT-LAYOUT.md` is included as ACTIVE_REFERENCE.
+- [x] Superseded Jumpstart and unresolved source-only/historical materials are absent from the clean active export.
+- [x] The index does not claim the operator's Project Sources UI was already refreshed.
+- [x] No product authority or implementation sequence is changed by this export PR.
