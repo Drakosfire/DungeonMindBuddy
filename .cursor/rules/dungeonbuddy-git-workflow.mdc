@@ -32,13 +32,13 @@ A parallel lane is safe only when both forms of ownership are understood:
 
 Read overlap is normal. Write overlap is not.
 
-Before dispatching a second lane:
+Before dispatching or adding a parallel lane:
 
-- pin both bases;
-- compare active handoff §4 allowlists / PR changed paths;
+- pin each active lane's base revision;
+- compare active handoff §4 allowlists and PR changed paths;
 - identify collision hotspots such as central routers, shared registries, lockfiles, root config, active state-authority docs, and generated schemas;
 - inspect runtime/service/state collisions separately from source paths;
-- split the seam, serialize, or explicitly transfer ownership when the lanes cannot stay independent.
+- split the seam, serialize, or explicitly transfer ownership when lanes cannot stay independent.
 
 Do not use eventual Git conflicts as the ordinary signal that two agents crossed domains.
 
