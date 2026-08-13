@@ -9,11 +9,17 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 > **Workstream closeout (2026-08-11):** `DOGFOOD-POLISH` is closed. Completed Plan/Build document-authoring slices are no longer active backlog items; see [`Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md). READY/IDEA items below that touch Plan, Build, Hermes, Threats, or Play are independent product work, not implied successors under the closed workstream.
 
+## [READY] CUTOVER Case C Buddy ATTRIBUTE_ASSERTION after DM v5 re-pin — captured 2026-08-12
+**Context:** Post-DungeonMind #30 / Buddy re-pin: `WORLD_OBJECT_KIND` for `thread` cleared; migration ledger selects Case C (`ATTRIBUTE_ASSERTION`, count 28). Five dual-sense STOPs remain cross-repository package-construction; Case B still forbidden.
+**Insight:** Clearing a DM kind gap does not authorize adoption. Remeasure first; dispatch the smallest singular Buddy package-construction blocker while dual-sense STOPs stay undecided.
+**Action:** Design the smallest deterministic Buddy attribute/assertion materialization or transport contract for the remaining ATTRIBUTE_ASSERTION rows; do not reopen relationship cleanup or start Case B.
+**Surfaces when:** CUTOVER re-pin after DM#30, whole-world blocker ledger, Case A/B/C/D selection, ATTRIBUTE_ASSERTION, EVIDENCE_PROVENANCE, dual-sense STOP, world-object-v5
+
 ## [READY] CUTOVER Case B only after package-construction is expressible — captured 2026-08-12
 **Context:** PR #568 review: `_next_slice_recommendation` returned Case B whenever `DURABLE_ADOPTION_BOUNDARY` existed, while `WORLD_OBJECT_KIND` (`thread`) and other package-construction blockers remained.
 **Insight:** Missing adoption seam is not sufficient for Case B. Case selection must derive from normalized blocker `blocking_stage` / ownership: Case A for singular DungeonMind adoption-package gaps; Case B only when those are clear and durable adoption is the first remaining DM gate; cross-repository dual-sense STOPs must not invent a singular owner.
-**Action:** Keep CUTOVER dispatch ledger stage-driven; after #568, next DM slice is admit Buddy kind `thread` (or explicit adapter), not the adoption transaction.
-**Surfaces when:** CUTOVER re-anchor, whole-world blocker ledger, Case A/B/C/D selection, DURABLE_ADOPTION_BOUNDARY, WORLD_OBJECT_KIND, thread kind, dual-sense STOP, PR #568
+**Action:** Keep CUTOVER dispatch ledger stage-driven; after DM v5 re-pin, next Buddy slice is Case C ATTRIBUTE_ASSERTION package work, not the adoption transaction.
+**Surfaces when:** CUTOVER re-anchor, whole-world blocker ledger, Case A/B/C/D selection, DURABLE_ADOPTION_BOUNDARY, WORLD_OBJECT_KIND, thread kind, dual-sense STOP, PR #568, PR #30 re-pin
 **Refs:** `Docs/Plans/HANDOFF-cutover-whole-world-reanchor-after-566.md`; `apps/live_control_server/services/cutover_whole_world_reanchor.py`
 
 ## [READY] Build Import should be able to designate a new world or campaign — captured 2026-08-11
