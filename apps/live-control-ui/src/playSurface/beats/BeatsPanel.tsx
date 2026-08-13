@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getPlayRunState, putPlayRunState } from "../../api/liveApi";
 import type { PlayRunStateDocument } from "../../api/types";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { appendLensQueryToHref } from "../../graphLens/sessionCampaignContext";
 import { playPanelHref, type PlayPanelId } from "../playPanels";
+import { buildPlayLocalGraphReferenceResolution } from "../reference/buildPlayLocalGraphReference";
 import {
   OF_CONKS_HEMPHOLM_RUN_ID,
   OF_CONKS_HEMPHOLM_SPINE,
@@ -32,12 +32,6 @@ function emptyRunState(runId: string): PlayRunStateDocument {
     resolved_beat_ids: [],
     scene_notes: {},
   };
-}
-
-function kindFromNodeId(nodeId: string): string {
-  const prefix = nodeId.split(":")[0] ?? "object";
-  if (prefix === "threat") return "creature";
-  return prefix;
 }
 
 function SceneDeckNav({
@@ -268,29 +262,10 @@ export function BeatsPanel() {
 
   const openChip = useCallback(
     (chip: BeatChip) => {
-      const nodeView = {
-        node_id: chip.nodeId,
-        label: chip.label,
-        kind: kindFromNodeId(chip.nodeId),
-        role: kindFromNodeId(chip.nodeId),
-        aliases: [] as string[],
-        source_domains: ["worldbuilding"] as string[],
-        evidence_badges: [] as [],
-        adjacency: [] as [],
-        anchored_to_focus_session: true,
-        summary: null,
-      };
+      const resolution = buildPlayLocalGraphReferenceResolution(chip.nodeId, chip.label);
+      if (!resolution) return;
       openGraphReference({
-        resolution: {
-          kind: "resolved_graph",
-          locator: `dmb-node:${chip.nodeId}`,
-          reference: null,
-          graphNodeId: chip.nodeId,
-          graphObject: buildGraphObjectCardFromNodeView(nodeView),
-          graphScope: null,
-          projectionState: "ready",
-          message: null,
-        },
+        resolution,
         projectionState: "ready",
         glanceOnly: false,
       });
@@ -476,33 +451,133 @@ export function BeatsPanel() {
               </button>
             </header>
             <div className="beats-detail__body">
-              <p className="beats-detail__summary">{selectedBeat.summary}</p>
-              {selectedBeat.readAloud ? (
-                <blockquote className="beats-scene__ra">{selectedBeat.readAloud}</blockquote>
+              <p className="beats-detail__summary" data-testid="beats-detail-summary">
+                {selectedBeat.summary}
+              </p>
+
+              <section className="beats-detail__section" aria-label="At the table">
+                <h4 className="beats-detail__section-title">At the table</h4>
+                <p className="beats-detail__at-table" data-testid="beats-detail-at-table">
+                  {selectedBeat.atTable?.trim() || selectedBeat.summary}
+                </p>
+              </section>
+
+              {selectedBeat.readAlouds?.length ? (
+                <section className="beats-detail__section" aria-label="Read-aloud">
+                  <h4 className="beats-detail__section-title">Read-aloud</h4>
+                  {selectedBeat.readAlouds.map((ra) => (
+                    <blockquote
+                      key={`${ra.label ?? ""}:${ra.text.slice(0, 48)}`}
+                      className="beats-scene__ra"
+                      data-testid="beats-detail-read-aloud"
+                    >
+                      {ra.label?.trim() ? (
+                        <p className="beats-detail__ra-label">{ra.label}</p>
+                      ) : null}
+                      {ra.text}
+                    </blockquote>
+                  ))}
+                </section>
               ) : null}
+
               {selectedBeat.rulesNow?.length ? (
-                <ul className="beats-detail__rules" data-testid="beats-detail-rules">
-                  {selectedBeat.rulesNow.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
+                <section className="beats-detail__section" aria-label="Rules now">
+                  <h4 className="beats-detail__section-title">Rules now</h4>
+                  <ul className="beats-detail__rules" data-testid="beats-detail-rules">
+                    {selectedBeat.rulesNow.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
               ) : null}
+
+              {selectedBeat.ifTheyWait?.length ? (
+                <section className="beats-detail__section" aria-label="If they wait">
+                  <h4 className="beats-detail__section-title">If they wait</h4>
+                  <ul className="beats-detail__list">
+                    {selectedBeat.ifTheyWait.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {selectedBeat.ifTheySucceed?.length ? (
+                <section className="beats-detail__section" aria-label="If they succeed">
+                  <h4 className="beats-detail__section-title">If they succeed</h4>
+                  <ul className="beats-detail__list">
+                    {selectedBeat.ifTheySucceed.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {selectedBeat.ifTheyFail?.length ? (
+                <section className="beats-detail__section" aria-label="If they fail">
+                  <h4 className="beats-detail__section-title">If they fail</h4>
+                  <ul className="beats-detail__list">
+                    {selectedBeat.ifTheyFail.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {selectedBeat.warnings?.length ? (
+                <section
+                  className="beats-detail__section beats-detail__section--warn"
+                  aria-label="Warnings"
+                >
+                  <h4 className="beats-detail__section-title">Warnings</h4>
+                  <ul className="beats-detail__warnings" data-testid="beats-detail-warnings">
+                    {selectedBeat.warnings.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {selectedBeat.treasure?.length ? (
+                <section className="beats-detail__section" aria-label="Treasure">
+                  <h4 className="beats-detail__section-title">Treasure</h4>
+                  <ul className="beats-detail__list" data-testid="beats-detail-treasure">
+                    {selectedBeat.treasure.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {selectedBeat.gmNote?.trim() ? (
+                <p className="beats-scene__gm" data-testid="beats-detail-gm">
+                  <strong>GM:</strong> {selectedBeat.gmNote}
+                </p>
+              ) : null}
+
               {selectedBeat.chips?.length ? (
-                <ChipButtons chips={selectedBeat.chips} onOpen={openChip} />
+                <section className="beats-detail__section" aria-label="Open now">
+                  <h4 className="beats-detail__section-title">Open now</h4>
+                  <ChipButtons chips={selectedBeat.chips} onOpen={openChip} />
+                </section>
               ) : null}
+
               {selectedBeat.toolLinks?.length ? (
-                <ul className="beats-tool-list">
-                  {selectedBeat.toolLinks.map((link) => (
-                    <li key={`${link.panel}:${link.label}`}>
-                      <a
-                        className="beats-tool-link"
-                        href={appendLensQueryToHref(playPanelHref(link.panel as PlayPanelId))}
-                      >
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+                <section className="beats-detail__section" aria-label="Tools">
+                  <h4 className="beats-detail__section-title">Tools</h4>
+                  <ul className="beats-tool-list">
+                    {selectedBeat.toolLinks.map((link) => (
+                      <li key={`${link.panel}:${link.label}`}>
+                        <a
+                          className="beats-tool-link"
+                          href={appendLensQueryToHref(playPanelHref(link.panel as PlayPanelId))}
+                        >
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ) : null}
             </div>
           </section>

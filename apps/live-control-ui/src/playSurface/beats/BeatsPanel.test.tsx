@@ -132,4 +132,21 @@ describe("BeatsPanel", () => {
       within(screen.getByTestId("beats-detail")).getByRole("button", { name: /The Marrow/i }),
     ).toBeInTheDocument();
   });
+
+  it("renders Jove plea run card with multi labeled read-alouds", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    mockRunStateApi();
+    render(createElement(BeatsPanel), { wrapper });
+    await waitFor(() => expect(screen.getByTestId("beats-panel")).toBeInTheDocument());
+
+    const rail = screen.getByLabelText(/^Beats$/i);
+    await user.click(within(rail).getByRole("button", { name: /Jove plea/i }));
+    const detail = screen.getByTestId("beats-detail");
+    expect(within(detail).getByTestId("beats-detail-at-table")).toHaveTextContent(/Area 4/i);
+    const ras = within(detail).getAllByTestId("beats-detail-read-aloud");
+    expect(ras.length).toBeGreaterThanOrEqual(3);
+    expect(ras.some((el) => /Mark Jove/i.test(el.textContent ?? ""))).toBe(true);
+    expect(ras.some((el) => /Torbin Jove/i.test(el.textContent ?? ""))).toBe(true);
+    expect(within(detail).getByRole("button", { name: /^Mark Jove$/i })).toBeInTheDocument();
+  });
 });

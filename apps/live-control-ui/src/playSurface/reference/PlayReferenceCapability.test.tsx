@@ -95,5 +95,65 @@ describe("PlayReferenceCapability", () => {
     await waitFor(() => {
       expect(screen.getByLabelText(/The Shacks projection/i)).toBeInTheDocument();
     });
+    expect(screen.getByTestId("play-object-sheet")).toHaveTextContent(/Largest building/i);
+  });
+
+  it("opens Mark Jove play sheet with authored body from Beats chip", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    mockRunStateApi();
+    render(createElement(BeatsPanel), { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-panel")).toBeInTheDocument();
+    });
+
+    const rail = screen.getByLabelText(/^Beats$/i);
+    await user.click(within(rail).getByRole("button", { name: /Jove plea/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-detail")).toBeInTheDocument();
+    });
+
+    await user.click(
+      within(screen.getByTestId("beats-detail")).getByRole("button", { name: /^Mark Jove$/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Mark Jove projection/i)).toBeInTheDocument();
+    });
+
+    const sheet = await screen.findByTestId("play-object-sheet");
+    expect(sheet).toHaveTextContent(/Father at the house/i);
+    expect(sheet).toHaveTextContent(/bewitched/i);
+  });
+
+  it("opens Mark Jove from Connected now on another Play sheet", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    mockRunStateApi();
+    render(createElement(BeatsPanel), { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-panel")).toBeInTheDocument();
+    });
+
+    const rail = screen.getByLabelText(/^Beats$/i);
+    await user.click(within(rail).getByRole("button", { name: /Jove plea/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-detail")).toBeInTheDocument();
+    });
+
+    await user.click(
+      within(screen.getByTestId("beats-detail")).getByRole("button", { name: /^Torbin Jove$/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("play-object-sheet")).toHaveTextContent(/Mark’s son/i);
+    });
+
+    await user.click(screen.getByRole("button", { name: /^Open Mark Jove$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("play-object-sheet")).toHaveTextContent(/Father at the house/i);
+    });
+    expect(screen.queryByTestId("play-reference-unresolved-card")).not.toBeInTheDocument();
   });
 });

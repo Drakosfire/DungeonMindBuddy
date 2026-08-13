@@ -5,6 +5,7 @@ import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishS
 import { GRAPH_REFERENCE_RESOLUTION_BINDING_ID } from "../../graphReference/projectionBindings";
 import type { GraphReferenceResolution } from "../../graphReference/types";
 import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import { buildPlayLocalGraphReferenceResolution } from "./buildPlayLocalGraphReference";
 import { buildPlaySurfaceInteractionPublication } from "./buildPlaySurfaceInteractionPublication";
 import { PlayReferenceObjectProjection } from "./PlayReferenceObjectProjection";
 
@@ -52,13 +53,18 @@ export function PlayReferenceCapability({ panelId, children }: PlayReferenceCapa
     return registerGraphReferenceBinding({
       resolverState: "ready",
       resolveRelationship: async (relationship) => {
-        const locator = relationship.targetId?.trim() || relationship.label;
+        const targetId = relationship.targetId?.trim() || "";
+        const local = targetId
+          ? buildPlayLocalGraphReferenceResolution(targetId, relationship.label)
+          : null;
+        if (local) return local;
+
         const unresolved: GraphReferenceResolution = {
           kind: "unresolved",
-          locator,
+          locator: relationship.label?.trim() || "Related object",
           reference: null,
           projectionState: "ready",
-          message: "Relationship navigation is not available on Play yet.",
+          message: "Relationship navigation needs a target node id.",
         };
         return unresolved;
       },

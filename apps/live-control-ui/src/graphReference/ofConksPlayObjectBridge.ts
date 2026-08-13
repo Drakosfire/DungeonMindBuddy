@@ -155,18 +155,23 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
   "npc:lord-fiddlestick": {
     kind: "npc",
     atTable:
-      "Background pin tied to the conk and optional open threads — not required for the opening hill arrival.",
-    attitude: "Optional lore pressure if the table digs into how this started.",
-    offersHooks: ["Pair with the conk and The Shacks if hooks pull that way."],
+      "Gnomish bard, hasardeur, sneak thief, entrepreneur. Lifted an enchanted tubercle (the conk) from a traveling alchemist’s rucksack, then fenced it to Torbin Jove at Greenest’s market with promises of fertility and prosperity. Not required for the default hill arrival — open this when the table digs into how the crisis started.",
+    attitude:
+      "Optional lore pressure. He already sold the package and moved on; the boy and the tree are the live problem.",
+    offersHooks: [
+      "Guild / alchemist hooks lead here before Hempholm.",
+      "Pair with the conk; Torbin bought it from “a friendly little man” on the market.",
+    ],
     connectedNow: [
       { label: "the conk", nodeId: "item:the-conk" },
+      { label: "Torbin Jove", nodeId: "npc:torbin-jove" },
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
   },
   "location:the-shacks": {
     kind: "location",
     atTable:
-      "Largest building in the village — tavern/inn energy (Bill the Belly, prose-only proprietor). Opening beat can dump a peasant through the door into Nar’s cursing. Free huts for travelers; furnished rooms for a few coins.",
+      "Largest building on the outskirts — main tavern/inn plus free huts for travelers (furnished rooms for a few coins). Soup kitchen and tavern serve nothing fancy. Bill the Belly (prose-only proprietor) hosts Meal n’ Moonshine. Opening beat can dump a peasant with a noggin-shaped nose through the door into Nar’s cursing; the rube mounts his donkey and hightails.",
     attitude: "Celebration hub after a surface-tree “victory”; also where false victory turns. Fire refugees move here if homes burn.",
     offersHooks: [
       "Meal n’ Moonshine: cook’s utensils or brewer’s supplies. 1d6+2 NPC contenders each roll d20 (no bonus); PCs roll with proficiency edge. Tie → cook/brew-off. Prize: Belly’s Mouthwash.",
@@ -254,11 +259,13 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
   "location:hempholm": {
     kind: "location",
     atTable:
-      "Hemp village with a two-story attacking tree in the Jove garden. The tree is the visible problem — not the whole problem.",
+      "Hemp village (~80 in town, more on outlying farms). Specializes in durable Western Heartlands hemp bound for Greenest and Berdusk markets. Simple artisans (blacksmith, cobbler, carpenter) are commoners (MM 345) unless stated. A two-story attacking tree in the Jove garden is the visible problem — not the whole problem.",
     attitude: "Stall pressure advances the tree-growth clock.",
     offersHooks: [
       "Areas: Shacks, Morwin’s, Saladin’s wagon, Jove home, tree garden, then roots/Marrow.",
       "Side jobs: distillery at the blacksmith, gem job at Morwin’s, Meal n’ Moonshine at The Shacks.",
+      "Greenfields region essay (size, travel, tone): open Build document “Of Conks & Cons v2.1” — not dumped into Beats.",
+      "Name every improvised villager — Play → Roll (Appendix C).",
     ],
     connectedNow: [
       { label: "The Shacks", nodeId: "location:the-shacks" },
@@ -266,6 +273,7 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "The Jove's Home", nodeId: "location:jove-home" },
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
     ],
+    toolLinks: [{ label: "Open names on Roll", panel: "roll" }],
   },
   "location:root-corridors": {
     kind: "location",
