@@ -72,6 +72,7 @@ from graph_memory.kernel.identity_decisions import (
     compute_identity_decision_id,
     merge_identity,
     record_identity_decision,
+    remove_identity_alias,
     split_identity,
     unmerge_identity,
 )
@@ -275,6 +276,7 @@ __all__ = [
     "compute_identity_decision_id",
     "merge_identity",
     "record_identity_decision",
+    "remove_identity_alias",
     "resolve_identity",
     "split_identity",
     "unmerge_identity",

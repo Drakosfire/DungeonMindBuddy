@@ -9,8 +9,10 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
+from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.identity_models import (
     IdentityAliasMapRewrite,
     IdentityDecisionKind,
@@ -197,15 +199,272 @@ def record_identity_decision(
 ) -> UnionSupergraphStore:
     """Append a durable identity decision record without applying merge/split side effects.
 
-    Use ``merge_identity`` / ``split_identity`` / ``unmerge_identity`` for mutating
-    redirect/alias state. This function is the low-level append path for human
-    override, reject, and ambiguity markers.
+    Use ``merge_identity`` / ``split_identity`` / ``unmerge_identity`` /
+    ``remove_identity_alias`` for mutating redirect/alias state. This function
+    is the low-level append path for human override, reject, and ambiguity
+    markers.
     """
     if not decision.actor.strip():
         raise ValueError("actor must be non-empty")
     if not decision.reason.strip():
         raise ValueError("reason must be non-empty")
+    if decision.decision_kind in {"alias_remove", "alias_add"}:
+        raise ValueError(
+            f"record_identity_decision cannot apply {decision.decision_kind}; "
+            "use remove_identity_alias for alias_remove"
+        )
     return _append_decision(store, decision)
+
+
+def _alias_currently_present(node: UnionSupergraphNode, alias: str) -> bool:
+    needle = alias.casefold()
+    return any(item.casefold() == needle for item in node.aliases if item)
+
+
+def _surface_produces_alias_key(node: UnionSupergraphNode, key: str) -> bool:
+    if node.label.strip() and node.label.casefold() == key:
+        return True
+    return any(item.strip() and item.casefold() == key for item in node.aliases)
+
+
+def _assert_alias_remove_subject_eligible(subject: UnionSupergraphNode) -> None:
+    memory_state = str(subject.state.get("memory_state") or "")
+    canon = _node_identity_canon_state(subject)
+    if memory_state == "merged_away" or canon == "merged_away":
+        raise ValueError(
+            f"cannot remove alias from merged_away subject {subject.node_id}; "
+            "subject is not a current canonical identity"
+        )
+    if canon == "rejected":
+        raise ValueError(
+            f"cannot remove alias from rejected subject {subject.node_id}; "
+            "subject is not a current canonical identity"
+        )
+    if canon == "noncanonical_provisional":
+        raise ValueError(
+            f"cannot remove alias from noncanonical_provisional subject {subject.node_id}; "
+            "subject is not a current canonical identity"
+        )
+
+
+def _iter_typed_supports(store: UnionSupergraphStore) -> list[DurableAssertionSupport]:
+    supports: list[DurableAssertionSupport] = []
+    for value in (store.assertion_support or {}).values():
+        if isinstance(value, DurableAssertionSupport):
+            supports.append(value)
+        elif isinstance(value, dict):
+            supports.append(DurableAssertionSupport.model_validate(value))
+    return supports
+
+
+def _candidate_supports_for_subject(
+    store: UnionSupergraphStore,
+    subject_node_id: str,
+) -> list[DurableAssertionSupport]:
+    candidates: list[DurableAssertionSupport] = []
+    for support in _iter_typed_supports(store):
+        if support.support_state != "supported" or not support.active_contribution_ids:
+            continue
+        kind = support.assertion_kind
+        if kind not in {None, "alias", "node"}:
+            continue
+        if support.graph_object_id not in {None, subject_node_id}:
+            continue
+        candidates.append(support)
+    return candidates
+
+
+def _load_assertion_from_support(
+    root: Path,
+    world_id: str,
+    support: DurableAssertionSupport,
+):
+    from graph_memory.world_supergraph.contribution_store import load_contribution_record
+
+    for contribution_id in support.active_contribution_ids:
+        try:
+            contribution = load_contribution_record(root, world_id, contribution_id)
+        except FileNotFoundError as exc:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"missing contribution {contribution_id!r}"
+            ) from exc
+        for candidate in contribution.accepted_assertions:
+            if candidate.assertion_id == support.assertion_id:
+                return candidate
+    raise ValueError(
+        f"cannot resolve assertion support {support.assertion_id!r} from "
+        f"active contributions {list(support.active_contribution_ids)}"
+    )
+
+
+def _assertion_lists_alias(assertion: Any, alias: str) -> bool:
+    needle = alias.casefold()
+    if assertion.assertion_kind == "alias":
+        value = dict(assertion.value or {})
+        claimed = str(assertion.label or value.get("alias") or "")
+        return bool(claimed.strip()) and claimed.casefold() == needle
+    if assertion.assertion_kind == "node":
+        value = dict(assertion.value or {})
+        return any(
+            str(item).strip() and str(item).casefold() == needle
+            for item in list(value.get("aliases") or [])
+        )
+    return False
+
+
+def _assert_no_independent_semantic_support(
+    store: UnionSupergraphStore,
+    *,
+    world_id: str,
+    subject_node_id: str,
+    alias: str,
+    root: Path | None,
+) -> None:
+    candidates = _candidate_supports_for_subject(store, subject_node_id)
+    if not candidates:
+        return
+    if root is None:
+        raise ValueError(
+            f"cannot resolve assertion support for {subject_node_id!r} "
+            "without contribution root"
+        )
+    for support in candidates:
+        assertion = _load_assertion_from_support(root, world_id, support)
+        if assertion.subject_node_id != subject_node_id:
+            continue
+        if _assertion_lists_alias(assertion, alias):
+            raise ValueError(
+                f"cannot remove alias {alias!r} from {subject_node_id}: "
+                "independent semantic support exists"
+            )
+
+
+def _assert_unmerge_not_blocked_by_alias_remove(
+    decisions: list[IdentityDecisionRecord],
+    merge: IdentityDecisionRecord,
+) -> None:
+    if merge.merge_side_effects is None:
+        return
+    added = {
+        item.casefold()
+        for item in merge.merge_side_effects.aliases_added_to_target
+        if item.strip()
+    }
+    if not added:
+        return
+    for decision in decisions:
+        if decision.status != "active" or decision.decision_kind != "alias_remove":
+            continue
+        if decision.subject_node_id != merge.target_node_id:
+            continue
+        if decision.alias and decision.alias.casefold() in added:
+            raise ValueError(
+                f"cannot unmerge {merge.decision_id} while later alias_remove "
+                f"{decision.decision_id} retired {decision.alias!r} from "
+                f"{merge.target_node_id}"
+            )
+
+
+def remove_identity_alias(
+    store: UnionSupergraphStore,
+    *,
+    world_id: str,
+    subject_node_id: str,
+    alias: str,
+    actor: str,
+    reason: str,
+    root: Path | None = None,
+) -> tuple[UnionSupergraphStore, IdentityDecisionRecord]:
+    """Retire one currently materialized alias from a canonical survivor node."""
+    if not str(alias).strip():
+        raise ValueError("alias must be non-empty")
+    requested_alias = str(alias)
+    if subject_node_id not in store.nodes:
+        raise KeyError(f"unknown subject_node_id: {subject_node_id}")
+
+    subject = store.nodes[subject_node_id]
+    _assert_alias_remove_subject_eligible(subject)
+    if requested_alias.casefold() == subject.label.casefold():
+        raise ValueError(
+            f"cannot remove canonical label {subject.label!r} from {subject_node_id}"
+        )
+
+    decision_id = compute_identity_decision_id(
+        world_id=world_id,
+        decision_kind="alias_remove",
+        subject_node_id=subject_node_id,
+        target_node_id=None,
+        alias=requested_alias,
+        source_candidate_id=None,
+        reason=reason,
+    )
+    decisions = _load_decisions(store)
+    existing = next(
+        (
+            item
+            for item in decisions
+            if item.decision_id == decision_id
+            and item.status == "active"
+            and item.decision_kind == "alias_remove"
+        ),
+        None,
+    )
+    present = _alias_currently_present(subject, requested_alias)
+    if existing is None and not present:
+        raise ValueError(
+            f"alias {requested_alias!r} is not currently materialized on {subject_node_id}"
+        )
+    if existing is not None and not present:
+        return store, existing
+    if existing is not None and present:
+        raise ValueError(
+            f"alias_remove {decision_id} already retired {requested_alias!r} from "
+            f"{subject_node_id}; same-reason reintroduction collision"
+        )
+
+    _assert_no_independent_semantic_support(
+        store,
+        world_id=world_id,
+        subject_node_id=subject_node_id,
+        alias=requested_alias,
+        root=root,
+    )
+
+    decision = build_identity_decision_record(
+        world_id=world_id,
+        decision_kind="alias_remove",
+        actor=actor,
+        reason=reason,
+        subject_node_id=subject_node_id,
+        target_node_id=None,
+        affected_node_ids=[subject_node_id],
+        alias=requested_alias,
+        merge_side_effects=None,
+    )
+
+    updated_aliases = _remove_items(list(subject.aliases), [requested_alias])
+    updated_subject = subject.model_copy(
+        update={
+            "aliases": updated_aliases,
+            "state": {
+                **dict(subject.state),
+                "last_identity_decision_id": decision.decision_id,
+            },
+        }
+    )
+    nodes = dict(store.nodes)
+    nodes[subject_node_id] = updated_subject
+
+    alias_map = dict(store.aliases)
+    key = requested_alias.casefold()
+    if alias_map.get(key) == subject_node_id and not _surface_produces_alias_key(
+        updated_subject, key
+    ):
+        alias_map.pop(key, None)
+
+    updated = store.model_copy(update={"nodes": nodes, "aliases": alias_map})
+    return _append_decision(updated, decision), decision
 
 
 def merge_identity(
@@ -406,6 +665,7 @@ def unmerge_identity(
             f"merge decision {decision_id} is missing merge_side_effects; "
             "cannot safely reverse alias/evidence/domain state"
         )
+    _assert_unmerge_not_blocked_by_alias_remove(decisions, original)
 
     side_effects = original.merge_side_effects
     source_node_id = original.subject_node_id

@@ -25,6 +25,7 @@ IMPLEMENTED_IN_PR004_IDENTITY: tuple[str, ...] = (
     "merge_identity",
     "split_identity",
     "unmerge_identity",
+    "remove_identity_alias",
     "classify_identity_outcome",
 )
 
