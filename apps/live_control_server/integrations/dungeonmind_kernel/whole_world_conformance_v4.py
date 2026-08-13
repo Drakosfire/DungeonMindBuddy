@@ -274,25 +274,6 @@ def _contribution_history_classified_items(
     ]
 
 
-def _contribution_history_classified_items(
-    classified: list[ClassifiedElement],
-    source_history_policy: WholeWorldSourceHistoryPolicy,
-) -> list[ClassifiedElement]:
-    """SOURCE_MIGRATION_HISTORY items that remain contribution/genesis history.
-
-    Proven identity-lifecycle shadow IDs stay classified as
-    SOURCE_MIGRATION_HISTORY, but their durable obligation is IDENTITY_HISTORY,
-    not CONTRIBUTION_HISTORY.
-    """
-    proven = source_history_policy.proven_node_state_history_element_ids
-    return [
-        item
-        for item in classified
-        if item.classification == SemanticClassification.SOURCE_MIGRATION_HISTORY
-        and item.element_id not in proven
-    ]
-
-
 CURRENT_V5_TARGET = WholeWorldTargetContract(
     target_id="current_v5",
     dungeonmind_dependency_ref=_DUNGEONMIND_DEPENDENCY_REF_V5,
