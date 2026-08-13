@@ -1,7 +1,7 @@
 ---
 pr_body_template: |
   ## Handoff pointer
-  - Conversation: CUTOVER — alias assertion adoption package after PR 576
+  - Conversation: CUTOVER — alias assertion adoption package after PR 575
   - Flow / agent: CUTOVER
   - Direction: DESIGN → CODE
   - Handoff: Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-575.md
@@ -9,7 +9,6 @@ pr_body_template: |
 
   ## Verification pointer
   - Semantic predecessor: DungeonMindBuddy PR #575 merge d32c244e8505b2d35d1aa536f6ef6cc097d735ce
-  - Dispatch base: DungeonMindBuddy PR #576 merge fda746b99a8a9830280bf1beac126a8221ddedfc
   - DungeonMind pin: be76acc997c5fbcb8ceaa090969ec051afa6051d
   - Predecessor fixture: tests/fixtures/dungeonmind_kernel/eldyrwild_cutover_identity_lifecycle_history_after_571_v1.json
   - Predecessor fixture SHA-256: 1a2cd8f9c47b223d4623fccbe1c988dd8d3eb1c8796078a32a32720f51ef000b
@@ -20,14 +19,12 @@ pr_body_template: |
   metadata only. Post-merge state-authority sync is a separate guarded operation.
 ---
 
-# HANDOFF — CUTOVER reconstruct alias assertion adoption package after PR #576
+# HANDOFF — CUTOVER reconstruct alias assertion adoption package after PR #575
 
 **Created:** 2026-08-12.  
-**Status:** READY FOR BUILD — PR #576 merged at `fda746b99a8a9830280bf1beac126a8221ddedfc`; dispatch gate satisfied.  
-**Dispatch rule:** Do **not** create another docs-only precursor just to replace prospective PR #576 wording in repository guides; re-anchor to current `main` and begin the bounded implementation slice.  
-**Repository canonical design handoff:** `Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-575.md`  
-**This artifact:** dispatch-ready revision pinned after PR #576; semantic contract unchanged.  
-**Conversation name:** `CUTOVER — alias assertion adoption package after PR 576`  
+**Status:** DESIGN READY — **DO NOT DISPATCH until PR #576 (this post-PR #575 atomic state-authority sync) is merged.**  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-575.md`  
+**Conversation name:** `CUTOVER — alias assertion adoption package after PR 575`  
 **Flow / agent:** `CUTOVER`  
 **Handoff direction:** `DESIGN → CODE`  
 **Design agent:** `ChatGPT stewardship / GPT-5.6 Sol`  
@@ -97,41 +94,14 @@ instead of being packaged.
 
 ### Dispatch gate before implementation
 
-PR #576 completed the guarded post-#575 atomic state-authority sync and merged at:
+PR #576 is the guarded post-#575 atomic state-authority sync. It is the dispatch gate for this slice. Do not start alias implementation from PR #575 merge `d32c244e...`.
 
 ```text
-fda746b99a8a9830280bf1beac126a8221ddedfc
+PR #576 merges
+→ re-anchor to merged PR #576 / current main
+→ start alias implementation from that descendant
+→ record exact dispatch-base SHA in implementation handback
 ```
-
-Review history for PR #576:
-
-```text
-Review Cycle 1 — BLOCKING
-  dispatch-base contradiction: tracker pointed at pre-sync PR #575
-
-Review Cycle 2 — CLEAR / MERGE-READY
-  formal review ID 4923009515
-
-cumulative review cycles = 2
-```
-
-The gate is satisfied. The implementation sequence is now:
-
-```text
-re-anchor to current main
-→ require PR #576 merge fda746b99a8a9830280bf1beac126a8221ddedfc in ancestry
-→ create isolated branch/worktree
-→ implement only this alias-package slice
-→ record the exact dispatch-base SHA in the handback
-```
-
-At handoff creation, current `main` is exactly:
-
-```text
-fda746b99a8a9830280bf1beac126a8221ddedfc
-```
-
-If `main` advances before the implementation branch is created, re-anchor again per `AGENTS.md`. Do not assume the saved SHA is still current. If the advance changes any product/kernel contract consumed by this handoff, stop and remeasure before coding.
 
 Semantic predecessor remains PR #575 merge:
 
@@ -139,7 +109,21 @@ Semantic predecessor remains PR #575 merge:
 d32c244e8505b2d35d1aa536f6ef6cc097d735ce
 ```
 
-PR #576 is the dispatch/state-authority predecessor, not a new semantic World Graph predecessor.
+PR #576 records that predecessor as DONE and makes this alias-assertion package the next bounded CUTOVER slice. It is not a second semantic predecessor.
+
+Expected mutable authorities in this guarded sync:
+
+```text
+Docs/Plans/HANDOFF-cutover-identity-lifecycle-history-after-571.md
+Docs/Plans/PR-TRACKER-campaign-supergraph.md
+Docs/Design/STATUS-world-graph-continuity-spine.md
+Backlog.md
+Backlog-DONE.md
+```
+
+Only files whose current-state claim actually changed should be edited.
+
+The implementation branch must start from the exact merged PR #576 / current `main` descendant. If any product/kernel code lands between that merge and dispatch, re-anchor instead of assuming semantic equivalence.
 
 ---
 
@@ -150,7 +134,7 @@ PR #576 is the dispatch/state-authority predecessor, not a new semantic World Gr
 | Parent authority | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` CUTOVER dispatch ladder; `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; PR #575 successor ledger |
 | Repository rules | `AGENTS.md`; `.cursor/skills/external-agent-pr-loop/SKILL.md`; re-anchor, isolated lane, write lease, review every distinct head, atomic state sync |
 | Semantic base revision | `d32c244e8505b2d35d1aa536f6ef6cc097d735ce` — PR #575 merge |
-| Dispatch base | `fda746b99a8a9830280bf1beac126a8221ddedfc` at handoff creation (PR #576 merge/current `main`). Re-anchor immediately before branch creation and record the exact resulting SHA in handback. |
+| Dispatch base | Merged PR #576 / current `main`; record exact SHA in implementation handback. Do not dispatch from `d32c244e...`. |
 | Predecessor contract | PR #575 successor fixture `eldyrwild_cutover_identity_lifecycle_history_after_571_v1.json`, SHA `1a2cd8f9c47b223d4623fccbe1c988dd8d3eb1c8796078a32a32720f51ef000b` |
 | DungeonMind semantic pin | `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30) |
 | DungeonMind graph contract | `dm_union_graph_v5`; v5 reuses v4 alias assertion record semantics |
@@ -826,25 +810,6 @@ dm_union_graph_v5 evidence ledger
 
 Run every applicable command and report exact counts/results.
 
-Before any implementation work:
-
-```bash
-git fetch origin
-git switch main
-git pull --ff-only
-git rev-parse HEAD
-git merge-base --is-ancestor fda746b99a8a9830280bf1beac126a8221ddedfc HEAD
-```
-
-Required outcome:
-
-```text
-current HEAD = exact dispatch base recorded in handback
-PR #576 merge is an ancestor of HEAD
-```
-
-Then run the implementation proof suite:
-
 ```bash
 # predecessor / current CUTOVER regressions
 uv run pytest -q \
@@ -1002,6 +967,7 @@ The implementation handback must include all of the following.
 ### Git identity
 
 ```text
+PR576 merge SHA:
 dispatch base SHA:
 head SHA:
 branch:
@@ -1014,6 +980,7 @@ PR URL:
 PR576 merge SHA:
 predecessor handoff status:
 tracker current slice:
+tracker dispatch base:
 status current slice:
 Backlog current item:
 ```
@@ -1021,13 +988,7 @@ Backlog current item:
 ### Authority pins
 
 ```text
-Buddy PR576 state-sync merge:
-fda746b99a8a9830280bf1beac126a8221ddedfc
-
-Buddy PR576 review cycles:
-2
-
-Buddy PR575 semantic merge:
+Buddy PR575 merge:
 d32c244e8505b2d35d1aa536f6ef6cc097d735ce
 
 PR575 fixture:
@@ -1216,7 +1177,7 @@ stop conditions encountered:
 
 The reviewer accepts only when every item is true.
 
-- [ ] PR #576 is merged at `fda746b99a8a9830280bf1beac126a8221ddedfc`; the implementation dispatch base is an exact descendant of that merge/current `main`. Semantic predecessor remains PR #575 merge `d32c244e...`.
+- [ ] PR #576 is merged; the implementation base is an exact descendant of that merge / current `main`. Semantic predecessor remains PR #575 merge `d32c244e...`.
 - [ ] PR #575 predecessor fixture SHA `1a2cd8f9...` reproduces byte-for-byte.
 - [ ] The predecessor/default analyzer behavior remains unchanged.
 - [ ] The full classified inventory contains exactly eight `EVIDENCE_PROVENANCE` blocker element IDs.
