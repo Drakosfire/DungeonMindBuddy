@@ -35,9 +35,18 @@ import type { PaneTarget } from "./surface/targetTypes";
 import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
 import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
+import { PlaySurfacePage } from "./playSurface/PlaySurfacePage";
+import { playPanelFromPath } from "./playSurface/playPanels";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
+type AppRoute =
+  | "index"
+  | "surface"
+  | "tiptap-callout-spike"
+  | "plan"
+  | "ingest"
+  | "build"
+  | "play";
 
 function currentRoute(): AppRoute {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -46,6 +55,7 @@ function currentRoute(): AppRoute {
   if (path === "/plan") return "plan";
   if (path === "/ingest") return "ingest";
   if (path === "/build") return "build";
+  if (playPanelFromPath(path)) return "play";
   return "index";
 }
 
@@ -57,7 +67,7 @@ function IndexSurfacePublisher() {
       campaignId: null,
       documentId: null,
       sessionNumber: null,
-      ambientSummary: "Launcher · pick Plan, Ingest, Build, or Combat",
+      ambientSummary: "Launcher · pick Plan, Ingest, Build, or Play",
       sourceEnvelope: null,
     }),
     [],
@@ -83,7 +93,7 @@ function MirewardIndex() {
       <IndexSurfacePublisher />
       <header className="launcher-header">
         <h1>Command Board</h1>
-        <p>Core surfaces for prep, memory review, worldbuilding, and combat.</p>
+        <p>Core surfaces for prep, memory review, worldbuilding, and table play.</p>
       </header>
 
       <section className="launcher-grid" aria-label="Main surfaces">
@@ -102,13 +112,10 @@ function MirewardIndex() {
           <strong>Worldbuilding source</strong>
           <span>Create and edit worldbuilding workspace documents.</span>
         </a>
-        <a className="launcher-card" href="/combat">
-          <span className="launcher-kicker">Combat Tracker</span>
-          <strong>North Reach Gate tracker</strong>
-          <span>
-            Mature command-board combat: circular initiative, HP, statblock
-            drilldown, import/export.
-          </span>
+        <a className="launcher-card" href="/play">
+          <span className="launcher-kicker">Play</span>
+          <strong>Table tools</strong>
+          <span>Combat, roll tables, items, and statblocks under one World Graph scope.</span>
         </a>
       </section>
     </main>
@@ -285,6 +292,12 @@ export function App() {
     content = <MemoryIngestPage />;
   } else if (route === "build") {
     content = <BuildSurfacePage />;
+  } else if (route === "play") {
+    content = (
+      <PlaySurfacePage
+        initialPanel={playPanelFromPath(window.location.pathname) ?? "combat"}
+      />
+    );
   } else {
     content = <LiveControlApp />;
   }

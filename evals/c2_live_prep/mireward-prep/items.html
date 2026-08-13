@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Items — Command Board</title>
+  <link rel="stylesheet" href="assets/prep.css" />
+  <link rel="stylesheet" href="assets/prep-markdown-themes.css" />
+</head>
+<body class="rolltables-page items-page">
+  <div class="wrap">
+    <nav id="site-nav" class="site-nav"></nav>
+
+    <header class="rolltables-header">
+      <h1>Items</h1>
+      <p class="muted">Item cards for the table.</p>
+      <div class="rolltables-toolbar">
+        <span class="pill pill-neutral rolltables-count" id="item-index-count">…</span>
+      </div>
+    </header>
+
+    <div id="item-workspace-index" class="rolltable-corpus-index">
+      <p class="muted">Loading items…</p>
+    </div>
+  </div>
+  <script src="assets/prep-markdown.js"></script>
+  <script src="assets/prep-markdown-themes.js"></script>
+  <script src="assets/prep.js"></script>
+  <script>
+    MirewardPrep.initNav("items", "product");
+    MirewardPrep.wireRepoLinks();
+    MirewardPrep.initItemWorkspaceIndex();
+  </script>
+</body>
+</html>

@@ -1,19 +1,26 @@
 import type { WorldGraphProjectionRequest } from "../api/types";
+import {
+  getAdmittedCampaignIdsForWorld,
+  getAdmittedWorldIdForCampaign,
+} from "./admittedCampaignWorldOverlay";
 
+/** Built-in campaign→world defaults. Runtime admissions merge via overlay. */
 export const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
   "longmont-c1": "eldyrwild",
   "longmont-c2": "eldyrwild",
 };
 
 export function getWorldIdForCampaign(campaignId: string): string | null {
-  return WORLD_ID_BY_CAMPAIGN[campaignId] ?? null;
+  const trimmed = campaignId.trim();
+  return WORLD_ID_BY_CAMPAIGN[trimmed] ?? getAdmittedWorldIdForCampaign(trimmed);
 }
 
 export function getCampaignIdsForWorld(worldId: string): readonly string[] {
-  return Object.entries(WORLD_ID_BY_CAMPAIGN)
+  const fromDefaults = Object.entries(WORLD_ID_BY_CAMPAIGN)
     .filter(([, mappedWorldId]) => mappedWorldId === worldId)
-    .map(([campaignId]) => campaignId)
-    .sort();
+    .map(([campaignId]) => campaignId);
+  const fromOverlay = getAdmittedCampaignIdsForWorld(worldId);
+  return Array.from(new Set([...fromDefaults, ...fromOverlay])).sort();
 }
 
 export type BuildDocumentScopeClassification =
@@ -25,7 +32,7 @@ export function classifyBuildDocumentScope(
   documentCampaignId: string,
 ): BuildDocumentScopeClassification {
   const trimmed = documentCampaignId.trim();
-  const mappedWorldId = WORLD_ID_BY_CAMPAIGN[trimmed];
+  const mappedWorldId = getWorldIdForCampaign(trimmed);
   if (mappedWorldId) {
     return { kind: "campaign", campaignId: trimmed, worldId: mappedWorldId };
   }

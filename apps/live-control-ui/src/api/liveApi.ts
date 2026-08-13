@@ -54,6 +54,7 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
+  AdmittedCampaignWorldsResponse,
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
   WorkspaceDocumentRevisionRequest,
@@ -1396,6 +1397,20 @@ export async function addGeneratedStatblockToCombat(
   );
 }
 
+export async function addWorkbenchDraftToCombat(
+  artifactId: string,
+  request: AddGeneratedStatblockCombatRequest,
+): Promise<AddGeneratedStatblockCombatResponse> {
+  return apiFetch<AddGeneratedStatblockCombatResponse>(
+    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/combat/add`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
 export async function acceptThreatDraftMechanics(
   draftId: string,
   request: AcceptThreatDraftMechanicsRequestV1,
@@ -1600,6 +1615,10 @@ export async function createWorldContainer(
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+export async function getAdmittedCampaignWorlds(): Promise<AdmittedCampaignWorldsResponse> {
+  return apiFetch<AdmittedCampaignWorldsResponse>("/api/live/admitted-campaign-worlds");
 }
 
 export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {

@@ -11,6 +11,7 @@ import {
 
 import { getSourceBundle } from "../api/liveApi";
 import type { IngestionSourceBundle } from "../api/types";
+import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import {
   buildFocusOptionsFromBundles,
   isFocusValidationBlocking,
@@ -73,7 +74,12 @@ interface PlanGraphLensProviderProps {
 }
 
 function sortCampaignIds(ids: readonly ReviewCampaignId[]): ReviewCampaignId[] {
-  return REVIEW_CAMPAIGN_IDS.filter((id) => ids.includes(id));
+  const builtin = REVIEW_CAMPAIGN_IDS.filter((id) => ids.includes(id));
+  const extras = ids
+    .filter((id) => !(REVIEW_CAMPAIGN_IDS as readonly string[]).includes(id))
+    .slice()
+    .sort();
+  return [...builtin, ...extras];
 }
 
 /** Exact focus + selected-campaign identity for atomic validation binding. */
@@ -213,6 +219,15 @@ export function PlanGraphLensProvider({
       if (selected.has(campaignId)) {
         selected.delete(campaignId);
       } else {
+        // One world at a time: selecting Of Conks drops Longmont, and vice versa.
+        const nextWorldId = getWorldIdForCampaign(campaignId);
+        if (nextWorldId) {
+          for (const id of [...selected]) {
+            if (getWorldIdForCampaign(id) !== nextWorldId) {
+              selected.delete(id);
+            }
+          }
+        }
         selected.add(campaignId);
       }
       const selectedCampaignIds = sortCampaignIds([...selected]);

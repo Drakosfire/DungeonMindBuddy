@@ -1,21 +1,105 @@
 /** Campaign selection for graph review surfaces. */
 
 import type { RecapArtifactRecord } from "../api/types";
+import { getAdmittedCampaignIds } from "../worldGraph/admittedCampaignWorldOverlay";
 
+/** Built-in Longmont campaigns. Runtime-admitted overlays (e.g. of-conks-cons) are also valid. */
 export const REVIEW_CAMPAIGN_IDS = ["longmont-c1", "longmont-c2"] as const;
 
-export type ReviewCampaignId = (typeof REVIEW_CAMPAIGN_IDS)[number];
+export type BuiltinReviewCampaignId = (typeof REVIEW_CAMPAIGN_IDS)[number];
+/** Built-in or runtime-admitted campaign id used by Plan / World Graph lens. */
+export type ReviewCampaignId = string;
 
 export function formatReviewCampaignLabel(campaignId: string): string {
   const match = campaignId.match(/^longmont-c(\d+)$/i);
   if (match) {
     return `Longmont C${match[1]}`;
   }
+  if (campaignId === "of-conks-cons") {
+    return "Of Conks & Cons";
+  }
   return campaignId;
 }
 
-export function isReviewCampaignId(value: string | null | undefined): value is ReviewCampaignId {
+/** Built-in Longmont campaigns plus runtime-admitted overlays (e.g. of-conks-cons). */
+export function listSelectableReviewCampaignIds(): ReviewCampaignId[] {
+  const admitted = getAdmittedCampaignIds().filter(
+    (id) => !(REVIEW_CAMPAIGN_IDS as readonly string[]).includes(id),
+  );
+  return [...REVIEW_CAMPAIGN_IDS, ...admitted];
+}
+
+/** Shared with product static pages so Combat/Roll/Items keep World Graph scope. */
+export const GRAPH_LENS_SESSION_STORAGE_KEY = "dmb.graphLens.v1";
+
+export function persistGraphLensCampaigns(ids: readonly string[]): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      GRAPH_LENS_SESSION_STORAGE_KEY,
+      JSON.stringify({ campaigns: [...ids] }),
+    );
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+/**
+ * Append current World Graph lens query (`campaigns` / `campaign` / `session`) to a
+ * product nav href so Combat/Roll/Items/Statblocks stay scoped after leaving Plan.
+ */
+export function appendLensQueryToHref(
+  href: string,
+  search: string | null | undefined = typeof window !== "undefined"
+    ? window.location.search
+    : null,
+): string {
+  const out = new URLSearchParams();
+  if (search) {
+    const src = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+    for (const key of ["campaigns", "campaign", "session"] as const) {
+      const value = src.get(key)?.trim();
+      if (value) out.set(key, value);
+    }
+  }
+  if (![...out.keys()].length && typeof sessionStorage !== "undefined") {
+    try {
+      const raw = sessionStorage.getItem(GRAPH_LENS_SESSION_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { campaigns?: unknown };
+        if (Array.isArray(parsed.campaigns) && parsed.campaigns.length > 0) {
+          const campaigns = parsed.campaigns
+            .map((part) => String(part).trim())
+            .filter(Boolean);
+          if (campaigns.length > 0) out.set("campaigns", campaigns.join(","));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const query = out.toString();
+  if (!query) return href;
+  const hashIndex = href.indexOf("#");
+  const base = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
+  const hash = hashIndex >= 0 ? href.slice(hashIndex) : "";
+  if (base.includes("?")) {
+    return `${base}&${query}${hash}`;
+  }
+  return `${base}?${query}${hash}`;
+}
+
+export function isBuiltinReviewCampaignId(
+  value: string | null | undefined,
+): value is BuiltinReviewCampaignId {
   return value != null && (REVIEW_CAMPAIGN_IDS as readonly string[]).includes(value);
+}
+
+export function isReviewCampaignId(value: string | null | undefined): value is ReviewCampaignId {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return false;
+  if (isBuiltinReviewCampaignId(trimmed)) return true;
+  return getAdmittedCampaignIds().includes(trimmed);
 }
 
 export function requestedCampaignFromLocation(
@@ -166,11 +250,15 @@ export function resolvePlanGraphLens(
   } else if (isReviewCampaignId(singleCampaign) && scopeMode === "campaign") {
     selectedCampaignIds = [singleCampaign];
   } else if (isReviewCampaignId(singleCampaign) && scopeMode === "world") {
-    selectedCampaignIds = [...REVIEW_CAMPAIGN_IDS];
+    // Built-in Longmont world union only — do not pull admitted one-shots into C1+C2.
+    selectedCampaignIds = isBuiltinReviewCampaignId(singleCampaign)
+      ? [...REVIEW_CAMPAIGN_IDS]
+      : [singleCampaign];
   } else if (isReviewCampaignId(singleCampaign)) {
-    selectedCampaignIds = bareCampaignSelectsSingle
-      ? [singleCampaign]
-      : [...REVIEW_CAMPAIGN_IDS];
+    selectedCampaignIds =
+      bareCampaignSelectsSingle || !isBuiltinReviewCampaignId(singleCampaign)
+        ? [singleCampaign]
+        : [...REVIEW_CAMPAIGN_IDS];
   } else {
     selectedCampaignIds = isReviewCampaignId(planCampaignId)
       ? [planCampaignId]
@@ -240,6 +328,7 @@ export function formatPlanGraphLensSummary(
 /** Write `campaigns` + qualified `session`; preserve other params (e.g. documentId) and current path. */
 export function syncPlanGraphLensUrl(lens: PlanGraphLens): void {
   if (typeof window === "undefined") return;
+  persistGraphLensCampaigns(lens.selectedCampaignIds);
   const params = new URLSearchParams(window.location.search);
   if (lens.selectedCampaignIds.length > 0) {
     params.set("campaigns", lens.selectedCampaignIds.join(","));

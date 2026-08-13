@@ -7,7 +7,7 @@ export type {
   GraphObjectEvidenceViewModel,
   GraphObjectRelationshipViewModel,
 } from "./types";
-export { GraphObjectCard } from "./GraphObjectCard";
+export { GraphObjectCard, GraphObjectEvidenceRows } from "./GraphObjectCard";
 export type { GraphObjectCardProps } from "./GraphObjectCard";
 export { buildGraphObjectCardFromNodeView } from "./buildGraphObjectCardFromNodeView";
 export {

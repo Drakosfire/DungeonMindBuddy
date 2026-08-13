@@ -1,0 +1,62 @@
+.play-surface {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+.play-surface__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+}
+
+.play-surface__tab {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  color: color-mix(in srgb, CanvasText 72%, transparent);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.play-surface__tab:hover {
+  color: CanvasText;
+  border-color: color-mix(in srgb, CanvasText 40%, transparent);
+}
+
+.play-surface__tab--active {
+  color: CanvasText;
+  border-color: #7aa2f7;
+  background: color-mix(in srgb, #7aa2f7 12%, transparent);
+}
+
+.play-surface__host {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Defeat scoped prep `html, body { min-height: 100vh }` so the host sizes to content. */
+  min-height: 0 !important;
+  overflow: visible;
+}
+
+.play-surface__host.prep-embed .wrap {
+  max-width: none;
+  margin: 0;
+  padding: 0.75rem 1rem 1.5rem;
+}
+
+.play-surface__host.prep-embed .site-nav,
+.play-surface__host.prep-embed #product-world-scope {
+  display: none !important;
+}
+
+.play-surface__status {
+  margin: 0.75rem 1rem;
+  color: color-mix(in srgb, CanvasText 70%, transparent);
+}
+
+.play-surface__status--error {
+  color: #f0a0a0;
+}

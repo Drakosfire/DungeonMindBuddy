@@ -4,7 +4,8 @@ export type AppRouteKey =
   | "tiptap-callout-spike"
   | "plan"
   | "ingest"
-  | "build";
+  | "build"
+  | "play";
 
 export interface AppNavItem {
   route?: AppRouteKey;
@@ -13,9 +14,8 @@ export interface AppNavItem {
 }
 
 /**
- * Primary product surfaces. Combat Tracker opens the mature Mireward command-board
- * tracker (`evals/c2_live_prep/mireward-prep/combat.html`), not the Live Control
- * React roster module. Full `/surface` board stays URL-reachable only.
+ * Primary product surfaces. Play hosts Combat / Roll / Items / Statblocks
+ * as sub-tabs (prep HTML inlined from `/prep/*`).
  */
 export const APP_NAV_ITEMS: AppNavItem[] = [
   {
@@ -39,8 +39,9 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Build",
   },
   {
-    href: "/combat",
-    label: "Combat Tracker",
+    route: "play",
+    href: "/play",
+    label: "Play",
   },
 ];
 
@@ -51,6 +52,7 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   ingest: "Memory Ingest",
   build: "Build",
   "tiptap-callout-spike": "Tiptap callout bridge",
+  play: "Play",
 };
 
 /** Default campaign for shared World Graph lens when URL has no campaigns yet. */

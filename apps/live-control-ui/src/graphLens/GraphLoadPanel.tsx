@@ -10,8 +10,9 @@ import {
   type PlanGraphLoadFocusOption,
 } from "./planGraphFocusOptions";
 import {
-  REVIEW_CAMPAIGN_IDS,
   formatReviewCampaignLabel,
+  isReviewCampaignId,
+  listSelectableReviewCampaignIds,
   type DerivedPlanGraphApiLens,
   type PlanGraphLens,
   type PlanGraphLensFocus,
@@ -176,10 +177,7 @@ export function PlanGraphLoadPanel({
     }
     const [campaignId, sessionRaw] = value.split(":");
     const sessionNumber = Number.parseInt(sessionRaw ?? "", 10);
-    if (
-      !REVIEW_CAMPAIGN_IDS.includes(campaignId as ReviewCampaignId)
-      || !Number.isFinite(sessionNumber)
-    ) {
+    if (!isReviewCampaignId(campaignId) || !Number.isFinite(sessionNumber)) {
       setFocus(null);
       return;
     }
@@ -213,7 +211,7 @@ export function PlanGraphLoadPanel({
       </p>
       <p className="plan-graph-load-panel__label">Graph campaigns</p>
       <div className="plan-graph-load-panel__campaigns">
-        {REVIEW_CAMPAIGN_IDS.map((campaignId) => {
+        {listSelectableReviewCampaignIds().map((campaignId) => {
           const checked = lens.selectedCampaignIds.includes(campaignId);
           return (
             <label key={campaignId} className="plan-graph-load-panel__campaign">

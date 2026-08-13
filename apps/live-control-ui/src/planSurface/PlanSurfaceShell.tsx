@@ -23,7 +23,8 @@ import {
   resolvePlanningDocument,
   suggestNextPlanTargetSession,
 } from "./config/planSessionDescriptor";
-import { formatReviewCampaignLabel } from "./sessionCampaignContext";
+import { formatReviewCampaignLabel, requestedCampaignFromLocation, requestedCampaignsFromLocation, isReviewCampaignId } from "./sessionCampaignContext";
+import { isPlanPrepSelectorDocument } from "./config/planPrepSelectorFilter";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
@@ -71,23 +72,44 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   const documentLoadGenerationRef = useRef(0);
   const selectorListGenerationRef = useRef(0);
 
+  const planningCampaignId = useMemo(() => {
+    const fromRoute = requestedCampaignFromLocation(locationSearch);
+    if (fromRoute && isReviewCampaignId(fromRoute)) {
+      return fromRoute;
+    }
+    // Plan lens URL sync replaces bare `campaign=` with `campaigns=`.
+    const fromCampaigns = requestedCampaignsFromLocation(locationSearch);
+    if (fromCampaigns?.length === 1 && isReviewCampaignId(fromCampaigns[0])) {
+      return fromCampaigns[0];
+    }
+    return planView.campaign_id;
+  }, [locationSearch, planView.campaign_id]);
+
+  const effectivePlanView = useMemo(
+    () =>
+      planningCampaignId === planView.campaign_id
+        ? planView
+        : { ...planView, campaign_id: planningCampaignId },
+    [planView, planningCampaignId],
+  );
+
   const loadSelectorDocuments = useCallback(async () => {
     const generation = ++selectorListGenerationRef.current;
     setSelectorListStatus("loading");
     try {
       const list = await listWorkspaceDocuments({
-        campaign_id: planView.campaign_id,
+        campaign_id: planningCampaignId,
         kind: "plan",
         status: "active",
       });
       if (generation !== selectorListGenerationRef.current) return;
-      setSelectorRecords(list.records);
+      setSelectorRecords(list.records.filter(isPlanPrepSelectorDocument));
       setSelectorListStatus("ready");
     } catch {
       if (generation !== selectorListGenerationRef.current) return;
       setSelectorListStatus("error");
     }
-  }, [planView.campaign_id]);
+  }, [planningCampaignId]);
 
   useEffect(() => {
     void loadSelectorDocuments();
@@ -118,7 +140,10 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         setDocumentLoadError(null);
       }
       try {
-        const document = await resolvePlanningDocument({ planView, locationSearch: search });
+        const document = await resolvePlanningDocument({
+          planView: effectivePlanView,
+          locationSearch: search,
+        });
         if (generation !== documentLoadGenerationRef.current) return false;
         setPlanningDocument(document);
         setDocumentLoadStatus("ready");
@@ -188,7 +213,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         return false;
       }
     },
-    [loadSelectorDocuments, planView],
+    [loadSelectorDocuments, effectivePlanView],
   );
 
   // Initial load and browser back/forward: resolve, then commit URL identity.
@@ -222,8 +247,8 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   );
 
   const campaignLabel = useMemo(
-    () => formatReviewCampaignLabel(planView.campaign_id),
-    [planView.campaign_id],
+    () => formatReviewCampaignLabel(planningCampaignId),
+    [planningCampaignId],
   );
 
   const occupiedTargetSessions = useMemo(
@@ -264,7 +289,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       try {
         const created = await createControllerRef.current.create({
           kind: "plan",
-          campaignId: planView.campaign_id,
+          campaignId: planningCampaignId,
           title,
           targetSession,
         });
@@ -298,7 +323,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
         setCreatingDocument(false);
       }
     },
-    [activateCreatedRecord, loadSelectorDocuments, planView.campaign_id],
+    [activateCreatedRecord, loadSelectorDocuments, planningCampaignId],
   );
 
   const handleRetryOpenCreatedDocument = useCallback(async () => {
@@ -335,7 +360,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   const createControlProps = useMemo(
     () => ({
-      campaignId: planView.campaign_id,
+      campaignId: planningCampaignId,
       campaignLabel,
       suggestedSession: suggestedCreateSession,
       suggestedTitle: suggestedCreateTitle,
@@ -356,15 +381,18 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       documentSwitching,
       handleCreatePlanningDocument,
       handleRetryOpenCreatedDocument,
-      planView.campaign_id,
+      planningCampaignId,
       suggestedCreateSession,
       suggestedCreateTitle,
     ],
   );
 
   const config = useMemo(
-    () => (planningDocument ? createPlanSurfaceConfig(planView, planningDocument, locationSearch) : null),
-    [locationSearch, planView, planningDocument],
+    () =>
+      planningDocument
+        ? createPlanSurfaceConfig(effectivePlanView, planningDocument, locationSearch)
+        : null,
+    [locationSearch, effectivePlanView, planningDocument],
   );
   const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
 
@@ -412,7 +440,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   const planSurfaceContextProps = useMemo(
     () => ({
-      campaignId: planView.campaign_id,
+      campaignId: planningCampaignId,
       liveSession: planView.session,
       memorySession,
       documents: selectorRecords,
@@ -432,7 +460,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       handleSelectPlanningDocument,
       loadSelectorDocuments,
       memorySession,
-      planView.campaign_id,
+      planningCampaignId,
       planView.session,
       planningDocument,
       saveStatusLabel,
@@ -498,7 +526,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
               />
             </div>
           </div>
-          <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
+          <PlanAgentInteractionBar planView={effectivePlanView} sessionDescriptor={config.sessionDescriptor} />
         </div>
       </PlanGraphReferenceResolverProvider>
     </EditCapabilityProvider>

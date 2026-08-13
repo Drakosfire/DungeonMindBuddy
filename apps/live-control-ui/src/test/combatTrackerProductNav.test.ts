@@ -13,7 +13,7 @@ function prepApi(): MirewardPrepNavApi {
   return (window as typeof window & { MirewardPrep: MirewardPrepNavApi }).MirewardPrep;
 }
 
-describe("Combat Tracker product nav", () => {
+describe("Play product nav", () => {
   beforeAll(() => {
     const prepPath = resolve(
       process.cwd(),
@@ -22,9 +22,9 @@ describe("Combat Tracker product nav", () => {
     window.eval(readFileSync(prepPath, "utf8"));
   });
 
-  it("renders Command Board links matching AppChrome, not legacy prep pages", () => {
+  it("renders Command Board links matching AppChrome with Play", () => {
     document.body.innerHTML = '<nav id="site-nav" class="site-nav"></nav>';
-    prepApi().initNav("combat", "product");
+    prepApi().initNav("play", "product");
 
     const host = document.getElementById("site-nav");
     expect(host).toHaveAttribute("aria-label", "Command board navigation");
@@ -39,11 +39,30 @@ describe("Combat Tracker product nav", () => {
       APP_NAV_ITEMS.map((item) => ({
         href: item.href,
         label: item.label,
-        active: item.href === "/combat",
+        active: item.href === "/play",
       })),
     );
-    expect(links.some((link) => /live play|retrieval|theme fixtures/i.test(link.label ?? ""))).toBe(
+    expect(links.some((link) => /combat|statblocks|live play|retrieval/i.test(link.label ?? ""))).toBe(
       false,
+    );
+  });
+
+  it("marks Play active for legacy combat/roll product page ids", () => {
+    document.body.innerHTML = '<nav id="site-nav" class="site-nav"></nav>';
+    prepApi().initNav("combat", "product");
+
+    const links = Array.from(document.querySelectorAll("#site-nav a")).map((anchor) => ({
+      href: anchor.getAttribute("href"),
+      label: anchor.textContent,
+      active: anchor.classList.contains("active"),
+    }));
+
+    expect(links).toEqual(
+      APP_NAV_ITEMS.map((item) => ({
+        href: item.href,
+        label: item.label,
+        active: item.href === "/play",
+      })),
     );
   });
 

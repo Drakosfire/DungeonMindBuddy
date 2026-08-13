@@ -20,6 +20,21 @@ describe("worldGraphSurfaceContext", () => {
     expect(getWorldIdForCampaign("unknown")).toBeNull();
   });
 
+  it("merges runtime-admitted overlay campaigns", async () => {
+    const { setAdmittedCampaignWorldOverlay } = await import("./admittedCampaignWorldOverlay");
+    setAdmittedCampaignWorldOverlay([
+      { campaign_id: "of-conks-cons", world_id: "of-conks-cons", label: "Of Conks & Cons" },
+    ]);
+    expect(getWorldIdForCampaign("of-conks-cons")).toBe("of-conks-cons");
+    expect(getCampaignIdsForWorld("of-conks-cons")).toEqual(["of-conks-cons"]);
+    expect(classifyBuildDocumentScope("of-conks-cons")).toEqual({
+      kind: "campaign",
+      campaignId: "of-conks-cons",
+      worldId: "of-conks-cons",
+    });
+    setAdmittedCampaignWorldOverlay([]);
+  });
+
   it("getCampaignIdsForWorld returns mapped campaigns in sorted order", () => {
     expect(getCampaignIdsForWorld("eldyrwild")).toEqual(["longmont-c1", "longmont-c2"]);
     expect(getCampaignIdsForWorld("unknown-world")).toEqual([]);

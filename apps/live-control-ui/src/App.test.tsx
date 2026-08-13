@@ -215,10 +215,7 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
     expect(screen.getByRole("link", { name: /ingest memory review/i })).toHaveAttribute("href", "/ingest");
     expect(screen.getByRole("link", { name: /build worldbuilding source/i })).toHaveAttribute("href", "/build");
-    expect(screen.getByRole("link", { name: /combat tracker north reach gate tracker/i })).toHaveAttribute(
-      "href",
-      "/combat",
-    );
+    expect(screen.getByRole("link", { name: /play table tools/i })).toHaveAttribute("href", "/play");
     expect(screen.queryByRole("link", { name: /live control/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /live play/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
@@ -238,7 +235,7 @@ describe("App inspector integration", () => {
       "/plan",
       "/ingest",
       "/build",
-      "/combat",
+      "/play",
     ]);
     expect(within(nav).queryByRole("link", { name: "Live Control" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();

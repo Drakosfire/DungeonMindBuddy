@@ -1,6 +1,7 @@
 import {
   requestedCampaignsFromLocation,
 } from "../graphLens/sessionCampaignContext";
+import { getAdmittedCampaignIds } from "../worldGraph/admittedCampaignWorldOverlay";
 
 /** Known Build campaign ids for context-free entry (not a dogfood-specific silent default). */
 export const BUILD_KNOWN_CAMPAIGN_IDS = ["longmont-c1", "longmont-c2"] as const;
@@ -12,11 +13,19 @@ export function isBuildKnownCampaignId(value: string | null | undefined): value 
   return value != null && (BUILD_KNOWN_CAMPAIGN_IDS as readonly string[]).includes(value);
 }
 
-export function readBuildLastCampaignId(): BuildKnownCampaignId | null {
+/** Built-in known campaigns plus runtime-admitted overlay (e.g. of-conks-cons). */
+export function isBuildAdmittedCampaignId(value: string | null | undefined): boolean {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return false;
+  if (isBuildKnownCampaignId(trimmed)) return true;
+  return getAdmittedCampaignIds().includes(trimmed);
+}
+
+export function readBuildLastCampaignId(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(BUILD_LAST_CAMPAIGN_STORAGE_KEY)?.trim() ?? "";
-    return isBuildKnownCampaignId(raw) ? raw : null;
+    return isBuildAdmittedCampaignId(raw) ? raw : null;
   } catch {
     return null;
   }
@@ -25,7 +34,7 @@ export function readBuildLastCampaignId(): BuildKnownCampaignId | null {
 export function writeBuildLastCampaignId(campaignId: string): void {
   if (typeof window === "undefined") return;
   const trimmed = campaignId.trim();
-  if (!isBuildKnownCampaignId(trimmed)) return;
+  if (!isBuildAdmittedCampaignId(trimmed)) return;
   try {
     window.localStorage.setItem(BUILD_LAST_CAMPAIGN_STORAGE_KEY, trimmed);
   } catch {
@@ -35,7 +44,7 @@ export function writeBuildLastCampaignId(campaignId: string): void {
 
 /**
  * Resolve the campaign hint for Build document context (create defaults, URL canonicalization).
- * Priority: known route `?campaign=` → first known shared-lens `?campaigns=` → last Build campaign.
+ * Priority: known/admitted route `?campaign=` → first known shared-lens `?campaigns=` → last Build campaign.
  * Unknown or blank route `?campaign=` fail closed (null → picker / no write),
  * including when a remembered campaign exists — explicit malformed context
  * must not fall through to last.
@@ -51,13 +60,13 @@ export function resolveBareBuildCampaignId(input?: {
     const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
     if (params.has("campaign")) {
       const fromRoute = params.get("campaign")?.trim() ?? "";
-      if (!fromRoute || !isBuildKnownCampaignId(fromRoute)) {
+      if (!fromRoute || !isBuildAdmittedCampaignId(fromRoute)) {
         return null;
       }
       return fromRoute;
     }
     const sharedCampaigns = requestedCampaignsFromLocation(search) ?? [];
-    const fromSharedLens = sharedCampaigns.find(isBuildKnownCampaignId);
+    const fromSharedLens = sharedCampaigns.find(isBuildAdmittedCampaignId);
     if (fromSharedLens) {
       return fromSharedLens;
     }
@@ -71,9 +80,9 @@ export function resolveBareBuildCampaignId(input?: {
  *
  * `BUILD_KNOWN_CAMPAIGN_IDS` remains context-free entry defaults only. Creation choices
  * also include every campaign already present on admissible Build sources (listed active
- * worldbuilding records + the currently admitted record). That keeps Create authority
- * aligned with what Build can already load, without inventing a separate non-creatable
- * loadable-scope policy.
+ * worldbuilding records + the currently admitted record) and runtime-admitted overlay
+ * campaigns. That keeps Create authority aligned with what Build can already load,
+ * without inventing a separate non-creatable loadable-scope policy.
  */
 export function resolveBuildCreateCampaignChoices(input: {
   documents?: ReadonlyArray<{ campaign_id: string }> | null;
@@ -89,6 +98,9 @@ export function resolveBuildCreateCampaignChoices(input: {
   };
 
   for (const id of BUILD_KNOWN_CAMPAIGN_IDS) {
+    push(id);
+  }
+  for (const id of getAdmittedCampaignIds()) {
     push(id);
   }
   for (const record of input.documents ?? []) {

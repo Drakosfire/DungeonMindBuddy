@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { setAdmittedCampaignWorldOverlay } from "../worldGraph/admittedCampaignWorldOverlay";
 import {
+  GRAPH_LENS_SESSION_STORAGE_KEY,
+  appendLensQueryToHref,
   deriveApiLens,
   formatPlanGraphLensSummary,
+  listSelectableReviewCampaignIds,
   requestedCampaignFromLocation,
   requestedCampaignsFromLocation,
   requestedDocumentIdFromLocation,
@@ -135,5 +139,31 @@ describe("sessionCampaignContext", () => {
     expect(window.location.search).toContain("documentId=11111111-1111-4111-8111-111111111111");
     expect(window.location.search).toContain("campaign=longmont-c2");
     expect(window.location.search).toContain("campaigns=longmont-c2");
+    expect(sessionStorage.getItem(GRAPH_LENS_SESSION_STORAGE_KEY)).toContain("longmont-c2");
+  });
+
+  it("lists admitted campaigns beside Longmont and appends lens query to product hrefs", () => {
+    setAdmittedCampaignWorldOverlay([
+      {
+        campaign_id: "of-conks-cons",
+        world_id: "of-conks-cons",
+        label: "Of Conks & Cons",
+        source: "seed",
+      },
+    ]);
+    expect(listSelectableReviewCampaignIds()).toEqual([
+      "longmont-c1",
+      "longmont-c2",
+      "of-conks-cons",
+    ]);
+    expect(appendLensQueryToHref("/combat", "?campaigns=of-conks-cons")).toBe(
+      "/combat?campaigns=of-conks-cons",
+    );
+    sessionStorage.setItem(
+      GRAPH_LENS_SESSION_STORAGE_KEY,
+      JSON.stringify({ campaigns: ["of-conks-cons"] }),
+    );
+    expect(appendLensQueryToHref("/roll", "")).toBe("/roll?campaigns=of-conks-cons");
+    setAdmittedCampaignWorldOverlay([]);
   });
 });

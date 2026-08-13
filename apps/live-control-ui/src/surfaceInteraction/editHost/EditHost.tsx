@@ -54,8 +54,8 @@ function targetsMatch(
   return left.kind === right.kind && left.id === right.id;
 }
 
-function layoutDefaultOpen(layout: "overlay" | "dock"): boolean {
-  return layout === "dock";
+function layoutDefaultOpen(_layout: "overlay" | "dock"): boolean {
+  return false;
 }
 
 function mergeGroupsWithPanels(

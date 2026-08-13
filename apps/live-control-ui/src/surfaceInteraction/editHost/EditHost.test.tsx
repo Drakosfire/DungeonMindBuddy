@@ -132,7 +132,7 @@ describe("EditHost", () => {
     expect(document.activeElement).toBe(toggle);
   });
 
-  it("defaults dock layout open and overlay layout closed", () => {
+  it("defaults dock and overlay layouts closed", () => {
     const publication = makePublication({
       editCommands: [makeEdit({ id: "save", label: "Save" })],
     });
@@ -141,8 +141,8 @@ describe("EditHost", () => {
       <Publisher publication={publication} />,
       { layout: "dock" },
     );
-    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Close Edit" })).not.toBeInTheDocument();
     unmount();
 
     renderEditHost(<Publisher publication={publication} />, { layout: "overlay" });

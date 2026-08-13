@@ -1397,6 +1397,18 @@ export interface CreateWorldContainerRequest {
   name: string;
 }
 
+export interface AdmittedCampaignWorldMapping {
+  campaign_id: string;
+  world_id: string;
+  label?: string | null;
+  source?: "seed" | "operator";
+}
+
+export interface AdmittedCampaignWorldsResponse {
+  schema_version: "dmb_admitted_campaign_worlds_v1";
+  mappings: AdmittedCampaignWorldMapping[];
+}
+
 export interface CreateWorkspaceDocumentRequest {
   title: string;
   campaign_id: string;

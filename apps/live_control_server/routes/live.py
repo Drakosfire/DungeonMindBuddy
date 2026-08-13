@@ -105,6 +105,7 @@ from apps.live_control_server.services.combat_state import (
     CombatSetActiveRequest,
     CombatTurnRequest,
     add_generated_statblock_to_combat,
+    add_workbench_draft_to_combat,
     advance_combat_turn,
     apply_combat_hp_delta,
     load_or_initialize_current_combat,
@@ -624,6 +625,37 @@ def post_generated_statblock_combat_add(
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="generated statblock combat add failed"
+        ) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/statblocks/workbench/drafts/{artifact_id}/combat/add",
+    response_model=AddGeneratedStatblockCombatResponse,
+)
+def post_workbench_draft_combat_add(
+    artifact_id: Annotated[str, Path(min_length=1)],
+    body: AddGeneratedStatblockCombatRequest | None = None,
+) -> dict[str, Any]:
+    base = session_dir()
+    packet, _, _, _ = load_session(base)
+    request = body or AddGeneratedStatblockCombatRequest()
+    try:
+        response = add_workbench_draft_to_combat(
+            base=base,
+            packet=packet,
+            artifact_id=artifact_id,
+            request=request,
+        )
+    except UnsafeArtifactIdError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StatblockDraftNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except StatblockViewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail="workbench draft combat add failed"
         ) from exc
     return response.model_dump(mode="json")
 

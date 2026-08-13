@@ -112,6 +112,23 @@ describe("buildBareEntryCampaign", () => {
     ).toBe("longmont-c2");
   });
 
+  it("admits overlay campaigns from the route", async () => {
+    const { setAdmittedCampaignWorldOverlay } = await import(
+      "../worldGraph/admittedCampaignWorldOverlay"
+    );
+    setAdmittedCampaignWorldOverlay([
+      { campaign_id: "of-conks-cons", world_id: "of-conks-cons" },
+    ]);
+    expect(resolveBareBuildCampaignId({ search: "?campaign=of-conks-cons" })).toBe(
+      "of-conks-cons",
+    );
+    expect(resolveBuildCreateCampaignChoices({ documents: null })).toEqual([
+      ...BUILD_KNOWN_CAMPAIGN_IDS,
+      "of-conks-cons",
+    ]);
+    setAdmittedCampaignWorldOverlay([]);
+  });
+
   it("keys auto-create latch by campaign identity", () => {
     expect(bareBuildAutoCreateKey("longmont-c1")).not.toBe(bareBuildAutoCreateKey("longmont-c2"));
   });

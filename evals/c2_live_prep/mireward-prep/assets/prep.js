@@ -30,15 +30,142 @@
   /**
    * Product Command Board nav — keep in sync with
    * apps/live-control-ui/src/chrome/appChromeConfig.ts APP_NAV_ITEMS.
-   * Used by Combat Tracker when opened as a product surface (/combat).
+   * Used by Combat / Roll / Items product surfaces (/combat, /roll, /items).
    */
   const PRODUCT_NAV = [
     { id: "index", label: "Index", href: "/" },
     { id: "plan", label: "Plan", href: "/plan" },
     { id: "ingest", label: "Ingest", href: "/ingest" },
     { id: "build", label: "Build", href: "/build" },
-    { id: "combat", label: "Combat Tracker", href: "/combat" },
+    { id: "play", label: "Play", href: "/play" },
   ];
+
+  /** Keep in sync with apps/live-control-ui GRAPH_LENS_SESSION_STORAGE_KEY. */
+  const GRAPH_LENS_SESSION_STORAGE_KEY = "dmb.graphLens.v1";
+
+  function readSelectedCampaignIds() {
+    try {
+      var params = new URLSearchParams(location.search);
+      var raw = params.get("campaigns");
+      if (raw && String(raw).trim()) {
+        return String(raw)
+          .split(",")
+          .map(function (part) {
+            return part.trim();
+          })
+          .filter(Boolean);
+      }
+      var one = params.get("campaign");
+      if (one && String(one).trim()) return [String(one).trim()];
+    } catch (_err) {
+      /* ignore */
+    }
+    try {
+      var stored = sessionStorage.getItem(GRAPH_LENS_SESSION_STORAGE_KEY);
+      if (stored) {
+        var parsed = JSON.parse(stored);
+        if (parsed && Array.isArray(parsed.campaigns) && parsed.campaigns.length) {
+          return parsed.campaigns.map(String).filter(Boolean);
+        }
+      }
+    } catch (_err2) {
+      /* ignore */
+    }
+    return null;
+  }
+
+  function persistSelectedCampaignIds(ids) {
+    if (!ids || !ids.length) return;
+    try {
+      sessionStorage.setItem(
+        GRAPH_LENS_SESSION_STORAGE_KEY,
+        JSON.stringify({ campaigns: ids }),
+      );
+    } catch (_err) {
+      /* ignore */
+    }
+  }
+
+  function syncProductLensFromUrl() {
+    var ids = null;
+    try {
+      var params = new URLSearchParams(location.search);
+      var raw = params.get("campaigns");
+      if (raw && String(raw).trim()) {
+        ids = String(raw)
+          .split(",")
+          .map(function (part) {
+            return part.trim();
+          })
+          .filter(Boolean);
+      } else {
+        var one = params.get("campaign");
+        if (one && String(one).trim()) ids = [String(one).trim()];
+      }
+    } catch (_err) {
+      /* ignore */
+    }
+    if (ids && ids.length) persistSelectedCampaignIds(ids);
+  }
+
+  function appendProductLensQuery(href) {
+    var ids = readSelectedCampaignIds();
+    var params = new URLSearchParams();
+    try {
+      var current = new URLSearchParams(location.search);
+      ["campaigns", "campaign", "session"].forEach(function (key) {
+        var value = current.get(key);
+        if (value) params.set(key, value);
+      });
+    } catch (_err) {
+      /* ignore */
+    }
+    if (![...params.keys()].length && ids && ids.length) {
+      params.set("campaigns", ids.join(","));
+    }
+    var query = params.toString();
+    if (!query) return href;
+    return href.indexOf("?") >= 0 ? href + "&" + query : href + "?" + query;
+  }
+
+  function scopeIncludesCampaign(campaignId) {
+    var ids = readSelectedCampaignIds();
+    if (!ids) return null;
+    return ids.indexOf(campaignId) >= 0;
+  }
+
+  function isOfConksWorldScope() {
+    var ids = readSelectedCampaignIds();
+    if (!ids || !ids.length) return false;
+    return ids.every(function (id) {
+      return id === "of-conks-cons";
+    });
+  }
+
+  function isLongmontWorldScope() {
+    var ids = readSelectedCampaignIds();
+    if (!ids) return true; // unspecified → legacy Mireward/Eldyrwild surfaces
+    return ids.some(function (id) {
+      return String(id).indexOf("longmont-") === 0;
+    });
+  }
+
+  function productScopeLabel() {
+    var ids = readSelectedCampaignIds();
+    if (!ids || !ids.length) return null;
+    if (ids.length === 1 && ids[0] === "of-conks-cons") return "Of Conks & Cons";
+    if (ids.every(function (id) {
+      return String(id).indexOf("longmont-") === 0;
+    })) {
+      return ids
+        .map(function (id) {
+          var match = String(id).match(/^longmont-c(\d+)$/i);
+          return match ? "C" + match[1] : id;
+        })
+        .join("+");
+    }
+    return ids.join("+");
+  }
 
   function isFileProtocol() {
     return location.protocol === "file:";
@@ -119,13 +246,36 @@
 
   /**
    * @param {string} activeId
-   * @param {"product" | "prep"=} navMode — combat defaults to product Command Board nav
+   * @param {"product" | "prep"=} navMode — combat/roll/items default to product Command Board nav
    */
   function initNav(activeId, navMode) {
+    syncProductLensFromUrl();
+    if (isEmbedMode()) {
+      var embedHost = document.getElementById("site-nav");
+      if (embedHost) {
+        embedHost.hidden = true;
+        embedHost.innerHTML = "";
+      }
+      var playHost = playSurfaceHost();
+      if (playHost) {
+        playHost.classList.add("prep-embed");
+      } else {
+        document.body.classList.add("prep-embed");
+      }
+      var existingScope = document.getElementById("product-world-scope");
+      if (existingScope) existingScope.remove();
+      return;
+    }
     const host = document.getElementById("site-nav");
     if (!host) return;
     const useProduct =
-      navMode === "product" || (navMode !== "prep" && activeId === "combat");
+      navMode === "product" ||
+      (navMode !== "prep" &&
+        (activeId === "combat" ||
+          activeId === "roll" ||
+          activeId === "items" ||
+          activeId === "statblocks" ||
+          activeId === "play"));
     const items = useProduct ? PRODUCT_NAV : PREP_NAV;
     host.setAttribute(
       "aria-label",
@@ -133,18 +283,61 @@
     );
     host.innerHTML = items
       .map(function (item) {
-        const cls = item.id === activeId ? "active" : "";
+        const playChildActive =
+          item.id === "play" &&
+          (activeId === "combat" ||
+            activeId === "roll" ||
+            activeId === "items" ||
+            activeId === "statblocks" ||
+            activeId === "play");
+        const cls = item.id === activeId || playChildActive ? "active" : "";
+        const href = useProduct
+          ? appendProductLensQuery(navHref(item.href))
+          : navHref(item.href);
         return (
           '<a class="' +
           cls +
           '" href="' +
-          navHref(item.href) +
+          href +
           '">' +
           item.label +
           "</a>"
         );
       })
       .join("");
+
+    if (useProduct) {
+      var scope = productScopeLabel();
+      var existing = document.getElementById("product-world-scope");
+      if (existing) existing.remove();
+      if (scope) {
+        var banner = document.createElement("p");
+        banner.id = "product-world-scope";
+        banner.className = "muted product-world-scope";
+        banner.setAttribute("role", "status");
+        banner.innerHTML =
+          'World scope: <strong>' +
+          escapeHtml(scope) +
+          '</strong> · change under World on <a href="' +
+          appendProductLensQuery("/plan") +
+          '">Plan</a>';
+        host.insertAdjacentElement("afterend", banner);
+      }
+    }
+  }
+
+  function playSurfaceHost() {
+    return document.querySelector("[data-play-surface-host]");
+  }
+
+  function isEmbedMode() {
+    try {
+      if (new URLSearchParams(location.search).get("embed") === "1") return true;
+    } catch (_err) {
+      /* ignore */
+    }
+    // Inlined Play host (no iframe): prep lives under AppChrome.
+    return !!playSurfaceHost();
   }
 
   function initScratchBand() {
@@ -804,7 +997,7 @@
   }
 
   function openGeneratedStatblockFromCombatEntity(entityId) {
-    const state = normalizeCombatState(get(COMBAT_STORAGE_KEY, null));
+    const state = normalizeCombatState(get(combatStorageKey(), null));
     const entity = (state.entities || []).find(function (row) {
       return row.id === entityId;
     });
@@ -1342,6 +1535,7 @@
     if (item.section === "mireward_scaffold") return ["scaffold", "pill-warn"];
     if (item.section === "roads") return ["road", "pill-neutral"];
     if (item.section === "wilderness") return ["wilderness", "pill-neutral"];
+    if (item.section === "workspace_plan") return ["Plan", "pill-success"];
     return ["table", "pill-neutral"];
   }
 
@@ -1351,6 +1545,32 @@
     var sessionMatch = title.match(/^Session\s+\d+\s+[—-]\s+(.+)$/i);
     if (sessionMatch) return sessionMatch[1];
     return title;
+  }
+
+  function stripYamlFrontmatter(markdown) {
+    var text = String(markdown || "");
+    if (!text.startsWith("---")) return text;
+    var end = text.indexOf("\n---", 3);
+    if (end < 0) return text;
+    var after = text.slice(end + 4);
+    return after.replace(/^\r?\n/, "");
+  }
+
+  function frontmatterKind(markdown) {
+    var text = String(markdown || "");
+    if (!text.startsWith("---")) return null;
+    var end = text.indexOf("\n---", 3);
+    if (end < 0) return null;
+    var block = text.slice(3, end);
+    var match = block.match(/(?:^|\n)kind:\s*([^\n#]+)/i);
+    return match ? String(match[1]).trim().toLowerCase() : null;
+  }
+
+  function isWorkspaceRollTableRecord(record, markdown) {
+    var title = String((record && record.title) || "").trim();
+    if (/roll\s*table/i.test(title)) return true;
+    var kind = frontmatterKind(markdown);
+    return kind === "roll-table" || kind === "table";
   }
 
   function renderRollTableIndexDetails(item) {
@@ -1365,7 +1585,7 @@
     }
 
     var html =
-      '<details class="fold rolltable-row">' +
+      '<details class="fold rolltable-row" open>' +
       "<summary>" +
       escapeHtml(summaryText) +
       "</summary>" +
@@ -1384,22 +1604,43 @@
     if (item.dice) {
       html += '<span class="pill pill-info">' + escapeHtml(item.dice) + "</span>";
     }
-    html +=
-      '<a data-repo="' +
-      escapeHtml(item.corpus_display_path) +
-      '" data-md-embed-link="1">source</a>';
+    if (item.campaign_id && !isOfConksWorldScope()) {
+      html +=
+        '<span class="pill pill-neutral">' + escapeHtml(item.campaign_id) + "</span>";
+    }
+    if (item.section === "workspace_plan" && item.document_id) {
+      var planHref =
+        "/plan?campaign=" +
+        encodeURIComponent(item.campaign_id || "") +
+        "&documentId=" +
+        encodeURIComponent(item.document_id);
+      html += '<a href="' + escapeHtml(planHref) + '">Open in Plan</a>';
+    } else if (item.corpus_display_path) {
+      html +=
+        '<a data-repo="' +
+        escapeHtml(item.corpus_display_path) +
+        '" data-md-embed-link="1">source</a>';
+    }
     html += "</div>";
 
     if (item.table_note) {
       html += '<p class="muted rolltable-row-note">' + escapeHtml(item.table_note) + "</p>";
     }
 
-    html +=
-      '<div class="md-content md-embed" data-md-embed="' +
-      escapeHtml(item.corpus_display_path) +
-      '"' +
-      embedAttrs +
-      "></div>";
+    if (item.section === "workspace_plan" && item.markdown) {
+      var rendered =
+        window.MirewardMarkdown && typeof window.MirewardMarkdown.render === "function"
+          ? window.MirewardMarkdown.render(stripYamlFrontmatter(item.markdown))
+          : "<pre>" + escapeHtml(stripYamlFrontmatter(item.markdown)) + "</pre>";
+      html += '<div class="md-content">' + rendered + "</div>";
+    } else if (item.corpus_display_path) {
+      html +=
+        '<div class="md-content md-embed" data-md-embed="' +
+        escapeHtml(item.corpus_display_path) +
+        '"' +
+        embedAttrs +
+        "></div>";
+    }
     html += "</div></details>";
     return html;
   }
@@ -1407,6 +1648,14 @@
   function renderRollTableIndexSection(title, items, options) {
     options = options || {};
     if (!items.length) return "";
+    if (options.flat) {
+      var flatHtml = '<div class="rolltable-index-list">';
+      items.forEach(function (entry) {
+        flatHtml += renderRollTableIndexDetails(entry);
+      });
+      flatHtml += "</div>";
+      return flatHtml;
+    }
     var openAttr = options.open ? " open" : "";
     var mutedClass = options.muted ? " fold-muted" : "";
     var html =
@@ -1428,6 +1677,163 @@
     return html;
   }
 
+  function loadWorkspacePlanRollTables() {
+    return apiGetJson("/api/live/workspace-documents?kind=plan")
+      .then(function (body) {
+        var records = Array.isArray(body.records) ? body.records : [];
+        var selected = readSelectedCampaignIds();
+        if (selected && selected.length) {
+          records = records.filter(function (record) {
+            return selected.indexOf(record.campaign_id) >= 0;
+          });
+        }
+        var candidates = records.filter(function (record) {
+          return /roll\s*table/i.test(String(record.title || ""));
+        });
+        // Also probe of-conks titles that may use shorter labels.
+        records.forEach(function (record) {
+          if (candidates.indexOf(record) >= 0) return;
+          if (
+            record.campaign_id === "of-conks-cons" &&
+            /names|tables/i.test(String(record.title || ""))
+          ) {
+            candidates.push(record);
+          }
+        });
+        return Promise.all(
+          candidates.map(function (record) {
+            return apiGetJson(
+              "/api/live/workspace-documents/" +
+                encodeURIComponent(record.document_id) +
+                "/snapshot",
+            )
+              .then(function (snap) {
+                var markdown = snap && snap.markdown ? snap.markdown : "";
+                if (!isWorkspaceRollTableRecord(record, markdown)) return null;
+                return {
+                  index_id: "workspace:" + record.document_id,
+                  title: record.title,
+                  section: "workspace_plan",
+                  corpus_display_path: null,
+                  table_id: null,
+                  dice: null,
+                  table_note: "Plan workspace document",
+                  campaign_id: record.campaign_id || null,
+                  document_id: record.document_id,
+                  markdown: markdown,
+                };
+              })
+              .catch(function () {
+                return null;
+              });
+          }),
+        ).then(function (rows) {
+          return rows.filter(Boolean);
+        });
+      })
+      .catch(function () {
+        return [];
+      });
+  }
+
+  function isWorkspaceItemRecord(record, markdown) {
+    var title = String((record && record.title) || "").trim();
+    if (/—\s*item\b/i.test(title)) return true;
+    var kind = frontmatterKind(markdown);
+    return kind === "item" || kind === "magic-item";
+  }
+
+  function loadWorkspacePlanItems() {
+    return apiGetJson("/api/live/workspace-documents?kind=plan")
+      .then(function (body) {
+        var records = Array.isArray(body.records) ? body.records : [];
+        var selected = readSelectedCampaignIds();
+        if (selected && selected.length) {
+          records = records.filter(function (record) {
+            return selected.indexOf(record.campaign_id) >= 0;
+          });
+        }
+        var candidates = records.filter(function (record) {
+          return /—\s*item\b/i.test(String(record.title || ""));
+        });
+        return Promise.all(
+          candidates.map(function (record) {
+            return apiGetJson(
+              "/api/live/workspace-documents/" +
+                encodeURIComponent(record.document_id) +
+                "/snapshot",
+            )
+              .then(function (snap) {
+                var markdown = snap && snap.markdown ? snap.markdown : "";
+                if (!isWorkspaceItemRecord(record, markdown)) return null;
+                return {
+                  index_id: "workspace-item:" + record.document_id,
+                  title: record.title,
+                  section: "workspace_plan",
+                  corpus_display_path: null,
+                  table_id: null,
+                  dice: null,
+                  table_note: "Plan workspace item",
+                  campaign_id: record.campaign_id || null,
+                  document_id: record.document_id,
+                  markdown: markdown,
+                };
+              })
+              .catch(function () {
+                return null;
+              });
+          }),
+        ).then(function (rows) {
+          return rows.filter(Boolean);
+        });
+      })
+      .catch(function () {
+        return [];
+      });
+  }
+
+  function initItemWorkspaceIndex(options) {
+    options = options || {};
+    var host = document.getElementById("item-workspace-index");
+    if (!host) return;
+
+    if (isFileProtocol()) {
+      host.innerHTML =
+        '<div class="callout callout-warn"><strong>Cannot load items on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/items</code>.</p></div>';
+      return;
+    }
+
+    if (!options.silent) {
+      host.innerHTML = '<p class="muted">Loading items…</p>';
+    }
+
+    loadWorkspacePlanItems()
+      .then(function (workspaceItems) {
+        var html = "";
+        html += renderRollTableIndexSection("Plan workspace items", workspaceItems, {
+          open: true,
+          flat: isOfConksWorldScope(),
+        });
+        if (!workspaceItems.length) {
+          html +=
+            '<p class="muted">No item cards for this world scope yet.</p>';
+        }
+        host.innerHTML = html;
+        wireRepoLinks();
+
+        var countHost = document.getElementById("item-index-count");
+        if (countHost) {
+          countHost.textContent = workspaceItems.length + " items";
+        }
+      })
+      .catch(function (err) {
+        host.innerHTML =
+          '<div class="callout callout-warn"><strong>Could not load items</strong><p>' +
+          escapeHtml((err && err.message) || "Request failed.") +
+          "</p></div>";
+      });
+  }
+
   function initRollTableCorpusIndex(options) {
     options = options || {};
     var host = document.getElementById("rolltable-corpus-index");
@@ -1435,41 +1841,72 @@
 
     if (isFileProtocol()) {
       host.innerHTML =
-        '<div class="callout callout-warn"><strong>Cannot load roll-table index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/roll-tables.html</code>.</p></div>';
+        '<div class="callout callout-warn"><strong>Cannot load roll-table index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/roll</code>.</p></div>';
       return;
     }
 
     if (!options.silent) {
-      host.innerHTML = '<p class="muted">Loading corpus roll tables…</p>';
+      host.innerHTML = '<p class="muted">Loading roll tables…</p>';
     }
 
-    apiGetJson("/api/live/roll-tables/index")
-      .then(function (body) {
+    Promise.all([
+      apiGetJson("/api/live/roll-tables/index"),
+      loadWorkspacePlanRollTables(),
+    ])
+      .then(function (results) {
+        var body = results[0] || {};
+        var workspaceItems = results[1] || [];
         var items = Array.isArray(body.roll_tables) ? body.roll_tables : [];
-        var session22 = items.filter(function (entry) {
-          return entry.section === "session_22";
-        });
-        var scaffold = items.filter(function (entry) {
-          return entry.section === "mireward_scaffold";
-        });
-        var roads = items.filter(function (entry) {
-          return entry.section === "roads";
-        });
-        var wilderness = items.filter(function (entry) {
-          return entry.section === "wilderness";
-        });
+        var showCorpus = isLongmontWorldScope() && !isOfConksWorldScope();
+        var session22 = showCorpus
+          ? items.filter(function (entry) {
+              return entry.section === "session_22";
+            })
+          : [];
+        var scaffold = showCorpus
+          ? items.filter(function (entry) {
+              return entry.section === "mireward_scaffold";
+            })
+          : [];
+        var roads = showCorpus
+          ? items.filter(function (entry) {
+              return entry.section === "roads";
+            })
+          : [];
+        var wilderness = showCorpus
+          ? items.filter(function (entry) {
+              return entry.section === "wilderness";
+            })
+          : [];
         var html = "";
 
-        html += renderRollTableIndexSection("Session 22 table tools", session22, { open: true });
-        html += renderRollTableIndexSection("Mireward scaffold excerpts", scaffold, { open: true });
-        html += renderRollTableIndexSection("Road and name tables", roads, { open: false });
-        html += renderRollTableIndexSection("Wilderness tables", wilderness, { open: false });
-
-        if (!items.length) {
-          html += '<p class="muted">No roll tables indexed yet.</p>';
+        html += renderRollTableIndexSection("Plan workspace tables", workspaceItems, {
+          open: true,
+          flat: isOfConksWorldScope(),
+        });
+        if (showCorpus) {
+          html += renderRollTableIndexSection("Session 22 table tools", session22, {
+            open: true,
+          });
+          html += renderRollTableIndexSection("Mireward scaffold excerpts", scaffold, {
+            open: true,
+          });
+          html += renderRollTableIndexSection("Road and name tables", roads, {
+            open: false,
+          });
+          html += renderRollTableIndexSection("Wilderness tables", wilderness, {
+            open: false,
+          });
         }
 
-        if (body.diagnostics && body.diagnostics.length) {
+        if (
+          (!showCorpus && !workspaceItems.length) ||
+          (showCorpus && !items.length && !workspaceItems.length)
+        ) {
+          html += '<p class="muted">No roll tables for this world scope yet.</p>';
+        }
+
+        if (showCorpus && body.diagnostics && body.diagnostics.length) {
           html += '<details class="fold fold-section fold-muted"><summary>Index diagnostics</summary><div class="fold-bd"><ul class="rolltable-diagnostics">';
           body.diagnostics.forEach(function (diagnostic) {
             html += "<li>" + escapeHtml(diagnostic) + "</li>";
@@ -1483,7 +1920,13 @@
 
         var countHost = document.getElementById("rolltable-index-count");
         if (countHost) {
-          countHost.textContent = items.length + " indexed";
+          var visible =
+            workspaceItems.length +
+            session22.length +
+            scaffold.length +
+            roads.length +
+            wilderness.length;
+          countHost.textContent = visible + " tables";
         }
       })
       .catch(function (err) {
@@ -1849,7 +2292,7 @@
       escapeHtml(item.corpus_display_path) +
       '" data-md-embed-link="1">corpus file</a>' +
       "</div>" +
-      '<div class="md-content md-embed" data-md-embed="' +
+      '<div class="md-content md-embed" data-md-theme="statblock" data-md-embed="' +
       escapeHtml(item.corpus_display_path) +
       '"></div>' +
       "</div></details>"
@@ -1880,6 +2323,130 @@
     return html;
   }
 
+  function renderWorkbenchStatblockDetails(record, options) {
+    options = options || {};
+    var artifact = (record && record.artifact) || {};
+    var title = String((record && record.title) || artifact.title || "Statblock").trim();
+    var combat = artifact.combat_defaults || {};
+    var tactics = Array.isArray(combat.suggested_tactics)
+      ? combat.suggested_tactics
+      : [];
+    var markdown = artifact.markdown ? String(artifact.markdown) : "";
+    var rendered =
+      window.MirewardMarkdown && typeof window.MirewardMarkdown.render === "function"
+        ? window.MirewardMarkdown.render(markdown)
+        : "<pre>" + escapeHtml(markdown) + "</pre>";
+    var tacticsHtml = tactics.length
+      ? '<details class="fold fold-muted"><summary>Suggested tactics</summary><div class="fold-bd"><ul class="muted">' +
+        tactics
+          .map(function (line) {
+            return "<li>" + escapeHtml(String(line)) + "</li>";
+          })
+          .join("") +
+        "</ul></div></details>"
+      : "";
+    var body =
+      '<div class="md-content md-embed" data-md-theme="statblock" data-workbench-statblock-md="1">' +
+      rendered +
+      "</div>" +
+      tacticsHtml;
+
+    // World-scoped Play: parchment sheet is enough — no accordion / workbench chrome.
+    if (options.flat) {
+      return '<div class="statblock-row statblock-row--flat">' + body + "</div>";
+    }
+
+    var ac = combat.armor_class != null ? String(combat.armor_class) : "—";
+    var hp = combat.hit_points != null ? String(combat.hit_points) : "—";
+    var meta =
+      '<div class="table-summary statblock-row-meta">' +
+      '<span class="pill pill-success">draft</span>' +
+      '<span class="pill pill-neutral">AC ' +
+      escapeHtml(ac) +
+      "</span>" +
+      '<span class="pill pill-neutral">HP ' +
+      escapeHtml(hp) +
+      "</span>" +
+      (artifact.artifact_id
+        ? '<span class="pill pill-neutral">' +
+          escapeHtml(String(artifact.artifact_id)) +
+          "</span>"
+        : "") +
+      "</div>";
+    return (
+      '<details class="fold statblock-row" open>' +
+      "<summary>" +
+      escapeHtml(title) +
+      "</summary>" +
+      '<div class="fold-bd">' +
+      meta +
+      body +
+      "</div></details>"
+    );
+  }
+
+  function themeWorkbenchStatblockMarkdown(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll("[data-workbench-statblock-md]").forEach(function (el) {
+      applyMarkdownContentTheme(el, "statblock");
+    });
+  }
+
+  function renderWorkbenchStatblockSection(title, records, options) {
+    options = options || {};
+    if (!records.length) return "";
+    if (options.flat) {
+      var flatHtml = '<div class="statblock-index-list">';
+      records.forEach(function (record) {
+        flatHtml += renderWorkbenchStatblockDetails(record, { flat: true });
+      });
+      flatHtml += "</div>";
+      return flatHtml;
+    }
+    var openAttr = options.open ? " open" : "";
+    var html =
+      '<details class="fold fold-section"' +
+      openAttr +
+      ">" +
+      "<summary>" +
+      escapeHtml(title) +
+      ' <span class="pill pill-neutral">' +
+      records.length +
+      "</span></summary>" +
+      '<div class="fold-bd rolltable-index-list">';
+    records.forEach(function (record) {
+      html += renderWorkbenchStatblockDetails(record);
+    });
+    html += "</div></details>";
+    return html;
+  }
+
+  function loadWorkbenchStatblockDrafts() {
+    return apiGetJson("/api/live/statblocks/workbench/drafts")
+      .then(function (body) {
+        var summaries = Array.isArray(body.drafts) ? body.drafts : [];
+        return Promise.all(
+          summaries.map(function (summary) {
+            return apiGetJson(
+              "/api/live/statblocks/workbench/drafts/" +
+                encodeURIComponent(summary.artifact_id),
+            )
+              .then(function (resp) {
+                return resp.record || null;
+              })
+              .catch(function () {
+                return null;
+              });
+          }),
+        ).then(function (rows) {
+          return rows.filter(Boolean);
+        });
+      })
+      .catch(function () {
+        return [];
+      });
+  }
+
   function initStatblockCorpusIndex(options) {
     options = options || {};
     var host = document.getElementById("statblock-corpus-index");
@@ -1887,33 +2454,71 @@
 
     if (isFileProtocol()) {
       host.innerHTML =
-        '<div class="callout callout-warn"><strong>Cannot load corpus index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/statblocks.html</code>.</p></div>';
+        '<div class="callout callout-warn"><strong>Cannot load corpus index on file://</strong><p>Run the Vite dev server at <code>http://127.0.0.1:5173/statblocks</code>.</p></div>';
       return;
     }
 
     if (!options.silent) {
-      host.innerHTML = '<p class="muted">Loading corpus statblocks…</p>';
+      host.innerHTML = '<p class="muted">Loading statblocks…</p>';
     }
 
-    apiGetJson("/api/live/statblocks/index")
-      .then(function (body) {
+    Promise.all([apiGetJson("/api/live/statblocks/index"), loadWorkbenchStatblockDrafts()])
+      .then(function (results) {
+        var body = results[0] || {};
+        var drafts = results[1] || [];
         var items = Array.isArray(body.statblocks) ? body.statblocks : [];
-        var generated = items.filter(function (entry) {
-          return entry.section === "generated";
+        var ofConks = drafts.filter(function (record) {
+          var id = String((record.artifact && record.artifact.artifact_id) || record.artifact_id || "");
+          return id.indexOf("of-conks-") === 0;
         });
-        var flock = items.filter(function (entry) {
-          return entry.section === "shepherds_flock";
+        var otherDrafts = drafts.filter(function (record) {
+          var id = String((record.artifact && record.artifact.artifact_id) || record.artifact_id || "");
+          return id.indexOf("of-conks-") !== 0;
         });
+        var showCorpus = isLongmontWorldScope() && !isOfConksWorldScope();
+        var generated = showCorpus
+          ? items.filter(function (entry) {
+              return entry.section === "generated";
+            })
+          : [];
+        var flock = showCorpus
+          ? items.filter(function (entry) {
+              return entry.section === "shepherds_flock";
+            })
+          : [];
         var html = "";
 
-        html += renderStatblockIndexSection("Generated from toolbox", generated, { open: true });
-        html += renderStatblockIndexSection("Shepherd's Flock sheets", flock, { open: false });
+        if (isOfConksWorldScope() || scopeIncludesCampaign("of-conks-cons")) {
+          html += renderWorkbenchStatblockSection("Workbench drafts", ofConks, {
+            open: true,
+            flat: isOfConksWorldScope(),
+          });
+        }
+        if (showCorpus) {
+          html += renderWorkbenchStatblockSection("Other workbench drafts", otherDrafts, {
+            open: false,
+          });
+          html += renderStatblockIndexSection("Generated from toolbox", generated, {
+            open: true,
+          });
+          html += renderStatblockIndexSection("Shepherd's Flock sheets", flock, {
+            open: false,
+          });
+        }
 
-        if (!generated.length && !flock.length) {
+        if (isOfConksWorldScope() && !ofConks.length) {
+          html +=
+            '<p class="muted">No workbench drafts for this world yet. Seed with <code>scripts/seed_of_conks_statblock_drafts.py</code>.</p>';
+        } else if (
+          !isOfConksWorldScope() &&
+          !generated.length &&
+          !flock.length &&
+          !drafts.length
+        ) {
           html += '<p class="muted">No statblocks indexed yet.</p>';
         }
 
-        if (body.diagnostics && body.diagnostics.length) {
+        if (showCorpus && body.diagnostics && body.diagnostics.length) {
           html += '<details class="fold fold-section fold-muted"><summary>Index diagnostics</summary><div class="fold-bd"><ul class="statblock-diagnostics">';
           body.diagnostics.forEach(function (diagnostic) {
             html += "<li>" + escapeHtml(diagnostic) + "</li>";
@@ -1922,17 +2527,23 @@
         }
 
         host.innerHTML = html;
+        themeWorkbenchStatblockMarkdown(host);
         wireRepoLinks();
         initMarkdownEmbeds();
 
         var countHost = document.getElementById("statblock-index-count");
         if (countHost) {
-          countHost.textContent = items.length + " indexed";
+          var visible = isOfConksWorldScope()
+            ? ofConks.length
+            : items.length + drafts.length;
+          countHost.textContent = visible + " sheets";
         }
 
         document.dispatchEvent(
           new CustomEvent(STATBLOCK_CORPUS_INDEX_REFRESH_EVENT, {
-            detail: { count: items.length },
+            detail: {
+              count: isOfConksWorldScope() ? ofConks.length : items.length + drafts.length,
+            },
           })
         );
       })
@@ -1988,7 +2599,7 @@
       '<button type="button" class="statblock-dogfood-open-md">View full statblock</button>' +
       "</div>" +
       '<div class="grid-2 statblock-dogfood-grid">' +
-      '<div class="md-content md-embed">' +
+      '<div class="md-content md-embed" data-md-theme="statblock" data-workbench-statblock-md="1">' +
       renderedMarkdown +
       "</div>" +
       '<div class="card">' +
@@ -2070,7 +2681,7 @@
 
   function linkGeneratedCombatEntitiesToCorpus(artifactId, corpusPath) {
     if (!artifactId || !corpusPath) return false;
-    const state = normalizeCombatState(get(COMBAT_STORAGE_KEY, null));
+    const state = normalizeCombatState(get(combatStorageKey(), null));
     let changed = false;
     state.entities.forEach(function (entity) {
       if (entity.generatedArtifactId === artifactId) {
@@ -2086,7 +2697,7 @@
   }
 
   function addGeneratedArtifactToCombat(artifact) {
-    const state = normalizeCombatState(get(COMBAT_STORAGE_KEY, null));
+    const state = normalizeCombatState(get(combatStorageKey(), null));
     const entity = generatedCombatEntityFromArtifact(artifact, state);
     state.entities.push(entity);
     saveCombatState(state);
@@ -2386,13 +2997,15 @@
     });
   }
 
+  function retireToolboxChrome() {
+    const root = document.getElementById("prep-toolbox");
+    if (root) root.remove();
+    document.body.classList.remove("prep-toolbox-open");
+  }
+
   function initToolbox() {
-    if (toolboxInitialized) return;
-    toolboxInitialized = true;
-    ensureToolboxDrawer();
-    wireToolboxControls();
-    initRecapIngestionToolbox();
-    initStatblockGeneratorDogfood();
+    // Retired: Plan/Play own ingestion + statblock authoring. Do not remount the prototype drawer.
+    retireToolboxChrome();
   }
 
   function initRecapIngestionToolbox() {
@@ -2798,6 +3411,7 @@
         return;
       }
       output.innerHTML = renderDogfoodArtifact(currentArtifact, options || {});
+      themeWorkbenchStatblockMarkdown(output);
       setBusy(false);
     }
 
@@ -3308,6 +3922,41 @@
     LOCKED_COMBAT_ENTITY_IDS[entity.id] = true;
   });
 
+  function activeCombatDefaults() {
+    if (isOfConksWorldScope()) return [];
+    return COMBAT_DEFAULTS;
+  }
+
+  function combatStorageKey() {
+    if (isOfConksWorldScope()) return "combat.ofConksCons";
+    return COMBAT_STORAGE_KEY;
+  }
+
+  function isLockedCombatEntityId(entityId) {
+    if (isOfConksWorldScope()) return false;
+    return !!LOCKED_COMBAT_ENTITY_IDS[entityId];
+  }
+
+  function applyCombatWorldChrome() {
+    var root =
+      document.getElementById("combat-tracker") ||
+      document.querySelector("[data-combat-save-campaign]");
+    var heading = document.querySelector(".combat-wrap h1");
+    if (!isOfConksWorldScope()) return;
+    if (root) {
+      root.setAttribute("data-combat-save-campaign", "of-conks-cons");
+      root.setAttribute("data-combat-save-session", "1");
+      root.setAttribute("data-combat-save-encounter", "hempholm");
+    }
+    if (heading) heading.textContent = "Combat";
+    document.title = "Combat — Command Board";
+    var saveStatus = document.getElementById("combat-save-status");
+    if (saveStatus) {
+      saveStatus.textContent =
+        "Empty board — add from Statblocks or import. Order and HP save in this browser.";
+    }
+  }
+
   const COMBAT_INIT_BAND_SIZE = 5;
   const COMBAT_INIT_MAX = 30;
 
@@ -3482,6 +4131,7 @@
   }
 
   function freshCombatState() {
+    var defaults = activeCombatDefaults();
     return {
       queueModel: COMBAT_QUEUE_MODEL,
       round: 1,
@@ -3489,7 +4139,7 @@
       roundStartIndex: 0,
       groupCollapsed: {},
       deadBucketCollapsed: false,
-      entities: COMBAT_DEFAULTS.map(function (entity, index) {
+      entities: defaults.map(function (entity, index) {
         const hp = entity.maxHp === null ? "" : entity.maxHp;
         return {
           id: entity.id,
@@ -3510,6 +4160,7 @@
   }
 
   function normalizeCombatState(raw) {
+    var defaults = activeCombatDefaults();
     const state = raw && Array.isArray(raw.entities) ? raw : freshCombatState();
     const savedTurnIndex =
       clampNumber(state.turnIndex, 0, Math.max(state.entities.length - 1, 0)) || 0;
@@ -3520,10 +4171,10 @@
       byId[entity.id] = entity;
     });
     const defaultIds = {};
-    COMBAT_DEFAULTS.forEach(function (base) {
+    defaults.forEach(function (base) {
       defaultIds[base.id] = true;
     });
-    const entities = COMBAT_DEFAULTS.map(function (base, index) {
+    const entities = defaults.map(function (base, index) {
       const current = byId[base.id] || {};
       const defaultHp = base.maxHp === null ? "" : base.maxHp;
       return {
@@ -3556,7 +4207,7 @@
             order:
               typeof entity.order === "number"
                 ? entity.order
-                : COMBAT_DEFAULTS.length + index,
+                : defaults.length + index,
             init: entity.init ?? "",
             ac: entity.ac ?? "",
             hp: entity.hp ?? "",
@@ -3591,8 +4242,8 @@
     return {
       queueModel: COMBAT_QUEUE_MODEL,
       round: clampNumber(state.round, 1, null) || 1,
-      turnIndex: normalizedTurnIndex,
-      roundStartIndex: roundStartIndex,
+      turnIndex: entities.length ? normalizedTurnIndex : 0,
+      roundStartIndex: entities.length ? roundStartIndex : 0,
       groupCollapsed:
         state.groupCollapsed && typeof state.groupCollapsed === "object"
           ? state.groupCollapsed
@@ -3606,7 +4257,7 @@
     state.entities.forEach(function (entity, index) {
       entity.order = index;
     });
-    set(COMBAT_STORAGE_KEY, state);
+    set(combatStorageKey(), state);
   }
 
   function notifyCombatStateUpdated(detail) {
@@ -3627,6 +4278,13 @@
   }
 
   function readCombatSaveProfile() {
+    if (isOfConksWorldScope()) {
+      return {
+        campaign_id: "of-conks-cons",
+        session: 1,
+        encounter_slug: "hempholm",
+      };
+    }
     const root =
       document.getElementById("combat-tracker") ||
       document.querySelector("[data-combat-save-campaign]");
@@ -3691,14 +4349,14 @@
   }
 
   function bootstrapCombatState(done) {
-    const cached = get(COMBAT_STORAGE_KEY, null);
+    const cached = get(combatStorageKey(), null);
     if (cached !== null) {
       const normalized = normalizeCombatState(cached);
       saveCombatState(normalized);
       done(normalized, "local", null);
       return;
     }
-    if (isFileProtocol()) {
+    if (isOfConksWorldScope() || isFileProtocol()) {
       done(normalizeCombatState(null), "fresh", null);
       return;
     }
@@ -3718,9 +4376,21 @@
       });
   }
 
+  /** Abort prior combat tracker bindings when Play remounts the panel in-page. */
+  var combatTrackerAbort = null;
+
   function initCombatTracker() {
+    applyCombatWorldChrome();
     const tbody = document.getElementById("combat-rows");
     if (!tbody) return;
+
+    if (combatTrackerAbort && typeof combatTrackerAbort.abort === "function") {
+      combatTrackerAbort.abort();
+    }
+    combatTrackerAbort =
+      typeof AbortController === "function" ? new AbortController() : null;
+    const combatSignal = combatTrackerAbort ? combatTrackerAbort.signal : undefined;
+    const combatListenOpts = combatSignal ? { signal: combatSignal } : undefined;
 
     const currentTurn = document.getElementById("combat-current-turn");
     const roundLabel = document.getElementById("combat-round");
@@ -3762,7 +4432,7 @@
 
     function removeEntityAt(index) {
       const entity = state.entities[index];
-      if (!entity || LOCKED_COMBAT_ENTITY_IDS[entity.id]) return;
+      if (!entity || isLockedCombatEntityId(entity.id)) return;
       state.entities.splice(index, 1);
       if (state.turnIndex >= state.entities.length) {
         state.turnIndex = Math.max(0, state.entities.length - 1);
@@ -3865,7 +4535,7 @@
         '<button type="button" class="dead-toggle" data-row-action="toggle-defeated">' +
         (entity.defeated ? "Revive" : "Dead") +
         "</button>" +
-        (!LOCKED_COMBAT_ENTITY_IDS[entity.id]
+        (!isLockedCombatEntityId(entity.id)
           ? '<button type="button" class="combat-remove" data-row-action="remove" title="Remove from tracker">Remove</button>'
           : "") +
         "</div>" +
@@ -4406,7 +5076,9 @@
       reader.readAsText(file);
     }
 
-    tbody.addEventListener("input", function (e) {
+    tbody.addEventListener(
+      "input",
+      function (e) {
       const field = e.target.getAttribute("data-field");
       if (!field) return;
       const found = entityForRow(e.target);
@@ -4419,9 +5091,13 @@
         saveCombatState(state);
         setSaveStatus("Saved locally.");
       }
-    });
+    },
+      combatListenOpts,
+    );
 
-    tbody.addEventListener("click", function (e) {
+    tbody.addEventListener(
+      "click",
+      function (e) {
       const deadBucketAction = e.target.getAttribute("data-dead-bucket-action");
       if (deadBucketAction === "toggle") {
         state.deadBucketCollapsed = !isDeadBucketCollapsed();
@@ -4511,10 +5187,14 @@
       } else if (action === "turn") {
         setSaveStatus("Turn marker saved locally.");
       }
-    });
+    },
+      combatListenOpts,
+    );
 
     document.querySelectorAll("[data-combat-action]").forEach(function (button) {
-      button.addEventListener("click", function () {
+      button.addEventListener(
+        "click",
+        function () {
         const action = button.getAttribute("data-combat-action");
         if (action === "sort-init") {
           const activeId = state.entities[state.turnIndex] && state.entities[state.turnIndex].id;
@@ -4572,18 +5252,26 @@
         } else if (action === "reset-all") {
           setSaveStatus("Combat state reset locally.");
         }
-      });
+      },
+        combatListenOpts,
+      );
     });
 
     if (importFile) {
-      importFile.addEventListener("change", function () {
-        importCombatStateFromFile(importFile.files && importFile.files[0]);
-      });
+      importFile.addEventListener(
+        "change",
+        function () {
+          importCombatStateFromFile(importFile.files && importFile.files[0]);
+        },
+        combatListenOpts,
+      );
     }
 
-    document.addEventListener(COMBAT_STATE_UPDATED_EVENT, function (event) {
+    document.addEventListener(
+      COMBAT_STATE_UPDATED_EVENT,
+      function (event) {
       const detail = (event && event.detail) || {};
-      state = normalizeCombatState(get(COMBAT_STORAGE_KEY, null));
+      state = normalizeCombatState(get(combatStorageKey(), null));
       hydrateAcFromStatblocks(state, function (changed) {
         if (changed) saveCombatState(state);
         render({
@@ -4599,7 +5287,9 @@
           setSaveStatus("Combat roster updated.");
         }
       });
-    });
+    },
+      combatListenOpts,
+    );
 
     bootstrapCombatState(function (loaded, source, savePath) {
       state = loaded;
@@ -4631,6 +5321,7 @@
     initRollTableToggle: initRollTableToggle,
     initMarkdownEmbeds: initMarkdownEmbeds,
     initRollTableCorpusIndex: initRollTableCorpusIndex,
+    initItemWorkspaceIndex: initItemWorkspaceIndex,
     initLocationCorpusIndex: initLocationCorpusIndex,
     initNpcCorpusIndex: initNpcCorpusIndex,
     initStatblockCorpusIndex: initStatblockCorpusIndex,
@@ -4645,14 +5336,13 @@
     closeRunbookReferencePopover: closeRunbookReferencePopover,
     enhanceRunbookReferenceChips: enhanceRunbookReferenceChips,
     resetRunbookReferenceIndexCache: resetRunbookReferenceIndexCache,
-    openToolbox: function (toolId) {
-      initToolbox();
-      setToolboxOpen(true, toolId || "statblock");
+    openToolbox: function () {
+      retireToolboxChrome();
     },
   };
 
   function bootMirewardPrepChrome() {
-    initToolbox();
+    retireToolboxChrome();
     initRunbookReferencePopoverShell();
   }
 

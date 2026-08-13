@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from apps.live_control_server.services.statblock_draft_store import read_statblock_draft
 from apps.live_control_server.services.statblock_view import (
     StatblockViewError,
     read_generated_statblock,
@@ -215,6 +216,13 @@ def _default_notes(*, warning_count: int, retrieval_status: Any) -> str:
     )
 
 
+def _workbench_draft_notes(*, warning_count: int) -> str:
+    return (
+        "Added from workbench draft; "
+        f"review warnings: {warning_count}; not corpus-promoted."
+    )
+
+
 def _group_key(artifact_id: str) -> str:
     return f"generated-{_slug(artifact_id)}-{uuid.uuid4().hex[:6]}"
 
@@ -316,6 +324,104 @@ def add_generated_statblock_to_combat(
         encounter=encounter,
         diagnostics=[
             "added generated statblock to current combat from combat_defaults",
+            "wrote only combat/current_combat.json",
+        ],
+    )
+
+
+def add_workbench_draft_to_combat(
+    *,
+    base: Path,
+    packet: dict[str, Any],
+    artifact_id: str,
+    request: AddGeneratedStatblockCombatRequest,
+) -> AddGeneratedStatblockCombatResponse:
+    record = read_statblock_draft(base=base, artifact_id=artifact_id)
+    combat = record.artifact.combat_defaults
+    if combat is None:
+        raise StatblockViewError("workbench draft combat_defaults are missing")
+
+    encounter = load_or_initialize_current_combat(base=base, packet=packet)
+    base_name = _base_name(
+        explicit=request.name_override,
+        fallback=combat.name,
+        title=record.title,
+    )
+    hp = request.hp_override if request.hp_override is not None else combat.hit_points
+    max_hp = (
+        request.max_hp_override
+        if request.max_hp_override is not None
+        else combat.hit_points
+    )
+    notes = request.notes if request.notes is not None else _workbench_draft_notes(
+        warning_count=len(record.artifact.warnings)
+    )
+    group_key = request.group_key or (_group_key(artifact_id) if request.count > 1 else None)
+    provenance = {
+        "source": "workbench_draft",
+        "artifact_id": record.artifact_id,
+        "draft_id": record.artifact.draft_id,
+        "storage_path": record.storage_path,
+        "added_at": _utc_now(),
+        "hydration_contract": "combat_defaults",
+    }
+
+    added_entities: list[CombatEntity] = []
+    next_order = _next_order(encounter)
+    for index in range(request.count):
+        name = _entity_name(base_name, index=index, count=request.count)
+        entity_id = f"{_slug(name)}-{uuid.uuid4().hex[:6]}"
+        added_entities.append(
+            CombatEntity(
+                id=entity_id,
+                name=name,
+                team=request.team,
+                order=next_order + index,
+                init=request.initiative,
+                ac=combat.armor_class,
+                hp=hp,
+                max_hp=max_hp,
+                notes=notes,
+                tags=["workbench_draft", "of_conks_play"],
+                statblock_path=record.corpus_display_path,
+                statblock_artifact_id=record.artifact_id,
+                statblock_title=record.title,
+                corpus_fingerprint=None,
+                source="generated_pending",
+                provenance=[provenance],
+            )
+        )
+
+    _insert_entities(
+        encounter=encounter,
+        added_entities=added_entities,
+        insert_after_entity_id=request.insert_after_entity_id,
+    )
+    if group_key:
+        encounter.groups.append(
+            {
+                "group_key": group_key,
+                "label": base_name,
+                "statblock_path": record.corpus_display_path,
+                "member_ids": [entity.id for entity in added_entities],
+                "collapsed": False,
+            }
+        )
+    encounter.updated_at = _utc_now()
+    encounter.provenance.append(
+        {
+            "source": "workbench_draft_combat_add",
+            "artifact_id": record.artifact_id,
+            "added_entity_ids": [entity.id for entity in added_entities],
+            "added_at": encounter.updated_at,
+        }
+    )
+    write_current_combat(base=base, encounter=encounter)
+    return AddGeneratedStatblockCombatResponse(
+        added_entities=added_entities,
+        encounter=encounter,
+        diagnostics=[
+            "added workbench draft to current combat from combat_defaults",
             "wrote only combat/current_combat.json",
         ],
     )

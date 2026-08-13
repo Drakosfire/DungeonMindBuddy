@@ -324,6 +324,78 @@
   padding: 0;
 }
 
+/* Workbench / play-draft path has no StatblockRenderer — keep parchment readable
+ * on the dark ProjectionHost drawer (otherwise ink sits on --bg-card). */
+.plan-reference-object-card--threat-sheet-play {
+  color: var(--threat-sheet-ink);
+  background:
+    linear-gradient(var(--threat-sheet-paper-wash), var(--threat-sheet-paper-wash)),
+    var(--threat-sheet-paper);
+  border: 2px solid var(--threat-sheet-border);
+  border-radius: 6px;
+  box-shadow: var(--threat-sheet-shadow);
+  padding: 0.85rem 1rem 1rem;
+}
+
+.plan-reference-object-card--threat-sheet-play .threat-sheet-projection__play-draft h4,
+.plan-reference-object-card--threat-sheet-play .threat-sheet-projection__play-draft h5 {
+  margin: 0 0 0.4rem;
+  color: var(--threat-sheet-heading);
+  border-bottom: 2px solid var(--threat-sheet-accent);
+  padding-bottom: 0.15rem;
+  font-size: 0.98rem;
+  letter-spacing: 0.02em;
+}
+
+.plan-reference-object-card--threat-sheet-play .threat-sheet-projection__play-draft h5 {
+  border-bottom-width: 1px;
+  font-size: 0.9rem;
+}
+
+.plan-reference-object-card--threat-sheet-play .threat-sheet-projection__play-draft ul {
+  margin: 0.25rem 0 0.65rem;
+  padding-left: 1.2rem;
+  color: var(--threat-sheet-ink);
+}
+
+.plan-reference-object-card--threat-sheet-play .threat-sheet-projection__play-markdown {
+  margin: 0.65rem 0 0;
+  padding: 0.75rem 0.85rem;
+  max-height: min(50vh, 28rem);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid color-mix(in srgb, var(--threat-sheet-border) 80%, transparent);
+  border-radius: 0.35rem;
+  background: rgba(255, 249, 237, 0.85);
+  color: var(--threat-sheet-ink);
+  font-family: "Bookinsanity", "Book Antiqua", Georgia, "Times New Roman", serif;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.threat-sheet-projection__add-to-combat {
+  align-self: flex-start;
+  border: 1px solid var(--threat-sheet-accent);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--threat-sheet-accent) 12%, var(--threat-sheet-paper));
+  color: var(--threat-sheet-heading);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+
+.threat-sheet-projection__add-to-combat:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--threat-sheet-accent) 22%, var(--threat-sheet-paper));
+}
+
+.threat-sheet-projection__add-to-combat:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .threat-sheet-projection--full {
   gap: 0.75rem;
 }

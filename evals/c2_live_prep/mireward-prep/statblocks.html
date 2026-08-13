@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Statblocks — Mireward prep</title>
+  <title>Statblocks — Command Board</title>
   <link rel="stylesheet" href="assets/prep.css" />
   <link rel="stylesheet" href="assets/prep-markdown-themes.css" />
 </head>
@@ -13,21 +13,21 @@
 
     <header class="statblocks-header">
       <h1>Statblocks</h1>
+      <p class="muted">Sheets for the table.</p>
       <div class="statblocks-toolbar">
-        <button type="button" class="primary" data-open-toolbox="statblock">Command toolbox</button>
         <span class="pill pill-neutral statblocks-count" id="statblock-index-count">…</span>
       </div>
     </header>
 
     <div id="statblock-corpus-index" class="statblock-corpus-index">
-      <p class="muted">Loading corpus statblocks…</p>
+      <p class="muted">Loading statblocks…</p>
     </div>
   </div>
   <script src="assets/prep-markdown.js"></script>
   <script src="assets/prep-markdown-themes.js"></script>
   <script src="assets/prep.js"></script>
   <script>
-    MirewardPrep.initNav("statblocks");
+    MirewardPrep.initNav("statblocks", "product");
     MirewardPrep.wireRepoLinks();
     MirewardPrep.initMarkdownEmbeds();
     MirewardPrep.initStatblockCorpusIndex();

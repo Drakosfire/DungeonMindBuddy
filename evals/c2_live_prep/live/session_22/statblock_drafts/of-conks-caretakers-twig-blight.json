@@ -1,0 +1,130 @@
+{
+  "schema_version": "dmb_statblock_draft_record_v1",
+  "artifact_id": "of-conks-caretakers-twig-blight",
+  "title": "Caretakers (Twig Blight)",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "stored_at": "2026-08-13T13:31:41.563317Z",
+  "updated_at": "2026-08-13T14:50:54.368080Z",
+  "storage_path": "statblock_drafts/of-conks-caretakers-twig-blight.json",
+  "corpus_relpath": null,
+  "corpus_display_path": null,
+  "corpus_written_at": null,
+  "corpus_preview_token": null,
+  "retrieval_status": null,
+  "retrieval_manifest_path": null,
+  "retrieval_activated_at": null,
+  "retrieval_verified_at": null,
+  "retrieval_query": null,
+  "retrieval_evidence_path": null,
+  "retrieval_evidence_score": null,
+  "artifact": {
+    "artifact_id": "of-conks-caretakers-twig-blight",
+    "draft_id": "draft-of-conks-caretakers-twig-blight",
+    "title": "Caretakers (Twig Blight)",
+    "markdown": "# Caretakers (Twig Blight)\n*Small plant, unaligned*\n\n> Bind for Of Conks **Caretakers**: use this published Twig Blight sheet (MM 32). Do not invent a new caretaker statblock.\n> Encounter: **20** total, roam in **groups of 5**. Afraid of fire. Strike hours after the surface tree dies.\n\n**Armor Class** 13 (natural armor)\n**Hit Points** 4 (1d6+1)\n**Speed** 20 ft.\n\n|STR|DEX|CON|INT|WIS|CHA|\n|---:|---:|---:|---:|---:|---:|\n|6 (−2)|13 (+1)|12 (+1)|4 (−3)|8 (−1)|3 (−4)|\n\n**Skills** Stealth +3\n**Damage Vulnerabilities** fire\n**Condition Immunities** blinded, deafened\n**Senses** blindsight 60 ft. (blind beyond this radius), passive Perception 9\n**Languages** understands Common but can't speak\n**Challenge** 1/8 (25 XP)\n\n## Traits\n**False Appearance.** While the twig blight remains motionless, it is indistinguishable from a dead shrub.\n\n## Actions\n**Claws.** *Melee Weapon Attack:* +3 to hit, reach 5 ft., one target. *Hit:* 3 (1d4 + 1) piercing damage.\n",
+    "structured_statblock": {
+      "name": "Twig Blight",
+      "size": "Small",
+      "type": "plant",
+      "alignment": "unaligned",
+      "armor_class": 13,
+      "hit_points": 4,
+      "speed": "20 ft.",
+      "challenge_rating": "1/8",
+      "mm_reference": "twig blight (MM 32)",
+      "encounter_quantity": 20,
+      "encounter_group_size": 5,
+      "actions": [
+        {
+          "name": "Claws",
+          "description": "+3 to hit, reach 5 ft., 3 (1d4+1) piercing"
+        }
+      ]
+    },
+    "combat_defaults": {
+      "name": "Caretaker (Twig Blight)",
+      "armor_class": 13,
+      "hit_points": 4,
+      "initiative_bonus": 1,
+      "passive_perception": 9,
+      "speed_summary": "20 ft.",
+      "speed": "20 ft.",
+      "senses_summary": "blindsight 60 ft. (blind beyond)",
+      "primary_actions": [
+        "Claws"
+      ],
+      "suggested_tactics": [
+        "20 total in groups of 5",
+        "Hours after surface tree dies",
+        "Afraid of fire; flee after ~15 dead"
+      ],
+      "legendary_actions": null
+    },
+    "warnings": [],
+    "provenance": {
+      "request_id": null,
+      "mode": "generate_from_source_statblock",
+      "generator": "of_conks_gold_seed",
+      "generated_at": "2026-08-13T14:50:54.354244Z",
+      "source_refs": [
+        {
+          "id": null,
+          "kind": null,
+          "label": null,
+          "reason": null,
+          "source_type": "of_conks_gold",
+          "source_id": "of-conks-caretakers-twig-blight",
+          "title": "Caretakers (Twig Blight)",
+          "uri": null,
+          "path": null,
+          "page": null,
+          "excerpt": "use_mm_twig_blight_do_not_invent · MM 32 bind for Caretakers",
+          "metadata": {}
+        }
+      ],
+      "generation_info": {
+        "campaign_id": "of-conks-cons",
+        "import_policy": "use_mm_twig_blight_do_not_invent · MM 32 bind for Caretakers"
+      },
+      "persistence_request": null
+    },
+    "review_status": "approved",
+    "lifecycle_state": "stored_artifact",
+    "storage_status": "stored_draft",
+    "corpus_status": "not_promoted",
+    "source_refs": [
+      {
+        "id": null,
+        "kind": null,
+        "label": null,
+        "reason": null,
+        "source_type": "of_conks_gold",
+        "source_id": "of-conks-caretakers-twig-blight",
+        "title": "Caretakers (Twig Blight)",
+        "uri": null,
+        "path": null,
+        "page": null,
+        "excerpt": "use_mm_twig_blight_do_not_invent · MM 32 bind for Caretakers",
+        "metadata": {}
+      }
+    ],
+    "breadcrumbs": [
+      {
+        "label": "Of Conks & Cons",
+        "source": "campaign:of-conks-cons",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "Hempholm one-shot",
+        "source": "playable",
+        "target": null,
+        "metadata": {}
+      }
+    ],
+    "created_by": "human",
+    "created_at": "2026-08-13T14:50:54.354244Z",
+    "updated_at": "2026-08-13T14:50:54.368080Z"
+  }
+}

@@ -7,6 +7,41 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] In-game / stall clocks on surface chrome — captured 2026-08-13
+**Context:** Of Conks Hempholm run packet uses table clocks (tree growth / false victory: “Advance a clock when the table stalls or leaves the tree alone”). Operator: backlog or session-custom; likes the idea and sees it easily living on the surface nav bar as an in-game time clock.
+**Insight:** Packet clocks are encounter pressure; a chrome-level in-game clock is shared run-state the GM glances without leaving Plan/Play. Same affordance family, different authority (packet narrative clocks vs session now-time / stall pressure).
+**Action:** Design the smallest surface-nav clock (display + advance/tick) that can bind either session “now” or a named packet clock (e.g. tree growth 0–3) without inventing a full Play cockpit. Prefer one chrome chip over burying clocks only in prep prose.
+**Surfaces when:** run packet clocks, tree growth, stall pressure, surface nav bar, in-game time, Play run-state, Of Conks Hempholm
+**Refs:** `out/workspace/plan/1f8bffa5-c3eb-47d4-a64a-8a7f044f161f.md` (Clocks); Play surface IDEA; AppChrome / surface nav
+
+## [IDEA] Promote Of Conks workbench drafts to real uses_statblock bindings — captured 2026-08-13
+**Context:** Run-packet hub loop needed Threat chip → summary → Add to combat; Of Conks threats had no `uses_statblock` edges and drafts are not corpus-promoted, so we shipped a workbench play bridge (`ofConksThreatPlayBridge` + `add_workbench_draft_to_combat`) as the table path.
+**Insight:** The product contract still wants ThreatSheet parchment via exact `sb_`/`rev_` hydration; the play bridge is an honest interim for one-shot gold, not a permanent dual mechanics authority.
+**Action:** When DMS accept/publish is available for these three creatures, connect_existing to `threat:grotesque-tree|guardian|caretakers`, confirm bindings, then retire the Of Conks-specific draft map / workbench combat tags in favor of SBW15 exact-revision combat.
+**Surfaces when:** Of Conks Threat sheet, uses_statblock, ThreatSheetProjection, workbench draft combat, SBW15, play bridge
+**Refs:** `apps/live-control-ui/src/statblocks/projection/ofConksThreatPlayBridge.ts`; `apps/live_control_server/services/combat_state.py` (`add_workbench_draft_to_combat`); `scripts/seed_of_conks_statblock_drafts.py`
+
+## [DOING] Product tabs must stay on the selected World Graph lens — captured 2026-08-13
+**Context:** Of Conks table-ready: Combat/Roll/Items/Statblocks were Mireward-global; World picker only listed Longmont; nav dropped `?campaigns=`. Follow-up: static pages lacked AppChrome.
+**Insight:** Selecting a world on chrome must scope every product surface — otherwise the GM has to ignore unrelated Eldyrwild material mid-run. Same AppChrome (World Graph) belongs on table tools, not a second prep nav.
+**Action:** Play chrome shell embeds `/prep/*` pages; product routes `/combat|/roll|/items|/statblocks` are React. Keep lens query on nav; filter product indexes by selected campaigns; Of Conks combat empty until loaded.
+**Surfaces when:** World Graph lens, of-conks-cons, Combat Tracker empty, product nav, Roll/Items/Statblocks filtering, admitted campaigns, Play surface
+**Refs:** `apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx`; `apps/live-control-ui/src/graphLens/GraphLoadPanel.tsx`; `evals/c2_live_prep/mireward-prep/assets/prep.js`
+
+## [IDEA] Dedicated Play surface (beyond Combat + Roll tabs) — captured 2026-08-13
+**Context:** Table-ready Of Conks dry-read: Plan works as cockpit for prep chips/docs, but live table still wants a Play-facing home. Operator asked for a real Play surface later; threw together a Roll tab first (Combat Tracker pattern). **2026-08-13:** thin Play chrome shell now hosts Combat/Roll/Items/Statblocks under AppChrome; full Play cockpit (packet + run-state) still future.
+**Insight:** Combat Tracker and Roll are useful product tabs, but they are not a Play surface. Play would own run-state, encounter flow, and one-shot cockpit (packet + rolls + combat) without treating Plan as the live board.
+**Action:** After chrome-shell dogfood, design the smallest Play cockpit that can host the Hempholm expected path (packet context + Roll + Combat) without rebuilding Plan.
+**Surfaces when:** Play surface, live play, command board, Combat Tracker, Roll tab, Of Conks table run, one-shot cockpit
+**Refs:** `apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx`; `apps/live-control-ui/src/chrome/appChromeConfig.ts`; `/combat`; `/roll`
+
+## [DOING] Manufacture Of Conks gold by walking ingest steps — captured 2026-08-12
+**Context:** CON-READY module ingest design. Benchmark-first. Specimen 1 (hand-cleaned extract) is not production input. Operator chose to manufacture the *target* (prepared source, inventory, playable packet, Threat cards) by walking ingest steps by hand, then tune real ingest against that gold.
+**Insight:** Gold defined by dogfooding the desired output is stronger than gold inferred from a messy extract. C1S4 `source_module_facts` is a draft answer key and already drifts (Narfi vs Nar). Full module prose stays local/gitignored; in-repo gold is ids + short quotes + headings.
+**Action:** Local package seeded into this worktree as world/campaign `of-conks-cons` (24 nodes, 9 edges). Open `/build?campaign=of-conks-cons` against this worktree’s `out/` (not primary Eldyrwild). Next: dogfood chips in Build, then freeze in-repo summary gold (ids + quotes + fixture sha256). Do not run production extract until prepare gold is frozen.
+**Surfaces when:** adventure module ingest, Of Conks, Hempholm, prepare pass, callout gold, playable packet, CON-READY CR02, benchmark first
+**Refs:** `/home/drakosfire/Downloads/of-conks-cons-v21-gold/`; `evals/c1s4_preplanning_vertical_slice/support_knowledge/source_module_facts.of_conks_and_cons.json`; `Docs/Roadmaps/ROADMAP-con-ready.md`
+
 > **Workstream closeout (2026-08-11):** `DOGFOOD-POLISH` is closed. Completed Plan/Build document-authoring slices are no longer active backlog items; see [`Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md). READY/IDEA items below that touch Plan, Build, Hermes, Threats, or Play are independent product work, not implied successors under the closed workstream.
 
 ## [READY] CUTOVER Case C Buddy EVIDENCE_PROVENANCE after identity-lifecycle history — captured 2026-08-12

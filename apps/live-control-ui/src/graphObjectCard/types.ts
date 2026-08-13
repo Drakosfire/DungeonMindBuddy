@@ -5,6 +5,7 @@ export type GraphObjectActionKind =
   | "open-ingest"
   | "open-statblock"
   | "open-roll-table"
+  | "add-to-combat"
   | "custom";
 
 export interface GraphObjectRelationshipViewModel {

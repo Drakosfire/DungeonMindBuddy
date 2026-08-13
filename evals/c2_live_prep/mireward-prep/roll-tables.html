@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Roll tables — Mireward prep</title>
+  <title>Roll — Command Board</title>
   <link rel="stylesheet" href="assets/prep.css" />
   <link rel="stylesheet" href="assets/prep-markdown-themes.css" />
 </head>
@@ -12,21 +12,22 @@
     <nav id="site-nav" class="site-nav"></nav>
 
     <header class="rolltables-header">
-      <h1>Roll tables</h1>
+      <h1>Roll</h1>
+      <p class="muted">Tables for the table.</p>
       <div class="rolltables-toolbar">
         <span class="pill pill-neutral rolltables-count" id="rolltable-index-count">…</span>
       </div>
     </header>
 
     <div id="rolltable-corpus-index" class="rolltable-corpus-index">
-      <p class="muted">Loading corpus roll tables…</p>
+      <p class="muted">Loading roll tables…</p>
     </div>
   </div>
   <script src="assets/prep-markdown.js"></script>
   <script src="assets/prep-markdown-themes.js"></script>
   <script src="assets/prep.js"></script>
   <script>
-    MirewardPrep.initNav("roll-tables");
+    MirewardPrep.initNav("roll", "product");
     MirewardPrep.wireRepoLinks();
     MirewardPrep.initRollTableCorpusIndex();
   </script>

@@ -8,6 +8,10 @@ import { GraphObjectProjectionCard } from "../graphObjectCard/GraphObjectProject
 import { ThreatSheetProjection } from "../statblocks/projection/ThreatSheetProjection";
 import { shouldRenderThreatCampaignSheet } from "../statblocks/projection/threatSheetViewModel";
 import type { PlanSessionDescriptor } from "../planSurface/types";
+import {
+  PlayObjectSheetProjection,
+  shouldRenderPlayObjectSheet,
+} from "./PlayObjectSheetProjection";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -35,7 +39,7 @@ export interface ResolvedGraphObjectProjectionProps {
 
 /**
  * Surface-agnostic resolved-graph content: authored Threats → campaign Threat sheet;
- * everything else → GraphObjectProjectionCard.
+ * Of Conks play-bridged nodes → Play Object Sheet; everything else → GraphObjectProjectionCard.
  */
 export function ResolvedGraphObjectProjection({
   resolution,
@@ -67,6 +71,23 @@ export function ResolvedGraphObjectProjection({
   }
 
   const cardModel = model ?? resolution.graphObject;
+
+  if (shouldRenderPlayObjectSheet(resolution)) {
+    return (
+      <PlayObjectSheetProjection
+        resolution={resolution}
+        model={cardModel}
+        glanceOnly={glanceOnly}
+        onSelectRelationship={onSelectRelationship}
+        selectedRelationshipId={selectedRelationshipId}
+        relationshipsDisabled={relationshipsDisabled}
+        onReadSourceEvidence={onReadSourceEvidence}
+        resolvingEvidenceId={resolvingEvidenceId}
+        evidenceErrors={evidenceErrors}
+      />
+    );
+  }
+
   return (
     <GraphObjectProjectionCard
       model={cardModel}

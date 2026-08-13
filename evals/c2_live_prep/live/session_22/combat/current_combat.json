@@ -1,0 +1,62 @@
+{
+  "schema": "dmb_combat_encounter_state_v1",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "encounter_id": "current-combat",
+  "title": "Current Combat",
+  "round": 1,
+  "active_turn_entity_id": null,
+  "round_start_entity_id": null,
+  "queue_model": "circular_barrel_v1",
+  "entities": [
+    {
+      "id": "grotesque-tree-8e60ee",
+      "name": "Grotesque Tree",
+      "team": "enemy",
+      "order": 1,
+      "init": null,
+      "ac": 11,
+      "hp": 39,
+      "max_hp": 39,
+      "temp_hp": null,
+      "defeated": false,
+      "notes": "Added from workbench draft; review warnings: 0; not corpus-promoted.",
+      "conditions": [],
+      "tags": [
+        "workbench_draft",
+        "of_conks_play"
+      ],
+      "statblock_path": null,
+      "statblock_artifact_id": "of-conks-grotesque-tree",
+      "statblock_title": "Grotesque Tree",
+      "corpus_fingerprint": null,
+      "source": "generated_pending",
+      "provenance": [
+        {
+          "source": "workbench_draft",
+          "artifact_id": "of-conks-grotesque-tree",
+          "draft_id": "draft-of-conks-grotesque-tree",
+          "storage_path": "statblock_drafts/of-conks-grotesque-tree.json",
+          "added_at": "2026-08-13T16:38:07Z",
+          "hydration_contract": "combat_defaults"
+        }
+      ]
+    }
+  ],
+  "groups": [],
+  "provenance": [
+    {
+      "source": "live_control_server",
+      "reason": "initialized current combat state from live packet metadata"
+    },
+    {
+      "source": "workbench_draft_combat_add",
+      "artifact_id": "of-conks-grotesque-tree",
+      "added_entity_ids": [
+        "grotesque-tree-8e60ee"
+      ],
+      "added_at": "2026-08-13T16:38:07Z"
+    }
+  ],
+  "updated_at": "2026-08-13T16:38:07Z"
+}

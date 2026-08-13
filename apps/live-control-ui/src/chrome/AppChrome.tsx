@@ -15,6 +15,7 @@ import {
 } from "../surfaceInteraction/contextHost";
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
+import { appendLensQueryToHref } from "../graphLens/sessionCampaignContext";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
 let nextCallbackIdentityKey = 1;
@@ -270,6 +271,13 @@ export function AppChrome({
                 key={item.href}
                 href={item.href}
                 className={item.route === activeRoute ? "active" : undefined}
+                onClick={(event) => {
+                  // Read lens at click time so World Graph replaceState updates ride along.
+                  const next = appendLensQueryToHref(item.href);
+                  if (next === item.href) return;
+                  event.preventDefault();
+                  window.location.assign(next);
+                }}
               >
                 {item.label}
               </a>

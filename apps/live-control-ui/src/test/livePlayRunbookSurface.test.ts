@@ -17,8 +17,8 @@ describe("Live Play North Gate runbook surface", () => {
     expect(html).not.toMatch(/\/tiptap-callout-spike\?doc=/);
     expect(html).not.toContain("dogfood runbook");
     expect(html).toContain("Edit runbook");
-    expect(html).toContain('data-open-toolbox="ingestion"');
-    expect(html).toContain("Ingest recap");
+    expect(html).not.toContain("data-open-toolbox");
+    expect(html).not.toContain("Ingest recap");
     expect(html).toContain("combat.html");
     expect(html).toContain("roll-tables.html");
     expect(html).toContain("npcs.html");
@@ -26,15 +26,12 @@ describe("Live Play North Gate runbook surface", () => {
     expect(html).toContain("Editing workflow: open editor → import committed Markdown → edit locally → prepare file write → commit reviewed Markdown → reload Live Play.");
   });
 
-  it("mounts recap ingestion as the default toolbox tool", () => {
+  it("retires the prototype command toolbox chrome", () => {
     const js = readFileSync(prepJsPath, "utf8");
 
-    expect(js).toContain('data-toolbox-tool="ingestion"');
-    expect(js).toContain("Raw recap text");
-    expect(js).toContain("Rendered markdown preview");
-    expect(js).toContain('get("toolboxTool", "ingestion")');
-    expect(js).toContain('data-toolbox-tool="statblock"');
-    expect(js).toContain("Statblock generator");
+    expect(js).toContain("retireToolboxChrome");
+    expect(js).toMatch(/function initToolbox\(\)\s*\{[\s\S]*?retireToolboxChrome\(\)/);
+    expect(js).not.toMatch(/bootMirewardPrepChrome\(\)\s*\{[\s\S]*?initToolbox\(\)/);
   });
 
   it("keeps the North Gate runbook artifact contract", () => {

@@ -27,14 +27,27 @@ const prepPageAliases: Record<string, string> = {
   "/retrieval": "retrieval.html",
   "/retrieval/": "retrieval.html",
   "/retrieval.html": "retrieval.html",
-  "/combat": "combat.html",
-  "/combat/": "combat.html",
+  // Product routes /combat|/roll|/items|/statblocks are React Play chrome.
+  // Static pages remain reachable under /prep/* for inlined Play host + legacy.
+  "/prep/combat": "combat.html",
+  "/prep/combat/": "combat.html",
+  "/prep/combat.html": "combat.html",
   "/combat.html": "combat.html",
   "/live-notes.html": "live-notes.html",
   "/timeline.html": "timeline.html",
   "/locations.html": "locations.html",
   "/npcs.html": "npcs.html",
+  "/prep/roll": "roll-tables.html",
+  "/prep/roll/": "roll-tables.html",
+  "/prep/roll-tables.html": "roll-tables.html",
   "/roll-tables.html": "roll-tables.html",
+  "/prep/items": "items.html",
+  "/prep/items/": "items.html",
+  "/prep/items.html": "items.html",
+  "/items.html": "items.html",
+  "/prep/statblocks": "statblocks.html",
+  "/prep/statblocks/": "statblocks.html",
+  "/prep/statblocks.html": "statblocks.html",
   "/statblocks.html": "statblocks.html",
   "/markdown-theme-fixtures": "markdown-theme-fixtures.html",
   "/markdown-theme-fixtures.html": "markdown-theme-fixtures.html",
@@ -79,8 +92,11 @@ function mirewardPrepStaticPlugin() {
             return;
           }
         }
-        if (pathname.startsWith("/assets/")) {
-          const assetPath = safeResolve(resolve(mirewardPrepRoot, "assets"), pathname.slice("/assets/".length));
+        if (pathname.startsWith("/assets/") || pathname.startsWith("/prep/assets/")) {
+          const assetRel = pathname.startsWith("/prep/assets/")
+            ? pathname.slice("/prep/assets/".length)
+            : pathname.slice("/assets/".length);
+          const assetPath = safeResolve(resolve(mirewardPrepRoot, "assets"), assetRel);
           if (assetPath) {
             serveFile(res, assetPath);
             return;

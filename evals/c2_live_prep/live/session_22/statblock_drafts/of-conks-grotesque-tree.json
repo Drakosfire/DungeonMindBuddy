@@ -1,0 +1,142 @@
+{
+  "schema_version": "dmb_statblock_draft_record_v1",
+  "artifact_id": "of-conks-grotesque-tree",
+  "title": "Grotesque Tree",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "stored_at": "2026-08-13T13:31:41.552554Z",
+  "updated_at": "2026-08-13T14:50:54.361814Z",
+  "storage_path": "statblock_drafts/of-conks-grotesque-tree.json",
+  "corpus_relpath": null,
+  "corpus_display_path": null,
+  "corpus_written_at": null,
+  "corpus_preview_token": null,
+  "retrieval_status": null,
+  "retrieval_manifest_path": null,
+  "retrieval_activated_at": null,
+  "retrieval_verified_at": null,
+  "retrieval_query": null,
+  "retrieval_evidence_path": null,
+  "retrieval_evidence_score": null,
+  "artifact": {
+    "artifact_id": "of-conks-grotesque-tree",
+    "draft_id": "draft-of-conks-grotesque-tree",
+    "title": "Grotesque Tree",
+    "markdown": "# Grotesque Tree\n*Huge plant, unaligned*\n\n**Armor Class** 11 (natural armor)\n**Hit Points** 39 (6d8+12)\n**Speed** —\n\n|STR|DEX|CON|INT|WIS|CHA|\n|---:|---:|---:|---:|---:|---:|\n|17 (+3)|9 (−1)|15 (+2)|7 (−2)|10 (+0)|10 (+0)|\n\n**Damage Immunities** piercing\n**Damage Resistances** bludgeoning\n**Damage Vulnerabilities** fire\n**Condition Immunities** charmed\n**Senses** blindsight 600 ft. (blind beyond this radius), passive Perception 10\n**Languages** —\n**Challenge** 1 (200 XP)\n\n## Actions\n**Branch.** *Melee Weapon Attack:* +5 to hit, reach 60 ft., one target. *Hit:* 5 (1d4 + 3) slashing damage.\n**Rock.** *Ranged Weapon Attack:* +1 to hit, range 30/120 ft., one target. *Hit:* 4 (1d6 + 1) bludgeoning damage.\n**Snare.** When the grotesque tree hits a creature with its branch attack, it can use a bonus action to snare that creature. The creature must make a DC 13 Dexterity or Strength saving throw. On a failed save, the grotesque tree grapples the target and suspends it in mid air at a height of 20 ft. At the start of its turn, the grotesque tree can pull a grappled target 10 ft. closer to its stem. The grotesque tree can grapple two targets at a time.\n**Sling.** The grotesque tree throws a creature that it has grappled 60 ft. away. The thrown creature must make a DC 13 Dexterity saving throw. On a failed save, the thrown creature takes 10 (3d6) bludgeoning damage, or half that amount on a successful save.\n\n## Description\nAttacks anyone within 30 feet; retaliates against ranged; nearest target; ceases when not threatened.\n",
+    "structured_statblock": {
+      "name": "Grotesque Tree",
+      "size": "Huge",
+      "type": "plant",
+      "alignment": "unaligned",
+      "armor_class": 11,
+      "hit_points": 39,
+      "speed": "—",
+      "challenge_rating": "1",
+      "actions": [
+        {
+          "name": "Branch",
+          "description": "+5 to hit, reach 60 ft., 5 (1d4+3) slashing"
+        },
+        {
+          "name": "Rock",
+          "description": "+1 to hit, range 30/120 ft., 4 (1d6+1) bludgeoning"
+        },
+        {
+          "name": "Snare",
+          "description": "Bonus after Branch; DC 13 grapple suspend"
+        },
+        {
+          "name": "Sling",
+          "description": "Throw grappled 60 ft.; DC 13 Dex, 10 (3d6) bludgeoning"
+        }
+      ]
+    },
+    "combat_defaults": {
+      "name": "Grotesque Tree",
+      "armor_class": 11,
+      "hit_points": 39,
+      "initiative_bonus": -1,
+      "passive_perception": 10,
+      "speed_summary": "—",
+      "speed": "—",
+      "senses_summary": "blindsight 600 ft. (blind beyond)",
+      "primary_actions": [
+        "Branch",
+        "Rock",
+        "Snare",
+        "Sling"
+      ],
+      "suggested_tactics": [
+        "Attack anyone within 30 ft.",
+        "Retaliate against ranged",
+        "Nearest target; cease when not threatened"
+      ],
+      "legendary_actions": null
+    },
+    "warnings": [],
+    "provenance": {
+      "request_id": null,
+      "mode": "generate_from_source_statblock",
+      "generator": "of_conks_gold_seed",
+      "generated_at": "2026-08-13T14:50:54.354244Z",
+      "source_refs": [
+        {
+          "id": null,
+          "kind": null,
+          "label": null,
+          "reason": null,
+          "source_type": "of_conks_gold",
+          "source_id": "of-conks-grotesque-tree",
+          "title": "Grotesque Tree",
+          "uri": null,
+          "path": null,
+          "page": null,
+          "excerpt": "copy_from_source_do_not_generate · Appendix A Grotesque Tree",
+          "metadata": {}
+        }
+      ],
+      "generation_info": {
+        "campaign_id": "of-conks-cons",
+        "import_policy": "copy_from_source_do_not_generate · Appendix A Grotesque Tree"
+      },
+      "persistence_request": null
+    },
+    "review_status": "approved",
+    "lifecycle_state": "stored_artifact",
+    "storage_status": "stored_draft",
+    "corpus_status": "not_promoted",
+    "source_refs": [
+      {
+        "id": null,
+        "kind": null,
+        "label": null,
+        "reason": null,
+        "source_type": "of_conks_gold",
+        "source_id": "of-conks-grotesque-tree",
+        "title": "Grotesque Tree",
+        "uri": null,
+        "path": null,
+        "page": null,
+        "excerpt": "copy_from_source_do_not_generate · Appendix A Grotesque Tree",
+        "metadata": {}
+      }
+    ],
+    "breadcrumbs": [
+      {
+        "label": "Of Conks & Cons",
+        "source": "campaign:of-conks-cons",
+        "target": null,
+        "metadata": {}
+      },
+      {
+        "label": "Hempholm one-shot",
+        "source": "playable",
+        "target": null,
+        "metadata": {}
+      }
+    ],
+    "created_by": "human",
+    "created_at": "2026-08-13T14:50:54.354244Z",
+    "updated_at": "2026-08-13T14:50:54.361814Z"
+  }
+}

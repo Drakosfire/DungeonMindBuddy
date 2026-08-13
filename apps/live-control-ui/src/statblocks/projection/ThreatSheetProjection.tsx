@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from "react";
 
-import { LiveApiError, postThreatQueryHydration } from "../../api/liveApi";
+import { LiveApiError, postThreatQueryHydration, getStatblockWorkbenchDraft, addWorkbenchDraftToCombat } from "../../api/liveApi";
 import type { ThreatQueryHydrationHitV1, ThreatQueryHydrationResponseV1 } from "../../api/types";
 import type {
   GraphObjectActionViewModel,
@@ -40,6 +40,11 @@ import {
   type ThreatSheetBindingViewModel,
   type ThreatSheetViewModel,
 } from "./threatSheetViewModel";
+import {
+  playArtifactIdForThreatNode,
+  summaryFromWorkbenchRecord,
+  type OfConksPlayDraftSummary,
+} from "./ofConksThreatPlayBridge";
 
 function resolveThreatActionHandler(
   action: GraphObjectActionViewModel,
@@ -65,6 +70,68 @@ export interface ThreatSheetProjectionProps {
   projectionState?: GraphReferenceProjectionState | null;
   graphReferenceBinding?: GraphReferenceProjectionBinding | null;
   glanceOnly?: boolean;
+}
+
+function navigateToCombatPreservingCampaigns(): void {
+  const params = new URLSearchParams(window.location.search);
+  const campaigns = params.get("campaigns");
+  const target = campaigns
+    ? `/combat?campaigns=${encodeURIComponent(campaigns)}`
+    : "/combat";
+  window.location.assign(target);
+}
+
+function ThreatPlayDraftPanel({ draft }: { draft: OfConksPlayDraftSummary }) {
+  return (
+    <section
+      className="threat-sheet-projection__play-draft"
+      aria-label={`${draft.title} workbench draft`}
+      data-testid="threat-sheet-play-draft"
+    >
+      <h4>{draft.title}</h4>
+      <dl className="threat-sheet-projection__core-stats">
+        <div>
+          <dt>AC</dt>
+          <dd>{draft.armorClass ?? "—"}</dd>
+        </div>
+        <div>
+          <dt>HP</dt>
+          <dd>{draft.hitPoints ?? "—"}</dd>
+        </div>
+        <div>
+          <dt>Speed</dt>
+          <dd>{draft.speed ?? "—"}</dd>
+        </div>
+        {draft.challengeRating ? (
+          <div>
+            <dt>CR</dt>
+            <dd>{draft.challengeRating}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {draft.tactics.length ? (
+        <section aria-label="Suggested tactics">
+          <h5>Tactics</h5>
+          <ul>
+            {draft.tactics.map((tactic) => (
+              <li key={tactic}>{tactic}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {draft.primaryActions.length ? (
+        <section aria-label="Primary actions">
+          <h5>Primary actions</h5>
+          <ul>
+            {draft.primaryActions.map((action) => (
+              <li key={action}>{action}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      <pre className="threat-sheet-projection__play-markdown">{draft.markdown}</pre>
+    </section>
+  );
 }
 
 function BindingStatusPanel({ binding }: { binding: ThreatSheetBindingViewModel }) {
@@ -300,6 +367,10 @@ function ThreatSheetBody({
   onSelectRelationship,
   selectedRelationshipId,
   relationshipsDisabled,
+  playDraft,
+  playDraftLoadStatus,
+  onAddToCombat,
+  isAddingToCombat,
 }: {
   model: ThreatSheetViewModel;
   glanceOnly: boolean;
@@ -309,12 +380,21 @@ function ThreatSheetBody({
   onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
   selectedRelationshipId?: string | null;
   relationshipsDisabled?: boolean;
+  playDraft: OfConksPlayDraftSummary | null;
+  playDraftLoadStatus: "idle" | "loading" | "ready" | "error";
+  onAddToCombat?: () => void;
+  isAddingToCombat?: boolean;
 }) {
   const availableCount = availableBindingCount(model.bindings);
   const compactBinding =
     availableCount === 1
       ? model.bindings.find((binding) => binding.hydrationStatus === "available") ?? null
       : null;
+  const showPlayDraft = playDraftLoadStatus === "ready" && playDraft != null;
+  const showLoadError =
+    model.loadStatus !== "loading"
+    && model.loadStatus !== "ready"
+    && !showPlayDraft;
 
   return (
     <div
@@ -322,6 +402,18 @@ function ThreatSheetBody({
       data-testid="threat-sheet-projection"
       data-glance={glanceOnly ? "true" : "false"}
     >
+      {!glanceOnly && showPlayDraft && onAddToCombat ? (
+        <button
+          type="button"
+          className="threat-sheet-projection__add-to-combat"
+          data-testid="threat-sheet-add-to-combat"
+          disabled={isAddingToCombat}
+          onClick={onAddToCombat}
+        >
+          {isAddingToCombat ? "Adding to combat…" : "Add to combat"}
+        </button>
+      ) : null}
+
       {glanceOnly ? (
         <ThreatCampaignGlance
           label={model.label}
@@ -342,7 +434,7 @@ function ThreatSheetBody({
             </p>
           ) : null}
 
-          {model.loadStatus !== "loading" && model.loadStatus !== "ready" ? (
+          {model.loadStatus !== "loading" && showLoadError ? (
             <p
               className="threat-sheet-projection__status threat-sheet-projection__status--error"
               role="status"
@@ -352,6 +444,14 @@ function ThreatSheetBody({
               {model.message ?? `Exact mechanics ${model.loadStatus.replace(/_/g, " ")}.`}
             </p>
           ) : null}
+
+          {playDraftLoadStatus === "loading" ? (
+            <p className="threat-sheet-projection__status threat-sheet-projection__status--loading" role="status">
+              Loading workbench draft…
+            </p>
+          ) : null}
+
+          {showPlayDraft && playDraft ? <ThreatPlayDraftPanel draft={playDraft} /> : null}
 
           <div className="threat-sheet-projection__bindings">
             {model.bindings.map((binding) =>
@@ -380,7 +480,7 @@ function ThreatSheetBody({
         </>
       )}
 
-      {model.loadStatus !== "loading" && model.loadStatus !== "ready" && glanceOnly ? (
+      {model.loadStatus !== "loading" && showLoadError && glanceOnly ? (
         <p
           className="threat-sheet-projection__status threat-sheet-projection__status--error"
           role="status"
@@ -522,6 +622,12 @@ export function ThreatSheetProjection({
     };
   }, [selectionKey, selectionTuple]);
 
+  const [playDraft, setPlayDraft] = useState<OfConksPlayDraftSummary | null>(null);
+  const [playDraftLoadStatus, setPlayDraftLoadStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [isAddingToCombat, setIsAddingToCombat] = useState(false);
+
   const resolverProjectionState = graphReferenceBinding?.resolverState ?? null;
   const effectiveProjectionState =
     projectionState ?? resolution.projectionState ?? resolverProjectionState ?? null;
@@ -534,17 +640,99 @@ export function ThreatSheetProjection({
       }
     : undefined;
 
-  const cardModel = useMemo(
-    () => ({
-      ...resolution.graphObject,
-      actions: buildPlanGraphObjectActions({
+  const model = useMemo(
+    () =>
+      buildThreatSheetViewModel({
         resolution,
-        sessionDescriptor,
-        onOpenStatblock,
+        hit: selectedHit,
+        loadStatus,
+        message: loadMessage,
       }),
-    }),
-    [onOpenStatblock, resolution, sessionDescriptor],
+    [loadMessage, loadStatus, resolution, selectedHit],
   );
+
+  const playArtifactId = useMemo(
+    () => (selectionTuple ? playArtifactIdForThreatNode(selectionTuple.threatNodeId) : null),
+    [selectionTuple],
+  );
+
+  const hasAvailableBinding = useMemo(
+    () => model.bindings.some((binding) => binding.hydrationStatus === "available"),
+    [model.bindings],
+  );
+
+  const shouldFetchPlayDraft =
+    Boolean(playArtifactId) && loadStatus !== "loading" && !hasAvailableBinding;
+
+  useEffect(() => {
+    if (!shouldFetchPlayDraft || !playArtifactId) {
+      setPlayDraft(null);
+      setPlayDraftLoadStatus("idle");
+      return;
+    }
+
+    let cancelled = false;
+    setPlayDraftLoadStatus("loading");
+    setPlayDraft(null);
+
+    void getStatblockWorkbenchDraft(playArtifactId)
+      .then((response) => {
+        if (cancelled) return;
+        setPlayDraft(summaryFromWorkbenchRecord(response.record));
+        setPlayDraftLoadStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPlayDraft(null);
+        setPlayDraftLoadStatus("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playArtifactId, shouldFetchPlayDraft]);
+
+  const handleAddToCombat = useCallback(async () => {
+    if (!playDraft || isAddingToCombat) return;
+    setIsAddingToCombat(true);
+    try {
+      await addWorkbenchDraftToCombat(playDraft.artifactId, { team: "enemy", count: 1 });
+      navigateToCombatPreservingCampaigns();
+    } finally {
+      setIsAddingToCombat(false);
+    }
+  }, [isAddingToCombat, playDraft]);
+
+  const cardModel = useMemo(() => {
+    const baseActions = buildPlanGraphObjectActions({
+      resolution,
+      sessionDescriptor,
+      onOpenStatblock,
+    });
+    const actions = [...baseActions];
+    if (playDraft) {
+      actions.push({
+        id: "add-to-combat",
+        label: "Add to combat",
+        kind: "add-to-combat",
+        disabled: isAddingToCombat,
+        onClick: () => {
+          void handleAddToCombat();
+        },
+      });
+    }
+    return {
+      ...resolution.graphObject,
+      actions,
+    };
+  }, [
+    handleAddToCombat,
+    isAddingToCombat,
+    onOpenStatblock,
+    playDraft,
+    resolution,
+    sessionDescriptor,
+  ]);
 
   const onSelectRelationship = useCallback(
     async (relationship: GraphObjectRelationshipViewModel) => {
@@ -596,17 +784,6 @@ export function ThreatSheetProjection({
     || resolverProjectionState === "loading"
     || resolverProjectionState === "error";
 
-  const model = useMemo(
-    () =>
-      buildThreatSheetViewModel({
-        resolution,
-        hit: selectedHit,
-        loadStatus,
-        message: loadMessage,
-      }),
-    [loadMessage, loadStatus, resolution, selectedHit],
-  );
-
   if (!selectionTuple) {
     return (
       <article
@@ -635,16 +812,21 @@ export function ThreatSheetProjection({
     );
   }
 
+  const usePlaySheetChrome = Boolean(playDraft) || shouldFetchPlayDraft;
+
   return (
     <article
       ref={articleRef}
       className={
         glanceOnly
           ? "plan-reference-object-card plan-reference-object-card--threat-sheet"
-          : "plan-reference-object-card plan-reference-object-card--threat-sheet plan-reference-object-card--threat-sheet-full"
+          : usePlaySheetChrome
+            ? "plan-reference-object-card plan-reference-object-card--threat-sheet plan-reference-object-card--threat-sheet-play"
+            : "plan-reference-object-card plan-reference-object-card--threat-sheet plan-reference-object-card--threat-sheet-full"
       }
       aria-label={`${model.label} threat sheet`}
       data-testid="plan-reference-threat-sheet"
+      data-threat-sheet-chrome={glanceOnly ? "glance" : usePlaySheetChrome ? "play" : "full"}
     >
       <ThreatSheetBody
         model={model}
@@ -655,6 +837,10 @@ export function ThreatSheetProjection({
         onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
         relationshipsDisabled={relationshipsDisabled}
+        playDraft={playDraft}
+        playDraftLoadStatus={playDraftLoadStatus}
+        onAddToCombat={playDraft ? () => { void handleAddToCombat(); } : undefined}
+        isAddingToCombat={isAddingToCombat}
       />
     </article>
   );

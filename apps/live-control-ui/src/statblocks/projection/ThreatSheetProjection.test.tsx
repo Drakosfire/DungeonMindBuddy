@@ -14,10 +14,12 @@ vi.mock("../../api/liveApi", async () => {
   return {
     ...actual,
     postThreatQueryHydration: vi.fn(),
+    getStatblockWorkbenchDraft: vi.fn(),
+    addWorkbenchDraftToCombat: vi.fn(),
   };
 });
 
-import { postThreatQueryHydration } from "../../api/liveApi";
+import { addWorkbenchDraftToCombat, getStatblockWorkbenchDraft, postThreatQueryHydration } from "../../api/liveApi";
 
 const revision = revisionFixture as StatblockRevisionResourceV1;
 
@@ -52,9 +54,28 @@ function threatResolution(): Extract<GraphReferenceResolution, { kind: "resolved
   };
 }
 
+function ofConksThreatResolution(
+  nodeId: string,
+  label: string,
+): Extract<GraphReferenceResolution, { kind: "resolved_graph" }> {
+  return {
+    ...threatResolution(),
+    locator: `dmb-node:${nodeId}`,
+    graphNodeId: nodeId,
+    graphObject: {
+      ...threatResolution().graphObject,
+      id: nodeId,
+      label,
+    },
+    message: `Resolved graph node ${label}.`,
+  };
+}
+
 describe("ThreatSheetProjection", () => {
   beforeEach(() => {
     vi.mocked(postThreatQueryHydration).mockReset();
+    vi.mocked(getStatblockWorkbenchDraft).mockReset();
+    vi.mocked(addWorkbenchDraftToCombat).mockReset();
   });
 
   it("loads exact mechanics for the selected Threat tuple", async () => {
@@ -588,6 +609,136 @@ describe("ThreatSheetProjection", () => {
     expect(advanced).toHaveTextContent(/Validation/i);
     expect(advanced).toHaveTextContent(/Provenance and receipts/i);
     expect(advanced).toContainElement(screen.getByTestId("threat-sheet-binding-summary"));
+  });
+
+  it("loads Of Conks workbench draft when exact hydration is unavailable", async () => {
+    vi.mocked(postThreatQueryHydration).mockResolvedValue({
+      schema: "dmb_threat_query_hydration_response_v1",
+      worldId: scope.worldId,
+      campaignId: scope.campaignId,
+      scopeMode: scope.scopeMode,
+      revisionId: scope.revisionId,
+      queryText: "threat:grotesque-tree",
+      resultLabel: "threat_query_hydration_ok",
+      hits: [
+        {
+          threat: {
+            nodeId: "threat:grotesque-tree",
+            label: "Grotesque Tree",
+            kind: "threat",
+            role: "creature",
+            aliases: [],
+            sourceDomains: [],
+            evidenceBadges: [],
+            adjacency: [],
+            suggestedExpansions: [],
+            evidenceRefIds: [],
+            sourceArtifactIds: [],
+            anchoredToFocusSession: true,
+            summary: "A twisted tree.",
+          },
+          matchReasons: ["exact_node_id"],
+          relationships: [],
+          bindings: [],
+          mechanicsDisposition: "unbound",
+        },
+      ],
+      diagnostics: [],
+      message: null,
+    });
+    vi.mocked(getStatblockWorkbenchDraft).mockResolvedValue({
+      schema_version: "dmb_statblock_draft_read_v1",
+      record: {
+        schema_version: "dmb_statblock_draft_record_v1",
+        artifact_id: "of-conks-grotesque-tree",
+        title: "Grotesque Tree",
+        campaign_id: scope.campaignId,
+        session: 22,
+        stored_at: "2026-08-13T13:31:41.552554Z",
+        updated_at: "2026-08-13T14:50:54.361814Z",
+        storage_path: "statblock_drafts/of-conks-grotesque-tree.json",
+        artifact: {
+          artifact_id: "of-conks-grotesque-tree",
+          draft_id: "draft-of-conks-grotesque-tree",
+          title: "Grotesque Tree",
+          markdown: "# Grotesque Tree\n\nArmor Class 11",
+          structured_statblock: { challenge_rating: "1" },
+          combat_defaults: {
+            name: "Grotesque Tree",
+            armor_class: 11,
+            hit_points: 39,
+            speed: "—",
+            primary_actions: ["Branch"],
+            suggested_tactics: ["Attack anyone within 30 ft."],
+          },
+          warnings: [],
+          provenance: {},
+          review_status: "draft",
+          lifecycle_state: "workbench_stored",
+          storage_status: "stored",
+          corpus_status: "not_promoted",
+          source_refs: [],
+          breadcrumbs: [],
+          created_by: "seed",
+          created_at: "2026-08-13T13:31:41.552554Z",
+          updated_at: "2026-08-13T14:50:54.361814Z",
+        },
+      },
+    });
+    vi.mocked(addWorkbenchDraftToCombat).mockResolvedValue({
+      schema_version: "dmb_add_generated_statblock_to_combat_v1",
+      added_entities: [],
+      encounter: {
+        schema: "dmb_combat_encounter_state_v1",
+        campaign_id: scope.campaignId,
+        session: 22,
+        updated_at: "2026-08-13T00:00:00Z",
+        entities: [],
+        groups: [],
+        provenance: [],
+      },
+      diagnostics: [],
+    });
+
+    const assignMock = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        search: "?campaigns=longmont-c2",
+        assign: assignMock,
+      },
+    });
+
+    render(
+      <ThreatSheetProjection
+        resolution={ofConksThreatResolution("threat:grotesque-tree", "Grotesque Tree")}
+        glanceOnly={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("threat-sheet-play-draft")).toBeInTheDocument();
+    });
+
+    expect(getStatblockWorkbenchDraft).toHaveBeenCalledWith("of-conks-grotesque-tree");
+    expect(screen.getByTestId("threat-sheet-play-draft")).toHaveTextContent("Armor Class 11");
+    expect(screen.getByTestId("threat-sheet-add-to-combat")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("threat-sheet-add-to-combat"));
+
+    await waitFor(() => {
+      expect(addWorkbenchDraftToCombat).toHaveBeenCalledWith("of-conks-grotesque-tree", {
+        team: "enemy",
+        count: 1,
+      });
+    });
+    expect(assignMock).toHaveBeenCalledWith("/combat?campaigns=longmont-c2");
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
   });
 
   it("fails closed when exact graph scope is missing", () => {

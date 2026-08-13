@@ -36,7 +36,22 @@ export {
 } from "./resolveGraphReference";
 export { insertMarkdownReference } from "./insertMarkdownReference";
 export { useOpenGraphReference, type UseOpenGraphReferenceOptions } from "./useOpenGraphReference";
-export { glanceOnlyForGraphReference } from "./openGraphReferencePolicy";
+export {
+  glanceOnlyForGraphReference,
+  opensFullPlaySheet,
+} from "./openGraphReferencePolicy";
+export {
+  hasOfConksPlayObjectBody,
+  playObjectBodyForNodeId,
+  type PlayObjectBody,
+  type PlayObjectConnectedChip,
+  type PlayObjectKind,
+} from "./ofConksPlayObjectBridge";
+export {
+  PlayObjectSheetProjection,
+  shouldRenderPlayObjectSheet,
+  type PlayObjectSheetProjectionProps,
+} from "./PlayObjectSheetProjection";
 export {
   ResolvedGraphObjectProjection,
   type ResolvedGraphObjectProjectionProps,
