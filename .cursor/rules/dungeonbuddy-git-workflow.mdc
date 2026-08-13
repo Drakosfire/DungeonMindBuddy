@@ -1,28 +1,95 @@
 ---
-description: DungeonMindBuddy git and branch conventions; complements DungeonOverMind workspace rules.
+description: DungeonMindBuddy git, branch, worktree, and parallel-lane conventions; complements DungeonOverMind workspace rules.
 alwaysApply: true
 ---
 
-# DungeonMindBuddy — Git and branch model
+# DungeonMindBuddy — Git and parallel lane model
 
 ## Inheritance
 
-This repo does **not** duplicate DungeonOverMind-wide standards (engineering principles, development workflow patterns, service boundaries). When your Cursor workspace includes the **DungeonOverMind** tree, agents should still follow:
+This repo does **not** duplicate DungeonOverMind-wide standards (engineering principles, development workflow patterns, service boundaries). When the Cursor workspace includes the **DungeonOverMind** tree, agents should still follow its shared engineering/development rules.
 
-- `.cursor/rules/engineering-principles.mdc`
-- `.cursor/rules/development.mdc`
-- `.cursor/rules/dungeonmind.mdc` (and related `PATTERNS-*`, `QUICK-REFERENCE-*`, etc.)
+Buddy-specific environment/security rules remain in `dungeonbuddy-environment.mdc`. This file narrows Git/worktree behavior for DungeonMindBuddy.
 
-Those live under `DungeonOverMind/.cursor/rules/` on disk. **Buddy-only rules in this repo:** `dungeonbuddy-environment.mdc` (OpenAI / `.env` loading). **This file** only adds Buddy-specific **git** expectations where they differ from or narrow the parent doc’s generic “`main` always deployable / short-lived branches” ideal.
+## Main is the integration line
 
-## Single line of work (until release discipline is needed)
+For DungeonMindBuddy right now:
 
-For **DungeonMindBuddy** right now:
+- `main` is the default integration line, not a protected production release branch.
+- Keep implementation branches short-lived and merge frequently.
+- Prefer small coherent PRs over long-lived integration branches.
+- Clear commit messages and nano-commit review stories matter more than branch ceremony.
+- Do not push secrets.
 
-- **`main` is not treated as sacred.** It is the default integration line, not a protected production gate.
-- Prefer a **single active branch** (often `main`, or one long-lived `cursor/…` / feature branch) and **small, frequent merges** over many parallel long-lived branches.
-- Avoid heavy ceremony: mandatory PR queues, strict “only merge to `main` when release-ready,” or multiple tiered branches **until** you explicitly adopt them for this repo.
+## Parallel work is normal
 
-**Still do:** clear commit messages, atomic-ish commits where practical, and don’t push secrets.
+Multiple agents may work concurrently. Use **one branch + one worktree per active implementation lane** unless the environment provides equivalent source isolation.
 
-**When this rule should be revisited:** the first time Buddy ships on a schedule, shares `main` with another team, or CI must block merges—then tighten branch policy and document the change here or in a short ADR.
+A parallel lane is safe only when both forms of ownership are understood:
+
+1. **source ownership** — the HANDOFF §4 allowlist is the lane's expected exclusive write lease;
+2. **runtime/state ownership** — ports, services, DBs, `out/`, caches, generated state, fixtures, and external resources may still be shared across worktrees.
+
+Read overlap is normal. Write overlap is not.
+
+Before dispatching a second lane:
+
+- pin both bases;
+- compare active handoff §4 allowlists / PR changed paths;
+- identify collision hotspots such as central routers, shared registries, lockfiles, root config, active state-authority docs, and generated schemas;
+- inspect runtime/service/state collisions separately from source paths;
+- split the seam, serialize, or explicitly transfer ownership when the lanes cannot stay independent.
+
+Do not use eventual Git conflicts as the ordinary signal that two agents crossed domains.
+
+## Write-lease collision rule
+
+When an active worker discovers that a required path is outside its §4 allowlist or is leased by another active lane, it must stop and report:
+
+```text
+required path
+current lane/owner
+why this slice now needs it
+whether the seam can be split
+whether work can wait
+whether explicit ownership transfer is required
+```
+
+The steward then chooses one of:
+
+```text
+split the seam
+serialize the slices
+transfer the path/ownership explicitly
+re-brief the affected handoff
+```
+
+Silent dual editing is not an option.
+
+## Worktree caveat: source isolation is not state isolation
+
+A clean worktree does not imply a clean runtime environment. DungeonBuddy has historically stored important local runtime state under repo-contained paths such as `out/`; a second worktree may not contain that state, and symlinking another worktree's state can correctly fail repo-containment guards.
+
+When dogfood or verification needs durable local state, the handoff must say whether the lane uses:
+
+- an isolated state root;
+- a shared service/database with an explicit namespace;
+- copied bounded fixtures/state;
+- or a serialized operator environment.
+
+Do not weaken path-containment or safety checks merely to make a worktree see another checkout's state.
+
+## Merge and next-lane discipline
+
+After merge:
+
+1. verify the exact integration tip (`git rev-parse HEAD`, `git show -s`, and remote ref when relevant);
+2. perform the workstream's atomic state-authority sync;
+3. re-anchor active lanes against the new integration state;
+4. only then dispatch a dependent successor.
+
+Independent lanes may continue when the merged change does not invalidate their base assumptions, write lease, or predecessor contract; the steward must make that judgment explicitly rather than assuming every merge forces every worktree to restart.
+
+## When to tighten this rule
+
+Revisit branch protection/release policy when Buddy ships on a schedule, shares `main` with a larger team, or CI must become a blocking release gate. That future release discipline should not erase the worktree/write-lease model for concurrent development.
