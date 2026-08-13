@@ -1,7 +1,7 @@
 # HANDOFF — CUTOVER classify identity lifecycle shadow state after PR #571
 
 **Created:** 2026-08-12  
-**Status:** READY FOR BUILD  
+**Status:** DONE — merged as PR #575 at `d32c244e8505b2d35d1aa536f6ef6cc097d735ce`; cumulative review cycles = 3  
 **Workstream:** CUTOVER  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Direction:** DESIGN → CODE  
