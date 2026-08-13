@@ -387,6 +387,31 @@
   cursor: pointer;
 }
 
+.threat-sheet-projection__media {
+  margin: 0 0 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--threat-sheet-border) 80%, transparent);
+  border-radius: 0.35rem;
+  overflow: hidden;
+  background: rgba(255, 249, 237, 0.85);
+}
+
+.threat-sheet-projection__media img {
+  display: block;
+  width: 100%;
+  max-height: min(42vh, 24rem);
+  object-fit: contain;
+  object-position: top center;
+}
+
+.threat-sheet-projection__media figcaption {
+  margin: 0;
+  padding: 0.35rem 0.65rem 0.5rem;
+  color: var(--threat-sheet-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  border-top: 1px solid color-mix(in srgb, var(--threat-sheet-border) 70%, transparent);
+}
+
 .threat-sheet-projection__add-to-combat:hover:not(:disabled) {
   background: color-mix(in srgb, var(--threat-sheet-accent) 22%, var(--threat-sheet-paper));
 }

@@ -15,8 +15,11 @@ const mimeByExtension: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".jsonl": "application/x-ndjson; charset=utf-8",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
   ".md": "text/markdown; charset=utf-8",
   ".png": "image/png",
+  ".webp": "image/webp",
 };
 
 const prepPageAliases: Record<string, string> = {

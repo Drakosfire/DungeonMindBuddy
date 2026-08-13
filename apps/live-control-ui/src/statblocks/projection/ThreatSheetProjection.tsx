@@ -45,6 +45,10 @@ import {
   summaryFromWorkbenchRecord,
   type OfConksPlayDraftSummary,
 } from "./ofConksThreatPlayBridge";
+import {
+  mediaForOfConksNodeId,
+  type OfConksNodeMedia,
+} from "../../graphReference/ofConksNodeMedia";
 
 function resolveThreatActionHandler(
   action: GraphObjectActionViewModel,
@@ -81,7 +85,13 @@ function navigateToCombatPreservingCampaigns(): void {
   window.location.assign(target);
 }
 
-function ThreatPlayDraftPanel({ draft }: { draft: OfConksPlayDraftSummary }) {
+function ThreatPlayDraftPanel({
+  draft,
+  media,
+}: {
+  draft: OfConksPlayDraftSummary;
+  media?: OfConksNodeMedia | null;
+}) {
   return (
     <section
       className="threat-sheet-projection__play-draft"
@@ -89,6 +99,12 @@ function ThreatPlayDraftPanel({ draft }: { draft: OfConksPlayDraftSummary }) {
       data-testid="threat-sheet-play-draft"
     >
       <h4>{draft.title}</h4>
+      {media ? (
+        <figure className="threat-sheet-projection__media" data-testid="threat-sheet-media">
+          <img src={media.src} alt={media.alt} loading="lazy" />
+          {media.caption ? <figcaption>{media.caption}</figcaption> : null}
+        </figure>
+      ) : null}
       <dl className="threat-sheet-projection__core-stats">
         <div>
           <dt>AC</dt>
@@ -371,6 +387,7 @@ function ThreatSheetBody({
   playDraftLoadStatus,
   onAddToCombat,
   isAddingToCombat,
+  nodeMedia = null,
 }: {
   model: ThreatSheetViewModel;
   glanceOnly: boolean;
@@ -384,6 +401,7 @@ function ThreatSheetBody({
   playDraftLoadStatus: "idle" | "loading" | "ready" | "error";
   onAddToCombat?: () => void;
   isAddingToCombat?: boolean;
+  nodeMedia?: OfConksNodeMedia | null;
 }) {
   const availableCount = availableBindingCount(model.bindings);
   const compactBinding =
@@ -451,7 +469,9 @@ function ThreatSheetBody({
             </p>
           ) : null}
 
-          {showPlayDraft && playDraft ? <ThreatPlayDraftPanel draft={playDraft} /> : null}
+          {showPlayDraft && playDraft ? (
+            <ThreatPlayDraftPanel draft={playDraft} media={nodeMedia} />
+          ) : null}
 
           <div className="threat-sheet-projection__bindings">
             {model.bindings.map((binding) =>
@@ -841,6 +861,7 @@ export function ThreatSheetProjection({
         playDraftLoadStatus={playDraftLoadStatus}
         onAddToCombat={playDraft ? () => { void handleAddToCombat(); } : undefined}
         isAddingToCombat={isAddingToCombat}
+        nodeMedia={mediaForOfConksNodeId(resolution.graphNodeId)}
       />
     </article>
   );

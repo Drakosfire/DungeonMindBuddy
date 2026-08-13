@@ -12,6 +12,7 @@ import {
 } from "../graphObjectCard/graphObjectDisplay";
 import type { PlayObjectBody, PlayObjectKind } from "./ofConksPlayObjectBridge";
 import { playObjectBodyForNodeId } from "./ofConksPlayObjectBridge";
+import { mediaForOfConksNodeId } from "./ofConksNodeMedia";
 import type { GraphReferenceResolution } from "./types";
 
 export type PlayObjectSheetProjectionProps = {
@@ -94,6 +95,7 @@ export function PlayObjectSheetProjection({
     return null;
   }
 
+  const media = mediaForOfConksNodeId(resolution.graphNodeId);
   const titles = sectionTitles(body.kind);
   const typeBadge = graphObjectTypeBadgeLabel(model.kind, model.role);
   const aliases = model.aliases ?? [];
@@ -140,6 +142,13 @@ export function PlayObjectSheetProjection({
           <p className="play-object-sheet__aliases">Also known as: {aliases.join(", ")}</p>
         ) : null}
       </header>
+
+      {media ? (
+        <figure className="play-object-sheet__media" data-testid="play-object-sheet-media">
+          <img src={media.src} alt={media.alt} loading="lazy" />
+          {media.caption ? <figcaption>{media.caption}</figcaption> : null}
+        </figure>
+      ) : null}
 
       <section className="play-object-sheet__section" aria-label={titles.atTable}>
         <h5>{titles.atTable}</h5>

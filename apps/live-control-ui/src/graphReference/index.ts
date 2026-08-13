@@ -48,6 +48,10 @@ export {
   type PlayObjectKind,
 } from "./ofConksPlayObjectBridge";
 export {
+  mediaForOfConksNodeId,
+  type OfConksNodeMedia,
+} from "./ofConksNodeMedia";
+export {
   PlayObjectSheetProjection,
   shouldRenderPlayObjectSheet,
   type PlayObjectSheetProjectionProps,

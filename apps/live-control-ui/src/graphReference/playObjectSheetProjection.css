@@ -71,6 +71,32 @@
   line-height: 1.4;
 }
 
+.play-object-sheet__media {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--play-sheet-border) 85%, transparent);
+  border-radius: 0.35rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--play-sheet-paper) 80%, white);
+}
+
+.play-object-sheet__media img {
+  display: block;
+  width: 100%;
+  max-height: min(48vh, 28rem);
+  object-fit: contain;
+  object-position: top center;
+  background: #f3ebe0;
+}
+
+.play-object-sheet__media figcaption {
+  margin: 0;
+  padding: 0.4rem 0.65rem 0.55rem;
+  color: var(--play-sheet-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  border-top: 1px solid color-mix(in srgb, var(--play-sheet-border) 70%, transparent);
+}
+
 .play-object-sheet__section h5,
 .play-object-sheet__advanced h6 {
   margin: 0 0 0.4rem;

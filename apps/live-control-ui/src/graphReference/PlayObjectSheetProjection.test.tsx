@@ -50,6 +50,11 @@ describe("PlayObjectSheetProjection", () => {
     expect(screen.getByText(/Attitude/i)).toBeInTheDocument();
     expect(screen.getByText(/Offers & hooks/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Open Saladin/i })).toBeInTheDocument();
+    expect(screen.getByTestId("play-object-sheet-media")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /store and Saladin/i })).toHaveAttribute(
+      "src",
+      expect.stringContaining("page-09-area-2-3-store-wagon.jpg"),
+    );
   });
 
   it("shouldRenderPlayObjectSheet is true only for bridged nodes", () => {
