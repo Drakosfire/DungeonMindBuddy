@@ -1,83 +1,139 @@
 ---
-description: Re-anchor — the deliberate act of reconciling current state with canonical sources before action, without re-deriving from chat history. Read on demand when you are about to author a HANDOFF, perform a post-merge atomic doc-sync, pick up an unfamiliar workstream, bridge between agent sessions, or notice chat history disagreeing with `main`. Defines three scopes (workstream / session / task), names the canonical sources for each, explains the discipline that keeps the sources trustworthy, and gives a five-step act-of-re-anchoring checklist. The always-on rules this depends on are listed at the bottom.
+description: Re-anchor — reconcile current repository state with canonical sources before action instead of reconstructing state from chat. Read before authoring a handoff, selecting a dependent successor, performing atomic state-authority sync, picking up an unfamiliar workstream, or resolving source/main disagreement.
 alwaysApply: false
 ---
 
-# Re-anchor (on-demand)
+# Re-anchor
 
-**Re-anchor** is the **deliberate act of reconciling current state with the canonical sources of truth before taking action** — so you do *not* re-derive that state from chat history. The act has three scopes; each has named canonical sources that the always-on rules keep trustworthy.
+**Re-anchor** is the deliberate act of reconciling current state with canonical sources before taking action. It exists so agents do not reconstruct project state from chat history, stale handoffs, or remembered PR numbers.
 
-This rule is **on-demand**. Read it when you are about to:
+Use it when you are about to:
 
-- Author a `Docs/Plans/HANDOFF-pr<N>-*.md` for an external PR (the HANDOFF is downstream of the workstream-scope re-anchor).
-- Perform a post-merge atomic doc-sync (the doc-sync **is** the workstream-scope re-anchor act, written down).
-- Pick up an unfamiliar workstream.
-- Bridge between agent sessions (write or read a self-continuity HANDOFF).
-- Notice chat history disagreeing with `main` (re-anchor first, *then* decide whether the sources are stale or chat is wrong).
+- author a new implementation HANDOFF;
+- select or dispatch a dependent successor;
+- perform post-merge atomic state-authority sync;
+- pick up an unfamiliar workstream;
+- bridge a long agent/session gap;
+- or resolve a contradiction between chat, attached sources, planning docs, and `main`.
 
-Skip this rule for narrow tasks where the scope is obvious (single-file fix, immediate question, live-play moment).
+Skip it for narrow obvious tasks and live-play moments.
 
-## The three scopes
+## Three scopes
 
-### 1. Workstream scope — most common
+### 1. Workstream scope
 
-Canonical sources, read in this order:
+Identify the **actual mutable state authorities for this workstream**. There is no universal closed set. Common examples are:
 
-1. `Docs/Plans/CHECKLIST-<rollout>.md` § *Reanchor block* — at minimum: `Active phase`, `Last green artifact (path)`, `Next command to run`; also read the open **promotion / evidence** line (e.g. **Open promotion-decision artifact**) so measurement artifacts are not mistaken for failing committed `--check` gates.
-2. `Docs/Plans/PLAN-<plan>.md` frontmatter — `version`, `last_updated_at`, and the full `execution_state` block (`active_phase`, `milestone_progress`, `next_gate_command`, `integration_notes`, `flagged_followups`, `blockers`).
-3. `Docs/Plans/PLAN-<plan>.md` `external_pull_requests[]` — most recent entry's `judgment_record.notes` (what shipped, what's pending) and `rubric_when_we_judge` (what to carry forward into the next slice's HANDOFF §9).
-4. `git rev-parse HEAD` + `git show -s --format='%h %s' HEAD` — confirm local `main` matches the most recent `integration_notes` merge hash. If they diverge, **stop**: either the doc-sync didn't land or someone pushed past it.
+1. active `CHECKLIST-*` re-anchor/evidence block;
+2. active `PLAN-*` frontmatter / execution state / judgment record;
+3. active `ROADMAP-*`, PR tracker, or `STATUS-*` document when it claims current sequence/state;
+4. current HANDOFF or predecessor completion record;
+5. exact repository integration state (`git rev-parse`, `git show`, remote ref when relevant).
 
-**Use case:** picking up a multi-PR workstream (e.g. split-corpus retrieval); preparing a post-merge doc-sync; authoring the next slice's HANDOFF.
+Architecture and contracts are read when they govern the decision, but they are not mutable progress ledgers merely because a PR merged.
 
-### 2. Session scope — bridging agents
+**Use case:** picking up a multi-PR workstream, writing the next handoff, or closing a merge with state-authority sync.
 
-Canonical source: a current `Docs/Plans/HANDOFF-self-continuity-*.md` if one exists — its §0 + §1 are the session re-anchor and were written explicitly to make chat history unnecessary. If none exists, fall back to **workstream scope** (workstream sources are usually sufficient when the workstream is mid-flight; the self-continuity HANDOFF only adds value across longer gaps or when many concurrent threads need disambiguating).
+### 2. Session scope
 
-**Use case:** bridging from one agent session to the next; picking up after a long gap; preparing to dispatch a fresh agent on the next slice when in-context state has accumulated noise.
+Use a current self-continuity handoff if one exists and still matches repository state. If none exists, fall back to workstream scope. A self-continuity document adds useful orientation; it never outranks `main` or current authorities.
 
-### 3. Task scope — before substantive work
+**Use case:** long gaps, many concurrent lanes, or agent/session transfer.
 
-Canonical sources, read together:
+### 3. Task scope
 
-1. `Backlog.md` (per-project, in repo root) and `~/.cursor/learnings/Backlog.md` (cross-project) — match `Surfaces when:` lines to the current task; surface 1–3 relevant items inline before starting (per `capture-and-resurface.mdc`).
-2. Any active `Docs/Plans/HANDOFF-pr<N>-*.md` matching the PR you are about to touch.
-3. **`Docs/Anchors/CORPUS-ANCHOR.md`** — when the task touches recap ingest, graph-memory extraction, planning corpus manifests, or evolving vocabulary over campaign/world markdown. Machine-readable tree: `corpus/CORPUS-INDEX.json` (regenerate via `PYTHONPATH=. python scripts/build_corpus_index.py`).
+Before substantive work, read together:
 
-**Use case:** before any task that will take >3 turns or touch >2 files. Skip for trivial tasks and live-play moments.
+1. relevant repository/backlog learning surfaced for the task;
+2. the active HANDOFF for the slice;
+3. domain-specific source anchors when the task requires them (for example `Docs/Anchors/CORPUS-ANCHOR.md` for corpus/recap/graph-memory work);
+4. current branch/worktree/head and any parallel-lane collision context.
 
-## The discipline that makes the sources trustworthy
+**Use case:** work that will span multiple turns/files or interact with another active lane.
 
-These are **always-on** rules; this rule pulls them together for the re-anchor act:
+## The re-anchor act
 
-- **Atomic doc-sync invariant** (`external-agent-pr-loop.mdc` invariant #4): after any state-changing event — PR merge, phase close, gate trip — the workstream-scope sources are updated in **one edit batch**. Splitting across turns leaves a contradictory-state window where a fresh agent reads "pending" while `main` already has the change. **This invariant is what makes re-anchoring a real act, not a guess.**
-- **Stale-note discipline** (`external-agent-pr-loop.mdc` invariant #6): notes that describe what a PR *did* age well; notes that describe what is *still pending* age badly. Before quoting any `judgment_record.notes` or "Next command to run" downstream, re-verify its temporal claims.
-- **Rubric tightens** (`external-agent-pr-loop.mdc` invariant #5): every accepted PR adds a bullet to `rubric_when_we_judge`. Re-anchoring is not only "where am I"; it is also "what have we learned from each prior PR that I must carry forward into the next slice's HANDOFF §9." Identical rubrics two PRs in a row is a smell.
-- **No re-deriving from chat history**: if you are scrolling chat to figure out where you are, the re-anchor sources have failed and need updating, not extra scrolling. Instead: write a self-continuity HANDOFF, dispatch yourself a fresh agent, continue from the documented source.
-- **Wrapper output ≠ ground truth** (`AGENTS.md` § *Git history and merge commits*; sibling cross-project `~/.cursor/learnings/Backlog.md` 2026-05-10 entries on `git log --oneline` and sandboxed `git push`): `git log --oneline` may omit merge commits; sandboxed `git push` may report `ok` while silently no-op'ing. After re-anchoring on git state, verify with `git fetch origin <branch>` then `git rev-parse HEAD == git rev-parse origin/<branch>`.
+1. **Name the scope.** Workstream, session, or task.
+2. **Name the authorities.** Do not assume every workstream uses the same PLAN/CHECKLIST/ROADMAP shape.
+3. **Read them in precedence order** together with exact repository state.
+4. **Form an explicit current-state hypothesis and next action** in your own words.
+5. **Re-verify temporal claims** such as "still pending," "next slice," "last green," or "blocked by."
+6. **Inspect active parallel lanes** when the next action can collide: HANDOFF §4 write leases, PR changed paths, worktrees, and relevant runtime/state ownership.
+7. **If authorities disagree with each other or `main`, stop and repair the contradiction before dispatch.**
 
-## The act — five steps
+A valid re-anchor sounds like:
 
-1. **Name the scope.** Workstream / session / task. This determines which sources you read.
-2. **Read the canonical sources for that scope, in the order above.** Treat them as authoritative.
-3. **Form an explicit current-state hypothesis and a concrete next action**, in your own words. Do not skip this step. "I read the PLAN" is not re-anchoring; "the active phase is B, M2 is in_progress, the next gate is the cohort baseline runner, the most recent merge is `40be747a` (PR #5), and PR 6 is the next slice" is.
-4. **Re-verify any temporal claim** (e.g. "Phase A still pending", "the boundary test is still loader-only", "the last green artifact is N=10 passed") before quoting it elsewhere. Stale notes are the most common drift.
-5. **If the sources contradict each other or contradict `main`, STOP and fix the sources first.** Doing the next task on top of a contradictory state guarantees you build on the wrong assumption. Fixing usually means: completing a partial atomic doc-sync, re-running a stale verification command, or updating a stale `judgment_record.notes` field.
+```text
+main is at <sha>;
+<capability> is merged and <state authorities> agree;
+<lane A> owns <paths/runtime state>;
+<lane B> is independent;
+<next capability> remains false;
+therefore the next action is <specific dispatch/gate>.
+```
+
+"I read the plan" is not a re-anchor.
+
+## Discipline that keeps re-anchoring trustworthy
+
+### Atomic state-authority sync
+
+After a state-changing event—merge, phase close, gate trip, supersession—update the applicable mutable state authorities before dispatching a dependent successor.
+
+`PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set. If a roadmap, PR tracker, status document, or source index claims the changed current state, it belongs in that sync too.
+
+Prefer one commit or one sync PR. If tooling can only write files sequentially, no dependent dispatch may occur while the set is partial; re-read the full intended set and exact repository head before declaring the sync complete.
+
+Do not edit stable architecture/contracts only to make the sync look comprehensive.
+
+### Stale-note discipline
+
+Notes describing what a PR **did** age well. Notes describing what is **still pending** age badly. Re-verify temporal claims before quoting them downstream.
+
+### Review learning carries forward
+
+Review-cycle count and repeated finding classes are process telemetry. General lessons should tighten future steward critique, evidence design, or foundational rules; do not merely copy a growing rubric forever.
+
+### No chat reconstruction
+
+If you are scrolling chat to infer which slice is active while canonical workstream state exists, the state authorities need repair or a continuity artifact—not more scrolling.
+
+### Exact Git state
+
+Do not treat `git log --oneline` or wrapper success as the complete truth. After merges or pushes, verify exact refs with `git rev-parse`, `git show`, and remote comparison when it matters.
+
+## Parallel-lane re-anchor
+
+For two or more active agents, the current-state hypothesis must include ownership:
+
+```text
+lane
+branch/worktree or equivalent isolated checkout
+base/head
+HANDOFF
+§4 write lease
+runtime/state resources that can collide
+```
+
+Read overlap is fine. If two lanes require the same write path or unsafe shared runtime state, split the seam, serialize, or explicitly transfer ownership before work continues.
 
 ## Anti-patterns
 
-- ❌ Reading just one source (only the PLAN, ignoring the CHECKLIST Reanchor block, or vice versa) and assuming you are aligned. Drift between sources is exactly what re-anchoring catches.
-- ❌ Treating yesterday's `judgment_record.notes` as still-current without re-verifying.
-- ❌ "Light re-anchor": skimming the docs without forming an explicit current-state hypothesis and a concrete next action (step 3).
-- ❌ Re-deriving state from chat history when the workstream-scope sources exist.
-- ❌ Doing the next task without checking whether the *previous* event's atomic doc-sync ever landed (invariant #4 violations are silent — the doc-sync just doesn't appear, no error).
-- ❌ Trusting `git log --oneline` or a sandboxed `git push`'s `ok` without `git fetch` + `git rev-parse` verification.
-- ❌ Re-anchoring during a live-play moment (rolling dice, immediate scene narration, dice-result lookup). Defer until the next planning beat (per `capture-and-resurface.mdc` anti-patterns).
+- Reading only one planning document and assuming it represents the workstream.
+- Treating PLAN/CHECKLIST/HANDOFF as a universal closed sync set.
+- Updating architecture as routine merge bookkeeping.
+- Reusing yesterday's "still pending" note without verification.
+- Reconstructing state from chat when canonical sources exist.
+- Ignoring another active worktree because its branch has not conflicted yet.
+- Treating separate worktrees as proof of separate `out/`, services, databases, or ports.
+- Dispatching the next dependent slice before the previous transition's state-authority sync landed.
+- Trusting abbreviated Git output when exact refs are available.
 
-## Cross-references (always-on rules this depends on)
+## Cross-references
 
-- `external-agent-pr-loop.mdc` — invariants #4 (atomic doc-sync), #5 (rubric tightens), #6 (stale-note discipline) power the workstream-scope sources.
-- `capture-and-resurface.mdc` — the task-scope ritual; do not surface during live-play.
-- `verify-before-debug.mdc` — re-anchor is the start of "investigate rubric / data / prompt before code."
-- `AGENTS.md` § *Git history and merge commits* — wrapper-output verification step.
-- `.cursor/skills/external-agent-pr-loop/SKILL.md` § *Stage 4 — Merge + atomic doc-sync (one batch)* — the post-merge doc-sync edit list IS the workstream-scope re-anchor act, written down.
+- Foundational law: `AGENTS.md`
+- External-agent invariants: `.cursor/rules/external-agent-pr-loop.mdc`
+- Git/worktree lanes: `.cursor/rules/dungeonbuddy-git-workflow.mdc`
+- External-agent procedure: `.cursor/skills/external-agent-pr-loop/SKILL.md`
+- Task learning capture: `capture-and-resurface.mdc`
+- Verification discipline: `verify-before-debug.mdc`

@@ -1,64 +1,135 @@
 ---
-description: Invariants (always-on) for the four-stage external-agent PR loop in DungeonMindBuddy. Procedure / runbook lives in `.cursor/skills/external-agent-pr-loop/SKILL.md`.
+description: Non-negotiable invariants for the external-agent PR loop in DungeonMindBuddy. Procedure lives in `.cursor/skills/external-agent-pr-loop/SKILL.md`.
 alwaysApply: false
 ---
 
-# External-agent PR loop (contract)
+# External-agent PR loop — contract
 
-When work lands via a GitHub PR opened by an agent the parent does not directly drive (Codex-style branch agents), the four-stage cycle is **HANDOFF write → external PR opens → judgment record → atomic doc-sync**. The cycle does not end at "merged green" — it ends when the plan YAML, checklist, and handoff status all match `main`.
+When work lands through a GitHub PR opened by an agent the steward does not directly drive, the development cycle is:
 
-For **in-IDE** subagents (the parent agent dispatches a `Task` and reads its output), follow `subagent-delegation.mdc` instead.
+```text
+re-anchor
+→ DESIGN → CODE HANDOFF
+→ external PR
+→ review cycle 1..N
+→ merge
+→ judgment/learning capture
+→ atomic state-authority sync
+→ re-anchor
+```
 
-The procedure for each stage — how to run `scripts/review_external_pr.py`, the markdown spec for review bodies, the doc-sync edit list, and templates — lives in **`.cursor/skills/external-agent-pr-loop/SKILL.md`**. This rule states only the non-negotiable invariants.
+The cycle does not end at "merged green." It ends when the applicable mutable state authorities agree with `main` again.
 
-## Agent flow and nano-commit naming
+For in-IDE subagents, follow `subagent-delegation.mdc` instead. Exact fetch/verify/post/merge procedure belongs in `.cursor/skills/external-agent-pr-loop/SKILL.md`.
 
-Every handoff records the exact Cursor conversation name and uses the explicit
-direction `DESIGN agent → CODE agent → reviewer`.
+## Identity, naming, and nano commits
 
-The four operating flows are:
+Every handoff records the exact conversation/workstream identity and the explicit direction:
 
-- `BUILD`
-- `STATBLOCK`
-- `TIMELINE`
-- `DOCUMENTS`
+```text
+DESIGN agent → CODE agent → reviewer
+```
 
-Handoff filenames use `HANDOFF-<FLOW>-<short-slug>.md`; PR titles use
-`<FLOW>: <short capability>`. PR numbers are optional GitHub transport
-metadata and are not naming authority.
+Handoff filenames use:
 
-Implementation branches should use nano commits: one discrete fix, contract
-adjustment, regression proof, or review response per commit. Keep unrelated
-cleanup and document sync out of the implementation sequence.
+```text
+HANDOFF-<FLOW>-<short-slug>.md
+```
 
-## Invariants (do not regress)
+PR titles use:
 
-1. **Critique before dispatch.** Before finalizing a handoff, critique the proposed merge-ready invariant and the evidence required to prove it. Identify adversarial sequences, split the slice when one invariant cannot govern every observable path, and do not launch while proof ownership is unresolved.
-2. **HANDOFF must include §4 allowlist and §7 verification.** §4 is a markdown table the agent's expected `git diff --stat` can be expressed from. If you cannot enumerate the allowlist, the slice is not ready to dispatch.
-3. **The checked-in HANDOFF and cumulative code diff are the merge contract.** The reviewer MUST identify the exact PR/branch/head SHA, nano-commit sequence, changed paths, and verification evidence. The PR description is transport metadata only; it is not authority or proof.
-4. **Review may require as many discrete fixes as necessary.** Every finding MUST identify the concrete failure or missing proof, affected observable path, owning boundary, and specific fix required to move the invariant toward merge. Re-review the cumulative invariant after each fix; do not stop at one review round.
-5. **Use the scripts, not manual `gh + git + sed`.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the canonical path for fetch, allowlist-check, §7 rerun, verdict-with-inline-comments, and merge-and-ff-main. A PR number may be supplied to tooling as transport metadata only.
-6. **Document sync is separate from implementation review.** After merge, plan/checklist/handoff-status updates move together as one doc-sync operation, but they are not bundled into code fixes or justified by a PR description.
-7. **The judgment-record rubric is a learning surface.** Every supersession MUST add a bullet to `rubric_when_we_judge`. Every accepted PR SHOULD leave the rubric tighter, not unchanged.
-8. **Stale-note discipline.** Notes that describe what a PR did age well; notes that describe what is still pending age badly. Re-verify temporal claims before quoting them downstream.
+```text
+<FLOW>: <short capability>
+```
 
-## Anti-patterns (forbidden)
+`<FLOW>` is an explicit workstream/domain owner, not a forever-closed enum. Current repositories may add a named flow as product boundaries evolve; the handoff must still make ownership unambiguous. PR numbers are transport metadata, not naming authority.
 
-- ❌ Dispatching before the invariant and required evidence survive critique.
-- ❌ Briefing without an allowlist or owning-boundary verification command.
-- ❌ Treating a PR description as a substitute for the checked-in handoff, cumulative diff, nano commits, or verification evidence.
-- ❌ Opening a flow without a conversation name, design-to-code direction, or standard flow identifier.
-- ❌ Bundling unrelated fixes into one commit when a nano-commit would tell the review story more clearly.
-- ❌ Silently accepting “tiny adjacent” scope creep at review time. Revert or re-brief.
-- ❌ Accepting a green PR description without reviewing the diff and rerunning §7 yourself.
-- ❌ Testing only the helper when the guarantee lives in a service, workflow, surface, or multi-step sequence.
-- ❌ Reusing prior `judgment_record.notes` without re-verifying temporal claims.
-- ❌ Hand-anchoring inline review comments to context lines.
-- ❌ Reproducing the manual `gh + git + sed` dance when a handoff exists.
+Implementation uses nano commits where practical: one discrete fix, contract adjustment, regression proof, or review response per commit. Unrelated cleanup and state-authority sync stay out of the implementation sequence.
+
+## Review-cycle definition
+
+A **review cycle** is exactly:
+
+> one complete formal reviewer judgment against one distinct PR head SHA.
+
+Therefore:
+
+- the first formal judgment is Review Cycle 1;
+- a changed head followed by another formal judgment increments once;
+- multiple findings in one judgment remain one cycle;
+- fix commits, handbacks, comments, CI reruns, or evidence posts do not increment by themselves;
+- do not cap review cycles for optics. Count them to learn which finding classes should move upstream into future critique/evidence design.
+
+The completion record should capture the total review-cycle count and the material finding classes that caused re-review.
+
+## Write lease and parallel-agent invariant
+
+HANDOFF §4 is both the expected diff allowlist and the lane's **exclusive expected write lease** while the slice is active.
+
+- Other lanes may read leased paths.
+- A second lane must not silently edit them.
+- If a worker discovers a required path outside §4 or owned by another active lane, stop and report it before changing the path.
+- The steward must split the seam, serialize the work, explicitly transfer ownership, or re-brief the slice.
+- Git merge conflicts are not the normal collision detector.
+
+Parallel worktree/checkout source isolation does not prove runtime isolation; shared ports, services, DBs, `out/`, caches, generated state, fixtures, or external resources must be handled separately when relevant.
+
+## Invariants — do not regress
+
+1. **Critique before dispatch.** Before finalizing a handoff, falsify the proposed merge-ready invariant and its evidence. Identify adversarial sequences, split when one invariant cannot govern every claimed path, and do not dispatch while proof ownership is unresolved.
+2. **One capability / one invariant.** The slice delivers one independently useful outcome. A second independently useful/revertible public or durable contract is a split signal.
+3. **§4 allowlist / write lease is mandatory.** Every expected changed path must be named or covered by a precisely bounded discovery exception. A path outside the lease is a stop report, not a quiet edit.
+4. **The checked-in HANDOFF and cumulative diff are the merge contract.** The reviewer identifies exact PR/branch/head SHA, nano-commit sequence, changed paths, and evidence. The PR description is transport metadata only.
+5. **Review continues for as many cycles as necessary.** Every finding names the failure/missing proof, affected observable path, owning boundary, and concrete fix/evidence required. Re-review the complete invariant after each changed head; do not verify only the literal patch.
+6. **Evidence must exercise the owning boundary.** Lower-level helper coverage can support but cannot prove a higher-level service/workflow/persistence/concurrency/surface guarantee.
+7. **Use the canonical review tooling.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the normal external-PR path; do not rebuild the manual `gh + git + sed` dance when the handoff is parseable.
+8. **Implementation review and state sync are distinct concerns.** Do not smuggle current-state roadmap/checklist/status edits into implementation fixes merely to make the PR narrative look current.
+9. **Atomic state-authority sync closes the cycle.** After merge or another sequencing transition, identify every mutable workstream document that claims current status, sequence, predecessor, evidence gate, or next action and update the applicable set before dispatching a dependent successor. Prefer one commit/PR transaction. When tooling only supports sequential file writes, the steward holds the transaction boundary: no dependent dispatch or cycle-complete claim occurs between partial writes, and the complete set is re-read/verified before release. `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set; active roadmaps, trackers, status docs, and indexes join the sync when they carry current state.
+10. **Stable authorities change only when their claims change.** Architecture/contracts/reference docs are not mandatory merge bookkeeping.
+11. **The judgment/rubric is a learning surface.** Accepted review findings should tighten future critique, evidence, or repository law when the lesson generalizes. Copying an unchanged rubric forever is a smell.
+12. **Stale-note discipline.** Notes about what a PR did age well; notes about what is still pending age badly. Re-verify temporal claims before quoting them downstream.
+
+## Atomic state-authority sync contract
+
+Before the next dependent dispatch, the steward names the applicable sync set. Possible members include:
+
+```text
+PLAN / execution state
+CHECKLIST / re-anchor block
+HANDOFF completion status + archive pointer
+ROADMAP current phase / next slice
+PR or sequencing tracker
+STATUS / current-state guide
+source/index manifest that claims the active source set
+```
+
+Prefer one commit or one small sync PR containing the applicable set. If the transport cannot update multiple files atomically, sequential writes are permitted only inside one guarded sync operation: do not dispatch another dependent lane while the set is partially updated, then re-read the final files and exact repository head before declaring the sync complete.
+
+The operation must leave a fresh worker with one coherent current-state hypothesis. If two state authorities disagree with each other or with `main`, fix that contradiction before dispatch.
+
+Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **coherent state transition**, not "edit every planning file."
+
+## Anti-patterns
+
+- Dispatching before invariant/evidence critique.
+- Treating §4 as documentation rather than an active lane write lease.
+- Parallel agents silently editing the same file because "Git will catch it."
+- Assuming separate worktrees imply separate runtime state.
+- Treating a PR description as authority or proof.
+- Bundling unrelated fixes into one commit when a nano commit would tell the review story.
+- Accepting author-reported green without rerunning required evidence.
+- Testing only a helper when the guarantee lives at a higher boundary.
+- Stopping review after an arbitrary number of rounds.
+- Calling a fix commit a new review cycle before a new formal judgment.
+- Treating merge as cycle completion while current-state documents still say pending.
+- Dispatching between partial writes of one state-authority sync.
+- Updating architecture solely because an implementation PR merged.
+- Reusing stale "still pending" notes without verification.
 
 ## References
 
-- **Procedure / runbook:** `.cursor/skills/external-agent-pr-loop/SKILL.md`
-- **Design decision:** `Docs/Design/DESIGN-merge-ready-invariant-evidence.md`
-- Sibling rules: `subagent-delegation.mdc`, `dungeonbuddy-git-workflow.mdc`, `capture-and-resurface.mdc`.
-- Cross-project learning: `~/.cursor/learnings/Backlog.md` — `[READY] External-agent PR loop`.
+- Foundational repo law: `AGENTS.md`
+- Procedure / runbook: `.cursor/skills/external-agent-pr-loop/SKILL.md`
+- Re-anchor discipline: `.cursor/rules/anchor.mdc`
+- Git/worktree policy: `.cursor/rules/dungeonbuddy-git-workflow.mdc`
+- Sibling subagent rule: `.cursor/rules/subagent-delegation.mdc`
