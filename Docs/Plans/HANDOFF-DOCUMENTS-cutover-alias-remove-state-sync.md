@@ -536,6 +536,8 @@ Not applicable — this PR must not mutate Eldyrwild or any runtime state.
 
 Not applicable to runtime tests. Negative stale-state scans are expected to fail on the design base because repairing those exact stale claims is this PR's purpose.
 
+`steward_preflight.py --local-only` `status=block` from historical `**Status:** ACTIVE` handoffs leasing Backlog/tracker is a known preflight false-positive, not a live CUTOVER write-lease collision. Do not close those historical handoffs in this PR.
+
 ## §8 Required review handback
 
 Record:
