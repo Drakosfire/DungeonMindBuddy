@@ -5,12 +5,13 @@ The command reconciles mechanical facts before dispatch/review:
 
 - candidate HANDOFF §4 write lease + declared base/branch/runtime ownership;
 - active top-level HANDOFF write leases;
-- local Git main/head/worktrees;
+- local Git main/head/worktrees plus the already-observed origin/main ref;
 - optional open GitHub PR changed paths;
 - optional explicitly-labelled Review Cycle judgments for one PR.
 
-It deliberately does not create branches/worktrees, edit handoffs, transfer leases,
-post reviews, merge PRs, or decide whether a capability should be split.
+It deliberately does not fetch/mutate Git refs, create branches/worktrees, edit
+handoffs, transfer leases, post reviews, merge PRs, or decide whether a capability
+should be split.
 """
 
 from __future__ import annotations
@@ -25,9 +26,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-try:  # Executed as ``python scripts/steward_preflight.py``.
+try:
     from review_external_pr import extract_allowlist_paths, parse_handoff
-except ModuleNotFoundError:  # Imported as ``scripts.steward_preflight`` in tests.
+except ModuleNotFoundError:
     from scripts.review_external_pr import extract_allowlist_paths, parse_handoff
 
 _STATUS_ACTIVE_RE = re.compile(r"^\*\*Status:\*\*\s*ACTIVE\b", re.MULTILINE | re.IGNORECASE)
@@ -89,7 +90,6 @@ def _strip_markdown_cell(value: str) -> str:
 
 
 def _section_table_field(raw: str, field_name: str) -> str | None:
-    """Return a simple two-column markdown-table field from a handoff."""
     wanted = field_name.casefold()
     for line in raw.splitlines():
         stripped = line.strip()
@@ -137,8 +137,6 @@ def leases_overlap(left: str, right: str) -> bool:
     if b_glob and not a_glob:
         return fnmatch.fnmatchcase(a, b)
     if a_glob and b_glob:
-        # Exact glob intersection is expensive and surprising. Report a possible
-        # collision when the literal roots overlap; the steward resolves it.
         a_prefix = _literal_prefix(a).rstrip("/")
         b_prefix = _literal_prefix(b).rstrip("/")
         if not a_prefix or not b_prefix:
@@ -206,23 +204,42 @@ def discover_active_handoff_lanes(plans_dir: Path, candidate: Path) -> list[Lane
         raw = path.read_text(encoding="utf-8")
         if not _STATUS_ACTIVE_RE.search(raw):
             continue
-        lane = read_handoff_lane(path)
-        lanes.append(lane)
+        lanes.append(read_handoff_lane(path))
     return lanes
+
+
+def _observed_ref(repo_root: Path, ref: str) -> str | None:
+    proc = _run(["git", "rev-parse", "--verify", ref], cwd=repo_root, check=False)
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
 
 
 def _git_state(repo_root: Path, candidate_base: str | None) -> tuple[dict[str, Any], list[str]]:
     warnings: list[str] = []
     head = _run(["git", "rev-parse", "HEAD"], cwd=repo_root).stdout.strip()
     main = _run(["git", "rev-parse", "main"], cwd=repo_root).stdout.strip()
+    observed_origin_main = _observed_ref(repo_root, "origin/main")
     worktree_text = _run(["git", "worktree", "list", "--porcelain"], cwd=repo_root).stdout
     worktrees = parse_worktree_porcelain(worktree_text)
 
+    if observed_origin_main and observed_origin_main != main:
+        warnings.append(
+            "local main differs from the already-observed origin/main ref; preflight does not "
+            "fetch, so re-anchor remote state before treating local main as current"
+        )
+
     base_relation: dict[str, Any] = {
         "candidate_base": candidate_base,
-        "main_sha": main,
-        "matches_main": candidate_base == main if candidate_base else None,
-        "base_is_ancestor_of_main": None,
+        "local_main_sha": main,
+        "observed_origin_main_sha": observed_origin_main,
+        "matches_local_main": candidate_base == main if candidate_base else None,
+        "matches_observed_origin_main": (
+            candidate_base == observed_origin_main
+            if candidate_base and observed_origin_main
+            else None
+        ),
+        "base_is_ancestor_of_local_main": None,
     }
     if candidate_base:
         proc = _run(
@@ -231,9 +248,9 @@ def _git_state(repo_root: Path, candidate_base: str | None) -> tuple[dict[str, A
             check=False,
         )
         if proc.returncode == 0:
-            base_relation["base_is_ancestor_of_main"] = True
+            base_relation["base_is_ancestor_of_local_main"] = True
         elif proc.returncode == 1:
-            base_relation["base_is_ancestor_of_main"] = False
+            base_relation["base_is_ancestor_of_local_main"] = False
         else:
             warnings.append(
                 "could not determine candidate base ancestry against local main: "
@@ -249,7 +266,8 @@ def _git_state(repo_root: Path, candidate_base: str | None) -> tuple[dict[str, A
         {
             "repo_root": str(repo_root),
             "head_sha": head,
-            "main_sha": main,
+            "local_main_sha": main,
+            "observed_origin_main_sha": observed_origin_main,
             "worktrees": [asdict(item) for item in worktrees],
             "base_relation": base_relation,
         },
@@ -288,7 +306,7 @@ def discover_open_pr_lanes(repo_root: Path, repo_name: str) -> list[Lane]:
             "--limit",
             "100",
             "--json",
-            "number,headRefName,headRefOid,url",
+            "number",
         ],
         cwd=repo_root,
     )
@@ -407,8 +425,12 @@ def fetch_review_cycle_summary(repo_root: Path, repo_name: str, pr_number: int) 
 def find_conflicts(candidate: Lane, other_lanes: list[Lane]) -> list[Conflict]:
     conflicts: list[Conflict] = []
     for lane in other_lanes:
-        if candidate.branch and lane.branch and candidate.branch == lane.branch:
-            # This is the same source lane (e.g. preflight during its open PR review).
+        if (
+            lane.kind == "pr"
+            and candidate.branch
+            and lane.branch
+            and candidate.branch == lane.branch
+        ):
             continue
         for candidate_path in candidate.paths:
             for other_path in lane.paths:
@@ -458,10 +480,12 @@ def build_snapshot(
     plans_dir = repo_root / "Docs" / "Plans"
     active_handoffs = discover_active_handoff_lanes(plans_dir, handoff_path)
 
-    remote_complete = local_only
+    remote_complete: bool | None = None if local_only else False
     remote_lanes: list[Lane] = []
     review_cycles: dict[str, Any] | None = None
     resolved_repo = repo_name
+    if local_only and pr_number is not None:
+        warnings.append("--pr review-cycle metadata was skipped because --local-only was requested")
     if not local_only:
         try:
             resolved_repo = resolved_repo or _detect_repo_name(repo_root)
@@ -475,9 +499,7 @@ def build_snapshot(
             )
             remote_complete = False
 
-    local_conflicts = find_conflicts(candidate, active_handoffs)
-    remote_conflicts = find_conflicts(candidate, remote_lanes)
-    conflicts = local_conflicts + remote_conflicts
+    conflicts = find_conflicts(candidate, active_handoffs) + find_conflicts(candidate, remote_lanes)
     if conflicts:
         blockers.append(f"{len(conflicts)} concrete write-lease overlap(s) detected")
 
