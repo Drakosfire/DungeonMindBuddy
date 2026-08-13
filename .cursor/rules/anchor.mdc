@@ -78,9 +78,11 @@ therefore the next action is <specific dispatch/gate>.
 
 ### Atomic state-authority sync
 
-After a state-changing event—merge, phase close, gate trip, supersession—update the applicable mutable state authorities coherently before dispatching a dependent successor.
+After a state-changing event—merge, phase close, gate trip, supersession—update the applicable mutable state authorities before dispatching a dependent successor.
 
 `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set. If a roadmap, PR tracker, status document, or source index claims the changed current state, it belongs in that sync too.
+
+Prefer one commit or one sync PR. If tooling can only write files sequentially, no dependent dispatch may occur while the set is partial; re-read the full intended set and exact repository head before declaring the sync complete.
 
 Do not edit stable architecture/contracts only to make the sync look comprehensive.
 
@@ -106,7 +108,7 @@ For two or more active agents, the current-state hypothesis must include ownersh
 
 ```text
 lane
-branch/worktree
+branch/worktree or equivalent isolated checkout
 base/head
 HANDOFF
 §4 write lease
