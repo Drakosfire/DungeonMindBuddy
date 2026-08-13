@@ -1,13 +1,17 @@
 # HANDOFF — Foundational steward operating law
 
 **Created:** 2026-08-12  
-**Status:** ACTIVE — one process-foundation capability.  
+**Status:** COMPLETE — merged as PR #572.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOCUMENTS-foundational-steward-law.md`  
 **Conversation:** DungeonBuddy development-process optimization  
 **Flow / agent:** `DOCUMENTS`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Base revision:** `9d5efb7eaa92a4890bd49db45130e5843777c8b9`  
-**PR title:** `DOCUMENTS: establish parallel steward operating law`
+**Merged revision:** `cf3172612d140061e73901394f3bb4a9f90da49b`  
+**PR:** #572 — `DOCUMENTS: establish parallel steward operating law`  
+**Review cycles:** 2
+
+**Completion note:** Review Cycle 1 tightened equivalent-checkout language and made atomic state-authority sync a real transaction boundary under sequential-write tooling. Review Cycle 2 approved the polished head. Named successor remains: replace Jumpstart with the Steward Cycle and slim the handoff/runbook payload.
 
 ## §1 Mission and merge-ready invariant
 
@@ -117,11 +121,11 @@ Record exact PR/head, changed paths, review-cycle number, findings, whether ever
 
 ## §9 Acceptance rubric
 
-- [ ] `AGENTS.md` states the durable development cycle and delegates procedure rather than duplicating it.
-- [ ] Parallel worktrees/branches are explicitly supported and stale single-active-branch guidance is removed.
-- [ ] §4 path allowlists are defined as exclusive write leases while a slice is active.
-- [ ] Runtime/service/durable-state collision is distinguished from source-file collision.
-- [ ] Review-cycle counting is deterministic and head-SHA based.
-- [ ] Atomic state-authority synchronization is broader than plan/checklist/handoff and happens before next dispatch.
-- [ ] Re-anchor terminology matches the new invariant.
-- [ ] No successor implementation (Steward Cycle rename/template diet/automation) is pulled into this PR.
+- [x] `AGENTS.md` states the durable development cycle and delegates procedure rather than duplicating it.
+- [x] Parallel worktrees/branches are explicitly supported and stale single-active-branch guidance is removed.
+- [x] §4 path allowlists are defined as exclusive write leases while a slice is active.
+- [x] Runtime/service/durable-state collision is distinguished from source-file collision.
+- [x] Review-cycle counting is deterministic and head-SHA based.
+- [x] Atomic state-authority synchronization is broader than plan/checklist/handoff and happens before next dispatch.
+- [x] Re-anchor terminology matches the new invariant.
+- [x] No successor implementation (Steward Cycle rename/template diet/automation) is pulled into this PR.
