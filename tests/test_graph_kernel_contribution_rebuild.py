@@ -1136,3 +1136,169 @@ def test_contradict_without_replacement_rebuilds_pinned_and_unpinned(
     assert contradiction.contribution_id in (
         pinned.contribution_source_payload_sha256 or {}
     )
+
+
+def _publish_node_contribution(
+    root: Path,
+    *,
+    node_id: str,
+    label: str,
+    aliases: list[str],
+    artifact_id: str,
+    revision_id: str,
+) -> None:
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=node_id,
+        label=label,
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": aliases,
+        },
+        source_artifact_id=artifact_id,
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    authored = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id=artifact_id,
+        source_revision_id=revision_id,
+        authored_by="gm",
+        accepted_assertions=[assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=authored
+    )
+    assert merge.published is True
+
+
+def test_rebuild_replays_merge_then_alias_remove(seeded_root: Path) -> None:
+    root = seeded_root
+    _publish_node_contribution(
+        root,
+        node_id="npc_rebuild_tgt",
+        label="Canonical Rebuild",
+        aliases=["Canonical Rebuild"],
+        artifact_id="artifact:rebuild-tgt",
+        revision_id="authored-rebuild-tgt",
+    )
+    _publish_node_contribution(
+        root,
+        node_id="npc_rebuild_src",
+        label="Shadow Rebuild",
+        aliases=["Shadow Rebuild"],
+        artifact_id="artifact:rebuild-src",
+        revision_id="authored-rebuild-src",
+    )
+    _head, parent, store = kernel.open_current_world_graph(root, WORLD_ID)
+    merged, merge_decision = kernel.merge_identity(
+        store,
+        world_id=WORLD_ID,
+        source_node_id="npc_rebuild_src",
+        target_node_id="npc_rebuild_tgt",
+        actor="gm",
+        reason="merge shadow rebuild source",
+    )
+    cleaned, remove_decision = kernel.remove_identity_alias(
+        merged,
+        world_id=WORLD_ID,
+        subject_node_id="npc_rebuild_tgt",
+        alias="Shadow Rebuild",
+        actor="gm",
+        reason="retire shadow rebuild alias",
+        root=root,
+    )
+    published = kernel.publish_world_revision(
+        root,
+        WORLD_ID,
+        cleaned,
+        operation_ids=[merge_decision.decision_id, remove_decision.decision_id],
+        expected_parent_revision_id=parent.revision_id,
+    )
+    assert published.revision.revision_id
+    live = kernel.load_world_graph_revision(root, WORLD_ID, published.revision.revision_id)
+
+    result = kernel.rebuild_from_contributions(root, world_id=WORLD_ID, publish=False)
+    assert "rebuild_equivalent_to_head" in result.diagnostics
+    assert "Shadow Rebuild" not in live.nodes["npc_rebuild_tgt"].aliases
+    assert live.aliases.get("shadow rebuild") is None
+    assert live.aliases.get("canonical rebuild") == "npc_rebuild_tgt"
+    merge_row = next(
+        item
+        for item in live.identity_decisions
+        if item["decision_id"] == merge_decision.decision_id
+    )
+    assert "Shadow Rebuild" in merge_row["merge_side_effects"]["aliases_added_to_target"]
+
+
+def test_rebuild_fails_closed_when_alias_remove_precedes_introducing_merge(
+    seeded_root: Path,
+) -> None:
+    root = seeded_root
+    _publish_node_contribution(
+        root,
+        node_id="npc_order_tgt",
+        label="Order Target",
+        aliases=["Order Target"],
+        artifact_id="artifact:order-tgt",
+        revision_id="authored-order-tgt",
+    )
+    _publish_node_contribution(
+        root,
+        node_id="npc_order_src",
+        label="Order Shadow",
+        aliases=["Order Shadow"],
+        artifact_id="artifact:order-src",
+        revision_id="authored-order-src",
+    )
+    _head, parent, store = kernel.open_current_world_graph(root, WORLD_ID)
+    # Materialize the alias without a merge so alias_remove can be recorded first.
+    nodes = dict(store.nodes)
+    target = nodes["npc_order_tgt"]
+    nodes["npc_order_tgt"] = target.model_copy(
+        update={"aliases": [*target.aliases, "Order Shadow"]}
+    )
+    aliases = dict(store.aliases)
+    aliases["order shadow"] = "npc_order_tgt"
+    planted = store.model_copy(update={"nodes": nodes, "aliases": aliases})
+    removed, remove_decision = kernel.remove_identity_alias(
+        planted,
+        world_id=WORLD_ID,
+        subject_node_id="npc_order_tgt",
+        alias="Order Shadow",
+        actor="gm",
+        reason="remove before introducing merge",
+        root=root,
+    )
+    first = kernel.publish_world_revision(
+        root,
+        WORLD_ID,
+        removed,
+        operation_ids=[remove_decision.decision_id],
+        expected_parent_revision_id=parent.revision_id,
+    )
+    _h2, parent2, current = kernel.open_current_world_graph(root, WORLD_ID)
+    merged, merge_decision = kernel.merge_identity(
+        current,
+        world_id=WORLD_ID,
+        source_node_id="npc_order_src",
+        target_node_id="npc_order_tgt",
+        actor="gm",
+        reason="introducing merge after remove",
+    )
+    kernel.publish_world_revision(
+        root,
+        WORLD_ID,
+        merged,
+        operation_ids=[merge_decision.decision_id],
+        expected_parent_revision_id=parent2.revision_id,
+    )
+    with pytest.raises(ValueError, match="not currently materialized"):
+        kernel.rebuild_from_contributions(root, world_id=WORLD_ID, publish=False)
+    assert first.revision.revision_id

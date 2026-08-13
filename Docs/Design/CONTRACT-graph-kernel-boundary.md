@@ -51,7 +51,7 @@ Exported from `graph_memory.kernel` (implemented; not reserved):
 
 - `resolve_identity` / `classify_identity_outcome` (pure classifiers; no silent mutation)
 - `record_identity_decision`
-- `merge_identity` / `split_identity` / `unmerge_identity`
+- `merge_identity` / `split_identity` / `unmerge_identity` / `remove_identity_alias`
 - Models: `IdentityCandidate`, `IdentityResolution`, `IdentityDecisionRecord`,
   `IdentityResolutionPolicy`
 

@@ -14,6 +14,7 @@ from graph_memory.kernel.contributions import (
 from graph_memory.kernel.identity_decisions import (
     merge_identity,
     record_identity_decision,
+    remove_identity_alias,
     split_identity,
     unmerge_identity,
 )
@@ -65,7 +66,10 @@ def _canonical_graph_fingerprint(store: UnionSupergraphStore) -> str:
 
 
 def _apply_identity_decision(
-    store: UnionSupergraphStore, decision: IdentityDecisionRecord
+    store: UnionSupergraphStore,
+    decision: IdentityDecisionRecord,
+    *,
+    root: Path | None = None,
 ) -> UnionSupergraphStore:
     kind = decision.decision_kind
     if kind == "merge":
@@ -102,6 +106,21 @@ def _apply_identity_decision(
             decision_id=decision.supersedes_decision_ids[0],
             actor=decision.actor,
             reason=decision.reason,
+        )
+        return updated
+    if kind == "alias_remove":
+        if not decision.subject_node_id or not decision.alias:
+            raise ValueError(
+                f"alias_remove {decision.decision_id} missing subject_node_id or alias"
+            )
+        updated, _ = remove_identity_alias(
+            store,
+            world_id=decision.world_id,
+            subject_node_id=decision.subject_node_id,
+            alias=decision.alias,
+            actor=decision.actor,
+            reason=decision.reason,
+            root=root,
         )
         return updated
     return record_identity_decision(store, decision)
@@ -427,7 +446,7 @@ def rebuild_from_contributions(
         # in baseline graph state — skip re-application to avoid duplicates.
         if decision.decision_id in baseline_decision_ids:
             continue
-        working = _apply_identity_decision(working, decision)
+        working = _apply_identity_decision(working, decision, root=root)
 
     working = working.model_copy(
         update={
