@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import scripts.steward_preflight as sp
@@ -76,13 +77,16 @@ def _git_snapshot(*, base: str = "a" * 40, main: str | None = None) -> dict[str,
     return {
         "repo_root": "/repo",
         "head_sha": "b" * 40,
-        "main_sha": main_sha,
+        "local_main_sha": main_sha,
+        "observed_origin_main_sha": main_sha,
         "worktrees": [],
         "base_relation": {
             "candidate_base": base,
-            "main_sha": main_sha,
-            "matches_main": base == main_sha,
-            "base_is_ancestor_of_main": True,
+            "local_main_sha": main_sha,
+            "observed_origin_main_sha": main_sha,
+            "matches_local_main": base == main_sha,
+            "matches_observed_origin_main": base == main_sha,
+            "base_is_ancestor_of_local_main": True,
         },
     }
 
@@ -122,6 +126,46 @@ detached
             detached=True,
         ),
     ]
+
+
+def test_git_state_warns_when_local_main_differs_from_observed_origin(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    local_main = "1" * 40
+    origin_main = "2" * 40
+    candidate = "0" * 40
+
+    def fake_run(
+        cmd: list[str],
+        *,
+        cwd: Path,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, check
+        key = tuple(cmd)
+        outputs = {
+            ("git", "rev-parse", "HEAD"): (0, "3" * 40 + "\n", ""),
+            ("git", "rev-parse", "main"): (0, local_main + "\n", ""),
+            ("git", "rev-parse", "--verify", "origin/main"): (
+                0,
+                origin_main + "\n",
+                "",
+            ),
+            ("git", "worktree", "list", "--porcelain"): (0, "", ""),
+            ("git", "merge-base", "--is-ancestor", candidate, local_main): (0, "", ""),
+        }
+        returncode, stdout, stderr = outputs[key]
+        return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(sp, "_run", fake_run)
+
+    state, warnings = sp._git_state(tmp_path, candidate)
+
+    assert state["local_main_sha"] == local_main
+    assert state["observed_origin_main_sha"] == origin_main
+    assert state["base_relation"]["matches_observed_origin_main"] is False
+    assert any("local main differs" in warning for warning in warnings)
 
 
 def test_review_cycles_count_explicit_distinct_heads_and_surface_anomalies() -> None:
@@ -184,27 +228,33 @@ def test_review_cycle_reused_across_heads_is_an_anomaly() -> None:
     ]
 
 
-def test_find_conflicts_detects_pr_only_overlap_and_excludes_same_branch() -> None:
+def test_find_conflicts_detects_pr_overlap_and_excludes_only_same_branch_pr() -> None:
     candidate = sp.Lane(
         kind="candidate",
         identity="candidate",
         branch="agent/candidate",
         paths=("src/shared.ts",),
     )
-    other = sp.Lane(
+    other_pr = sp.Lane(
         kind="pr",
         identity="PR #1",
         branch="agent/other",
         paths=("src/shared.ts",),
     )
-    same_branch = sp.Lane(
+    same_branch_pr = sp.Lane(
         kind="pr",
         identity="PR #2",
         branch="agent/candidate",
         paths=("src/shared.ts",),
     )
+    same_branch_handoff = sp.Lane(
+        kind="handoff",
+        identity="Docs/Plans/HANDOFF-BUILD-duplicate.md",
+        branch="agent/candidate",
+        paths=("src/shared.ts",),
+    )
 
-    conflicts = sp.find_conflicts(candidate, [other, same_branch])
+    conflicts = sp.find_conflicts(candidate, [other_pr, same_branch_pr, same_branch_handoff])
 
     assert conflicts == [
         sp.Conflict(
@@ -213,7 +263,14 @@ def test_find_conflicts_detects_pr_only_overlap_and_excludes_same_branch() -> No
             lane_kind="pr",
             lane_identity="PR #1",
             branch="agent/other",
-        )
+        ),
+        sp.Conflict(
+            candidate_path="src/shared.ts",
+            other_path="src/shared.ts",
+            lane_kind="handoff",
+            lane_identity="Docs/Plans/HANDOFF-BUILD-duplicate.md",
+            branch="agent/candidate",
+        ),
     ]
 
 
@@ -282,6 +339,45 @@ def test_github_unavailable_keeps_local_conflict_and_marks_remote_incomplete(
     assert "remote PR/review coverage is incomplete" in snapshot["warnings"][0]
 
 
+def test_local_only_marks_remote_coverage_not_requested(tmp_path: Path, monkeypatch) -> None:
+    handoff = _write_handoff(tmp_path / "Docs/Plans/HANDOFF-DOCUMENTS-candidate.md")
+    monkeypatch.setattr(sp, "_git_state", lambda *_args, **_kwargs: (_git_snapshot(), []))
+    monkeypatch.setattr(sp, "discover_active_handoff_lanes", lambda *_args: [])
+
+    snapshot = sp.build_snapshot(
+        handoff_path=handoff,
+        repo_root=tmp_path,
+        repo_name=None,
+        local_only=True,
+        pr_number=None,
+    )
+
+    assert snapshot["status"] == "pass"
+    assert snapshot["github"]["requested"] is False
+    assert snapshot["github"]["complete"] is None
+
+
+def test_local_only_with_pr_warns_that_cycle_metadata_was_skipped(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    handoff = _write_handoff(tmp_path / "Docs/Plans/HANDOFF-DOCUMENTS-candidate.md")
+    monkeypatch.setattr(sp, "_git_state", lambda *_args, **_kwargs: (_git_snapshot(), []))
+    monkeypatch.setattr(sp, "discover_active_handoff_lanes", lambda *_args: [])
+
+    snapshot = sp.build_snapshot(
+        handoff_path=handoff,
+        repo_root=tmp_path,
+        repo_name=None,
+        local_only=True,
+        pr_number=574,
+    )
+
+    assert snapshot["status"] == "warn"
+    assert snapshot["review_cycles"] is None
+    assert "review-cycle metadata was skipped" in snapshot["warnings"][0]
+
+
 def test_base_drift_is_warning_not_block(tmp_path: Path, monkeypatch) -> None:
     base = "a" * 40
     main = "c" * 40
@@ -310,7 +406,7 @@ def test_base_drift_is_warning_not_block(tmp_path: Path, monkeypatch) -> None:
 
     assert snapshot["status"] == "warn"
     assert snapshot["blockers"] == []
-    assert snapshot["git"]["base_relation"]["matches_main"] is False
+    assert snapshot["git"]["base_relation"]["matches_local_main"] is False
     assert warning in snapshot["warnings"]
 
 
