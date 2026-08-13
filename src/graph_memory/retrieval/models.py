@@ -46,7 +46,7 @@ RetrievalOutcome = Literal[
 ]
 RetrievalOperation = Literal["search", "object", "neighborhood", "evidence"]
 EvidenceTargetKind = Literal["node", "relationship", "attribute"]
-LocatorKind = Literal["heading", "json_pointer", "unsupported"]
+LocatorKind = Literal["heading", "json_pointer", "source_span", "unsupported"]
 
 
 class _RetrievalResponseModel(BaseModel):
@@ -265,6 +265,7 @@ class WorldGraphSourceAnchor(_RetrievalResponseModel):
     source_artifact_id: str
     source_domain: str
     session_id: str | None = None
+    source_span_ref_id: str | None = None
     supporting_graph_object_ids: list[str] = Field(default_factory=list)
     supporting_assertion_ids: list[str] = Field(default_factory=list)
     readable: bool
@@ -305,6 +306,7 @@ class WorldGraphSourceAnchorReadResult(_RetrievalResponseModel):
     evidence_ref_id: str | None = None
     source_artifact_id: str | None = None
     source_domain: str | None = None
+    source_span_ref_id: str | None = None
     locator_kind: LocatorKind | None = None
     media_type: str | None = None
     content: str | None = None

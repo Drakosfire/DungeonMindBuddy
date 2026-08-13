@@ -323,6 +323,85 @@ def read_graph_data_json_pointer_anchor(
     )
 
 
+def read_repo_line_span_text(
+    *,
+    repo_root: Path,
+    relative_path: str,
+    start_line: int,
+    end_line: int,
+    max_chars: int,
+    expected_content_sha256: str,
+) -> SourceReadOutcome:
+    """Authorization-neutral digest-checked line-span slice of a repo file.
+
+    Callers must already authorize the path and span identity. This primitive
+    only verifies current bytes match ``expected_content_sha256`` before
+    slicing 1-based inclusive ``start_line``..``end_line``.
+    """
+    if not isinstance(expected_content_sha256, str) or not re.fullmatch(
+        r"[0-9a-fA-F]{64}", expected_content_sha256
+    ):
+        raise SourceReadError(
+            "Line-span read requires an admitted content digest.",
+            code="source_integrity_error",
+        )
+    if start_line < 1 or end_line < start_line:
+        raise SourceReadError(
+            "Line-span bounds are invalid.",
+            code="unsupported_locator",
+        )
+    resolved_path = _resolve_repo_relative_path(repo_root, relative_path)
+    if not resolved_path.is_file():
+        raise SourceReadError(
+            "repo:// source file is unavailable.",
+            code="source_unavailable",
+        )
+    raw_bytes = resolved_path.read_bytes()
+    actual_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    if actual_sha256.lower() != expected_content_sha256.lower():
+        raise SourceReadError(
+            "repo:// source content does not match the admitted digest.",
+            code="source_integrity_error",
+        )
+    try:
+        text = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SourceReadError(
+            "repo:// source file is not valid UTF-8 text.",
+            code="source_unavailable",
+        ) from exc
+
+    lines = text.splitlines()
+    if end_line > len(lines):
+        raise SourceReadError(
+            "Line-span is outside the admitted source bounds.",
+            code="source_unavailable",
+        )
+    section_lines = lines[start_line - 1 : end_line]
+    section_text = "\n".join(section_lines)
+    truncated = len(section_text) > max_chars
+    bounded_text = section_text[:max_chars]
+    if not bounded_text:
+        line_end: int | None = None
+        line_start: int | None = None
+    elif not truncated:
+        line_start = start_line
+        line_end = end_line
+    else:
+        # Describe only the returned bytes (including a partial final line).
+        line_start = start_line
+        returned_line_count = bounded_text.count("\n") + 1
+        line_end = line_start + returned_line_count - 1
+    return SourceReadOutcome(
+        content=bounded_text,
+        media_type="text/markdown",
+        content_sha256=actual_sha256,
+        line_start=line_start,
+        line_end=line_end,
+        truncated=truncated,
+    )
+
+
 __all__ = [
     "GRAPH_DATA_URI_PREFIX",
     "HEADING_LOCATOR_PREFIX",
@@ -336,4 +415,5 @@ __all__ = [
     "parse_repo_uri",
     "read_graph_data_json_pointer_anchor",
     "read_repo_heading_anchor",
+    "read_repo_line_span_text",
 ]

@@ -333,20 +333,25 @@ def test_search_route_returns_200_unavailable_for_uninitialized_world(
     assert payload["snapshot"] is None
 
 
-def test_search_route_returns_409_for_campaign_mismatch(
+def test_search_route_foreign_campaign_excludes_c2_scoped_matches(
     client: TestClient, tmp_path: Path
 ) -> None:
+    """Model B: a non-matching campaign is a visibility lens, not a 409."""
     _initialize(tmp_path)
     response = client.post(
         f"{RETRIEVAL_URL}/search",
         json={
             "schema": "dmb_world_graph_search_request_v1",
-            **_base_request(queryText="x", campaignId="foreign-campaign"),
+            **_base_request(
+                queryText="positional controller", campaignId="longmont-c1"
+            ),
         },
     )
-    assert response.status_code == 409
+    assert response.status_code == 200
     payload = response.json()
-    assert payload["schema"] == "dmb_world_graph_retrieval_error_v1"
+    assert payload["schema"] == "dmb_world_graph_retrieval_result_v1"
+    assert payload["snapshot"]["campaignId"] == "longmont-c1"
+    assert TRIPOD_ID not in payload["matchedNodeIds"]
 
 
 def test_search_route_returns_422_for_unsupported_admissibility(
@@ -763,20 +768,19 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
         root=empty_root,
     )
 
-    try:
-        search_campaign_graph(
-            WorldGraphSearchRequest.model_validate(
-                {
-                    "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
-                    "queryText": "anything",
-                    **_context(campaign_id="foreign-campaign"),
-                }
-            ),
-            root=root,
-        )
-        campaign_mismatch_error: WorldGraphRetrievalServiceError | None = None
-    except WorldGraphRetrievalServiceError as exc:
-        campaign_mismatch_error = exc
+    search_foreign_campaign = search_campaign_graph(
+        WorldGraphSearchRequest.model_validate(
+            {
+                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+                "queryText": "positional controller",
+                **_context(campaign_id="longmont-c1"),
+            }
+        ),
+        root=root,
+    )
+    assert search_foreign_campaign.snapshot is not None
+    assert search_foreign_campaign.snapshot.campaign_id == "longmont-c1"
+    assert TRIPOD_ID not in search_foreign_campaign.matched_node_ids
 
     try:
         search_campaign_graph(
@@ -793,13 +797,13 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
     except WorldGraphRetrievalServiceError as exc:
         invalid_admissibility_error = exc
 
-    assert campaign_mismatch_error is not None
     assert invalid_admissibility_error is not None
     assert source_anchor_read_integrity_error is not None
 
     examples = {
         "searchEnough": _dump(search_enough),
         "searchEmpty": _dump(search_empty),
+        "searchForeignCampaign": _dump(search_foreign_campaign),
         "searchUnavailable": _dump(search_unavailable),
         "objectFound": _dump(object_found),
         "objectEmpty": _dump(object_empty),
@@ -813,7 +817,6 @@ def build_retrieval_api_contract(root: Path) -> dict[str, Any]:
         "sourceAnchorReadIntegrityError": _dump(
             source_anchor_read_integrity_error.response()
         ),
-        "campaignMismatchError": _dump(campaign_mismatch_error.response()),
         "invalidAdmissibilityError": _dump(invalid_admissibility_error.response()),
     }
     schemas = {

@@ -775,11 +775,8 @@ def test_repo_heading_anchor_without_admitted_digest_is_unreadable(
 
     _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
     artifact = store.source_artifacts[mirathorn_anchor.source_artifact_id]
-    stripped = artifact.model_copy(update={})
-    # Drop revision-bound content digest while keeping the URI/locator shape.
-    extra = dict(stripped.model_extra or {})
-    extra.pop("content_sha256", None)
-    object.__setattr__(stripped, "__pydantic_extra__", extra)
+    # content_sha256 is a first-class field; drop it while keeping URI/locator.
+    stripped = artifact.model_copy(update={"content_sha256": None})
     artifacts = dict(store.source_artifacts)
     artifacts[mirathorn_anchor.source_artifact_id] = stripped
     mutated = store.model_copy(update={"source_artifacts": artifacts})
