@@ -88,7 +88,7 @@ Review the cumulative diff and nano-commit sequence against this handoff. The im
 
 **Mission:** Kernel callers can publish one governed `alias_remove` identity decision so that a currently materialized alias can be retired from current identity surface without rewriting merge history, contributions, evidence, or independent alias/node assertions.
 
-**Merge-ready invariant:** Against one in-memory or published store, one exact `(subject_node_id, alias)` that is currently materialized and lacks independent semantic support is atomically removed from `node.aliases` and from the corresponding derived `store.aliases` mapping when that mapping exists solely because of that alias; a durable `decision_kind="alias_remove"` record is appended in ledger order; earlier merge decisions, redirects, merge side effects, contributions, evidence, and source artifacts remain byte/semantically unchanged; exact retry does not duplicate the decision or re-mutate; pinned contribution+identity replay reconstructs the same cleaned current state; `alias_remove` before the merge that would introduce the alias fails closed; independent semantic support fails closed; changing generic merge union behavior is a stop.
+**Merge-ready invariant:** Against one in-memory or published store, one exact `(subject_node_id, alias)` that is currently materialized and lacks independent semantic support is atomically removed from `node.aliases` and from the corresponding derived `store.aliases` mapping when that mapping exists solely because of that alias; a durable `decision_kind="alias_remove"` record is appended in ledger order; earlier merge decisions, redirects, merge side effects, contributions, evidence, and source artifacts remain byte/semantically unchanged; exact retry of an already-applied retirement is a no-op; a later merge may reintroduce the same alias, but a second retirement with the same `decision_id` inputs fails closed and a distinct reason is required; pinned contribution+identity replay reconstructs the same cleaned current state; `alias_remove` before the merge that would introduce the alias fails closed; independent semantic support fails closed; changing generic merge union behavior is a stop.
 
 ### Pre-dispatch critique
 
@@ -96,7 +96,7 @@ Review the cumulative diff and nano-commit sequence against this handoff. The im
 |---|---|
 | Can one invariant govern every claimed observable path? | **Yes**, if this slice is generic `alias_remove` only. Eldyrwild application, `alias_add`, and merge-union policy changes are separately useful and are split. |
 | Most likely adversarial sequence | Replay re-runs `merge_identity()` and re-unions the alias, while `alias_remove` is recorded but not applied; or inverse ledger order silently tombstones a future merge. |
-| Will §7 actually detect that failure? | **Yes.** Owning proofs rebuild from contributions + identity ledger and fingerprint `node.aliases` / `store.aliases`; inverse-order and independent-support cases must fail closed. |
+| Will §7 actually detect that failure? | **Yes.** Owning proofs rebuild from contributions + identity ledger and fingerprint `node.aliases` / `store.aliases`; inverse-order, independent-support, and same-reason-after-reintroduction cases must fail closed. |
 | Easiest owning boundary to under-test | Replay: a live `remove_identity_alias` can look right while `_apply_identity_decision` still appends without mutating. |
 | Fact that forces stop/split | If the only correct implementation changes generic `merge_identity` union semantics, requires a new decision kind, or cannot refuse independent semantic support without scanning DungeonMind. |
 
@@ -124,7 +124,7 @@ Read authoritative inputs in order before changing code:
 4. `src/graph_memory/kernel/contribution_rebuild.py` (`_apply_identity_decision`, identity ledger apply loop)
 5. `src/graph_memory/world_supergraph/identity_decision_store.py`
 6. `src/graph_memory/kernel/contribution_merge.py` (`_apply_alias_assertion`, `_apply_node_assertion`)
-7. `src/graph_memory/kernel/world_projection.py` (`_active_node_aliases`) — read for consumer behavior; edit only if the bounded-discovery gate is triggered
+7. `src/graph_memory/kernel/world_projection.py` (`_active_node_aliases`) and `tests/test_graph_kernel_world_projection.py` — read for consumer behavior; edit only as the bounded-discovery pair if that gate is triggered
 8. `tests/test_graph_kernel_identity_decisions.py`
 9. `tests/test_graph_kernel_contribution_rebuild.py`
 
@@ -168,6 +168,7 @@ Do not apply these six decisions in this PR. The successor owns that mutation af
 | Independent active `alias` or `node` assertion support | No check | **Fail closed**; do not retire source-grounded aliases | Yes | `remove_identity_alias` validation |
 | Canonical label casefold-equals the alias | Label may also exist in `store.aliases` | **Fail closed**; this primitive does not rename or unlabel | Yes | validation |
 | Exact retry after success | N/A | Same `decision_id`, no second append, aliases remain absent | Yes | `remove_identity_alias` |
+| Same reason after a later merge reintroduces the alias | `compute_identity_decision_id` would reuse the old id | **Fail closed**; do not no-op and do not mutate under the old id; a distinct reason creates a new retirement | Yes | `remove_identity_alias` |
 | Merge decision / side effects / redirects | Would be tempting to rewrite | Byte/semantically unchanged | Yes | identity history |
 | `unmerge_identity` of a merge whose added alias was later removed | Would restore `aliases_added_to_target`, undoing `alias_remove` | **Fail closed** in this slice; composition is a successor | Yes | `unmerge_identity` guard |
 | `record_identity_decision` with `alias_remove` | Append-only footgun | Refuse; callers must use `remove_identity_alias` | Yes | `record_identity_decision` |
@@ -180,6 +181,8 @@ Do not apply these six decisions in this PR. The successor owns that mutation af
 |---|---|---|
 | Merge source S into survivor T, adding alias A → `alias_remove` A on T | T.aliases lacks A; derived index key absent if solely from A; merge decision/side effects unchanged | §7 happy-path + history-intact proof |
 | Same `remove_identity_alias` inputs after success | No second decision row; store fingerprint unchanged | §7 idempotency |
+| Merge₁ adds A → remove A with reason R → merge₂ reintroduces A → remove A with reason R again | Fail closed; A remains; old `alias_remove` row unchanged | §7 reintroduction collision |
+| Merge₁ adds A → remove A with reason R → merge₂ reintroduces A → remove A with distinct reason R₂ | New `alias_remove` decision; A retired again; first remove remains inspectable | §7 reintroduction with new reason |
 | `alias_remove` A, then merge that first introduces A | Remove fails closed because A is not currently on T | §7 inverse-order |
 | Publish/replay contributions + merge + later `alias_remove` | Rebuilt `node.aliases` / `store.aliases` match the cleaned live store | §7 rebuild proof |
 | Node assertion or alias assertion independently carries A → `alias_remove` A | Fail closed; A remains | §7 independent-support |
@@ -196,25 +199,36 @@ Do not apply these six decisions in this PR. The successor owns that mutation af
 | Modify | `src/graph_memory/kernel/__init__.py` | Export `remove_identity_alias` from the legal Kernel boundary |
 | Modify | `src/graph_memory/kernel/contracts.py` | Add `remove_identity_alias` to the implemented PR004 identity tuple |
 | Modify | `Docs/Design/CONTRACT-graph-kernel-boundary.md` | Record the new exported identity operation; do not rewrite unrelated contract text |
-| Modify | `tests/test_graph_kernel_identity_decisions.py` | Own mutating primitive, fail-closed, idempotency, independent-support, unmerge-guard proofs |
+| Modify | `tests/test_graph_kernel_identity_decisions.py` | Own mutating primitive, fail-closed, idempotency, reintroduction-collision, independent-support, unmerge-guard proofs |
 | Modify | `tests/test_graph_kernel_contribution_rebuild.py` | Own replay/rebuild equivalence and inverse-order-on-replay proofs |
 | Modify | `tests/test_graph_kernel_boundaries.py` | Only if the Kernel export/boundary allowlist requires the new symbol |
 
 **Bounded discovery exception:**
 
 ```text
-Directory: src/graph_memory/kernel/world_projection.py
-Maximum additional paths: 1
-Allowed path kinds: existing `_active_node_aliases` / identity-survivor alias union only
-Decision rule: only if a failing owning-boundary test proves that after a successful
-alias_remove, project_world_graph still emits the removed alias solely because
-merge-record union treats inherited aliases as permanent. The allowed fix is:
-skip re-union of a merge-inherited alias that a later active alias_remove retired.
-Any broader "aliases are no longer additive" policy, alias_add, or assertion
-retraction redesign is a stop condition.
+Allowed extra pair, only together, only if the gate below trips:
+
+  src/graph_memory/kernel/world_projection.py
+  tests/test_graph_kernel_world_projection.py
+
+Maximum additional paths: 2
+Allowed path kinds:
+  existing `_active_node_aliases` / identity-survivor alias union in world_projection.py
+  the owning Kernel world-projection test module that proves that behavior
+
+Decision rule: only if a failing test in tests/test_graph_kernel_world_projection.py
+proves that after a successful alias_remove, project_world_graph still emits the
+removed alias solely because merge-record union treats inherited aliases as
+permanent. The allowed fix is: skip re-union of a merge-inherited alias that a
+later active alias_remove retired, plus the exact regression in that test module.
+Any broader "aliases are no longer additive" policy, alias_add, assertion
+retraction redesign, or projection change without that owning test is a stop.
+
+When this pair is used, §7 ruff/pytest/diff commands MUST include both paths and
+the handback MUST quote the failing projection test that justified the exception.
 ```
 
-A required path outside this lease/exception is a stop report.
+A required path outside this lease/exception is a stop report. `tests/test_graph_kernel_world_projection.py` is not in the normal lease; it becomes legal only as the second half of this pair.
 
 ## §5 Explicitly out of scope / collision boundary
 
@@ -265,13 +279,20 @@ Failure behavior:
     including inverse order before the introducing merge
   independent semantic support → fail closed
   unresolved assertion_support that might be independent support → fail closed
+  computed decision_id already identifies an active alias_remove
+    AND the alias is currently present again → fail closed
+    (same-reason reintroduction collision; distinct reason required)
   unmerge of a merge whose aliases_added_to_target includes an alias later
     retired by active alias_remove on that survivor → fail closed
   record_identity_decision(kind=alias_remove|alias_add) → fail closed
 
 Replay / idempotency:
-  same input after success → return existing decision, no second append, no alias resurrection
-  changed alias/subject/reason → distinct decision_id
+  same input after success, alias still absent → return existing decision,
+    no second append, no alias resurrection
+  same input after a later merge reintroduced the alias → fail closed;
+    do not no-op and do not mutate under the old decision_id
+  changed reason after reintroduction → distinct decision_id and a new retirement
+  changed alias/subject/reason otherwise → distinct decision_id
   pinned rebuild → apply durable identity decisions in index/ledger order after contributions
   merge then alias_remove in that ledger order → cleaned current aliases
   alias_remove then introducing merge in that ledger order → rebuild fails closed
@@ -326,13 +347,27 @@ Rules:
 - Do not import `world_projection` into `identity_decisions`. Resolve through existing Kernel contribution/support loaders.
 - Do not traverse identity redirects to manufacture support for a merged-away node.
 
+### Decision identity and retry
+
+`decision_id` remains `compute_identity_decision_id(world_id, decision_kind, subject_node_id, target_node_id, alias, source_candidate_id, reason)`. Discriminate retry from reintroduction by current materialization, not by inventing a new id scheme.
+
+```text
+existing active alias_remove with that decision_id | alias currently on subject | outcome
+no  | yes | new retirement
+no  | no  | fail closed (not currently materialized / inverse order)
+yes | no  | exact retry no-op
+yes | yes | fail closed: same-reason reintroduction collision
+```
+
+The last row is mandatory. Returning the old decision as a no-op would leave the reintroduced alias in place. Mutating under the old `decision_id` would make one historical retirement mean two later materialization changes. The caller must supply a distinct reason, which yields a distinct `decision_id` and a second inspectable retirement.
+
+A later merge that reintroduces the same alias is a new merge. Historical `alias_remove` does not suppress it. Do not add tombstone/future-suppression semantics.
+
 ### Ordering
 
 Replay must use existing durable identity-decision order (`identity_decision_index.all_decision_ids` / pinned store snapshot order). "After merge" emerges from that order. Do not add a post-merge cleanup pass.
 
 Reject inverse order rather than creating tombstone/future-suppression semantics.
-
-A later merge that re-introduces the same alias after an earlier `alias_remove` is a new merge. Historical `alias_remove` does not suppress it. A new retirement requires a distinct reason and therefore a distinct `decision_id`. Do not collapse those into one tombstone.
 
 ### Unmerge composition
 
@@ -352,7 +387,7 @@ Do not implement unmerge-then-reapply-later-decisions in this slice.
 
 | Observable path | Loading/init | Exact success | Ordinary miss | Integrity failure | Stale/superseded | Retry/replay |
 |---|---|---|---|---|---|---|
-| `remove_identity_alias` | require node in store | alias absent; decision appended | alias not present → fail | unresolved support → fail | merged_away subject → fail | exact retry no-op |
+| `remove_identity_alias` | require node in store | alias absent; decision appended | alias not present → fail | unresolved support → fail | merged_away subject → fail | exact retry no-op; same-reason reintroduction refuses |
 | rebuild apply loop | load ledger order | apply merge then remove | missing decision payload → existing rebuild failure | digest/integrity existing rules | skip decisions already on baseline snapshot | deterministic cleaned state |
 | unmerge after remove | load original merge | **refuse** | unknown merge id → existing error | missing side_effects → existing error | already superseded merge → existing error | no partial unmerge |
 
@@ -368,12 +403,13 @@ No fallback from label search, redirect traversal, or DungeonMind alias vocabula
 | Canonical label | Not removable by this primitive | casefold-equal → fail | No |
 | Independent assertion | Exact resolved alias/node assertion values | unresolved → fail | No |
 | Merge decision id | Untouched | must not be rewritten to encode the retirement | No |
+| `alias_remove` decision id | Existing `compute_identity_decision_id` inputs | same id while alias absent → retry no-op; same id while alias present again → fail | No |
 
 ### C. Persistence / replay matrix
 
 | Operation | Durable representation | Round-trip guarantee | Duplicate/replay | Compatibility | Rollback |
 |---|---|---|---|---|---|
-| `alias_remove` decision | existing `IdentityDecisionRecord` JSON in store + identity-decision ledger | alias/subject/kind survive round trip; `decision_id` stable | exact retry no second row | old stores without `alias_remove` replay unchanged | do not implement `alias_add` reversal here |
+| `alias_remove` decision | existing `IdentityDecisionRecord` JSON in store + identity-decision ledger | alias/subject/kind survive round trip; `decision_id` stable | exact retry no second row; same-reason reintroduction refuses | old stores without `alias_remove` replay unchanged | do not implement `alias_add` reversal here |
 | Rebuild | contribution ledger + identity ledger order | cleaned `node.aliases` / `store.aliases` match published cleaned store | deterministic | historical merge/unmerge tests still pass | unmerge composition deferred via fail-closed |
 | Merge history | original merge JSON | `merge_side_effects` still lists the added alias | unchanged | required | not a rollback mechanism for `alias_remove` |
 
@@ -387,7 +423,8 @@ No fallback from label search, redirect traversal, or DungeonMind alias vocabula
 | `IdentityDecisionRecord.alias` | `str \| None` | required non-blank for `alias_remove` | store exact string | unit test |
 | `merge_side_effects.aliases_added_to_target` | list on merge records | historical fact only | never edited by remove | history-intact test |
 | `_apply_identity_decision` default branch | append-only for unknown kinds | `alias_remove` becomes mutating | call `remove_identity_alias` | rebuild test |
-| `_active_node_aliases` merge-record union | optional projection resurrection | must not undo `alias_remove` | bounded-discovery only | projection test if gate trips |
+| `compute_identity_decision_id` | world/kind/subject/target/alias/candidate/reason | retry vs reintroduction discrimination | do not add a new id field in this slice | reintroduction-collision test |
+| `_active_node_aliases` merge-record union | optional projection resurrection | must not undo `alias_remove` | bounded-discovery pair only | `tests/test_graph_kernel_world_projection.py` if gate trips |
 
 ## §7 Evidence required to merge
 
@@ -399,7 +436,9 @@ No fallback from label search, redirect traversal, or DungeonMind alias vocabula
 | Independent alias assertion refuses | Kernel identity | adversarial | active `assertion_kind=alias` for A | fail closed; A remains | retiring Captain-like source-grounded alias |
 | Independent bundled node-assertion alias refuses | Kernel identity | adversarial | active node assertion `aliases` contains A | fail closed; A remains | treating survivor node existence as support for merge-shadow A |
 | Inverse order fails closed | Kernel identity + rebuild | adversarial | `alias_remove` in ledger before introducing merge | live call and rebuild fail; no tombstone | remove succeeds and later merge is suppressed |
-| Exact retry idempotent | Kernel identity | adversarial | call exact remove twice | one decision_id row; second call no-ops | duplicate decision or second mutation |
+| Exact retry idempotent | Kernel identity | adversarial | call exact remove twice while A remains absent | one decision_id row; second call no-ops | duplicate decision or second mutation |
+| Same-reason remove after reintroduction refuses | Kernel identity | adversarial | merge₁ adds A → remove A reason R → merge₂ reintroduces A → remove A reason R | fail closed; A remains; first `alias_remove` unchanged | no-op leaving A, or mutating under the old decision_id |
+| New-reason remove after reintroduction succeeds | Kernel identity | contract | same setup, then remove A reason R₂ | second `alias_remove` with distinct id; A retired; first remove still inspectable | collapsing both retirements onto one decision |
 | Replay reconstructs cleaned state | contribution rebuild | contract | contributions + merge + later `alias_remove`; `rebuild_from_contributions` | rebuilt aliases/index match cleaned store | rebuild re-unions A |
 | Merge/unmerge/redirect/contribution/evidence unchanged | Kernel identity | contract | fingerprint merge decision, redirects, contribution/evidence maps before/after remove | exact match except new `alias_remove` row and current alias surface | any history rewrite |
 | Unmerge composition fails closed | Kernel identity | adversarial | merge → remove A → unmerge that merge | unmerge raises; A stays retired; merge remains active | unmerge restores A |
@@ -439,7 +478,19 @@ git diff --stat <implementation-base>...HEAD -- \
 git diff --name-only <implementation-base>...HEAD
 ```
 
-If the bounded projection exception is used, add `src/graph_memory/kernel/world_projection.py` and the exact failing proof that justified it to the handback.
+If the bounded projection exception is used, add both of these paths to the focused `ruff` / `pytest` / `git diff --stat` commands and record the exact failing `tests/test_graph_kernel_world_projection.py` proof that justified the pair:
+
+```text
+src/graph_memory/kernel/world_projection.py
+tests/test_graph_kernel_world_projection.py
+```
+
+```bash
+uv run ruff check \
+  src/graph_memory/kernel/world_projection.py \
+  tests/test_graph_kernel_world_projection.py
+uv run pytest tests/test_graph_kernel_world_projection.py -q
+```
 
 ### Minimal live / dogfood proof
 
@@ -458,7 +509,7 @@ Record:
 3. §7 required vs produced evidence + provenance;
 4. nano-commit/fix story;
 5. base/head and actual changed paths vs §4;
-6. whether the projection bounded-discovery exception was used, and the failing proof if so;
+6. whether the projection bounded-discovery pair was used; if so, quote the failing `tests/test_graph_kernel_world_projection.py` proof and include both exception paths in §7 commands;
 7. paths outside §4 (`none` or stop report);
 8. stop conditions and resolution;
 9. named successors still false (six Eldyrwild removes; two-alias package);
@@ -472,7 +523,8 @@ Record:
 - [ ] Independent semantic support refuses removal.
 - [ ] `node.aliases` and derived `store.aliases` update atomically.
 - [ ] Earlier merge decisions/side effects/redirects are unchanged.
-- [ ] Exact retry is idempotent.
+- [ ] Exact retry is idempotent while the alias remains absent.
+- [ ] Same-reason `alias_remove` after a later reintroduction fails closed; a distinct reason creates a new retirement.
 - [ ] Inverse order fails closed; no tombstone semantics.
 - [ ] Unmerge composition with a later `alias_remove` fails closed.
 - [ ] `alias_add` / rename / Eldyrwild mutation / alias-package sealing remain unimplemented.
@@ -487,8 +539,9 @@ Stop and report instead of expanding when any of these appears:
 - a new mutation primitive/kind beyond filling reserved `alias_remove` is required;
 - independent-support refusal cannot be implemented without DungeonMind or identity-redirect provenance invention;
 - inverse-order semantics cannot be fail-closed without tombstones;
+- same-reason reintroduction cannot be fail-closed without reusing or silently no-op'ing the old `decision_id`;
 - Eldyrwild live mutation or CUTOVER fixture work is required to prove the primitive;
-- projection compatibility requires a general aliases-are-not-additive redesign;
+- projection compatibility requires a general aliases-are-not-additive redesign, or a projection change without `tests/test_graph_kernel_world_projection.py`;
 - required path outside §4 or another lane's write lease;
 - PR #577 is reused as the implementation branch.
 
