@@ -25,12 +25,12 @@ The cycle does not end at a green merge. It ends when the repository state and e
 1. **Re-anchor before dispatch.** Current repository authority and `main` beat chat history, stale handoffs, Project Sources, and old summaries.
 2. **One independently useful capability.** One slice has one merge-ready invariant. Split when a second independently useful/revertible contract appears.
 3. **The HANDOFF §4 allowlist is a write lease.** While a slice is active, its listed paths are that lane's exclusive expected write set. Other lanes may read them but must not edit them without an explicit split, transfer, or serialization decision.
-4. **Parallel lanes use branches + worktrees.** Two or more agents may work concurrently when their write leases and runtime/state ownership do not conflict. Git merge conflicts are a last-resort safety net, not the coordination protocol.
-5. **Source isolation is not runtime isolation.** Separate worktrees can still collide through ports, services, databases, `out/`, caches, generated state, shared fixtures, or external resources. A lane must name those collisions when relevant.
+4. **Parallel lanes use branches + isolated checkouts.** Worktrees are the normal local mechanism; an external/remote worker may provide equivalent checkout isolation. Two or more agents may work concurrently when their write leases and runtime/state ownership do not conflict. Git merge conflicts are a last-resort safety net, not the coordination protocol.
+5. **Source isolation is not runtime isolation.** Separate worktrees/checkouts can still collide through ports, services, databases, `out/`, caches, generated state, shared fixtures, or external resources. A lane must name those collisions when relevant.
 6. **Review every distinct head until merge-ready.** A review cycle is one complete formal reviewer judgment against one distinct PR head SHA. Fix commits, comments, CI reruns, and handbacks do not increment the count until another formal judgment is issued.
 7. **Evidence lives at the owning boundary.** Helper tests cannot prove a service, workflow, persistence, concurrency, or surface invariant they do not exercise.
 8. **No silent scope expansion.** A path outside the write lease, a second durable/public contract, or a new operator/product workflow is a stop/split signal unless the handoff explicitly bounded discovery for it.
-9. **Atomic state-authority sync after state transitions.** After merge, phase close, gate trip, or another sequencing transition, update every mutable workstream document that claims current status/sequence/predecessor/next action in one coherent operation before dispatching the next dependent slice. Plan/checklist/handoff are common members, not a closed set; roadmaps, trackers, status docs, or indexes belong in the sync when they carry that state.
+9. **Atomic state-authority sync after state transitions.** After merge, phase close, gate trip, or another sequencing transition, update every mutable workstream document that claims current status/sequence/predecessor/next action before dispatching the next dependent slice. Prefer one commit/PR transaction. If tooling can only apply sequential writes, treat the whole sequence as one guarded transaction: do not dispatch between partial writes, then verify the complete sync set before closing the cycle. Plan/checklist/handoff are common members, not a closed set; roadmaps, trackers, status docs, or indexes belong in the sync when they carry that state.
 10. **Stable authorities do not churn for ceremony.** Architecture, contracts, and reference docs change only when their claims changed—not merely because an implementation PR merged.
 
 ## Parallel lane contract
@@ -38,7 +38,7 @@ The cycle does not end at a green merge. It ends when the repository state and e
 A lane is the combination of:
 
 ```text
-branch + worktree + HANDOFF + write lease + relevant runtime/state ownership
+branch + isolated checkout/worktree + HANDOFF + write lease + relevant runtime/state ownership
 ```
 
 Before dispatching parallel work:
@@ -83,7 +83,7 @@ After a state-changing event, first identify the workstream's mutable state auth
 - current-state/status documents
 - source/index manifests when they claim the current active set
 
-Update the applicable set coherently so a fresh agent cannot observe contradictory states such as "PR pending" in a roadmap while `main` already contains the merge.
+Prefer to land the applicable set together. When an API/tool can update only one file per commit, sequential file writes are acceptable only inside the same guarded sync operation: no dependent dispatch or "cycle complete" claim occurs until every intended authority is updated and the final repository state has been re-read.
 
 The sync records the new state; it does not rewrite architecture history or bundle unrelated cleanup.
 
