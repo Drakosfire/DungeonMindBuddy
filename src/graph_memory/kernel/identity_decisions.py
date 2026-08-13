@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
+from graph_memory.kernel.contributions import semantic_assertion_value
 from graph_memory.kernel.identity_models import (
     IdentityAliasMapRewrite,
     IdentityDecisionKind,
@@ -274,13 +275,39 @@ def _candidate_supports_for_subject(
     return candidates
 
 
-def _load_assertion_from_support(
+def _assertion_semantic_fingerprint(assertion: Any) -> tuple[Any, ...]:
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        json.dumps(
+            semantic_assertion_value(assertion.value),
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+        json.dumps(assertion.temporal_scope, sort_keys=True, separators=(",", ":"))
+        if assertion.temporal_scope is not None
+        else None,
+    )
+
+
+def _assertion_graph_object_id(assertion: Any) -> str:
+    return str(assertion.subject_node_id or assertion.target_node_id or "")
+
+
+def _load_assertions_from_support(
     root: Path,
     world_id: str,
     support: DurableAssertionSupport,
-):
+) -> list[Any]:
     from graph_memory.world_supergraph.contribution_store import load_contribution_record
 
+    resolved: list[Any] = []
     for contribution_id in support.active_contribution_ids:
         try:
             contribution = load_contribution_record(root, world_id, contribution_id)
@@ -289,13 +316,56 @@ def _load_assertion_from_support(
                 f"cannot resolve assertion support {support.assertion_id!r}: "
                 f"missing contribution {contribution_id!r}"
             ) from exc
-        for candidate in contribution.accepted_assertions:
-            if candidate.assertion_id == support.assertion_id:
-                return candidate
-    raise ValueError(
-        f"cannot resolve assertion support {support.assertion_id!r} from "
-        f"active contributions {list(support.active_contribution_ids)}"
-    )
+        matched = next(
+            (
+                candidate
+                for candidate in contribution.accepted_assertions
+                if candidate.assertion_id == support.assertion_id
+            ),
+            None,
+        )
+        if matched is None:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"active contribution {contribution_id!r} does not contain the assertion"
+            )
+        if getattr(matched, "contribution_id", contribution_id) != contribution_id:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"assertion contribution_id {matched.contribution_id!r} does not "
+                f"match active contribution {contribution_id!r}"
+            )
+        resolved.append(matched)
+
+    if not resolved:
+        raise ValueError(
+            f"cannot resolve assertion support {support.assertion_id!r} from "
+            f"active contributions {list(support.active_contribution_ids)}"
+        )
+    return resolved
+
+
+def _assert_support_copies_consistent(
+    support: DurableAssertionSupport,
+    assertions: list[Any],
+) -> None:
+    fingerprints = {_assertion_semantic_fingerprint(item) for item in assertions}
+    if len(fingerprints) > 1:
+        raise ValueError(
+            f"cannot resolve assertion support {support.assertion_id!r}: "
+            "semantically divergent active copies"
+        )
+    expected_object_id = support.graph_object_id
+    if expected_object_id is None:
+        return
+    for assertion in assertions:
+        actual = _assertion_graph_object_id(assertion)
+        if actual != expected_object_id:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"graph_object_id {expected_object_id!r} does not match "
+                f"assertion object {actual!r}"
+            )
 
 
 def _assertion_lists_alias(assertion: Any, alias: str) -> bool:
@@ -330,14 +400,27 @@ def _assert_no_independent_semantic_support(
             "without contribution root"
         )
     for support in candidates:
-        assertion = _load_assertion_from_support(root, world_id, support)
-        if assertion.subject_node_id != subject_node_id:
-            continue
-        if _assertion_lists_alias(assertion, alias):
+        assertions = _load_assertions_from_support(root, world_id, support)
+        if any(
+            (
+                item.subject_node_id == subject_node_id
+                or support.graph_object_id == subject_node_id
+            )
+            and _assertion_lists_alias(item, alias)
+            for item in assertions
+        ):
             raise ValueError(
                 f"cannot remove alias {alias!r} from {subject_node_id}: "
                 "independent semantic support exists"
             )
+        _assert_support_copies_consistent(support, assertions)
+        subjects = {item.subject_node_id for item in assertions}
+        if subjects != {subject_node_id}:
+            if support.graph_object_id == subject_node_id:
+                raise ValueError(
+                    f"cannot resolve assertion support {support.assertion_id!r}: "
+                    f"subject {sorted(subjects)!r} does not match {subject_node_id!r}"
+                )
 
 
 def _assert_unmerge_not_blocked_by_alias_remove(
@@ -353,7 +436,17 @@ def _assert_unmerge_not_blocked_by_alias_remove(
     }
     if not added:
         return
-    for decision in decisions:
+    merge_index = next(
+        (
+            index
+            for index, item in enumerate(decisions)
+            if item.decision_id == merge.decision_id
+        ),
+        None,
+    )
+    if merge_index is None:
+        return
+    for decision in decisions[merge_index + 1 :]:
         if decision.status != "active" or decision.decision_kind != "alias_remove":
             continue
         if decision.subject_node_id != merge.target_node_id:
