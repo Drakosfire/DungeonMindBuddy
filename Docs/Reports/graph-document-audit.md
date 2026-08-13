@@ -1,7 +1,7 @@
 # Graph Document Audit — Campaign Supergraph Reset
 
 **Date:** 2026-07-10
-**Updated:** 2026-08-02 (design-agent Project Sources snapshot reconciled; curated source INDEX added)
+**Updated:** 2026-08-12 (development-process reference re-anchored from Jumpstart to Steward Cycle)
 **Status:** Active audit record for Phase 0 (+ PR005A source reanchor; PR005B contract; design-agent source bridge)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
@@ -14,7 +14,7 @@ Classify graph-related documentation under `Docs/` so contributors know what can
 
 **Rule:** For Campaign Supergraph sequencing, [`PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) is the **only** active implementation sequence. A fresh agent must not pick an older handoff and resume the superseded architecture.
 
-**PR005A / PR005B note:** Tracker slice **PR005A (Context Audit + Source Reanchor)** enforces the Project Sources / local-doc boundary. **PR005B** defines the agent-tool and authored-prep contract in [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md). Jumpstarts and Project Sources cannot invent a competing sequence.
+**PR005A / PR005B note:** Tracker slice **PR005A (Context Audit + Source Reanchor)** enforces the Project Sources / local-doc boundary. **PR005B** defines the agent-tool and authored-prep contract in [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md). Steward process references and Project Sources cannot invent a competing sequence.
 
 ## Action legend
 
@@ -42,7 +42,9 @@ When Project Sources conflict with GitHub, GitHub wins.
 Historical / research / proposal docs cannot direct implementation.
 ```
 
-Process template in-repo: [`Docs/Plans/JUMPSTART-docs-relevance-first.md`](../Plans/JUMPSTART-docs-relevance-first.md). If the jumpstart and the tracker disagree, **the tracker wins**.
+Current steward process reference: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). It may govern how a slice is selected/dispatched/reviewed, but if any process reference and the tracker disagree on Campaign Supergraph sequence, **the tracker wins**.
+
+Legacy [`Docs/Plans/JUMPSTART-docs-relevance-first.md`](../Plans/JUMPSTART-docs-relevance-first.md) is a superseded forwarding stub retained for old links only.
 
 Curated design-agent source bridge: [`Docs/Design/INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md). Prefer that INDEX when choosing which repository paths to attach as Project Sources.
 
@@ -53,7 +55,8 @@ These names often appear as Project Sources or local drafts. Classification belo
 | Document / name | Classification | Notes |
 |---|---|---|
 | `Docs/Design/INDEX-design-agent-source-set.md` | **ACTIVE_REFERENCE** / process index | Curated design-agent source bridge; not architecture/roadmap authority |
-| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **SOURCE_ONLY** when absent; process intent covered by Jumpstart + INDEX | Not found in tree as of 2026-08-02; do not recreate blindly |
+| `Docs/Process/STEWARD-CYCLE.md` | **ACTIVE_REFERENCE** / process reference | Canonical steward design/decomposition/parallel-lane/review/re-anchor process; cannot invent graph sequence |
+| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | **SOURCE_ONLY** when absent; process intent covered by Steward Cycle + INDEX | Not found in tree as of 2026-08-02; do not recreate blindly |
 | `PROPOSAL-context-audit-source-reanchor.md` | **SOURCE_ONLY** / **PROPOSAL** | Not found in tree as of 2026-08-02; proposal-only if attached |
 | `source-reconciliation-report(2).md` | **SOURCE_ONLY** | Not found in tree as of 2026-08-02; local/operator report only |
 | `LLM-graph-construction.md` | **SOURCE_ONLY** / **RESEARCH_ONLY** | Not found in tree as of 2026-08-02; extraction/eval patterns only |
@@ -65,7 +68,7 @@ These names often appear as Project Sources or local drafts. Classification belo
 | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` | **ACTIVE_REFERENCE** | Plan composition; not Campaign Supergraph sequencing; UI chrome → surface-interaction architecture |
 | `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` | **ACTIVE AUTHORITY** (UI shell) | Shared bars / projection hosts; does not sequence graph PRs |
 | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` | **ACTIVE_REFERENCE** | Layout note; sequencing lives in tracker |
-| `Docs/Plans/JUMPSTART-docs-relevance-first.md` | **ACTIVE_REFERENCE** / process template | Must defer to tracker on sequence |
+| `Docs/Plans/JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** process stub | Historical links forward to `Docs/Process/STEWARD-CYCLE.md`; do not use as active process authority |
 
 ### 2026-08-02 design-agent Sources snapshot
 
@@ -86,7 +89,7 @@ These names often appear as Project Sources or local drafts. Classification belo
 | `PROPOSAL-context-audit-source-reanchor.md` | SOURCE_ONLY / PROPOSAL — not in tree |
 | `source-reconciliation-report(2).md` | SOURCE_ONLY — not in tree |
 | `LLM-graph-construction.md` | SOURCE_ONLY / RESEARCH_ONLY — not in tree |
-| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | SOURCE_ONLY — not in tree; Jumpstart + INDEX cover process |
+| `PROJECT-SOURCES-OPERATING-TEMPLATE.md` | SOURCE_ONLY — not in tree; Steward Cycle + INDEX cover process |
 
 **Unresolved source-only basenames (do not invent content):**
 `PROPOSAL-context-audit-source-reanchor.md`, `source-reconciliation-report(2).md`, `LLM-graph-construction.md`, `PROJECT-SOURCES-OPERATING-TEMPLATE.md`, `TEMPLATE-pr-handoff(1).md`, `archived-full-GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md`.
@@ -163,7 +166,7 @@ Stub pointers remain at former paths.
 | `Docs/Reports/archive/2026-06-28/graph-memory/GRAPH-MEMORY-SHARED-SOURCE-VOCABULARY-CONTRACT.md` | Full vocab contract copy | **KEEP** | Prefer Design CONTRACT as canonical |
 | `Docs/Reports/archive/2026-06-28/graph-memory/GRAPH-MEMORY-SURFACE-VOCABULARY-BOUNDARY.md` | Surface vs graph vocab | **KEEP** | Boundary rules |
 | `Docs/Anchors/CORPUS-ANCHOR.md` | Corpus path index | **SOURCE_ANCHOR** / **KEEP** | Corpus navigation |
-| `Docs/Plans/JUMPSTART-docs-relevance-first.md` | Docs relevance process | **ACTIVE REFERENCE** | Process template; tracker wins on sequence |
+| `Docs/Process/STEWARD-CYCLE.md` | Steward development process | **ACTIVE REFERENCE** | Process reference; tracker still owns Campaign Supergraph sequence |
 
 ---
 
@@ -188,7 +191,7 @@ No other document may invent a competing Campaign Supergraph PR sequence.
 |---|---|---|---|
 | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` | Path boundaries runtime/eval | **ACTIVE REFERENCE** | Layout note; sequencing lives in tracker |
 | `Docs/Design/INDEX-design-agent-source-set.md` | Design-agent Project Sources bridge | **ACTIVE REFERENCE** | Index only; cannot invent architecture or PR sequence |
-| `Docs/Plans/JUMPSTART-docs-relevance-first.md` | Docs relevance / sync process | **ACTIVE REFERENCE** | Cannot invent PR sequence; defers to tracker |
+| `Docs/Process/STEWARD-CYCLE.md` | Design/review steward cycle | **ACTIVE REFERENCE** | Process only; cannot invent PR sequence; defers to tracker |
 | `Docs/Design/DESIGN-graph-object-authoring-surface.md` | Graph Review write-path checkpoint | **ACTIVE REFERENCE** | Write-surface product; subordinate to architecture §4/§8 and tracker merge slices |
 | `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` | Ingest preview → Graph Review → World Graph promote ladder (PR011A*) | **ACTIVE REFERENCE** | Product binding design; sequencing lives in tracker PR011A1–A3/B |
 | `Docs/Plans/ROADMAP-graph-object-authoring-surface.md` | Authoring execution trail (paused) | **ACTIVE REFERENCE** | Paused trail; cannot invent parallel supergraph roadmap |
@@ -206,6 +209,7 @@ No other document may invent a competing Campaign Supergraph PR sequence.
 
 | Document | Action | Replacement |
 |---|---|---|
+| `Docs/Plans/JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** forwarding stub | `Docs/Process/STEWARD-CYCLE.md` |
 | `Docs/Design/DESIGN-graph-review-gold-authoring-workbench.md` | **SUPERSEDED** | `DESIGN-graph-object-authoring-surface.md` |
 | `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` | **ARCHIVED STUB** (2026-07-15) | Body under `Plans/archive/2026-07-15/superseded-roadmaps/`; replacement `ROADMAP-graph-object-authoring-surface.md` |
 | `Docs/Design/dungeonbuddy_spec_architecture_v0_2.md` | **SUPERSEDED** / **HISTORICAL** | `ARCHITECTURE-campaign-supergraph.md` (+ roadmap + tracker). Banner required; do not use for sequencing or Kernel contracts. |
@@ -243,7 +247,7 @@ Already under archive trees, or in-place historical:
 | ACTIVE AUTHORITY | 4 |
 | ACTIVE REFERENCE | ~10 |
 | KEEP | ~14 |
-| SUPERSEDED | ~3 + stubs |
+| SUPERSEDED | ~4 + stubs |
 | HISTORICAL EVIDENCE / ARCHIVED | ~70+ |
 | DELETE | 1 |
 
@@ -265,6 +269,7 @@ Already under archive trees, or in-place historical:
 | First real populated union (named corpus)? | Roadmap Phase 3 · Tracker **PR006** |
 | Project Sources vs GitHub authority? | This audit · Project Sources boundary · Tracker **PR005A** · [`INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md) |
 | Which docs should the design agent attach? | [`INDEX-design-agent-source-set.md`](../Design/INDEX-design-agent-source-set.md) compact active set |
+| How should a steward select/dispatch/review a slice? | [`STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md) |
 | Agent tool / authored prep contracts? | [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](../Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md) · Tracker **PR005B** (docs); runtime **PR011** |
 | Long-term roadmap? | `ROADMAP-campaign-supergraph.md` |
 | Implementation PRs? | `PR-TRACKER-campaign-supergraph.md` only |
