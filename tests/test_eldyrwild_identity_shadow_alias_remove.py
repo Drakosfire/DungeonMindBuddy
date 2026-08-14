@@ -25,6 +25,7 @@ from apps.live_control_server.services.eldyrwild_identity_shadow_alias_remove im
     get_eldyrwild_identity_shadow_alias_remove_status,
     retirement_reason,
 )
+from apps.live_control_server.services import eldyrwild_identity_shadow_alias_remove as alias_remove_mod
 from graph_memory.world_supergraph.contribution_store import load_contribution_index
 from graph_memory.world_supergraph.identity_decision_store import (
     load_identity_decision_record,
@@ -127,6 +128,23 @@ def test_status_on_current_clone_is_eligible(tmp_path: Path) -> None:
     assert status.eligibility == "eligible"
     assert status.keeper_aliases_present is True
     assert status.retired_alias_count == 0
+    assert (
+        sum(
+            1
+            for item in status.diagnostics
+            if item.startswith("independent_support_absent:")
+        )
+        == 6
+    )
+    assert (
+        sum(1 for item in status.diagnostics if item.startswith("keeper_lineage:")) == 2
+    )
+    assert (
+        sum(
+            1 for item in status.diagnostics if item.startswith("no_prior_alias_remove:")
+        )
+        == 6
+    )
 
 
 def test_apply_refuses_live_world_without_opt_in() -> None:
@@ -169,6 +187,170 @@ def test_keepers_refuse_remove_identity_alias(tmp_path: Path) -> None:
             )
         assert "independent semantic support" in str(exc.value)
         assert _alias_present(store, keeper.node_id, keeper.alias)
+
+
+def test_preflight_refuses_independent_support_before_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    head, _, _store = kernel.open_current_world_graph(root, WORLD_ID)
+    if head.head_revision_id != EXPECTED_CANONICAL_REVISION_ID:
+        pytest.skip(f"clone head {head.head_revision_id} is not the expected canonical pin")
+    target = SHADOW_ALIAS_TARGETS[0]
+    assertion = kernel.build_assertion(
+        assertion_kind="alias",
+        acceptance_state="accepted",
+        subject_node_id=target.survivor_node_id,
+        label=target.alias,
+        value={"alias": target.alias},
+        source_artifact_id="artifact:cutover-shadow-support-probe",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="resolved_existing",
+    )
+    authored = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:cutover-shadow-support-probe",
+        source_revision_id="cutover-shadow-support-probe",
+        authored_by="gm",
+        campaign_scope="longmont-c2",
+        accepted_assertions=[assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=authored
+    )
+    assert merge.published is True
+    assert merge.revision_id
+    status = get_eldyrwild_identity_shadow_alias_remove_status(
+        root=root,
+        expected_parent_revision_id=merge.revision_id,
+    )
+    assert status.eligibility == "ineligible"
+    assert f"independent_support:{target.survivor_node_id}" in status.diagnostics
+    monkeypatch.setattr(
+        alias_remove_mod,
+        "_apply_targets",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("_apply_targets must not run after independent-support preflight")
+        ),
+    )
+    with pytest.raises(EldyrwildIdentityShadowAliasRemoveError) as exc:
+        apply_eldyrwild_identity_shadow_alias_remove(
+            expected_parent_revision_id=merge.revision_id,
+            root=root,
+            allow_live_world=False,
+        )
+    assert exc.value.code == "ineligible_parent"
+    assert "independent active semantic support" in str(exc.value)
+    after_head, _, after = kernel.open_current_world_graph(root, WORLD_ID)
+    assert after_head.head_revision_id == merge.revision_id
+    assert _alias_present(after, target.survivor_node_id, target.alias)
+
+
+def test_preflight_refuses_broken_keeper_lineage_before_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    head, _, store = kernel.open_current_world_graph(root, WORLD_ID)
+    if head.head_revision_id != EXPECTED_CANONICAL_REVISION_ID:
+        pytest.skip(f"clone head {head.head_revision_id} is not the expected canonical pin")
+    keeper = KEEPER_ALIASES[0]
+    assert _alias_present(store, keeper.node_id, keeper.alias)
+    support_map = dict(store.assertion_support)
+    support_map.pop(keeper.assertion_id, None)
+    mutated = store.model_copy(update={"assertion_support": support_map})
+    eligibility, reason, diagnostics, retired = alias_remove_mod._structural_preflight(
+        mutated, head_revision_id=head.head_revision_id, root=root
+    )
+    assert eligibility == "ineligible"
+    assert retired == 0
+    assert f"keeper_lineage:{keeper.node_id}" in diagnostics
+    assert keeper.assertion_id in (reason or "")
+    assert _alias_present(mutated, keeper.node_id, keeper.alias)
+    monkeypatch.setattr(
+        alias_remove_mod,
+        "_apply_targets",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("_apply_targets must not run after keeper-lineage preflight")
+        ),
+    )
+    monkeypatch.setattr(
+        kernel,
+        "open_current_world_graph",
+        lambda *_args, **_kwargs: (head, object(), mutated),
+    )
+    status = get_eldyrwild_identity_shadow_alias_remove_status(root=root)
+    assert status.eligibility == "ineligible"
+    assert f"keeper_lineage:{keeper.node_id}" in status.diagnostics
+    with pytest.raises(EldyrwildIdentityShadowAliasRemoveError) as exc:
+        apply_eldyrwild_identity_shadow_alias_remove(
+            expected_parent_revision_id=head.head_revision_id,
+            root=root,
+            allow_live_world=False,
+        )
+    assert exc.value.code == "ineligible_parent"
+    assert keeper.assertion_id in str(exc.value)
+
+
+def test_preflight_refuses_foreign_alias_remove_with_alias_still_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    head, _, store = kernel.open_current_world_graph(root, WORLD_ID)
+    if head.head_revision_id != EXPECTED_CANONICAL_REVISION_ID:
+        pytest.skip(f"clone head {head.head_revision_id} is not the expected canonical pin")
+    target = SHADOW_ALIAS_TARGETS[0]
+    assert _alias_present(store, target.survivor_node_id, target.alias)
+    foreign = kernel.build_identity_decision_record(
+        world_id=WORLD_ID,
+        decision_kind="alias_remove",
+        actor="gm",
+        reason="foreign non-package retirement of a rematerialized alias",
+        subject_node_id=target.survivor_node_id,
+        alias=target.alias,
+        affected_node_ids=[target.survivor_node_id],
+    )
+    mutated = store.model_copy(
+        update={
+            "identity_decisions": [
+                *store.identity_decisions,
+                foreign.model_dump(mode="json"),
+            ]
+        }
+    )
+    eligibility, reason, diagnostics, retired = alias_remove_mod._structural_preflight(
+        mutated, head_revision_id=head.head_revision_id, root=root
+    )
+    assert eligibility == "ineligible"
+    assert retired == 0
+    assert f"foreign_alias_remove:{target.survivor_node_id}" in diagnostics
+    assert "prior active alias_remove" in (reason or "")
+    assert _alias_present(mutated, target.survivor_node_id, target.alias)
+    monkeypatch.setattr(
+        alias_remove_mod,
+        "_apply_targets",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("_apply_targets must not run after foreign alias_remove preflight")
+        ),
+    )
+    monkeypatch.setattr(
+        kernel,
+        "open_current_world_graph",
+        lambda *_args, **_kwargs: (head, object(), mutated),
+    )
+    status = get_eldyrwild_identity_shadow_alias_remove_status(root=root)
+    assert status.eligibility == "ineligible"
+    assert f"foreign_alias_remove:{target.survivor_node_id}" in status.diagnostics
+    with pytest.raises(EldyrwildIdentityShadowAliasRemoveError) as exc:
+        apply_eldyrwild_identity_shadow_alias_remove(
+            expected_parent_revision_id=head.head_revision_id,
+            root=root,
+            allow_live_world=False,
+        )
+    assert exc.value.code == "ineligible_parent"
+    assert "prior active alias_remove" in str(exc.value)
 
 
 def test_clone_apply_replay_retry_and_invariants(tmp_path: Path) -> None:

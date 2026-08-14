@@ -7,10 +7,15 @@ revision through the existing identity-decision seam.
 Does not change generic Kernel semantics, does not remove Captain or Thrin
 Branchborn, and does not mutate the canonical live world without an explicit
 ``allow_live_world`` opt-in.
+
+PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: preflight inspects durable assertion
+and contribution copies, plus the merge-redirect map, before any
+``remove_identity_alias`` call. Kernel does not export those inspectors.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -22,7 +27,10 @@ from apps.live_control_server.config import (
     live_world_graph_root,
     world_graph_root,
 )
+from graph_memory.evidence.assertion_support import DurableAssertionSupport
+from graph_memory.kernel.contributions import semantic_assertion_value
 from graph_memory.union_supergraph.redirects import active_identity_redirect_map
+from graph_memory.world_supergraph.contribution_store import load_contribution_record
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 
 WORLD_ID = "eldyrwild"
@@ -251,8 +259,241 @@ def _keeper_present(store: Any, keeper: KeeperAlias) -> bool:
     return _alias_present(list(node.aliases), keeper.alias)
 
 
+def _iter_typed_supports(store: Any) -> list[DurableAssertionSupport]:
+    supports: list[DurableAssertionSupport] = []
+    for value in (store.assertion_support or {}).values():
+        if isinstance(value, DurableAssertionSupport):
+            supports.append(value)
+        elif isinstance(value, dict):
+            supports.append(DurableAssertionSupport.model_validate(value))
+    return supports
+
+
+def _candidate_supports_for_subject(
+    store: Any, subject_node_id: str
+) -> list[DurableAssertionSupport]:
+    candidates: list[DurableAssertionSupport] = []
+    for support in _iter_typed_supports(store):
+        if support.support_state != "supported" or not support.active_contribution_ids:
+            continue
+        kind = support.assertion_kind
+        if kind not in {None, "alias", "node"}:
+            continue
+        if support.graph_object_id not in {None, subject_node_id}:
+            continue
+        candidates.append(support)
+    return candidates
+
+
+def _assertion_semantic_fingerprint(assertion: Any) -> tuple[Any, ...]:
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        json.dumps(
+            semantic_assertion_value(assertion.value),
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+        json.dumps(assertion.temporal_scope, sort_keys=True, separators=(",", ":"))
+        if assertion.temporal_scope is not None
+        else None,
+    )
+
+
+def _assertion_graph_object_id(assertion: Any) -> str:
+    return str(assertion.subject_node_id or assertion.target_node_id or "")
+
+
+def _load_assertions_from_support(
+    root: Path,
+    support: DurableAssertionSupport,
+) -> list[Any]:
+    resolved: list[Any] = []
+    for contribution_id in support.active_contribution_ids:
+        try:
+            contribution = load_contribution_record(root, WORLD_ID, contribution_id)
+        except FileNotFoundError as exc:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"missing contribution {contribution_id!r}"
+            ) from exc
+        matched = next(
+            (
+                candidate
+                for candidate in contribution.accepted_assertions
+                if candidate.assertion_id == support.assertion_id
+            ),
+            None,
+        )
+        if matched is None:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"active contribution {contribution_id!r} does not contain the assertion"
+            )
+        if getattr(matched, "contribution_id", contribution_id) != contribution_id:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"assertion contribution_id {matched.contribution_id!r} does not "
+                f"match active contribution {contribution_id!r}"
+            )
+        resolved.append(matched)
+    if not resolved:
+        raise ValueError(
+            f"cannot resolve assertion support {support.assertion_id!r} from "
+            f"active contributions {list(support.active_contribution_ids)}"
+        )
+    return resolved
+
+
+def _assert_support_copies_consistent(
+    support: DurableAssertionSupport,
+    assertions: list[Any],
+) -> None:
+    fingerprints = {_assertion_semantic_fingerprint(item) for item in assertions}
+    if len(fingerprints) > 1:
+        raise ValueError(
+            f"cannot resolve assertion support {support.assertion_id!r}: "
+            "semantically divergent active copies"
+        )
+    expected_object_id = support.graph_object_id
+    if expected_object_id is None:
+        return
+    for assertion in assertions:
+        actual = _assertion_graph_object_id(assertion)
+        if actual != expected_object_id:
+            raise ValueError(
+                f"cannot resolve assertion support {support.assertion_id!r}: "
+                f"graph_object_id {expected_object_id!r} does not match "
+                f"assertion object {actual!r}"
+            )
+
+
+def _assertion_lists_alias(assertion: Any, alias: str) -> bool:
+    needle = alias.casefold()
+    if assertion.assertion_kind == "alias":
+        value = dict(assertion.value or {})
+        claimed = str(assertion.label or value.get("alias") or "")
+        return bool(claimed.strip()) and claimed.casefold() == needle
+    if assertion.assertion_kind == "node":
+        value = dict(assertion.value or {})
+        return any(
+            str(item).strip() and str(item).casefold() == needle
+            for item in list(value.get("aliases") or [])
+        )
+    return False
+
+
+def _independent_support_for_alias(
+    store: Any,
+    *,
+    root: Path,
+    subject_node_id: str,
+    alias: str,
+) -> tuple[bool, str | None]:
+    """Return (has_independent_support, integrity_error)."""
+    candidates = _candidate_supports_for_subject(store, subject_node_id)
+    if not candidates:
+        return False, None
+    for support in candidates:
+        try:
+            assertions = _load_assertions_from_support(root, support)
+            lists_alias = any(
+                (
+                    item.subject_node_id == subject_node_id
+                    or support.graph_object_id == subject_node_id
+                )
+                and _assertion_lists_alias(item, alias)
+                for item in assertions
+            )
+            if lists_alias:
+                return True, None
+            _assert_support_copies_consistent(support, assertions)
+            subjects = {item.subject_node_id for item in assertions}
+            if subjects != {subject_node_id} and support.graph_object_id == subject_node_id:
+                return False, (
+                    f"cannot resolve assertion support {support.assertion_id!r}: "
+                    f"subject {sorted(subjects)!r} does not match {subject_node_id!r}"
+                )
+        except ValueError as exc:
+            return False, str(exc)
+    return False, None
+
+
+def _keeper_lineage_intact(
+    store: Any, keeper: KeeperAlias, *, root: Path
+) -> tuple[bool, str]:
+    if not _keeper_present(store, keeper):
+        return False, f"keeper alias {keeper.alias!r} missing on {keeper.node_id}"
+    raw = (store.assertion_support or {}).get(keeper.assertion_id)
+    if raw is None:
+        return False, (
+            f"keeper assertion {keeper.assertion_id} missing for {keeper.alias!r}"
+        )
+    support = (
+        raw
+        if isinstance(raw, DurableAssertionSupport)
+        else DurableAssertionSupport.model_validate(raw)
+    )
+    if support.support_state != "supported" or not support.active_contribution_ids:
+        return False, (
+            f"keeper assertion {keeper.assertion_id} is not actively supported"
+        )
+    if keeper.contribution_id not in support.active_contribution_ids:
+        return False, (
+            f"keeper contribution {keeper.contribution_id} is not active for "
+            f"{keeper.assertion_id}"
+        )
+    if support.graph_object_id not in {None, keeper.node_id}:
+        return False, (
+            f"keeper assertion {keeper.assertion_id} graph_object_id "
+            f"{support.graph_object_id!r} does not match {keeper.node_id}"
+        )
+    bound = (store.contribution_source_payload_sha256 or {}).get(keeper.contribution_id)
+    if bound != keeper.source_sha:
+        return False, (
+            f"keeper source sha mismatch for {keeper.contribution_id}: "
+            f"{bound!r} != {keeper.source_sha!r}"
+        )
+    try:
+        contribution = load_contribution_record(root, WORLD_ID, keeper.contribution_id)
+    except FileNotFoundError:
+        return False, f"keeper contribution {keeper.contribution_id} is missing"
+    digest = kernel.compute_contribution_source_payload_sha256(contribution)
+    if digest != keeper.source_sha:
+        return False, (
+            f"keeper contribution file digest mismatch for {keeper.contribution_id}"
+        )
+    try:
+        assertions = _load_assertions_from_support(root, support)
+        _assert_support_copies_consistent(support, assertions)
+    except ValueError as exc:
+        return False, str(exc)
+    owns_alias = any(
+        item.assertion_id == keeper.assertion_id
+        and item.contribution_id == keeper.contribution_id
+        and (
+            item.subject_node_id == keeper.node_id
+            or support.graph_object_id == keeper.node_id
+        )
+        and _assertion_lists_alias(item, keeper.alias)
+        for item in assertions
+    )
+    if not owns_alias:
+        return False, (
+            f"locked keeper assertion {keeper.assertion_id} in "
+            f"{keeper.contribution_id} does not list {keeper.alias!r}"
+        )
+    return True, f"keeper_lineage:{keeper.node_id}"
+
+
 def _structural_preflight(
-    store: Any, *, head_revision_id: str
+    store: Any, *, head_revision_id: str, root: Path
 ) -> tuple[EligibilityState, str | None, list[str], int]:
     diagnostics: list[str] = []
     present_flags: list[bool] = []
@@ -324,31 +565,66 @@ def _structural_preflight(
             )
         matching = _matching_alias_remove(store, target)
         already_flags.append(matching is not None)
-        if not alias_present and matching is None and _prior_alias_remove_exists(
-            store, target
-        ):
+        if matching is None and _prior_alias_remove_exists(store, target):
             return (
                 "ineligible",
                 (
-                    f"alias {target.alias!r} already retired from "
-                    f"{target.survivor_node_id} by a non-package decision"
+                    f"alias {target.alias!r} on {target.survivor_node_id} has a "
+                    "prior active alias_remove outside this package"
                 ),
                 [f"foreign_alias_remove:{target.survivor_node_id}"],
                 0,
             )
+        if alias_present:
+            has_support, integrity_error = _independent_support_for_alias(
+                store,
+                root=root,
+                subject_node_id=target.survivor_node_id,
+                alias=target.alias,
+            )
+            if integrity_error:
+                return (
+                    "integrity_failure",
+                    integrity_error,
+                    [f"support_integrity:{target.survivor_node_id}"],
+                    0,
+                )
+            if has_support:
+                return (
+                    "ineligible",
+                    (
+                        f"alias {target.alias!r} on {target.survivor_node_id} has "
+                        "independent active semantic support"
+                    ),
+                    [f"independent_support:{target.survivor_node_id}"],
+                    0,
+                )
+            diagnostics.append(
+                f"independent_support_absent:{target.survivor_node_id}"
+            )
         diagnostics.append(
             f"target:{target.survivor_node_id}:present={alias_present}"
         )
+        if matching is None:
+            diagnostics.append(f"no_prior_alias_remove:{target.survivor_node_id}")
 
     for keeper in KEEPER_ALIASES:
-        if not _keeper_present(store, keeper):
+        intact, keeper_diagnostic = _keeper_lineage_intact(
+            store, keeper, root=root
+        )
+        if not intact:
+            code = (
+                f"missing_keeper:{keeper.node_id}"
+                if "missing on" in keeper_diagnostic
+                else f"keeper_lineage:{keeper.node_id}"
+            )
             return (
                 "ineligible",
-                f"keeper alias {keeper.alias!r} missing on {keeper.node_id}",
-                [f"missing_keeper:{keeper.node_id}"],
+                keeper_diagnostic,
+                [code],
                 0,
             )
-        diagnostics.append(f"keeper_present:{keeper.node_id}")
+        diagnostics.append(keeper_diagnostic)
 
     retired = sum(1 for flag in present_flags if not flag)
     if all(present_flags) and not any(already_flags):
@@ -409,7 +685,7 @@ def get_eldyrwild_identity_shadow_alias_remove_status(
             diagnostics=["stale_expected_parent"],
         )
     eligibility, reason, diagnostics, retired = _structural_preflight(
-        store, head_revision_id=head_revision_id
+        store, head_revision_id=head_revision_id, root=world_root
     )
     return EldyrwildIdentityShadowAliasRemoveStatus(
         world_id=WORLD_ID,
