@@ -26,17 +26,68 @@ pr_body_template: |
 
 # HANDOFF — prove identity lifecycle through alias_remove
 
-**Created:** 2026-08-13  
-**Status:** READY  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md`  
-**Conversation/workstream:** `CUTOVER — prove identity lifecycle through alias_remove`  
-**Flow / owner:** `CUTOVER`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Design base:** `ad6dd2507d4f5ed2c5cc24e9c0c8b50df2e65ca9`  
-**Suggested branch:** `cutover/identity-lifecycle-through-alias-remove`  
+**Created:** 2026-08-13
+**Status:** DONE / HISTORICAL — do not redispatch
+**Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md`
+**Conversation/workstream:** `CUTOVER — prove identity lifecycle through alias_remove`
+**Flow / owner:** `CUTOVER`
+**Direction:** DESIGN → CODE → REVIEW
+**Design base:** `ad6dd2507d4f5ed2c5cc24e9c0c8b50df2e65ca9`
+**Suggested branch:** `cutover/identity-lifecycle-through-alias-remove`
 **PR title:** `CUTOVER: prove identity lifecycle through alias_remove`
 
-> Repository law: [`AGENTS.md`](../../AGENTS.md).  
+### Completion record
+
+```text
+DONE / HISTORICAL — do not redispatch.
+
+PR: #585
+implementation head: 7c339a23d77b4465ca0adeda015859215b65285d
+merge: 0fe9f88cfafda38319145e88d0f8b354d53830ca
+review cycles: 2
+
+canonical: rev:0c644e56b45bcaac709012206e3e41c2
+payload: 0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2
+
+historical merge-only proof on current head:
+  reconstructable 16 / 28
+  unresolved 12
+  current-policy authority: NO
+
+current lifecycle-through-alias_remove proof:
+  reconstructable 28 / 28
+  unresolved []
+  passed true
+
+fresh source-history policy:
+  policy_id identity_lifecycle_history_v1
+  source exact current passed proof
+
+current remeasurement:
+  ATTRIBUTE_ASSERTION = 0
+  EVIDENCE_PROVENANCE = 2
+  IDENTITY_HISTORY = 20
+  CONTRIBUTION_HISTORY = 5291
+
+remaining EVIDENCE_PROVENANCE:
+  node:node:captain-lysandra-ironveil:field:aliases
+  node:node:thrin-branchborn:field:aliases
+
+relationships:
+  canonical 323 / 314 / 9 / 3
+  migration 323 / 318 / 5 / 3
+
+five dual-sense relationship STOPs: unchanged
+CUTOVER_NOT_READY remains true
+
+fixture:
+  tests/fixtures/dungeonmind_kernel/eldyrwild_cutover_identity_lifecycle_through_alias_remove_v1.json
+  SHA-256 c31e8c156b3d66f389f67dcdb92b28a4e7c4d0a6ae77e3f0604b99cf38940531
+```
+
+Successor: [`HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md`](HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md). Dispatch after the required DOCUMENTS lifecycle-proof exit state-sync merges; do not dispatch from `0fe9f88…` directly.
+
+> Repository law: [`AGENTS.md`](../../AGENTS.md).
 > Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md).
 >
 > Re-anchor before the first implementation change. The actual dispatch base
