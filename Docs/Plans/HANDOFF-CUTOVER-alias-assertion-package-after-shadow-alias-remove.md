@@ -263,6 +263,7 @@ source artifacts:
 
 DungeonMind record:
   validates against pinned alias assertion contract
+  metadata follows the explicit mapping below
 ```
 
 No source-grounding through:
@@ -323,6 +324,76 @@ preserve each distinct assertion as a distinct package row
 
 provided DungeonMind admits the resulting rows and IDs remain unambiguous.
 
+### DungeonMind metadata mapping
+
+This is design authority carried forward from the useful part of the
+historical #577 contract. Rederive **current** Captain/Thrin data against the
+current revision. Do not copy #577's eight-alias result rows.
+
+Each package row must validate as `AliasAssertionV4Record` /
+`KnowledgeAssertionMetadataV1`.
+
+Use source-specific metadata where Buddy actually preserves it.
+
+Explicit precedence:
+
+```text
+campaign_scope
+  → source GraphContributionAssertion.campaign_scope
+  → null remains explicit world-universal; do not replace null with current campaign
+
+visibility
+  → source assertion visibility when non-null
+  → otherwise exact current node.state.visibility only when it is a recognized DM Visibility
+  → otherwise STOP
+
+epistemic_kind
+  → source assertion epistemic_kind when non-null
+  → otherwise exact current node.state.epistemic_kind only when it is a recognized DM EpistemicKindV2
+  → otherwise STOP
+
+canon_state
+  → source semantic assertion value["canon_state"] when present and recognized
+  → otherwise exact current node.state.canon_state when recognized
+  → otherwise STOP
+
+evidence_ref_ids
+  → exact per-source-assertion evidence lineage
+  → nonempty required
+
+session_refs
+  → sorted unique real-world session IDs explicitly present on referenced evidence
+  → may also include an explicit legacy source-session stamp when it is the same real-world provenance concept
+  → never infer fictional time from session_refs
+
+temporal_scope
+  → no temporal scope or source-session-only observation means DM "unknown"
+  → never upgrade unknown to world_timeless
+  → explicit fictional-time semantics require an exact already-governed DungeonMind FictionalTimeAnchorRef mapping
+  → if such mapping is not already available from current contracts, STOP rather than invent one
+```
+
+If source-specific visibility/epistemic/canon metadata conflicts with the
+proposed current-node fallback, preserve the source-specific value **only if
+doing so remains consistent with current Buddy semantics and the same alias
+source assertion**. If the conflict reveals two authorities rather than a
+representable per-assertion distinction, STOP.
+
+The proof row must record where every metadata field came from. Hidden fallback
+is forbidden. Do not make the implementation agent rediscover these semantics.
+
+Predecessor-to-consumer mapping for the metadata fields:
+
+| Predecessor field / outcome | Real shape and optionality | Consumer field / behavior | Transformation |
+|---|---|---|---|
+| `assertion.campaign_scope` | string or null | `campaign_scope` | Exact; null stays world-universal |
+| `assertion.visibility` | optional string | `visibility` | Source value; explicit current-node adapter only if absent and recognized |
+| `assertion.epistemic_kind` | optional string | `epistemic_kind` | Source value; explicit current-node adapter only if absent and recognized |
+| source `value.canon_state` / node state | optional string | `canon_state` | Explicit precedence above |
+| per-contribution evidence refs | list[str] | `evidence_ref_ids` | Exact, nonempty |
+| evidence `session_id` | optional string | `session_refs[]` | Sorted unique real-world refs |
+| absent / source-session-only temporal scope | null / provenance-only session | `temporal_scope.kind=unknown` | Explicit semantic adapter; never world_timeless |
+
 ---
 
 ## §4 Files in scope — expected write lease
@@ -337,6 +408,10 @@ provided DungeonMind admits the resulting rows and IDs remain unambiguous.
 | Create | `tests/test_alias_assertion_package_conformance_v1.py`                                                          |
 | Create | `tests/test_cutover_alias_assertion_package_after_shadow_alias_remove.py`                                       |
 | Create | `tests/fixtures/dungeonmind_kernel/eldyrwild_cutover_alias_assertion_package_after_shadow_alias_remove_v1.json` |
+
+The v4/v5 lease is for **alias-policy plumbing** through existing analysis
+entry points. It is not authorization to retrofit world/revision/payload
+fields onto `WholeWorldSourceHistoryPolicy`.
 
 ### Precisely bounded discovery
 
@@ -383,6 +458,8 @@ start Case B adoption
 change DungeonMind dependency
 modify generic Kernel identity behavior
 reuse #577's old eight-alias constants as current authority
+change WholeWorldSourceHistoryPolicy's public/generic contract
+add world/revision/payload fields to WholeWorldSourceHistoryPolicy
 ```
 
 Do not copy old #577 service behavior that intentionally kept:
@@ -408,9 +485,31 @@ if element_id in {"Captain ID", "Thrin ID"}:
 
 Do not expose a public constructor that accepts arbitrary element-ID sets.
 
-Create a private/proof-derived policy analogous to the lifecycle
+Create a private/proof-derived **alias** policy analogous to the lifecycle
 source-history policy, but close the stale-proof weakness by retaining exact
-revision identity.
+revision identity on the **new alias policy only**.
+
+### Existing source-history policy — do not retrofit
+
+`WholeWorldSourceHistoryPolicy` currently contains only `policy_id` and the
+proven element-ID set. It does **not** contain world/revision/payload identity.
+PR #585 stayed safe by minting and consuming that policy inside one bounded
+exact-store diagnostic.
+
+```text
+Do not change WholeWorldSourceHistoryPolicy's public/generic contract in this PR.
+
+For the #585 source-history policy:
+  rerun the current lifecycle proof on the exact loaded store;
+  mint the policy from that proof;
+  consume it only in the same exact world/revision/payload-bound service operation.
+
+"revision binding" in the handback means this service-level same-store proof,
+not new fields on WholeWorldSourceHistoryPolicy.
+
+If generic revision-bound source-history policy becomes necessary:
+  STOP / split successor capability.
+```
 
 Suggested shape:
 
@@ -450,9 +549,11 @@ world/revision/payload pins nonblank
 proof contains no incomplete blocker element
 ```
 
-### Store/revision binding
+### Alias-policy store/revision binding
 
-Before applying the policy, analyzer/service must require:
+The **alias policy itself remains explicitly world/revision/payload-bound**.
+
+Before applying the alias policy, analyzer/service must require:
 
 ```text
 policy.world_id == analyzed world
@@ -640,6 +741,33 @@ wrong-payload policy
 
 arbitrary alias element allowlist
   impossible through public API
+
+null campaign_scope replaced with current campaign
+  FAIL
+
+source visibility/epistemic_kind/canon_state preserved when present
+  PASS
+
+source metadata absent, current-node fallback recognized
+  PASS and records that derivation
+
+source metadata absent, current-node fallback unrecognized
+  FAIL / STOP
+
+source vs current-node metadata conflict that is two authorities
+  FAIL / STOP
+
+session_refs used to infer fictional time
+  FAIL
+
+unknown temporal_scope upgraded to world_timeless
+  FAIL
+
+needed fictional-time mapping not already governed
+  FAIL / STOP
+
+metadata field with no recorded derivation / hidden fallback
+  FAIL
 ```
 
 ### 7.4 Current whole-world remeasurement
@@ -670,6 +798,10 @@ CONTRIBUTION_HISTORY = 5291
 ```
 
 Do not force those values inside the classifier.
+
+Mint and consume the #585 source-history policy only inside this same exact
+loaded-store operation. Do not persist or retrofit revision identity onto
+`WholeWorldSourceHistoryPolicy`.
 
 ### 7.5 Relationship invariants
 
@@ -763,7 +895,15 @@ current lifecycle proof:
 
 current source-history policy:
   policy ID
-  revision binding
+  service-level same-store proof:
+    world
+    revision
+    payload
+    minted and consumed in one exact loaded-store operation
+  WholeWorldSourceHistoryPolicy public fields unchanged:
+    policy_id
+    proven_node_state_history_element_ids
+    no world/revision/payload fields added
 
 pre-package EP inventory:
   exact IDs
@@ -787,6 +927,15 @@ adversarial revision-binding tests:
   wrong world
   wrong revision
   wrong payload
+  apply to alias policy only
+
+adversarial metadata tests:
+  null campaign_scope stays world-universal
+  source metadata preserved
+  unrecognized fallback STOP
+  two-authority conflict STOP
+  hidden fallback FAIL
+  temporal unknown not upgraded
 
 remeasurement:
   ATTRIBUTE_ASSERTION
@@ -828,9 +977,15 @@ next recommendation:
 * [ ] Every alias row has exact support/evidence/artifact lineage.
 * [ ] No row uses merged-away identity history as provenance.
 * [ ] DungeonMind alias records validate against the pinned contract.
+* [ ] Every metadata field uses the explicit mapping; null `campaign_scope` stays world-universal.
+* [ ] Source visibility/epistemic_kind/canon_state win when present; recognized current-node fallback is used only when source is absent; otherwise STOP.
+* [ ] Session refs never imply fictional time; unknown temporal scope is not rewritten as world_timeless.
+* [ ] Every metadata field's derivation is recorded; no hidden fallback exists.
+* [ ] Adversarial unsupported/ambiguous metadata cases fail closed.
 * [ ] Alias policy can be created only from a complete passed proof.
 * [ ] Alias policy is world/revision/payload bound.
-* [ ] Wrong-world/revision/payload policy application fails closed.
+* [ ] `WholeWorldSourceHistoryPolicy`'s public/generic contract is unchanged; its "revision binding" is the same-store proof, not new policy fields.
+* [ ] Wrong-world/revision/payload alias-policy application fails closed.
 * [ ] Default analysis behavior remains unchanged without policy.
 * [ ] Remeasurement records `ATTRIBUTE_ASSERTION=0`.
 * [ ] Remeasurement records `EVIDENCE_PROVENANCE=0`.
@@ -870,7 +1025,15 @@ correctness requires src/graph_memory/** changes
 
 correctness requires a DungeonMind contract change
 
+correctness requires changing WholeWorldSourceHistoryPolicy's public/generic contract
+
 correctness requires relationship STOP resolution
+
+visibility, epistemic kind, canon state, campaign scope, session refs, or temporal semantics cannot be mapped without invention
+
+source and current-node metadata disagree as two competing authorities
+
+a needed fictional-time assertion lacks an already-governed exact DungeonMind time-anchor mapping
 
 the proposed alias policy cannot be revision-bound
 
