@@ -1,10 +1,10 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-13 — post-#580 state-authority sync: exact-six Eldyrwild `alias_remove` is the active dependent CUTOVER slice
-**Active CUTOVER slice:** `cutover-eldyrwild-identity-shadow-alias-remove` — apply exactly six merge-shadow aliases through public `remove_identity_alias` on the current Eldyrwild parent. Canonical Eldyrwild remains `rev:5a7c13ae45c49a65b402920499be72ed` / payload `2632870e…` with relationship inventories `323 / 314 / 9 / 3` (canonical) and `323 / 318 / 5 / 3` (four-kind migration projection). PR #575 is merged (`d32c244e…`, 3 review cycles); its fixture still reproduces (`1a2cd8f9…`). PR #580 is completed Kernel authority (`remove_identity_alias`; head `5d4d43f0…`; merge `3a52d309…`; 2 review cycles) and did not mutate Eldyrwild. `ATTRIBUTE_ASSERTION` remains 0; `IDENTITY_HISTORY` remains 14 and `CONTRIBUTION_HISTORY` remains 5285 at durable adoption. Current package-construction work is still Buddy `EVIDENCE_PROVENANCE` (count 8). The expected successor observation is `EVIDENCE_PROVENANCE` 8→2 after governed live/replay exit, not an already-achieved count. `Captain` and `Thrin Branchborn` remain independently source-supported keepers. PR #577 is a closed unmerged forensic STOP; do not reopen or extend it. Do not dispatch the eight-alias package or Captain/Thrin packaging. Five dual-sense `RELATIONSHIP_PREDICATE` STOPs remain cross-repository package-construction blockers; Case B is still forbidden. Disposition remains `CUTOVER_NOT_READY`.
-**Repository anchor:** `71d11169cc56880ed09f457ddd9a6069429d0b96` (dispatch `origin/main`; descendant of PR #580 merge `3a52d309…`; current `main` until this state-sync merges)
-**Dispatch gate:** this state-sync PR. After merge, re-anchor to its merge SHA / current `main` and record that SHA as the exact-six Eldyrwild `alias_remove` implementation dispatch base.
+**Updated:** 2026-08-13 — Review Cycle 1: live-exit facts stand; ATTRIBUTE_ASSERTION is not currently authorized; identity-lifecycle-through-alias_remove is the active dependent CUTOVER slice
+**Active CUTOVER slice:** `cutover-identity-lifecycle-through-alias-remove` — extend the diagnostic identity-lifecycle proof so post-#583 survivor state is reconstructable from durable merge + later `alias_remove` history, regenerate source-history policy from that current passed proof, and remeasure `ATTRIBUTE_ASSERTION`. Canonical Eldyrwild is `rev:0c644e56b45bcaac709012206e3e41c2` / payload `0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2` with relationship inventories `323 / 314 / 9 / 3` (canonical) and `323 / 318 / 5 / 3` (four-kind migration projection). PR #583 is `DONE` (head `2cacc7cb…`; merge `299579bd…`; 3 review cycles) and its canonical live/replay exit is proven (parent `rev:5a7c13ae…` → result `rev:0c644e56…`, retry `already_applied`). `EVIDENCE_PROVENANCE` is now 2; remaining alias blockers are `Captain` and `Thrin Branchborn`. `IDENTITY_HISTORY` is 20 and `CONTRIBUTION_HISTORY` is 5291 (mechanical +6 from the six new `alias_remove` identity decisions). The merge-only #575 proof reconstructs 16/28 on the cleaned head, so `ATTRIBUTE_ASSERTION` is **not currently authorized as 0**. Captain/Thrin packaging stays `BLOCKED`. Five dual-sense `RELATIONSHIP_PREDICATE` STOPs remain; Case B is still forbidden. Disposition remains `CUTOVER_NOT_READY`.
+**Repository anchor:** `299579bd3c3f78a9393ae3c97c57a1dfd6b155ed` (PR #583 merge / `origin/main` at this state-sync dispatch)
+**Dispatch gate:** this state-sync PR. After merge, re-anchor to its merge SHA / current `main` and record that SHA as the identity-lifecycle-through-alias_remove implementation dispatch base.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
 **DungeonMind pin:** `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30 semantic authority; world-object-v5 `f9fd5420…`, world-property-v3 `aa94df78…`)
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
@@ -187,10 +187,15 @@ that projection, replaces raw v4 relationship blocker totals with effective
 conformance / #566 owning-proof ledgers, and confirms zero unaccounted durable
 elements in both views. CUTOVER remains `NOT_READY`. After DungeonMind PR #30
 and Buddy PR #571, `WORLD_OBJECT_KIND` is cleared and the 28 identity-lifecycle
-shadow fields leave `ATTRIBUTE_ASSERTION`; the normalized projected ledger
-currently selects **Case C** (Buddy: `EVIDENCE_PROVENANCE`); the public
-DungeonMind existing-world adoption seam remains a later Case B gate only after
-package-construction semantic gaps are cleared (including five dual-sense STOPs).
+shadow fields left `ATTRIBUTE_ASSERTION` **on the pre-`alias_remove` world**.
+After PR #583, the merge-only proof reconstructs 16/28, so that classification
+is not current authority until a lifecycle proof through `alias_remove`
+regenerates policy. The normalized projected ledger currently still names
+**Case C** (Buddy: `EVIDENCE_PROVENANCE` count 2) as the remaining alias
+package-construction work, but that package is `BLOCKED` on the current
+lifecycle proof. The public DungeonMind existing-world adoption seam remains a
+later Case B gate only after package-construction semantic gaps are cleared
+(including five dual-sense STOPs).
 
 ### Current Eldyrwild semantic state
 
@@ -223,11 +228,11 @@ Two governed real-world corrections have now crossed the full design → Kernel 
 
 Previous formal baselines after #549 and Q₄ remain historical (`368 / 311 / 57 / 3` and `366 / 311 / 55 / 3`). Do not carry historical `346 / 294 / 52 / 2`, `369 / 311 / 58 / 3`, or Q₄ values forward as though they were the post-#566 canonical baseline.
 
-The exact post-#566 canonical CUTOVER baseline is `rev:5a7c13ae45c49a65b402920499be72ed` with payload SHA `2632870e…`:
+The exact post-#583 canonical CUTOVER head is `rev:0c644e56b45bcaac709012206e3e41c2` with payload SHA `0640d7ef…`:
 
 - canonical effective relationship inventory: `323 / 314 / 9 / 3`;
 - approved four-kind migration projection: `323 / 318 / 5 / 3`, in memory only;
-- canonical head and tree remain unchanged by this diagnostic slice;
+- live parent `rev:5a7c13ae45c49a65b402920499be72ed` / `2632870e…` is historical;
 - the five dual-sense STOP edges remain migration/materialization decisions.
 
 The residual classes still distinguish Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, insufficient-evidence cases, and unadjudicated residuals. Different classes may require different write authority and therefore different PRs.
@@ -316,12 +321,12 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. After this state-sync PR merges, re-anchor to its merge SHA / current `main`, confirm PR #577 remains closed unmerged, then start `cutover-eldyrwild-identity-shadow-alias-remove` from that descendant. Apply exactly six merge-shadow aliases through public `remove_identity_alias`. Do not change generic Kernel semantics. Do not remove `Captain` or `Thrin Branchborn`.
-2. Merge-ready for that application package is isolated-clone proof plus review; slice `DONE` requires post-merge canonical live publication, replay, and expected observation `EVIDENCE_PROVENANCE` 8→2, with `Captain` and `Thrin Branchborn` remaining. Then resume alias-package construction for those two source-grounded aliases.
+1. After this state-sync PR merges, re-anchor to its merge SHA / current `main`, confirm PR #577 remains closed unmerged, then start `cutover-identity-lifecycle-through-alias-remove` from that descendant. Prove post-#583 survivor lifecycle from merge + later `alias_remove`, regenerate source-history policy from a current passed proof, and remeasure `ATTRIBUTE_ASSERTION`. Do not mutate the World Graph. Do not package Captain/Thrin in that slice.
+2. Captain/Thrin packaging stays `BLOCKED` until that current proof authorizes classification. Keepers remain source-grounded. `CUTOVER_NOT_READY` remains true until remaining normalized blockers clear.
 3. Keep the five dual-sense edges as migration decisions and keep DungeonMind product-authority cutover blocked. Confirm PR #577 remains closed unmerged.
 4. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` `DONE`, Session-25 descendant residual adjudication `DONE`, Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `Q₄` `DONE`, relationship semantic closure `DONE`, PR #566 non-publishing kind-repair authority `DONE`, CUTOVER re-anchor `#568` `DONE`, PR #571 DungeonMind v5 re-pin `DONE`, identity-lifecycle history `#575` `DONE` (3 review cycles, merge `d32c244e…`), and Kernel `alias_remove` `#580` `DONE` (2 review cycles, merge `3a52d309…`, no Eldyrwild mutation). PR #577 is a closed unmerged forensic STOP. The exact-six Eldyrwild identity-shadow `alias_remove` application is the active next dependent slice. Current `EVIDENCE_PROVENANCE` remains 8.
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` `DONE`, Session-25 descendant residual adjudication `DONE`, Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `Q₄` `DONE`, relationship semantic closure `DONE`, PR #566 non-publishing kind-repair authority `DONE`, CUTOVER re-anchor `#568` `DONE`, PR #571 DungeonMind v5 re-pin `DONE`, identity-lifecycle history `#575` `DONE` (3 review cycles, merge `d32c244e…`; historical merge-only proof, not current `ATTRIBUTE_ASSERTION` authority after #583), Kernel `alias_remove` `#580` `DONE` (2 review cycles, merge `3a52d309…`, no Eldyrwild mutation), and exact-six Eldyrwild identity-shadow `alias_remove` `#583` `DONE` (3 review cycles, merge `299579bd…`, canonical live/replay exit proven, `EVIDENCE_PROVENANCE` 8→2). PR #577 is a closed unmerged forensic STOP. The active next dependent slice is `cutover-identity-lifecycle-through-alias-remove`. Captain/Thrin packaging stays `BLOCKED`. Current `EVIDENCE_PROVENANCE` is 2. `ATTRIBUTE_ASSERTION` is not currently authorized as 0.
 
 ## Fast diagnostic questions
 

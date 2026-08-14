@@ -21,7 +21,7 @@ pr_body_template: |
 # HANDOFF — retire Eldyrwild identity-shadow aliases
 
 **Created:** 2026-08-13  
-**Status:** READY — do not dispatch until `HANDOFF-DOCUMENTS-cutover-alias-remove-state-sync.md` merges to `main`.  
+**Status:** DONE / HISTORICAL — do not redispatch  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md`  
 **Conversation/workstream:** `CUTOVER — exact-six Eldyrwild identity-shadow alias_remove`  
 **Flow / owner:** `CUTOVER`  
@@ -29,6 +29,49 @@ pr_body_template: |
 **Base revision:** `71d11169cc56880ed09f457ddd9a6069429d0b96`  
 **Suggested branch:** `cutover/eldyrwild-identity-shadow-alias-remove`  
 **PR title:** `CUTOVER: retire Eldyrwild identity-shadow aliases`
+
+### Completion record
+
+```text
+DONE / HISTORICAL — do not redispatch.
+
+PR: #583
+implementation head: 2cacc7cbdf77977e86daf29ed2b9058f94d54e70
+merge: 299579bd3c3f78a9393ae3c97c57a1dfd6b155ed
+review cycles: 3
+
+live parent: rev:5a7c13ae45c49a65b402920499be72ed
+live parent payload: 2632870ef70638969503de788cfdec97acd490875deff3e2630ac91dc96fe974
+live result: rev:0c644e56b45bcaac709012206e3e41c2
+live result payload: 0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2
+six alias_remove decision IDs:
+  identity-decision:cad289933720e2c5
+  identity-decision:045e447237353ccc
+  identity-decision:05b5668d773648bf
+  identity-decision:ef5c3950517c705e
+  identity-decision:33d03a555ff0bc61
+  identity-decision:668e4292aa9c047f
+live/replay: proven (rebuild_equivalent_to_pinned_revision + rebuild_equivalent_to_head)
+retry: already_applied / no-op; head unchanged; no seventh decision
+keepers: Captain and Thrin Branchborn remain with locked assertion/contribution/source lineage
+relationships: canonical 323 / 314 / 9 / 3; migration 323 / 318 / 5 / 3
+EVIDENCE_PROVENANCE: 8 → 2
+ATTRIBUTE_ASSERTION: not currently authorized (merge-only proof 16/28 on the cleaned head; locked #575 policy is stale)
+IDENTITY_HISTORY: 14 → 20
+CONTRIBUTION_HISTORY: 5285 → 5291
+remaining EVIDENCE_PROVENANCE:
+  node:node:captain-lysandra-ironveil:field:aliases
+  node:node:thrin-branchborn:field:aliases
+CUTOVER_NOT_READY remains true
+
+identity-lifecycle re-proof on the cleaned head reconstructs 16/28 merge-only
+rows. The 12 unresolved fields are the six survivors' last_identity_decision_id
++ identity_state, because those pointers now name alias_remove. PR #575 required
+explicit proof or STOP on a new identity-decision kind. Do not claim
+ATTRIBUTE_ASSERTION = 0 as current authority from the locked #575 28-ID policy.
+```
+
+Successor: [`HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md`](HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md). Captain/Thrin packaging remains `BLOCKED`.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md).
 >
