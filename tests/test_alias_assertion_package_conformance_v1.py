@@ -13,6 +13,8 @@ from apps.live_control_server.integrations.dungeonmind_kernel import (
 from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_package_conformance_v1 import (
     IDENTITY_DERIVED_REASON,
     AliasAssertionPackageConformanceError,
+    AliasPackageRevisionBinding,
+    alias_package_binding_from_attested_revision,
     derive_bundled_alias_assertion_id,
     prove_alias_assertion_package_v1,
 )
@@ -175,12 +177,40 @@ def _store(
     return store, contributions
 
 
+def _manifest(
+    *,
+    world_id: str = "test",
+    revision_id: str = "rev:test",
+    payload: str = "0" * 64,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        world_id=world_id,
+        revision_id=revision_id,
+        graph_payload_sha256=payload,
+    )
+
+
+def _binding(
+    store: SimpleNamespace,
+    *,
+    world_id: str = "test",
+    revision_id: str = "rev:test",
+    payload: str = "0" * 64,
+):
+    return alias_package_binding_from_attested_revision(
+        manifest=_manifest(world_id=world_id, revision_id=revision_id, payload=payload),
+        store=store,
+        expected_world_id=world_id,
+        expected_revision_id=revision_id,
+        expected_graph_payload_sha256=payload,
+    )
+
+
 def _prove(store: SimpleNamespace, contributions: dict[str, GraphContribution], **kwargs):
+    binding = kwargs.pop("binding", None) or _binding(store)
     return prove_alias_assertion_package_v1(
         store,  # type: ignore[arg-type]
-        world_id="test",
-        canonical_revision_id="rev:test",
-        canonical_graph_payload_sha256="0" * 64,
+        binding=binding,
         contribution_loader=contributions.__getitem__,
         **kwargs,
     )
@@ -209,7 +239,7 @@ def test_bundled_node_alias_is_reconstructable() -> None:
         source_buddy_node_assertion_id="assertion:thrin",
         alias_value="Thrin Branchborn",
     )
-    policy = alias_assertion_policy_from_proof(proof)
+    policy = alias_assertion_policy_from_proof(proof, binding=_binding(store))
     assert policy.proven_alias_blocker_element_ids == frozenset(
         {"node:node:thrin:field:aliases"}
     )
@@ -409,7 +439,7 @@ def test_identity_derived_residuals_refuse_alias_package_policy() -> None:
     )
     proof = _prove(store, contributions)
     with pytest.raises(ValueError, match="has not passed"):
-        alias_assertion_policy_from_proof(proof)
+        alias_assertion_policy_from_proof(proof, binding=_binding(store))
 
 
 def _explicit_alias_fixture(**assertion_kwargs):
@@ -435,7 +465,7 @@ def test_missing_target_node_fails() -> None:
         0
     ].reason_code in {"alias_not_source_grounded", "non_derivable_key_without_source_alias"}
     with pytest.raises(ValueError):
-        alias_assertion_policy_from_proof(proof)
+        alias_assertion_policy_from_proof(proof, binding=_binding(store))
 
 
 def test_assertion_subject_not_current_target_fails() -> None:
@@ -619,7 +649,7 @@ def test_partial_package_refuses_policy() -> None:
     assert proof.residuals
     assert any(row.alias_value == "Z" for row in proof.residuals)
     with pytest.raises(ValueError, match="has not passed"):
-        alias_assertion_policy_from_proof(proof)
+        alias_assertion_policy_from_proof(proof, binding=_binding(store))
 
 
 def test_null_campaign_scope_stays_world_universal() -> None:
@@ -802,34 +832,55 @@ def test_wrong_world_revision_payload_alias_policy_fails_closed() -> None:
     node, assertion = _explicit_alias_fixture()
     store, contributions = _store(nodes={node.node_id: node}, assertions=[assertion])
     proof = _prove(store, contributions)
-    policy = alias_assertion_policy_from_proof(proof)
+    policy = alias_assertion_policy_from_proof(proof, binding=_binding(store))
     with pytest.raises(ValueError, match="does not match"):
         _require_alias_assertion_policy_binding(
             policy=policy,
+            manifest=_manifest(world_id="other-world"),
             world_id="other-world",
             revision_id="rev:test",
-            payload_sha256="0" * 64,
         )
     with pytest.raises(ValueError, match="does not match"):
         _require_alias_assertion_policy_binding(
             policy=policy,
+            manifest=_manifest(revision_id="rev:other"),
             world_id="test",
             revision_id="rev:other",
-            payload_sha256="0" * 64,
         )
     with pytest.raises(ValueError, match="does not match"):
         _require_alias_assertion_policy_binding(
             policy=policy,
+            manifest=_manifest(payload="1" * 64),
             world_id="test",
             revision_id="rev:test",
-            payload_sha256="1" * 64,
         )
     _require_alias_assertion_policy_binding(
         policy=policy,
+        manifest=_manifest(),
         world_id="test",
         revision_id="rev:test",
-        payload_sha256="0" * 64,
     )
+
+
+def test_analyzer_trusts_manifest_revision_not_separate_argument() -> None:
+    node, assertion = _explicit_alias_fixture()
+    store, contributions = _store(nodes={node.node_id: node}, assertions=[assertion])
+    proof = _prove(store, contributions)
+    policy = alias_assertion_policy_from_proof(proof, binding=_binding(store))
+    with pytest.raises(ValueError, match="do not match attested manifest"):
+        _require_alias_assertion_policy_binding(
+            policy=policy,
+            manifest=_manifest(),
+            world_id="test",
+            revision_id="rev:other",
+        )
+    with pytest.raises(ValueError, match="do not match attested manifest"):
+        _require_alias_assertion_policy_binding(
+            policy=policy,
+            manifest=_manifest(),
+            world_id="other-world",
+            revision_id="rev:test",
+        )
 
 
 def test_legacy_alias_policy_skips_revision_binding() -> None:
@@ -839,10 +890,99 @@ def test_legacy_alias_policy_skips_revision_binding() -> None:
 
     _require_alias_assertion_policy_binding(
         policy=LEGACY_ALIAS_ASSERTION_POLICY,
+        manifest=_manifest(world_id="anything", revision_id="rev:anything", payload="f" * 64),
         world_id="anything",
         revision_id="rev:anything",
-        payload_sha256="f" * 64,
     )
+
+
+def test_prove_store_a_with_store_b_pins_is_refused() -> None:
+    node_a, assertion_a = _explicit_alias_fixture()
+    store_a, contrib_a = _store(nodes={node_a.node_id: node_a}, assertions=[assertion_a])
+    node_b = _node("node:b", label="B", aliases=["B", "Other"])
+    assertion_b = _assertion(
+        assertion_id="assertion:alias-other",
+        kind="alias",
+        subject="node:b",
+        contribution_id="contribution:b",
+        alias="Other",
+        label="Other",
+    )
+    store_b, _contrib_b = _store(nodes={node_b.node_id: node_b}, assertions=[assertion_b])
+    binding_b = _binding(
+        store_b,
+        world_id="world-B",
+        revision_id="rev:B",
+        payload="b" * 64,
+    )
+    with pytest.raises(AliasAssertionPackageConformanceError) as exc:
+        _prove(store_a, contrib_a, binding=binding_b)
+    assert exc.value.code == "alias_package_store_binding_mismatch"
+
+
+def test_expected_pins_for_store_b_on_store_a_manifest_are_refused() -> None:
+    node, assertion = _explicit_alias_fixture()
+    store, _contributions = _store(nodes={node.node_id: node}, assertions=[assertion])
+    with pytest.raises(AliasAssertionPackageConformanceError) as exc:
+        alias_package_binding_from_attested_revision(
+            manifest=_manifest(),
+            store=store,
+            expected_world_id="world-B",
+            expected_revision_id="rev:B",
+            expected_graph_payload_sha256="b" * 64,
+        )
+    assert exc.value.code == "alias_package_binding_pin_mismatch"
+
+
+def test_policy_factory_refuses_mismatched_binding() -> None:
+    node_a, assertion_a = _explicit_alias_fixture()
+    store_a, contrib_a = _store(nodes={node_a.node_id: node_a}, assertions=[assertion_a])
+    proof_a = _prove(store_a, contrib_a)
+    node_b = _node("node:b", label="B", aliases=["B", "Other"])
+    assertion_b = _assertion(
+        assertion_id="assertion:alias-other",
+        kind="alias",
+        subject="node:b",
+        contribution_id="contribution:b",
+        alias="Other",
+        label="Other",
+    )
+    store_b, contrib_b = _store(nodes={node_b.node_id: node_b}, assertions=[assertion_b])
+    binding_b = _binding(
+        store_b,
+        world_id="world-B",
+        revision_id="rev:B",
+        payload="b" * 64,
+    )
+    proof_b = _prove(store_b, contrib_b, binding=binding_b)
+    with pytest.raises(ValueError, match="does not match attested revision binding"):
+        alias_assertion_policy_from_proof(proof_a, binding=binding_b)
+    policy_b = alias_assertion_policy_from_proof(proof_b, binding=binding_b)
+    assert policy_b.world_id == "world-B"
+
+
+def test_prove_rejects_caller_claimed_pin_kwargs() -> None:
+    node, assertion = _explicit_alias_fixture()
+    store, contributions = _store(nodes={node.node_id: node}, assertions=[assertion])
+    with pytest.raises(TypeError):
+        prove_alias_assertion_package_v1(
+            store,  # type: ignore[arg-type]
+            world_id="world-B",
+            canonical_revision_id="rev:B",
+            canonical_graph_payload_sha256="b" * 64,
+            contribution_loader=contributions.__getitem__,
+        )
+
+
+def test_public_binding_constructor_rejects_arbitrary_pins() -> None:
+    with pytest.raises(TypeError, match="not a public constructor"):
+        AliasPackageRevisionBinding(
+            world_id="world-B",
+            canonical_revision_id="rev:B",
+            canonical_graph_payload_sha256="b" * 64,
+            store_semantic_sha256="0" * 64,
+            _token=object(),
+        )
 
 
 def test_public_alias_policy_constructor_rejects_arbitrary_allowlist() -> None:

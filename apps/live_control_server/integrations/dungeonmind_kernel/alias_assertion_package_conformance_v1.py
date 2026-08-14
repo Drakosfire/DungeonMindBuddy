@@ -11,6 +11,8 @@ from collections.abc import Callable, Mapping
 from hashlib import sha256
 from typing import Any, Literal
 
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from pydantic import BaseModel, ConfigDict, Field
 
 from dungeonmind.application.graph_snapshot_v4 import AliasAssertionV4Record
@@ -42,6 +44,7 @@ PROVEN_ALIAS_NOTE = (
 
 SourceForm = Literal["explicit_alias_assertion", "bundled_node_alias"]
 ContributionLoader = Callable[[str], GraphContribution]
+_ALIAS_PACKAGE_BINDING_TOKEN = object()
 
 
 class AliasAssertionPackageConformanceError(RuntimeError):
@@ -54,6 +57,119 @@ class AliasAssertionPackageConformanceError(RuntimeError):
 
 def _fail(message: str, code: str) -> AliasAssertionPackageConformanceError:
     return AliasAssertionPackageConformanceError(message, code=code)
+
+
+def _jsonable(value: Any) -> Any:
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json", by_alias=True)
+    if isinstance(value, dict):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if hasattr(value, "__dict__"):
+        return {
+            key: _jsonable(item)
+            for key, item in vars(value).items()
+            if not str(key).startswith("_")
+        }
+    return str(value)
+
+
+def store_semantic_sha256(store: Any) -> str:
+    """Digest the in-memory store used for alias-package attestation.
+
+    This is not the on-disk graph payload hash. It binds a proof to the exact
+    store object that was attested with a revision manifest.
+    """
+    encoded = _canonical_json({"store": _jsonable(store)})
+    return sha256(encoded.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class AliasPackageRevisionBinding:
+    """Attested world/revision/payload binding for one loaded store.
+
+    Pins are copied from the attested revision manifest, never from free-form
+    caller strings at prove time. The store digest must match the store later
+    passed to ``prove_alias_assertion_package_v1``.
+    """
+
+    world_id: str
+    canonical_revision_id: str
+    canonical_graph_payload_sha256: str
+    store_semantic_sha256: str
+    _token: object = dataclass_field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self._token is not _ALIAS_PACKAGE_BINDING_TOKEN:
+            raise TypeError(
+                "AliasPackageRevisionBinding is not a public constructor; "
+                "use alias_package_binding_from_attested_revision"
+            )
+
+
+def alias_package_binding_from_attested_revision(
+    *,
+    manifest: Any,
+    store: Any,
+    expected_world_id: str,
+    expected_revision_id: str,
+    expected_graph_payload_sha256: str,
+) -> AliasPackageRevisionBinding:
+    """Derive alias-package pins from an attested revision manifest + store.
+
+    Refuses when the caller-supplied expected pins do not match the manifest,
+    or when any pin is blank. Does not accept free-form world/revision/payload
+    labels disconnected from a manifest.
+    """
+    world_id = str(getattr(manifest, "world_id", "") or "")
+    revision_id = str(getattr(manifest, "revision_id", "") or "")
+    payload_sha = str(getattr(manifest, "graph_payload_sha256", "") or "")
+    if not world_id or not revision_id or not payload_sha:
+        raise _fail(
+            "alias-package binding requires attested world/revision/payload pins",
+            "alias_package_binding_unattested",
+        )
+    if not expected_world_id or not expected_revision_id or not expected_graph_payload_sha256:
+        raise _fail(
+            "alias-package binding expected pins must be nonblank",
+            "alias_package_binding_unattested",
+        )
+    if (
+        world_id != expected_world_id
+        or revision_id != expected_revision_id
+        or payload_sha != expected_graph_payload_sha256
+    ):
+        raise _fail(
+            "alias-package expected pins do not match attested revision manifest",
+            "alias_package_binding_pin_mismatch",
+        )
+    return AliasPackageRevisionBinding(
+        world_id=world_id,
+        canonical_revision_id=revision_id,
+        canonical_graph_payload_sha256=payload_sha,
+        store_semantic_sha256=store_semantic_sha256(store),
+        _token=_ALIAS_PACKAGE_BINDING_TOKEN,
+    )
+
+
+def _require_alias_package_store_binding(
+    binding: AliasPackageRevisionBinding,
+    store: Any,
+) -> None:
+    if not isinstance(binding, AliasPackageRevisionBinding):
+        raise _fail(
+            "alias-package proof requires an attested revision binding",
+            "alias_package_binding_unattested",
+        )
+    digest = store_semantic_sha256(store)
+    if digest != binding.store_semantic_sha256:
+        raise _fail(
+            "alias-package proof store does not match attested revision binding",
+            "alias_package_store_binding_mismatch",
+        )
 
 
 class AliasAssertionPackageRowV1(BaseModel):
@@ -108,6 +224,7 @@ class AliasAssertionPackageConformanceV1(BaseModel):
     world_id: str
     canonical_revision_id: str
     canonical_graph_payload_sha256: str
+    store_semantic_sha256: str
     blocker_element_ids: list[str]
     alias_inventory: list[AliasBlockerInventoryRowV1]
     package_rows: list[AliasAssertionPackageRowV1]
@@ -658,12 +775,14 @@ def _try_package_alias(
 def prove_alias_assertion_package_v1(
     store: UnionSupergraphStore,
     *,
-    world_id: str,
-    canonical_revision_id: str,
-    canonical_graph_payload_sha256: str,
+    binding: AliasPackageRevisionBinding,
     contribution_loader: ContributionLoader,
     expected_blocker_element_ids: list[str] | None = None,
 ) -> AliasAssertionPackageConformanceV1:
+    _require_alias_package_store_binding(binding, store)
+    world_id = binding.world_id
+    canonical_revision_id = binding.canonical_revision_id
+    canonical_graph_payload_sha256 = binding.canonical_graph_payload_sha256
     inventory = collect_alias_blocker_candidates(store)
     blocker_ids = [row.element_id for row in inventory]
     if expected_blocker_element_ids is not None and blocker_ids != list(expected_blocker_element_ids):
@@ -765,6 +884,7 @@ def prove_alias_assertion_package_v1(
         world_id=world_id,
         canonical_revision_id=canonical_revision_id,
         canonical_graph_payload_sha256=canonical_graph_payload_sha256,
+        store_semantic_sha256=binding.store_semantic_sha256,
         blocker_element_ids=blocker_ids,
         alias_inventory=inventory,
         package_rows=package_rows,

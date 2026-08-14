@@ -297,6 +297,7 @@ def _alias_package_proof_sha256(proof: Any) -> str:
         "canonical_graph_payload_sha256": getattr(
             proof, "canonical_graph_payload_sha256", None
         ),
+        "store_semantic_sha256": getattr(proof, "store_semantic_sha256", None),
         "blocker_element_ids": list(getattr(proof, "blocker_element_ids", [])),
         "covered_blocker_element_ids": list(
             getattr(proof, "covered_blocker_element_ids", [])
@@ -310,16 +311,25 @@ def _alias_package_proof_sha256(proof: Any) -> str:
     return sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def alias_assertion_policy_from_proof(proof: Any) -> WholeWorldAliasAssertionPolicy:
+def alias_assertion_policy_from_proof(
+    proof: Any,
+    *,
+    binding: Any,
+) -> WholeWorldAliasAssertionPolicy:
     """Admit proven reconstructable alias-package element IDs.
 
-    Revalidates the proof. Does not accept an arbitrary durable-element set.
+    Revalidates the proof against the same attested revision binding used to
+    produce it. Does not accept an arbitrary durable-element set or caller-
+    claimed world/revision/payload labels.
     Identity-derived residuals remain STOPs; they cannot enter this policy.
     """
     from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_package_conformance_v1 import (
         ALIAS_ASSERTION_PACKAGE_SCHEMA,
+        AliasPackageRevisionBinding,
     )
 
+    if not isinstance(binding, AliasPackageRevisionBinding):
+        raise ValueError("alias-assertion policy requires an attested revision binding")
     schema = getattr(proof, "schema_", None)
     if schema != ALIAS_ASSERTION_PACKAGE_SCHEMA:
         raise ValueError("alias-assertion policy requires a passed alias-package proof")
@@ -331,8 +341,16 @@ def alias_assertion_policy_from_proof(proof: Any) -> WholeWorldAliasAssertionPol
     world_id = str(getattr(proof, "world_id", "") or "")
     revision_id = str(getattr(proof, "canonical_revision_id", "") or "")
     payload_sha = str(getattr(proof, "canonical_graph_payload_sha256", "") or "")
-    if not world_id or not revision_id or not payload_sha:
-        raise ValueError("alias-package proof is missing world/revision/payload pins")
+    store_digest = str(getattr(proof, "store_semantic_sha256", "") or "")
+    if not world_id or not revision_id or not payload_sha or not store_digest:
+        raise ValueError("alias-package proof is missing world/revision/payload/store pins")
+    if (
+        world_id != binding.world_id
+        or revision_id != binding.canonical_revision_id
+        or payload_sha != binding.canonical_graph_payload_sha256
+        or store_digest != binding.store_semantic_sha256
+    ):
+        raise ValueError("alias-package proof does not match attested revision binding")
     blocker_ids = list(getattr(proof, "blocker_element_ids", []))
     covered = list(getattr(proof, "covered_blocker_element_ids", []))
     if not blocker_ids:
@@ -376,16 +394,25 @@ def alias_assertion_policy_from_proof(proof: Any) -> WholeWorldAliasAssertionPol
 def _require_alias_assertion_policy_binding(
     *,
     policy: WholeWorldAliasAssertionPolicy,
+    manifest: Any,
     world_id: str,
     revision_id: str,
-    payload_sha256: str,
 ) -> None:
     if policy.policy_id == LEGACY_ALIAS_ASSERTION_POLICY_ID:
         return
+    attested_world = str(getattr(manifest, "world_id", "") or "")
+    attested_revision = str(getattr(manifest, "revision_id", "") or "")
+    attested_payload = str(getattr(manifest, "graph_payload_sha256", "") or "")
+    if not attested_world or not attested_revision or not attested_payload:
+        raise ValueError("alias-assertion policy binding requires an attested manifest")
+    if attested_world != world_id or attested_revision != revision_id:
+        raise ValueError(
+            "analyzer world/revision arguments do not match attested manifest"
+        )
     if (
-        policy.world_id != world_id
-        or policy.canonical_revision_id != revision_id
-        or policy.canonical_graph_payload_sha256 != payload_sha256
+        policy.world_id != attested_world
+        or policy.canonical_revision_id != attested_revision
+        or policy.canonical_graph_payload_sha256 != attested_payload
     ):
         raise ValueError(
             "alias-assertion policy does not match analyzed world/revision/payload"
@@ -2104,9 +2131,9 @@ def _analyze_loaded_buddy_world_store_v4(
     """
     _require_alias_assertion_policy_binding(
         policy=alias_assertion_policy,
+        manifest=manifest,
         world_id=world_id,
         revision_id=revision_id,
-        payload_sha256=manifest.graph_payload_sha256,
     )
     adjudication_domain = _matches_adjudication_domain(
         world_id=world_id,

@@ -24,6 +24,7 @@ from apps.live_control_server.integrations.dungeonmind_kernel import (
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_package_conformance_v1 import (
     AliasAssertionPackageConformanceError,
+    alias_package_binding_from_attested_revision,
     prove_alias_assertion_package_v1,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.identity_lifecycle_history_conformance_v1 import (
@@ -99,7 +100,7 @@ FIXTURE_RELPATH = (
     "eldyrwild_cutover_alias_assertion_package_after_shadow_alias_remove_v1.json"
 )
 LOCKED_FIXTURE_SHA256 = (
-    "84a9fb095feeff42e038ebfdd99db5735c3b7badc557c45c31d30a9f38ff1411"
+    "14f653850f78040c15bc5d3fef34b7bb43dde74951afbf2c83600c29ad2829d7"
 )
 CAPTAIN_BLOCKER_ID = "node:node:captain-lysandra-ironveil:field:aliases"
 THRIN_BLOCKER_ID = "node:node:thrin-branchborn:field:aliases"
@@ -475,11 +476,16 @@ def compose_cutover_alias_assertion_package_after_shadow_alias_remove(
         return load_contribution_record(world_root, WORLD_ID, contribution_id)
 
     try:
+        alias_binding = alias_package_binding_from_attested_revision(
+            manifest=manifest,
+            store=store,
+            expected_world_id=WORLD_ID,
+            expected_revision_id=CANONICAL_REVISION_ID,
+            expected_graph_payload_sha256=CANONICAL_GRAPH_PAYLOAD_SHA256,
+        )
         alias_proof = prove_alias_assertion_package_v1(
             store,
-            world_id=WORLD_ID,
-            canonical_revision_id=CANONICAL_REVISION_ID,
-            canonical_graph_payload_sha256=CANONICAL_GRAPH_PAYLOAD_SHA256,
+            binding=alias_binding,
             contribution_loader=_load_contribution,
         )
     except AliasAssertionPackageConformanceError as exc:
@@ -500,7 +506,7 @@ def compose_cutover_alias_assertion_package_after_shadow_alias_remove(
             "alias_package_incomplete",
         )
 
-    alias_policy = alias_assertion_policy_from_proof(alias_proof)
+    alias_policy = alias_assertion_policy_from_proof(alias_proof, binding=alias_binding)
 
     packaged_classified: list[Any] = []
     packaged_v5 = whole_world_v5._analyze_loaded_buddy_world_store_v5(
@@ -691,6 +697,7 @@ def compose_cutover_alias_assertion_package_after_shadow_alias_remove(
             "residuals": [],
             "blocker_element_ids": list(alias_proof.blocker_element_ids),
             "covered_blocker_element_ids": list(alias_proof.covered_blocker_element_ids),
+            "store_semantic_sha256": alias_proof.store_semantic_sha256,
             "package_row_count": len(alias_proof.package_rows),
             "package_rows": [
                 row.model_dump(mode="json") for row in alias_proof.package_rows

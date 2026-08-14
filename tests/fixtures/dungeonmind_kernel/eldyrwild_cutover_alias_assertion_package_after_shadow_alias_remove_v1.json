@@ -2,7 +2,7 @@
   "alias_assertion_policy": {
     "canonical_graph_payload_sha256": "0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2",
     "canonical_revision_id": "rev:0c644e56b45bcaac709012206e3e41c2",
-    "package_proof_sha256": "af36972c0d8b76a4000f475fd863fb723adeee653ac39c647f9a5b3633013df2",
+    "package_proof_sha256": "24881d132f79d7692c5bad0fe5ad605765f9e25c7f83189546f075e1633d5ff6",
     "policy_id": "alias_assertion_package_v1",
     "proven_alias_blocker_element_ids": [
       "node:node:captain-lysandra-ironveil:field:aliases",
@@ -129,7 +129,8 @@
       }
     ],
     "passed": true,
-    "residuals": []
+    "residuals": [],
+    "store_semantic_sha256": "27e826e15114c0f5fc62c52be84e4248084d01ee955f5193fa411b29801d64bf"
   },
   "alias_remove_lineage": {
     "invalidating_split_unmerge": false,
