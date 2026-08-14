@@ -28,6 +28,7 @@ import {
   type RunbookReferenceAttrs,
 } from "../../tiptap/references/runbookReferences";
 import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
+import { registerCanvasBlockApplyBridge } from "../canvasBlockProposal";
 import type { WorkspaceDocumentLocalKind } from "../../tiptap/state/tiptapLocalState";
 import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
 import { useWorkspaceDocumentAuthoring } from "../../workspaceDocument/useWorkspaceDocumentAuthoring";
@@ -145,6 +146,30 @@ export function PlanSurfaceCanvas({
     authoring.setEditor(nextEditor);
     setEditor(nextEditor);
   }, [authoring.setEditor]);
+
+  useEffect(() => {
+    registerCanvasBlockApplyBridge({
+      documentId: planningDocument.documentId,
+      getEditor: () => editor,
+      getBaseContentSha256: () => authoring.localAdmission?.baseContentSha256 ?? null,
+      isDirty: () => authoring.dirty,
+      afterApply: () => {
+        if (!editor) return;
+        // Force a non-programmatic persist so localStorage dirty + export update.
+        const json = editor.getJSON();
+        authoring.handleEditorUpdate(json, editor, { programmatic: false });
+      },
+    });
+    return () => {
+      registerCanvasBlockApplyBridge(null);
+    };
+  }, [
+    authoring.dirty,
+    authoring.handleEditorUpdate,
+    authoring.localAdmission?.baseContentSha256,
+    editor,
+    planningDocument.documentId,
+  ]);
 
   const insertCallout = useCallback(
     (kind: CalloutKind) => {

@@ -1,0 +1,48 @@
+{
+  "question_id": "vague_talk",
+  "score": {
+    "accepted_claim_ids": [
+      "identity:location:grotesque-tree-site",
+      "identity:threat:grotesque-tree",
+      "edge:location:grotesque-tree-site:located_in:location:jove-home",
+      "edge:threat:grotesque-tree:threatens:location:hempholm"
+    ],
+    "bucket_scores": {
+      "gates": false,
+      "identity": false,
+      "links": true,
+      "place": true,
+      "sensory": false,
+      "tactics": false,
+      "treasure": false
+    },
+    "canvas_detail": {
+      "expected": false,
+      "found": 0
+    },
+    "canvas_ok": true,
+    "claims_ok": true,
+    "expand_ready_candidate": false,
+    "expands": 4,
+    "forbidden_hits": [],
+    "gate_hygiene_ok": true,
+    "opened_citations": 0,
+    "optional_bucket_scores": {
+      "clocks": false,
+      "identity": false
+    },
+    "required_bucket_pass": false,
+    "source_ok": false,
+    "source_read_required": true,
+    "source_reads": 0,
+    "structural_pass": false,
+    "tools": [
+      "expand_graph_retrieval",
+      "expand_graph_retrieval",
+      "expand_graph_retrieval",
+      "expand_graph_retrieval"
+    ]
+  },
+  "scored_at": "2026-08-14T05:22:17Z",
+  "trial_path": "evals/hermes_small_slice/artifacts/baseline_observed_vague_talk.json"
+}

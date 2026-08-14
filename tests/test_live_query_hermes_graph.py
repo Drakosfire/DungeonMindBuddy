@@ -1722,6 +1722,11 @@ def test_expand_steer_mentions_neighborhood_for_multi_entity() -> None:
     assert "neighborhood" in _GRAPH_SYSTEM_POLICY
     assert "multi-entity" in _GRAPH_SYSTEM_POLICY
     assert "one node at a time" in _GRAPH_SYSTEM_POLICY
+    assert "describe, talk about, prep, draft notes" in _GRAPH_SYSTEM_POLICY
+    assert "read_graph_source on" in _GRAPH_SYSTEM_POLICY
+    assert "those anchors before answering" in _GRAPH_SYSTEM_POLICY
+    assert "about ≤50 nodes" in _GRAPH_SYSTEM_POLICY
+    assert "I want to talk about X" in _GRAPH_SYSTEM_POLICY
     expand = next(
         item
         for item in hermes_graph_interaction_tool_definitions()

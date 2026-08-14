@@ -524,6 +524,15 @@ export function BeatsPanel({
                 </section>
               ) : null}
 
+              {selectedBeat.gmNote?.trim() ? (
+                <section className="beats-detail__section" aria-label="GM note">
+                  <h4 className="beats-detail__section-title">GM note</h4>
+                  <p className="beats-scene__gm" data-testid="beats-detail-gm">
+                    {selectedBeat.gmNote}
+                  </p>
+                </section>
+              ) : null}
+
               {selectedBeat.rulesNow?.length ? (
                 <section className="beats-detail__section" aria-label="Rules now">
                   <h4 className="beats-detail__section-title">Rules now</h4>
@@ -591,12 +600,6 @@ export function BeatsPanel({
                     ))}
                   </ul>
                 </section>
-              ) : null}
-
-              {selectedBeat.gmNote?.trim() ? (
-                <p className="beats-scene__gm" data-testid="beats-detail-gm">
-                  <strong>GM:</strong> {selectedBeat.gmNote}
-                </p>
               ) : null}
 
               {selectedBeat.chips?.length ? (

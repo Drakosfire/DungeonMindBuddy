@@ -43,6 +43,14 @@ describe("ofConksHempholmBeats", () => {
     }
   });
 
+  it("homes tree-tactics GM note with precious-metal leaves as a callout, not boxed text", () => {
+    const beat = beatById(OF_CONKS_HEMPHOLM_SPINE, "tree-tactics")?.beat;
+    expect(beat?.gmNote).toMatch(/precious-metal leaves/i);
+    expect(beat?.gmNote).toMatch(/Passive Perception 15/i);
+    expect(beat?.readAlouds?.some((ra) => /metal leaves/i.test(ra.text))).toBe(false);
+    expect(beat?.rulesNow?.some((line) => /metal leaves/i.test(line))).toBe(true);
+  });
+
   it("homes Jove plea multi labeled read-alouds from the PDF", () => {
     const beat = beatById(OF_CONKS_HEMPHOLM_SPINE, "jove-plea")?.beat;
     expect(beat?.readAlouds?.length).toBeGreaterThanOrEqual(3);

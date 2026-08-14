@@ -1,0 +1,25 @@
+{
+  "completed_at": "2026-08-14T05:27:28Z",
+  "gold_id": "of_conks_grotesque_tree_v1",
+  "questions": {
+    "vague_talk": {
+      "aggregate": {
+        "bucket_passes": 0,
+        "expand_ready_ok": false,
+        "expand_ready_passes": 0,
+        "structural_ok": false,
+        "structural_passes": 1,
+        "trials": 3
+      },
+      "human_rubric": {
+        "expand_ready": null,
+        "notes": "Fill after reviewing frontstage prose in trial artifacts."
+      }
+    }
+  },
+  "revision_hint": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+  "run_id": "post_tune_vague_v2",
+  "schema": "dmb_hermes_small_slice_run_v1",
+  "started_at": "2026-08-14T05:27:01Z",
+  "structural_ok": false
+}

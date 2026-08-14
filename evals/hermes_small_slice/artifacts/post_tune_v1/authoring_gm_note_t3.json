@@ -1,0 +1,476 @@
+{
+  "answer": "Drafted the GM note for Area 5 / Arrive Hempholm, with the metal leaves kept out of read-aloud and preserved as a Perception-gated discovery.\n\nOne caveat: the canvas proposal tool accepted the insert, but it returned a preview with `documentId: doc:small-slice-dogfood` / `surfaceId: plan` and `expectedContentSha256: null`, so this is a proposal for GM approval rather than a saved edit.",
+  "envelope_revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+  "matched_node_ids": [
+    "threat:grotesque-tree",
+    "location:grotesque-tree-site",
+    "location:jove-home",
+    "location:hempholm",
+    "item:metal-leaves"
+  ],
+  "question": "Draft a GM note I can put under Area 5 / Arrive Hempholm about the Grotesque Tree. Keep Perception-gated metal leaves out of any read-aloud.",
+  "question_id": "authoring_gm_note",
+  "result": {
+    "acceptance": {
+      "accepted_claim_ids": [
+        "identity:threat:grotesque-tree",
+        "identity:location:grotesque-tree-site",
+        "identity:location:jove-home",
+        "identity:location:hempholm",
+        "identity:item:metal-leaves",
+        "edge:item:metal-leaves:located_in:location:grotesque-tree-site",
+        "edge:location:grotesque-tree-site:located_in:location:jove-home",
+        "edge:threat:grotesque-tree:located_in:location:grotesque-tree-site"
+      ],
+      "source_citations": [
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "identity:threat:grotesque-tree",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "Grotesque Tree",
+          "object_id": "identity:threat:grotesque-tree",
+          "object_kind": "node",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "identity:location:grotesque-tree-site",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "The Grotesque Tree (garden)",
+          "object_id": "identity:location:grotesque-tree-site",
+          "object_kind": "node",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "identity:location:jove-home",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "The Jove's Home",
+          "object_id": "identity:location:jove-home",
+          "object_kind": "node",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "identity:location:hempholm",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "Hempholm",
+          "object_id": "identity:location:hempholm",
+          "object_kind": "node",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "identity:item:metal-leaves",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "precious metal leaves",
+          "object_id": "identity:item:metal-leaves",
+          "object_kind": "node",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "edge:item:metal-leaves:located_in:location:grotesque-tree-site",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "located in",
+          "object_id": "edge:item:metal-leaves:located_in:location:grotesque-tree-site",
+          "object_kind": "relationship",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "edge:location:grotesque-tree-site:located_in:location:jove-home",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "located in",
+          "object_id": "edge:location:grotesque-tree-site:located_in:location:jove-home",
+          "object_kind": "relationship",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "campaign_id": "of-conks-cons",
+          "claim_id": "edge:threat:grotesque-tree:located_in:location:grotesque-tree-site",
+          "focus": {
+            "campaign_id": null,
+            "kind": "none",
+            "session_id": null
+          },
+          "kind": "graph_reference",
+          "label": "located in",
+          "object_id": "edge:threat:grotesque-tree:located_in:location:grotesque-tree-site",
+          "object_kind": "relationship",
+          "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "schema": "dmb_graph_reference_v1",
+          "world_id": "of-conks-cons"
+        }
+      ],
+      "source_citations_opened": 0
+    },
+    "mutations": [
+      {
+        "body": "The Grotesque Tree is the immediate arrival threat in Area 5: it looms over the approach, has armor-hard bark and thick thorns, and fights back against anyone who gets close or attacks from range. It should feel like a sudden, dangerous landmark rather than a passive scene-setter.\n\nKeep the metal leaves as a separate Perception-gated discovery. Do not fold them into the read-aloud; instead, reveal them only if a character\u2019s Passive Wisdom (Perception) 15 notices the shiny leaves on odd branches. The tree\u2019s magic aura and arcane-infused roots are also separate calls to action, not part of the opening narration.",
+        "documentId": "doc:small-slice-dogfood",
+        "expectedContentSha256": null,
+        "kind": "gm-note",
+        "locator": {
+          "afterHeading": "Area 5 / Arrive Hempholm"
+        },
+        "op": "insert_callout",
+        "previewMarkdown": "> [!GM-NOTE]\n> The Grotesque Tree is the immediate arrival threat in Area 5: it looms over the approach, has armor-hard bark and thick thorns, and fights back against anyone who gets close or attacks from range. It should feel like a sudden, dangerous landmark rather than a passive scene-setter.\n>\n> Keep the metal leaves as a separate Perception-gated discovery. Do not fold them into the read-aloud; instead, reveal them only if a character\u2019s Passive Wisdom (Perception) 15 notices the shiny leaves on odd branches. The tree\u2019s magic aura and arcane-infused roots are also separate calls to action, not part of the opening narration.",
+        "provenanceRefs": [
+          "source-anchor:v1:1c70126e26a8ad754ccdf7de00dce56f0893a8c3bd4640c9d91f577da9f032b7"
+        ],
+        "schema": "dmb_canvas_block_proposal_v1",
+        "surfaceId": "plan"
+      }
+    ],
+    "raw": {
+      "diagnostics": {
+        "acceptance_state": "partial_coverage",
+        "grounding_state": "partial"
+      },
+      "grounding": {
+        "acceptance_state": "partial_coverage",
+        "accepted_claim_ids": [
+          "identity:threat:grotesque-tree",
+          "identity:location:grotesque-tree-site",
+          "identity:location:jove-home",
+          "identity:location:hempholm",
+          "identity:item:metal-leaves",
+          "edge:item:metal-leaves:located_in:location:grotesque-tree-site",
+          "edge:location:grotesque-tree-site:located_in:location:jove-home",
+          "edge:threat:grotesque-tree:located_in:location:grotesque-tree-site"
+        ],
+        "admissibility": "gm",
+        "answer_authority": "graph_context_synthesis",
+        "campaign_id": "of-conks-cons",
+        "diagnostic_codes": [
+          "graph_context_synthesis",
+          "sentence_level_grounding_unvalidated",
+          "hermes_agent_answer",
+          "source_anchor_unreadable"
+        ],
+        "focus": {
+          "campaign_id": null,
+          "kind": "none",
+          "session_id": null
+        },
+        "graph_reference_count": 8,
+        "reason_codes": [
+          "graph_context_synthesis",
+          "sentence_level_grounding_unvalidated",
+          "hermes_agent_answer",
+          "source_anchor_unreadable"
+        ],
+        "rejected_claim_ids": [],
+        "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+        "schema": "dmb_hermes_graph_grounding_v1",
+        "source_anchor_count": 0,
+        "state": "partial",
+        "successful_tool_count": 3,
+        "support_claim_ledger_text": "Graph-grounded facts for this turn:\n- Grotesque Tree: identity \u2014 Grotesque Tree\n- The Grotesque Tree (garden): identity \u2014 The Grotesque Tree (garden)\n- The Jove's Home: identity \u2014 The Jove's Home\n- Hempholm: identity \u2014 Hempholm\n- precious metal leaves: identity \u2014 precious metal leaves\n- item:metal-leaves: located_in \u2014 located in\n- location:grotesque-tree-site: located_in \u2014 located in\n- threat:grotesque-tree: located_in \u2014 located in",
+        "warnings": [
+          "Source verification is unavailable or incomplete for one or more supporting anchors."
+        ],
+        "world_id": "of-conks-cons"
+      },
+      "mode": "hermes_graph_agent",
+      "status": "partial"
+    }
+  },
+  "score": {
+    "accepted_claim_ids": [
+      "identity:threat:grotesque-tree",
+      "identity:location:grotesque-tree-site",
+      "identity:location:jove-home",
+      "identity:location:hempholm",
+      "identity:item:metal-leaves",
+      "edge:item:metal-leaves:located_in:location:grotesque-tree-site",
+      "edge:location:grotesque-tree-site:located_in:location:jove-home",
+      "edge:threat:grotesque-tree:located_in:location:grotesque-tree-site"
+    ],
+    "bucket_scores": {
+      "gates": true,
+      "links": true,
+      "place": false,
+      "sensory": false,
+      "tactics": false,
+      "treasure": true
+    },
+    "canvas_detail": {
+      "expected": true,
+      "found": 1,
+      "matching_kind": 1,
+      "missing_provenance": [
+        "threat:grotesque-tree",
+        "location:grotesque-tree-site"
+      ]
+    },
+    "canvas_ok": true,
+    "claims_ok": true,
+    "expand_ready_candidate": false,
+    "expands": 4,
+    "forbidden_hits": [],
+    "gate_hygiene_ok": true,
+    "opened_citations": 0,
+    "optional_bucket_scores": {
+      "clocks": false,
+      "identity": false
+    },
+    "required_bucket_pass": false,
+    "source_ok": true,
+    "source_read_required": true,
+    "source_reads": 2,
+    "structural_pass": true,
+    "tools": [
+      "expand_graph_retrieval",
+      "expand_graph_retrieval",
+      "expand_graph_retrieval",
+      "expand_graph_retrieval",
+      "read_graph_source",
+      "read_graph_source",
+      "propose_canvas_block",
+      "propose_canvas_block"
+    ]
+  },
+  "tool_events": [
+    {
+      "admissibility": "gm",
+      "bounded_ids": {},
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [],
+      "duration_ms": null,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [],
+      "outcome": null,
+      "relationship_ids": [],
+      "retrieval_schema": null,
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [],
+      "state": "start",
+      "tool_name": "expand_graph_retrieval",
+      "world_id": "of-conks-cons"
+    },
+    {
+      "admissibility": "gm",
+      "bounded_ids": {},
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [
+        "unreadable_source_anchors"
+      ],
+      "duration_ms": 142.35162903787568,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [
+        "location:grotesque-tree-site"
+      ],
+      "outcome": "partial",
+      "relationship_ids": [
+        "edge:item:metal-leaves:located_in:location:grotesque-tree-site",
+        "edge:location:grotesque-tree-site:located_in:location:jove-home",
+        "edge:threat:grotesque-tree:located_in:location:grotesque-tree-site"
+      ],
+      "retrieval_schema": "dmb_world_graph_retrieval_result_v1",
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [
+        "source-anchor:v1:1908c3c722bfbc8c8243c395f9490d938c1a23c3fe2455cb5ac0f3f69358d203",
+        "source-anchor:v1:1c70126e26a8ad754ccdf7de00dce56f0893a8c3bd4640c9d91f577da9f032b7",
+        "source-anchor:v1:8951a0bf80fc7f1495f721c0cbb1885fe55783403a4468933f7538a6693a0131",
+        "source-anchor:v1:99f80807dc52845b266e1b258d42a3fc1cb2e1f62edc19864bfdc6e9673ce4ec"
+      ],
+      "state": "completion",
+      "tool_name": "expand_graph_retrieval",
+      "world_id": "of-conks-cons"
+    },
+    {
+      "admissibility": "gm",
+      "bounded_ids": {},
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [],
+      "duration_ms": null,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [],
+      "outcome": null,
+      "relationship_ids": [],
+      "retrieval_schema": null,
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [],
+      "state": "start",
+      "tool_name": "expand_graph_retrieval",
+      "world_id": "of-conks-cons"
+    },
+    {
+      "admissibility": "gm",
+      "bounded_ids": {},
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [],
+      "duration_ms": 142.54105498548597,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [],
+      "outcome": "enough",
+      "relationship_ids": [],
+      "retrieval_schema": "dmb_world_graph_retrieval_result_v1",
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [
+        "source-anchor:v1:1c70126e26a8ad754ccdf7de00dce56f0893a8c3bd4640c9d91f577da9f032b7"
+      ],
+      "state": "completion",
+      "tool_name": "expand_graph_retrieval",
+      "world_id": "of-conks-cons"
+    },
+    {
+      "admissibility": "gm",
+      "bounded_ids": {
+        "maxChars": 3500
+      },
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [],
+      "duration_ms": null,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [],
+      "outcome": null,
+      "relationship_ids": [],
+      "retrieval_schema": null,
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [],
+      "state": "start",
+      "tool_name": "read_graph_source",
+      "world_id": "of-conks-cons"
+    },
+    {
+      "admissibility": "gm",
+      "bounded_ids": {
+        "maxChars": 3500
+      },
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [],
+      "duration_ms": 287.80951601220295,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [],
+      "outcome": "enough",
+      "relationship_ids": [],
+      "retrieval_schema": "dmb_world_graph_source_anchor_read_v1",
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [
+        "source-anchor:v1:1c70126e26a8ad754ccdf7de00dce56f0893a8c3bd4640c9d91f577da9f032b7"
+      ],
+      "state": "completion",
+      "tool_name": "read_graph_source",
+      "world_id": "of-conks-cons"
+    },
+    {
+      "admissibility": "gm",
+      "bounded_ids": {},
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [],
+      "duration_ms": null,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [],
+      "outcome": null,
+      "relationship_ids": [],
+      "retrieval_schema": null,
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [],
+      "state": "start",
+      "tool_name": "propose_canvas_block",
+      "world_id": "of-conks-cons"
+    },
+    {
+      "admissibility": "gm",
+      "bounded_ids": {},
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [],
+      "duration_ms": 0.3228290006518364,
+      "focus": {
+        "kind": "none",
+        "session_id": null
+      },
+      "matched_node_ids": [],
+      "outcome": null,
+      "relationship_ids": [],
+      "retrieval_schema": "dmb_canvas_block_proposal_v1",
+      "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "source_anchor_ids": [],
+      "state": "completion",
+      "tool_name": "propose_canvas_block",
+      "world_id": "of-conks-cons"
+    }
+  ],
+  "trial_index": 3
+}

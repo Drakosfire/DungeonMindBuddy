@@ -1183,6 +1183,9 @@ export async function postLiveQuery(
       ...(normalizedHistory.length > 0
         ? { conversation_history: normalizedHistory }
         : {}),
+      ...(options.canvasWorkObject != null
+        ? { canvas_work_object: options.canvasWorkObject }
+        : {}),
     };
     return apiFetch<LiveQueryResponse>("/api/live/query", {
       method: "POST",

@@ -1401,6 +1401,45 @@ body.surface-projection-open .plan-agent-shell {
   color: inherit;
 }
 
+.plan-agent-canvas-proposals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0.35rem 0 0.75rem;
+}
+
+.plan-agent-canvas-proposal {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  background: rgba(15, 18, 26, 0.45);
+}
+
+.plan-agent-canvas-proposal .md-callout {
+  margin: 0.45rem 0 0.55rem;
+}
+
+.plan-agent-canvas-proposal-actions {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.plan-agent-canvas-proposal-approve {
+  border: 1px solid #7aa2f7;
+  background: #7aa2f7;
+  color: #0f121a;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.plan-agent-canvas-proposal-approve:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .plan-agent-s1-support {
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 10px;

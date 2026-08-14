@@ -526,7 +526,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
               />
             </div>
           </div>
-          <PlanAgentInteractionBar planView={effectivePlanView} sessionDescriptor={config.sessionDescriptor} />
+          <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
         </div>
       </PlanGraphReferenceResolverProvider>
     </EditCapabilityProvider>

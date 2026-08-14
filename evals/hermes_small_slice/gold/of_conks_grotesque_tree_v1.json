@@ -1,0 +1,155 @@
+{
+  "schema": "dmb_hermes_small_slice_gold_v1",
+  "id": "of_conks_grotesque_tree_v1",
+  "campaign_id": "of-conks-cons",
+  "world_id": "of-conks-cons",
+  "pilot_objects": [
+    "threat:grotesque-tree",
+    "location:grotesque-tree-site"
+  ],
+  "expand_ready_bar": "After one Ask, the GM can Approve or paste a gm-note a table GM would keep without reopening the module PDF.",
+  "buckets": {
+    "identity": {
+      "pass_if": "Conk-grown plant hazard; guild field-test provenance when asked or clearly relevant"
+    },
+    "place": {
+      "pass_if": "Jove garden / Hempholm; site linked to Jove home"
+    },
+    "sensory": {
+      "pass_if": "Armor-like bark, thorns, stranger up close"
+    },
+    "gates": {
+      "pass_if": "Passive Perception 15 metal leaves; Passive Arcana 12 aura; DC 17 Arcana roots under village — not boxed as read-aloud"
+    },
+    "tactics": {
+      "pass_if": "30 ft aggro, nearest target, ceases when no longer threatened; Appendix A kit only if mechanics asked"
+    },
+    "treasure": {
+      "pass_if": "Precious metal leaves worth about 100 gp on search"
+    },
+    "clocks": {
+      "pass_if": "Growth / leave-town / destroy-surface leads to Part 2 false victory; do not spoil caretakers unless asked"
+    },
+    "links": {
+      "pass_if": "Usable graph chips: tree, site, Jove, leaves, Hempholm"
+    }
+  },
+  "must_not": [
+    {
+      "id": "eldyrwild_session4",
+      "description": "Invent Eldyrwild Session 4 play as Of Conks fact"
+    },
+    {
+      "id": "frontstage_internals",
+      "description": "Dump claim IDs, tool names, revision IDs, or 'Hermes answer' in frontstage",
+      "forbidden_substrings": [
+        "claim_id",
+        "expand_graph_retrieval",
+        "read_graph_source",
+        "rev:",
+        "Hermes answer"
+      ]
+    },
+    {
+      "id": "gated_leaves_as_read_aloud",
+      "description": "Put Perception-gated metal leaves into player read-aloud / kind=read-aloud unless explicitly asked"
+    },
+    {
+      "id": "fake_source_open",
+      "description": "Claim source was opened when source citations opened count is 0"
+    }
+  ],
+  "expected_claim_id_substrings": [
+    "threat:grotesque-tree",
+    "location:grotesque-tree-site"
+  ],
+  "expected_link_node_ids": [
+    "threat:grotesque-tree",
+    "location:grotesque-tree-site",
+    "location:jove-home",
+    "location:hempholm",
+    "item:metal-leaves"
+  ],
+  "questions": [
+    {
+      "id": "vague_talk",
+      "prompt": "I want to talk about this tree",
+      "family": "vague",
+      "source_read_required": true,
+      "required_buckets": [
+        "identity",
+        "place",
+        "sensory",
+        "gates",
+        "tactics",
+        "treasure",
+        "links"
+      ],
+      "optional_buckets": ["clocks", "identity"],
+      "expect_canvas_proposal": false,
+      "notes": "Matched object describe/talk — must open Area 5 (and related) source before answering."
+    },
+    {
+      "id": "prep_gm_facing",
+      "prompt": "GM-facing details for the Grotesque Tree before the fight",
+      "family": "prep",
+      "source_read_required": true,
+      "required_buckets": [
+        "place",
+        "sensory",
+        "gates",
+        "tactics",
+        "treasure",
+        "clocks",
+        "links"
+      ],
+      "optional_buckets": ["identity"],
+      "expect_canvas_proposal": false,
+      "notes": "Prep posture; clocks matter; still no caretaker spoiler unless asked."
+    },
+    {
+      "id": "authoring_gm_note",
+      "prompt": "Draft a GM note I can put under Area 5 / Arrive Hempholm about the Grotesque Tree. Keep Perception-gated metal leaves out of any read-aloud.",
+      "family": "authoring",
+      "source_read_required": true,
+      "required_buckets": [
+        "place",
+        "sensory",
+        "gates",
+        "tactics",
+        "treasure",
+        "links"
+      ],
+      "optional_buckets": ["clocks", "identity"],
+      "expect_canvas_proposal": true,
+      "expected_canvas_kind": "gm-note",
+      "expected_provenance_refs": [
+        "threat:grotesque-tree",
+        "location:grotesque-tree-site"
+      ],
+      "notes": "Expand-ready success surface: propose_canvas_block gm-note after grounding."
+    },
+    {
+      "id": "identity_only_control",
+      "prompt": "What threatens Hempholm?",
+      "family": "identity_relationship",
+      "source_read_required": false,
+      "required_buckets": ["links"],
+      "optional_buckets": ["identity", "place"],
+      "expect_canvas_proposal": false,
+      "notes": "Control: accepted graph claims alone may suffice; source open not required."
+    }
+  ],
+  "bucket_term_hints": {
+    "identity": ["conk", "tuber", "guild", "field", "mages"],
+    "place": ["jove", "garden", "hempholm"],
+    "sensory": ["bark", "thorn", "armor", "strange"],
+    "gates": ["perception", "arcana", "15", "12", "17", "roots", "leaves"],
+    "tactics": ["30", "nearest", "retaliat", "cease", "feet"],
+    "treasure": ["100", "gp", "metal", "leaves", "search"],
+    "clocks": ["growth", "part 2", "300", "leave", "destroy", "false"],
+    "links": ["grotesque", "jove", "hempholm", "leaves"]
+  },
+  "trials_per_question": 3,
+  "structural_pass_threshold": "2/3"
+}

@@ -44,7 +44,14 @@ MAX_TOOL_RULES = 64
 MAX_ALLOWED_EFFECTS = 4
 MAX_RESULT_MESSAGES = 64
 MAX_TOOL_EVENTS = 128
+MAX_MUTATIONS = 8
 MAX_BOUNDED_ID_MAP_KEYS = 32
+MAX_CANVAS_DOCUMENT_ID_CHARS = 128
+MAX_CANVAS_SURFACE_ID_CHARS = 64
+MAX_CONTENT_SHA256_CHARS = 64
+_CANVAS_WORK_OBJECT_ALLOWED_KEYS = frozenset(
+    {"documentId", "surfaceId", "expectedContentSha256"}
+)
 MAX_ID_LIST = 64
 MAX_DIAGNOSTIC_CODES = 32
 MAX_FINAL_RESPONSE_CHARS = 32000
@@ -65,6 +72,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "capabilityPolicy",
         "retrievalSessionId",
         "retrievalSession",
+        "canvasWorkObject",
     }
 )
 _REQUEST_FORBIDDEN_KEYS = frozenset(
@@ -99,6 +107,7 @@ _RESULT_ALLOWED_KEYS = frozenset(
         "retrievalSessionId",
         "retrievalSession",
         "answerScope",
+        "mutations",
     }
 )
 _TOOL_EVENT_ALLOWED_KEYS = frozenset(
@@ -154,6 +163,7 @@ class HermesGraphAgentTurnResult:
     retrieval_session_id: str | None = None
     retrieval_session: dict[str, Any] | None = None
     answer_scope: HermesAnswerScope | None = None
+    mutations: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +180,7 @@ class HermesGraphAgentTurnRequest:
     capability_policy: HermesCapabilityPolicy | None = None
     retrieval_session_id: str | None = None
     retrieval_session: Mapping[str, Any] | None = None
+    canvas_work_object: Mapping[str, Any] | None = None
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
@@ -552,6 +563,56 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
     )
 
 
+def _serialize_canvas_work_object(
+    work: Mapping[str, Any] | None,
+) -> dict[str, str | None] | None:
+    if work is None:
+        return None
+    if not isinstance(work, Mapping):
+        raise ValueError("canvasWorkObject must be a mapping or null")
+    _reject_unknown_keys(work, _CANVAS_WORK_OBJECT_ALLOWED_KEYS, label="canvasWorkObject")
+    document_id = _require_str(
+        work.get("documentId") or work.get("document_id") or "",
+        label="canvasWorkObject.documentId",
+        max_chars=MAX_CANVAS_DOCUMENT_ID_CHARS,
+    )
+    surface_id = _require_str(
+        work.get("surfaceId") or work.get("surface_id") or "plan",
+        label="canvasWorkObject.surfaceId",
+        max_chars=MAX_CANVAS_SURFACE_ID_CHARS,
+    )
+    sha_raw = work.get("expectedContentSha256", work.get("expected_content_sha256"))
+    sha = _optional_str(
+        sha_raw,
+        label="canvasWorkObject.expectedContentSha256",
+        max_chars=MAX_CONTENT_SHA256_CHARS,
+    )
+    return {
+        "documentId": document_id,
+        "surfaceId": surface_id,
+        "expectedContentSha256": sha,
+    }
+
+
+def _deserialize_canvas_work_object(raw: Any) -> dict[str, str | None] | None:
+    if raw is None:
+        return None
+    return _serialize_canvas_work_object(raw if isinstance(raw, Mapping) else None)
+
+
+def _serialize_mutations(mutations: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    if not mutations:
+        return []
+    if len(mutations) > MAX_MUTATIONS:
+        raise ValueError(f"mutations exceeds max {MAX_MUTATIONS}")
+    out: list[dict[str, Any]] = []
+    for item in mutations:
+        if not isinstance(item, Mapping):
+            raise ValueError("mutations entries must be mappings")
+        out.append(dict(item))
+    return out
+
+
 def serialize_hermes_graph_agent_turn_request(
     request: HermesGraphAgentTurnRequest,
 ) -> dict[str, Any]:
@@ -575,6 +636,7 @@ def serialize_hermes_graph_agent_turn_request(
             raise ValueError("retrievalSession must be a mapping or null")
         # Bound by wire encoder MAX_WIRE_BYTES; keep as JSON-safe mapping.
         retrieval_session = dict(request.retrieval_session)
+    canvas_work_object = _serialize_canvas_work_object(request.canvas_work_object)
     return {
         "question": question,
         "worldId": world_id,
@@ -604,6 +666,7 @@ def serialize_hermes_graph_agent_turn_request(
             max_chars=MAX_SESSION_ID_CHARS,
         ),
         "retrievalSession": retrieval_session,
+        "canvasWorkObject": canvas_work_object,
     }
 
 
@@ -653,6 +716,7 @@ def deserialize_hermes_graph_agent_turn_request(
             max_chars=MAX_SESSION_ID_CHARS,
         ),
         retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
+        canvas_work_object=_deserialize_canvas_work_object(payload.get("canvasWorkObject")),
     )
 
 
@@ -790,6 +854,7 @@ def serialize_hermes_graph_agent_turn_result(
         ),
         "retrievalSession": retrieval_session,
         "answerScope": result.answer_scope,
+        "mutations": _serialize_mutations(result.mutations),
     }
 
 
@@ -934,6 +999,7 @@ def deserialize_hermes_graph_agent_turn_result(
         ),
         retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
         answer_scope=answer_scope_raw,  # type: ignore[arg-type]
+        mutations=_serialize_mutations(payload.get("mutations") or []),
     )
 
 

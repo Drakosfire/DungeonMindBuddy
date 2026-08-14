@@ -13,6 +13,7 @@ import { PlanAgentInteractionBar } from "./PlanAgentInteractionBar";
 import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 import type { PlanViewProjection } from "../../api/types";
 import * as liveApi from "../../api/liveApi";
+import { setAdmittedCampaignWorldOverlay } from "../../worldGraph/admittedCampaignWorldOverlay";
 
 const planView = {
   campaign_id: "longmont-c2",
@@ -46,6 +47,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.history.replaceState({}, "", "/plan");
+    setAdmittedCampaignWorldOverlay([]);
   });
 
   it("asks with campaign scope when only C1 is selected", async () => {
@@ -134,6 +136,104 @@ describe("PlanAgentInteractionBar graph lens", () => {
     // R10b chrome owns the open shell; Plan Ask pane portals into the host.
     expect(screen.getByLabelText("DungeonBuddy agent").className).toContain("open");
     expect(screen.getByLabelText("Ask DungeonBuddy").className).toContain("plan-agent-pane");
+  });
+
+  it("keeps outer live-packet identity when planning campaign is Of Conks", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/plan?campaigns=of-conks-cons");
+    setAdmittedCampaignWorldOverlay([
+      { campaign_id: "of-conks-cons", world_id: "of-conks-cons", source: "seed" },
+    ]);
+    const ofConksDescriptor = fixturePlanSessionDescriptor({
+      memorySession: null,
+      campaignId: "of-conks-cons",
+      campaignLabel: "Of Conks & Cons",
+    });
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "of-conks-cons",
+        campaignId: "of-conks-cons",
+        revisionId: "rev-of-conks",
+        headRevisionId: "rev-of-conks",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
+      schema: "dmb_ingestion_source_bundle_v1",
+      units: [],
+      artifacts: [],
+      diagnostics: [],
+      coverage: {},
+    } as never);
+
+    const askCorpus = vi.fn().mockResolvedValue({
+      answer: "Tree has metal leaves.",
+      mode: "hermes_graph_agent",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: [],
+      provenance: { backend: "hermes" },
+      citations: [],
+    });
+
+    render(
+      createElement(
+        AgentInteractionProvider,
+        null,
+        createElement(
+          AskPluginSlotProvider,
+          null,
+          createElement(
+            PlanGraphLensProvider,
+            { planCampaignId: ofConksDescriptor.campaignId },
+            createElement(
+              PlanGraphReferenceResolverProvider,
+              { sessionDescriptor: ofConksDescriptor },
+              createElement(AgentInteractionChrome),
+              createElement(PlanAgentInteractionBar, {
+                planView,
+                sessionDescriptor: ofConksDescriptor,
+                askCorpus,
+                loadBundle: liveApi.getSourceBundle,
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    await user.type(screen.getByLabelText("Question"), "Metal leaves on the tree?");
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+
+    await waitFor(() => expect(askCorpus).toHaveBeenCalled());
+    const [, campaignId, session, , options] = askCorpus.mock.calls[0];
+    expect(campaignId).toBe("longmont-c2");
+    expect(session).toBe(22);
+    expect(options.worldGraphContext).toMatchObject({
+      campaign_id: "of-conks-cons",
+      scope_mode: "campaign",
+    });
   });
 
   it("disables Ask and shows warning when no campaigns are selected", async () => {

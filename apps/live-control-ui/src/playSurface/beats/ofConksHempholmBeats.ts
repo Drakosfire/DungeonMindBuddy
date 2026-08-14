@@ -419,6 +419,8 @@ export const OF_CONKS_HEMPHOLM_SPINE: AdventureSpine = {
               text: "The further you approach the tree, the stranger it appears. The tree's bark looks as tough as any armor you've seen and the branches are covered in thick thorns.",
             },
           ],
+          gmNote:
+            "Features to call out: leafless from the hill; up close, armored bark, thorned rock-hard branches, and a handful of shiny precious-metal leaves on odd branches. The leaves are the tell — roots are mining gold, silver, and platinum underground. Do not read the leaves as boxed text; mention them if someone has Passive Perception 15 or looks closely. After the fight: 100 gp if they search.",
           rulesNow: [
             "Passive Wisdom (Perception) 15: shiny metal leaves on odd branches.",
             "Passive Wisdom (Arcana) 12: a magic aura around the tree.",

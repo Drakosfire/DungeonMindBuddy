@@ -736,6 +736,11 @@ export interface LiveQueryOptions {
   traceRequested?: boolean | null;
   worldGraphContext?: AgentWorldGraphQueryContextRequest | null;
   conversationHistory?: unknown;
+  canvasWorkObject?: {
+    documentId: string;
+    surfaceId: string;
+    expectedContentSha256?: string | null;
+  } | null;
 }
 
 export interface AgentInteractionTurnMeta {
@@ -797,6 +802,19 @@ export interface CitationSourceResponse {
   diagnostics: string[];
 }
 
+export interface CanvasBlockProposalMutation {
+  schema: "dmb_canvas_block_proposal_v1";
+  documentId: string;
+  surfaceId?: string;
+  op: "insert_callout" | "replace_callout";
+  kind: string;
+  body: string;
+  locator: { afterHeading?: string; oldText?: string };
+  previewMarkdown: string;
+  expectedContentSha256?: string | null;
+  provenanceRefs?: string[];
+}
+
 export interface LiveQueryResponse {
   schema?: string;
   query_id?: string;
@@ -813,7 +831,7 @@ export interface LiveQueryResponse {
   citations?: LiveQueryCitation[];
   context_packet?: LiveContextPacket | null;
   warnings?: string[];
-  mutations?: unknown[];
+  mutations?: CanvasBlockProposalMutation[] | unknown[];
   agent_trace?: AgentInteractionTrace | null;
   agent_thread_id?: string | null;
   turn_id?: string | null;

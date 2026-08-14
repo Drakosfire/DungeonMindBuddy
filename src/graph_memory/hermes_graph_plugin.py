@@ -26,13 +26,27 @@ from apps.live_control_server.services.hermes_graph_interaction_tools import (
     execute_hermes_graph_interaction_tool_json,
     hermes_model_visible_tool_definitions,
 )
+from apps.live_control_server.services.canvas_block_proposal import (
+    CANVAS_BLOCK_PROPOSAL_SCHEMA,
+    PROPOSE_CANVAS_BLOCK_TOOL_NAME,
+)
 
 TOOLSET_NAME = "dungeonbuddy_graph"
 
 ToolEffect = Literal["read", "write"]
 
 ORDERED_GRAPH_TOOL_NAMES: tuple[str, ...] = ORDERED_INTERACTION_TOOL_NAMES
-HERMES_GRAPH_READ_TOOL_NAMES = HERMES_GRAPH_INTERACTION_TOOL_NAMES
+HERMES_GRAPH_READ_TOOL_NAMES = frozenset(
+    name
+    for name in HERMES_GRAPH_INTERACTION_TOOL_NAMES
+    if name != PROPOSE_CANVAS_BLOCK_TOOL_NAME
+)
+HERMES_GRAPH_SESSION_TOOL_NAMES = frozenset(
+    {
+        "expand_graph_retrieval",
+        "read_graph_source",
+    }
+)
 
 # Optional process-local graph root override for tests / embedded callers.
 # Not part of the model-visible tool arguments.
@@ -53,6 +67,18 @@ _active_retrieval_session_id: ContextVar[str | None] = ContextVar(
     default=None,
 )
 
+# Active Canvas work object for propose_canvas_block inject (not model-authored).
+_active_canvas_work_object: ContextVar["HermesCanvasWorkObject | None"] = ContextVar(
+    "hermes_graph_plugin_canvas_work_object",
+    default=None,
+)
+
+# Turn-local mutation bucket filled by propose_canvas_block successes.
+_pending_canvas_mutations: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "hermes_graph_plugin_pending_canvas_mutations",
+    default=None,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class HermesGraphScope:
@@ -63,6 +89,15 @@ class HermesGraphScope:
     focus: Mapping[str, Any]
     admissibility: str
     revision_pin: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HermesCanvasWorkObject:
+    """Published Canvas identity for propose_canvas_block (server-injected)."""
+
+    document_id: str
+    surface_id: str
+    expected_content_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,11 +188,15 @@ class HermesCapabilityPolicy:
 def default_graph_only_capability_policy(
     scope: HermesGraphScope,
 ) -> HermesCapabilityPolicy:
-    """Default policy: declare scope + expand + source-read over one shared session."""
+    """Default policy: declare scope + expand + source-read + Threat + canvas propose."""
     graph_names = tuple(
         name
         for name in ORDERED_GRAPH_TOOL_NAMES
-        if name != QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME
+        if name
+        not in {
+            QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+            PROPOSE_CANVAS_BLOCK_TOOL_NAME,
+        }
     )
     names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
     return HermesCapabilityPolicy(
@@ -184,6 +223,13 @@ def default_graph_only_capability_policy(
                 require_graph_scope=True,
                 allowed_effects=frozenset({"read"}),
             ),
+            HermesToolCapabilityRule(
+                tool_name=PROPOSE_CANVAS_BLOCK_TOOL_NAME,
+                toolset=TOOLSET_NAME,
+                # Canvas documentId inject is separate from graph scope.
+                require_graph_scope=False,
+                allowed_effects=frozenset({"write"}),
+            ),
             *(
                 HermesToolCapabilityRule(
                     tool_name=name,
@@ -209,6 +255,42 @@ def reset_active_retrieval_session_id(token: Any) -> None:
 
 def get_active_retrieval_session_id() -> str | None:
     return _active_retrieval_session_id.get()
+
+
+def set_active_canvas_work_object(work: HermesCanvasWorkObject | None) -> Any:
+    return _active_canvas_work_object.set(work)
+
+
+def reset_active_canvas_work_object(token: Any) -> None:
+    _active_canvas_work_object.reset(token)
+
+
+def get_active_canvas_work_object() -> HermesCanvasWorkObject | None:
+    return _active_canvas_work_object.get()
+
+
+def begin_pending_canvas_mutations() -> Any:
+    return _pending_canvas_mutations.set([])
+
+
+def reset_pending_canvas_mutations(token: Any) -> None:
+    _pending_canvas_mutations.reset(token)
+
+
+def record_pending_canvas_mutation(proposal: Mapping[str, Any]) -> None:
+    bucket = _pending_canvas_mutations.get()
+    if bucket is None:
+        return
+    if str(proposal.get("schema") or "") != CANVAS_BLOCK_PROPOSAL_SCHEMA:
+        return
+    bucket.append(dict(proposal))
+
+
+def take_pending_canvas_mutations() -> list[dict[str, Any]]:
+    bucket = _pending_canvas_mutations.get()
+    if not bucket:
+        return []
+    return [dict(item) for item in bucket]
 
 
 def validate_capability_policy_structure(
@@ -344,8 +426,19 @@ def apply_capability_policy_to_arguments(
         payload["focus"] = dict(scope.focus)
         payload["admissibility"] = scope.admissibility
         payload["revisionPin"] = scope.revision_pin
+    if tool_name == PROPOSE_CANVAS_BLOCK_TOOL_NAME:
+        canvas = _active_canvas_work_object.get()
+        # Authoritative inject — model cannot invent document identity.
+        payload["documentId"] = canvas.document_id if canvas else ""
+        payload["surfaceId"] = canvas.surface_id if canvas else ""
+        payload["expectedContentSha256"] = (
+            canvas.expected_content_sha256 if canvas else None
+        )
+        payload.pop("document_id", None)
+        payload.pop("surface_id", None)
+        payload.pop("expected_content_sha256", None)
     session_id = _active_retrieval_session_id.get()
-    if session_id and tool_name in HERMES_GRAPH_INTERACTION_TOOL_NAMES:
+    if session_id and tool_name in HERMES_GRAPH_SESSION_TOOL_NAMES:
         # Authoritative session inject — model cannot retarget another session.
         # Wire form is camelCase (aliases on Expand/Read request models).
         payload["retrievalSessionId"] = session_id
@@ -353,19 +446,44 @@ def apply_capability_policy_to_arguments(
     return payload, None
 
 
+def _effect_for_tool(tool_name: str, rule: HermesToolCapabilityRule) -> ToolEffect:
+    if "write" in rule.allowed_effects and "read" not in rule.allowed_effects:
+        return "write"
+    if tool_name == PROPOSE_CANVAS_BLOCK_TOOL_NAME and "write" in rule.allowed_effects:
+        return "write"
+    return "read"
+
+
 def _handler_for(tool_name: str):
     def _handler(args: dict, **kwargs: Any) -> str:
         del kwargs
         try:
-            payload, denied = apply_capability_policy_to_arguments(tool_name, args)
+            active = _active_capability_policy.get()
+            rule = active.rule_for(tool_name) if active is not None else None
+            effect: ToolEffect = (
+                _effect_for_tool(tool_name, rule) if rule is not None else "read"
+            )
+            payload, denied = apply_capability_policy_to_arguments(
+                tool_name,
+                args,
+                effect=effect,
+            )
             if denied is not None:
                 return denied
             assert payload is not None
-            return execute_hermes_graph_interaction_tool_json(
+            result_json = execute_hermes_graph_interaction_tool_json(
                 tool_name,
                 payload,
                 root=_graph_root_override.get(),
             )
+            if tool_name == PROPOSE_CANVAS_BLOCK_TOOL_NAME:
+                try:
+                    parsed = json.loads(result_json)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, dict):
+                    record_pending_canvas_mutation(parsed)
+            return result_json
         except Exception:
             # Adapter already fail-closes; this is a last line of defense so
             # Hermes never sees a raised exception from a graph tool.
@@ -417,24 +535,33 @@ def register(ctx: Any) -> None:
 
 __all__ = [
     "DECLARE_CONVERSATION_CONTEXT_TOOL_NAME",
+    "HERMES_GRAPH_READ_TOOL_NAMES",
     "ORDERED_GRAPH_TOOL_NAMES",
     "ORDERED_MODEL_VISIBLE_TOOL_NAMES",
     "TOOLSET_NAME",
     "HermesCapabilityPolicy",
+    "HermesCanvasWorkObject",
     "HermesGraphScope",
     "HermesPluginActivation",
     "HermesToolCapabilityRule",
     "ToolEffect",
     "apply_capability_policy_to_arguments",
+    "begin_pending_canvas_mutations",
     "default_graph_only_capability_policy",
     "get_active_capability_policy",
+    "get_active_canvas_work_object",
     "get_active_retrieval_session_id",
+    "record_pending_canvas_mutation",
     "register",
     "reset_active_capability_policy",
+    "reset_active_canvas_work_object",
     "reset_active_retrieval_session_id",
     "reset_graph_root_override",
+    "reset_pending_canvas_mutations",
     "set_active_capability_policy",
+    "set_active_canvas_work_object",
     "set_active_retrieval_session_id",
     "set_graph_root_override",
+    "take_pending_canvas_mutations",
     "validate_capability_policy_structure",
 ]

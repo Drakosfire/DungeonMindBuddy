@@ -159,4 +159,15 @@ describe("BeatsPanel", () => {
     });
     expect(screen.getByTestId("beats-detail")).toHaveTextContent(/Largest building|Shacks/i);
   });
+
+  it("shows tree-tactics GM note with metal leaves after the read-aloud", async () => {
+    mockRunStateApi();
+    render(createElement(BeatsPanel, { search: "?beat=tree-tactics" }), { wrapper });
+    await waitFor(() => expect(screen.getByTestId("beats-detail")).toBeInTheDocument());
+    const detail = screen.getByTestId("beats-detail");
+    expect(within(detail).getByTestId("beats-detail-read-aloud")).toHaveTextContent(/armor|thorns/i);
+    expect(within(detail).getByTestId("beats-detail-read-aloud")).not.toHaveTextContent(/metal leaves/i);
+    expect(within(detail).getByTestId("beats-detail-gm")).toHaveTextContent(/precious-metal leaves/i);
+    expect(within(detail).getByTestId("beats-detail-rules")).toHaveTextContent(/Passive Wisdom \(Perception\) 15/i);
+  });
 });

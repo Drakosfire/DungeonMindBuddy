@@ -1,0 +1,454 @@
+{
+  "answer": "DungeonBuddy could not complete this World Graph Hermes turn. No legacy retrieval fallback was used.",
+  "envelope_revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+  "matched_node_ids": [
+    "threat:grotesque-tree",
+    "location:grotesque-tree-site",
+    "location:jove-home",
+    "location:hempholm",
+    "item:metal-leaves"
+  ],
+  "product_response": {
+    "agent_thread_id": "small-slice-e8c00ee8e544",
+    "agent_trace": {
+      "answer_scope": "graph",
+      "artifact_refs": [],
+      "backend": "hermes",
+      "completed_at": "2026-08-14T05:23:29Z",
+      "context_summary": {},
+      "conversation_context": {
+        "fresh_graph_revision_used": true,
+        "graph_metadata_in_history": false,
+        "hermes_session_pointer_in_request": false,
+        "hermes_session_pointer_status": "absent",
+        "history_present": false,
+        "message_count": 0,
+        "pair_count": 0,
+        "payload_shape": "role_content_only",
+        "worker_pid_changed": false
+      },
+      "elapsed_ms": 11195,
+      "evidence_event_count": 0,
+      "final_response_present": true,
+      "hermes_session_id": "da4b1f71-bc7f-41c9-b477-8dafc60f3354",
+      "mode": "hermes_graph_agent",
+      "process_isolation": "process_exclusive",
+      "runtime": "process_isolated",
+      "started_at": "2026-08-14T05:23:18Z",
+      "status": "error",
+      "steps": [],
+      "tool_event_count": 10,
+      "tool_events": [
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [],
+          "duration_ms": null,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": null,
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "start",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [
+            "hermes_graph_interaction_tool_error"
+          ],
+          "duration_ms": 1.8056700355373323,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": "dmb_world_graph_retrieval_error_v1",
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "error",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [],
+          "duration_ms": null,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": null,
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "start",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [
+            "hermes_graph_interaction_tool_error"
+          ],
+          "duration_ms": 0.27260795468464494,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": "dmb_world_graph_retrieval_error_v1",
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "error",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [],
+          "duration_ms": null,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": null,
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "start",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [
+            "hermes_graph_interaction_tool_error"
+          ],
+          "duration_ms": 0.20392797887325287,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": "dmb_world_graph_retrieval_error_v1",
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "error",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [],
+          "duration_ms": null,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": null,
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "start",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [
+            "hermes_graph_interaction_tool_error"
+          ],
+          "duration_ms": 0.245709961745888,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": "dmb_world_graph_retrieval_error_v1",
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "error",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [],
+          "duration_ms": null,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": null,
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "start",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        },
+        {
+          "admissibility": "gm",
+          "bounded_ids": {},
+          "campaign_id": "of-conks-cons",
+          "diagnostic_codes": [
+            "hermes_graph_interaction_tool_error"
+          ],
+          "duration_ms": 0.2415789640508592,
+          "focus": {
+            "kind": "campaign",
+            "session_id": null
+          },
+          "matched_node_ids": [],
+          "outcome": null,
+          "relationship_ids": [],
+          "retrieval_schema": "dmb_world_graph_retrieval_error_v1",
+          "revision_pin": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+          "source_anchor_ids": [],
+          "state": "error",
+          "tool_name": "expand_graph_retrieval",
+          "world_id": "of-conks-cons"
+        }
+      ],
+      "trace_id": "agent-trace-a9be5eb46135",
+      "usage": {
+        "available": false,
+        "input_tokens": null,
+        "output_tokens": null,
+        "total_tokens": null
+      },
+      "validator_path": null,
+      "warnings": []
+    },
+    "answer": "DungeonBuddy could not complete this World Graph Hermes turn. No legacy retrieval fallback was used.",
+    "citations": [],
+    "classification": {
+      "event_type": "hermes_graph_agent",
+      "intent": "hermes_graph_agent",
+      "latency_mode": "hermes_graph_agent"
+    },
+    "context_packet": null,
+    "diagnostics": {
+      "error_code": "hermes_graph_interaction_tool_error"
+    },
+    "events_written": [],
+    "graph_references": [],
+    "grounding": {
+      "acceptance_state": "execution_error",
+      "accepted_claim_ids": [],
+      "admissibility": "gm",
+      "campaign_id": "of-conks-cons",
+      "diagnostic_codes": [
+        "hermes_graph_interaction_tool_error",
+        "dmb_world_graph_retrieval_error_v1"
+      ],
+      "focus": {
+        "campaign_id": "of-conks-cons",
+        "kind": "campaign",
+        "session_id": null
+      },
+      "reason_codes": [
+        "hermes_graph_interaction_tool_error",
+        "dmb_world_graph_retrieval_error_v1"
+      ],
+      "rejected_claim_ids": [],
+      "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "schema": "dmb_hermes_graph_grounding_v1",
+      "source_anchor_count": 0,
+      "state": "error",
+      "successful_tool_count": 0,
+      "warnings": [],
+      "world_id": "of-conks-cons"
+    },
+    "hermes_session": null,
+    "jobs_queued": [],
+    "mode": "hermes_graph_agent",
+    "mutations": [],
+    "next_suggestions": [],
+    "provenance": {
+      "backend": "hermes",
+      "mode": "hermes_graph_agent",
+      "process_isolation": "process_exclusive",
+      "runtime": "process_isolated"
+    },
+    "query_id": "live-query-e89882322eaa",
+    "retrieval_session_id": "grs:9af70f3ba0e3403c",
+    "schema": "dmb_live_query_response_v1",
+    "session": 22,
+    "source_citations": [],
+    "status": "error",
+    "turn_id": "turn-f89eab53",
+    "warnings": [],
+    "world_graph_context": {
+      "admissibility": "gm",
+      "attributes": [],
+      "campaign_id": "of-conks-cons",
+      "diagnostics": [],
+      "focus": {
+        "campaign_id": "of-conks-cons",
+        "kind": "campaign",
+        "session_id": null
+      },
+      "head_revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "is_head": true,
+      "matched_node_ids": [
+        "threat:grotesque-tree",
+        "location:grotesque-tree-site",
+        "location:jove-home",
+        "location:hempholm",
+        "item:metal-leaves"
+      ],
+      "nodes": [
+        {
+          "label": "Grotesque Tree",
+          "node_id": "threat:grotesque-tree"
+        },
+        {
+          "label": "The Grotesque Tree (garden)",
+          "node_id": "location:grotesque-tree-site"
+        },
+        {
+          "label": "The Jove's Home",
+          "node_id": "location:jove-home"
+        },
+        {
+          "label": "Hempholm",
+          "node_id": "location:hempholm"
+        },
+        {
+          "label": "precious metal leaves",
+          "node_id": "item:metal-leaves"
+        }
+      ],
+      "projection_truncated": false,
+      "query_text": "I want to talk about this tree",
+      "relationships": [],
+      "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+      "schema": "dmb_agent_world_graph_query_context_v1",
+      "status": "ready",
+      "trust_boundary": {
+        "citation_authority": "corpus_source_evidence",
+        "graph_citations_permitted": false,
+        "graph_role": "structured_campaign_memory_and_navigation"
+      },
+      "warning_codes": [],
+      "world_id": "of-conks-cons"
+    }
+  },
+  "question": "I want to talk about this tree",
+  "question_id": "vague_talk",
+  "result": {
+    "acceptance": {
+      "accepted_claim_ids": [],
+      "source_citations": [],
+      "source_citations_opened": 0
+    },
+    "mutations": [],
+    "raw": {
+      "grounding": {
+        "acceptance_state": "execution_error",
+        "accepted_claim_ids": [],
+        "admissibility": "gm",
+        "campaign_id": "of-conks-cons",
+        "diagnostic_codes": [
+          "hermes_graph_interaction_tool_error",
+          "dmb_world_graph_retrieval_error_v1"
+        ],
+        "focus": {
+          "campaign_id": "of-conks-cons",
+          "kind": "campaign",
+          "session_id": null
+        },
+        "reason_codes": [
+          "hermes_graph_interaction_tool_error",
+          "dmb_world_graph_retrieval_error_v1"
+        ],
+        "rejected_claim_ids": [],
+        "revision_id": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+        "schema": "dmb_hermes_graph_grounding_v1",
+        "source_anchor_count": 0,
+        "state": "error",
+        "successful_tool_count": 0,
+        "warnings": [],
+        "world_id": "of-conks-cons"
+      },
+      "mode": "hermes_graph_agent",
+      "status": "error"
+    }
+  },
+  "score": {
+    "accepted_claim_ids": [],
+    "bucket_scores": {
+      "gates": false,
+      "identity": false,
+      "links": false,
+      "place": false,
+      "sensory": false,
+      "tactics": false,
+      "treasure": false
+    },
+    "canvas_detail": {
+      "expected": false,
+      "found": 0
+    },
+    "canvas_ok": true,
+    "claims_ok": false,
+    "expand_ready_candidate": false,
+    "expands": 0,
+    "forbidden_hits": [],
+    "gate_hygiene_ok": true,
+    "opened_citations": 0,
+    "optional_bucket_scores": {
+      "clocks": false,
+      "identity": false
+    },
+    "required_bucket_pass": false,
+    "source_ok": false,
+    "source_read_required": true,
+    "source_reads": 0,
+    "structural_pass": false,
+    "tools": []
+  },
+  "tool_events": [],
+  "trial_index": 1
+}

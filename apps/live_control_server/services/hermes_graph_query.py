@@ -296,6 +296,7 @@ def build_hermes_graph_turn_request(
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     continuity_session_id: str | None = None,
+    canvas_work_object: Mapping[str, Any] | None = None,
 ) -> tuple[HermesGraphAgentTurnRequest, _DispatchedScope]:
     """Translate resolved World Graph context into one host turn request."""
     from apps.live_control_server.config import repo_root as default_repo_root
@@ -371,6 +372,7 @@ def build_hermes_graph_turn_request(
         capability_policy=None,
         retrieval_session_id=session.id,
         retrieval_session=retrieval_session_packet,
+        canvas_work_object=dict(canvas_work_object) if canvas_work_object else None,
     )
     scope = _DispatchedScope(
         world_id=world_id,
@@ -1313,7 +1315,7 @@ def build_hermes_graph_product_response(
         "source_citations": source_cites,
         "context_packet": None,
         "warnings": list(warnings),
-        "mutations": [],
+        "mutations": list(result.mutations or []),
         "grounding": grounding,
         "agent_trace": _agent_trace(
             state=state,
@@ -1377,6 +1379,7 @@ def run_hermes_graph_query(
     conversation_history: Any | None = None,
     session_base: Path | None = None,
     hermes_session_pointer: str | None = None,
+    canvas_work_object: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute one authoritative Hermes graph turn and return a product envelope.
 
@@ -1430,6 +1433,7 @@ def run_hermes_graph_query(
         corpus_root=resolved_corpus_root,
         conversation_history=normalized_history,
         continuity_session_id=pointer_resolution.continuity_session_id,
+        canvas_work_object=canvas_work_object,
     )
     factory = host_factory or get_hermes_graph_agent_host
     host = factory()

@@ -1,0 +1,26 @@
+{
+  "completed_at": "2026-08-14T05:27:58Z",
+  "gold_id": "of_conks_grotesque_tree_v1",
+  "metal_leaves_gate_falsification": "PASS \u2014 proposal kind=gm-note; leaves described as Perception-gated, not read-aloud",
+  "questions": {
+    "authoring_gm_note": {
+      "aggregate": {
+        "bucket_passes": 0,
+        "expand_ready_ok": false,
+        "expand_ready_passes": 0,
+        "structural_ok": true,
+        "structural_passes": 1,
+        "trials": 1
+      },
+      "human_rubric": {
+        "expand_ready": true,
+        "notes": "Real Hempholm run-packet documentId + content sha; gm-note proposed; Perception-gated leaves kept out of read-aloud. Operator Approves in Plan chat."
+      }
+    }
+  },
+  "revision_hint": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+  "run_id": "authoring_dogfood_hempholm_packet",
+  "schema": "dmb_hermes_small_slice_run_v1",
+  "started_at": "2026-08-14T05:27:47Z",
+  "structural_ok": true
+}

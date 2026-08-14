@@ -331,9 +331,55 @@ def write_local_bundle(
     return contrib_path, digest
 
 
-def initialize_world(contribution: GraphContribution, bundle_digest: str) -> None:
+def merge_edge_densification(
+    inventory: dict[str, Any],
+    densification_path: Path,
+) -> dict[str, Any]:
+    """Append prose-true edges from densification fixture; de-dupe by from/type/to."""
+    payload = json.loads(densification_path.read_text(encoding="utf-8"))
+    extra = payload.get("edges") or []
+    if not isinstance(extra, list):
+        raise ValueError(f"densification edges must be a list: {densification_path}")
+    edges_block = inventory.setdefault("edges", {})
+    required = list(edges_block.get("required") or [])
+    seen = {
+        (str(e.get("from")), str(e.get("type")), str(e.get("to")))
+        for e in required
+        if isinstance(e, dict)
+    }
+    added = 0
+    for edge in extra:
+        if not isinstance(edge, dict):
+            continue
+        key = (str(edge.get("from")), str(edge.get("type")), str(edge.get("to")))
+        if key in seen:
+            continue
+        required.append({"from": key[0], "type": key[1], "to": key[2]})
+        seen.add(key)
+        added += 1
+    edges_block["required"] = required
+    inventory["edges"] = edges_block
+    print(
+        f"Merged edge densification from {densification_path.name}: "
+        f"+{added} edges (total {len(required)})"
+    )
+    return inventory
+
+
+def initialize_world(
+    contribution: GraphContribution,
+    bundle_digest: str,
+    *,
+    force_reinit: bool = False,
+) -> None:
     out_root = ROOT / "out"
     out_root.mkdir(parents=True, exist_ok=True)
+    world_dir = out_root / "graph_memory" / "worlds" / WORLD_ID
+    if force_reinit and world_dir.exists():
+        import shutil
+
+        shutil.rmtree(world_dir)
+        print(f"Removed existing world dir for force reinit: {world_dir}")
     existing = try_open_world_graph_head(out_root, WORLD_ID)
     if existing is not None:
         print(
@@ -520,6 +566,23 @@ def main() -> int:
         action="store_true",
         help="Only compile contribution + initialize world + admit campaign",
     )
+    parser.add_argument(
+        "--force-reinit",
+        action="store_true",
+        help="Delete out/graph_memory/worlds/of-conks-cons and re-initialize from gold",
+    )
+    parser.add_argument(
+        "--edge-densification",
+        type=Path,
+        default=ROOT
+        / "evals/hermes_small_slice/fixtures/of_conks_edge_densification_v1.json",
+        help="Optional prose-true edge overlay merged into inventory before compile",
+    )
+    parser.add_argument(
+        "--no-edge-densification",
+        action="store_true",
+        help="Skip merging the edge densification fixture",
+    )
     args = parser.parse_args()
     gold_dir = args.gold_dir.expanduser().resolve()
     inventory_path = gold_dir / INVENTORY_REL
@@ -527,6 +590,11 @@ def main() -> int:
         raise SystemExit(f"missing inventory: {inventory_path}")
 
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    densification_path = args.edge_densification.expanduser().resolve()
+    if not args.no_edge_densification and densification_path.is_file():
+        inventory = merge_edge_densification(inventory, densification_path)
+    elif not args.no_edge_densification:
+        print(f"WARNING: edge densification missing at {densification_path}")
     prepared_path = ensure_corpus_prepared(gold_dir)
     prepared_sha = _sha256_bytes(prepared_path.read_bytes())
     if inventory.get("source_sha256") and inventory["source_sha256"] != prepared_sha:
@@ -543,7 +611,7 @@ def main() -> int:
     _, bundle_digest = write_local_bundle(gold_dir, contribution)
     print(f"Wrote local gold contribution bundle digest={bundle_digest[:16]}…")
 
-    initialize_world(contribution, bundle_digest)
+    initialize_world(contribution, bundle_digest, force_reinit=args.force_reinit)
     verify_world(inventory)
 
     upsert_admitted_campaign_world(

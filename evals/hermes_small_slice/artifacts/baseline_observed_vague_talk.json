@@ -1,0 +1,35 @@
+{
+  "question_id": "vague_talk",
+  "question": "I want to talk about this tree",
+  "source": "live_plan_dogfood_2026-08-13",
+  "notes": "Observed thin Hermes answer before describe→read_graph_source policy and edge densification. expand×4, 0 source opens.",
+  "answer": "The Grotesque Tree is a GM-facing threat in the garden site “The Grotesque Tree (garden),” which is located in Jove Home. It’s explicitly tied to Hempholm as something it threatens.\n\nThe graph also shows this is a prepared-module worldbuilding element with source anchors on the tree’s area heading, but one of the linked source anchors is unreadable, so I can’t quote deeper prose from it here.",
+  "tool_events": [
+    {"tool_name": "expand_graph_retrieval"},
+    {"tool_name": "expand_graph_retrieval"},
+    {"tool_name": "expand_graph_retrieval"},
+    {"tool_name": "expand_graph_retrieval"}
+  ],
+  "result": {
+    "acceptance": {
+      "accepted_claim_ids": [
+        "identity:location:grotesque-tree-site",
+        "identity:threat:grotesque-tree",
+        "edge:location:grotesque-tree-site:located_in:location:jove-home",
+        "edge:threat:grotesque-tree:threatens:location:hempholm"
+      ],
+      "source_citations_opened": 0
+    },
+    "mutations": []
+  },
+  "diagnostics": {
+    "acceptance": "partial_coverage",
+    "reason_codes": [
+      "graph_context_synthesis",
+      "sentence_level_grounding_unvalidated",
+      "hermes_agent_answer",
+      "source_anchor_unreadable"
+    ],
+    "revision_id": "rev:45f8cb01efbb7fb13f137f0fee48f131"
+  }
+}

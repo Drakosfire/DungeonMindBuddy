@@ -178,6 +178,7 @@ class LiveQueryRequest(BaseModel):
     trace_requested: bool | None = None
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None
     conversation_history: Any | None = None
+    canvas_work_object: dict[str, Any] | None = None
 
 
 def _history_is_absent(value: Any) -> bool:
@@ -948,6 +949,7 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             world_graph_context=body.world_graph_context,
             outer_campaign_id=body.campaign_id,
             conversation_history=normalized_history,
+            canvas_work_object=body.canvas_work_object,
         )
     except HermesGraphQueryRequestError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.response_body())

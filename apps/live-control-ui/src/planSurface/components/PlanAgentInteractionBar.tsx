@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
+import "../../tiptap/prepMarkdownThemes.css";
 import {
   getSourceBundle,
   postCitationFreshness,
@@ -45,6 +46,12 @@ import { RetrievalFreshnessPanel } from "./RetrievalFreshnessPanel";
 import { CorpusChangeSignalPanel } from "./CorpusChangeSignalPanel";
 import { WorldGraphQueryContextPanel } from "./WorldGraphQueryContextPanel";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
+import {
+  approveCanvasBlockProposal,
+  canvasBlockProposalsFromMutations,
+  getCanvasBlockApplyBridge,
+  type CanvasBlockProposal,
+} from "../canvasBlockProposal";
 import {
   buildPlanAgentWorldGraphQueryContextRequest,
   getPlanWorldGraphContext,
@@ -447,7 +454,7 @@ function sessionNumbers(bundle: IngestionSourceBundle): number[] {
 }
 
 export function PlanAgentInteractionBar({
-  planView: _planView,
+  planView,
   sessionDescriptor,
   loadBundle = getSourceBundle,
   askCorpus = postLiveQuery,
@@ -502,13 +509,17 @@ export function PlanAgentInteractionBar({
   const [renaming, setRenaming] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [freshnessChecking, setFreshnessChecking] = useState(false);
+  const [mutationApplyMessage, setMutationApplyMessage] = useState<string | null>(null);
+  const [appliedProposalKeys, setAppliedProposalKeys] = useState<Record<string, true>>({});
 
   const memorySessionLabel = prepMemoryLabel(sessionDescriptor);
   const planningDocumentId = sessionDescriptor.planningDocument.documentId;
-  // Outer /api/live/query must match the loaded live packet session (liveSession),
-  // not memorySession. World-graph focus uses memorySession when ?session= is set;
-  // otherwise focus is world-union (kind: none).
-  const querySession = sessionDescriptor.liveSession;
+  // Outer /api/live/query must match the loaded live packet (planView from App),
+  // not the planning/lens campaign on sessionDescriptor (e.g. of-conks-cons while
+  // the server still hosts longmont-c2 session_22). Nested worldGraphContext
+  // carries the graph lens; memorySession only affects focus when ?session= is set.
+  const livePacketCampaignId = planView.campaign_id;
+  const querySession = planView.session;
 
   useEffect(() => {
     const { planningDocument } = sessionDescriptor;
@@ -838,11 +849,13 @@ export function PlanAgentInteractionBar({
         threadTitleFromQuestion(trimmed),
         planningDocumentId,
       );
-      // Outer campaign/session must match the loaded live packet (Plan descriptor).
+      // Outer campaign/session must match the loaded live packet (planView).
       // Graph lens campaign + scopeMode live only in worldGraphContext.
+      // Thread storage may still key on planning campaign (sessionDescriptor).
+      const canvasBridge = getCanvasBlockApplyBridge();
       const response = await askCorpus(
         trimmed,
-        sessionDescriptor.campaignId,
+        livePacketCampaignId,
         querySession,
         "hermes",
         {
@@ -855,6 +868,13 @@ export function PlanAgentInteractionBar({
             : null,
           conversationHistory: buildHermesConversationHistory(currentThread.turns),
           hermesSessionPointer: currentThread.hermesSession?.sessionId ?? null,
+          canvasWorkObject: planningDocumentId
+            ? {
+                documentId: planningDocumentId,
+                surfaceId: "plan",
+                expectedContentSha256: canvasBridge?.getBaseContentSha256() ?? null,
+              }
+            : null,
         },
       );
       const nextTurn = turnFromResponse(trimmed, response, "hermes");
@@ -1093,6 +1113,76 @@ export function PlanAgentInteractionBar({
                             <p className="plan-agent-chat-answer">{turn.answer}</p>
                           </div>
                         </div>
+                        {(() => {
+                          const proposals = canvasBlockProposalsFromMutations(wire?.mutations);
+                          if (!proposals.length) return null;
+                          return (
+                            <div
+                              className="plan-agent-canvas-proposals"
+                              data-testid="plan-agent-canvas-proposals"
+                            >
+                              {proposals.map((proposal, index) => {
+                                const key = `${turn.turnId}:${index}:${proposal.kind}:${proposal.body.slice(0, 32)}`;
+                                const applied = Boolean(appliedProposalKeys[key]);
+                                return (
+                                  <article
+                                    key={key}
+                                    className="plan-agent-canvas-proposal"
+                                    data-testid="plan-agent-canvas-proposal"
+                                  >
+                                    <p className="plan-surface-kicker">
+                                      Proposed {proposal.kind} for canvas
+                                    </p>
+                                    <aside
+                                      className={`md-callout md-callout-${proposal.kind}`}
+                                      data-md-callout={proposal.kind}
+                                    >
+                                      <div className="md-callout-label">
+                                        {proposal.kind}
+                                      </div>
+                                      <div className="md-callout-body">
+                                        {proposal.body.split(/\n\n+/).map((paragraph) => (
+                                          <p key={paragraph.slice(0, 48)}>{paragraph}</p>
+                                        ))}
+                                      </div>
+                                    </aside>
+                                    <div className="plan-agent-canvas-proposal-actions">
+                                      <button
+                                        type="button"
+                                        className="plan-agent-canvas-proposal-approve"
+                                        data-testid="plan-agent-canvas-proposal-approve"
+                                        disabled={applied}
+                                        onClick={() => {
+                                          const result = approveCanvasBlockProposal(
+                                            proposal as CanvasBlockProposal,
+                                          );
+                                          if (result.ok) {
+                                            setAppliedProposalKeys((prev) => ({
+                                              ...prev,
+                                              [key]: true,
+                                            }));
+                                            setMutationApplyMessage(
+                                              "Inserted into Plan canvas — Save when ready.",
+                                            );
+                                          } else {
+                                            setMutationApplyMessage(result.reason);
+                                          }
+                                        }}
+                                      >
+                                        {applied ? "Applied" : "Approve into Plan"}
+                                      </button>
+                                    </div>
+                                  </article>
+                                );
+                              })}
+                              {mutationApplyMessage ? (
+                                <p className="plan-agent-muted" data-testid="plan-agent-canvas-proposal-status">
+                                  {mutationApplyMessage}
+                                </p>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                         {turnS1Support ? (
                           <details className="plan-agent-s1-support">
                             <summary>Latest-recap comparison support</summary>

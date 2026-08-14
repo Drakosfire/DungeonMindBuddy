@@ -1,0 +1,28 @@
+{
+  "schema": "dmb_hermes_small_slice_baseline_report_v1",
+  "captured_at": "2026-08-14T05:22:17Z",
+  "gold_id": "of_conks_grotesque_tree_v1",
+  "phase": "baseline_pre_tune_observed",
+  "notes": "Single observed Plan Ask dogfood before describe→source-open policy and edge densification. Structural fail expected.",
+  "trials": [
+    {
+      "question_id": "vague_talk",
+      "artifact": "baseline_observed_vague_talk.json",
+      "score_artifact": "score_vague_talk_baseline_observed_vague_talk.json",
+      "structural_pass": false,
+      "source_reads": 0,
+      "expands": 4,
+      "required_bucket_pass": false,
+      "expand_ready_candidate": false
+    }
+  ],
+  "summary": {
+    "structural_ok": false,
+    "expand_ready_ok": false,
+    "failure_modes": [
+      "no_read_graph_source",
+      "identity_edges_only_prose",
+      "source_anchor_unreadable_without_open"
+    ]
+  }
+}

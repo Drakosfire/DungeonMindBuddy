@@ -1,4 +1,4 @@
-"""Model-visible expand_graph_retrieval + read_graph_source + Threat hydration tools."""
+"""Model-visible graph interaction + Threat hydration + canvas proposal tools."""
 
 from __future__ import annotations
 
@@ -9,6 +9,10 @@ from typing import Any
 
 from apps.live_control_server.models.threat_query_hydration import (
     ThreatQueryHydrationRequestV1,
+)
+from apps.live_control_server.services.canvas_block_proposal import (
+    PROPOSE_CANVAS_BLOCK_TOOL_NAME,
+    execute_propose_canvas_block,
 )
 from apps.live_control_server.services.threat_query_hydration import (
     ThreatQueryHydrationError,
@@ -28,6 +32,7 @@ ORDERED_INTERACTION_TOOL_NAMES: tuple[str, ...] = (
     "expand_graph_retrieval",
     "read_graph_source",
     QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+    PROPOSE_CANVAS_BLOCK_TOOL_NAME,
 )
 
 ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
@@ -122,6 +127,68 @@ def query_threat_mechanics_hydration_tool_definition() -> dict[str, Any]:
     }
 
 
+def propose_canvas_block_tool_definition() -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": PROPOSE_CANVAS_BLOCK_TOOL_NAME,
+            "description": (
+                "Propose a typed callout block for the open Canvas document "
+                "(Plan prep markdown). Server injects documentId, surfaceId, and "
+                "expectedContentSha256 — do not invent them. This tool NEVER writes "
+                "files; it returns a proposal the GM must Approve in chat. "
+                "Use when the GM asks for a GM note, read-aloud, rules, or warning "
+                "to add to the open document (for example: features to call out, "
+                "metal leaves on the tree). Prefer kind=gm-note for GM-only callouts; "
+                "kind=read-aloud only for player-facing boxed text. "
+                "op=insert_callout with locator.afterHeading is the default; "
+                "op=replace_callout requires locator.oldText. "
+                "Body is callout prose only — do not wrap with > [!MARKER]."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "enum": ["insert_callout", "replace_callout"],
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": ["read-aloud", "gm-note", "rules", "warning"],
+                    },
+                    "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Callout body prose (no > [!…] wrapper).",
+                    },
+                    "locator": {
+                        "type": "object",
+                        "properties": {
+                            "afterHeading": {
+                                "type": "string",
+                                "description": "Insert after this heading text.",
+                            },
+                            "oldText": {
+                                "type": "string",
+                                "description": "Unique span to replace (replace_callout).",
+                            },
+                        },
+                        "additionalProperties": False,
+                    },
+                    "provenanceRefs": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 16,
+                        "description": "Graph/source ids already in this turn's session.",
+                    },
+                },
+                "required": ["op", "kind", "body", "locator"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
     expand_schema = ExpandGraphRetrievalRequest.model_json_schema(
         by_alias=True,
@@ -161,6 +228,9 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "evidence spans when the graph provenance names them. Creates a "
                     "source citation only after a successful integrity-checked read. "
                     "Pass retrievalSessionId and anchorIds from the session ledger. "
+                    "When the GM asks to describe, talk about, prep, or draft notes on "
+                    "a matched object, call this on readable anchors before answering — "
+                    "do not stop because some sibling anchors are unreadable. "
                     "Never supply filesystem paths, artifact IDs, or span IDs as "
                     "caller authority."
                 ),
@@ -168,6 +238,7 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         query_threat_mechanics_hydration_tool_definition(),
+        propose_canvas_block_tool_definition(),
     ]
 
 
@@ -251,6 +322,10 @@ def execute_query_threat_mechanics_hydration(
     return response.model_dump(mode="json", by_alias=True)
 
 
+def execute_propose_canvas_block_tool(arguments: Mapping[str, Any]) -> dict[str, Any]:
+    return execute_propose_canvas_block(arguments)
+
+
 def execute_hermes_graph_interaction_tool_json(
     tool_name: str,
     arguments: Mapping[str, Any],
@@ -264,6 +339,8 @@ def execute_hermes_graph_interaction_tool_json(
             result = execute_read_graph_source(arguments, root=root)
         elif tool_name == QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME:
             result = execute_query_threat_mechanics_hydration(arguments, root=root)
+        elif tool_name == PROPOSE_CANVAS_BLOCK_TOOL_NAME:
+            result = execute_propose_canvas_block_tool(arguments)
         elif tool_name == DECLARE_CONVERSATION_CONTEXT_TOOL_NAME:
             result = execute_declare_conversation_context(arguments)
         else:
@@ -296,12 +373,15 @@ __all__ = [
     "HERMES_GRAPH_INTERACTION_TOOL_NAMES",
     "ORDERED_INTERACTION_TOOL_NAMES",
     "ORDERED_MODEL_VISIBLE_TOOL_NAMES",
+    "PROPOSE_CANVAS_BLOCK_TOOL_NAME",
     "QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME",
     "declare_conversation_context_tool_definition",
     "execute_declare_conversation_context",
     "execute_hermes_graph_interaction_tool_json",
+    "execute_propose_canvas_block_tool",
     "execute_query_threat_mechanics_hydration",
     "hermes_graph_interaction_tool_definitions",
     "hermes_model_visible_tool_definitions",
+    "propose_canvas_block_tool_definition",
     "query_threat_mechanics_hydration_tool_definition",
 ]

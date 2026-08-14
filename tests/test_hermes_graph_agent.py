@@ -153,13 +153,16 @@ def _enable_graph_plugin(tmp_path: Path) -> Path:
     return home
 
 
-def test_plugin_discovery_registers_exact_two_interaction_tools(
+def test_plugin_discovery_registers_model_visible_interaction_tools(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     home = _enable_graph_plugin(tmp_path)
     monkeypatch.setenv("HERMES_HOME", str(home))
 
+    from apps.live_control_server.services.canvas_block_proposal import (
+        PROPOSE_CANVAS_BLOCK_TOOL_NAME,
+    )
     from hermes_cli import plugins as hermes_plugins
     from tools.registry import registry
 
@@ -174,8 +177,11 @@ def test_plugin_discovery_registers_exact_two_interaction_tools(
     names = [e.name for e in graph_tools]
     assert names == list(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
     retrieval_names = [name for name in names if name in HERMES_GRAPH_READ_TOOL_NAMES]
-    assert retrieval_names == list(ORDERED_TOOL_NAMES)
+    ordered_read = [name for name in ORDERED_TOOL_NAMES if name in HERMES_GRAPH_READ_TOOL_NAMES]
+    assert retrieval_names == ordered_read
     assert set(retrieval_names) == set(HERMES_GRAPH_READ_TOOL_NAMES)
+    assert PROPOSE_CANVAS_BLOCK_TOOL_NAME in names
+    assert PROPOSE_CANVAS_BLOCK_TOOL_NAME not in retrieval_names
     assert DECLARE_CONVERSATION_CONTEXT_TOOL_NAME in names
     for legacy in LEGACY_TOOL_NAMES:
         assert legacy not in names

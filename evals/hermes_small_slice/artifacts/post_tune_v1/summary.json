@@ -1,0 +1,53 @@
+{
+  "completed_at": "2026-08-14T05:26:34Z",
+  "gold_id": "of_conks_grotesque_tree_v1",
+  "questions": {
+    "authoring_gm_note": {
+      "aggregate": {
+        "bucket_passes": 1,
+        "expand_ready_ok": false,
+        "expand_ready_passes": 1,
+        "structural_ok": true,
+        "structural_passes": 3,
+        "trials": 3
+      },
+      "human_rubric": {
+        "expand_ready": true,
+        "notes": "3/3 structural with read_graph_source\u00d72 + gm-note proposals; metal leaves gated out of read-aloud. Approve in Plan UI remains operator step."
+      }
+    },
+    "prep_gm_facing": {
+      "aggregate": {
+        "bucket_passes": 0,
+        "expand_ready_ok": false,
+        "expand_ready_passes": 0,
+        "structural_ok": true,
+        "structural_passes": 2,
+        "trials": 3
+      },
+      "human_rubric": {
+        "expand_ready": true,
+        "notes": "2/3 structural with source opens; prose includes tactics/gates when sources opened."
+      }
+    },
+    "vague_talk": {
+      "aggregate": {
+        "bucket_passes": 0,
+        "expand_ready_ok": false,
+        "expand_ready_passes": 0,
+        "structural_ok": false,
+        "structural_passes": 0,
+        "trials": 3
+      },
+      "human_rubric": {
+        "expand_ready": false,
+        "notes": "0/3 structural in post_tune_v1 \u2014 model often stays on identity/edges for vague talk. Follow-up policy line added; vague_v2 reached 1/3."
+      }
+    }
+  },
+  "revision_hint": "rev:4996a37341f4dd9a9e536c2aa0263d41",
+  "run_id": "post_tune_v1",
+  "schema": "dmb_hermes_small_slice_run_v1",
+  "started_at": "2026-08-14T05:25:12Z",
+  "structural_ok": false
+}

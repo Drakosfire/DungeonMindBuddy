@@ -59,16 +59,22 @@ from graph_memory.hermes_graph_plugin import (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     HERMES_GRAPH_READ_TOOL_NAMES,
     HermesCapabilityPolicy,
+    HermesCanvasWorkObject,
     HermesGraphScope,
     HermesPluginActivation,
     HermesToolCapabilityRule,
+    begin_pending_canvas_mutations,
     default_graph_only_capability_policy,
     reset_active_capability_policy,
+    reset_active_canvas_work_object,
     reset_active_retrieval_session_id,
     reset_graph_root_override,
+    reset_pending_canvas_mutations,
     set_active_capability_policy,
+    set_active_canvas_work_object,
     set_active_retrieval_session_id,
     set_graph_root_override,
+    take_pending_canvas_mutations,
     validate_capability_policy_structure,
 )
 from graph_memory.interaction.forensic import (
@@ -108,9 +114,24 @@ Factual retrieval rules:
   1–8 seed nodes. Use object or support for one node at a time; repeat the call
   per node. Use search when discovering or anchoring without a pinned node
   (0–8 seeds).
-- Use read_graph_source only for quotation, exact detail, conflict checks, or when
-  claim policy requires source verification. Accepted graph claims may be stated as
-  graph-grounded facts without a source read.
+- On small campaigns (about ≤50 nodes), prefer resolve → one neighborhood expand →
+  read_graph_source. Do not thrash with repeated expands when the matched object
+  and its anchors are already in session.
+- When the GM asks to describe, talk about, prep, draft notes, or expand detail on
+  a matched object that has available source anchors, call read_graph_source on
+  those anchors before answering. Do not stop at identity/edge claims for
+  describe/talk/prep/draft questions. If some anchors are unreadable, still open
+  every readable anchor for that object and answer from the opened excerpts plus
+  accepted graph claims; name remaining gaps without inventing lore.
+- Treat phrasing like “I want to talk about X”, “tell me about X”, or “what should
+  I know about X” as describe/prep requests: open readable source anchors before
+  answering.
+- For pure identity or relationship questions (for example “where is it?”, “what
+  threatens Hempholm?”, “what is it connected to?”), accepted graph claims may be
+  stated as graph-grounded facts without a source read unless the GM asks for
+  quotation or exact module detail.
+- Use read_graph_source for quotation, exact detail, conflict checks, claim-policy
+  source verification, and the describe/talk/prep/draft cases above.
 - Always pass the retrievalSessionId supplied for this turn. Scope/revision are
   server-enforced.
 - If coverage is partial or anchors are unreadable, answer with the known graph
@@ -133,6 +154,11 @@ Factual retrieval rules:
   anything as verified campaign fact — summarize what was asked and answered,
   nothing more.
 - For campaign facts, never call declare_conversation_context.
+- When the GM asks to add or revise a GM note, read-aloud, rules, or warning on
+  the open Plan document, call propose_canvas_block after grounding. Prefer
+  kind=gm-note for GM-only callouts (features to call out, Perception-gated
+  factoids). Prefer kind=read-aloud only for player-facing boxed text. Never
+  claim the document was saved — propose only; the GM Approves in chat.
 
 Frontstage answer style:
 - Treat “what changed?” as a co-GM sensemaking question, not a recap
@@ -879,6 +905,30 @@ def run_hermes_graph_agent_turn(
         root_token = set_graph_root_override(request.root)
         policy_token = set_active_capability_policy(policy)
         session_token = set_active_retrieval_session_id(request.retrieval_session_id)
+        canvas_work = None
+        if isinstance(request.canvas_work_object, Mapping):
+            doc_id = str(
+                request.canvas_work_object.get("documentId")
+                or request.canvas_work_object.get("document_id")
+                or ""
+            ).strip()
+            surface_id = str(
+                request.canvas_work_object.get("surfaceId")
+                or request.canvas_work_object.get("surface_id")
+                or "plan"
+            ).strip() or "plan"
+            sha_raw = request.canvas_work_object.get("expectedContentSha256")
+            if sha_raw is None:
+                sha_raw = request.canvas_work_object.get("expected_content_sha256")
+            sha = str(sha_raw).strip() if sha_raw is not None else ""
+            if doc_id:
+                canvas_work = HermesCanvasWorkObject(
+                    document_id=doc_id,
+                    surface_id=surface_id,
+                    expected_content_sha256=sha or None,
+                )
+        canvas_token = set_active_canvas_work_object(canvas_work)
+        mutations_token = begin_pending_canvas_mutations()
         collector = _ToolEventCollector(policy)
         pre_tool_hook: Callable[..., Any] | None = None
         plugin_manager: Any | None = None
@@ -1080,6 +1130,7 @@ def run_hermes_graph_agent_turn(
                     hydrated.project_for_hermes() if hydrated is not None else retrieval_session_packet
                 ),
                 answer_scope=_derive_answer_scope(collector.events),
+                mutations=take_pending_canvas_mutations(),
             )
         except Exception:
             return _error_result(
@@ -1089,6 +1140,8 @@ def run_hermes_graph_agent_turn(
                 tool_events=collector.events,
             )
         finally:
+            reset_pending_canvas_mutations(mutations_token)
+            reset_active_canvas_work_object(canvas_token)
             reset_active_retrieval_session_id(session_token)
             if plugin_manager is not None and pre_tool_hook is not None:
                 hooks = plugin_manager._hooks.get("pre_tool_call") or []

@@ -164,6 +164,7 @@ def process_live_query(
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None,
     outer_campaign_id: str | None = None,
     conversation_history: Any | None = None,
+    canvas_work_object: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
@@ -224,6 +225,7 @@ def process_live_query(
             conversation_history=normalized_history,
             session_base=session_base,
             hermes_session_pointer=hermes_session_pointer,
+            canvas_work_object=canvas_work_object,
         )
 
     if query_backend not in LIVE_QUERY_BACKENDS:

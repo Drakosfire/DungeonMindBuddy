@@ -1,0 +1,21 @@
+{
+  "schema": "dmb_of_conks_edge_densification_v1",
+  "notes": "Prose-true edges only; densifies neighborhood without new ontology. Merged into gold inventory.edges.required at seed time.",
+  "edges": [
+    {"from": "morwin-blackwell", "type": "located_in", "to": "morwins-store"},
+    {"from": "saladin", "type": "located_in", "to": "saladins-wagon"},
+    {"from": "mark-jove", "type": "located_in", "to": "jove-home"},
+    {"from": "torbin-jove", "type": "located_in", "to": "jove-home"},
+    {"from": "grotesque-tree", "type": "located_in", "to": "grotesque-tree-site"},
+    {"from": "metal-leaves", "type": "located_in", "to": "grotesque-tree-site"},
+    {"from": "the-conk", "type": "associated_with", "to": "grotesque-tree"},
+    {"from": "lord-fiddlestick", "type": "associated_with", "to": "the-conk"},
+    {"from": "root-corridors", "type": "located_in", "to": "hempholm"},
+    {"from": "the-marrow", "type": "located_in", "to": "root-corridors"},
+    {"from": "caretakers", "type": "located_in", "to": "root-corridors"},
+    {"from": "guardian", "type": "located_in", "to": "the-marrow"},
+    {"from": "helix-child", "type": "located_in", "to": "the-marrow"},
+    {"from": "bellys-mouthwash", "type": "located_in", "to": "the-shacks"},
+    {"from": "maglubiyets-statue", "type": "associated_with", "to": "the-marrow"}
+  ]
+}
