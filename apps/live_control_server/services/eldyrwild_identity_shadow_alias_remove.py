@@ -259,6 +259,23 @@ def _keeper_present(store: Any, keeper: KeeperAlias) -> bool:
     return _alias_present(list(node.aliases), keeper.alias)
 
 
+def _node_identity_canon_state(node: Any) -> str:
+    state = dict(getattr(node, "state", None) or {})
+    return str(state.get("identity_canon_state") or state.get("canon_state") or "")
+
+
+def _survivor_canon_disqualifier(node: Any) -> str | None:
+    """Return the Kernel alias_remove subject-eligibility disqualifier, if any."""
+    state = dict(getattr(node, "state", None) or {})
+    memory_state = str(state.get("memory_state") or "")
+    canon = _node_identity_canon_state(node)
+    if memory_state == "merged_away" or canon == "merged_away":
+        return "merged_away"
+    if canon in {"rejected", "noncanonical_provisional"}:
+        return canon
+    return None
+
+
 def _iter_typed_supports(store: Any) -> list[DurableAssertionSupport]:
     supports: list[DurableAssertionSupport] = []
     for value in (store.assertion_support or {}).values():
@@ -510,15 +527,15 @@ def _structural_preflight(
                 [f"missing_survivor:{target.survivor_node_id}"],
                 0,
             )
-        memory_state = str(node.state.get("memory_state") or "")
-        canon = str(
-            node.state.get("identity_canon_state") or node.state.get("canon_state") or ""
-        )
-        if memory_state == "merged_away" or canon == "merged_away":
+        disqualifier = _survivor_canon_disqualifier(node)
+        if disqualifier is not None:
             return (
                 "ineligible",
-                f"survivor {target.survivor_node_id} is merged_away",
-                [f"merged_away_survivor:{target.survivor_node_id}"],
+                (
+                    f"survivor {target.survivor_node_id} is {disqualifier}; "
+                    "subject is not a current canonical identity"
+                ),
+                [f"{disqualifier}_survivor:{target.survivor_node_id}"],
                 0,
             )
         alias_present = _alias_present(list(node.aliases), target.alias)

@@ -353,6 +353,61 @@ def test_preflight_refuses_foreign_alias_remove_with_alias_still_present(
     assert "prior active alias_remove" in str(exc.value)
 
 
+def _with_survivor_canon(store: object, node_id: str, canon: str) -> object:
+    node = store.nodes[node_id]
+    updated = node.model_copy(
+        update={"state": {**dict(node.state), "identity_canon_state": canon}}
+    )
+    nodes = dict(store.nodes)
+    nodes[node_id] = updated
+    return store.model_copy(update={"nodes": nodes})
+
+
+@pytest.mark.parametrize("canon_state", ["rejected", "noncanonical_provisional"])
+def test_preflight_refuses_noncanonical_survivor_before_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, canon_state: str
+) -> None:
+    root = _clone_eldyrwild(tmp_path)
+    head, _, store = kernel.open_current_world_graph(root, WORLD_ID)
+    if head.head_revision_id != EXPECTED_CANONICAL_REVISION_ID:
+        pytest.skip(f"clone head {head.head_revision_id} is not the expected canonical pin")
+    target = SHADOW_ALIAS_TARGETS[0]
+    mutated = _with_survivor_canon(store, target.survivor_node_id, canon_state)
+    eligibility, reason, diagnostics, retired = alias_remove_mod._structural_preflight(
+        mutated, head_revision_id=head.head_revision_id, root=root
+    )
+    assert eligibility == "ineligible"
+    assert retired == 0
+    assert f"{canon_state}_survivor:{target.survivor_node_id}" in diagnostics
+    assert "not a current canonical identity" in (reason or "")
+    monkeypatch.setattr(
+        alias_remove_mod,
+        "_apply_targets",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                f"_apply_targets must not run after {canon_state} survivor preflight"
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        kernel,
+        "open_current_world_graph",
+        lambda *_args, **_kwargs: (head, object(), mutated),
+    )
+    status = get_eldyrwild_identity_shadow_alias_remove_status(root=root)
+    assert status.eligibility == "ineligible"
+    assert f"{canon_state}_survivor:{target.survivor_node_id}" in status.diagnostics
+    with pytest.raises(EldyrwildIdentityShadowAliasRemoveError) as exc:
+        apply_eldyrwild_identity_shadow_alias_remove(
+            expected_parent_revision_id=head.head_revision_id,
+            root=root,
+            allow_live_world=False,
+        )
+    assert exc.value.code == "ineligible_parent"
+    assert "not a current canonical identity" in str(exc.value)
+    assert canon_state in str(exc.value)
+
+
 def test_clone_apply_replay_retry_and_invariants(tmp_path: Path) -> None:
     root = _clone_eldyrwild(tmp_path)
     head, _, before = kernel.open_current_world_graph(root, WORLD_ID)
