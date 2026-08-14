@@ -8,7 +8,13 @@ import pytest
 
 from apps.live_control_server.integrations.dungeonmind_kernel.identity_lifecycle_history_conformance_v1 import (
     IdentityLifecycleHistoryConformanceError,
+    prove_alias_remove_survivor_lineage,
+    prove_identity_lifecycle_history_through_alias_remove,
     prove_identity_lifecycle_history_v1,
+)
+from graph_memory.kernel.identity_models import (
+    IdentityDecisionRecord,
+    IdentityMergeSideEffects,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
     ClassifiedElement,
@@ -20,7 +26,6 @@ from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_confor
     _contribution_history_classified_items,
     source_history_policy_from_identity_lifecycle_proof,
 )
-from graph_memory.kernel.identity_models import IdentityDecisionRecord
 
 
 def _decision(
@@ -28,20 +33,32 @@ def _decision(
     decision_id: str = "dec-merge-1",
     kind: str = "merge",
     subject: str = "node_a",
-    target: str = "node_b",
+    target: str | None = "node_b",
     status: str = "active",
+    alias: str | None = None,
+    affected: list[str] | None = None,
+    merge_side_effects: IdentityMergeSideEffects | None | object = ...,
 ) -> dict[str, object]:
+    if kind == "merge":
+        if merge_side_effects is ...:
+            side_effects = IdentityMergeSideEffects(aliases_added_to_target=["Shadow"])
+        else:
+            side_effects = merge_side_effects  # type: ignore[assignment]
+    else:
+        side_effects = None if merge_side_effects is ... else merge_side_effects  # type: ignore[assignment]
     return IdentityDecisionRecord(
         decision_id=decision_id,
         world_id="test",
         decision_kind=kind,  # type: ignore[arg-type]
         created_at="2026-01-01T00:00:00Z",
         actor="test",
-        reason="test merge",
+        reason="test identity decision",
         subject_node_id=subject,
         target_node_id=target,
-        affected_node_ids=[subject, target],
+        affected_node_ids=affected if affected is not None else [item for item in (subject, target) if item],
+        alias=alias,
         status=status,  # type: ignore[arg-type]
+        merge_side_effects=side_effects,  # type: ignore[arg-type]
     ).model_dump(mode="json")
 
 
@@ -111,6 +128,49 @@ def _prove(store: SimpleNamespace):
         world_id="test",
         canonical_revision_id="rev:test",
         canonical_graph_payload_sha256="0" * 64,
+    )
+
+
+def _prove_through(store: SimpleNamespace):
+    return prove_identity_lifecycle_history_through_alias_remove(
+        store,
+        world_id="test",
+        canonical_revision_id="rev:test",
+        canonical_graph_payload_sha256="0" * 64,
+    )
+
+
+def _alias_remove_store(
+    *,
+    decisions: list[dict[str, object]] | None = None,
+    survivor_pointer: str = "dec-remove-1",
+    extra_nodes: dict[str, SimpleNamespace] | None = None,
+    source_state: dict[str, object] | None = None,
+    survivor_state: dict[str, object] | None = None,
+    redirects: list[SimpleNamespace] | None = None,
+) -> SimpleNamespace:
+    return _store(
+        source_state=source_state,
+        survivor_state=survivor_state
+        or {
+            "identity_state": "survivor",
+            "identity_canon_state": "canonical",
+            "last_identity_decision_id": survivor_pointer,
+        },
+        extra_nodes=extra_nodes,
+        decisions=decisions
+        or [
+            _decision(),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+        ],
+        redirects=redirects,
     )
 
 
@@ -275,3 +335,325 @@ def test_contribution_history_excludes_proven_identity_shadow_ids() -> None:
         contribution.element_id,
         identity_shadow.element_id,
     }
+
+
+def test_merge_then_alias_remove_is_reconstructable() -> None:
+    store = _alias_remove_store()
+    merge_only = _prove(store)
+    assert merge_only.passed is False
+    assert len(merge_only.unresolved_element_ids) == 2
+    proof = _prove_through(store)
+    assert proof.passed is True
+    assert proof.unresolved_element_ids == []
+    assert proof.reconstructable_count == 4
+    survivor_pointer = next(
+        row
+        for row in proof.rows
+        if row.element_id == "node:node_b:state:last_identity_decision_id"
+    )
+    survivor_state = next(
+        row for row in proof.rows if row.element_id == "node:node_b:state:identity_state"
+    )
+    assert survivor_pointer.decision_kind == "alias_remove"
+    assert survivor_pointer.decision_id == "dec-remove-1"
+    assert survivor_state.decision_kind == "alias_remove"
+    assert survivor_state.lifecycle_role == "merge_survivor"
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert lineage.reconstructable is True
+    assert lineage.causal_merge is not None
+    assert lineage.causal_merge.decision_id == "dec-merge-1"
+    assert "dec-merge-1" in survivor_pointer.rationale
+    assert "dec-merge-1" in survivor_state.rationale
+
+
+def test_historical_merge_survivor_still_passes_through_alias_remove() -> None:
+    store = _store()
+    merge_only = _prove(store)
+    through = _prove_through(store)
+    assert merge_only.passed is True
+    assert through.passed is True
+    assert through.element_ids == merge_only.element_ids
+    assert all(row.decision_kind == "merge" for row in through.rows)
+
+
+def test_merge_source_proof_unchanged_after_alias_remove() -> None:
+    proof = _prove_through(_alias_remove_store())
+    merged = next(row for row in proof.rows if row.field == "merged_into")
+    source_pointer = next(
+        row
+        for row in proof.rows
+        if row.element_id == "node:node_a:state:last_identity_decision_id"
+    )
+    assert merged.reconstructable is True
+    assert merged.decision_id == "dec-merge-1"
+    assert source_pointer.decision_id == "dec-merge-1"
+
+
+def test_alias_remove_without_causal_merge_fails() -> None:
+    store = _alias_remove_store(
+        decisions=[
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            )
+        ]
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert lineage.reconstructable is False
+    assert "no earlier causal merge" in lineage.rationale
+
+
+def test_alias_remove_before_causal_merge_fails() -> None:
+    store = _alias_remove_store(
+        decisions=[
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+            _decision(),
+        ]
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert lineage.reconstructable is False
+    assert "no earlier causal merge" in lineage.rationale
+
+
+def test_alias_remove_alias_not_in_merge_side_effects_fails() -> None:
+    store = _alias_remove_store(
+        decisions=[
+            _decision(
+                merge_side_effects=IdentityMergeSideEffects(
+                    aliases_added_to_target=["Other"]
+                )
+            ),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+        ]
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "no earlier causal merge" in lineage.rationale
+
+
+def test_wrong_alias_remove_subject_fails() -> None:
+    store = _alias_remove_store(
+        extra_nodes={"node_c": _node("node_c")},
+        decisions=[
+            _decision(),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_c",
+                target=None,
+                alias="Shadow",
+                affected=["node_c"],
+            ),
+        ],
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "subject is not the current node" in lineage.rationale
+
+
+def test_inactive_alias_remove_fails() -> None:
+    store = _alias_remove_store(
+        decisions=[
+            _decision(),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+                status="superseded",
+            ),
+        ]
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "is not active" in lineage.rationale
+
+
+def test_missing_merge_side_effects_fails() -> None:
+    store = _alias_remove_store(
+        decisions=[
+            _decision(merge_side_effects=None),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+        ]
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "missing merge_side_effects" in lineage.rationale
+
+
+def test_multiple_causal_merges_fail() -> None:
+    store = _alias_remove_store(
+        extra_nodes={
+            "node_c": _node(
+                "node_c",
+                memory_state="merged_away",
+                identity_canon_state="merged_away",
+                merged_into="node_b",
+                last_identity_decision_id="dec-merge-2",
+            )
+        },
+        decisions=[
+            _decision(),
+            _decision(
+                decision_id="dec-merge-2",
+                subject="node_c",
+                target="node_b",
+                merge_side_effects=IdentityMergeSideEffects(
+                    aliases_added_to_target=["Shadow"]
+                ),
+            ),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+        ],
+        redirects=[
+            _redirect(),
+            _redirect(decision_id="dec-merge-2", from_node_id="node_c", to_node_id="node_b"),
+        ],
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "multiple earlier causal merges" in lineage.rationale
+
+
+def test_merge_then_split_then_alias_remove_fails() -> None:
+    store = _alias_remove_store(
+        decisions=[
+            _decision(),
+            _decision(
+                decision_id="dec-split-1",
+                kind="split",
+                subject="node_b",
+                target="node_d",
+                affected=["node_b", "node_d"],
+            ),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+        ],
+        extra_nodes={"node_d": _node("node_d")},
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "invalidating split" in lineage.rationale
+
+
+def test_merge_then_unmerge_then_alias_remove_fails() -> None:
+    store = _alias_remove_store(
+        decisions=[
+            _decision(),
+            _decision(
+                decision_id="dec-unmerge-1",
+                kind="unmerge",
+                subject="node_a",
+                target="node_b",
+                affected=["node_a", "node_b"],
+            ),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+        ]
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "invalidating unmerge" in lineage.rationale
+
+
+def test_stale_alias_remove_pointer_fails() -> None:
+    store = _alias_remove_store(
+        extra_nodes={"node_c": _node("node_c")},
+        decisions=[
+            _decision(),
+            _decision(
+                decision_id="dec-remove-1",
+                kind="alias_remove",
+                subject="node_b",
+                target=None,
+                alias="Shadow",
+                affected=["node_b"],
+            ),
+            _decision(
+                decision_id="dec-merge-later",
+                subject="node_c",
+                target="node_b",
+                merge_side_effects=IdentityMergeSideEffects(
+                    aliases_added_to_target=["Later"]
+                ),
+            ),
+        ],
+    )
+    proof = _prove_through(store)
+    assert proof.passed is False
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    assert "stale" in lineage.rationale
+
+
+def test_both_survivor_fields_share_one_lineage() -> None:
+    store = _alias_remove_store()
+    proof = _prove_through(store)
+    lineage = prove_alias_remove_survivor_lineage(store, "node_b")
+    pointer = next(
+        row
+        for row in proof.rows
+        if row.element_id == "node:node_b:state:last_identity_decision_id"
+    )
+    identity = next(
+        row for row in proof.rows if row.element_id == "node:node_b:state:identity_state"
+    )
+    assert pointer.decision_id == identity.decision_id == lineage.current.decision_id
+    assert lineage.causal_merge.decision_id == "dec-merge-1"
+    assert pointer.rationale.count("dec-merge-1") == 1
+    assert identity.rationale.count("dec-merge-1") == 1
