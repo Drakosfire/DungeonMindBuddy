@@ -56,7 +56,7 @@ retry: already_applied / no-op; head unchanged; no seventh decision
 keepers: Captain and Thrin Branchborn remain with locked assertion/contribution/source lineage
 relationships: canonical 323 / 314 / 9 / 3; migration 323 / 318 / 5 / 3
 EVIDENCE_PROVENANCE: 8 → 2
-ATTRIBUTE_ASSERTION: 0 (locked PR #575 source-history policy)
+ATTRIBUTE_ASSERTION: not currently authorized (merge-only proof 16/28 on the cleaned head; locked #575 policy is stale)
 IDENTITY_HISTORY: 14 → 20
 CONTRIBUTION_HISTORY: 5285 → 5291
 remaining EVIDENCE_PROVENANCE:
@@ -64,13 +64,14 @@ remaining EVIDENCE_PROVENANCE:
   node:node:thrin-branchborn:field:aliases
 CUTOVER_NOT_READY remains true
 
-identity-lifecycle re-proof on the cleaned head reconstructs 16/28 merge-shadow
+identity-lifecycle re-proof on the cleaned head reconstructs 16/28 merge-only
 rows. The 12 unresolved fields are the six survivors' last_identity_decision_id
-+ identity_state, because those pointers now name alias_remove. The locked
-#575 28-ID policy still classifies ATTRIBUTE_ASSERTION = 0.
++ identity_state, because those pointers now name alias_remove. PR #575 required
+explicit proof or STOP on a new identity-decision kind. Do not claim
+ATTRIBUTE_ASSERTION = 0 as current authority from the locked #575 28-ID policy.
 ```
 
-Successor: [`HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md`](HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md).
+Successor: [`HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md`](HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md). Captain/Thrin packaging remains `BLOCKED`.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md).
 >

@@ -18,7 +18,9 @@ pr_body_template: |
     for this documentation PR
 
   This PR records already-proven current state. It does not perform the live
-  mutation and does not implement the Captain / Thrin successor.
+  mutation, does not re-authorize ATTRIBUTE_ASSERTION=0 from the locked #575
+  policy, and does not implement the identity-lifecycle or Captain/Thrin
+  successors.
 ---
 
 # HANDOFF — record exact-six CUTOVER live exit
@@ -44,8 +46,10 @@ pr_body_template: |
 
 **Mission:** Atomically advance every mutable CUTOVER state authority from
 “exact-six implementation merged, live exit still pending” to the exact
-post-live state actually proven after PR #583, and author the dispatch-complete
-Captain / Thrin successor handoff.
+post-live state actually proven after PR #583, including the stale-proof finding
+that the locked #575 merge-only policy is not current `ATTRIBUTE_ASSERTION`
+authority, and author the dispatch-complete identity-lifecycle-through-alias_remove
+successor handoff.
 
 **Merge-ready invariant:** every current mutable authority agrees on the same
 facts:
@@ -69,8 +73,12 @@ facts:
 10. the migration projection relationship inventory remains
     `323 / 318 / 5 / 3`;
 11. remeasurement proves `EVIDENCE_PROVENANCE = 2`;
-12. the two remaining blockers are exactly Captain and Thrin Branchborn;
-13. `ATTRIBUTE_ASSERTION = 0` under the locked PR #575 source-history policy;
+12. the two remaining alias blockers are exactly Captain and Thrin Branchborn;
+13. `ATTRIBUTE_ASSERTION` is **not currently authorized as 0**. The merge-only
+    #575 proof reconstructs 16/28 on the cleaned head (12 unresolved because
+    six survivors' `last_identity_decision_id` + `identity_state` now name
+    `alias_remove`). The locked #575 28-ID policy cannot be regenerated from
+    that partial proof, so it is not current classification authority;
 14. live measurement updates the identity/contribution history ledger:
     `IDENTITY_HISTORY` `14 → 20` and `CONTRIBUTION_HISTORY` `5285 → 5291`
     because the six new `alias_remove` identity decisions are durable history
@@ -78,8 +86,11 @@ facts:
 15. the five dual-sense relationship STOPs remain outside this transition;
 16. `CUTOVER_NOT_READY` remains true;
 17. `cutover-eldyrwild-identity-shadow-alias-remove` becomes `DONE`;
-18. `cutover-alias-assertion-package-after-shadow-alias-remove` becomes the sole
-    dependent `READY` CUTOVER package-construction slice.
+18. `cutover-identity-lifecycle-through-alias-remove` becomes the sole
+    dependent `READY` CUTOVER slice;
+19. the Captain/Thrin alias assertion package remains `BLOCKED` until that
+    current lifecycle proof passes, regenerates source-history policy, and
+    remeasures.
 
 If any one of these statements cannot be supported by the live evidence, this
 PR does not advance the state machine.
@@ -92,8 +103,9 @@ PR does not advance the state machine.
 | Most likely failure | Writing the expected `8→2` result into docs before it was actually measured. |
 | Second likely failure | Marking #583 `DONE` because the PR merged while canonical live replay is still unproven. |
 | Third likely failure | Copying pre-live `IDENTITY_HISTORY=14` / `CONTRIBUTION_HISTORY=5285` as current after six new identity decisions existed. |
+| Fourth likely failure | Claiming `ATTRIBUTE_ASSERTION=0` from the locked #575 policy after the merge-only proof dropped to 16/28, then promoting Captain/Thrin to `READY`. |
 | Easiest authority to accidentally over-update | Roadmap / architecture. Neither changes because of this live data transition. |
-| Stop condition | Any disagreement among live head, replay, retry, remaining alias blockers, keeper lineage, or relationship inventories. |
+| Stop condition | Any disagreement among live head, replay, retry, remaining alias blockers, keeper lineage, relationship inventories, or current identity-lifecycle proof authority. |
 
 ## §2 Context, authority, and lane
 
@@ -106,8 +118,8 @@ PR does not advance the state machine.
 | Review-cycle count | **3** |
 | Repository base | `299579bd3c3f78a9393ae3c97c57a1dfd6b155ed` (`origin/main` at dispatch; is the #583 merge) |
 | Runtime predecessor | Canonical Eldyrwild live application using the merged #583 package |
-| Named successor | `cutover-alias-assertion-package-after-shadow-alias-remove` |
-| What remains false | Captain/Thrin package not implemented; EVIDENCE_PROVENANCE not yet zero; five relationship STOPs remain; DungeonMind durable-adoption seam remains; product-authority cutover remains blocked |
+| Named successor | `cutover-identity-lifecycle-through-alias-remove` |
+| What remains false | Current `ATTRIBUTE_ASSERTION=0` authorization; identity-lifecycle-through-alias_remove not implemented; Captain/Thrin package not implemented; EVIDENCE_PROVENANCE not yet zero; five relationship STOPs remain; DungeonMind durable-adoption seam remains; product-authority cutover remains blocked |
 | Runtime/state ownership | This DOCUMENTS lane performs **no World Graph mutation** |
 | Parallel collision boundary | Do not edit `Docs/Sources/design-agent/**`; those are non-authoritative export mirrors |
 
@@ -163,11 +175,14 @@ relationships:
   migration projection = 323 / 318 / 5 / 3
   #566 kind-repair current_kind values unchanged
 
-blocker ledger (locked PR #575 source-history policy on the new head):
-  ATTRIBUTE_ASSERTION = 0
+blocker ledger:
   EVIDENCE_PROVENANCE = 2
   IDENTITY_HISTORY = 20
   CONTRIBUTION_HISTORY = 5291
+  ATTRIBUTE_ASSERTION = not currently authorized
+    locked #575 policy still mechanically reports 0, but that policy was
+    minted from a fully passed merge-only proof and cannot be regenerated
+    from the current 16/28 result. Do not treat 0 as current authority.
 
 remaining EVIDENCE_PROVENANCE:
   node:node:captain-lysandra-ironveil:field:aliases
@@ -181,12 +196,14 @@ IDENTITY_HISTORY / CONTRIBUTION_HISTORY delta:
     5285 → 5291
 
 identity-lifecycle re-proof:
-  a fresh merge-shadow proof on the new head reconstructs 16/28 rows.
+  a fresh merge-only proof on the new head reconstructs 16/28 rows.
   The 12 unresolved fields are the six survivors'
   last_identity_decision_id + identity_state, because those pointers now
-  name alias_remove rather than merge. ATTRIBUTE_ASSERTION = 0 continues
-  to use the locked PR #575 28-ID source-history policy. Do not claim the
-  merge-shadow proof still re-passes on the cleaned head.
+  name alias_remove rather than merge. PR #575 required explicit proof or
+  STOP on a new identity-decision kind. This state-sync records the STOP
+  as sequencing fact: do not claim ATTRIBUTE_ASSERTION = 0, and do not
+  dispatch Captain/Thrin, until a current lifecycle proof through
+  alias_remove passes and regenerates policy.
 
 disposition:
   CUTOVER_NOT_READY
@@ -204,11 +221,16 @@ This state update is one guarded transaction.
 | Action | Path                                                                              | Purpose                                                                                      |
 | ------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Create | `Docs/Plans/HANDOFF-DOCUMENTS-cutover-exact-six-live-exit-state-sync.md`          | Own this guarded authority transition                                                        |
-| Modify | `Docs/Plans/PR-TRACKER-campaign-supergraph.md`                                    | Mark exact-six DONE and Captain/Thrin package READY                                          |
+| Modify | `Docs/Plans/PR-TRACKER-campaign-supergraph.md`                                    | Mark exact-six DONE; identity-lifecycle-through-alias_remove READY; Captain/Thrin BLOCKED   |
 | Modify | `Docs/Design/STATUS-world-graph-continuity-spine.md`                              | Record actual canonical post-live state and active successor                                 |
 | Modify | `Docs/Plans/HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md`            | Mark implementation/live slice DONE/HISTORICAL and record exit evidence                      |
-| Modify | `Backlog.md`                                                                      | Advance active EVIDENCE_PROVENANCE learning from 8 to 2 and retarget action to Captain/Thrin |
-| Create | `Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md` | Dispatch-complete two-alias successor contract                                               |
+| Modify | `Backlog.md`                                                                      | Record EVIDENCE_PROVENANCE 8→2 and retarget Case C action to the current lifecycle proof     |
+| Create | `Docs/Plans/HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md`           | Dispatch-complete current-lifecycle-proof successor contract                                 |
+
+Review Cycle 1 withdraws the previously drafted Captain/Thrin READY handoff
+(`HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md`). It is
+not part of the merge-ready lease. Cumulative diff versus the dispatch base
+must not contain that path.
 
 **Bounded discovery exception:** None.
 
@@ -239,17 +261,20 @@ Do not:
 
 * rerun or alter the live mutation from this branch;
 * reinterpret the six retired aliases as source history;
+* claim `ATTRIBUTE_ASSERTION = 0` from the locked #575 policy;
 * change merge semantics;
 * remove Captain or Thrin;
 * package Captain or Thrin in this PR;
+* promote Captain/Thrin to `READY`;
 * clear the five relationship STOPs;
 * start DungeonMind Case B;
 * declare CUTOVER ready;
 * refresh the design-agent export mirror.
 
 `Backlog-DONE.md` is intentionally not in the lease: the active
-`EVIDENCE_PROVENANCE` backlog item is not done yet. It advances from the six
-merge-shadow phase to the two source-grounded aliases.
+`EVIDENCE_PROVENANCE` backlog item is not done yet. Live exit moved the alias
+count 8→2, but Case C cannot package Captain/Thrin until a current
+identity-lifecycle proof re-authorizes classification.
 
 ## §6 Required authority transitions
 
@@ -271,19 +296,30 @@ Its DONE record must include the observed PR, live, replay, retry, and
 Transition:
 
 ```text
-cutover-alias-assertion-package-after-shadow-alias-remove
-  BLOCKED
+cutover-identity-lifecycle-through-alias-remove
+  (absent)
 → READY
 ```
 
 Required outcome text:
 
 ```text
-Reconstruct exactly the two remaining source-grounded current-node aliases
-(Captain, Thrin Branchborn) as DungeonMind-compatible alias assertion package
-rows from revision-bound Buddy source authority. Expected package-construction
-observation: EVIDENCE_PROVENANCE 2→0. No World Graph mutation.
+Extend the diagnostic identity-lifecycle proof so post-#583 survivor state is
+reconstructable from durable merge + later alias_remove history. Pass against
+rev:0c644e56…. Regenerate source-history policy from that current passed proof.
+Remeasure ATTRIBUTE_ASSERTION. No World Graph mutation.
 ```
+
+Keep:
+
+```text
+cutover-alias-assertion-package-after-shadow-alias-remove
+  BLOCKED
+```
+
+until the current lifecycle proof authorizes classification and remasurement
+still selects the two Captain/Thrin `EVIDENCE_PROVENANCE` blockers. Do not
+author a dispatch-complete Captain/Thrin handoff in this PR.
 
 `dungeonmind-whole-world-authority-cutover` remains `BLOCKED`.
 
@@ -292,12 +328,13 @@ observation: EVIDENCE_PROVENANCE 2→0. No World Graph mutation.
 The active CUTOVER slice becomes:
 
 ```text
-cutover-alias-assertion-package-after-shadow-alias-remove
+cutover-identity-lifecycle-through-alias-remove
 ```
 
 Record the observed canonical revision/payload, unchanged relationship
-inventories, `EVIDENCE_PROVENANCE = 2`, remaining Captain/Thrin, exact-six
-DONE with live/replay proof, and `CUTOVER_NOT_READY`.
+inventories, `EVIDENCE_PROVENANCE = 2`, remaining Captain/Thrin alias blockers,
+exact-six DONE with live/replay proof, `ATTRIBUTE_ASSERTION` not currently
+authorized, and `CUTOVER_NOT_READY`.
 
 ### Exact-six handoff
 
@@ -321,27 +358,28 @@ Keep:
 [READY] CUTOVER Case C Buddy EVIDENCE_PROVENANCE after identity-lifecycle history
 ```
 
-Update current context to the proven `EVIDENCE_PROVENANCE = 2` Captain/Thrin
-remainder. Do not archive this backlog item yet.
+Update current context to the proven `EVIDENCE_PROVENANCE = 2` remainder and
+the stale-proof finding. Next Case C action is the current lifecycle proof,
+not Captain/Thrin packaging. Do not archive this backlog item yet.
 
 ## §7 Successor handoff contract
 
 Create:
 
 ```text
-Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md
+Docs/Plans/HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md
 ```
 
 Suggested branch:
 
 ```text
-cutover/alias-assertion-package-after-shadow-alias-remove
+cutover/identity-lifecycle-through-alias-remove
 ```
 
 PR title:
 
 ```text
-CUTOVER: reconstruct remaining alias assertion package
+CUTOVER: prove identity lifecycle through alias_remove
 ```
 
 Status:
@@ -350,18 +388,15 @@ Status:
 READY — do not dispatch until this state-sync PR merges.
 ```
 
-The successor reconstructs exactly the two remaining source-grounded
-`EVIDENCE_PROVENANCE` blockers as DungeonMind-compatible AliasAssertion rows
-from current revision-bound Buddy authority, seals a complete two-row package,
-and proves package-construction `EVIDENCE_PROVENANCE: 2 → 0` without mutating
-the World Graph.
+The successor extends the diagnostic identity-lifecycle proof so the post-#583
+survivor state is reconstructable from durable merge + later `alias_remove`
+history, regenerates source-history policy from that current passed proof, and
+remeasures `ATTRIBUTE_ASSERTION` against `rev:0c644e56b45bcaac709012206e3e41c2`
+without mutating the World Graph.
 
-Locked two aliases, forensic predecessor PR #577, implementation lease, and
-acceptance rubric are in that successor handoff. Input is the post-#583 live
-world `rev:0c644e56b45bcaac709012206e3e41c2`, not the historical eight-blocker
-state. The successor must preserve observed `IDENTITY_HISTORY = 20` and
-`CONTRIBUTION_HISTORY = 5291` unless its own measurement proves a further
-delta.
+It must keep the historical #575 merge-only fixture reproducing. It must refuse
+to mint policy from the 16/28 merge-only result. Captain/Thrin packaging is
+explicitly out of scope.
 
 ## §8 Evidence required to merge this DOCUMENTS PR
 
@@ -393,8 +428,8 @@ Expected exactly:
 ```text
 Backlog.md
 Docs/Design/STATUS-world-graph-continuity-spine.md
-Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md
 Docs/Plans/HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md
+Docs/Plans/HANDOFF-CUTOVER-identity-lifecycle-through-alias-remove.md
 Docs/Plans/HANDOFF-DOCUMENTS-cutover-exact-six-live-exit-state-sync.md
 Docs/Plans/PR-TRACKER-campaign-supergraph.md
 ```
@@ -407,9 +442,9 @@ PR #583
 299579bd3c3f78a9393ae3c97c57a1dfd6b155ed
 3 review cycles
 EVIDENCE_PROVENANCE = 2
-Captain
-Thrin Branchborn
-cutover-alias-assertion-package-after-shadow-alias-remove
+16/28
+ATTRIBUTE_ASSERTION not currently authorized
+cutover-identity-lifecycle-through-alias-remove
 CUTOVER_NOT_READY
 rev:0c644e56b45bcaac709012206e3e41c2
 ```
@@ -419,7 +454,8 @@ Negative consistency scan:
 ```text
 exact-six = READY
 EVIDENCE_PROVENANCE = 8 as current state
-Captain/Thrin package = BLOCKED
+ATTRIBUTE_ASSERTION = 0 as current authorized state
+Captain/Thrin package = READY
 CUTOVER_READY
 Case B = READY
 ```
@@ -456,6 +492,8 @@ positive/negative authority consistency checks
 
 explicit statements:
   no live mutation occurred from this DOCUMENTS branch
+  ATTRIBUTE_ASSERTION is not currently authorized as 0
+  no identity-lifecycle proof implementation occurred
   no Captain/Thrin package implementation occurred
   CUTOVER remains NOT_READY
 ```
@@ -471,13 +509,15 @@ explicit statements:
 * [ ] Exact six are retired and no seventh alias is touched.
 * [ ] Captain and Thrin remain source-grounded.
 * [ ] `EVIDENCE_PROVENANCE = 2`.
-* [ ] Exact remaining blockers are Captain + Thrin.
-* [ ] `ATTRIBUTE_ASSERTION = 0` under the locked #575 policy.
+* [ ] Exact remaining alias blockers are Captain + Thrin.
+* [ ] Merge-only identity-lifecycle proof on the cleaned head is recorded as 16/28.
+* [ ] `ATTRIBUTE_ASSERTION` is not claimed as currently authorized 0.
 * [ ] Observed `IDENTITY_HISTORY = 20` and `CONTRIBUTION_HISTORY = 5291` are recorded.
 * [ ] Relationship inventories are unchanged.
 * [ ] Five relationship STOPs remain untouched.
 * [ ] Exact-six slice is `DONE`.
-* [ ] Captain/Thrin successor is `READY`.
+* [ ] Identity-lifecycle-through-alias_remove successor is `READY`.
+* [ ] Captain/Thrin package remains `BLOCKED`.
 * [ ] `CUTOVER_NOT_READY` remains true.
 * [ ] All six state-sync files move atomically.
 * [ ] No runtime/code/live-data path is changed.
@@ -497,6 +537,8 @@ Stop instead of merging if:
 * `EVIDENCE_PROVENANCE` is not exactly 2;
 * a third EVIDENCE_PROVENANCE blocker exists;
 * relationship inventories drift;
+* the state-sync claims `ATTRIBUTE_ASSERTION = 0` as current authority;
+* the state-sync promotes Captain/Thrin to `READY`;
 * the state-sync diff is partial;
 * a worker proposes runtime code or graph mutation in this PR;
 * a worker proposes starting Case B;
