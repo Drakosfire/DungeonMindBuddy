@@ -1,9 +1,9 @@
 # PR Tracker — Campaign Supergraph
 
 **Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-13 — post-#580 state-authority sync: exact-six Eldyrwild `alias_remove` is next
-**Repository anchor:** `71d11169cc56880ed09f457ddd9a6069429d0b96` (dispatch `origin/main`; descendant of PR #580 merge `3a52d309…`; current `main` until this state-sync merges)
-**Dispatch gate:** this state-sync PR. After merge, re-anchor to its merge SHA / current `main`, confirm PR #577 remains closed unmerged, then dispatch `cutover-eldyrwild-identity-shadow-alias-remove` from that descendant.
+**Updated:** 2026-08-13 — post-#583 live-exit state-authority sync: Captain/Thrin alias package is next
+**Repository anchor:** `299579bd3c3f78a9393ae3c97c57a1dfd6b155ed` (PR #583 merge / `origin/main` at this state-sync dispatch)
+**Dispatch gate:** this state-sync PR. After merge, re-anchor to its merge SHA / current `main`, then dispatch `cutover-alias-assertion-package-after-shadow-alias-remove` from that descendant.
 **#538 design predecessor / docs base:** PR #538 merge
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
 **DungeonMind pin:** `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30; world-object-v5 / world-property-v3)
@@ -18,14 +18,15 @@ This tracker records only current sequence, dependencies, and exit proofs. Compl
 At the immutable adjudication domain, historical Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. The exact post-#566 canonical World Graph is now the CUTOVER activation source:
 
 ```text
-canonical = rev:5a7c13ae45c49a65b402920499be72ed
+canonical = rev:0c644e56b45bcaac709012206e3e41c2
+payload = 0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2
 323 semantic / 314 represented / 9 residual / 3 uses_statblock
 
 approved migration projection = in-memory only
 323 semantic / 318 represented / 5 residual / 3 uses_statblock
 ```
 
-PR #566 is merged and non-publishing: canonical bytes remain unchanged, while its locked authority proves exactly four source-sealed kind repairs and leaves five dual-sense STOP edges. PR #568 sealed the historical v4/v2 CUTOVER ledger (Case A → admit `thread`). DungeonMind PR #30 published `dnd5e:thread`. PR #571 remeasured against v5/v3 and cleared `WORLD_OBJECT_KIND`. PR #575 classified the 28 identity-lifecycle shadow paths as `SOURCE_MIGRATION_HISTORY` (`ATTRIBUTE_ASSERTION` 28→0; `IDENTITY_HISTORY` remains 14; `CONTRIBUTION_HISTORY` remains 5285). PR #577 measured the eight `EVIDENCE_PROVENANCE` alias blockers and correctly STOPped: two are source-grounded current-node aliases and six are active only because `merge_identity()` unioned merged-away labels onto survivors. Direct cleanup or classifying those six as history is unauthorized. PR #580 filled the generic Kernel `alias_remove` primitive (`remove_identity_alias`; head `5d4d43f0…`; merge `3a52d309…`; 2 review cycles; no Eldyrwild mutation). `EVIDENCE_PROVENANCE` remains 8. The next bounded slice is the exact-six Eldyrwild identity-shadow `alias_remove` application; Captain/Thrin packaging stays blocked until that slice proves live/replay `8→2`. Whole-world adoption and product-authority cutover remain `BLOCKED`.
+PR #566 is merged and non-publishing: canonical bytes remain unchanged, while its locked authority proves exactly four source-sealed kind repairs and leaves five dual-sense STOP edges. PR #568 sealed the historical v4/v2 CUTOVER ledger (Case A → admit `thread`). DungeonMind PR #30 published `dnd5e:thread`. PR #571 remeasured against v5/v3 and cleared `WORLD_OBJECT_KIND`. PR #575 classified the 28 identity-lifecycle shadow paths as `SOURCE_MIGRATION_HISTORY` (`ATTRIBUTE_ASSERTION` 28→0; `IDENTITY_HISTORY` remains 14; `CONTRIBUTION_HISTORY` remains 5285). PR #577 measured the eight `EVIDENCE_PROVENANCE` alias blockers and correctly STOPped: two are source-grounded current-node aliases and six are active only because `merge_identity()` unioned merged-away labels onto survivors. Direct cleanup or classifying those six as history is unauthorized. PR #580 filled the generic Kernel `alias_remove` primitive (`remove_identity_alias`; head `5d4d43f0…`; merge `3a52d309…`; 2 review cycles; no Eldyrwild mutation). PR #583 applied the exact-six Eldyrwild identity-shadow retirements (head `2cacc7cb…`; merge `299579bd…`; 3 review cycles) and its canonical live/replay exit is proven: parent `rev:5a7c13ae45c49a65b402920499be72ed` → result `rev:0c644e56b45bcaac709012206e3e41c2`, retry `already_applied`, `EVIDENCE_PROVENANCE` 8→2. The two remaining blockers are `Captain` and `Thrin Branchborn`. `IDENTITY_HISTORY` is now 20 and `CONTRIBUTION_HISTORY` is now 5291 because the six new `alias_remove` decisions are durable history. The next bounded slice is the two-row Captain/Thrin alias assertion package. Whole-world adoption and product-authority cutover remain `BLOCKED`.
 
 ## Rules
 
@@ -92,10 +93,10 @@ PR #566 is merged and non-publishing: canonical bytes remain unchanged, while it
 | `cutover-whole-world-reanchor-after-566` / #568 | DONE | #566 + exact canonical revision/payload | Sealed historical v4/v2 CUTOVER ledger; Case A admitted Buddy `thread` into DungeonMind via PR #30; fixture SHA `6c978f89…` |
 | `cutover-repin-dungeonmind-v5-after-pr30` / #571 | DONE | #568 + DungeonMind #30 (`be76acc…`) | Remeasured canonical + four-kind projection against world-object-v5 / world-property-v3; `WORLD_OBJECT_KIND` cleared; relationship inventories unchanged; fixture SHA `a666a2bc…` |
 | `cutover-identity-lifecycle-history-after-571` / #575 | DONE | #571 + exact identity-lifecycle proof | Proved the 28 `ATTRIBUTE_ASSERTION` paths are reconstructable identity-lifecycle shadow; classified only those proven paths as `SOURCE_MIGRATION_HISTORY`; `IDENTITY_HISTORY=14`; `CONTRIBUTION_HISTORY=5285`; merge `d32c244e…`; 3 review cycles; fixture SHA `1a2cd8f9…` |
-| `cutover-alias-assertion-package-after-575` / #577 | SUPERSEDED | #575 + merged PR #576 | Forensic STOP only: two source-grounded aliases (`Captain`, `Thrin Branchborn`) and six merge-shadow aliases. Already closed unmerged at `b31bbc32…` on 2026-08-13. Do not reopen, merge, or extend. Alias-package construction resumes only after the six Eldyrwild `alias_remove` applications prove live/replay `EVIDENCE_PROVENANCE` 8→2. |
+| `cutover-alias-assertion-package-after-575` / #577 | SUPERSEDED | #575 + merged PR #576 | Forensic STOP only: two source-grounded aliases (`Captain`, `Thrin Branchborn`) and six merge-shadow aliases. Already closed unmerged at `b31bbc32…` on 2026-08-13. Do not reopen, merge, or extend. The six Eldyrwild `alias_remove` applications proved live/replay `EVIDENCE_PROVENANCE` 8→2; alias-package construction now continues as `cutover-alias-assertion-package-after-shadow-alias-remove`. |
 | `kernel-alias-remove-identity-decision` / #580 | DONE | #576 + PR #577 STOP measurement | Replay-safe public `remove_identity_alias`; head `5d4d43f01bc99729f6d6e577ec33553d9b5249b4`; merge `3a52d309a606608c9338147b78e0a2f708084042`; 2 review cycles; no Eldyrwild mutation; author-local 47 focused tests + Ruff + `git diff --check`; no GitHub Actions / commit-status evidence on the reviewed head; `tests/test_graph_kernel_boundaries.py` 4 failed / 4 passed on both base and head |
-| `cutover-eldyrwild-identity-shadow-alias-remove` | READY | merged #580 | Apply exactly six merge-shadow aliases through public `remove_identity_alias`; no generic Kernel semantics; no Captain/Thrin removal; expected observation after governed live/replay exit: `EVIDENCE_PROVENANCE` 8→2 |
-| `cutover-alias-assertion-package-after-shadow-alias-remove` | BLOCKED | exact-six slice `DONE`, including canonical live publication + replay proof | Reconstruct the remaining two source-grounded aliases as DungeonMind-compatible alias assertions; expected observation `EVIDENCE_PROVENANCE` 2→0 |
+| `cutover-eldyrwild-identity-shadow-alias-remove` / #583 | DONE | merged #580 | PR: #583; implementation head `2cacc7cbdf77977e86daf29ed2b9058f94d54e70`; merge `299579bd3c3f78a9393ae3c97c57a1dfd6b155ed`; 3 review cycles; live parent `rev:5a7c13ae45c49a65b402920499be72ed`; live result `rev:0c644e56b45bcaac709012206e3e41c2`; live payload `0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2`; live/replay proven; retry `already_applied` / no-op; `EVIDENCE_PROVENANCE` 8→2 |
+| `cutover-alias-assertion-package-after-shadow-alias-remove` | READY | exact-six slice `DONE`, including canonical live publication + replay proof | Reconstruct exactly the two remaining source-grounded current-node aliases (Captain, Thrin Branchborn) as DungeonMind-compatible alias assertion package rows from revision-bound Buddy source authority. Expected package-construction observation: `EVIDENCE_PROVENANCE` 2→0. No World Graph mutation. |
 | `dungeonmind-whole-world-authority-cutover` | BLOCKED | CUTOVER package-construction clear + public DungeonMind existing-world adoption seam | No DungeonMind product authority cutover until the blocker ledger and durable adoption proof both authorize it |
 
 ### Parallel product backlog retained from the July sequence
@@ -116,12 +117,11 @@ These remain valid product capabilities, but they do **not** override the active
 
 ## Immediate dispatch order
 
-1. After this state-sync PR merges, re-anchor to its merge SHA / current `main`, confirm PR #577 remains closed unmerged, then start `cutover-eldyrwild-identity-shadow-alias-remove` from that descendant using [`HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md`](HANDOFF-CUTOVER-eldyrwild-identity-shadow-alias-remove.md). Record the exact dispatch-base SHA in the implementation handback. Apply exactly six merge-shadow aliases through public `remove_identity_alias`. Do not change generic Kernel semantics. Do not remove `Captain` or `Thrin Branchborn`.
-2. Review every distinct head, merge the application package, re-anchor the live world, rerun complete preflight, then perform explicit governed live publication with expected-parent CAS. Prove replay/exit. Expected live observation: `EVIDENCE_PROVENANCE` 8→2 with `Captain` and `Thrin Branchborn` remaining. Do not claim the slice `DONE` until that canonical live exit is proven.
-3. Only then resume alias-assertion package construction against those two source-grounded aliases. Expected later observation: `EVIDENCE_PROVENANCE` 2→0.
-4. Keep the five dual-sense STOP edges as migration decisions; do not reopen broad Buddy relationship cleanup. Do **not** dispatch Case B adoption-seam work while package-construction blockers remain.
-5. Confirm PR #577 remains closed unmerged. Do not rescue or extend that branch.
-6. Do not schedule DungeonMind product-authority cutover until whole-world adoption and the public existing-world adoption seam are proven.
+1. After this state-sync PR merges, re-anchor to its merge SHA / current `main`, confirm PR #577 remains closed unmerged, then start `cutover-alias-assertion-package-after-shadow-alias-remove` from that descendant using [`HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md`](HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md). Record the exact dispatch-base SHA in the implementation handback. Reconstruct exactly Captain + Thrin Branchborn. Do not mutate the World Graph. Do not reopen the six retired merge-shadow aliases.
+2. The successor package is complete only if both aliases pass. Do not seal a one-row package. Expected observation: `EVIDENCE_PROVENANCE` 2→0.
+3. Keep the five dual-sense STOP edges as migration decisions; do not reopen broad Buddy relationship cleanup. Do **not** dispatch Case B adoption-seam work while package-construction blockers remain.
+4. Confirm PR #577 remains closed unmerged. Do not rescue or extend that branch.
+5. Do not schedule DungeonMind product-authority cutover until whole-world adoption and the public existing-world adoption seam are proven.
 
 ## Current acceptance debt
 
@@ -131,10 +131,10 @@ The following remain true after PR #566, PR #568, DungeonMind PR #30, and the CU
 - Lysandra threat-direction correction is `DONE` (merged #537 + canonical `P_live→Q_live` exit).
 - Session-24 cube→Karsemine false-location contradiction is `DONE` (merged #545 + canonical `P→Q` exit).
 - Session-24 Lysandra→Caelynn false-leads contradiction is `DONE` (merged #550 + canonical `P→Q₃` exit).
-- Canonical effective conformance is pinned to `rev:5a7c13ae45c49a65b402920499be72ed` (`323 / 314 / 9 / 3`) with exact payload SHA `2632870e…`; the approved migration projection is non-publishing (`323 / 318 / 5 / 3`).
+- Canonical Eldyrwild is `rev:0c644e56b45bcaac709012206e3e41c2` (`323 / 314 / 9 / 3`) with exact payload SHA `0640d7ef…`; the approved migration projection is non-publishing (`323 / 318 / 5 / 3`). The pre-live parent `rev:5a7c13ae45c49a65b402920499be72ed` / `2632870e…` remains historical.
 - PR #566 is verified against locked manifest SHA `96cc26fc…`; four kind-only paths are approved for in-memory projection and five dual-sense edges remain explicit STOP decisions.
 - Historical #568 fixture SHA `6c978f89…` still reproduces under explicit world-object-v4 / world-property-v2 loaders.
-- Post-PR30 re-pin (#571) clears `WORLD_OBJECT_KIND`; identity-lifecycle #575 clears `ATTRIBUTE_ASSERTION` 28→0 by classifying proven merge-shadow fields as `SOURCE_MIGRATION_HISTORY`; `IDENTITY_HISTORY` remains 14; `CONTRIBUTION_HISTORY` remains 5285; disposition remains `CUTOVER_NOT_READY`. PR #577 proved `EVIDENCE_PROVENANCE` (count 8) is 2 source-grounded aliases + 6 merge-shadow aliases and STOPped. PR #580 made generic `alias_remove` replay-safe without mutating Eldyrwild. Current `EVIDENCE_PROVENANCE` remains 8. Next bounded slice is the exact-six Eldyrwild application, not Captain/Thrin packaging and not the eight-alias package.
+- Post-PR30 re-pin (#571) clears `WORLD_OBJECT_KIND`; identity-lifecycle #575 clears `ATTRIBUTE_ASSERTION` 28→0 by classifying proven merge-shadow fields as `SOURCE_MIGRATION_HISTORY`. PR #583 live/replay exit retired the six merge-shadow aliases: current `EVIDENCE_PROVENANCE` is 2 (`Captain`, `Thrin Branchborn`); `ATTRIBUTE_ASSERTION` remains 0 under the locked #575 policy; `IDENTITY_HISTORY` is 20 and `CONTRIBUTION_HISTORY` is 5291 (mechanical +6 from the six new `alias_remove` identity decisions). Disposition remains `CUTOVER_NOT_READY`. Next bounded slice is the two-row Captain/Thrin alias assertion package, not the eight-alias package and not Case B.
 - Whole-world DungeonMind adoption remains not ready; no product or Play mechanics authority cutover is authorized.
 - The pre-confirm catalog/live lane still relies on preview-union-era materialization.
 - The human confirm path needs a fresh bounded end-to-end acceptance run after the reconstituted PR380A/B/C sequence.
