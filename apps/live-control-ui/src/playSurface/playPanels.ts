@@ -1,5 +1,7 @@
 /** Table-tool panels hosted under the Play chrome shell. */
 
+import { appendLensQueryToHref } from "../graphLens/sessionCampaignContext";
+
 export const PLAY_PANEL_IDS = ["beats", "combat", "roll", "items", "statblocks"] as const;
 
 export type PlayPanelId = (typeof PLAY_PANEL_IDS)[number];
@@ -88,6 +90,36 @@ export function isPlayPath(
     : null,
 ): boolean {
   return playPanelFromPath(pathname) != null;
+}
+
+/** Plan → Play Beats handoff: keep lens query, add beat/node focus. */
+export function playBeatsFocusHref(args: {
+  beatId?: string | null;
+  nodeId?: string | null;
+  search?: string | null;
+} = {}): string {
+  const withLens = appendLensQueryToHref(playPanelHref("beats"), args.search);
+  const extra = new URLSearchParams();
+  const beatId = args.beatId?.trim();
+  const nodeId = args.nodeId?.trim();
+  if (beatId) extra.set("beat", beatId);
+  if (nodeId) extra.set("node", nodeId);
+  const extraQuery = extra.toString();
+  if (!extraQuery) return withLens;
+  return withLens.includes("?") ? `${withLens}&${extraQuery}` : `${withLens}?${extraQuery}`;
+}
+
+export function playBeatsFocusFromSearch(
+  search: string | null | undefined = typeof window !== "undefined"
+    ? window.location.search
+    : null,
+): { beatId: string | null; nodeId: string | null } {
+  const src = new URLSearchParams(
+    search && search.startsWith("?") ? search.slice(1) : search ?? "",
+  );
+  const beatId = src.get("beat")?.trim() || null;
+  const nodeId = src.get("node")?.trim() || null;
+  return { beatId, nodeId };
 }
 
 /** Build prep embed URL: same-origin /prep page + lens query (inlined, not iframe). */

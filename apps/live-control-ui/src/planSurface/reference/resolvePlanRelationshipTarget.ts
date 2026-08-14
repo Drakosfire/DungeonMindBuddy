@@ -11,6 +11,7 @@ import {
   resolvePlanReferenceFromGraphProjection,
 } from "./graphAwareReferenceResolver";
 import { REFERENCE_INDEX_ENDPOINTS, resolveReference } from "./referenceResolver";
+import { tryOfConksLocalGraphReferenceResolution } from "../../playSurface/reference/buildPlayLocalGraphReference";
 import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
 
 function appendIngestEscalationHint(message: string): string {
@@ -153,16 +154,21 @@ export async function resolvePlanRelationshipTarget({
     ? { kind: "ref" as const, refType: targetKind, refId: targetId, label }
     : null;
 
+  const ofConksLocal = targetId
+    ? tryOfConksLocalGraphReferenceResolution(targetId, label)
+    : null;
+
   if (projectionState === "loading") {
-    return deferredRelationshipResolution(locator, reference, projectionState);
+    return ofConksLocal ?? deferredRelationshipResolution(locator, reference, projectionState);
   }
 
   if (projectionState === "error") {
-    return worldGraphErrorRelationshipResolution(locator, reference, projectionState);
+    return ofConksLocal ?? worldGraphErrorRelationshipResolution(locator, reference, projectionState);
   }
 
   if (projectionState === "ready" && !projection) {
-    return readyWithoutProjectionRelationshipResolution(locator, reference, projectionState);
+    return ofConksLocal
+      ?? readyWithoutProjectionRelationshipResolution(locator, reference, projectionState);
   }
 
   // Unavailable ignores any supplied projection (handoff: dependency unavailable).
@@ -199,9 +205,10 @@ export async function resolvePlanRelationshipTarget({
       );
     }
 
-    // Exact targetId miss: do not pass the ID through label/alias graph lookup
-    // again (that can rebind a stale ID to another node's alias). Proceed only
-    // to governed corpus fallback or unresolved.
+    // Exact targetId miss: Of Conks local sheet first, then governed corpus.
+    // Never re-enter graph label/alias lookup with a stale target ID.
+    if (ofConksLocal) return ofConksLocal;
+
     const canUseCorpusIndex =
       isCorpusFallbackAllowed(projectionState)
       && Boolean(targetKind && REFERENCE_INDEX_ENDPOINTS[targetKind]);
@@ -226,7 +233,7 @@ export async function resolvePlanRelationshipTarget({
       );
     }
 
-    return unresolvedRelationshipMiss(locator, reference, label, projectionState);
+    return ofConksLocal ?? unresolvedRelationshipMiss(locator, reference, label, projectionState);
   }
 
   if (usableProjection) {

@@ -149,4 +149,14 @@ describe("BeatsPanel", () => {
     expect(ras.some((el) => /Torbin Jove/i.test(el.textContent ?? ""))).toBe(true);
     expect(within(detail).getByRole("button", { name: /^Mark Jove$/i })).toBeInTheDocument();
   });
+
+  it("selects a beat from ?beat= on hydrate", async () => {
+    mockRunStateApi();
+    render(createElement(BeatsPanel, { search: "?beat=shacks-arrival" }), { wrapper });
+    await waitFor(() => expect(screen.getByTestId("beats-panel")).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-detail")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("beats-detail")).toHaveTextContent(/Largest building|Shacks/i);
+  });
 });

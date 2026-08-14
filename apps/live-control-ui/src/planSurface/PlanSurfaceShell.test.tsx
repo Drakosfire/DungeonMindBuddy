@@ -1558,8 +1558,8 @@ describe("PlanSurfaceShell", () => {
     const { container } = renderPlanSurface();
     await waitForPlanSurfaceReady();
     const root = container.querySelector(".plan-surface-root");
-    expect(root).toHaveAttribute("data-md-theme", "mireward-runbook");
-    expect(root).toHaveStyle({ "--accent": "#7aa2f7" });
+    expect(root).toHaveAttribute("data-md-theme", "notebook");
+    expect(root).toHaveStyle({ "--accent": "#2563a8" });
   });
 
   it("opens recap projection from the toolbar registry", async () => {

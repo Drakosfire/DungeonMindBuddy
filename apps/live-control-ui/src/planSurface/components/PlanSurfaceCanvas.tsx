@@ -420,7 +420,7 @@ export function PlanSurfaceCanvas({
     return () => onEditorToolsChange?.(null);
   }, [onEditorToolsChange, planningDocument.documentId, toolbarModel]);
 
-  const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
+  const editorThemeClass = `md-theme-${theme.themeId ?? "notebook"}`;
 
   const showSavePanel = Boolean(
     authoring.lastCommitReceipt

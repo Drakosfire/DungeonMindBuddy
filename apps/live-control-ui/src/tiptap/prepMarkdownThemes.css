@@ -398,3 +398,135 @@
   border-color: var(--border);
   background: transparent;
 }
+
+.md-content.md-theme-notebook {
+  --md-fg: #243041;
+  --md-heading: #1c2836;
+  --md-accent: #2563a8;
+  --md-border: #d4c4a8;
+  --md-bg: #fbf7ee;
+  --md-surface: #fffdf8;
+  --fg: #243041;
+  --fg-mute: #5b6b7c;
+  --border: #d4c4a8;
+  --bg-card: #fbf7ee;
+  --bg-input: #fffdf8;
+  --accent: #2563a8;
+  --text: #243041;
+  color: var(--md-fg);
+  padding: 1.35rem 1.5rem 1.6rem 2.15rem;
+  border: 1px solid #d4c4a8;
+  border-radius: 4px;
+  background-color: #fbf7ee;
+  background-image:
+    linear-gradient(90deg, transparent 1.55rem, rgba(196, 72, 72, 0.28) 1.55rem, rgba(196, 72, 72, 0.28) 1.62rem, transparent 1.62rem),
+    repeating-linear-gradient(
+      transparent,
+      transparent 1.55rem,
+      rgba(90, 140, 190, 0.18) 1.55rem,
+      rgba(90, 140, 190, 0.18) 1.6rem
+    );
+  background-attachment: local;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 10px 28px rgba(40, 30, 10, 0.12);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+}
+
+.md-content.md-theme-notebook h1,
+.md-content.md-theme-notebook h2,
+.md-content.md-theme-notebook h3,
+.md-content.md-theme-notebook h4 {
+  color: var(--md-heading);
+  font-family: inherit;
+}
+
+.md-content.md-theme-notebook h2,
+.md-content.md-theme-notebook h3 {
+  margin-top: 1.1rem;
+  padding-bottom: 0.12rem;
+  border-bottom: 1px dashed rgba(90, 140, 190, 0.35);
+}
+
+.md-content.md-theme-notebook a {
+  color: var(--md-accent);
+  font-weight: 600;
+}
+
+.md-content.md-theme-notebook blockquote {
+  border-left-color: rgba(90, 140, 190, 0.55);
+  background: rgba(255, 253, 248, 0.72);
+}
+
+.md-content.md-theme-notebook .md-callout {
+  background: rgba(255, 253, 248, 0.78);
+  border-color: #d4c4a8;
+}
+
+.md-content.md-theme-notebook .md-callout-read-aloud {
+  --md-callout-border: rgba(37, 99, 168, 0.55);
+  --md-callout-bg: rgba(37, 99, 168, 0.06);
+}
+
+.md-content.md-theme-notebook .md-callout-gm-note {
+  --md-callout-border: rgba(90, 140, 190, 0.55);
+  --md-callout-bg: rgba(90, 140, 190, 0.08);
+}
+
+.md-content.md-theme-notebook .md-callout-rules {
+  --md-callout-border: rgba(47, 122, 78, 0.55);
+  --md-callout-bg: rgba(47, 122, 78, 0.07);
+}
+
+.md-content.md-theme-notebook .md-callout-warning {
+  --md-callout-border: rgba(180, 83, 9, 0.65);
+  --md-callout-bg: rgba(180, 83, 9, 0.08);
+}
+
+.md-content.md-theme-notebook th {
+  color: var(--md-heading);
+  background: rgba(90, 140, 190, 0.1);
+}
+
+.md-content.md-theme-notebook code,
+.md-content.md-theme-notebook pre {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+
+.md-content.md-theme-notebook .recap-node-token {
+  color: #243041;
+  background: rgba(36, 48, 65, 0.08);
+  border-color: rgba(36, 48, 65, 0.22);
+}
+
+.md-content.md-theme-notebook .recap-node-token.role-npc,
+.md-content.md-theme-notebook .recap-node-token.role-character,
+.md-content.md-theme-notebook .recap-node-token.role-person {
+  color: #7a3e08;
+  background: rgba(217, 119, 6, 0.22);
+  border-color: rgba(180, 83, 9, 0.5);
+}
+
+.md-content.md-theme-notebook .recap-node-token.role-pc {
+  color: #4c1d95;
+  background: rgba(139, 92, 246, 0.18);
+  border-color: rgba(109, 40, 217, 0.42);
+}
+
+.md-content.md-theme-notebook .recap-node-token.role-location {
+  color: #115e59;
+  background: rgba(13, 148, 136, 0.16);
+  border-color: rgba(15, 118, 110, 0.45);
+}
+
+.md-content.md-theme-notebook .recap-node-token.role-faction {
+  color: #1e3a8a;
+  background: rgba(37, 99, 168, 0.16);
+  border-color: rgba(37, 99, 168, 0.45);
+}
+
+.md-content.md-theme-notebook .recap-node-token.role-item {
+  color: #713f12;
+  background: rgba(202, 138, 4, 0.2);
+  border-color: rgba(161, 98, 7, 0.48);
+}

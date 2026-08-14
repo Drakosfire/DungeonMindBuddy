@@ -61,11 +61,28 @@ describe("ofConksPlayObjectBridge", () => {
     expect(body?.provenance.pdfHeading).toBe("Area 1: The Shacks");
   });
 
-  it("requires provenance.pdfHeading on every play object body", () => {
+  it("requires provenance.pdfHeading and sourceBlocks on every play object body", () => {
     for (const nodeId of ofConksPlayObjectNodeIds()) {
       const body = playObjectBodyForNodeId(nodeId);
       expect(body?.provenance.pdfHeading?.trim(), nodeId).toBeTruthy();
+      expect((body?.sourceBlocks?.length ?? 0) >= 1, nodeId).toBe(true);
     }
+  });
+
+  it("gives Shacks door-dump and Maglubiyet Appendix B source", () => {
+    const shacks = playObjectBodyForNodeId("location:the-shacks");
+    const shacksSource = (shacks?.sourceBlocks ?? []).map((b) => b.text).join("\n");
+    expect(shacksSource).toMatch(/noggin-shaped nose/i);
+    const maglubiyet = playObjectBodyForNodeId("item:maglubiyets-statue");
+    const magSource = (maglubiyet?.sourceBlocks ?? []).map((b) => b.text).join("\n");
+    expect(magSource).toMatch(/blood will not dry/i);
+  });
+
+  it("gives Marrow helix and resin harvest source", () => {
+    const marrow = playObjectBodyForNodeId("location:the-marrow");
+    const source = (marrow?.sourceBlocks ?? []).map((b) => b.text).join("\n");
+    expect(source).toMatch(/helix/i);
+    expect(source).toMatch(/200 gp/i);
   });
 
   it("resolves packet locations and items", () => {

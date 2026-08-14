@@ -11,7 +11,7 @@ import {
   selectDefaultRelationshipRows,
 } from "../graphObjectCard/graphObjectDisplay";
 import { appendLensQueryToHref } from "../graphLens/sessionCampaignContext";
-import { playPanelHref } from "../playSurface/playPanels";
+import { playBeatsFocusHref, playPanelHref } from "../playSurface/playPanels";
 import type { PlayObjectBody, PlayObjectKind } from "./ofConksPlayObjectBridge";
 import { playObjectBodyForNodeId } from "./ofConksPlayObjectBridge";
 import { mediaForOfConksNodeId } from "./ofConksNodeMedia";
@@ -253,14 +253,26 @@ export function PlayObjectSheetProjection({
         ) : null}
       </footer>
 
-      {body.toolLinks?.length ? (
-        <section
-          className="play-object-sheet__section play-object-sheet__tools"
-          aria-label="Open in Play"
-          data-testid="play-object-sheet-tools"
-        >
-          <h5>Open in Play</h5>
-          <ul className="play-object-sheet__tool-list">
+      <section
+        className="play-object-sheet__section play-object-sheet__tools"
+        aria-label="Open in Play"
+        data-testid="play-object-sheet-open-play"
+      >
+        <h5>Open in Play</h5>
+        <p>
+          <a
+            className="play-object-sheet__open-play"
+            data-testid="play-object-sheet-open-play-link"
+            href={playBeatsFocusHref({
+              beatId: body.provenance.beatIds?.[0] ?? null,
+              nodeId: resolution.graphNodeId,
+            })}
+          >
+            Open in Play
+          </a>
+        </p>
+        {body.toolLinks?.length ? (
+          <ul className="play-object-sheet__tool-list" data-testid="play-object-sheet-tools">
             {body.toolLinks.map((link) => {
               const href = appendLensQueryToHref(playPanelHref(link.panel));
               return (
@@ -272,8 +284,8 @@ export function PlayObjectSheetProjection({
               );
             })}
           </ul>
-        </section>
-      ) : null}
+        ) : null}
+      </section>
 
       {body.connectedNow.length ? (
         <section

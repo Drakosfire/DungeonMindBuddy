@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildPlayPanelEmbedSrc,
   isPrepPlayPanel,
+  playBeatsFocusFromSearch,
+  playBeatsFocusHref,
   playPanelFromPath,
   playPanelHref,
 } from "./playPanels";
@@ -29,5 +31,30 @@ describe("playPanels", () => {
     expect(buildPlayPanelEmbedSrc("combat", "?campaigns=of-conks-cons", ["of-conks-cons"])).toBe(
       "/prep/combat?campaigns=of-conks-cons&embed=1",
     );
+  });
+
+  it("builds Beats focus hrefs and parses beat/node from search", () => {
+    expect(playBeatsFocusHref({
+      beatId: "shacks-arrival",
+      nodeId: "location:the-shacks",
+      search: "?",
+    })).toBe(
+      "/play/beats?beat=shacks-arrival&node=location%3Athe-shacks",
+    );
+    expect(
+      playBeatsFocusHref({
+        beatId: "shacks-arrival",
+        nodeId: "location:the-shacks",
+        search: "?campaigns=of-conks-cons",
+      }),
+    ).toBe(
+      "/play/beats?campaigns=of-conks-cons&beat=shacks-arrival&node=location%3Athe-shacks",
+    );
+    expect(
+      playBeatsFocusFromSearch("?campaigns=of-conks-cons&beat=shacks-arrival&node=location:the-shacks"),
+    ).toEqual({
+      beatId: "shacks-arrival",
+      nodeId: "location:the-shacks",
+    });
   });
 });

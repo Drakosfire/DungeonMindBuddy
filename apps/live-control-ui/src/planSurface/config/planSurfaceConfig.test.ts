@@ -35,6 +35,11 @@ describe("planSurfaceConfig", () => {
     expect(config.sessionDescriptor.planningDocument.documentId).toBe(FIXTURE_DOC_ID);
   });
 
+  it("uses the notebook paper theme for Plan documents", () => {
+    const config = createPlanSurfaceConfig(mockPlanView, planningDocument);
+    expect(config.theme.themeId).toBe("notebook");
+  });
+
   it("honors memory session override in session descriptor", () => {
     const config = createPlanSurfaceConfig(
       mockPlanView,

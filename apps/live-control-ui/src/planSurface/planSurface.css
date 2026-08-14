@@ -343,6 +343,31 @@
   padding: 1rem;
 }
 
+.plan-surface-root[data-md-theme="notebook"] .plan-surface-canvas {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.plan-surface-root[data-md-theme="notebook"] .tiptap-spike-editor.md-theme-notebook {
+  --fg: #243041;
+  --fg-mute: #5b6b7c;
+  --border: #d4c4a8;
+  --bg-card: #fbf7ee;
+  --bg-input: #fffdf8;
+  --accent: #2563a8;
+  --text: #243041;
+  margin-top: 0;
+  border: 0;
+  border-radius: 4px;
+}
+
+.plan-surface-root[data-md-theme="notebook"] .tiptap-spike-editor.md-theme-notebook .ProseMirror {
+  color: #243041;
+  min-height: 22rem;
+  padding: 0.35rem 0.15rem 1rem;
+}
+
 .plan-canvas-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);

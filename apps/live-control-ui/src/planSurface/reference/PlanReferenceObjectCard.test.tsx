@@ -18,6 +18,7 @@ import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
 import { PlanReferenceProjectionBinding as PlanReferenceProjectionBindingMount } from "./PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./usePlanGraphReferenceResolver";
+import { buildPlayLocalGraphReferenceResolution } from "../../playSurface/reference/buildPlayLocalGraphReference";
 
 vi.mock("../../api/liveApi", async () => {
   const actual = await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
@@ -335,6 +336,19 @@ describe("PlanReferenceObjectCard", () => {
     expect(within(card).queryByText("npc-glowkindle")).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-reference-fallback-banner")).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-reference-unresolved-card")).not.toBeInTheDocument();
+  });
+
+  it("renders Of Conks Play Object Sheet for a local Shacks resolution", () => {
+    const resolution = buildPlayLocalGraphReferenceResolution("location:the-shacks", "The Shacks");
+    expect(resolution).not.toBeNull();
+    renderBare(
+      <PlanReferenceObjectCard resolution={resolution!} sessionDescriptor={sessionDescriptor} />,
+    );
+    expect(screen.getByTestId("play-object-sheet")).toHaveTextContent(/noggin-shaped nose/i);
+    expect(screen.getByTestId("play-object-sheet-open-play-link")).toHaveAttribute(
+      "href",
+      expect.stringContaining("/play/beats"),
+    );
   });
 
   it("opens Details when Inspect source/evidence is clicked", async () => {

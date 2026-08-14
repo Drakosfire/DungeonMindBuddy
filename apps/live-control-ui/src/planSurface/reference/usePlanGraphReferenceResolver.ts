@@ -30,6 +30,7 @@ import {
   isGraphNativeReference,
   resolvePlanReferenceFromGraphProjection,
 } from "./graphAwareReferenceResolver";
+import { tryOfConksLocalGraphReferenceResolution } from "../../playSurface/reference/buildPlayLocalGraphReference";
 import { resolveReference } from "./referenceResolver";
 import { resolvePlanRelationshipTarget } from "./resolvePlanRelationshipTarget";
 import {
@@ -179,6 +180,15 @@ function worldGraphErrorResolution(
   };
 }
 
+function withOfConksLocalFallback(
+  ref: RunbookReferenceAttrs,
+  resolution: GraphReferenceResolution,
+): GraphReferenceResolution {
+  if (resolution.kind === "resolved_graph") return resolution;
+  const nodeId = String(ref.refId ?? "").trim();
+  return tryOfConksLocalGraphReferenceResolution(nodeId, ref.label) ?? resolution;
+}
+
 export async function resolvePlanReferenceWithFallback(
   ref: RunbookReferenceAttrs,
   options: {
@@ -192,28 +202,37 @@ export async function resolvePlanReferenceWithFallback(
   const lensSummary = options.lensSummary ?? null;
 
   if (projectionState === "loading") {
-    return unresolvedResolution(
+    return withOfConksLocalFallback(
       ref,
-      projectionState,
-      "World Graph projection is loading; resolution deferred.",
+      unresolvedResolution(
+        ref,
+        projectionState,
+        "World Graph projection is loading; resolution deferred.",
+      ),
     );
   }
 
   if (projectionState === "error") {
-    return worldGraphErrorResolution(
+    return withOfConksLocalFallback(
       ref,
-      projectionState,
-      "World Graph projection failed; corpus fallback disabled.",
+      worldGraphErrorResolution(
+        ref,
+        projectionState,
+        "World Graph projection failed; corpus fallback disabled.",
+      ),
     );
   }
 
   // Graph-native chips: exact nodeId only. Never label rebind. Never corpus indexes.
   if (isGraphNativeReference(ref.refType)) {
     if (projectionState === "unavailable" || !options.projection) {
-      return unresolvedResolution(
+      return withOfConksLocalFallback(
         ref,
-        projectionState,
-        "World Graph is unavailable; graph-native reference cannot be resolved.",
+        unresolvedResolution(
+          ref,
+          projectionState,
+          "World Graph is unavailable; graph-native reference cannot be resolved.",
+        ),
       );
     }
 
@@ -224,7 +243,7 @@ export async function resolvePlanReferenceWithFallback(
       projectionState,
     });
 
-    return graphResolution;
+    return withOfConksLocalFallback(ref, graphResolution);
   }
 
   if (options.projection) {

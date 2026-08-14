@@ -535,4 +535,52 @@ describe("resolvePlanReferenceWithFallback", () => {
     expect(resolution.message).toMatch(/world graph is unavailable/i);
     expect(resolution.message).not.toMatch(/invalid reference locator/i);
   });
+
+  it("falls back to Of Conks local sheet when World Graph is unavailable", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("corpus index must not be queried for graph-native refs");
+    });
+
+    const resolution = await resolvePlanReferenceWithFallback(
+      {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "location:the-shacks",
+        label: "The Shacks",
+      },
+      {
+        projection: null,
+        projectionState: "unavailable",
+        fetchImpl,
+      },
+    );
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(resolution.kind).toBe("resolved_graph");
+    expect(resolution.graphNodeId).toBe("location:the-shacks");
+  });
+
+  it("falls back to Of Conks local sheet when the loaded graph misses the node", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("corpus index must not be queried for graph-native refs");
+    });
+
+    const resolution = await resolvePlanReferenceWithFallback(
+      {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "npc:nar-granitetooth",
+        label: "Nar Granitetooth",
+      },
+      {
+        projection,
+        projectionState: "ready",
+        fetchImpl,
+      },
+    );
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(resolution.kind).toBe("resolved_graph");
+    expect(resolution.graphNodeId).toBe("npc:nar-granitetooth");
+  });
 });

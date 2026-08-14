@@ -156,4 +156,22 @@ describe("PlayReferenceCapability", () => {
     });
     expect(screen.queryByTestId("play-reference-unresolved-card")).not.toBeInTheDocument();
   });
+
+  it("opens The Shacks play sheet from ?beat=&node= deep-link", async () => {
+    mockRunStateApi();
+    render(
+      createElement(BeatsPanel, {
+        search: "?beat=shacks-arrival&node=location:the-shacks",
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("beats-panel")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("play-object-sheet")).toHaveTextContent(/Largest building|noggin-shaped nose/i);
+    });
+    expect(screen.getByTestId("beats-detail")).toBeInTheDocument();
+  });
 });

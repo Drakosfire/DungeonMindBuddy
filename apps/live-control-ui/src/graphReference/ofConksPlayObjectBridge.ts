@@ -324,9 +324,27 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Caretakers", nodeId: "threat:caretakers" },
     ],
     toolLinks: [{ label: "Open names on Roll", panel: "roll" }],
+    sourceBlocks: [
+      {
+        heading: "Area 1: The Shacks",
+        text: "You stand in front of the village’s largest building when a peasant with an oddly noggin-shaped nose flies through the door out into the cold. Following this display, you hear the sweet sound of a cursing dwarf who demands more ale. After that, the evicted rube gets up, mounts his donkey, and hightails.\n\nThe so-called Shacks consist of a large building and a number of huts on the outskirts of Hempholm. Travelers and migrant workers may stay in the huts free of charge or pay a few coins for a furnished room in the main building. A small soup kitchen and a tavern can be found inside the main building, but they serve nothing fancy. The quality matches the coin, or so they say. Nevertheless, if you need a roof over your head and some comfort in your veins, this is the place to go.",
+      },
+      {
+        heading: "Competition in the Shacks",
+        text: "Bill the Belly—the proprietor of the tavern located in the main building of the Shacks—regularly hosts the big “Meal n’ Moonshine” competition. Travelers and residents are invited to serve their best dish or homebrew spirit to sway the Belly’s judgment in their favor. The winner receives a bottle of Belly’s Mouthwash (Appendix B). Characters who are proficient with either cook’s utensils or brewer’s supplies are allowed to enter and must outdo the competition. There are 1d6+2 contenders besides the characters and you must roll a d20 for each of them to determine the quality of their entry. The characters have a slight edge since the contenders add no bonus to their roll. A tie is broken by an additional cook- or brew-off.",
+      },
+      {
+        heading: "A Premature Celebration",
+        text: "If the characters manage to destroy the tree without burning down the village, the villagers gather and throw an impromptu party in the Shacks. The characters are treated as heroes and the villagers serve the best food, ale, and spirits they have to offer. The village children swarm the characters, begging them for exciting stories. Additionally, the children ask whether they can play with the characters’ weapons to reenact their heroic deed. In case the characters grant their wish, the children run off to the hill north of the Shacks, where they fight against an innocent and unsuspecting tree.\n\nHop & Malt. During the course of the celebration, the characters are to be subjected to Constitution saving throws to ward off the effects of the consumed alcohol, if they decide to partake of it. In general, a character must make a DC 10 Constitution saving throw for each hour of drinking. On a failed save, the character is poisoned. Interpret this as a character going from a state of mild drunkenness to near uselessness.\n\nNever Split the Party. Some of the villagers might elect to spend the night with one of the characters if this seems appropriate considering your group of players. If the characters are dispersed during the course of the night, the following attack will seem all the more threatening.\n\nThe Coming Storm. During the celebration, it is crucial that the players do not suspect that something is awry. As the DM you will have to show no malicious joy when the players let their characters get careless. Some players might suspect that there might be more to the adventure because everything went over rather smooth and fast. Placate them by hinting at what else might lie before them.",
+      },
+      {
+        heading: "Hempholm Caught Fire?",
+        text: "In case the characters cause a fire in the village they are tied up extinguishing the flames which threaten to burn down the village—unless they decide to make a run for it. This is taxing work and the characters must succeed in a DC 12 Strength (Athletics) check or gain 1 level of exhaustion. Roll a d4 to determine how many houses are destroyed during the conflagration. The former inhabitants move into the Shacks while they rebuilt their homes.",
+      },
+    ],
     provenance: {
       pdfHeading: "Area 1: The Shacks",
-      pages: "7–8",
+      pages: "7–8, 12–14",
       beatIds: ["shacks-arrival", "meal-moonshine", "celebration-party", "never-split", "firefighting"],
     },
   },
@@ -342,6 +360,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
     connectedNow: [
       { label: "Morwin Blackwell", nodeId: "npc:morwin-blackwell" },
       { label: "Hempholm", nodeId: "location:hempholm" },
+    ],
+    sourceBlocks: [
+      {
+        heading: "Area 2: The Store",
+        text: "The store’s interior is dusty and untidy much like its proprietor. Bundles of hair shoot out of the old man’s nose and ears and he appears to be sleeping behind the counter.\n\nThe only store in Hempholm—popularly called Morwin’s—is run by Morwin Blackwell. Morwin is an old man and has problems with his eyes and ears. He will often mistake the characters for someone else if they find their way to his shop. Morwin is in a black mood since Saladin arrived in Hempholm and he curses Saladin’s name in every other sentence he mutters.\n\nItems For Sale. The shop offers items from the Adventuring Gear table which are worth 10 gp or less (PHB 150) and basic farming equipment. Additionally, Morwin sells potent hemp in household quantities and offers his personal blends Green Cracker and Ancient Green Dragon.",
+      },
     ],
     provenance: {
       pdfHeading: "Area 2: The Store",
@@ -361,6 +385,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Saladin", nodeId: "npc:saladin" },
       { label: "Maglubiyet’s Statue", nodeId: "item:maglubiyets-statue" },
       { label: "Hempholm", nodeId: "location:hempholm" },
+    ],
+    sourceBlocks: [
+      {
+        heading: "Area 3: Saladin’s Wagon",
+        text: "A wagon stands smack in the middle of Hempholm’s village square so that no denizen or traveler is deprived of its ... beauty. The words ‘Saladin’s Mobile Emporium’ flaunt on the wagon’s sides in large golden letters and its coloration is reminiscent of a kaleidoscope. When you enter the gaudy vehicle, you notice that it’s considerably larger on the inside than on the outside. An elf clothed in a purple robe sits behind a small desk and expectantly raises his head when he notices your presence.\n\nHis wagon is approximately 10 feet high, 12 feet long, and 8 feet wide. On the inside, it can stretch for 600 feet in each possible direction.",
+      },
     ],
     provenance: {
       pdfHeading: "Area 3: Saladin’s Wagon",
@@ -382,6 +412,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Torbin Jove", nodeId: "npc:torbin-jove" },
       { label: "Grotesque Tree (garden)", nodeId: "location:grotesque-tree-site" },
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
+    ],
+    sourceBlocks: [
+      {
+        heading: "Area 4: The Jove's Home",
+        text: "The menacing tree stands right in the center of this house’s garden. Otherwise, the house is in no way different from the others in the village. It is squat, built of wood and clay, and the windows are small and unglazed.\n\nMost of the village's buildings are arranged in a circle around the village square, the house of the Jove's being one of them. The grotesque tree occupies the garden directly behind the house. The house itself took some damage due to the wild nature of the tree, and the boy Torbin is occupied with roof repairs. The characters encounter Mark Jove when they enter or knock. Mark is the father of Torbin, who is the boy who bought the magical conk.",
+      },
     ],
     provenance: {
       pdfHeading: "Area 4: The Jove's Home",
@@ -408,6 +444,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "metal leaves", nodeId: "item:metal-leaves" },
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
+    sourceBlocks: [
+      {
+        heading: "Area 5: The Grotesque Tree",
+        text: "The further you approach the tree, the stranger it appears. The tree’s bark looks as tough as any armor you’ve seen and the branches are covered in thick thorns.\n\nA character with a passive Wisdom (Perception) of 15 notices a handful of shiny leaves which grow from the odd branch. The leaves appear to be made of solid metal. A character with a passive Wisdom (Arcana) of 12 feels a magic aura around the grotesque tree.\n\nIf that character succeeds in a subsequent DC 17 Wisdom (Arcana) check, they determine that the tree is indeed infused with arcane magic and that a system of magic roots stretches beneath the village.\n\nMonsters & Tactics. The grotesque tree (Appendix A) attacks any creature that comes within 30 feet of it and retaliates against ranged attacks. It always targets the nearest enemy and ceases hostilities once it is no longer under imminent threat.\n\nTreasure. The characters find leaves made of precious metal worth 100 gp in case they search the former battleground.\n\nAdvancing the Adventure. When the characters eventually destroy the tree, continue with Part 2 of the adventure. Should the characters leave the tree and the village behind, they will soon hear of a tree that grew to be almost 300 feet tall, destroyed an entire village, and forces travelers on the Uldoon Trail to make a wide detour.",
+      },
+    ],
     provenance: {
       pdfHeading: "Area 5: The Grotesque Tree",
       pages: "11",
@@ -432,6 +474,16 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
     ],
     toolLinks: [{ label: "Open names on Roll", panel: "roll" }],
+    sourceBlocks: [
+      {
+        heading: "Part 1: Enter Hempholm",
+        text: "The following sections describe points of interest in Hempholm in more detail. Naturally, Hempholm features several simple artisans like a blacksmith, a cobbler, and a carpenter which aren’t worth mentioning. All villagers in Hempholm have the statistics of commoners (MM 345) unless otherwise stated. As the name suggests, Hempholm specializes in the cultivation of hemp. Hempholm’s peasants grow some of the most durable and strongest hemp in the Western Heartlands which finds its way to the marketplaces of Greenest and Berdusk. Around 80 people live in Hempholm proper and several dozens more in outlying farms that surround the village.",
+      },
+      {
+        heading: "Appendix C: Tables",
+        text: "This adventure includes tables (Appendix C) which list a number of random names for villagers the characters might encounter during their stay in Hempholm. Why is this noteworthy?—you may ask yourself. Even if you forget it after several weeks, the players will vividly remember the arbitrary shoeshine boy—and his three-legged dog—they met in front of the tavern that one time their characters got drunk. Thank the gods that you used the trusted random name table to note the name and background of that boy and his poor puppy!",
+      },
+    ],
     provenance: {
       pdfHeading: "Part 1: Enter Hempholm",
       pages: "7",
@@ -450,6 +502,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
     connectedNow: [
       { label: "The Marrow", nodeId: "location:the-marrow" },
       { label: "Guardian", nodeId: "threat:guardian" },
+    ],
+    sourceBlocks: [
+      {
+        heading: "Down Into the Rabbit Hole",
+        text: "To root out the threat beneath the village, the characters must descend into the root-corridors. Before their attack, the caretakers tore open large holes all over the village. These openings connect to various root-corridors which ultimately lead the characters right into the heart of the plant. Once the characters enter the root-system, paraphrase or read out loud:\n\nThe air down in these tunnels is dank, and the temperature is higher than you would have anticipated. The hollow roots are warm to the touch but feel more like stone or metal than wood. At first, you have to bend down to fit into these tunnels. However, soon you can walk upright, and you ready yourself for whatever lies in the center of this alien network.\n\nThe large hollow roots are dotted with smaller corridors which quickly become too narrow to traverse. Having learned their lesson, the caretakers watch the characters while they make their way through the root-corridors. The caretakers make clicking noises when the characters pass by, alerting their brethren and the guardian. When the characters try to attack any of the caretakers which hide in the narrow corridors, they withdraw deeper into the inaccessible network.",
+      },
     ],
     provenance: {
       pdfHeading: "Down Into the Rabbit Hole",
@@ -474,6 +532,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Guardian", nodeId: "threat:guardian" },
       { label: "Child in the helix", nodeId: "npc:helix-child" },
     ],
+    sourceBlocks: [
+      {
+        heading: "The Marrow",
+        text: "Once the characters make their way to the center of the root network, paraphrase or read out loud:\n\nYou reach a large chamber where many of the root-corridors converge. The room is faintly lit by a sickly green light, emanating from the center of the room. In the midst of this chamber, a large wooden helix structure winds itself through the ceiling, most likely reaching almost up to the surface. At a height of 20 feet, you see a large translucent sack which is the origin of the green light. The sack is cradled inside the wooden helix which forms a protective shell around it. Before you find the time to take a closer look, you notice movement from the corner of your eye.\n\nMonsters & Tactics. The characters are attacked by the guardian (Appendix A) and 2 caretakers. The guardian is a large creature made of roots who features four legs and iron reinforced spear-like arms.\n\nTreasure. After the enemies lie dead, the characters will eventually investigate the glowing sack. Inside they find a toddler with green skin, partly made of bark and stone. To reach the sack, the characters must cut through the wooden helix-structure that surrounds the toddler.\n\nOnce the characters damage the helix, an amalgam of liquid gold, silver and platinum oozes out of the cuts. The metal hardens as soon as it is exposed to the air much like resin. The characters can take the toddler with them if they so desire.\n\nThe characters are able to safely harvest metal resin worth 200 gp. If they decide to harvest more, the characters notice that the structural integrity of the helix is critical and any more damage may lead to a collapse. Since the room and the roots span below the entire village, Hempholm would be destroyed in such an event. Should the characters destroy the helix to harvest more metal, they gain additional metal worth 200 gp. After the central structures collapses, the characters must succeed in a DC 10 Strength (Athletics) check to escape the root-system. A character that fails is buried and the whole village of Hempholm collapses into the ground and is destroyed.",
+      },
+    ],
     provenance: {
       pdfHeading: "The Marrow",
       pages: "15–16",
@@ -495,6 +559,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Saladin's Mobile Emporium", nodeId: "location:saladins-wagon" },
     ],
     toolLinks: [{ label: "Open full text on Items", panel: "items" }],
+    sourceBlocks: [
+      {
+        heading: "Maglubiyet’s Statue",
+        text: "Wondrous item, rare (requires attunement)\n\nThis item has 3 charges and it can recover 1 charge per day by covering it in the blood of a dead creature. You can use a bonus action and expend 2 of its charges to cast the fear spell on a single creature. The DC for the corresponding Wisdom saving throw is 15 and you must not maintain concentration.\n\nThis oaken statue of Maglubiyet is completely covered in blood. No matter how long you wait, the blood will not dry. When you cover the statue in the blood of a fallen enemy its eyes glow, and you feel a wave of excitement and battle hunger wash over you. Weaker minds break under the Battle Lord's aura's terrible manifestation since its exceptionally strong.",
+      },
+    ],
     provenance: {
       pdfHeading: "Maglubiyet’s Statue",
       pages: "Appendix B",
@@ -517,6 +587,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
     toolLinks: [{ label: "Open full text on Items", panel: "items" }],
+    sourceBlocks: [
+      {
+        heading: "Belly’s Mouthwash",
+        text: "Wondrous item, uncommon\n\nThis item has 4 charges which cannot be recovered. After the last charge is used, the item is consumed. You can use a bonus action and expend 1 of its charges to take a mighty swig from the bottle after which you are under the effects of the heroism spell. Your spellcasting ability modifier counts as 2, you must not maintain concentration, the effect cannot be dispelled, and the effect lasts for 10 minutes.\n\nWhen you loosen the stopper of this bottle, the smell almost knocks you off your feet. This so-called mouthwash could etch paint off a stained glass window, you argue. Nevertheless, down the hatch, it goes!",
+      },
+    ],
     provenance: {
       pdfHeading: "Belly’s Mouthwash",
       pages: "Appendix B",
@@ -532,6 +608,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
     connectedNow: [
       { label: "Grotesque Tree (garden)", nodeId: "location:grotesque-tree-site" },
       { label: "Grotesque Tree", nodeId: "threat:grotesque-tree" },
+    ],
+    sourceBlocks: [
+      {
+        heading: "Area 5: The Grotesque Tree",
+        text: "A character with a passive Wisdom (Perception) of 15 notices a handful of shiny leaves which grow from the odd branch. The leaves appear to be made of solid metal.\n\nTreasure. The characters find leaves made of precious metal worth 100 gp in case they search the former battleground.",
+      },
     ],
     provenance: {
       pdfHeading: "Area 5: The Grotesque Tree",
@@ -549,6 +631,12 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
       { label: "Lord Fiddlestick", nodeId: "npc:lord-fiddlestick" },
       { label: "The Shacks", nodeId: "location:the-shacks" },
     ],
+    sourceBlocks: [
+      {
+        heading: "Adventure Background",
+        text: "Once the boy returned, he was beaten badly by his sire. In his despair, he planted the seed nevertheless. Lo and behold! Within a few days, a large tree grew rampant. Alas, the tree was not as docile as his conspecifics. It looked sickly, had no leaf to its name, and to add injury to insult, the tree attacks passers-by with its rock-hard branches!\n\nMeanwhile, the tree's roots dig greedily into the ground. Deep down, in the bowels of the earth, the roots harvest gold, silver, platinum and more. Slowly but surely, the tree transports these precious metals to the surface where they finally face the sun. A kin to the star they were born in eons and eons ago? By day and by night dutiful caretakers roam the network of hollow roots beneath the tree. They caress their holy mother, fight off rodents, and savor the smell of their home soil. Woe to you, if you decide to disturb their placid lives!\n\nThe conk’s true purpose is only known to few members of the Baldur’s Gate mages’ guild who elected the hinterlands of the Greenfields for a preliminary field test. Far away from prying eyes, the tree could have been studied without interference...",
+      },
+    ],
     provenance: {
       pdfHeading: "Adventure Background",
       pages: "5",
@@ -562,9 +650,19 @@ const BY_NODE_ID: Readonly<Record<string, PlayObjectBody>> = {
     attitude: "Aftermath institutional pressure, not opening cast.",
     offersHooks: ["Foreground only after the child / Marrow secrets are in play."],
     connectedNow: [{ label: "Paelias Sian", nodeId: "npc:paelias-sian" }],
+    sourceBlocks: [
+      {
+        heading: "Adventure Background",
+        text: "The conk’s true purpose is only known to few members of the Baldur’s Gate mages’ guild who elected the hinterlands of the Greenfields for a preliminary field test. Far away from prying eyes, the tree could have been studied without interference...",
+      },
+      {
+        heading: "An Agent of the Mages’ Guild",
+        text: "Naturally, the mages’ guild which is responsible for the creation of the conk is highly interested in erasing any evidence of the matter. A wizard named Paelias Sian (N male elf) is sent to investigate the matter, pay off any witnesses, and destroy the tree. Paelias Sian has the statistics of a mage (MM 347), except that he has only access to 1st and 2nd level spells. Paelias quickly finds out about the occurrences in Hempholm and visits the village. He pays reparations to the affected families in return for their silence, and acquires information about the characters and the tree’s child. Paelias pursues the characters and catches up eventually. Should the characters have given the child into the care of a different person like Nar, she will catch up to them before Paelias arrives and get the characters up to speed. Paelias’ goal is to erase any evidence, including the strange offspring.",
+      },
+    ],
     provenance: {
       pdfHeading: "An Agent of the Mages’ Guild",
-      pages: "16–17",
+      pages: "5, 16–17",
       beatIds: ["paelias"],
     },
   },

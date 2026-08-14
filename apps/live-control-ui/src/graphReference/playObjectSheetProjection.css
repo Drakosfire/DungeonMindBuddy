@@ -339,6 +339,23 @@
   color: var(--play-sheet-accent);
 }
 
+.play-object-sheet__open-play {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--play-sheet-accent);
+  border-radius: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  color: #fff;
+  background: var(--play-sheet-accent);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.play-object-sheet__open-play:hover {
+  filter: brightness(1.08);
+}
+
 .play-object-sheet__chip-list {
   display: flex;
   flex-wrap: wrap;

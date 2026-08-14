@@ -349,4 +349,21 @@ describe("resolvePlanRelationshipTarget", () => {
     expect(resolution.kind).toBe("error");
     expect(resolution.message).toMatch(/exact world, campaign, or revision scope/i);
   });
+
+  it("falls back to Of Conks local sheet when the graph misses a play-bridged target", async () => {
+    const resolution = await resolvePlanRelationshipTarget({
+      relationship: {
+        id: "play-connected:location:the-shacks",
+        label: "The Shacks",
+        targetId: "location:the-shacks",
+        predicate: "related",
+        direction: "related",
+      },
+      projection,
+      projectionState: "ready",
+    });
+
+    expect(resolution.kind).toBe("resolved_graph");
+    expect(resolution.graphNodeId).toBe("location:the-shacks");
+  });
 });

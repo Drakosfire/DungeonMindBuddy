@@ -6,11 +6,16 @@ import { getPlayRunState, putPlayRunState } from "../../api/liveApi";
 import type { PlayRunStateDocument } from "../../api/types";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { appendLensQueryToHref } from "../../graphLens/sessionCampaignContext";
-import { playPanelHref, type PlayPanelId } from "../playPanels";
+import {
+  playBeatsFocusFromSearch,
+  playPanelHref,
+  type PlayPanelId,
+} from "../playPanels";
 import { buildPlayLocalGraphReferenceResolution } from "../reference/buildPlayLocalGraphReference";
 import {
   OF_CONKS_HEMPHOLM_RUN_ID,
   OF_CONKS_HEMPHOLM_SPINE,
+  beatById,
   sceneById,
   visibleScenesForBranch,
   type AdventureBeat,
@@ -177,7 +182,11 @@ function ChipButtons({
 /**
  * Play → Beats: Of Conks Hempholm scene deck with top beat strip and wide detail stage.
  */
-export function BeatsPanel() {
+export function BeatsPanel({
+  search = typeof window !== "undefined" ? window.location.search : null,
+}: {
+  search?: string | null;
+} = {}) {
   const spine = OF_CONKS_HEMPHOLM_SPINE;
   const runId = OF_CONKS_HEMPHOLM_RUN_ID;
   const { openGraphReference } = useAgentInteraction();
@@ -189,6 +198,7 @@ export function BeatsPanel() {
   const [hydrated, setHydrated] = useState(false);
   const saveTimer = useRef<number | null>(null);
   const latestRef = useRef(runState);
+  const focusAppliedRef = useRef(false);
   latestRef.current = runState;
 
   useEffect(() => {
@@ -231,6 +241,40 @@ export function BeatsPanel() {
       if (saveTimer.current != null) window.clearTimeout(saveTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!hydrated || focusAppliedRef.current) return;
+    const { beatId, nodeId } = playBeatsFocusFromSearch(search);
+    if (!beatId && !nodeId) {
+      focusAppliedRef.current = true;
+      return;
+    }
+    focusAppliedRef.current = true;
+
+    if (beatId) {
+      const found = beatById(spine, beatId);
+      if (found) {
+        const next = { ...latestRef.current };
+        if (found.scene.requiresAftermath) {
+          next.branch = { ...next.branch, aftermath: found.scene.requiresAftermath };
+        }
+        next.current_scene_id = found.scene.id;
+        scheduleSave(next);
+        setSelectedBeatId(found.beat.id);
+      }
+    }
+
+    if (nodeId) {
+      const resolution = buildPlayLocalGraphReferenceResolution(nodeId);
+      if (resolution) {
+        openGraphReference({
+          resolution,
+          projectionState: "ready",
+          glanceOnly: false,
+        });
+      }
+    }
+  }, [hydrated, openGraphReference, scheduleSave, search, spine]);
 
   const visibleScenes = useMemo(
     () => visibleScenesForBranch(spine, runState.branch),
