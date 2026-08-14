@@ -93,7 +93,7 @@ FIXTURE_RELPATH = (
     "eldyrwild_cutover_identity_lifecycle_through_alias_remove_v1.json"
 )
 LOCKED_FIXTURE_SHA256 = (
-    "2c3f7e80d8f4d801573949c9f543491e525a44a941f0563b90ba3b8c24b3d7df"
+    "c31e8c156b3d66f389f67dcdb92b28a4e7c4d0a6ae77e3f0604b99cf38940531"
 )
 CAPTAIN_BLOCKER_ID = "node:node:captain-lysandra-ironveil:field:aliases"
 THRIN_BLOCKER_ID = "node:node:thrin-branchborn:field:aliases"
@@ -200,28 +200,45 @@ def _alias_snapshot(store: Any) -> dict[str, list[str]]:
     }
 
 
-def _contributions_digest(store: Any) -> str:
-    raw = getattr(store, "contributions", None)
-    if raw is None:
-        payload: Any = []
-    elif hasattr(raw, "model_dump"):
-        payload = raw.model_dump(mode="json")
-    elif isinstance(raw, dict):
-        payload = {
-            key: value.model_dump(mode="json") if hasattr(value, "model_dump") else value
-            for key, value in raw.items()
-        }
-    else:
-        payload = [
-            item.model_dump(mode="json") if hasattr(item, "model_dump") else item
-            for item in raw
-        ]
-    return _sha256_bytes(
-        (
-            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, default=str)
-            + "\n"
-        ).encode("utf-8")
-    )
+def _dump_jsonable(value: Any) -> Any:
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json", by_alias=True)
+    if isinstance(value, dict):
+        return {str(key): _dump_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_dump_jsonable(item) for item in value]
+    return value
+
+
+def _contribution_history_digest(store: Any) -> str:
+    """Digest the loaded store's actual contribution-history fields.
+
+    ``UnionSupergraphStore`` has no ``contributions`` collection. Durable
+    contribution-bearing state is the source-payload map, replay manifest,
+    and initialization contribution ids/digests.
+    """
+    replay = getattr(store, "contribution_replay_manifest", None) or []
+    payload = {
+        "contribution_source_payload_sha256": dict(
+            getattr(store, "contribution_source_payload_sha256", None) or {}
+        ),
+        "contribution_replay_manifest": _dump_jsonable(list(replay)),
+        "initialization_contribution_ids": list(
+            getattr(store, "initialization_contribution_ids", None) or []
+        ),
+        "initialization_plan_digest": getattr(store, "initialization_plan_digest", None),
+        "initialization_attestation_digest": getattr(
+            store, "initialization_attestation_digest", None
+        ),
+    }
+    return _sha256_bytes(_json_bytes(payload))
+
+
+def _loaded_store_digest(store: Any) -> str:
+    """Deterministic semantic digest of the loaded UnionSupergraphStore."""
+    if not hasattr(store, "model_dump"):
+        raise _fail("loaded store is not dumpable", "store_digest_failed")
+    return _sha256_bytes(_json_bytes(store.model_dump(mode="json", by_alias=True)))
 
 
 def _pins_or_fail(report: Any) -> None:
@@ -295,7 +312,7 @@ def _historical_575(root: Path, repo: Path) -> dict[str, Any]:
     except Exception as exc:
         historical_error = f"{type(exc).__name__}:{exc}"
     return {
-        "fixture_path": str(path),
+        "fixture_path": HISTORICAL_575_FIXTURE_RELPATH,
         "fixture_present": path.is_file(),
         "fixture_sha256": digest,
         "fixture_digest_matches_locked": digest == HISTORICAL_575_FIXTURE_SHA256,
@@ -324,7 +341,8 @@ def compose_cutover_identity_lifecycle_through_alias_remove(
     source_before = snapshot_source_authority_inventory(world_root)
     identity_before = _store_identity_snapshot(store)
     aliases_before = _alias_snapshot(store)
-    contributions_before = _contributions_digest(store)
+    contributions_before = _contribution_history_digest(store)
+    loaded_store_before = _loaded_store_digest(store)
 
     legacy_classified: list[Any] = []
     legacy_v5 = whole_world_v5._analyze_loaded_buddy_world_store_v5(
@@ -521,7 +539,8 @@ def compose_cutover_identity_lifecycle_through_alias_remove(
     source_after = snapshot_source_authority_inventory(world_root)
     identity_after = _store_identity_snapshot(store)
     aliases_after = _alias_snapshot(store)
-    contributions_after = _contributions_digest(store)
+    contributions_after = _contribution_history_digest(store)
+    loaded_store_after = _loaded_store_digest(store)
     if head_after.head_revision_id != head_before.head_revision_id:
         raise _fail("canonical head changed during diagnostic", "world_graph_mutated")
     if tree_after != tree_before:
@@ -533,7 +552,9 @@ def compose_cutover_identity_lifecycle_through_alias_remove(
     if aliases_after != aliases_before:
         raise _fail("node aliases changed during diagnostic", "world_graph_mutated")
     if contributions_after != contributions_before:
-        raise _fail("contributions changed during diagnostic", "world_graph_mutated")
+        raise _fail("contribution history changed during diagnostic", "world_graph_mutated")
+    if loaded_store_after != loaded_store_before:
+        raise _fail("loaded store changed during diagnostic", "world_graph_mutated")
 
     recommendation = _next_slice_recommendation(migration_blockers)
     diagnostics = [
@@ -601,6 +622,7 @@ def compose_cutover_identity_lifecycle_through_alias_remove(
             "aliases_unchanged": True,
             "source_authority_unchanged": True,
             "contributions_unchanged": True,
+            "loaded_store_unchanged": True,
         },
         captain_thrin_package_implemented=False,
         cutover_disposition="CUTOVER_NOT_READY",

@@ -566,7 +566,7 @@
   "historical_575": {
     "error": null,
     "fixture_digest_matches_locked": true,
-    "fixture_path": "/tmp/dmb-cutover-identity-lifecycle-through-alias-remove/tests/fixtures/dungeonmind_kernel/eldyrwild_cutover_identity_lifecycle_history_after_571_v1.json",
+    "fixture_path": "tests/fixtures/dungeonmind_kernel/eldyrwild_cutover_identity_lifecycle_history_after_571_v1.json",
     "fixture_present": true,
     "fixture_sha256": "1a2cd8f9c47b223d4623fccbe1c988dd8d3eb1c8796078a32a32720f51ef000b",
     "historical_revision_id": "rev:5a7c13ae45c49a65b402920499be72ed",
@@ -615,6 +615,7 @@
     "head_after": "rev:0c644e56b45bcaac709012206e3e41c2",
     "head_before": "rev:0c644e56b45bcaac709012206e3e41c2",
     "identity_ledger_unchanged": true,
+    "loaded_store_unchanged": true,
     "payload_unchanged": true,
     "source_authority_unchanged": true,
     "tree_digest_unchanged": true

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -30,10 +31,13 @@ from apps.live_control_server.services.cutover_identity_lifecycle_through_alias_
     LOCKED_FIXTURE_SHA256,
     THRIN_BLOCKER_ID,
     WORLD_ID,
+    _contribution_history_digest,
+    _loaded_store_digest,
     _report_bytes,
     compose_cutover_identity_lifecycle_through_alias_remove,
     verify_cutover_identity_lifecycle_through_alias_remove,
 )
+from graph_memory.union_supergraph.model import UnionSupergraphStore
 from apps.live_control_server.services.cutover_whole_world_reanchor import (
     EXPECTED_CANONICAL_RELATIONSHIP_INVENTORY,
     EXPECTED_MIGRATION_RELATIONSHIP_INVENTORY,
@@ -185,6 +189,7 @@ def test_no_mutation(report: Any) -> None:
     assert report.mutation_proof["identity_ledger_unchanged"] is True
     assert report.mutation_proof["aliases_unchanged"] is True
     assert report.mutation_proof["contributions_unchanged"] is True
+    assert report.mutation_proof["loaded_store_unchanged"] is True
     assert after_head.head_revision_id == CANONICAL_REVISION_ID
     assert after_tree == before
     assert after_source == snapshot_source_authority_inventory(ROOT)
@@ -204,11 +209,84 @@ def test_historical_575_fixture_digest_and_merge_only_world(report: Any) -> None
     digest = hashlib.sha256(raw).hexdigest()
     assert digest == HISTORICAL_575_FIXTURE_SHA256
     historical = report.historical_575
+    assert historical["fixture_path"] == HISTORICAL_575_FIXTURE_RELPATH
     assert historical["fixture_digest_matches_locked"] is True
     assert historical["merge_only_proof"]["passed"] is True
     assert historical["merge_only_proof"]["candidate_count"] == 28
     assert historical["merge_only_proof"]["unresolved_count"] == 0
     assert historical["error"] is None
+
+
+def test_sealed_report_is_checkout_path_portable(report: Any) -> None:
+    fixture_path = report.historical_575["fixture_path"]
+    assert fixture_path == HISTORICAL_575_FIXTURE_RELPATH
+    assert not Path(fixture_path).is_absolute()
+    encoded = _report_bytes(report).decode()
+    assert str(REPO) not in encoded
+    assert "/tmp/" not in encoded
+
+
+def test_compose_is_byte_identical_across_repo_roots(tmp_path: Path, report: Any) -> None:
+    alias = tmp_path / "other_checkout"
+    alias.symlink_to(REPO)
+    reproduced = compose_cutover_identity_lifecycle_through_alias_remove(ROOT, alias)
+    assert _report_bytes(report) == _report_bytes(reproduced)
+    assert str(alias.resolve()) not in _report_bytes(reproduced).decode()
+    assert str(alias) not in _report_bytes(reproduced).decode()
+
+
+def _minimal_union_store(**updates: Any) -> UnionSupergraphStore:
+    payload = {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": None,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {},
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {},
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {"contribution:base": "a" * 64},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": ["contribution:base"],
+        "initialization_plan_digest": None,
+        "initialization_attestation_digest": None,
+        "adjacency": {},
+        "diagnostics": {
+            "canon_promotion": False,
+            "approved_memory_write": False,
+            "corpus_mutation": False,
+            "production_retrieval": False,
+        },
+    }
+    payload.update(updates)
+    return UnionSupergraphStore.model_validate(payload)
+
+
+def test_contribution_history_digest_detects_real_field_change() -> None:
+    store = _minimal_union_store()
+    before_contrib = _contribution_history_digest(store)
+    before_store = _loaded_store_digest(store)
+    mutated = store.model_copy(
+        update={
+            "contribution_source_payload_sha256": {
+                "contribution:base": "b" * 64,
+            }
+        }
+    )
+    assert _contribution_history_digest(mutated) != before_contrib
+    assert _loaded_store_digest(mutated) != before_store
+    unchanged_identity = store.model_copy(
+        update={"identity_decisions": list(store.identity_decisions)}
+    )
+    assert _contribution_history_digest(unchanged_identity) == before_contrib
 
 
 def test_build_verify_roundtrip_when_fixture_present(report: Any) -> None:
