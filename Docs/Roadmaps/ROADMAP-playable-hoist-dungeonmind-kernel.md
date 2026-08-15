@@ -103,7 +103,7 @@ Rules:
 
 | PR / head | Phase | Review disposition | Design consequence | Next slice after merge |
 |---|---|---|---|---|
-| `agent/play-durable-scene-beat-identity` @ implementation head | P1 | ROADMAP_REVIEW — NO DESIGN CHANGE. P1A evidence is a Play-owned semantic-Markdown identity grammar plus editor projection attrs. No second consumer needed the same invariant; Canvas already owned admission/serialization. | Keep Scene/Beat identity Play-owned. Do not hoist `WorkObjectElementRef` yet. | P1B — Playable structure index and authored Choice identity, after this PR is reviewed |
+| [#590](https://github.com/Drakosfire/DungeonMindBuddy/pull/590) `361f4fda` | P1 | ROADMAP_REVIEW — NO DESIGN CHANGE. P1A evidence is a Play-owned semantic-Markdown identity grammar plus editor projection attrs. No second consumer needed the same invariant; Canvas already owned admission/serialization. | Keep Scene/Beat identity Play-owned. Do not hoist `WorkObjectElementRef` yet. | P1B — Playable structure index and authored Choice identity, after this PR is reviewed |
 
 ---
 
