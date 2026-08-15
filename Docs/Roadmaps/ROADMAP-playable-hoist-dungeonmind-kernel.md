@@ -98,12 +98,13 @@ Rules:
 5. Changes to ownership or hoist posture are architecture changes and must remain consistent with the canonical Playable architecture and the owning lower-layer authority.
 6. A Buddy PR may identify a DungeonMind/DungeonMindDnD successor but must not silently make a cross-repository contract change.
 7. The roadmap's current phase / next-slice statement is mutable state authority and must agree with merged repository truth before the next dependent dispatch.
+8. The ledger names the **implementation/evidence head** — the code commit whose tests and behavior drove the disposition. It must not chase the later bookkeeping SHA created by writing this ledger. The formal review handback records the exact reviewed PR head, which may be newer than the evidence head.
 
 ### Roadmap review ledger
 
-| PR / head | Phase | Review disposition | Design consequence | Next slice after merge |
+| PR / evidence head | Phase | Review disposition | Design consequence | Next slice after merge |
 |---|---|---|---|---|
-| [#590](https://github.com/Drakosfire/DungeonMindBuddy/pull/590) `361f4fda` | P1 | ROADMAP_REVIEW — NO DESIGN CHANGE. P1A evidence is a Play-owned semantic-Markdown identity grammar plus editor projection attrs. No second consumer needed the same invariant; Canvas already owned admission/serialization. | Keep Scene/Beat identity Play-owned. Do not hoist `WorkObjectElementRef` yet. | P1B — Playable structure index and authored Choice identity, after this PR is reviewed |
+| [#590](https://github.com/Drakosfire/DungeonMindBuddy/pull/590) evidence `3fe4a403` | P1 | ROADMAP_REVIEW — UPDATED. First use of the living-roadmap exact-head rule showed that requiring the same-PR ledger to name the final reviewed head cannot converge: the ledger write creates a new SHA. Distinguish implementation/evidence head (this row) from the reviewed head recorded in the review handback. P1A identity remains Play-owned semantic Markdown plus editor projection attrs; no second consumer needed the same invariant. | Keep Scene/Beat identity Play-owned. Do not hoist `WorkObjectElementRef` yet. Living-roadmap rows name evidence heads, not the ledger-write SHA. | P1B — Playable structure index and authored Choice identity, after this PR is reviewed |
 
 ---
 
