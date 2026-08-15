@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from hashlib import sha256
+from pathlib import Path
 from typing import Any, Literal
 
 from dataclasses import dataclass
@@ -78,10 +79,11 @@ def _jsonable(value: Any) -> Any:
 
 
 def store_semantic_sha256(store: Any) -> str:
-    """Digest the in-memory store used for alias-package attestation.
+    """Digest the in-memory store after an integrity-attested revision load.
 
-    This is not the on-disk graph payload hash. It binds a proof to the exact
-    store object that was attested with a revision manifest.
+    This is not the on-disk graph payload hash and is not a substitute for
+    hashing canonical revision bytes. It only binds a later prove/policy call
+    to the exact store returned by the integrity loader.
     """
     encoded = _canonical_json({"store": _jsonable(store)})
     return sha256(encoded.encode("utf-8")).hexdigest()
@@ -89,11 +91,11 @@ def store_semantic_sha256(store: Any) -> str:
 
 @dataclass(frozen=True, slots=True)
 class AliasPackageRevisionBinding:
-    """Attested world/revision/payload binding for one loaded store.
+    """Integrity-attested world/revision/payload binding for one loaded store.
 
-    Pins are copied from the attested revision manifest, never from free-form
-    caller strings at prove time. The store digest must match the store later
-    passed to ``prove_alias_assertion_package_v1``.
+    Pins come from a revision loader that verified on-disk payload hash and
+    content-addressed revision identity. They are never copied from a
+    caller-supplied manifest or free-form strings at prove time.
     """
 
     world_id: str
@@ -112,24 +114,35 @@ class AliasPackageRevisionBinding:
 
 def alias_package_binding_from_attested_revision(
     *,
-    manifest: Any,
-    store: Any,
+    root: Path,
+    world_id: str,
+    revision_id: str,
     expected_world_id: str,
     expected_revision_id: str,
     expected_graph_payload_sha256: str,
+    store: Any,
 ) -> AliasPackageRevisionBinding:
-    """Derive alias-package pins from an attested revision manifest + store.
+    """Mint alias-package pins only from an integrity-verified revision load.
 
-    Refuses when the caller-supplied expected pins do not match the manifest,
-    or when any pin is blank. Does not accept free-form world/revision/payload
-    labels disconnected from a manifest.
+    Uses ``_load_exact_buddy_revision``, which verifies the on-disk graph
+    payload hash and content-addressed revision identity before returning the
+    store. A caller-supplied manifest is not attestation. The supplied
+    ``store`` must be the same store that integrity load returns for that
+    revision; ``manifest_B + store_A`` is refused.
     """
-    world_id = str(getattr(manifest, "world_id", "") or "")
-    revision_id = str(getattr(manifest, "revision_id", "") or "")
-    payload_sha = str(getattr(manifest, "graph_payload_sha256", "") or "")
-    if not world_id or not revision_id or not payload_sha:
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+        WholeWorldConformanceError,
+        _load_exact_buddy_revision,
+    )
+
+    if not isinstance(root, Path):
         raise _fail(
-            "alias-package binding requires attested world/revision/payload pins",
+            "alias-package binding requires a world-graph root for integrity load",
+            "alias_package_binding_unattested",
+        )
+    if not world_id or not revision_id:
+        raise _fail(
+            "alias-package binding requires an integrity-loaded world/revision",
             "alias_package_binding_unattested",
         )
     if not expected_world_id or not expected_revision_id or not expected_graph_payload_sha256:
@@ -137,20 +150,51 @@ def alias_package_binding_from_attested_revision(
             "alias-package binding expected pins must be nonblank",
             "alias_package_binding_unattested",
         )
-    if (
-        world_id != expected_world_id
-        or revision_id != expected_revision_id
-        or payload_sha != expected_graph_payload_sha256
-    ):
+    try:
+        manifest, loaded_store = _load_exact_buddy_revision(
+            root=root,
+            world_id=world_id,
+            revision_id=revision_id,
+        )
+    except WholeWorldConformanceError as exc:
         raise _fail(
-            "alias-package expected pins do not match attested revision manifest",
+            f"alias-package binding requires an integrity-attested revision: {exc}",
+            "alias_package_binding_unattested",
+        ) from exc
+
+    attested_world = str(getattr(manifest, "world_id", "") or "")
+    attested_revision = str(getattr(manifest, "revision_id", "") or "")
+    attested_payload = str(getattr(manifest, "graph_payload_sha256", "") or "")
+    if not attested_world or not attested_revision or not attested_payload:
+        raise _fail(
+            "alias-package binding requires attested world/revision/payload pins",
+            "alias_package_binding_unattested",
+        )
+    if attested_world != world_id or attested_revision != revision_id:
+        raise _fail(
+            "integrity-loaded revision does not match requested world/revision",
             "alias_package_binding_pin_mismatch",
         )
+    if (
+        attested_world != expected_world_id
+        or attested_revision != expected_revision_id
+        or attested_payload != expected_graph_payload_sha256
+    ):
+        raise _fail(
+            "alias-package expected pins do not match integrity-attested revision",
+            "alias_package_binding_pin_mismatch",
+        )
+    loaded_digest = store_semantic_sha256(loaded_store)
+    if store_semantic_sha256(store) != loaded_digest:
+        raise _fail(
+            "alias-package store does not belong to the integrity-attested revision",
+            "alias_package_store_revision_mismatch",
+        )
     return AliasPackageRevisionBinding(
-        world_id=world_id,
-        canonical_revision_id=revision_id,
-        canonical_graph_payload_sha256=payload_sha,
-        store_semantic_sha256=store_semantic_sha256(store),
+        world_id=attested_world,
+        canonical_revision_id=attested_revision,
+        canonical_graph_payload_sha256=attested_payload,
+        store_semantic_sha256=loaded_digest,
         _token=_ALIAS_PACKAGE_BINDING_TOKEN,
     )
 

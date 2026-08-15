@@ -477,11 +477,13 @@ def compose_cutover_alias_assertion_package_after_shadow_alias_remove(
 
     try:
         alias_binding = alias_package_binding_from_attested_revision(
-            manifest=manifest,
-            store=store,
+            root=world_root,
+            world_id=WORLD_ID,
+            revision_id=CANONICAL_REVISION_ID,
             expected_world_id=WORLD_ID,
             expected_revision_id=CANONICAL_REVISION_ID,
             expected_graph_payload_sha256=CANONICAL_GRAPH_PAYLOAD_SHA256,
+            store=store,
         )
         alias_proof = prove_alias_assertion_package_v1(
             store,

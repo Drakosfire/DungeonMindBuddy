@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import copy
 import dataclasses
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -197,13 +199,51 @@ def _binding(
     revision_id: str = "rev:test",
     payload: str = "0" * 64,
 ):
-    return alias_package_binding_from_attested_revision(
-        manifest=_manifest(world_id=world_id, revision_id=revision_id, payload=payload),
-        store=store,
-        expected_world_id=world_id,
-        expected_revision_id=revision_id,
-        expected_graph_payload_sha256=payload,
+    """In-memory reconstruction helper. This is not revision attestation."""
+    return AliasPackageRevisionBinding(
+        world_id=world_id,
+        canonical_revision_id=revision_id,
+        canonical_graph_payload_sha256=payload,
+        store_semantic_sha256=alias_pkg.store_semantic_sha256(store),
+        _token=alias_pkg._ALIAS_PACKAGE_BINDING_TOKEN,
     )
+
+
+def _publish_distinct_worlds(tmp_path: Path):
+    from graph_memory.union_supergraph.load import (
+        DEFAULT_FIXTURE_PATH,
+        load_union_supergraph_store,
+        parse_union_supergraph_store,
+    )
+    from graph_memory.world_supergraph import publish_world_graph_revision
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+        _load_exact_buddy_revision,
+    )
+
+    store_a = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+    published_a = publish_world_graph_revision(
+        tmp_path, "world-a", store_a, operation_ids=["op:a"]
+    )
+    payload = copy.deepcopy(store_a.model_dump(mode="json", by_alias=True))
+    first_node_id = next(iter(payload["nodes"]))
+    payload["nodes"][first_node_id]["label"] = (
+        str(payload["nodes"][first_node_id]["label"]) + " B"
+    )
+    store_b = parse_union_supergraph_store(payload)
+    published_b = publish_world_graph_revision(
+        tmp_path, "world-b", store_b, operation_ids=["op:b"]
+    )
+    manifest_a, loaded_a = _load_exact_buddy_revision(
+        root=tmp_path,
+        world_id="world-a",
+        revision_id=published_a.revision.revision_id,
+    )
+    manifest_b, loaded_b = _load_exact_buddy_revision(
+        root=tmp_path,
+        world_id="world-b",
+        revision_id=published_b.revision.revision_id,
+    )
+    return manifest_a, loaded_a, manifest_b, loaded_b
 
 
 def _prove(store: SimpleNamespace, contributions: dict[str, GraphContribution], **kwargs):
@@ -920,18 +960,60 @@ def test_prove_store_a_with_store_b_pins_is_refused() -> None:
     assert exc.value.code == "alias_package_store_binding_mismatch"
 
 
-def test_expected_pins_for_store_b_on_store_a_manifest_are_refused() -> None:
-    node, assertion = _explicit_alias_fixture()
-    store, _contributions = _store(nodes={node.node_id: node}, assertions=[assertion])
+def test_expected_pins_for_store_b_on_store_a_revision_are_refused(
+    tmp_path: Path,
+) -> None:
+    manifest_a, loaded_a, manifest_b, _loaded_b = _publish_distinct_worlds(tmp_path)
     with pytest.raises(AliasAssertionPackageConformanceError) as exc:
         alias_package_binding_from_attested_revision(
-            manifest=_manifest(),
-            store=store,
-            expected_world_id="world-B",
-            expected_revision_id="rev:B",
-            expected_graph_payload_sha256="b" * 64,
+            root=tmp_path,
+            world_id=manifest_a.world_id,
+            revision_id=manifest_a.revision_id,
+            expected_world_id=manifest_b.world_id,
+            expected_revision_id=manifest_b.revision_id,
+            expected_graph_payload_sha256=manifest_b.graph_payload_sha256,
+            store=loaded_a,
         )
     assert exc.value.code == "alias_package_binding_pin_mismatch"
+
+
+def test_manifest_b_plus_store_a_expected_b_is_refused_at_binding_creation(
+    tmp_path: Path,
+) -> None:
+    manifest_a, loaded_a, manifest_b, loaded_b = _publish_distinct_worlds(tmp_path)
+    with pytest.raises(TypeError):
+        alias_package_binding_from_attested_revision(
+            manifest=manifest_b,
+            store=loaded_a,
+            expected_world_id=manifest_b.world_id,
+            expected_revision_id=manifest_b.revision_id,
+            expected_graph_payload_sha256=manifest_b.graph_payload_sha256,
+        )
+    with pytest.raises(AliasAssertionPackageConformanceError) as exc:
+        alias_package_binding_from_attested_revision(
+            root=tmp_path,
+            world_id=manifest_b.world_id,
+            revision_id=manifest_b.revision_id,
+            expected_world_id=manifest_b.world_id,
+            expected_revision_id=manifest_b.revision_id,
+            expected_graph_payload_sha256=manifest_b.graph_payload_sha256,
+            store=loaded_a,
+        )
+    assert exc.value.code == "alias_package_store_revision_mismatch"
+    binding_b = alias_package_binding_from_attested_revision(
+        root=tmp_path,
+        world_id=manifest_b.world_id,
+        revision_id=manifest_b.revision_id,
+        expected_world_id=manifest_b.world_id,
+        expected_revision_id=manifest_b.revision_id,
+        expected_graph_payload_sha256=manifest_b.graph_payload_sha256,
+        store=loaded_b,
+    )
+    assert binding_b.world_id == manifest_b.world_id
+    assert binding_b.canonical_revision_id == manifest_b.revision_id
+    assert binding_b.canonical_graph_payload_sha256 == manifest_b.graph_payload_sha256
+    assert binding_b.store_semantic_sha256 == alias_pkg.store_semantic_sha256(loaded_b)
+    assert binding_b.store_semantic_sha256 != alias_pkg.store_semantic_sha256(loaded_a)
 
 
 def test_policy_factory_refuses_mismatched_binding() -> None:
