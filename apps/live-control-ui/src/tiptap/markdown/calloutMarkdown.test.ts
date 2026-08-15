@@ -308,9 +308,12 @@ describe("Tiptap rich text Markdown export", () => {
     );
 
     const invalid = {
-      type: "heading",
-      attrs: { level: 2, playableElementKind: "scene", playableElementId: "Arrival" },
-      content: [{ type: "text", text: "Arrival" }],
+      type: "doc",
+      content: [{
+        type: "heading",
+        attrs: { level: 2, playableElementKind: "scene", playableElementId: "Arrival" },
+        content: [{ type: "text", text: "Arrival" }],
+      }],
     };
     expect(() => tiptapJsonToSemanticMarkdown(invalid)).toThrow(PlayableIdentitySerializationError);
     expect(semanticMarkdownSerializationDiagnostics(invalid)).toEqual(
@@ -367,5 +370,86 @@ describe("Tiptap rich text Markdown export", () => {
       ]),
     );
     expect(() => tiptapJsonToSemanticMarkdown(nonIntegerLevelBeat)).toThrow(PlayableIdentitySerializationError);
+  });
+
+  it("fails closed when playable identity is nested inside a callout or Decision/Consequence pane", () => {
+    const nestedInCallout = {
+      type: "doc",
+      content: [
+        {
+          type: "callout",
+          attrs: { kind: "gm-note" },
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+              content: [{ type: "text", text: "Arrival" }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(nestedInCallout)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Playable identity is only serializable on a document-root heading.",
+        }),
+      ]),
+    );
+    expect(() => tiptapJsonToSemanticMarkdown(nestedInCallout)).toThrow(PlayableIdentitySerializationError);
+
+    const nestedInDecisionPane = {
+      type: "doc",
+      content: [
+        {
+          type: "decisionConsequence",
+          content: [
+            {
+              type: "decisionPane",
+              content: [
+                {
+                  type: "heading",
+                  attrs: { level: 3, playableElementKind: "beat", playableElementId: "beat:gate-opens" },
+                  content: [{ type: "text", text: "Gate opens" }],
+                },
+              ],
+            },
+            {
+              type: "consequencePane",
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Later" }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(nestedInDecisionPane)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Playable identity is only serializable on a document-root heading.",
+        }),
+      ]),
+    );
+    expect(() => tiptapJsonToSemanticMarkdown(nestedInDecisionPane)).toThrow(PlayableIdentitySerializationError);
+  });
+
+  it("still serializes an unmarked heading inside a callout", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "doc",
+        content: [
+          {
+            type: "callout",
+            attrs: { kind: "gm-note" },
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 2 },
+                content: [{ type: "text", text: "Arrival" }],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe("> [!GM-NOTE]\n> ## Arrival\n");
   });
 });

@@ -224,6 +224,27 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     ]));
   });
 
+  it("rejects playable identity nested inside a callout", () => {
+    expect(semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{
+        type: "callout",
+        attrs: { kind: "gm-note" },
+        content: [{
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "Arrival" }],
+        }],
+      }],
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        nodeType: "heading",
+        message: "Playable identity is only serializable on a document-root heading.",
+      }),
+    ]));
+  });
+
   it("rejects marks that are not mounted by the editor schema", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",

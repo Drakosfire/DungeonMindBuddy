@@ -275,6 +275,7 @@ For already-marked semantic headings, the extension is also the editor-time inte
 | Duplicate ID in source | n/a | blocking diagnostic; second occurrence does not become another semantic element with same ID | Yes | document-level admission ledger |
 | Duplicate ID introduced by user copy/paste | n/a | original retains its ID; newly duplicated marked heading is re-keyed before durable serialization. Proof is the ProseMirror clipboard HTML serialize/parse path, not JSON `insertContentAt`. | Yes | editor integrity extension + clipboard HTML attrs |
 | Invalid/duplicate semantic attrs injected outside normal editor transactions | n/a | serialization throws a typed failure; it must never emit invalid/duplicate canonical markers or silently drop identity | Yes | serializer backstop |
+| Nested playable heading inside callout or Decision/Consequence pane | n/a | serialization diagnostics block Save and serializer throws; nested markers are not added to the durable grammar | Yes | serializer backstop |
 
 ### Adversarial sequences
 
@@ -288,6 +289,7 @@ For already-marked semantic headings, the extension is also the editor-time inte
 | raw `<div>` HTML beside valid marker | Valid marker is admitted; unrelated HTML still warns/seals | Raw HTML regression |
 | duplicate marked heading created through clipboard HTML serialize/parse | original keeps ID; duplicate gets a fresh same-kind ID before export | Editor clipboard integrity test |
 | invalid/duplicate attrs manufactured directly in TipTap JSON → export | Export throws `PlayableIdentitySerializationError`; no marker body is produced | Serializer integrity test |
+| canonical playable heading nested in callout or Decision/Consequence pane → export | Export throws; Save blocked; nested marker is not written | Nested identity serializer/Save test |
 | unmarked existing runbook opened | No automatic IDs; document content remains unchanged | Backward-compat fixture |
 
 ---
@@ -441,6 +443,7 @@ The important proof is that the semantic Markdown body written at that existing 
 | Duplicate JSON attrs cannot be emitted durably | serializer/editor boundary | integrity | manufactured JSON fixture | typed `PlayableIdentitySerializationError`; no duplicate/lossy marker body | duplicate or stripped body can be committed |
 | Missing/non-integer Beat level cannot be committed | serializer diagnostics + workspace Save | adversarial | manufactured Beat attrs without integer level | diagnostics block Save; serializer throws; no `kind=beat` + `##` body | Save writes mismatched marker that reload then drops |
 | Clipboard duplication re-keys identity | editor clipboard HTML path | integrity | `serializeForClipboard` → schema parse → insert | original ID retained; pasted heading has a new same-kind ID | JSON `insertContentAt` used as a stand-in for clipboard |
+| Nested playable heading cannot be committed | serializer diagnostics + workspace Save | adversarial | manufactured Scene/Beat attrs inside callout or Decision/Consequence pane | diagnostics block Save; serializer throws; no nested marker body | Save writes nested `kind=` marker that reload then drops as raw HTML |
 | Ordinary raw HTML behavior unchanged | Markdown admission | regression | existing + focused test | still unsupported/warning | P1A broadly enables HTML |
 | Unmarked Markdown round-trip unchanged | parser+serializer | regression | representative Build/Plan/runbook fixture | no added markers/attrs | P1A auto-tags headings |
 | Shared editor accepts optional attrs without changing normal heading render/edit | Editor extension | regression | component/unit test | ordinary headings remain normal; marked attrs survive hydration/update | extension changes surface-specific behavior |
@@ -452,12 +455,13 @@ Run from repository root unless the repo's current package-manager wrapper requi
 
 ```bash
 cd apps/live-control-ui
-pnpm test -- markdownToTiptap.test.ts
-pnpm test -- calloutMarkdown.test.ts
-pnpm test -- semanticMarkdownSafety.test.ts
-pnpm test -- MarkdownEditorCore.test.tsx
-pnpm test -- tiptapLocalState.test.ts
-pnpm test -- useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx
+pnpm exec vitest run \
+  src/tiptap/markdown/markdownToTiptap.test.ts \
+  src/tiptap/markdown/calloutMarkdown.test.ts \
+  src/tiptap/markdown/semanticMarkdownSafety.test.ts \
+  src/tiptap/MarkdownEditorCore.test.tsx \
+  src/tiptap/state/tiptapLocalState.test.ts \
+  src/workspaceDocument/useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx
 pnpm typecheck
 pnpm build
 cd ../..
@@ -549,6 +553,14 @@ Reviewed head `aa123be48eab12694b37090cc088d4f47d3538f6` received **REQUEST CHAN
 | F3 | Copy/paste proof used JSON `insertContentAt`, not clipboard | Heading attrs now serialize/parse as `data-dmb-playable-*`. Test uses `serializeForClipboard` → schema parse → insert, then asserts re-key. |
 | F4 | Living-roadmap exact-head rule was self-referential | Disposition is `ROADMAP_REVIEW — UPDATED`. Ledger names **implementation/evidence head**; review handback names the reviewed PR head. |
 
+### Review Cycle 2 response — 2026-08-15
+
+Reviewed head `8ad55259590890844afc7edab20f75fe951be786` received **REQUEST CHANGES** (GitHub review `4944911565`, COMMENT transport).
+
+| ID | Finding | Resolution |
+|---|---|---|
+| C2-F1 | Serializer emitted playable markers on headings nested in callouts / Decision-Consequence panes; reload then dropped identity as unsupported HTML | `playableSerializationFailures()` now requires `parentType === "doc"`. Nested playable attrs are a typed serialization failure. Save is blocked. Nested durable grammar is not added. |
+
 ---
 
 ## §9 Acceptance rubric
@@ -560,7 +572,7 @@ Reviewed head `aa123be48eab12694b37090cc088d4f47d3538f6` received **REQUEST CHAN
 - [ ] Unmarked headings do not receive invented identity.
 - [ ] Malformed, orphaned, level-mismatched, and duplicate markers fail closed.
 - [ ] Duplicate semantic IDs cannot be emitted from editor JSON into durable Markdown; unsafe identity throws rather than stripping.
-- [ ] Clipboard HTML serialize/parse of a marked heading re-keys the duplicate and keeps the original ID.
+- [ ] Nested playable headings inside callouts or Decision/Consequence panes cannot serialize or Save; the durable grammar stays root-level.
 - [ ] Ordinary raw HTML remains unsupported; P1A does not widen HTML admission generally.
 - [ ] Existing Build/Plan/unmarked Markdown behavior remains compatible.
 - [ ] No backend/store/schema migration is introduced.

@@ -1168,4 +1168,19 @@ describe("P1A durable Scene/Beat identity", () => {
     expect(imported.diagnostics).toEqual([]);
     expect(tiptapJsonToSemanticMarkdown(imported.doc)).not.toContain("dmb-playable-element");
   });
+
+  it("does not admit nested playable markers inside a callout as identity", () => {
+    const imported = markdownToTiptapDoc([
+      "> [!GM-NOTE]",
+      "> <!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+      "> ## Arrival",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringMatching(/Raw HTML/),
+      }),
+    ]));
+    expect(JSON.stringify(imported.doc)).not.toContain("playableElementId");
+  });
 });

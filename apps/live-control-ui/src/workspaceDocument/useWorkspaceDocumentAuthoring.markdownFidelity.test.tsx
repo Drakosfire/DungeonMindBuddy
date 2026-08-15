@@ -270,6 +270,43 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     expect(result.current.error).toContain("heading level");
   });
 
+  it("blocks durable save when playable identity is nested inside a callout", async () => {
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot("# Safe source\n"));
+
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+
+    const nestedPlayable = editorWithJson({
+      type: "doc",
+      content: [{
+        type: "callout",
+        attrs: { kind: "gm-note" },
+        content: [{
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "Arrival" }],
+        }],
+      }],
+    });
+    act(() => {
+      result.current.setEditor(nestedPlayable);
+      result.current.markDirty();
+    });
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("save_error");
+    expect(result.current.error).toContain("cannot be represented safely as Markdown");
+    expect(result.current.error).toContain("document-root heading");
+  });
+
   it("does not persist lossy exported_markdown when editing unsafe source", async () => {
     const unsafeSource = "# Source\n\n```json\n{\"hp\": 95}\n```\n";
     vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(unsafeSource));

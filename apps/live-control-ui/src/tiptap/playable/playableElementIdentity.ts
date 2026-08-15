@@ -28,6 +28,7 @@ export const PLAYABLE_ELEMENT_DIAGNOSTIC = {
   duplicate: "Duplicate playable element id; identity was not attached.",
   invalidAttrs: "Playable heading attributes are invalid; identity cannot be serialized.",
   duplicateAttrs: "Duplicate playable element id in editor JSON; identity cannot be serialized.",
+  nested: "Playable identity is only serializable on a document-root heading.",
 } as const;
 
 export class PlayableIdentitySerializationError extends Error {
@@ -140,20 +141,30 @@ export function duplicatePlayableIds(identities: Iterable<PlayableElementIdentit
   return duplicates;
 }
 
-export function walkJsonNodes(node: unknown, visit: (node: JsonHeadingNode) => void): void {
+export function walkJsonNodes(
+  node: unknown,
+  visit: (node: JsonHeadingNode, parentType: string | null) => void,
+  parentType: string | null = null,
+): void {
   if (node === null || typeof node !== "object") return;
   const candidate = node as JsonHeadingNode;
-  visit(candidate);
+  visit(candidate, parentType);
   if (!Array.isArray(candidate.content)) return;
-  for (const child of candidate.content) walkJsonNodes(child, visit);
+  const type = typeof candidate.type === "string" ? candidate.type : null;
+  for (const child of candidate.content) walkJsonNodes(child, visit, type);
 }
 
 export function playableSerializationFailures(document: unknown): string[] {
   const identities: PlayableElementIdentity[] = [];
   const failures: string[] = [];
-  walkJsonNodes(document, (node) => {
+  walkJsonNodes(document, (node, parentType) => {
     if (node.type !== "heading") return;
     const validated = validatePlayableHeadingAttrs(node.attrs);
+    if (validated.status === "absent") return;
+    if (parentType !== "doc") {
+      failures.push(PLAYABLE_ELEMENT_DIAGNOSTIC.nested);
+      return;
+    }
     if (validated.status === "invalid") failures.push(validated.reason);
     if (validated.status === "canonical") identities.push(validated.identity);
   });
