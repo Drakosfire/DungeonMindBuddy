@@ -1,0 +1,239 @@
+{
+ "canonical_graph_payload_sha256": "0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2",
+ "canonical_payload_sha256": "d71453926b0475ca686b9c94452688d5a6b285afab304c35d48035c252240207",
+ "canonical_revision_id": "rev:0c644e56b45bcaac709012206e3e41c2",
+ "decomposition_rows": [
+  {
+   "aspect_key": "organization",
+   "deferred_edge_ids": [
+    "edge:node:headmaster_tinkerbright:leads:loc:wizard_college"
+   ],
+   "kind_only_insufficient": true,
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:loc:wizard_college",
+   "projected_dm_kind": "dnd5e:faction",
+   "retained_edge_ids": [
+    "edge:node:thalia:travels_to:loc:wizard_college",
+    "edge:node:torbin:travels_to:loc:wizard_college"
+   ],
+   "source_node_id": "loc:wizard_college",
+   "stop_note": "Changing the source to faction admits the headmaster's leads edge, but makes both retained travels_to edges residual because they require a location target. The source therefore has conflicting kind requirements; Stage B must stop.",
+   "stored_buddy_kind": "location"
+  },
+  {
+   "aspect_key": "event",
+   "deferred_edge_ids": [
+    "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+    "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry"
+   ],
+   "kind_only_insufficient": true,
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:node:hempholm_folk_revelry",
+   "projected_dm_kind": "dnd5e:event",
+   "retained_edge_ids": [
+    "edge:node:hempholm_folk_revelry:within:loc:hempholm"
+   ],
+   "source_node_id": "node:hempholm_folk_revelry",
+   "stop_note": "Changing the source to event admits both participates_in edges, but makes its retained within-to-located_in edge residual because the source must remain a location-compatible group. Stage B must stop.",
+   "stored_buddy_kind": "group"
+  },
+  {
+   "aspect_key": "site",
+   "deferred_edge_ids": [
+    "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+    "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9"
+   ],
+   "kind_only_insufficient": true,
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:node:meat_distribution_network_session9",
+   "projected_dm_kind": "dnd5e:location",
+   "retained_edge_ids": [
+    "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+    "edge:node:lyra:leads:node:meat_distribution_network_session9"
+   ],
+   "source_node_id": "node:meat_distribution_network_session9",
+   "stop_note": "Changing the source to location admits both containment edges, but makes the retained leads edges residual because leads requires a party/group/faction target. The source therefore has conflicting kind requirements; Stage B must stop.",
+   "stored_buddy_kind": "party"
+  }
+ ],
+ "dungeonmind_dependency_ref": "be76acc997c5fbcb8ceaa090969ec051afa6051d",
+ "dungeonmind_target_id": "current_v5",
+ "endpoint_assignments": [
+  {
+   "aspect_ref": {
+    "aspect_key": "site",
+    "projected_dm_kind": "dnd5e:location",
+    "source_node_id": "node:meat_distribution_network_session9"
+   },
+   "assigned_endpoint": "target",
+   "buddy_predicate": "located_in",
+   "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:node:meat_distribution_network_session9",
+   "rationale": "Label 'site of' inverts containment and types the project as party; authored structure is wrong for located_in.",
+   "source_node_id": "loc:central-office",
+   "target_node_id": "node:meat_distribution_network_session9"
+  },
+  {
+   "aspect_ref": {
+    "aspect_key": "site",
+    "projected_dm_kind": "dnd5e:location",
+    "source_node_id": "node:meat_distribution_network_session9"
+   },
+   "assigned_endpoint": "target",
+   "buddy_predicate": "part_of",
+   "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:node:meat_distribution_network_session9",
+   "rationale": "Packing area belongs to a logistics site/network mistyped as party; correct kinds before any part_of endpoint work.",
+   "source_node_id": "loc:packing-loading-area",
+   "target_node_id": "node:meat_distribution_network_session9"
+  },
+  {
+   "aspect_ref": {
+    "aspect_key": "organization",
+    "projected_dm_kind": "dnd5e:faction",
+    "source_node_id": "loc:wizard_college"
+   },
+   "assigned_endpoint": "target",
+   "buddy_predicate": "leads",
+   "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:loc:wizard_college",
+   "rationale": "Head of the Wizard's College is organizational leadership; college is mistyped as location. Extending leads to locations would confuse path/escort senses.",
+   "source_node_id": "node:headmaster_tinkerbright",
+   "target_node_id": "loc:wizard_college"
+  },
+  {
+   "aspect_ref": {
+    "aspect_key": "event",
+    "projected_dm_kind": "dnd5e:event",
+    "source_node_id": "node:hempholm_folk_revelry"
+   },
+   "assigned_endpoint": "target",
+   "buddy_predicate": "participates_in",
+   "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:node:hempholm_folk_revelry",
+   "rationale": "Townsfolk gather for revelry; revelry is mistyped as group rather than event/encounter required by participates_in.",
+   "source_node_id": "node:hempholm_townsfolk",
+   "target_node_id": "node:hempholm_folk_revelry"
+  },
+  {
+   "aspect_ref": {
+    "aspect_key": "event",
+    "projected_dm_kind": "dnd5e:event",
+    "source_node_id": "node:hempholm_folk_revelry"
+   },
+   "assigned_endpoint": "target",
+   "buddy_predicate": "participates_in",
+   "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+   "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+   "predecessor_stop_authority_ref": "eldyrwild-relationship-node-kind-source-repair-v1:node:hempholm_folk_revelry",
+   "rationale": "Caelynn joins festivities; revelry mistyped as group instead of event.",
+   "source_node_id": "pc:caelynn",
+   "target_node_id": "node:hempholm_folk_revelry"
+  }
+ ],
+ "package_id": "relationship-dual-sense-decomposition-v1",
+ "package_projection": {
+  "assigned_admissions": [
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:located_in",
+    "edge_id": "edge:loc:central-office:located_in:node:meat_distribution_network_session9:site-of",
+    "note": "located_in→dnd5e:located_in endpoint kinds dnd5e:location/dnd5e:location admitted",
+    "source_dm_kind": "dnd5e:location",
+    "target_dm_kind": "dnd5e:location"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:part_of",
+    "edge_id": "edge:loc:packing-loading-area:part_of:node:meat_distribution_network_session9",
+    "note": "part_of→dnd5e:part_of endpoint kinds dnd5e:location/dnd5e:location admitted",
+    "source_dm_kind": "dnd5e:location",
+    "target_dm_kind": "dnd5e:location"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:leads",
+    "edge_id": "edge:node:headmaster_tinkerbright:leads:loc:wizard_college",
+    "note": "leads→dnd5e:leads endpoint kinds dnd5e:npc/dnd5e:faction admitted",
+    "source_dm_kind": "dnd5e:npc",
+    "target_dm_kind": "dnd5e:faction"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:participates_in",
+    "edge_id": "edge:node:hempholm_townsfolk:participates_in:node:hempholm_folk_revelry",
+    "note": "participates_in→dnd5e:participates_in endpoint kinds dnd5e:group/dnd5e:event admitted",
+    "source_dm_kind": "dnd5e:group",
+    "target_dm_kind": "dnd5e:event"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:participates_in",
+    "edge_id": "edge:pc:caelynn:participates_in:node:hempholm_folk_revelry",
+    "note": "participates_in→dnd5e:participates_in endpoint kinds dnd5e:player_character/dnd5e:event admitted",
+    "source_dm_kind": "dnd5e:player_character",
+    "target_dm_kind": "dnd5e:event"
+   }
+  ],
+  "dungeonmind_dependency_ref": "be76acc997c5fbcb8ceaa090969ec051afa6051d",
+  "dungeonmind_target_id": "current_v5",
+  "extra_package_edge_assignments": [],
+  "passed": true,
+  "retained_admissions": [
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:leads",
+    "edge_id": "edge:node:captain_blart:leads:node:meat_distribution_network_session9:coordinates",
+    "note": "leads→dnd5e:leads endpoint kinds dnd5e:npc/dnd5e:party admitted",
+    "source_dm_kind": "dnd5e:npc",
+    "target_dm_kind": "dnd5e:party"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:located_in",
+    "edge_id": "edge:node:hempholm_folk_revelry:within:loc:hempholm",
+    "note": "within→dnd5e:located_in endpoint kinds dnd5e:group/dnd5e:location admitted",
+    "source_dm_kind": "dnd5e:group",
+    "target_dm_kind": "dnd5e:location"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:leads",
+    "edge_id": "edge:node:lyra:leads:node:meat_distribution_network_session9",
+    "note": "leads→dnd5e:leads endpoint kinds dnd5e:npc/dnd5e:party admitted",
+    "source_dm_kind": "dnd5e:npc",
+    "target_dm_kind": "dnd5e:party"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:travels_to",
+    "edge_id": "edge:node:thalia:travels_to:loc:wizard_college",
+    "note": "travels_to→dnd5e:travels_to endpoint kinds dnd5e:npc/dnd5e:location admitted",
+    "source_dm_kind": "dnd5e:npc",
+    "target_dm_kind": "dnd5e:location"
+   },
+   {
+    "admitted": true,
+    "dm_predicate": "dnd5e:travels_to",
+    "edge_id": "edge:node:torbin:travels_to:loc:wizard_college",
+    "note": "travels_to→dnd5e:travels_to endpoint kinds dnd5e:npc/dnd5e:location admitted",
+    "source_dm_kind": "dnd5e:npc",
+    "target_dm_kind": "dnd5e:location"
+   }
+  ],
+  "retained_regressions": [],
+  "schema": "dmb_relationship_dual_sense_decomposition_v1_package_projection",
+  "uncovered_current_residual_edge_ids": [],
+  "world_object_revision_label": "world-object-v5"
+ },
+ "predecessor_repair_id": "eldyrwild-relationship-node-kind-source-repair-v1",
+ "predecessor_repair_manifest_sha256": "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247",
+ "schema": "dmb_relationship_dual_sense_decomposition_v1",
+ "store_semantic_sha256": "3f23697428377deca1bf2a18d87a516547ebe439e19b47d5d2cacce654c3037a",
+ "world_id": "eldyrwild",
+ "world_object_revision_label": "world-object-v5"
+}
