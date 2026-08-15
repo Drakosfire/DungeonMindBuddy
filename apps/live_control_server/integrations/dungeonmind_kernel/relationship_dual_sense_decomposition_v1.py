@@ -473,8 +473,27 @@ class DualSenseDecompositionProofV1(BaseModel):
     diagnostics: list[str] = Field(default_factory=list)
 
 
+def _require_binding(binding: Any) -> DecompositionRevisionBinding:
+    if not isinstance(binding, DecompositionRevisionBinding):
+        raise _fail(
+            "decomposition binding is not a privately minted DecompositionRevisionBinding",
+            "decomposition_binding_unattested",
+        )
+    return binding
+
+
+def _require_predecessor(predecessor: Any) -> VerifiedPredecessorAuthority:
+    if not isinstance(predecessor, VerifiedPredecessorAuthority):
+        raise _fail(
+            "predecessor is not a privately minted VerifiedPredecessorAuthority",
+            "predecessor_authority_unattested",
+        )
+    return predecessor
+
+
 def _require_binding_store(store: Any, binding: DecompositionRevisionBinding) -> None:
-    if store_semantic_sha256(store) != binding.store_semantic_sha256:
+    attested = _require_binding(binding)
+    if store_semantic_sha256(store) != attested.store_semantic_sha256:
         raise _fail(
             "prove store does not match integrity-attested decomposition binding",
             "decomposition_store_revision_mismatch",
@@ -602,6 +621,7 @@ def derive_dual_sense_decomposition_package_v1(
     target: WholeWorldTargetContract,
 ) -> DualSenseDecompositionPackageV1:
     _require_binding_store(store, binding)
+    predecessor = _require_predecessor(predecessor)
     if predecessor.world_id != binding.world_id:
         raise _fail(
             "predecessor world_id does not match attested revision binding",
@@ -745,6 +765,7 @@ def evaluate_package_projection_v1(
     target: WholeWorldTargetContract,
 ) -> PackageProjectionV1:
     """Validate assigned edges under projected aspects and retained stored senses."""
+    binding = _require_binding(binding)
     if (
         binding.world_id != package.world_id
         or binding.canonical_revision_id != package.canonical_revision_id
@@ -947,6 +968,8 @@ def prove_relationship_dual_sense_decomposition_v1(
     current_residual_edge_ids: set[str] | frozenset[str],
     target: WholeWorldTargetContract,
 ) -> DualSenseDecompositionProofV1:
+    _require_binding(binding)
+    _require_predecessor(predecessor)
     package = derive_dual_sense_decomposition_package_v1(
         store,
         binding=binding,

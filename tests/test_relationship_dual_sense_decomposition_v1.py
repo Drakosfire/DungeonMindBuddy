@@ -216,6 +216,46 @@ def test_public_predecessor_constructor_rejects_caller_stop_rows() -> None:
         )
 
 
+def test_duck_typed_binding_is_refused_at_proof_and_projection() -> None:
+    store = _store()
+    real = _binding(store)
+    fake_binding = SimpleNamespace(
+        world_id=real.world_id,
+        canonical_revision_id=real.canonical_revision_id,
+        canonical_graph_payload_sha256=real.canonical_graph_payload_sha256,
+        store_semantic_sha256=real.store_semantic_sha256,
+    )
+    with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
+        _prove(store, binding=fake_binding)
+    assert exc.value.code == "decomposition_binding_unattested"
+    package = _prove(store).package
+    with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
+        evaluate_package_projection_v1(
+            store,
+            package=package,
+            binding=fake_binding,
+            current_residual_edge_ids=set(DEFERRED),
+            target=CURRENT_V5_TARGET,
+        )
+    assert exc.value.code == "decomposition_binding_unattested"
+
+
+def test_duck_typed_predecessor_is_refused_at_proof() -> None:
+    store = _store()
+    real = _predecessor()
+    fake_predecessor = SimpleNamespace(
+        world_id=real.world_id,
+        schema=real.schema,
+        repair_id="fake",
+        manifest_sha256="fake",
+        remaining_residual_edge_ids=real.remaining_residual_edge_ids,
+        stops=real.stops,
+    )
+    with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
+        _prove(store, predecessor=fake_predecessor)
+    assert exc.value.code == "predecessor_authority_unattested"
+
+
 def test_fake_manifest_plus_own_digest_is_refused() -> None:
     raw = _predecessor_bytes()
     digest = decomp.sha256_bytes(raw)
