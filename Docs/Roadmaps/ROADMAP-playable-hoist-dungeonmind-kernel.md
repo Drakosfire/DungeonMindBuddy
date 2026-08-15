@@ -103,7 +103,7 @@ Rules:
 
 | PR / head | Phase | Review disposition | Design consequence | Next slice after merge |
 |---|---|---|---|---|
-| P1A pending | P1 | Not yet reviewed | First implementation slice will establish the durable Scene/Beat identity grammar and decide whether it remains Play-owned or warrants a neutral Buddy `WorkObjectElementRef` successor. | P1B / P2 only after review evidence |
+| `agent/play-durable-scene-beat-identity` @ implementation head | P1 | ROADMAP_REVIEW — NO DESIGN CHANGE. P1A evidence is a Play-owned semantic-Markdown identity grammar plus editor projection attrs. No second consumer needed the same invariant; Canvas already owned admission/serialization. | Keep Scene/Beat identity Play-owned. Do not hoist `WorkObjectElementRef` yet. | P1B — Playable structure index and authored Choice identity, after this PR is reviewed |
 
 ---
 

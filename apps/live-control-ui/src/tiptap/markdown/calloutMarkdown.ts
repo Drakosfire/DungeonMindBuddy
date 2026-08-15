@@ -2,6 +2,11 @@ import {
   normalizeRunbookReferenceAttrs,
   runbookReferenceHref,
 } from "../references/runbookReferences";
+import {
+  formatPlayableElementMarker,
+  playableSerializationFailures,
+  validatePlayableHeadingAttrs,
+} from "../playable/playableElementIdentity";
 
 export const CALLOUT_KINDS = ["read-aloud", "gm-note", "rules", "warning"] as const;
 
@@ -281,7 +286,10 @@ function serializeNode(node: JsonNode): string {
     case "heading": {
       const requestedLevel = Number(node.attrs?.level);
       const level = Number.isInteger(requestedLevel) ? Math.min(6, Math.max(1, requestedLevel)) : 2;
-      return `${"#".repeat(level)} ${childNodes(node).map(inlineMarkdown).join("")}`;
+      const headingLine = `${"#".repeat(level)} ${childNodes(node).map(inlineMarkdown).join("")}`;
+      const playable = validatePlayableHeadingAttrs(node.attrs);
+      if (playable.status !== "canonical") return headingLine;
+      return `${formatPlayableElementMarker(playable.identity)}\n${headingLine}`;
     }
     case "horizontalRule":
       return "---";
@@ -319,5 +327,46 @@ function serializeNode(node: JsonNode): string {
 export function tiptapJsonToSemanticMarkdown(doc: unknown): string {
   const node = asNode(doc);
   if (!node) return "";
-  return `${serializeNode(node).trim()}\n`;
+  const duplicateIds = duplicateIdsInDocument(doc);
+  const safeRoot = duplicateIds.size > 0 || playableSerializationFailures(doc).length > 0
+    ? stripUnsafePlayableHeadingAttrs(node, duplicateIds)
+    : node;
+  return `${serializeNode(safeRoot).trim()}\n`;
+}
+
+function duplicateIdsInDocument(doc: unknown): Set<string> {
+  const ids: string[] = [];
+  const walk = (value: unknown): void => {
+    const current = asNode(value);
+    if (!current) return;
+    if (current.type === "heading") {
+      const playable = validatePlayableHeadingAttrs(current.attrs);
+      if (playable.status === "canonical") ids.push(playable.identity.id);
+    }
+    childNodes(current).forEach(walk);
+  };
+  walk(doc);
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) duplicates.add(id);
+    else seen.add(id);
+  }
+  return duplicates;
+}
+
+function stripUnsafePlayableHeadingAttrs(node: JsonNode, duplicateIds: Set<string>): JsonNode {
+  const attrs = node.attrs ? { ...node.attrs } : undefined;
+  if (node.type === "heading" && attrs) {
+    const playable = validatePlayableHeadingAttrs(attrs);
+    if (playable.status !== "canonical" || duplicateIds.has(playable.identity.id)) {
+      delete attrs.playableElementKind;
+      delete attrs.playableElementId;
+    }
+  }
+  return {
+    ...node,
+    ...(attrs ? { attrs } : {}),
+    content: childNodes(node).map((child) => stripUnsafePlayableHeadingAttrs(child, duplicateIds)),
+  };
 }

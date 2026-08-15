@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
+import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
 
 describe("Tiptap rich text Markdown export", () => {
   it.each([
@@ -248,6 +249,71 @@ describe("Tiptap rich text Markdown export", () => {
         "Do not open",
         "",
       ].join("\n"),
+    );
+  });
+
+  it("serializes canonical playable heading attrs as the exact marker grammar", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+            content: [{ type: "text", text: "Arrival" }],
+          },
+          {
+            type: "heading",
+            attrs: { level: 3, playableElementKind: "beat", playableElementId: "beat:gate-opens" },
+            content: [{ type: "text", text: "Gate opens" }],
+          },
+        ],
+      }),
+    ).toBe(
+      [
+        "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+        "## Arrival",
+        "",
+        "<!-- dmb-playable-element:v1 kind=beat id=beat:gate-opens -->",
+        "### Gate opens",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("does not emit invalid or duplicate playable markers", () => {
+    const duplicateDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "Arrival" }],
+        },
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "Harbor" }],
+        },
+      ],
+    };
+    const exported = tiptapJsonToSemanticMarkdown(duplicateDoc);
+    expect(exported).toBe("## Arrival\n\n## Harbor\n");
+    expect(exported).not.toContain("dmb-playable-element");
+
+    const invalid = tiptapJsonToSemanticMarkdown({
+      type: "heading",
+      attrs: { level: 2, playableElementKind: "scene", playableElementId: "Arrival" },
+      content: [{ type: "text", text: "Arrival" }],
+    });
+    expect(invalid).toBe("## Arrival\n");
+    expect(invalid).not.toContain("dmb-playable-element");
+    expect(semanticMarkdownSerializationDiagnostics(duplicateDoc)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Duplicate playable element id in editor JSON; identity cannot be serialized.",
+        }),
+      ]),
     );
   });
 });

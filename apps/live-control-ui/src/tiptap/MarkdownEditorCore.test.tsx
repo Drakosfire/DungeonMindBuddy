@@ -206,4 +206,79 @@ describe("MarkdownEditorCore", () => {
       expect(editor?.getText()).toContain("A plain imported plan.");
     });
   });
+
+  it("preserves optional playable heading attrs without changing ordinary headings", async () => {
+    let editor: Editor | null = null;
+    render(
+      <MarkdownEditorCore
+        content={{
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+              content: [{ type: "text", text: "Arrival" }],
+            },
+            {
+              type: "heading",
+              attrs: { level: 2 },
+              content: [{ type: "text", text: "Ordinary" }],
+            },
+          ],
+        }}
+        onEditorChange={(nextEditor) => { editor = nextEditor; }}
+      />,
+    );
+    await waitFor(() => expect(editor).not.toBeNull());
+    const headings: Array<Record<string, unknown>> = [];
+    editor?.state.doc.descendants((node) => {
+      if (node.type.name === "heading") headings.push(node.attrs as Record<string, unknown>);
+    });
+    expect(headings[0]).toMatchObject({
+      level: 2,
+      playableElementKind: "scene",
+      playableElementId: "scene:arrival",
+    });
+    expect(headings[1]?.playableElementKind ?? null).toBeNull();
+    expect(headings[1]?.playableElementId ?? null).toBeNull();
+  });
+
+  it("re-keys a duplicated marked heading and keeps the original id", async () => {
+    let editor: Editor | null = null;
+    render(
+      <MarkdownEditorCore
+        content={{
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+              content: [{ type: "text", text: "Arrival" }],
+            },
+          ],
+        }}
+        onEditorChange={(nextEditor) => { editor = nextEditor; }}
+      />,
+    );
+    await waitFor(() => expect(editor).not.toBeNull());
+
+    act(() => {
+      editor?.commands.insertContentAt(editor.state.doc.content.size, {
+        type: "heading",
+        attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+        content: [{ type: "text", text: "Arrival copy" }],
+      });
+    });
+
+    const ids: string[] = [];
+    editor?.state.doc.descendants((node) => {
+      if (node.type.name === "heading" && typeof node.attrs.playableElementId === "string") {
+        ids.push(node.attrs.playableElementId);
+      }
+    });
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBe("scene:arrival");
+    expect(ids[1]).not.toBe("scene:arrival");
+    expect(ids[1]).toMatch(/^scene:/);
+  });
 });
