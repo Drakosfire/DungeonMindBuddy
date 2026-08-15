@@ -206,7 +206,7 @@ class DualSenseStopRow:
 
 @dataclass(frozen=True, slots=True)
 class VerifiedPredecessorAuthority:
-    """STOP rows minted only from locked predecessor repair bytes."""
+    """STOP rows minted only from the sealed predecessor repair loader."""
 
     manifest_sha256: str
     schema: str
@@ -220,7 +220,7 @@ class VerifiedPredecessorAuthority:
         if self._token is not _PREDECESSOR_TOKEN:
             raise TypeError(
                 "VerifiedPredecessorAuthority is not a public constructor; "
-                "use predecessor_authority_from_locked_bytes"
+                "use predecessor_authority_from_sealed_repair"
             )
 
 
@@ -229,24 +229,24 @@ def predecessor_authority_from_locked_bytes(
     *,
     expected_sha256: str,
 ) -> VerifiedPredecessorAuthority:
-    """Mint STOP authority only when bytes match the locked predecessor digest."""
-    if not expected_sha256:
-        raise _fail(
-            "predecessor authority requires a locked digest",
-            "predecessor_authority_unattested",
-        )
-    digest = sha256_bytes(raw)
-    if digest != expected_sha256:
-        raise _fail(
-            f"predecessor repair sha256 {digest} != locked {expected_sha256}",
-            "predecessor_manifest_tampered",
-        )
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise _fail(f"predecessor repair is not JSON: {exc}", "predecessor_invalid") from exc
-    if not isinstance(payload, dict):
-        raise _fail("predecessor repair payload must be an object", "predecessor_invalid")
+    """Refuse caller-minted STOP authority.
+
+    Pairing proposed bytes with a digest computed from those same bytes is not
+    a trust boundary. Use predecessor_authority_from_sealed_repair.
+    """
+    del raw, expected_sha256
+    raise _fail(
+        "VerifiedPredecessorAuthority cannot be minted from caller-supplied "
+        "bytes and digest; use predecessor_authority_from_sealed_repair",
+        "predecessor_authority_unattested",
+    )
+
+
+def _predecessor_from_verified_payload(
+    payload: dict[str, Any],
+    *,
+    digest: str,
+) -> VerifiedPredecessorAuthority:
     schema = str(payload.get("schema") or "")
     repair_id = str(payload.get("repair_id") or "")
     world_id = str(payload.get("world_id") or "")
@@ -332,6 +332,49 @@ def predecessor_authority_from_locked_bytes(
         stops=ordered_stops,
         _token=_PREDECESSOR_TOKEN,
     )
+
+
+def predecessor_authority_from_sealed_repair(
+    *,
+    repo: Path,
+) -> VerifiedPredecessorAuthority:
+    """Mint STOP authority only by consuming the locked predecessor loader.
+
+    The caller supplies a repository path. The locked digest is owned by
+    ``eldyrwild_relationship_node_kind_source_repair``, not by this caller.
+    """
+    from apps.live_control_server.services.eldyrwild_relationship_node_kind_source_repair import (
+        LOCKED_MANIFEST_SHA256,
+        RelationshipNodeKindSourceRepairError,
+        _load_repair_manifest,
+        _manifest_path,
+        _sha256_bytes,
+    )
+
+    if not isinstance(repo, Path):
+        raise _fail(
+            "predecessor authority requires the sealed repair repository path",
+            "predecessor_authority_unattested",
+        )
+    try:
+        payload = _load_repair_manifest(repo=repo)
+    except RelationshipNodeKindSourceRepairError as exc:
+        if exc.code == "manifest_tampered":
+            mapped = "predecessor_manifest_tampered"
+        elif exc.code == "manifest_invalid":
+            mapped = "predecessor_invalid"
+        else:
+            mapped = "predecessor_authority_unattested"
+        raise _fail(str(exc), mapped) from exc
+    digest = _sha256_bytes(_manifest_path(repo).read_bytes())
+    if digest != LOCKED_MANIFEST_SHA256:
+        raise _fail(
+            "sealed predecessor digest drifted after loader verification",
+            "predecessor_manifest_tampered",
+        )
+    if not isinstance(payload, dict):
+        raise _fail("predecessor repair payload must be an object", "predecessor_invalid")
+    return _predecessor_from_verified_payload(payload, digest=digest)
 
 
 class AspectRefV1(BaseModel):
@@ -678,6 +721,7 @@ def derive_dual_sense_decomposition_package_v1(
     projection = evaluate_package_projection_v1(
         store,
         package=package,
+        binding=binding,
         current_residual_edge_ids=set(current_ids),
         target=target,
     )
@@ -696,10 +740,26 @@ def evaluate_package_projection_v1(
     store: Any,
     *,
     package: DualSenseDecompositionPackageV1,
+    binding: DecompositionRevisionBinding,
     current_residual_edge_ids: set[str],
     target: WholeWorldTargetContract,
 ) -> PackageProjectionV1:
     """Validate assigned edges under projected aspects and retained stored senses."""
+    if (
+        binding.world_id != package.world_id
+        or binding.canonical_revision_id != package.canonical_revision_id
+        or binding.canonical_graph_payload_sha256 != package.canonical_graph_payload_sha256
+        or binding.store_semantic_sha256 != package.store_semantic_sha256
+    ):
+        raise _fail(
+            "package projection binding does not match package world/revision/payload/store pins",
+            "decomposition_binding_pin_mismatch",
+        )
+    if store_semantic_sha256(store) != binding.store_semantic_sha256:
+        raise _fail(
+            "package projection store does not match attested decomposition binding",
+            "decomposition_store_revision_mismatch",
+        )
     if target.target_id != package.dungeonmind_target_id:
         raise _fail(
             "package projection target_id does not match package binding",
@@ -708,6 +768,11 @@ def evaluate_package_projection_v1(
     if target.dungeonmind_dependency_ref != package.dungeonmind_dependency_ref:
         raise _fail(
             "package projection DungeonMind pin does not match package binding",
+            "decomposition_target_mismatch",
+        )
+    if target.world_object_revision_label != package.world_object_revision_label:
+        raise _fail(
+            "package projection vocabulary revision label does not match package binding",
             "decomposition_target_mismatch",
         )
     edges = _edges(store)

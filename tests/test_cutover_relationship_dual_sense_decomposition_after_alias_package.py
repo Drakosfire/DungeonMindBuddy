@@ -82,6 +82,7 @@ def test_pins_and_predecessor_authority(report: Any) -> None:
     assert CURRENT_V5_TARGET.target_id == "current_v5"
     assert report.predecessor_repair_verified is True
     assert report.predecessor_repair_manifest_sha256 == PREDECESSOR_LOCKED_SHA256
+    assert "predecessor_repair_loader_consumed" in report.diagnostics
     assert PREDECESSOR_LOCKED_SHA256 == (
         "96cc26fc6e99448e8fba5cd6982070c1e29bb058f2b1e8a4ac291f8a0a083247"
     )
@@ -240,3 +241,5 @@ def test_no_whole_world_analyzer_policy_was_added() -> None:
     assert "alias_assertion_policy" not in source
     assert "_analyze_loaded_buddy_world_store_v5" not in source
     assert "analyze_exact_buddy_world_revision_v5" not in source
+    assert "predecessor_authority_from_locked_bytes" not in source
+    assert "predecessor_authority_from_sealed_repair" in source

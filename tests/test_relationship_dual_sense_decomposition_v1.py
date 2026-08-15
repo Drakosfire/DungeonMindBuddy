@@ -13,6 +13,7 @@ from dataclasses import replace
 from apps.live_control_server.integrations.dungeonmind_kernel import (
     relationship_dual_sense_decomposition_v1 as decomp,
 )
+from apps.live_control_server.config import repo_root
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_dual_sense_decomposition_v1 import (
     DecompositionRevisionBinding,
     DualSenseDecompositionPackageV1,
@@ -23,6 +24,7 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_dual_
     evaluate_global_aspect_substitution_v1,
     evaluate_package_projection_v1,
     predecessor_authority_from_locked_bytes,
+    predecessor_authority_from_sealed_repair,
     prove_relationship_dual_sense_decomposition_v1,
     store_semantic_sha256,
 )
@@ -153,8 +155,18 @@ def _predecessor_bytes() -> bytes:
 
 
 def _predecessor():
-    raw = _predecessor_bytes()
-    return predecessor_authority_from_locked_bytes(raw, expected_sha256=decomp.sha256_bytes(raw))
+    return predecessor_authority_from_sealed_repair(repo=repo_root())
+
+
+def _project(store: SimpleNamespace, package: DualSenseDecompositionPackageV1, **kwargs):
+    return evaluate_package_projection_v1(
+        store,
+        package=package,
+        binding=kwargs.pop("binding", None) or _binding(store),
+        current_residual_edge_ids=kwargs.pop("current_residual_edge_ids", set(DEFERRED)),
+        target=kwargs.pop("target", CURRENT_V5_TARGET),
+        **kwargs,
+    )
 
 
 def _binding(store: SimpleNamespace):
@@ -204,12 +216,25 @@ def test_public_predecessor_constructor_rejects_caller_stop_rows() -> None:
         )
 
 
-def test_tampered_predecessor_bytes_are_refused() -> None:
+def test_fake_manifest_plus_own_digest_is_refused() -> None:
     raw = _predecessor_bytes()
     digest = decomp.sha256_bytes(raw)
-    tampered = raw.replace(b"faction", b"factoin", 1)
     with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
-        predecessor_authority_from_locked_bytes(tampered, expected_sha256=digest)
+        predecessor_authority_from_locked_bytes(raw, expected_sha256=digest)
+    assert exc.value.code == "predecessor_authority_unattested"
+
+
+def test_tampered_sealed_predecessor_is_refused(tmp_path: Path) -> None:
+    from apps.live_control_server.services.eldyrwild_relationship_node_kind_source_repair import (
+        MANIFEST_RELPATH,
+    )
+
+    source = repo_root() / MANIFEST_RELPATH
+    tampered_path = tmp_path / MANIFEST_RELPATH
+    tampered_path.parent.mkdir(parents=True, exist_ok=True)
+    tampered_path.write_bytes(source.read_bytes().replace(b"faction", b"factoin", 1))
+    with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
+        predecessor_authority_from_sealed_repair(repo=tmp_path)
     assert exc.value.code == "predecessor_manifest_tampered"
 
 
@@ -245,12 +270,7 @@ def test_omit_one_assignment_is_refused() -> None:
     reduced = package.model_copy(
         update={"endpoint_assignments": package.endpoint_assignments[1:]}
     )
-    projection = evaluate_package_projection_v1(
-        _store(),
-        package=reduced,
-        current_residual_edge_ids=set(DEFERRED),
-        target=CURRENT_V5_TARGET,
-    )
+    projection = _project(_store(), reduced)
     assert projection.passed is False
     assert projection.uncovered_current_residual_edge_ids == [package.endpoint_assignments[0].edge_id]
 
@@ -286,12 +306,7 @@ def test_sixth_assignment_is_refused() -> None:
     inflated = package.model_copy(
         update={"endpoint_assignments": [*package.endpoint_assignments, extra]}
     )
-    projection = evaluate_package_projection_v1(
-        store,
-        package=inflated,
-        current_residual_edge_ids=set(DEFERRED),
-        target=CURRENT_V5_TARGET,
-    )
+    projection = _project(store, inflated)
     assert projection.passed is False
     assert projection.extra_package_edge_assignments == [visitor]
 
@@ -313,12 +328,7 @@ def test_wrong_projected_kind_fails_projection() -> None:
             "endpoint_assignments": [broken_assignment, *package.endpoint_assignments[1:]]
         }
     )
-    projection = evaluate_package_projection_v1(
-        store,
-        package=mutated,
-        current_residual_edge_ids=set(DEFERRED),
-        target=CURRENT_V5_TARGET,
-    )
+    projection = _project(store, mutated)
     assert projection.passed is False
     assert assignment.edge_id in [
         row.edge_id for row in projection.assigned_admissions if not row.admitted
@@ -344,16 +354,48 @@ def test_global_aspect_substitution_regresses_retained_senses() -> None:
 
 
 def test_wrong_target_pin_is_refused_at_projection() -> None:
-    package = _prove().package
+    store = _store()
+    package = _prove(store).package
     fake_target = replace(CURRENT_V5_TARGET, dungeonmind_dependency_ref="ab" * 20)
     with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
-        evaluate_package_projection_v1(
-            _store(),
-            package=package,
-            current_residual_edge_ids=set(DEFERRED),
-            target=fake_target,
-        )
+        _project(store, package, target=fake_target)
     assert exc.value.code == "decomposition_target_mismatch"
+
+
+def test_wrong_vocabulary_revision_label_is_refused_at_projection() -> None:
+    store = _store()
+    package = _prove(store).package
+    fake_target = replace(CURRENT_V5_TARGET, world_object_revision_label="world-object-v4")
+    with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
+        _project(store, package, target=fake_target)
+    assert exc.value.code == "decomposition_target_mismatch"
+
+
+def test_package_from_store_a_projected_against_store_b_is_refused() -> None:
+    store_a = _store()
+    package_a = _prove(store_a).package
+    store_b = copy.deepcopy(store_a)
+    store_b.nodes[COLLEGE] = _node(COLLEGE, "location")
+    store_b.nodes[COLLEGE].label = "other"
+    binding_b = _binding(store_b)
+    with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
+        evaluate_package_projection_v1(
+            store_b,
+            package=package_a,
+            binding=binding_b,
+            current_residual_edge_ids=set(DEFERRED),
+            target=CURRENT_V5_TARGET,
+        )
+    assert exc.value.code == "decomposition_binding_pin_mismatch"
+    with pytest.raises(RelationshipDualSenseDecompositionError) as exc:
+        evaluate_package_projection_v1(
+            store_b,
+            package=package_a,
+            binding=_binding(store_a),
+            current_residual_edge_ids=set(DEFERRED),
+            target=CURRENT_V5_TARGET,
+        )
+    assert exc.value.code == "decomposition_store_revision_mismatch"
 
 
 def test_wrong_world_binding_is_refused() -> None:

@@ -23,7 +23,7 @@ from apps.live_control_server.integrations.dungeonmind_kernel.relationship_dual_
     RelationshipDualSenseDecompositionError,
     decomposition_binding_from_attested_revision,
     package_canonical_bytes,
-    predecessor_authority_from_locked_bytes,
+    predecessor_authority_from_sealed_repair,
     prove_relationship_dual_sense_decomposition_v1,
     sha256_bytes,
 )
@@ -239,13 +239,8 @@ def compose_cutover_relationship_dual_sense_decomposition_after_alias_package(
     identity_before = _store_identity_snapshot(store)
     loaded_store_before = _loaded_store_digest(store)
 
-    predecessor_path = repository / repair_service.MANIFEST_RELPATH
-    predecessor_raw = predecessor_path.read_bytes()
     try:
-        predecessor = predecessor_authority_from_locked_bytes(
-            predecessor_raw,
-            expected_sha256=repair_service.LOCKED_MANIFEST_SHA256,
-        )
+        predecessor = predecessor_authority_from_sealed_repair(repo=repository)
     except RelationshipDualSenseDecompositionError as exc:
         raise _fail(str(exc), exc.code) from exc
     if predecessor.repair_id != repair_service.REPAIR_ID:
@@ -414,6 +409,7 @@ def compose_cutover_relationship_dual_sense_decomposition_after_alias_package(
         },
         diagnostics=[
             "non_publishing",
+            "predecessor_repair_loader_consumed",
             "package_projection_passed",
             "authoritative_migration_residuals_unchanged",
             "no_whole_world_classifier_override",
