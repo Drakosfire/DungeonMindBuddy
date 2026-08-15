@@ -18,6 +18,9 @@ const CANONICAL_COMMENT_PATTERN =
   /^<!-- dmb-playable-element:v1 kind=(scene|beat) id=((?:scene|beat):[a-z0-9][a-z0-9._-]{0,127}) -->$/;
 const PLAYABLE_ID_PATTERN = /^(scene|beat):[a-z0-9][a-z0-9._-]{0,127}$/;
 
+export const PLAYABLE_ELEMENT_KIND_HTML_ATTR = "data-dmb-playable-kind" as const;
+export const PLAYABLE_ELEMENT_ID_HTML_ATTR = "data-dmb-playable-id" as const;
+
 export const PLAYABLE_ELEMENT_DIAGNOSTIC = {
   malformed: "Malformed playable element marker; identity was not attached.",
   orphan: "Playable element marker is orphaned; it must immediately precede a heading.",
@@ -26,6 +29,16 @@ export const PLAYABLE_ELEMENT_DIAGNOSTIC = {
   invalidAttrs: "Playable heading attributes are invalid; identity cannot be serialized.",
   duplicateAttrs: "Duplicate playable element id in editor JSON; identity cannot be serialized.",
 } as const;
+
+export class PlayableIdentitySerializationError extends Error {
+  readonly failures: readonly string[];
+
+  constructor(failures: readonly string[]) {
+    super(failures[0] ?? PLAYABLE_ELEMENT_DIAGNOSTIC.invalidAttrs);
+    this.name = "PlayableIdentitySerializationError";
+    this.failures = failures;
+  }
+}
 
 export function isPlayableElementKind(value: unknown): value is PlayableElementKind {
   return value === "scene" || value === "beat";
@@ -95,7 +108,7 @@ export function validatePlayableHeadingAttrs(attrs: PlayableHeadingAttrs | null 
   }
   const requestedLevel = Number(attrs?.level);
   const expectedLevel = headingLevelForPlayableKind(kind);
-  if (Number.isInteger(requestedLevel) && requestedLevel !== expectedLevel) {
+  if (!Number.isInteger(requestedLevel) || requestedLevel !== expectedLevel) {
     return { status: "invalid", reason: PLAYABLE_ELEMENT_DIAGNOSTIC.levelMismatch };
   }
   return { status: "canonical", identity: { kind, id }, level: expectedLevel };

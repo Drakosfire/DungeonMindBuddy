@@ -6,7 +6,10 @@ import { Mapping } from "@tiptap/pm/transform";
 import {
   generatePlayableElementId,
   headingLevelForPlayableKind,
+  isCanonicalPlayableElementId,
   isPlayableElementKind,
+  PLAYABLE_ELEMENT_ID_HTML_ATTR,
+  PLAYABLE_ELEMENT_KIND_HTML_ATTR,
   type PlayableElementKind,
 } from "../playable/playableElementIdentity";
 
@@ -34,12 +37,34 @@ export const PlayableElementHeadingAttributes = Extension.create({
           playableElementKind: {
             default: null,
             keepOnSplit: false,
-            rendered: false,
+            parseHTML: (element: HTMLElement) => {
+              const kind = element.getAttribute(PLAYABLE_ELEMENT_KIND_HTML_ATTR);
+              return isPlayableElementKind(kind) ? kind : null;
+            },
+            renderHTML: (attributes: Record<string, unknown>) => {
+              if (!isPlayableElementKind(attributes.playableElementKind)) return {};
+              return { [PLAYABLE_ELEMENT_KIND_HTML_ATTR]: attributes.playableElementKind };
+            },
           },
           playableElementId: {
             default: null,
             keepOnSplit: false,
-            rendered: false,
+            parseHTML: (element: HTMLElement) => {
+              const kind = element.getAttribute(PLAYABLE_ELEMENT_KIND_HTML_ATTR);
+              const id = element.getAttribute(PLAYABLE_ELEMENT_ID_HTML_ATTR);
+              if (!isPlayableElementKind(kind) || !id || !isCanonicalPlayableElementId(kind, id)) {
+                return null;
+              }
+              return id;
+            },
+            renderHTML: (attributes: Record<string, unknown>) => {
+              const kind = attributes.playableElementKind;
+              const id = attributes.playableElementId;
+              if (!isPlayableElementKind(kind) || typeof id !== "string" || !isCanonicalPlayableElementId(kind, id)) {
+                return {};
+              }
+              return { [PLAYABLE_ELEMENT_ID_HTML_ATTR]: id };
+            },
           },
         },
       },

@@ -2,9 +2,14 @@ import { act, render, waitFor } from "@testing-library/react";
 import { Extension } from "@tiptap/core";
 import type { Content } from "@tiptap/core";
 import type { Editor } from "@tiptap/core";
+import { DOMParser } from "@tiptap/pm/model";
 import { describe, expect, it, vi } from "vitest";
 
 import { MarkdownEditorCore } from "./MarkdownEditorCore";
+import {
+  PLAYABLE_ELEMENT_ID_HTML_ATTR,
+  PLAYABLE_ELEMENT_KIND_HTML_ATTR,
+} from "./playable/playableElementIdentity";
 
 const starterContent: Content = {
   type: "doc",
@@ -243,7 +248,7 @@ describe("MarkdownEditorCore", () => {
     expect(headings[1]?.playableElementId ?? null).toBeNull();
   });
 
-  it("re-keys a duplicated marked heading and keeps the original id", async () => {
+  it("re-keys a heading duplicated through the clipboard HTML serialize/parse path", async () => {
     let editor: Editor | null = null;
     render(
       <MarkdownEditorCore
@@ -262,16 +267,27 @@ describe("MarkdownEditorCore", () => {
     );
     await waitFor(() => expect(editor).not.toBeNull());
 
+    const clipboard = editor!.view.serializeForClipboard(editor!.state.doc.slice(0));
+    const html = clipboard.dom.innerHTML;
+    expect(html).toContain(`${PLAYABLE_ELEMENT_KIND_HTML_ATTR}="scene"`);
+    expect(html).toContain(`${PLAYABLE_ELEMENT_ID_HTML_ATTR}="scene:arrival"`);
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    const parsed = DOMParser.fromSchema(editor!.schema).parseSlice(wrapper);
+    expect(parsed.content.childCount).toBeGreaterThan(0);
+    parsed.content.descendants((node) => {
+      if (node.type.name !== "heading") return;
+      expect(node.attrs.playableElementKind).toBe("scene");
+      expect(node.attrs.playableElementId).toBe("scene:arrival");
+    });
+
     act(() => {
-      editor?.commands.insertContentAt(editor.state.doc.content.size, {
-        type: "heading",
-        attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
-        content: [{ type: "text", text: "Arrival copy" }],
-      });
+      editor!.view.dispatch(editor!.state.tr.insert(editor!.state.doc.content.size, parsed.content));
     });
 
     const ids: string[] = [];
-    editor?.state.doc.descendants((node) => {
+    editor!.state.doc.descendants((node) => {
       if (node.type.name === "heading" && typeof node.attrs.playableElementId === "string") {
         ids.push(node.attrs.playableElementId);
       }

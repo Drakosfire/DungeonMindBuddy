@@ -253,9 +253,10 @@ A small neutral extension adds optional global heading attrs to the shared edito
 For already-marked semantic headings, the extension is also the editor-time integrity guard:
 
 - a Scene semantic heading remains level 2; a Beat semantic heading remains level 3;
-- if a user transaction duplicates a marked heading, the pre-existing occurrence retains its ID and the newly duplicated occurrence is re-keyed to a fresh ID of the same kind;
+- copy/paste uses schema HTML (`data-dmb-playable-kind` / `data-dmb-playable-id`) so clipboard serialize/parse carries identity; those attributes are not visible heading semantics;
+- if a user clipboard duplication introduces a second marked heading with the same ID, the pre-existing occurrence retains its ID and the newly duplicated occurrence is re-keyed to a fresh ID of the same kind;
 - hydration/import never uses that re-key path to repair malformed source — source duplicates already fail closed in Markdown admission;
-- serializer validation remains the final backstop against invalid kind/id/duplicate combinations that bypass the normal editor transaction path.
+- serializer validation remains the final backstop against invalid kind/id/level/duplicate combinations that bypass the normal editor transaction path. Unsafe identity throws `PlayableIdentitySerializationError` rather than emitting ordinary headings.
 
 ### Observable paths
 
@@ -272,8 +273,8 @@ For already-marked semantic headings, the extension is also the editor-time inte
 | Orphan marker | n/a | blocking diagnostic; marker is not attached to a later heading | Yes | admission |
 | Level/kind mismatch | n/a | blocking diagnostic; no semantic ID attachment | Yes | admission |
 | Duplicate ID in source | n/a | blocking diagnostic; second occurrence does not become another semantic element with same ID | Yes | document-level admission ledger |
-| Duplicate ID introduced by user copy/paste | n/a | original retains its ID; newly duplicated marked heading is re-keyed before durable serialization | Yes | editor integrity extension |
-| Invalid/duplicate semantic attrs injected outside normal editor transactions | n/a | serialization fails closed; it must never emit invalid/duplicate canonical markers | Yes | serializer backstop |
+| Duplicate ID introduced by user copy/paste | n/a | original retains its ID; newly duplicated marked heading is re-keyed before durable serialization. Proof is the ProseMirror clipboard HTML serialize/parse path, not JSON `insertContentAt`. | Yes | editor integrity extension + clipboard HTML attrs |
+| Invalid/duplicate semantic attrs injected outside normal editor transactions | n/a | serialization throws a typed failure; it must never emit invalid/duplicate canonical markers or silently drop identity | Yes | serializer backstop |
 
 ### Adversarial sequences
 
@@ -285,8 +286,8 @@ For already-marked semantic headings, the extension is also the editor-time inte
 | `kind=scene` → `###` heading | Level mismatch diagnostic; no attachment | Mismatch fixture |
 | same ID used on Scene and Beat | Duplicate diagnostic; no two semantic elements share it | Duplicate fixture |
 | raw `<div>` HTML beside valid marker | Valid marker is admitted; unrelated HTML still warns/seals | Raw HTML regression |
-| duplicate marked heading created through an editor transaction | original keeps ID; duplicate gets a fresh same-kind ID before export | Editor integrity test |
-| invalid/duplicate attrs manufactured directly in TipTap JSON → export | Export fails closed rather than writing invalid/duplicate IDs | Serializer integrity test |
+| duplicate marked heading created through clipboard HTML serialize/parse | original keeps ID; duplicate gets a fresh same-kind ID before export | Editor clipboard integrity test |
+| invalid/duplicate attrs manufactured directly in TipTap JSON → export | Export throws `PlayableIdentitySerializationError`; no marker body is produced | Serializer integrity test |
 | unmarked existing runbook opened | No automatic IDs; document content remains unchanged | Backward-compat fixture |
 
 ---
@@ -307,7 +308,13 @@ Expected paths:
 | Modify | `apps/live-control-ui/src/tiptap/markdown/calloutMarkdown.ts` | Canonically serialize exact playable heading markers and reject invalid/duplicate semantic attrs |
 | Modify/Create tests | `apps/live-control-ui/src/tiptap/markdown/markdownToTiptap.test.ts` | Import, malformed/orphan/duplicate/backward compatibility proof |
 | Modify/Create tests | `apps/live-control-ui/src/tiptap/markdown/calloutMarkdown.test.ts` or nearest existing serializer test file | Serializer, rename/reorder, duplicate JSON proof |
-| Modify/Create tests | `apps/live-control-ui/src/tiptap/MarkdownEditorCore.test.tsx` or nearest existing editor-extension test | Optional attrs survive editor hydration/update without changing ordinary heading behavior |
+| Modify/Create tests | `apps/live-control-ui/src/tiptap/MarkdownEditorCore.test.tsx` or nearest existing editor-extension test | Optional attrs survive editor hydration/update without changing ordinary heading behavior; clipboard HTML serialize/parse re-keys duplicates |
+| Modify tests | `apps/live-control-ui/src/tiptap/markdown/semanticMarkdownSafety.test.ts` | Review Cycle 1: Beat missing-level must appear in serialization diagnostics |
+| Modify tests | `apps/live-control-ui/src/tiptap/state/tiptapLocalState.test.ts` | Review Cycle 1: initial local state must not silently drop unsafe playable identity |
+| Modify | `apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.ts` | Review Cycle 1: do not call the throw-closed serializer when diagnostics already failed |
+| Modify tests | `apps/live-control-ui/src/workspaceDocument/useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx` | Review Cycle 1: owning Save path must refuse Beat/level mismatch |
+
+**Review Cycle 1 lease expansion:** `useWorkspaceDocumentAuthoring.ts` and `useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx` sit outside the original TipTap-only bounded discovery. They are required by Review Cycle 1 findings 1–2 (owning Save-path proof + skip serialize when diagnostics already failed) and do not add a workspace-document schema, surface, route, or operator command. `semanticMarkdownSafety.test.ts` and `tiptapLocalState.test.ts` remain inside the TipTap bounded discovery directory.
 
 **Bounded discovery exception:**
 
@@ -364,7 +371,7 @@ Failure behavior:
   orphan marker         → blocking import diagnostic, no later-heading attachment
   level mismatch        → blocking import diagnostic, no semantic attachment
   duplicate source ID   → blocking import diagnostic, later duplicate not admitted semantically
-  invalid TipTap attrs  → serialization/save path fails closed; no invalid canonical marker emitted
+  invalid TipTap attrs  → serialization/save path fails closed with typed throw; no invalid canonical marker emitted; identity is not silently stripped
   ordinary raw HTML     → pre-existing unsupported-HTML behavior unchanged
 
 Replay / idempotency:
@@ -431,11 +438,13 @@ The important proof is that the semantic Markdown body written at that existing 
 | Reorder does not change identity | serializer/editor projection | adversarial | reorder fixture nodes → export/reimport | same IDs attached to same headings | position participates in identity |
 | Malformed/orphan/level mismatch fails closed | Markdown admission | adversarial | fixture matrix | blocking diagnostics, no semantic attachment | parser repairs or searches forward |
 | Duplicate source ID fails closed | Markdown admission | integrity | duplicate fixture | explicit duplicate diagnostic | first/latest winner or two same semantic IDs |
-| Duplicate JSON attrs cannot be emitted durably | serializer/editor boundary | integrity | manufactured JSON fixture | typed/explicit failure; no duplicate marker body | duplicate body can be committed |
+| Duplicate JSON attrs cannot be emitted durably | serializer/editor boundary | integrity | manufactured JSON fixture | typed `PlayableIdentitySerializationError`; no duplicate/lossy marker body | duplicate or stripped body can be committed |
+| Missing/non-integer Beat level cannot be committed | serializer diagnostics + workspace Save | adversarial | manufactured Beat attrs without integer level | diagnostics block Save; serializer throws; no `kind=beat` + `##` body | Save writes mismatched marker that reload then drops |
+| Clipboard duplication re-keys identity | editor clipboard HTML path | integrity | `serializeForClipboard` → schema parse → insert | original ID retained; pasted heading has a new same-kind ID | JSON `insertContentAt` used as a stand-in for clipboard |
 | Ordinary raw HTML behavior unchanged | Markdown admission | regression | existing + focused test | still unsupported/warning | P1A broadly enables HTML |
 | Unmarked Markdown round-trip unchanged | parser+serializer | regression | representative Build/Plan/runbook fixture | no added markers/attrs | P1A auto-tags headings |
 | Shared editor accepts optional attrs without changing normal heading render/edit | Editor extension | regression | component/unit test | ordinary headings remain normal; marked attrs survive hydration/update | extension changes surface-specific behavior |
-| Roadmap reconsidered before PASS | Process/state authority | review | review handback + roadmap ledger | UPDATED or NO DESIGN CHANGE; ledger names actual PR/head | roadmap remains `P1A pending` or evidence contradicts it |
+| Roadmap reconsidered before PASS | Process/state authority | review | review handback + roadmap ledger | UPDATED or NO DESIGN CHANGE; ledger names **implementation/evidence head**; review handback names the exact reviewed PR head | roadmap remains `P1A pending`, or the same-PR ledger is required to name the final reviewed head |
 
 ### Exact verification commands
 
@@ -445,7 +454,10 @@ Run from repository root unless the repo's current package-manager wrapper requi
 cd apps/live-control-ui
 pnpm test -- markdownToTiptap.test.ts
 pnpm test -- calloutMarkdown.test.ts
+pnpm test -- semanticMarkdownSafety.test.ts
 pnpm test -- MarkdownEditorCore.test.tsx
+pnpm test -- tiptapLocalState.test.ts
+pnpm test -- useWorkspaceDocumentAuthoring.markdownFidelity.test.tsx
 pnpm typecheck
 pnpm build
 cd ../..
@@ -513,7 +525,7 @@ ROADMAP_REVIEW — NO DESIGN CHANGE
 ...
 ```
 
-12. exact roadmap ledger row added/updated for this PR/head and the evidence-based next-slice decision;
+12. exact roadmap ledger row added/updated for this PR's **implementation/evidence head** (not the later ledger-write SHA) and the evidence-based next-slice decision; the review handback records the final reviewed PR head;
 13. hoist observation, without implementing it:
 
 ```text
@@ -526,6 +538,17 @@ P1A_HOIST_OBSERVATION
 
 The reviewer may PASS with “not yet” for every hoist question. P1A is evidence collection, not a predetermined hoist.
 
+### Review Cycle 1 response — 2026-08-15
+
+Reviewed head `aa123be48eab12694b37090cc088d4f47d3538f6` received **REQUEST CHANGES** (GitHub review `4944845792`, COMMENT transport). This table is the prior-finding ledger for re-review:
+
+| ID | Finding | Resolution |
+|---|---|---|
+| F1 | Beat with missing/non-integer level was canonical; serializer defaulted to H2; diagnostics missed it; Save could commit `kind=beat` + `##` | `validatePlayableHeadingAttrs()` now requires the exact canonical integer level. Diagnostics and serializer fail closed. Workspace Save test refuses the invalid form. |
+| F2 | Serializer silently stripped unsafe/duplicate identity; `buildInitialWorkspaceDocumentLocalState()` could split-brain | `tiptapJsonToSemanticMarkdown()` throws `PlayableIdentitySerializationError`. Persist skips serialize when diagnostics already failed. Local-state test proves invalid starter content cannot construct split-brain state. |
+| F3 | Copy/paste proof used JSON `insertContentAt`, not clipboard | Heading attrs now serialize/parse as `data-dmb-playable-*`. Test uses `serializeForClipboard` → schema parse → insert, then asserts re-key. |
+| F4 | Living-roadmap exact-head rule was self-referential | Disposition is `ROADMAP_REVIEW — UPDATED`. Ledger names **implementation/evidence head**; review handback names the reviewed PR head. |
+
 ---
 
 ## §9 Acceptance rubric
@@ -536,14 +559,15 @@ The reviewer may PASS with “not yet” for every hoist question. P1A is eviden
 - [ ] Rename and reorder do not change identity.
 - [ ] Unmarked headings do not receive invented identity.
 - [ ] Malformed, orphaned, level-mismatched, and duplicate markers fail closed.
-- [ ] Duplicate semantic IDs cannot be emitted from editor JSON into durable Markdown.
+- [ ] Duplicate semantic IDs cannot be emitted from editor JSON into durable Markdown; unsafe identity throws rather than stripping.
+- [ ] Clipboard HTML serialize/parse of a marked heading re-keys the duplicate and keeps the original ID.
 - [ ] Ordinary raw HTML remains unsupported; P1A does not widen HTML admission generally.
 - [ ] Existing Build/Plan/unmarked Markdown behavior remains compatible.
 - [ ] No backend/store/schema migration is introduced.
 - [ ] No Choice/Option, Run state, Play projection, Combat, or DungeonMind contract is introduced.
-- [ ] Actual changed paths remain inside §4 / bounded discovery.
+- [ ] Actual changed paths remain inside §4 / bounded discovery / Review Cycle 1 lease expansion.
 - [ ] Focused tests + typecheck + build + diff checks pass or baseline differences are truthfully recorded.
-- [ ] Roadmap review disposition is explicit and `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` is current at the reviewed head.
+- [ ] Roadmap review disposition is explicit. The ledger names the implementation/evidence head; the review handback names the reviewed PR head.
 - [ ] Hoist observation is recorded without forcing a hoist decision.
 
 ## Stop conditions
