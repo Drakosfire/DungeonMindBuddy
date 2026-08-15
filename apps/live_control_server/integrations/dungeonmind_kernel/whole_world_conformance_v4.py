@@ -7,9 +7,11 @@ diagnostic infrastructure only; not migration.
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter, defaultdict
 from enum import StrEnum
+from hashlib import sha256
 from pathlib import Path
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -174,6 +176,13 @@ _PROVEN_IDENTITY_LIFECYCLE_NOTE = (
     "validated identity lifecycle shadow; durable authority is the "
     "identity decision/redirect history, not a world-property assertion"
 )
+_ALIAS_ASSERTION_POLICY_TOKEN = object()
+LEGACY_ALIAS_ASSERTION_POLICY_ID = "legacy_empty_alias_assertion"
+ALIAS_ASSERTION_POLICY_ID = "alias_assertion_package_v1"
+_PROVEN_PACKAGED_ALIAS_NOTE = (
+    "validated DungeonMind alias assertion package from revision-bound Buddy "
+    "source authority"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +212,47 @@ LEGACY_SOURCE_HISTORY_POLICY = WholeWorldSourceHistoryPolicy(
     policy_id=LEGACY_SOURCE_HISTORY_POLICY_ID,
     proven_node_state_history_element_ids=frozenset(),
     _token=_SOURCE_HISTORY_POLICY_TOKEN,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class WholeWorldAliasAssertionPolicy:
+    """Proof-derived alias-package classification policy.
+
+    Historical/default analysis uses LEGACY_ALIAS_ASSERTION_POLICY (empty proven
+    set). Successor analysis must be constructed from a complete passed alias
+    package proof via ``alias_assertion_policy_from_proof``. Arbitrary
+    durable-element allowlists are not a public constructor.
+
+    Unlike WholeWorldSourceHistoryPolicy, this policy carries world/revision/
+    payload identity and fails closed when applied to a different store.
+    """
+
+    policy_id: str
+    world_id: str
+    canonical_revision_id: str
+    canonical_graph_payload_sha256: str
+    proven_alias_blocker_element_ids: frozenset[str]
+    package_proof_sha256: str
+    _token: object = dataclass_field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self._token is not _ALIAS_ASSERTION_POLICY_TOKEN:
+            raise TypeError(
+                "WholeWorldAliasAssertionPolicy is not a public constructor; "
+                "use LEGACY_ALIAS_ASSERTION_POLICY or "
+                "alias_assertion_policy_from_proof"
+            )
+
+
+LEGACY_ALIAS_ASSERTION_POLICY = WholeWorldAliasAssertionPolicy(
+    policy_id=LEGACY_ALIAS_ASSERTION_POLICY_ID,
+    world_id="",
+    canonical_revision_id="",
+    canonical_graph_payload_sha256="",
+    proven_alias_blocker_element_ids=frozenset(),
+    package_proof_sha256="",
+    _token=_ALIAS_ASSERTION_POLICY_TOKEN,
 )
 
 
@@ -237,6 +287,136 @@ def source_history_policy_from_identity_lifecycle_proof(
         proven_node_state_history_element_ids=frozenset(element_ids),
         _token=_SOURCE_HISTORY_POLICY_TOKEN,
     )
+
+
+def _alias_package_proof_sha256(proof: Any) -> str:
+    payload = {
+        "schema": getattr(proof, "schema_", None),
+        "world_id": getattr(proof, "world_id", None),
+        "canonical_revision_id": getattr(proof, "canonical_revision_id", None),
+        "canonical_graph_payload_sha256": getattr(
+            proof, "canonical_graph_payload_sha256", None
+        ),
+        "store_semantic_sha256": getattr(proof, "store_semantic_sha256", None),
+        "blocker_element_ids": list(getattr(proof, "blocker_element_ids", [])),
+        "covered_blocker_element_ids": list(
+            getattr(proof, "covered_blocker_element_ids", [])
+        ),
+        "dungeonmind_assertion_ids": [
+            getattr(row, "dungeonmind_assertion_id", None)
+            for row in list(getattr(proof, "package_rows", []))
+        ],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def alias_assertion_policy_from_proof(
+    proof: Any,
+    *,
+    binding: Any,
+) -> WholeWorldAliasAssertionPolicy:
+    """Admit proven reconstructable alias-package element IDs.
+
+    Revalidates the proof against the same attested revision binding used to
+    produce it. Does not accept an arbitrary durable-element set or caller-
+    claimed world/revision/payload labels.
+    Identity-derived residuals remain STOPs; they cannot enter this policy.
+    """
+    from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_package_conformance_v1 import (
+        ALIAS_ASSERTION_PACKAGE_SCHEMA,
+        AliasPackageRevisionBinding,
+    )
+
+    if not isinstance(binding, AliasPackageRevisionBinding):
+        raise ValueError("alias-assertion policy requires an attested revision binding")
+    schema = getattr(proof, "schema_", None)
+    if schema != ALIAS_ASSERTION_PACKAGE_SCHEMA:
+        raise ValueError("alias-assertion policy requires a passed alias-package proof")
+    if not getattr(proof, "passed", False):
+        raise ValueError("alias-package proof has not passed; refusing alias policy")
+    residuals = list(getattr(proof, "residuals", ["missing"]))
+    if residuals:
+        raise ValueError("alias-package proof still has unresolved residuals")
+    world_id = str(getattr(proof, "world_id", "") or "")
+    revision_id = str(getattr(proof, "canonical_revision_id", "") or "")
+    payload_sha = str(getattr(proof, "canonical_graph_payload_sha256", "") or "")
+    store_digest = str(getattr(proof, "store_semantic_sha256", "") or "")
+    if not world_id or not revision_id or not payload_sha or not store_digest:
+        raise ValueError("alias-package proof is missing world/revision/payload/store pins")
+    if (
+        world_id != binding.world_id
+        or revision_id != binding.canonical_revision_id
+        or payload_sha != binding.canonical_graph_payload_sha256
+        or store_digest != binding.store_semantic_sha256
+    ):
+        raise ValueError("alias-package proof does not match attested revision binding")
+    blocker_ids = list(getattr(proof, "blocker_element_ids", []))
+    covered = list(getattr(proof, "covered_blocker_element_ids", []))
+    if not blocker_ids:
+        raise ValueError("alias-package proof has no blocker element IDs")
+    if len(set(blocker_ids)) != len(blocker_ids):
+        raise ValueError("alias-package proof has duplicate blocker element IDs")
+    if set(covered) != set(blocker_ids):
+        raise ValueError("alias-package proof did not cover the exact blocker set")
+    package_rows = list(getattr(proof, "package_rows", []))
+    if not package_rows:
+        raise ValueError("alias-package proof has no package rows")
+    if not all(getattr(row, "reconstructable", False) for row in package_rows):
+        raise ValueError("alias-package proof contains a non-reconstructable row")
+    row_blocker_ids = {getattr(row, "blocker_element_id", None) for row in package_rows}
+    if row_blocker_ids != set(covered):
+        raise ValueError("alias-package covered IDs drifted from package rows")
+    dm_ids = [getattr(row, "dungeonmind_assertion_id", None) for row in package_rows]
+    if not all(isinstance(item, str) and item for item in dm_ids):
+        raise ValueError("alias-package proof has blank DungeonMind assertion IDs")
+    claims = [
+        f"{getattr(row, 'target_node_id', '')}:{getattr(row, 'alias_value', '')}"
+        for row in package_rows
+    ]
+    seen: dict[str, str] = {}
+    for dm_id, claim in zip(dm_ids, claims, strict=True):
+        previous = seen.get(dm_id)
+        if previous is not None and previous != claim:
+            raise ValueError("alias-package proof has colliding DungeonMind assertion IDs")
+        seen[dm_id] = claim
+    return WholeWorldAliasAssertionPolicy(
+        policy_id=ALIAS_ASSERTION_POLICY_ID,
+        world_id=world_id,
+        canonical_revision_id=revision_id,
+        canonical_graph_payload_sha256=payload_sha,
+        proven_alias_blocker_element_ids=frozenset(covered),
+        package_proof_sha256=_alias_package_proof_sha256(proof),
+        _token=_ALIAS_ASSERTION_POLICY_TOKEN,
+    )
+
+
+def _require_alias_assertion_policy_binding(
+    *,
+    policy: WholeWorldAliasAssertionPolicy,
+    manifest: Any,
+    world_id: str,
+    revision_id: str,
+) -> None:
+    if policy.policy_id == LEGACY_ALIAS_ASSERTION_POLICY_ID:
+        return
+    attested_world = str(getattr(manifest, "world_id", "") or "")
+    attested_revision = str(getattr(manifest, "revision_id", "") or "")
+    attested_payload = str(getattr(manifest, "graph_payload_sha256", "") or "")
+    if not attested_world or not attested_revision or not attested_payload:
+        raise ValueError("alias-assertion policy binding requires an attested manifest")
+    if attested_world != world_id or attested_revision != revision_id:
+        raise ValueError(
+            "analyzer world/revision arguments do not match attested manifest"
+        )
+    if (
+        policy.world_id != attested_world
+        or policy.canonical_revision_id != attested_revision
+        or policy.canonical_graph_payload_sha256 != attested_payload
+    ):
+        raise ValueError(
+            "alias-assertion policy does not match analyzed world/revision/payload"
+        )
 
 
 def _classify_node_state_field_v4(
@@ -1013,6 +1193,7 @@ def _classify_node_field_v4(
     node: UnionSupergraphNode,
     *,
     target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
+    alias_assertion_policy: WholeWorldAliasAssertionPolicy = LEGACY_ALIAS_ASSERTION_POLICY,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
     if field == "kind":
         return _map_buddy_node_kind_v4(node, target=target)
@@ -1029,7 +1210,10 @@ def _classify_node_field_v4(
     if field == "role":
         return _classify_node_role_v4(node, target=target)
     if field == "aliases":
-        return _classify_node_aliases_field_v4(node)
+        return _classify_node_aliases_field_v4(
+            node,
+            alias_assertion_policy=alias_assertion_policy,
+        )
     if field == "source_domains":
         if not value:
             return SemanticClassification.BUDDY_OPERATIONAL_ONLY, None, "empty node.source_domains"
@@ -1356,12 +1540,21 @@ def _substantive_node_aliases(node: UnionSupergraphNode) -> list[str]:
 
 def _classify_node_aliases_field_v4(
     node: UnionSupergraphNode,
+    *,
+    alias_assertion_policy: WholeWorldAliasAssertionPolicy = LEGACY_ALIAS_ASSERTION_POLICY,
 ) -> tuple[SemanticClassification, BlockerClass | None, str]:
     """Classify node.aliases without treating label materialization as unsupported.
 
     Contribution merge defaults missing aliases to ``[label]`` and mirrors that into
     ``store.aliases``. Those are lookup material, not authored AliasAssertionRecords.
     """
+    element_id = f"node:{node.node_id}:field:aliases"
+    if element_id in alias_assertion_policy.proven_alias_blocker_element_ids:
+        return (
+            SemanticClassification.REPRESENTABLE_BY_EXPLICIT_ADAPTER,
+            None,
+            _PROVEN_PACKAGED_ALIAS_NOTE,
+        )
     aliases = _node_alias_strings(node)
     if not aliases:
         return (
@@ -1914,6 +2107,7 @@ def _analyze_loaded_buddy_world_store_v4(
     store: UnionSupergraphStore,
     target: WholeWorldTargetContract = HISTORICAL_V4_TARGET,
     source_history_policy: WholeWorldSourceHistoryPolicy = LEGACY_SOURCE_HISTORY_POLICY,
+    alias_assertion_policy: WholeWorldAliasAssertionPolicy = LEGACY_ALIAS_ASSERTION_POLICY,
     classified_out: list[ClassifiedElement] | None = None,
 ) -> WholeWorldConformanceReportV4:
     """Classify an already integrity-loaded Buddy store against an exact target.
@@ -1925,13 +2119,22 @@ def _analyze_loaded_buddy_world_store_v4(
     Default ``target`` is HISTORICAL_V4_TARGET so existing callers remain byte-stable.
     Default ``source_history_policy`` is LEGACY_SOURCE_HISTORY_POLICY so historical
     reports remain byte-stable. Successor identity-lifecycle history must be
-    selected explicitly from a passed proof.
+    selected explicitly from a passed proof. Default ``alias_assertion_policy``
+    is LEGACY_ALIAS_ASSERTION_POLICY so historical alias classification remains
+    byte-stable. Non-legacy alias policies must match the analyzed
+    world/revision/payload.
 
     When ``classified_out`` is provided, append every durable classified element
     (full inventory, not truncated mapping-bucket representatives) for lossless
     target-contract deltas. Classified elements are never attached to the report
     payload so historical compact digests remain unchanged.
     """
+    _require_alias_assertion_policy_binding(
+        policy=alias_assertion_policy,
+        manifest=manifest,
+        world_id=world_id,
+        revision_id=revision_id,
+    )
     adjudication_domain = _matches_adjudication_domain(
         world_id=world_id,
         revision_id=manifest.revision_id,
@@ -1974,7 +2177,11 @@ def _analyze_loaded_buddy_world_store_v4(
             if field in _NODE_DECLARED_FIELDS:
                 element_id = f"node:{node_id}:field:{field}"
                 f_class, f_blocker, f_note = _classify_node_field_v4(
-                    field, value, node, target=target
+                    field,
+                    value,
+                    node,
+                    target=target,
+                    alias_assertion_policy=alias_assertion_policy,
                 )
                 _append_classification(
                     classified=classified,
