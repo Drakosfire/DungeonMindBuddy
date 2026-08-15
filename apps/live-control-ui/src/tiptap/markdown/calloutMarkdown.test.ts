@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { PlayableIdentitySerializationError } from "../playable/playableElementIdentity";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
+import { semanticMarkdownSerializationDiagnostics } from "./semanticMarkdownSafety";
 
 describe("Tiptap rich text Markdown export", () => {
   it.each([
@@ -249,5 +251,205 @@ describe("Tiptap rich text Markdown export", () => {
         "",
       ].join("\n"),
     );
+  });
+
+  it("serializes canonical playable heading attrs as the exact marker grammar", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+            content: [{ type: "text", text: "Arrival" }],
+          },
+          {
+            type: "heading",
+            attrs: { level: 3, playableElementKind: "beat", playableElementId: "beat:gate-opens" },
+            content: [{ type: "text", text: "Gate opens" }],
+          },
+        ],
+      }),
+    ).toBe(
+      [
+        "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+        "## Arrival",
+        "",
+        "<!-- dmb-playable-element:v1 kind=beat id=beat:gate-opens -->",
+        "### Gate opens",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("fails closed instead of emitting invalid or duplicate playable markers", () => {
+    const duplicateDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "Arrival" }],
+        },
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "Harbor" }],
+        },
+      ],
+    };
+    expect(() => tiptapJsonToSemanticMarkdown(duplicateDoc)).toThrow(PlayableIdentitySerializationError);
+    expect(semanticMarkdownSerializationDiagnostics(duplicateDoc)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Duplicate playable element id in editor JSON; identity cannot be serialized.",
+        }),
+      ]),
+    );
+
+    const invalid = {
+      type: "doc",
+      content: [{
+        type: "heading",
+        attrs: { level: 2, playableElementKind: "scene", playableElementId: "Arrival" },
+        content: [{ type: "text", text: "Arrival" }],
+      }],
+    };
+    expect(() => tiptapJsonToSemanticMarkdown(invalid)).toThrow(PlayableIdentitySerializationError);
+    expect(semanticMarkdownSerializationDiagnostics(invalid)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Playable heading attributes are invalid; identity cannot be serialized.",
+        }),
+      ]),
+    );
+  });
+
+  it("treats a Beat with a missing or non-integer heading level as unsafe identity", () => {
+    const missingLevelBeat = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: {
+            playableElementKind: "beat",
+            playableElementId: "beat:x",
+          },
+          content: [{ type: "text", text: "Gate opens" }],
+        },
+      ],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(missingLevelBeat)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Playable element kind does not match heading level; identity was not attached.",
+        }),
+      ]),
+    );
+    expect(() => tiptapJsonToSemanticMarkdown(missingLevelBeat)).toThrow(PlayableIdentitySerializationError);
+
+    const nonIntegerLevelBeat = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: {
+            level: "h3",
+            playableElementKind: "beat",
+            playableElementId: "beat:x",
+          },
+          content: [{ type: "text", text: "Gate opens" }],
+        },
+      ],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(nonIntegerLevelBeat)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Playable element kind does not match heading level; identity was not attached.",
+        }),
+      ]),
+    );
+    expect(() => tiptapJsonToSemanticMarkdown(nonIntegerLevelBeat)).toThrow(PlayableIdentitySerializationError);
+  });
+
+  it("fails closed when playable identity is nested inside a callout or Decision/Consequence pane", () => {
+    const nestedInCallout = {
+      type: "doc",
+      content: [
+        {
+          type: "callout",
+          attrs: { kind: "gm-note" },
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+              content: [{ type: "text", text: "Arrival" }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(nestedInCallout)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Playable identity is only serializable on a document-root heading.",
+        }),
+      ]),
+    );
+    expect(() => tiptapJsonToSemanticMarkdown(nestedInCallout)).toThrow(PlayableIdentitySerializationError);
+
+    const nestedInDecisionPane = {
+      type: "doc",
+      content: [
+        {
+          type: "decisionConsequence",
+          content: [
+            {
+              type: "decisionPane",
+              content: [
+                {
+                  type: "heading",
+                  attrs: { level: 3, playableElementKind: "beat", playableElementId: "beat:gate-opens" },
+                  content: [{ type: "text", text: "Gate opens" }],
+                },
+              ],
+            },
+            {
+              type: "consequencePane",
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Later" }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(semanticMarkdownSerializationDiagnostics(nestedInDecisionPane)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "Playable identity is only serializable on a document-root heading.",
+        }),
+      ]),
+    );
+    expect(() => tiptapJsonToSemanticMarkdown(nestedInDecisionPane)).toThrow(PlayableIdentitySerializationError);
+  });
+
+  it("still serializes an unmarked heading inside a callout", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "doc",
+        content: [
+          {
+            type: "callout",
+            attrs: { kind: "gm-note" },
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 2 },
+                content: [{ type: "text", text: "Arrival" }],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe("> [!GM-NOTE]\n> ## Arrival\n");
   });
 });

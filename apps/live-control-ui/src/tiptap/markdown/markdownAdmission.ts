@@ -1,6 +1,7 @@
 import type {
   Blockquote,
   Heading,
+  Html,
   Link,
   List,
   ListItem,
@@ -18,6 +19,13 @@ import {
   normalizeSemanticReferenceLabel,
   type RunbookReferenceAttrs,
 } from "../references/runbookReferences";
+import {
+  duplicatePlayableIds,
+  headingLevelForPlayableKind,
+  parsePlayableHtmlComment,
+  PLAYABLE_ELEMENT_DIAGNOSTIC,
+  type PlayableElementIdentity,
+} from "../playable/playableElementIdentity";
 import { isDecisionConsequenceMarker, normalizeCalloutKind } from "./calloutMarkdown";
 import { parseMarkdownAst } from "./parseMarkdownAst";
 
@@ -394,6 +402,85 @@ function visitHeading(node: Heading, context: AdmissionContext, state: VisitorSt
     }
   }
   return { type: "heading", attrs: { level: node.depth }, content: visitInlineChildren(node.children, state) };
+}
+
+function visitPlayableHeading(
+  node: Heading,
+  identity: PlayableElementIdentity,
+  context: AdmissionContext,
+  state: VisitorState,
+): TiptapNode {
+  const heading = visitHeading(node, context, state);
+  return {
+    ...heading,
+    attrs: {
+      ...heading.attrs,
+      level: headingLevelForPlayableKind(identity.kind),
+      playableElementKind: identity.kind,
+      playableElementId: identity.id,
+    },
+  };
+}
+
+function htmlImmediatelyPrecedesHeading(html: Html, heading: Heading): boolean {
+  const htmlEnd = nodeEndLine(html);
+  const headingStart = nodeStartLine(heading);
+  if (headingStart === htmlEnd + 1) return true;
+  return headingStart === htmlEnd && (html.position?.end.column ?? 1) <= 1;
+}
+
+function visitDocumentBlocks(nodes: RootContent[], state: VisitorState): TiptapNode[] {
+  const canonicalByIndex = new Map<number, PlayableElementIdentity>();
+  nodes.forEach((node, index) => {
+    if (node.type !== "html") return;
+    const parsed = parsePlayableHtmlComment(node.value);
+    if (parsed.status === "canonical") canonicalByIndex.set(index, parsed.identity);
+  });
+  const duplicates = duplicatePlayableIds(canonicalByIndex.values());
+
+  const projected: TiptapNode[] = [];
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index]!;
+    if (node.type !== "html") {
+      projected.push(...visitBlockNode(node, "document", state));
+      continue;
+    }
+
+    const parsed = parsePlayableHtmlComment(node.value);
+    if (parsed.status === "not-marker") {
+      projected.push(...visitBlockNode(node, "document", state));
+      continue;
+    }
+    if (parsed.status === "malformed") {
+      warn(state, parsed.reason, nodeStartLine(node));
+      projected.push(paragraphFromText(sourceSlice(node, state)));
+      continue;
+    }
+
+    const next = nodes[index + 1];
+    const duplicate = duplicates.has(parsed.identity.id);
+    if (duplicate) {
+      warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.duplicate, nodeStartLine(node));
+    }
+    if (!next || next.type !== "heading" || !htmlImmediatelyPrecedesHeading(node, next)) {
+      if (!duplicate) warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.orphan, nodeStartLine(node));
+      projected.push(paragraphFromText(sourceSlice(node, state)));
+      continue;
+    }
+    if (next.depth !== headingLevelForPlayableKind(parsed.identity.kind)) {
+      if (!duplicate) warn(state, PLAYABLE_ELEMENT_DIAGNOSTIC.levelMismatch, nodeStartLine(node));
+      projected.push(paragraphFromText(sourceSlice(node, state)));
+      continue;
+    }
+    if (duplicate) {
+      projected.push(paragraphFromText(sourceSlice(node, state)));
+      continue;
+    }
+
+    projected.push(visitPlayableHeading(next, parsed.identity, "document", state));
+    index += 1;
+  }
+  return projected;
 }
 
 function visitThematicBreak(node: ThematicBreak, context: AdmissionContext, state: VisitorState): TiptapNode[] {
@@ -1103,6 +1190,7 @@ function visitBlockChildren(
   context: AdmissionContext,
   state: VisitorState,
 ): TiptapNode[] {
+  if (context === "document") return visitDocumentBlocks(nodes, state);
   return nodes.flatMap((node) => visitBlockNode(node, context, state));
 }
 

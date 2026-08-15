@@ -207,6 +207,44 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     expect(diagnostics.some((diagnostic) => diagnostic.message.includes("Merged or width-constrained"))).toBe(true);
   });
 
+  it("rejects a Beat heading whose level is missing or non-integer", () => {
+    expect(semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{
+        type: "heading",
+        attrs: { playableElementKind: "beat", playableElementId: "beat:x" },
+        content: [{ type: "text", text: "Gate opens" }],
+      }],
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        nodeType: "heading",
+        message: "Playable element kind does not match heading level; identity was not attached.",
+      }),
+    ]));
+  });
+
+  it("rejects playable identity nested inside a callout", () => {
+    expect(semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [{
+        type: "callout",
+        attrs: { kind: "gm-note" },
+        content: [{
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "Arrival" }],
+        }],
+      }],
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        nodeType: "heading",
+        message: "Playable identity is only serializable on a document-root heading.",
+      }),
+    ]));
+  });
+
   it("rejects marks that are not mounted by the editor schema", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",

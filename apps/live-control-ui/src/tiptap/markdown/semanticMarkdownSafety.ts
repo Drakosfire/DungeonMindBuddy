@@ -1,3 +1,7 @@
+import {
+  playableSerializationFailures,
+} from "../playable/playableElementIdentity";
+
 export interface SemanticMarkdownSerializationDiagnostic {
   level: "warning";
   message: string;
@@ -244,5 +248,8 @@ export function semanticMarkdownSerializationDiagnostics(
   };
 
   visit(root, null);
+  for (const message of playableSerializationFailures(document)) {
+    diagnostics.push(warning(message, "heading"));
+  }
   return diagnostics;
 }

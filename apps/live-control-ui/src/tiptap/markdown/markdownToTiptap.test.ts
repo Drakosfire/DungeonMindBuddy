@@ -997,3 +997,190 @@ describe("Session-26 Markdown → Editor → Save → reload integration", () =>
     }
   });
 });
+
+describe("P1A durable Scene/Beat identity", () => {
+  const sceneMarker = "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->";
+  const beatMarker = "<!-- dmb-playable-element:v1 kind=beat id=beat:gate-opens -->";
+  const secondScene = "<!-- dmb-playable-element:v1 kind=scene id=scene:harbor -->";
+
+  it("admits canonical Scene/Beat pairs with exact attrs", () => {
+    const imported = markdownToTiptapDoc([
+      sceneMarker,
+      "## Arrival",
+      "",
+      beatMarker,
+      "### Gate opens",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content).toEqual([
+      {
+        type: "heading",
+        attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+        content: [{ type: "text", text: "Arrival" }],
+      },
+      {
+        type: "heading",
+        attrs: { level: 3, playableElementKind: "beat", playableElementId: "beat:gate-opens" },
+        content: [{ type: "text", text: "Gate opens" }],
+      },
+    ]);
+  });
+
+  it("round-trips identity through serialize and re-import", () => {
+    const markdown = [sceneMarker, "## Arrival", "", beatMarker, "### Gate opens", ""].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toBe(`${sceneMarker}\n## Arrival\n\n${beatMarker}\n### Gate opens\n`);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.diagnostics).toEqual([]);
+    expect(reimported.doc.content).toEqual(imported.doc.content);
+  });
+
+  it("keeps identity when heading text is renamed", () => {
+    const imported = markdownToTiptapDoc([sceneMarker, "## Arrival", ""].join("\n"));
+    const renamed = {
+      ...imported.doc,
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+          content: [{ type: "text", text: "The docks" }],
+        },
+      ],
+    };
+    const exported = tiptapJsonToSemanticMarkdown(renamed);
+    expect(exported).toBe("<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## The docks\n");
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.doc.content?.[0]).toMatchObject({
+      attrs: { playableElementKind: "scene", playableElementId: "scene:arrival" },
+      content: [{ type: "text", text: "The docks" }],
+    });
+  });
+
+  it("keeps identity when marked headings are reordered", () => {
+    const imported = markdownToTiptapDoc([
+      sceneMarker,
+      "## Arrival",
+      "",
+      secondScene,
+      "## Harbor",
+      "",
+    ].join("\n"));
+    const reordered = {
+      type: "doc",
+      content: [...(imported.doc.content ?? [])].reverse(),
+    };
+    const exported = tiptapJsonToSemanticMarkdown(reordered);
+    expect(exported).toBe(`${secondScene}\n## Harbor\n\n${sceneMarker}\n## Arrival\n`);
+    const reimported = markdownToTiptapDoc(exported);
+    expect(reimported.doc.content?.[0]).toMatchObject({
+      attrs: { playableElementId: "scene:harbor" },
+      content: [{ type: "text", text: "Harbor" }],
+    });
+    expect(reimported.doc.content?.[1]).toMatchObject({
+      attrs: { playableElementId: "scene:arrival" },
+      content: [{ type: "text", text: "Arrival" }],
+    });
+  });
+
+  it("does not invent identity for unmarked headings", () => {
+    const imported = markdownToTiptapDoc("## Ordinary scene-looking heading\n");
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content?.[0]).toEqual({
+      type: "heading",
+      attrs: { level: 2 },
+      content: [{ type: "text", text: "Ordinary scene-looking heading" }],
+    });
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).toBe("## Ordinary scene-looking heading\n");
+  });
+
+  it("fails closed on malformed playable markers without attaching identity", () => {
+    const imported = markdownToTiptapDoc("<!-- dmb-playable-element:v1 kind=scene -->\n## Arrival\n");
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        message: "Malformed playable element marker; identity was not attached.",
+      }),
+    ]));
+    expect(imported.doc.content?.[0]?.type).not.toBeUndefined();
+    expect(JSON.stringify(imported.doc)).not.toContain("playableElementId");
+  });
+
+  it("fails closed on orphan markers", () => {
+    const imported = markdownToTiptapDoc(`${sceneMarker}\n\n## Arrival\n`);
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        message: "Playable element marker is orphaned; it must immediately precede a heading.",
+      }),
+    ]));
+    expect(imported.doc.content?.some((node) => node.type === "heading" && (node.attrs as { playableElementId?: string } | undefined)?.playableElementId)).toBeFalsy();
+  });
+
+  it("fails closed on kind/level mismatch", () => {
+    const imported = markdownToTiptapDoc(`${sceneMarker}\n### Arrival\n`);
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        message: "Playable element kind does not match heading level; identity was not attached.",
+      }),
+    ]));
+    expect(JSON.stringify(imported.doc)).not.toContain("playableElementId");
+  });
+
+  it("fails closed on duplicate source IDs", () => {
+    const imported = markdownToTiptapDoc([
+      sceneMarker,
+      "## Arrival",
+      "",
+      sceneMarker,
+      "## Harbor",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        level: "warning",
+        message: "Duplicate playable element id; identity was not attached.",
+      }),
+    ]));
+    expect(JSON.stringify(imported.doc)).not.toContain("playableElementId");
+  });
+
+  it("keeps ordinary raw HTML fail-closed beside a valid marker", () => {
+    const imported = markdownToTiptapDoc([
+      sceneMarker,
+      "## Arrival",
+      "",
+      "<div>unsafe</div>",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: "Raw HTML blocks are not supported yet." }),
+    ]));
+    expect(imported.doc.content?.[0]).toMatchObject({
+      attrs: { playableElementKind: "scene", playableElementId: "scene:arrival" },
+    });
+  });
+
+  it("does not auto-tag an unmarked existing runbook", () => {
+    const imported = markdownToTiptapDoc("# C2S23 Runbook\n\n## North Gate\n\nHold the wall.\n");
+    expect(imported.diagnostics).toEqual([]);
+    expect(tiptapJsonToSemanticMarkdown(imported.doc)).not.toContain("dmb-playable-element");
+  });
+
+  it("does not admit nested playable markers inside a callout as identity", () => {
+    const imported = markdownToTiptapDoc([
+      "> [!GM-NOTE]",
+      "> <!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+      "> ## Arrival",
+      "",
+    ].join("\n"));
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringMatching(/Raw HTML/),
+      }),
+    ]));
+    expect(JSON.stringify(imported.doc)).not.toContain("playableElementId");
+  });
+});

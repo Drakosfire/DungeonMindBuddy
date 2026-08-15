@@ -2,6 +2,12 @@ import {
   normalizeRunbookReferenceAttrs,
   runbookReferenceHref,
 } from "../references/runbookReferences";
+import {
+  formatPlayableElementMarker,
+  PlayableIdentitySerializationError,
+  playableSerializationFailures,
+  validatePlayableHeadingAttrs,
+} from "../playable/playableElementIdentity";
 
 export const CALLOUT_KINDS = ["read-aloud", "gm-note", "rules", "warning"] as const;
 
@@ -279,9 +285,14 @@ function serializeNode(node: JsonNode): string {
     case "paragraph":
       return childNodes(node).map(inlineMarkdown).join("");
     case "heading": {
+      const playable = validatePlayableHeadingAttrs(node.attrs);
       const requestedLevel = Number(node.attrs?.level);
-      const level = Number.isInteger(requestedLevel) ? Math.min(6, Math.max(1, requestedLevel)) : 2;
-      return `${"#".repeat(level)} ${childNodes(node).map(inlineMarkdown).join("")}`;
+      const level = playable.status === "canonical"
+        ? playable.level
+        : (Number.isInteger(requestedLevel) ? Math.min(6, Math.max(1, requestedLevel)) : 2);
+      const headingLine = `${"#".repeat(level)} ${childNodes(node).map(inlineMarkdown).join("")}`;
+      if (playable.status !== "canonical") return headingLine;
+      return `${formatPlayableElementMarker(playable.identity)}\n${headingLine}`;
     }
     case "horizontalRule":
       return "---";
@@ -319,5 +330,9 @@ function serializeNode(node: JsonNode): string {
 export function tiptapJsonToSemanticMarkdown(doc: unknown): string {
   const node = asNode(doc);
   if (!node) return "";
+  const failures = playableSerializationFailures(doc);
+  if (failures.length > 0) {
+    throw new PlayableIdentitySerializationError(failures);
+  }
   return `${serializeNode(node).trim()}\n`;
 }

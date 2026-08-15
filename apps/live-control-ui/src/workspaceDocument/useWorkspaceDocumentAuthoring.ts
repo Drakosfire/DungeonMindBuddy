@@ -307,16 +307,16 @@ export function useWorkspaceDocumentAuthoring(
     const serializationUnsafe = semanticMarkdownSerializationDiagnostics(tiptapJson).length > 0;
     const snap = snapshotRef.current;
     const sourceHasBlockingImport = snap != null && hasBlockingMarkdownImportDiagnostics(snap.markdown);
-    const editableBody = tiptapJsonToSemanticMarkdown(tiptapJson);
     // When editor JSON is outside the supported Markdown grammar, or the loaded
     // source already has blocking import diagnostics, preserve authoritative
-    // snapshot markdown instead of a lossy TipTap serialization.
+    // snapshot markdown instead of a lossy TipTap serialization. Do not call the
+    // serializer in that case: playable-identity failure is a throw, not a strip.
     const preservingAuthoritativeExport = serializationUnsafe || sourceHasBlockingImport;
     const exportedMarkdown = preservingAuthoritativeExport
       ? (sourceHasBlockingImport && snap ? snap.markdown : current.exported_markdown)
       : preserveLeadingYamlFrontmatter(
         snap?.markdown ?? current.exported_markdown,
-        editableBody,
+        tiptapJsonToSemanticMarkdown(tiptapJson),
       );
     const matchesSnapshot =
       !serializationUnsafe

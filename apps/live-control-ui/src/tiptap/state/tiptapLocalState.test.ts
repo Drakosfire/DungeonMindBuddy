@@ -6,6 +6,7 @@ import {
   runbookDescriptorFromRecord,
   tiptapRunbookStorageKey,
 } from "../descriptors/tiptapRunbookDescriptors";
+import { PlayableIdentitySerializationError } from "../playable/playableElementIdentity";
 import {
   buildInitialWorkspaceDocumentLocalState,
   clearWorkspaceDocumentLocalState,
@@ -138,6 +139,34 @@ describe("Workspace document local state", () => {
     expect(readWorkspaceDocumentLocalState(storage, FIXTURE_DOC_ID)?.document_id).toBe(FIXTURE_DOC_ID);
     expect(readWorkspaceDocumentLocalState(storage, otherDescriptor.documentId)?.document_id)
       .toBe(otherDescriptor.documentId);
+  });
+
+  it("does not build split-brain local state from unsafe playable starter content", () => {
+    expect(() => buildInitialWorkspaceDocumentLocalState({
+      documentId: northGateDescriptor.documentId,
+      title: northGateDescriptor.title,
+      campaignId: northGateDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: northGateDescriptor.session,
+      surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: "",
+      starterContent: {
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+            content: [{ type: "text", text: "Arrival" }],
+          },
+          {
+            type: "heading",
+            attrs: { level: 2, playableElementKind: "scene", playableElementId: "scene:arrival" },
+            content: [{ type: "text", text: "Harbor" }],
+          },
+        ],
+      },
+    })).toThrow(PlayableIdentitySerializationError);
   });
 
   it("clears state under the document key", () => {
