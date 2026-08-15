@@ -1,13 +1,15 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Source capture base:** `3a52d309a606608c9338147b78e0a2f708084042`  
-**Export refreshed:** 2026-08-13  
+**Source capture basis:** canonical Playable design transaction based on `cc5dc6ddba0750924a46cf13843498c124937e5f`  
+**Export refreshed:** 2026-08-15  
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate / Project Sources.
 
-The 15 unchanged mapped sources reuse the exact canonical Git blobs from the source capture base. `INDEX-design-agent-source-set.md` is refreshed by this same change and its canonical and export paths use the same new blob. Export copies are **not a second source of truth**. If an export copy and its canonical repository path ever differ, the canonical path wins and this export needs refresh.
+Export copies are **not a second source of truth**. If an export copy and its canonical repository path ever differ, the canonical path wins and this export needs refresh. Files added or changed by the Playable design transaction use the exact same Git blob at canonical and export paths; unchanged mapped sources retain their existing canonical content.
+
+The user-managed Project Sources snapshot date does **not** advance merely because this repository export changed. Advance it only after the operator actually refreshes or re-observes the product-level source set.
 
 ## Upload set
 
@@ -20,34 +22,40 @@ Upload the files in these folders. Classification is useful context, not precede
 3. `PR-TRACKER-campaign-supergraph.md`
 4. `graph-document-audit.md`
 5. `ARCHITECTURE-surface-interaction-layer.md`
+6. `STEWARDS-ANCHOR-con-ready.md`
+7. `ROADMAP-con-ready.md`
+8. `ARCHITECTURE-playable-material-and-runtime.md`
 
 ### `ACTIVE_REFERENCE/`
 
-6. `STATUS-world-graph-continuity-spine.md`
-7. `ARCHITECTURE-plan-surface-toolbox.md`
-8. `GRAPH-MEMORY-PROJECT-LAYOUT.md`
-9. `PLAN-surface-interaction-hoist-build-first.md`
-10. `INDEX-hermes-campaign-authoring-foundation.md`
-11. `README.md`
-12. `INDEX-design-agent-source-set.md`
+9. `STATUS-world-graph-continuity-spine.md`
+10. `ARCHITECTURE-plan-surface-toolbox.md`
+11. `GRAPH-MEMORY-PROJECT-LAYOUT.md`
+12. `PLAN-surface-interaction-hoist-build-first.md`
+13. `INDEX-hermes-campaign-authoring-foundation.md`
+14. `DESIGN-play-surface-projection.md`
+15. `DESIGN-playable-authoring-and-adoption.md`
+16. `ANCHOR-runbook-lantern.md`
+17. `README.md`
+18. `INDEX-design-agent-source-set.md`
 
 ### `SOURCE_ANCHOR/`
 
-13. `CORPUS-ANCHOR.md`
+19. `CORPUS-ANCHOR.md`
 
 ### `PROCESS/`
 
-14. `AGENTS.md`
-15. `STEWARD-CYCLE.md`
-16. `HANDOFF.template.md`
+20. `AGENTS.md`
+21. `STEWARD-CYCLE.md`
+22. `HANDOFF.template.md`
 
 ## Replace / remove from the older immediate-source set
 
 - Replace every download-suffixed older copy (`(1)`, `(2)`, `(3)`, `(4)`, etc.) with the clean file from this export.
 - Remove `JUMPSTART-docs-relevance-first.md` from active immediate sources. It is superseded by `PROCESS/STEWARD-CYCLE.md`.
 - Replace the old large handoff template with `PROCESS/HANDOFF.template.md`.
-- Add `PROCESS/AGENTS.md`.
-- Add `ACTIVE_REFERENCE/GRAPH-MEMORY-PROJECT-LAYOUT.md`.
+- Add the CON-READY anchor + roadmap and the Playable/Play authority documents listed above.
+- Do not re-promote historical runbook design documents merely because they informed the new Playable architecture.
 
 Do not upload unresolved source-only/historical drafts by default. See the canonical source-set index and graph document audit if a historical decision specifically requires them.
 
@@ -60,11 +68,17 @@ Do not upload unresolved source-only/historical drafts by default. See the canon
 | `ACTIVE_AUTHORITY/PR-TRACKER-campaign-supergraph.md` | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` |
 | `ACTIVE_AUTHORITY/graph-document-audit.md` | `Docs/Reports/graph-document-audit.md` |
 | `ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md` | `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` |
+| `ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` |
+| `ACTIVE_AUTHORITY/ROADMAP-con-ready.md` | `Docs/Roadmaps/ROADMAP-con-ready.md` |
+| `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` | `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md` |
 | `ACTIVE_REFERENCE/STATUS-world-graph-continuity-spine.md` | `Docs/Design/STATUS-world-graph-continuity-spine.md` |
 | `ACTIVE_REFERENCE/ARCHITECTURE-plan-surface-toolbox.md` | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` |
 | `ACTIVE_REFERENCE/GRAPH-MEMORY-PROJECT-LAYOUT.md` | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` |
 | `ACTIVE_REFERENCE/PLAN-surface-interaction-hoist-build-first.md` | `Docs/Plans/PLAN-surface-interaction-hoist-build-first.md` |
 | `ACTIVE_REFERENCE/INDEX-hermes-campaign-authoring-foundation.md` | `Docs/Design/INDEX-hermes-campaign-authoring-foundation.md` |
+| `ACTIVE_REFERENCE/DESIGN-play-surface-projection.md` | `Docs/Design/DESIGN-play-surface-projection.md` |
+| `ACTIVE_REFERENCE/DESIGN-playable-authoring-and-adoption.md` | `Docs/Design/DESIGN-playable-authoring-and-adoption.md` |
+| `ACTIVE_REFERENCE/ANCHOR-runbook-lantern.md` | `Docs/Design/ANCHOR-runbook-lantern.md` |
 | `ACTIVE_REFERENCE/README.md` | `README.md` |
 | `ACTIVE_REFERENCE/INDEX-design-agent-source-set.md` | `Docs/Design/INDEX-design-agent-source-set.md` |
 | `SOURCE_ANCHOR/CORPUS-ANCHOR.md` | `Docs/Anchors/CORPUS-ANCHOR.md` |
@@ -74,4 +88,4 @@ Do not upload unresolved source-only/historical drafts by default. See the canon
 
 ## Maintenance rule
 
-Never repair an export copy in place. Repair/update the canonical repository file first, then refresh its export copy. A bundle refresh should preserve byte equality for every mapped file and should update this README's source capture base.
+Never repair an export copy in place. Repair/update the canonical repository file first, then refresh its export copy. A bundle refresh should preserve byte equality for every mapped file and should update this README's capture basis.
