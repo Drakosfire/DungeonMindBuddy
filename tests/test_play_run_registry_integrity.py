@@ -2,17 +2,31 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from threading import Event, Thread
 
 import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services import play_run_registry
 from apps.live_control_server.services.play_run_registry import (
     PLAY_RUN_RECORD_SCHEMA,
     PlayRunRegistryError,
     get_play_run,
     list_play_runs,
     play_runs_dir,
+)
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWritePrepareRequest,
+    commit_tiptap_markdown_write,
+    prepare_tiptap_markdown_write,
+)
+from apps.live_control_server.services.workspace_document_registry import (
+    WorkspaceDocumentSnapshot,
+    create_workspace_document,
+    get_workspace_document_snapshot,
+    update_workspace_document_metadata,
 )
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -44,6 +58,40 @@ def _persist_record(root: Path, *, run_id: str, created_at: str) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _create_committed_runbook(root: Path) -> WorkspaceDocumentSnapshot:
+    record = create_workspace_document(
+        root,
+        title="Concurrency Runbook",
+        campaign_id="longmont-c2",
+        kind="runbook",
+        target_relpath=(
+            "evals/c2_live_prep/mireward-prep/content/tiptap/"
+            "run-binding-concurrency.md"
+        ),
+    )
+    markdown = "# Runbook\n\nExact revision N.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=record.revision,
+        ),
+    )
+    assert prepared.writer_ok is True
+    assert prepared.writer_confirm_token
+    commit_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            writer_confirm_token=prepared.writer_confirm_token,
+            expected_revision=record.revision,
+        ),
+    )
+    return get_workspace_document_snapshot(root, record.document_id)
 
 
 def test_list_orders_mixed_timestamp_precision_by_time_then_run_id(tmp_path: Path) -> None:
@@ -101,3 +149,85 @@ def test_unknown_playable_document_returns_404_and_creates_no_run(
 
     assert response.status_code == 404
     assert not (play_runs_dir(tmp_path) / f"{RUN_ID_A}.json").exists()
+
+
+def test_new_run_commit_holds_runbook_mutation_lock_through_atomic_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = _create_committed_runbook(tmp_path)
+    write_entered = Event()
+    allow_write = Event()
+    mutation_started = Event()
+    mutation_done = Event()
+    create_errors: list[BaseException] = []
+    mutation_errors: list[BaseException] = []
+    created_records = []
+    real_write_json = play_run_registry.write_json
+
+    def blocking_write_json(path: Path, data: object) -> None:
+        write_entered.set()
+        if not allow_write.wait(timeout=2.0):
+            raise AssertionError("timed out waiting to release Run write")
+        real_write_json(path, data)
+
+    monkeypatch.setattr(play_run_registry, "write_json", blocking_write_json)
+
+    def create_run() -> None:
+        try:
+            created_records.append(
+                play_run_registry.create_or_replay_play_run(
+                    tmp_path,
+                    run_id=RUN_ID_A,
+                    playable_artifact_id=snapshot.record.document_id,
+                    expected_playable_revision=snapshot.loaded_revision,
+                    expected_playable_content_sha256=snapshot.content_sha256,
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            create_errors.append(exc)
+
+    def mutate_runbook() -> None:
+        mutation_started.set()
+        try:
+            update_workspace_document_metadata(
+                tmp_path,
+                snapshot.record.document_id,
+                title="Advanced after Run admission",
+                expected_revision=snapshot.loaded_revision,
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            mutation_errors.append(exc)
+        finally:
+            mutation_done.set()
+
+    create_thread = Thread(target=create_run, daemon=True)
+    create_thread.start()
+    assert write_entered.wait(timeout=2.0)
+
+    mutation_thread = Thread(target=mutate_runbook, daemon=True)
+    mutation_thread.start()
+    assert mutation_started.wait(timeout=2.0)
+
+    try:
+        assert not mutation_done.wait(timeout=0.1)
+    finally:
+        allow_write.set()
+
+    create_thread.join(timeout=2.0)
+    mutation_thread.join(timeout=2.0)
+
+    assert not create_thread.is_alive()
+    assert not mutation_thread.is_alive()
+    assert create_errors == []
+    assert mutation_errors == []
+    assert mutation_done.is_set()
+    assert len(created_records) == 1
+    assert created_records[0].playable_revision == snapshot.loaded_revision
+    assert created_records[0].playable_content_sha256 == snapshot.content_sha256
+
+    advanced = get_workspace_document_snapshot(
+        tmp_path,
+        snapshot.record.document_id,
+    )
+    assert advanced.loaded_revision == snapshot.loaded_revision + 1
