@@ -112,18 +112,18 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #596. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+Mutable workstream state after merged PR #599. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `bc80f7125499817050f08abc79b71b87d327b2a9` — merge of [PR #596](https://github.com/Drakosfire/DungeonMindBuddy/pull/596) |
-| Merged capability | P2A — durable opaque Run identity + exact committed Runbook revision/digest binding |
-| Next slice | P2B1 — immutable Run-bound Playable reference manifest |
-| Next handoff | [`Docs/Plans/HANDOFF-PLAY-run-reference-manifest.md`](../Plans/HANDOFF-PLAY-run-reference-manifest.md) |
-| Named successor after P2B1 | P2B2 — durable CAS Run progress against the sealed manifest |
-| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2B1 becomes a second **Play-owned** consumer of the P1 marker family; `WorkObjectRevisionRef` and `WorkObjectElementRef` remain not yet justified without an independent non-Play consumer. |
+| Integration tip | `26ddd83ddbec381c816fbd2ede891aa5d816b9e1` — merge of [PR #599](https://github.com/Drakosfire/DungeonMindBuddy/pull/599) |
+| Merged capability | P2B1 — immutable Run-bound Playable reference manifest |
+| Next slice | P2B2 — durable CAS Run progress against the sealed manifest |
+| Next handoff | [`Docs/Plans/HANDOFF-PLAY-run-progress-cas.md`](../Plans/HANDOFF-PLAY-run-progress-cas.md) |
+| Named successor after P2B2 | P2C — explicit Run rebase/migration to a newer Playable revision |
+| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2B1 sealed a Play-owned reference-admission sidecar; P2B2 will mutate Play-owned Run progress against that sidecar under `run_revision` CAS. `WorkObjectRevisionRef` and `WorkObjectElementRef` remain not yet justified without an independent non-Play consumer. |
 
-P2A intentionally persisted no Playable structure and proved that a Run binding may outlive the workspace document's current revision. That exposes a concrete P2B safety boundary: after a Runbook advances from N to N+1, current workspace bytes cannot truthfully prove which element IDs existed in the Run's bound N revision. P2B is therefore refined into P2B1 (seal only the exact ID/membership facts needed for later reference admission while N is available) and P2B2 (mutable CAS progress against that manifest). This is a sequencing refinement, not a stable architecture ownership change; historical Playable Markdown remains outside Runtime.
+P2B1 proved that exact Scene/Beat/Choice/Option membership can be frozen for a bound Runbook revision without trusting later workspace bytes. P2B2 is the remaining progress mutation: one full snapshot replacement inside the existing Run JSON, admitted only by that sealed manifest. P2C rebase/migration remains false. This is a sequencing update, not a stable architecture ownership change.
 
 ---
 
@@ -249,7 +249,7 @@ Create one Play Runtime authority: an opaque Run UUID bound to one admitted comm
 
 Handoff: [`HANDOFF-PLAY-durable-run-binding.md`](../Plans/HANDOFF-PLAY-durable-run-binding.md).
 
-#### P2B1 — Immutable Run-bound Playable reference manifest ← current next slice
+#### P2B1 — Immutable Run-bound Playable reference manifest ← merged PR #599
 
 For one existing P2A Run, seal one immutable Runtime sidecar derived from the **exact still-current bound Runbook revision/SHA**. The sidecar stores only canonical Scene/Beat/Choice/Option IDs and structural membership. It stores no Markdown, titles, prose, consequences, rendering order, progress, World/Source/Mechanics data, or migration state.
 
@@ -257,11 +257,13 @@ The first seal fails closed if the workspace has already advanced beyond the Run
 
 Handoff: [`HANDOFF-PLAY-run-reference-manifest.md`](../Plans/HANDOFF-PLAY-run-reference-manifest.md).
 
-#### P2B2 — Durable CAS Run progress against the sealed manifest
+#### P2B2 — Durable CAS Run progress against the sealed manifest ← current next slice
 
 After P2B1, persist current Scene/Beat, resolved Beats, `choiceId → optionId` selections, and notes. Every referenced ID must validate against the P2B1 manifest, and every mutation must use P2A `run_revision` as the compare-and-swap boundary. Do not add a second concurrency token.
 
 P2B2 must not parse current Runbook bytes as a fallback and must not silently create/rebuild a missing manifest from a newer Playable revision.
+
+Handoff: [`HANDOFF-PLAY-run-progress-cas.md`](../Plans/HANDOFF-PLAY-run-progress-cas.md).
 
 #### P2C — Explicit Run rebase/migration
 

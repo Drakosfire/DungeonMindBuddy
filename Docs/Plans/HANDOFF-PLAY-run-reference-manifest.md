@@ -21,8 +21,15 @@ pr_body_template: |
 
 # HANDOFF — seal exact Run-bound Playable reference manifest
 
+> **MERGED / HISTORICAL (2026-08-15):** PR **#599** merged as
+> `26ddd83ddbec381c816fbd2ede891aa5d816b9e1` after **3 review cycles**. P2B1
+> sealed the immutable Run-bound Playable reference manifest (canonical
+> Scene/Beat/Choice/Option IDs and membership only). Successor:
+> [`HANDOFF-PLAY-run-progress-cas.md`](HANDOFF-PLAY-run-progress-cas.md)
+> (P2B2 durable CAS Run progress against the sealed manifest).
+
 **Created:** 2026-08-15  
-**Status:** ACTIVE IMPLEMENTATION — post-PR-#596 state-authority sync is on `main` as `f29132f14e0a29565979c3de95dce6d01976db05` (PR #597); implementation base is pinned to that SHA.  
+**Status:** MERGED — PR #599 / main `26ddd83ddbec381c816fbd2ede891aa5d816b9e1`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-reference-manifest.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2B1`  
 **Flow / owner:** `PLAY`  
