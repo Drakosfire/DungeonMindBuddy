@@ -109,18 +109,18 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #590. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+Mutable workstream state after merged PR #592. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `5221fa9bb58283955165e507710d10bdf3e00d47` — merge of [PR #590](https://github.com/Drakosfire/DungeonMindBuddy/pull/590) |
-| Merged capability | P1A — durable Scene/Beat identity |
-| Next slice | P1B — read-only Playable Scene/Beat structure index |
-| Next handoff | [`Docs/Plans/HANDOFF-PLAY-playable-structure-index.md`](../Plans/HANDOFF-PLAY-playable-structure-index.md) |
-| Named successor after P1B | P1C — Choice / Option identity and minimal authored representation |
-| Hoist posture | Scene/Beat identity remains Play-owned. Do not hoist `WorkObjectElementRef` yet. |
+| Integration tip | `86a405ce7b8085515ef2804965ca4b3aad226c22` — merge of [PR #592](https://github.com/Drakosfire/DungeonMindBuddy/pull/592) |
+| Merged capability | P1B — read-only Playable Scene/Beat structure index |
+| Next slice | P1C — Choice / Option identity and minimal authored representation |
+| Next handoff | [`Docs/Plans/HANDOFF-PLAY-choice-option-identity.md`](../Plans/HANDOFF-PLAY-choice-option-identity.md) |
+| Named successor after P1C | P2 — separate Run runtime |
+| Hoist posture | Scene/Beat identity and the derived structure index remain Play-owned. Do not hoist `WorkObjectElementRef` yet. |
 
-P1A review evidence split the former combined P1B item: new durable identity syntax is a material contract, so P1B consumes Scene/Beat identity before Choice/Option identity is designed.
+P1B did not prove a second independent consumer of generic element addressing. P1C extends the same Play-owned identity family rather than inventing a shared-layer ref.
 
 ---
 
@@ -182,7 +182,7 @@ Deliver one versioned semantic-Markdown identity convention for Scene and Beat h
 
 P1A does **not** implement Run runtime, choices/options, Play projections, legacy-runbook auto-migration, or DungeonMind contracts.
 
-#### P1B — Playable structure index ← current next slice
+#### P1B — Playable structure index ← merged PR #592
 
 After P1A, add the smallest consumer-facing structure needed to address Scenes/Beats by stable P1A IDs and document order. P1B is a read-only derived index: no new Markdown grammar, Save policy, persistence, or editor mutation.
 
@@ -190,11 +190,13 @@ P1B must re-open the hoist decision instead of assuming P1A's representation bel
 
 Handoff: [`HANDOFF-PLAY-playable-structure-index.md`](../Plans/HANDOFF-PLAY-playable-structure-index.md).
 
-#### P1C — Choice / Option identity and minimal authored representation
+#### P1C — Choice / Option identity and minimal authored representation ← current next slice
 
-After P1B, design Choice/Option identity from an actual next consumer (Runtime selections) instead of guessing a second durable identity grammar into Markdown during structure indexing.
+After P1B, add durable Choice/Option identity to the existing `dmb-playable-element:v1` family and extend the structure index with Scene→Choice→Option membership so P2 can later persist `choiceId → optionId` without labels or position as identity.
 
-P1C must re-open the hoist decision with whatever second-consumer evidence P1B produced.
+P1C must re-open the hoist decision. P1B did not prove a second independent consumer of generic element addressing.
+
+Handoff: [`HANDOFF-PLAY-choice-option-identity.md`](../Plans/HANDOFF-PLAY-choice-option-identity.md).
 
 ### Hoist decision after P1
 
