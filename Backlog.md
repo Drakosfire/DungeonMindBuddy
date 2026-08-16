@@ -226,18 +226,18 @@ The rows below preserve discoverability for capabilities removed from root witho
 | Exact-run Graph Review presentation + inspectable evidence failures | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` — `exact-run-candidate-review-projection` | Delegated. Campaign tracker is the sole sequence owner; CUTOVER state-sync is currently being advanced separately in PR #598 and implementation PR #602. |
 | Ingest primary-path simplification | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` — PR380E | Delegated. The tracker, not root backlog, owns whether it is BLOCKED/READY. |
 | World-anchor insertion for world-fed known entities (E1b) | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` — PR380F extraction/identity hardening | Delegated as the concrete dogfood defect to preserve when PR380F is dispatched. |
-| Hermes copyable authoring artifact | `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md` — `AUTHORING-ARTIFACT` | Delegated. Threat tracker currently needs a status re-anchor before any parallel item is dispatched. |
-| Grounded answer → Threat authoring | same tracker — `AOW01` / `AOW02` | Delegated; no duplicate root READY. |
-| Hermes response/query graph chips | same tracker — `GRAPH-CHIPS` | Delegated; no duplicate root READY. |
-| Workbench Revise-with-AI UX | same tracker — `REVISE-UX` | Delegated; no duplicate root READY. |
-| Dedicated statblock mechanic editor expansion | same tracker — `EDITOR-EXPANSION` | Delegated; no duplicate root READY. |
-| Hermes live-progress UX | same tracker — `HERMES-LIVENESS` | Delegated. Keep liveness separate from telemetry when the owner tracker is re-anchored. |
-| Hermes durable performance telemetry | same tracker — split successor `HERMES-TELEMETRY` | Delegated as a distinct capability; the stale tracker currently conflates it with liveness and must split it on re-anchor. |
-| Statblock presentation/media evolution | same tracker — `SBW16–18` | Delegated later work rather than a root IDEA. |
+| Hermes copyable authoring artifact | `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md` — `AUTHORING-ARTIFACT` | Delegated; tracker re-anchored 2026-08-16 and owns READY status. |
+| Grounded answer → Threat authoring | same tracker — `AOW01` / `AOW02` | Delegated; owner marks this DECOMPOSE before dispatch. |
+| Hermes response/query graph chips | same tracker — `GRAPH-CHIPS` | Delegated; owner requires separate response-side and query-anchor slices. |
+| Workbench Revise-with-AI UX | same tracker — `REVISE-UX` | Delegated; tracker owns READY status. |
+| Dedicated statblock mechanic editor expansion | same tracker — `EDITOR-EXPANSION` | Delegated; tracker requires one mechanic family per slice. |
+| Hermes live-progress UX | same tracker — `HERMES-LIVENESS` | Delegated; tracker owns the bounded immediate liveness slice. |
+| Hermes durable performance telemetry | same tracker — `HERMES-TELEMETRY` | Delegated; tracker requires capture and reporting to be split before READY. |
+| Statblock presentation/media evolution | same tracker — `SBW16–18` | Delegated as DEFERRED domain work rather than a root IDEA. |
 | Build/Plan shared Threat projection + campaign-useful glance | merged PR #512 | Removed from active backlog as implemented; regressions should be filed as new current defects. |
 | Abandoned `/surface` / `SurfaceShell` cleanup | current source tree | Removed from active backlog after current-tree search found no `SurfaceShell` owner to dispatch; resurrect only from a concrete current consumer. |
 
 ## Hygiene history
 
 - 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
-- 2026-08-16 pass 2: convert root backlog from “worth doing” list to strict dispatch inventory; status-bearing entries reduced to 13, tracker-owned work delegated without duplicate status, and READY reduced to seven bounded slices.
+- 2026-08-16 pass 2: convert root backlog from “worth doing” list to strict dispatch inventory; status-bearing entries reduced to 13, tracker-owned work delegated without duplicate status, READY reduced to seven bounded slices, and the Threat/Statblock owner tracker/roadmap re-anchored to current merged evidence.
