@@ -70,7 +70,9 @@ Stop and re-brief instead of carrying this design forward by assumption if P3A m
 
 - how the exact Runbook TipTap document is exposed to Play children;
 - how the admitted Run/snapshot/manifest authority set is represented in UI state;
-- how `GraphNodeReferenceNode` renders inside the native deck;
+- how either admitted graph-native form (`graphNodeReference` from `dmb-node:` or `runbookReference` `graph-node` from `#dmb-ref:graph-node:`) renders inside the native deck;
+- whether P3A canonicalizes one of those two representations away (pin that predecessor fact; do not assume dual-form if one is gone);
+- how P3A Scene/Beat/Choice/Option `bodyDoc` slices are owned (Beat ends at the next root playable marker; Choice is a sibling body; Option nests under Choice);
 - the Play surface publication/lease seam;
 - the app-scoped Projection host integration;
 - the exact workspace campaign/world scope available to Play.
@@ -83,7 +85,7 @@ Stop and re-brief instead of carrying this design forward by assumption if P3A m
 
 **Merge-ready invariant:**
 
-> **Every native Play object sheet is a reconstructable projection over explicit existing authorities: (a) the exact P3A-admitted Run/Runbook snapshot supplies the Playable reference occurrences and current Run context; (b) one exact World Graph projection supplies object identity, accepted facts, relationships, evidence, campaign tenancy, and its exact world/campaign/scope/revision identity; (c) Source detail is opened only through existing evidence/source handles. A `graph-node` reference resolves only by its durable node ID in the Run's admitted campaign/world scope — never by label, alias, first match, ambient/default campaign lens, corpus fallback, or #578 dictionaries. Relationship drilling preserves the originating World Graph revision or fails closed. Opening/closing/drilling never mutates Run, Runbook, World, Source, Mechanics, or Combat. When richer object-attached Playable interpretation does not exist, the sheet truthfully degrades to World + Source + exact Runbook-occurrence context rather than inventing `At the table`, `Attitude`, `Offers`, `Rules now`, or copied source prose as a new durable contract.**
+> **Every native Play object sheet is a reconstructable projection over explicit existing authorities: (a) the exact P3A-admitted Run/Runbook snapshot supplies the Playable reference occurrences and current Run context; (b) one exact World Graph projection supplies object identity, accepted facts, relationships, evidence, campaign tenancy, and its exact world/campaign/scope/revision identity; (c) Source detail is opened only through existing evidence/source handles. Both admitted graph-native TipTap representations — `graphNodeReference { nodeId }` from `dmb-node:<id>` and `runbookReference { kind: ref, refType: graph-node, refId }` from `#dmb-ref:graph-node:<id>` — normalize to the same durable node ID and both participate in click/open and occurrence derivation. A graph-native reference resolves only by that durable node ID in the Run's admitted campaign/world scope — never by label, alias, first match, ambient/default campaign lens, corpus fallback, or #578 dictionaries. Occurrence membership comes from disjoint P3A body slices, not a walk that can carry Beat context into a later Choice/Option. Relationship drilling preserves the originating World Graph revision or fails closed. Opening/closing/drilling never mutates Run, Runbook, World, Source, Mechanics, or Combat. When richer object-attached Playable interpretation does not exist, the sheet truthfully degrades to World + Source + exact Runbook-occurrence context rather than inventing `At the table`, `Attitude`, `Offers`, `Rules now`, or copied source prose as a new durable contract.**
 
 ### Why this is the next P3 slice
 
@@ -146,7 +148,8 @@ P3B may therefore derive, in memory only:
 ```text
 PlayableGraphReferenceOccurrence {
   graphNodeId
-  referenceLabel
+  sourceNodeType            # graphNodeReference | runbookReference; diagnostic, not identity
+  referenceLabel            # presentation only
   sceneId
   sceneTitle
   beatId?
@@ -161,8 +164,8 @@ PlayableGraphReferenceOccurrence {
 
 Exact field names may vary, but the derivation rules may not:
 
-- node identity comes only from an exact `graph-node` reference;
-- membership comes from the same admitted P1 structure / P3A body slicing;
+- node identity comes only from the normalized durable graph node ID of either admitted graph-native TipTap form (below);
+- membership comes from disjoint P3A `bodyDoc` slices, not a second Markdown membership parser;
 - titles are presentation only;
 - all occurrences are retained in document order;
 - if one World object is referenced multiple times, do **not** silently choose the first occurrence as canonical;
@@ -194,7 +197,7 @@ This is explicitly supported by `DESIGN-play-surface-projection.md` §14: an obj
 
 | Candidate outcome | Independently useful? | Durable/public contract? | Decision |
 |---|---:|---:|---|
-| Make exact Runbook `graph-node` refs clickable in native Play | No; entry to same sheet capability | Existing reference identity | **Include** |
+| Make exact Runbook graph-native refs clickable in native Play | No; entry to same sheet capability | Existing `dmb-node:` and `#dmb-ref:graph-node:` identity | **Include** |
 | Load World Graph for the admitted Run campaign/world | No; resolver prerequisite | Existing projection API | **Include** |
 | Resolve `graph-node` by exact durable node ID | No; identity safety | Existing shared `graphReference` contract | **Include** |
 | Derive all exact Runbook occurrences for a graph node | No; Playable context clause | Reconstructable local projection | **Include** |
@@ -220,7 +223,7 @@ This is explicitly supported by `DESIGN-play-surface-projection.md` §14: an obj
 | Can one invariant govern every claimed observable path? | **Yes.** Click, open, relationship drill, source read, close, graph degradation, and Playable-context rendering are all read-only projections over exact existing authorities. |
 | Most likely adversarial sequence | Run A opens object X at graph revision G1 → World Graph advances to G2 while sheet is open → GM clicks X→Y relationship → unsafe client resolves Y from ambient G2. Required: relationship drill uses G1 or fails closed; it never mixes X@G1 with Y@G2 invisibly. |
 | Will §7 detect that failure? | Yes. A test opens X from G1, swaps the ambient/current projection to G2, clicks a relationship, and proves the resolver requests/uses pinned G1 before opening Y. |
-| Easiest owning boundary to under-test | Campaign/world admission. Global app graph lens currently has default campaign behavior; Play must derive graph scope from the admitted Run/Runbook rather than ambient UI selection. |
+| Easiest owning boundary to under-test | Dual graph-native chip forms and P3A slice membership. An implementation can wire only `runbookReference` and still look green, or walk “current Beat then current Choice” and mislabel Choice/Option refs with the previous Beat. Campaign/world admission remains the other easy miss: Play must derive graph scope from the admitted Run/Runbook rather than ambient UI selection. |
 | Fact that forces stop/split | Need for new persistent object-attached Playable storage, new server projection schema, historical Runbook storage, graph writes, Threat mechanics special casing, Combat mutation, or a second app Projection host. |
 
 ---
@@ -268,7 +271,10 @@ This is explicitly supported by `DESIGN-play-surface-projection.md` §14: an obj
    - `apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.tsx`;
    - `apps/live-control-ui/src/graphReference/GraphNodeChipRuntime.tsx`;
    - `apps/live-control-ui/src/tiptap/extensions/GraphNodeReferenceNode.ts`;
-   - `apps/live-control-ui/src/tiptap/extensions/GraphNodeReferenceView.tsx`.
+   - `apps/live-control-ui/src/tiptap/extensions/GraphNodeReferenceView.tsx`;
+   - `apps/live-control-ui/src/tiptap/extensions/RunbookReferenceNode.ts`;
+   - `apps/live-control-ui/src/tiptap/extensions/RunbookReferenceView.tsx`;
+   - `apps/live-control-ui/src/tiptap/references/runbookReferences.ts`.
 7. graph-object projection seams:
    - `apps/live-control-ui/src/graphObjectCard/GraphObjectCard.tsx`;
    - `apps/live-control-ui/src/graphObjectCard/GraphObjectProjectionCard.tsx`;
@@ -299,7 +305,11 @@ Do not import or copy #578 `ofConks*` contracts into product code.
 Current `main` already proves:
 
 ```text
-GraphNodeReferenceNode / graph-node durable node IDs
+two admitted graph-native Markdown/TipTap forms:
+  [label](dmb-node:<id>) → graphNodeReference { nodeId, label }
+  [label](#dmb-ref:graph-node:<id>) → runbookReference { kind: ref, refType: graph-node, refId, label }
+both NodeViews publish the exact node ID through GraphNodeChipRuntime.onSelectNode
+P3A does not canonicalize one form away
 neutral resolveGraphReference exact graph-native semantics
 GraphReferenceResolution carrying exact graphScope revision
 neutral GraphObjectCard / ResolvedGraphObjectProjection
@@ -329,7 +339,7 @@ P3B must consume/hoist the safe invariant, not copy the transition debt blindly.
 | Base revision | `PIN_AFTER_P3A_STATE_SYNC` |
 | Design anchor | `bc442717addb264073a68f7528929ec1aac51b2a` — merge of PR #603 |
 | Predecessor contract | merged P3A native Runbook table deck over exact P1/P2 authority set |
-| Exact input consumed | P3A admitted Run + workspace Runbook snapshot/TipTap projection; exact `graph-node` ID; Run campaign/world scope; WorldGraphProjection; graph evidence/source handles |
+| Exact input consumed | P3A admitted Run + workspace Runbook snapshot/TipTap projection including both graph-native chip forms; normalized exact graph node ID; Run campaign/world scope; WorldGraphProjection; graph evidence/source handles |
 | Output | reconstructable Play object sheet in existing shared Projection host; no new durable object record |
 | Named successor | P3C — Threat sheet over exact accepted mechanics, still no Combat mutation |
 | What remains false | no object-attached durable fields, no Threat mechanics specialization, no Add to Combat, no map/media, no proposal/editing, no non-graph-native compatibility fallback |
@@ -394,19 +404,45 @@ P3B does not bind the Run to a World Graph revision. World is a separate authori
 
 ### B. Exact graph-node resolution
 
-Only exact graph-native refs enter P3B:
+Current Markdown admits **two** durable graph-native representations. P3A does **not** canonicalize one away. Both remain in scope unless a later merged P3A pins an explicit collapse.
 
 ```text
-ref.kind == "ref"
-ref.refType == "graph-node"
-ref.refId == durable graph node ID
+[label](dmb-node:<id>)
+  → TipTap graphNodeReference { nodeId, label }
+  → GraphNodeReferenceView onSelectNode(nodeId)
+
+[label](#dmb-ref:graph-node:<id>)
+  → TipTap runbookReference { kind: "ref", refType: "graph-node", refId, label }
+  → RunbookReferenceView onSelectNode(refId)
 ```
 
-Resolution:
+P3B defines one normalization seam over both TipTap node shapes. Exact helper name may vary; the contract may not:
+
+```text
+admitPlayGraphNodeRef(node) -> { graphNodeId } | reject
+
+graphNodeReference:
+  graphNodeId = node.attrs.nodeId if isValidGraphNodeId(nodeId)
+
+runbookReference:
+  graphNodeId = node.attrs.refId
+    only when kind == "ref" and refType == "graph-node"
+    and isValidGraphNodeId(refId)
+
+all other TipTap nodes, corpus/action runbook refs, empty IDs, and label-only chips
+  → reject; never enter click/open or occurrence derivation
+```
+
+After admission, resolution uses the existing shared contract with a `RunbookReferenceAttrs` view of the **normalized ID**, not of whichever chip happened to be clicked:
 
 ```text
 resolveGraphReference({
-  ref,
+  ref: {
+    kind: "ref",
+    refType: "graph-node",
+    refId: graphNodeId,
+    label: presentation-only
+  },
   projection: exact Play WorldGraphProjection,
   projectionState
 })
@@ -414,7 +450,9 @@ resolveGraphReference({
 
 Required semantics:
 
-- exact `refId` only;
+- exact durable node ID only, identical for both source forms;
+- click/open and “In this Runbook” derivation both consume `admitPlayGraphNodeRef`;
+- `PlayGraphReferenceCapability` / `GraphNodeChipRuntime` must keep both NodeViews live; wiring only `runbookReference` is a miss;
 - no normalized label lookup;
 - no alias rebind;
 - no corpus fallback when World Graph is unavailable;
@@ -423,27 +461,41 @@ Required semantics:
 - conflicting exact locator/ref ID → error;
 - no opening the first matching node.
 
+If merged P3A later collapses one representation, pin that predecessor fact in the implementation handback and drop only the collapsed form. Do not treat remaining dual Markdown on disk as out of scope without that pin.
+
 ### C. Runbook occurrence projection
 
-From P3A's exact admitted TipTap/Runbook projection, derive all graph-node occurrences.
+From P3A's exact admitted model, derive all graph-node occurrences by walking **disjoint `bodyDoc` slices**, not a linear “current Beat / current Choice” state machine over the unsliced document.
 
-Membership state machine uses the same root Playable sequence as P1:
+P3A body ownership is already normative:
 
 ```text
-Scene starts current Scene and clears active Beat/Choice/Option context
-Beat belongs to current Scene and becomes current Beat context
-Choice belongs to current Scene and becomes current Choice context
-Option belongs to current Scene + current Choice and becomes current Option context
-ordinary nodes inherit the currently active enclosing Playable context according to P3A body slicing
+Scene bodyDoc:  nodes after Scene heading until first following root playable marker
+Beat bodyDoc:   nodes after Beat heading until next root playable marker
+Choice bodyDoc: nodes after Choice heading until first Option or next root Beat/Choice/Scene
+Option bodyDoc: nodes after Option heading until next root playable marker
 ```
 
-The exact implementation should reuse P3A's body-slice/model seams where possible rather than implement a second independent Markdown membership parser.
+Choice is a sibling of Beat, not a child of the previous Beat. Option nests under Choice only.
+
+Occurrence context is exactly the owning slice plus that slice's legitimate P3A parent IDs:
+
+```text
+scene.bodyDoc  → { sceneId }
+beat.bodyDoc   → { sceneId, beatId }          # choiceId/optionId absent
+choice.bodyDoc → { sceneId, choiceId }        # beatId/optionId absent
+option.bodyDoc → { sceneId, choiceId, optionId }  # beatId absent
+```
+
+Inside each `bodyDoc`, every node that `admitPlayGraphNodeRef` accepts is one occurrence of that `graphNodeId`, retaining `sourceNodeType` for evidence. Document order is slice order then in-slice order.
+
+Do **not** implement a walk of the form “Beat becomes current Beat; Choice becomes current Choice” unless it produces these same identities, including **clearing Beat when Choice starts**. A Choice/Option occurrence must never retain the previous Beat.
 
 For a sheet opened on node X:
 
-- list every exact occurrence of X in the admitted Runbook;
-- show stable Scene/Beat context with presentation titles;
-- indicate current Runtime Scene/Beat when an occurrence matches;
+- list every exact occurrence of X from both graph-native forms;
+- show stable Scene/Beat/Choice/Option context with presentation titles from the owning slice;
+- indicate current Runtime Scene/Beat when an occurrence's membership matches;
 - never call one occurrence `the` canonical occurrence merely because it appears first;
 - relationship-drilled Y may have no occurrence; render `Not explicitly referenced in this Runbook` rather than hiding Y or fabricating context.
 
@@ -566,7 +618,8 @@ No P3B code may add or modify Add-to-Combat behavior.
 
 | Path | Current / predecessor behavior | Required P3B behavior | Same §1 invariant? | Owning boundary |
 |---|---|---|---:|---|
-| Runbook `graph-node` chip | P3A renders exact authored reference but graph open is excluded | click opens exact resolved graph object in shared host | Yes | Play ref capability + graphReference |
+| Runbook `dmb-node:` chip | P3A renders `graphNodeReference` | click opens exact node via `onSelectNode(nodeId)` | Yes | Play ref capability + graphReference |
+| Runbook `#dmb-ref:graph-node:` chip | P3A renders `runbookReference` graph-node | click opens the same exact node via `onSelectNode(refId)` | Yes | Play ref capability + graphReference |
 | Ambient graph lens disagrees with Run | global app context may carry another/default campaign | Play derives graph projection from exact admitted Run/Runbook scope | Yes | Play graph projection loader |
 | Exact node present | n/a in native Play | table-first sheet + exact graphScope | Yes | resolver + sheet |
 | Exact node absent | n/a | unresolved state; no label/alias/corpus fallback | Yes | graphReference |
@@ -588,6 +641,8 @@ No P3B code may add or modify Add-to-Combat behavior.
 | X exact ref label renamed but ID stable | opens same X; label remains presentation | identity test |
 | ref ID missing, label matches one graph object | unresolved; no label rebind | graph-native negative test |
 | X appears in Scene A Beat 1 and Scene C Beat 4 | sheet lists both occurrences; current one highlighted if applicable | occurrence-index test |
+| same node X once as `dmb-node:` and once as `#dmb-ref:graph-node:` | both chips open X; occurrence index retains both; exact ID only; no label/alias fallback | dual-representation test |
+| Scene → Beat(X) → Choice(X) → Option(X) → Beat(X) | four occurrences; Choice/Option have no beatId; Beats have no choiceId; no stale sibling context | slice-membership test |
 | X@G1 open → ambient projection refreshes G2 → click X→Y | pinned G1 fetch/use; no G2 Y | exact-scope drill test |
 | pinned G1 no longer retrievable | unresolved/error; no current-head fallback | exact-scope drill failure test |
 | relationship has label but no exact targetId | no guessed target | relationship identity test |
@@ -608,12 +663,12 @@ The exact P3A-created paths must be re-read at dispatch. Expected implementation
 | Modify | `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` | P3B evidence ledger/disposition; record narrow Plan+Play graphReference hoist if proven |
 | Modify | `apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx` | bind admitted Runbook context to Play graph-reference capability/publication |
 | Modify | `apps/live-control-ui/src/playSurface/runbook/RunbookTableDeck.tsx` | provide exact Runbook projection/current Runtime context to ref occurrence/open seam; no new authority |
-| Create | `apps/live-control-ui/src/playSurface/reference/playGraphReferenceOccurrences.ts` | pure all-occurrence derivation over P3A admitted model/TipTap |
-| Create | `apps/live-control-ui/src/playSurface/reference/playGraphReferenceOccurrences.test.ts` | duplicate occurrence/current context/membership proof |
+| Create | `apps/live-control-ui/src/playSurface/reference/playGraphReferenceOccurrences.ts` | pure all-occurrence derivation over P3A `bodyDoc` slices; both graph-native TipTap forms |
+| Create | `apps/live-control-ui/src/playSurface/reference/playGraphReferenceOccurrences.test.ts` | dual-representation, P3A slice-membership, duplicate occurrence, current-context proof |
 | Create | `apps/live-control-ui/src/playSurface/reference/usePlayGraphReferenceResolver.ts` | Run-bound campaign/world graph load + exact graph-node resolver |
 | Create | `apps/live-control-ui/src/playSurface/reference/usePlayGraphReferenceResolver.test.tsx` | scope/admission/unavailable/ref identity proof |
 | Create | `apps/live-control-ui/src/playSurface/reference/PlayGraphReferenceCapability.tsx` | GraphNodeChipRuntime + Interaction Layer publication/bindings for native Play |
-| Create | `apps/live-control-ui/src/playSurface/reference/PlayGraphReferenceCapability.test.tsx` | click/open/lease/no-mutation proof |
+| Create | `apps/live-control-ui/src/playSurface/reference/PlayGraphReferenceCapability.test.tsx` | click/open for both graph-native forms; lease/no-mutation proof |
 | Create | `apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.tsx` | table-first World + Runbook context + Source/evidence sheet |
 | Create | `apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.test.tsx` | hierarchy/degradation/source/relationship behavior |
 | Create | `apps/live-control-ui/src/playSurface/reference/index.ts` | local exports |
@@ -700,7 +755,7 @@ Input:
     Run
     exact bound Runbook snapshot / parsed projection
     current P2 Runtime fields for context highlighting only
-  exact graph-node Runbook ref
+  exact graph-node from either admitted TipTap form, after admitPlayGraphNodeRef
   existing WorldGraphProjection API
   existing graphReference exact-node resolver
   existing GraphObjectCard projection model
@@ -773,6 +828,9 @@ No app default campaign/world may fill the final row.
 
 | Situation | Required rule | Ambiguity behavior | Fallback permitted? |
 |---|---|---|---|
+| `graphNodeReference` from `dmb-node:<id>` | admit `nodeId` as durable graphNodeId | same ID as typed graph-node form | **No** preferring typed form |
+| `runbookReference` `graph-node` from `#dmb-ref:graph-node:<id>` | admit `refId` as durable graphNodeId | same ID as `dmb-node:` form | **No** preferring `dmb-node:` form |
+| same node authored once in each form | both click/open; both retained as occurrences | do not collapse to one chip | **No** |
 | `graph-node` exact ID exists | resolve exact ID | n/a | No fallback needed |
 | ID absent, label matches unique object | unresolved | do not use label | **No** |
 | ID absent, alias matches | unresolved | do not use alias | **No** |
@@ -794,8 +852,10 @@ No app default campaign/world may fill the final row.
 
 | Condition | Required presentation |
 |---|---|
-| one occurrence | show exact Scene/Beat path |
+| one occurrence | show exact owning P3A slice path (Scene and Beat and/or Choice/Option as applicable) |
 | multiple occurrences | show all in document order; no canonical-first claim |
+| occurrence in Choice/Option after a Beat | Choice/Option context only; `beatId` absent |
+| same ID once per graph-native TipTap form | retain both; record distinct `sourceNodeType` |
 | occurrence in current Scene/Beat | highlight current context |
 | occurrence only in non-current context | show without current highlight |
 | relationship target has zero occurrence | `Not explicitly referenced in this Runbook` |
@@ -808,7 +868,8 @@ The Play sheet may add presentation-only model/slots such as:
 ```text
 In this Runbook
   Scene: <title>
-  Beat: <title>
+  Beat: <title>          # only when owning slice is a Beat
+  Choice / Option: ...   # only when owning slice is Choice or Option
   Current
 ```
 
@@ -902,6 +963,8 @@ Every material clause must be proved at its owning boundary.
 | exact Run campaign/world scope, not ambient default | Play resolver | adversarial unit/component | Run C2 + ambient C1/default still requests C2/W exact |
 | world_id/map conflict fails closed | Play resolver | contract | W1 vs W2 blocks; no request with guessed scope |
 | graph-node exact ID only | shared resolver | contract | label/alias match cannot rescue missing ID |
+| both admitted graph-native forms click and occur | Play capability + occurrence index | adversarial | same node once as `graphNodeReference` and once as `runbookReference` graph-node; both open that ID; index retains both; no label/alias fallback |
+| P3A slice membership has no stale Beat | occurrence index | adversarial | Scene → Beat(X) → Choice(X) → Option(X) → Beat(X) yields four occurrences; Choice/Option `beatId` absent; Beat rows have no choice/option |
 | graph unavailable does not break Runbook deck | Play component | degradation | deck remains; ref unavailable copy |
 | all Runbook occurrences retained | occurrence index | pure unit | same node in multiple Scene/Beat contexts returns all ordered entries |
 | current occurrence highlight truthful | sheet/component | component | current Scene/Beat marks only matching occurrence |
@@ -1072,11 +1135,13 @@ Record:
 9. actual changed paths vs §4 / bounded discovery;
 10. baseline failures/waivers;
 11. prior review findings and closure on re-review;
-12. narrow hoist disposition: Plan+Play exact-scope resolver shared or not, and why;
-13. explicit confirmation no `ofConks*` bridge entered product path;
-14. explicit confirmation no Run/Runbook/World/Source/Mechanics/Combat write occurs from object open/drill;
-15. named successor P3C still false;
-16. roadmap disposition and implementation/evidence head.
+12. dual-representation proof: both `dmb-node:` and `#dmb-ref:graph-node:` click/open and occur;
+13. P3A slice-membership proof: Choice/Option occurrences do not retain a previous Beat;
+14. narrow hoist disposition: Plan+Play exact-scope resolver shared or not, and why;
+15. explicit confirmation no `ofConks*` bridge entered product path;
+16. explicit confirmation no Run/Runbook/World/Source/Mechanics/Combat write occurs from object open/drill;
+17. named successor P3C still false;
+18. roadmap disposition and implementation/evidence head.
 
 One formal reviewer judgment against one distinct head SHA counts as one review cycle. Re-inspecting the same unchanged head does not create another cycle.
 
@@ -1090,6 +1155,8 @@ PASS only if all are true:
 - [ ] P3A remains the predecessor and no P3A authority is duplicated.
 - [ ] Play graph scope comes from admitted Run/Runbook context, never ambient/default campaign state.
 - [ ] Exact graph-native refs resolve by durable node ID only.
+- [ ] Both admitted graph-native TipTap forms (`dmb-node:` `graphNodeReference` and `#dmb-ref:graph-node:` `runbookReference`) participate in click/open and occurrence derivation through one normalization seam.
+- [ ] Occurrence membership is taken from disjoint P3A body slices; Choice/Option occurrences never retain a previous Beat.
 - [ ] All exact Runbook occurrences are derived/reconstructable; no persisted projection cache/body map exists.
 - [ ] Missing richer object-attached Playable interpretation degrades truthfully rather than being inferred.
 - [ ] Object sheet uses World identity/summary/relationships and Source/evidence handles without copying truth into Play.
@@ -1118,6 +1185,8 @@ Stop and report instead of expanding if any of these appears:
 
 - P3A is not merged/state-synchronized or this handoff cannot be pinned to exact post-P3A `main`;
 - P3A does not expose one exact admitted Runbook model/TipTap context suitable for deterministic reference occurrence derivation;
+- P3A body slices no longer make Choice/Option disjoint from the previous Beat, and this handoff's membership rule cannot be restated without a second parser;
+- merged P3A drops one admitted graph-native representation without pinning an explicit canonicalization fact;
 - native Play graph references require a new server-side Play projection API rather than existing graph/source APIs;
 - world identity cannot be derived without inventing a campaign/world guess or changing persistent Run schema;
 - object sheet requires persistent `atTable`/`attitude`/`offers`/`connectedNow` data to be useful;
