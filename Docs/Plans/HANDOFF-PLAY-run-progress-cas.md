@@ -9,7 +9,7 @@ pr_body_template: |
 
   ## Verification pointer
   - Design anchor: PR #599 reviewed head `226d6a5f04055faaf7b8164fee1d85940c0b37a6`
-  - Base/head: <PIN_AFTER_POST_599_STATE_SYNC> / <implementation head>
+  - Base/head: `13ef4d806f2961b8a26f3474a07b9f1e76165f28` / <implementation head>
   - Predecessor: merged PR #599 / P2B1 immutable Run-bound Playable reference manifest
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
@@ -22,13 +22,13 @@ pr_body_template: |
 # HANDOFF — persist CAS Run progress against the sealed manifest
 
 **Created:** 2026-08-15  
-**Status:** DESIGNED — **DO NOT DISPATCH** until PR #599 merges and the guarded post-merge state-authority sync lands on `main`; then pin the exact implementation base.  
+**Status:** ACTIVE IMPLEMENTATION — post-PR-#599 state-authority sync is on `main` as `13ef4d806f2961b8a26f3474a07b9f1e76165f28` (PR #600); implementation base is pinned to that SHA.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-progress-cas.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2B2`  
 **Flow / owner:** `PLAY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** PR #599 final reviewed head `226d6a5f04055faaf7b8164fee1d85940c0b37a6`  
-**Implementation base:** `PIN_AFTER_POST_599_STATE_SYNC`  
+**Implementation base:** `13ef4d806f2961b8a26f3474a07b9f1e76165f28`  
 **Suggested branch:** `agent/play-run-progress-cas`  
 **PR title:** `PLAY: persist CAS Run progress`
 
@@ -248,7 +248,7 @@ P2B2 trusts that sidecar only after P2B1's persisted model/binding validation su
 | Field | Required content |
 |---|---|
 | Parent authority | `ARCHITECTURE-playable-material-and-runtime.md` + living Playable hoist roadmap |
-| Base revision | `PIN_AFTER_POST_599_STATE_SYNC` |
+| Base revision | `13ef4d806f2961b8a26f3474a07b9f1e76165f28` |
 | Predecessor contract | merged PR #599 / P2B1 immutable bound reference manifest + P2A Run CAS token |
 | Exact input consumed | existing Run UUID + `expected_run_revision` + complete caller-authored progress snapshot |
 | Output | same authoritative Run record, unchanged for no-op/replay or atomically advanced exactly one revision with validated progress |

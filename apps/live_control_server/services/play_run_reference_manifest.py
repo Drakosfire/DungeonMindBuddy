@@ -361,8 +361,14 @@ def _require_binding_match(manifest: PlayRunReferenceManifest, record: PlayRunRe
         )
 
 
-def get_play_run_reference_manifest(root: Path, run_id: str) -> PlayRunReferenceManifest:
-    record = get_play_run(root, run_id)
+def load_play_run_reference_manifest_for_record(
+    root: Path,
+    record: PlayRunRecord,
+) -> PlayRunReferenceManifest:
+    """Load and bind-check the sealed sidecar for an already-loaded Run record.
+
+    Does not consult workspace state and does not re-enter Run GET.
+    """
     path = play_run_reference_manifest_path(root, record.run_id)
     if not path.is_file():
         raise PlayRunReferenceManifestError(
@@ -372,6 +378,11 @@ def get_play_run_reference_manifest(root: Path, run_id: str) -> PlayRunReference
     manifest = _load_manifest(path)
     _require_binding_match(manifest, record)
     return manifest
+
+
+def get_play_run_reference_manifest(root: Path, run_id: str) -> PlayRunReferenceManifest:
+    record = get_play_run(root, run_id)
+    return load_play_run_reference_manifest_for_record(root, record)
 
 
 def _admit_snapshot(record: PlayRunRecord, root: Path) -> str:
