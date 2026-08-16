@@ -8,7 +8,7 @@ pr_body_template: |
   - Branch / PR: agent/play-choice-option-identity / `PLAY: persist durable Choice and Option identity`
 
   ## Verification pointer
-  - Base/head: <PIN_AT_DISPATCH> / <implementation head>
+  - Base/head: `f9759b4967356afdd2858092ad64f0c03ca840c6` / <implementation head>
   - Predecessor: merged PR #592 / main `86a405ce7b8085515ef2804965ca4b3aad226c22` at design time
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
@@ -21,13 +21,13 @@ pr_body_template: |
 # HANDOFF — durable Playable Choice / Option identity
 
 **Created:** 2026-08-15  
-**Status:** DESIGNED — **DO NOT DISPATCH** until the post-PR-#592 state-authority sync lands on `main`, then pin the exact implementation base.  
+**Status:** ACTIVE — base pinned after PR #593 state-authority sync; CODE may dispatch  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-choice-option-identity.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P1C`  
 **Flow / owner:** `PLAY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** merged PR #592 at main `86a405ce7b8085515ef2804965ca4b3aad226c22`  
-**Implementation base:** `PIN_AT_DISPATCH_AFTER_STATE_SYNC`  
+**Implementation base:** `f9759b4967356afdd2858092ad64f0c03ca840c6`  
 **Suggested branch:** `agent/play-choice-option-identity`  
 **PR title:** `PLAY: persist durable Choice and Option identity`
 
@@ -71,6 +71,21 @@ After that state-sync transaction lands:
 5. stop if another active lane owns any §4 path or if `main` materially changed the P1A identity / P1B structure-index contracts.
 
 The pin-at-dispatch edit is handoff completion, not capability expansion.
+
+### Dispatch-gate finding — 2026-08-15 (DESIGN, pre-CODE)
+
+| Check | Result |
+|---|---|
+| PR #592 state | **MERGED** at 2026-08-16T00:45:18Z as `86a405ce7b8085515ef2804965ca4b3aad226c22` |
+| Post-#592 state-authority sync | **MERGED** PR #593 at 2026-08-16T00:54:07Z |
+| Current `origin/main` | `f9759b4967356afdd2858092ad64f0c03ca840c6` |
+| P1A identity module | **PRESENT** |
+| P1B structure index | **PRESENT** |
+| Roadmap current next slice | **P1C — Choice / Option identity and minimal authored representation** |
+| Hoist posture | Scene/Beat identity and derived index remain Play-owned; no `WorkObjectElementRef` yet |
+| `PIN_AT_DISPATCH_AFTER_STATE_SYNC` | **replaced** with `f9759b4967356afdd2858092ad64f0c03ca840c6` |
+
+Architecture / state-sync dispatch gate: **PASS**.
 
 ---
 
@@ -212,7 +227,7 @@ P1C extends these contracts; it does not replace or fork them.
 
 | Field | Required content |
 |---|---|
-| Base revision | `PIN_AT_DISPATCH_AFTER_STATE_SYNC` |
+| Base revision | Exact dispatch-time `main` SHA `f9759b4967356afdd2858092ad64f0c03ca840c6` containing merged PR #593 |
 | Design anchor | `86a405ce7b8085515ef2804965ca4b3aad226c22`, merge of PR #592 |
 | Predecessor contract | P1A durable root-level playable identity + P1B deterministic Scene/Beat structure index |
 | Exact input consumed | One TipTap JSON `doc` / semantic Markdown body using the existing workspace-document revision/digest boundary |
@@ -750,8 +765,8 @@ The reviewer may PASS with `not yet` on hoisting. P1C must not manufacture a sha
 
 ## §9 Acceptance rubric
 
-- [ ] Post-#592 state-authority sync landed before dispatch.
-- [ ] Exact implementation base is pinned after that sync.
+- [x] Post-#592 state-authority sync landed before dispatch.
+- [x] Exact implementation base is pinned after that sync.
 - [ ] Existing `dmb-playable-element:v1` marker family is extended additively with `choice` and `option`; no second marker authority is invented.
 - [ ] Choice uses exact `choice:*` identity on root H3.
 - [ ] Option uses exact `option:*` identity on root H4.
