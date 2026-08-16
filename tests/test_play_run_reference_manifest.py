@@ -231,6 +231,42 @@ def test_fenced_marker_is_literal_and_near_marker_outside_fence_blocks() -> None
     elements = derive_play_run_reference_elements(fenced)
     assert [element.element_id for element in elements] == ["scene:gate"]
 
+    tilde_fenced = "\n".join(
+        [
+            "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+            "## The Gate",
+            "",
+            "~~~md",
+            "<!-- dmb-playable-element:v1 kind=scene id=scene:tilde -->",
+            "## Tilde example",
+            "~~~",
+            "",
+        ]
+    )
+    assert [
+        element.element_id for element in derive_play_run_reference_elements(tilde_fenced)
+    ] == ["scene:gate"]
+
+    long_open_short_close = "\n".join(
+        [
+            "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+            "## The Gate",
+            "",
+            "````md",
+            "<!-- dmb-playable-element:v1 kind=scene id=scene:unclosed -->",
+            "## Still inside",
+            "```",
+            "<!-- dmb-playable-element:v1 kind=scene id=scene:leaked -->",
+            "## Must not admit",
+            "````",
+            "",
+        ]
+    )
+    assert [
+        element.element_id
+        for element in derive_play_run_reference_elements(long_open_short_close)
+    ] == ["scene:gate"]
+
     with pytest.raises(PlayRunReferenceManifestError):
         derive_play_run_reference_elements(
             "> <!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n> ## Arrival\n"
@@ -390,6 +426,43 @@ def test_filename_and_binding_mismatch_fail_closed(tmp_path: Path) -> None:
     with pytest.raises(PlayRunReferenceManifestError) as binding:
         get_play_run_reference_manifest(tmp_path, RUN_ID_A)
     assert binding.value.status_code == 500
+    assert original.is_file()
+
+
+def test_persisted_membership_must_resolve_inside_manifest(tmp_path: Path) -> None:
+    snapshot = _create_committed_runbook(tmp_path)
+    _create_run(tmp_path, snapshot)
+    first = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    original = play_run_reference_manifest_path(tmp_path, RUN_ID_A)
+
+    missing_choice = first.model_dump(mode="json", exclude_none=True)
+    for element in missing_choice["elements"]:
+        if element["element_id"] == "option:fire":
+            element["choice_id"] = "choice:missing"
+    original.write_text(json.dumps(missing_choice) + "\n", encoding="utf-8")
+    with pytest.raises(PlayRunReferenceManifestError) as missing:
+        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    assert missing.value.status_code == 500
+
+    other_scene = first.model_dump(mode="json", exclude_none=True)
+    other_scene["elements"].append({"kind": "scene", "element_id": "scene:harbor"})
+    other_scene["elements"].sort(key=lambda element: element["element_id"])
+    for element in other_scene["elements"]:
+        if element["element_id"] == "option:fire":
+            element["scene_id"] = "scene:harbor"
+    original.write_text(json.dumps(other_scene) + "\n", encoding="utf-8")
+    with pytest.raises(PlayRunReferenceManifestError) as crossed:
+        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    assert crossed.value.status_code == 500
+
+    missing_scene = first.model_dump(mode="json", exclude_none=True)
+    for element in missing_scene["elements"]:
+        if element["kind"] == "beat":
+            element["scene_id"] = "scene:missing"
+    original.write_text(json.dumps(missing_scene) + "\n", encoding="utf-8")
+    with pytest.raises(PlayRunReferenceManifestError) as beat:
+        get_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    assert beat.value.status_code == 500
     assert original.is_file()
 
 
