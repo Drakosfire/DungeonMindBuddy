@@ -21,8 +21,17 @@ pr_body_template: |
 
 # HANDOFF — persist CAS Run progress against the sealed manifest
 
+> **MERGED / HISTORICAL (2026-08-16):** PR **#601** merged as
+> `51ed2a6e89b56d2ef033215e23d309ce03a51c87` after **2 review cycles**.
+> Reviewed head `c9d2697c1f7e6b11235a753ceb45c4e514a423eb`;
+> implementation/evidence head `8538409e1027ca8e84990bd86cd07ee2ccf99a72`.
+> P2B2 persisted one full Run-progress snapshot under `run_revision` CAS
+> against the sealed P2B1 manifest. Successor:
+> [`HANDOFF-PLAY-run-rebase.md`](HANDOFF-PLAY-run-rebase.md)
+> (P2C explicit preserve-only Run rebase to a newer Playable revision).
+
 **Created:** 2026-08-15  
-**Status:** ACTIVE IMPLEMENTATION — post-PR-#599 state-authority sync is on `main` as `13ef4d806f2961b8a26f3474a07b9f1e76165f28` (PR #600); implementation base is pinned to that SHA.  
+**Status:** MERGED — PR #601 / main `51ed2a6e89b56d2ef033215e23d309ce03a51c87`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-progress-cas.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2B2`  
 **Flow / owner:** `PLAY`  
