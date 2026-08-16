@@ -11,7 +11,7 @@ import {
 function heading(
   level: number,
   text: string,
-  playable?: { kind: "scene" | "beat"; id: string },
+  playable?: { kind: "scene" | "beat" | "choice" | "option"; id: string },
 ) {
   return {
     type: "heading",
@@ -48,8 +48,9 @@ describe("indexPlayableStructure", () => {
     )));
 
     expect(index.sceneOrder).toEqual(["scene:arrival"]);
+    expect(index.choices).toEqual([]);
     expect(index.scenes).toEqual([
-      { sceneId: "scene:arrival", order: 0, beatOrder: ["beat:gate-opens", "beat:tolls"] },
+      { sceneId: "scene:arrival", order: 0, beatOrder: ["beat:gate-opens", "beat:tolls"], choiceOrder: [] },
     ]);
     expect(index.elements).toEqual([
       { kind: "scene", id: "scene:arrival", order: 0 },
@@ -69,8 +70,8 @@ describe("indexPlayableStructure", () => {
 
     expect(index.sceneOrder).toEqual(["scene:a", "scene:b"]);
     expect(index.scenes).toEqual([
-      { sceneId: "scene:a", order: 0, beatOrder: ["beat:a1", "beat:a2"] },
-      { sceneId: "scene:b", order: 1, beatOrder: ["beat:b1"] },
+      { sceneId: "scene:a", order: 0, beatOrder: ["beat:a1", "beat:a2"], choiceOrder: [] },
+      { sceneId: "scene:b", order: 1, beatOrder: ["beat:b1"], choiceOrder: [] },
     ]);
     expect(index.elements.filter((element) => element.kind === "beat")).toEqual([
       { kind: "beat", id: "beat:a1", order: 1, sceneId: "scene:a" },
@@ -104,8 +105,8 @@ describe("indexPlayableStructure", () => {
     const index = expectReady(indexPlayableStructure(imported.doc));
     expect(index.sceneOrder).toEqual(["scene:a", "scene:b"]);
     expect(index.scenes).toEqual([
-      { sceneId: "scene:a", order: 0, beatOrder: ["beat:a1", "beat:a2"] },
-      { sceneId: "scene:b", order: 1, beatOrder: ["beat:b1"] },
+      { sceneId: "scene:a", order: 0, beatOrder: ["beat:a1", "beat:a2"], choiceOrder: [] },
+      { sceneId: "scene:b", order: 1, beatOrder: ["beat:b1"], choiceOrder: [] },
     ]);
   });
 
@@ -162,8 +163,8 @@ describe("indexPlayableStructure", () => {
       { kind: "beat", id: "beat:x", order: 2, sceneId: "scene:b" },
     ]));
     expect(after.scenes).toEqual([
-      { sceneId: "scene:a", order: 0, beatOrder: [] },
-      { sceneId: "scene:b", order: 1, beatOrder: ["beat:x"] },
+      { sceneId: "scene:a", order: 0, beatOrder: [], choiceOrder: [] },
+      { sceneId: "scene:b", order: 1, beatOrder: ["beat:x"], choiceOrder: [] },
     ]);
   });
 
@@ -249,7 +250,7 @@ describe("indexPlayableStructure", () => {
   it("returns a ready empty index for unmarked or empty documents", () => {
     expect(indexPlayableStructure(doc())).toEqual({
       status: "ready",
-      index: { sceneOrder: [], scenes: [], elements: [] },
+      index: { sceneOrder: [], scenes: [], choices: [], elements: [] },
     });
     expect(indexPlayableStructure(doc(
       heading(1, "Runbook"),
@@ -257,7 +258,7 @@ describe("indexPlayableStructure", () => {
       { type: "paragraph", content: [{ type: "text", text: "Prose." }] },
     ))).toEqual({
       status: "ready",
-      index: { sceneOrder: [], scenes: [], elements: [] },
+      index: { sceneOrder: [], scenes: [], choices: [], elements: [] },
     });
   });
 
@@ -265,7 +266,7 @@ describe("indexPlayableStructure", () => {
     const index = expectReady(indexPlayableStructure(doc(
       heading(2, "Arrival", { kind: "scene", id: "scene:a" }),
     )));
-    expect(index.scenes).toEqual([{ sceneId: "scene:a", order: 0, beatOrder: [] }]);
+    expect(index.scenes).toEqual([{ sceneId: "scene:a", order: 0, beatOrder: [], choiceOrder: [] }]);
   });
 
   it("blocks a non-document root", () => {
@@ -281,5 +282,135 @@ describe("indexPlayableStructure", () => {
       heading(2, "Harbor", { kind: "scene", id: "scene:b" }),
     );
     expect(indexPlayableStructure(document)).toEqual(indexPlayableStructure(document));
+  });
+
+  it("indexes Choice/Option membership under the marked Scene and Choice", () => {
+    const index = expectReady(indexPlayableStructure(doc(
+      heading(2, "The Gate", { kind: "scene", id: "scene:gate" }),
+      heading(3, "Arrival", { kind: "beat", id: "beat:arrival" }),
+      heading(3, "Which route?", { kind: "choice", id: "choice:route" }),
+      heading(4, "Burn", { kind: "option", id: "option:fire" }),
+      heading(4, "Wait", { kind: "option", id: "option:wait" }),
+    )));
+
+    expect(index.sceneOrder).toEqual(["scene:gate"]);
+    expect(index.scenes).toEqual([
+      {
+        sceneId: "scene:gate",
+        order: 0,
+        beatOrder: ["beat:arrival"],
+        choiceOrder: ["choice:route"],
+      },
+    ]);
+    expect(index.choices).toEqual([
+      {
+        choiceId: "choice:route",
+        sceneId: "scene:gate",
+        order: 0,
+        optionOrder: ["option:fire", "option:wait"],
+      },
+    ]);
+    expect(index.elements).toEqual([
+      { kind: "scene", id: "scene:gate", order: 0 },
+      { kind: "beat", id: "beat:arrival", order: 1, sceneId: "scene:gate" },
+      { kind: "choice", id: "choice:route", order: 2, sceneId: "scene:gate" },
+      { kind: "option", id: "option:fire", order: 3, sceneId: "scene:gate", choiceId: "choice:route" },
+      { kind: "option", id: "option:wait", order: 4, sceneId: "scene:gate", choiceId: "choice:route" },
+    ]);
+  });
+
+  it("indexes a Choice with zero Options", () => {
+    const index = expectReady(indexPlayableStructure(doc(
+      heading(2, "The Gate", { kind: "scene", id: "scene:gate" }),
+      heading(3, "Which route?", { kind: "choice", id: "choice:route" }),
+    )));
+    expect(index.choices).toEqual([
+      { choiceId: "choice:route", sceneId: "scene:gate", order: 0, optionOrder: [] },
+    ]);
+  });
+
+  it("moves a Choice across a Scene boundary while keeping the Choice ID", () => {
+    const after = expectReady(indexPlayableStructure(doc(
+      heading(2, "Arrival", { kind: "scene", id: "scene:a" }),
+      heading(2, "Harbor", { kind: "scene", id: "scene:b" }),
+      heading(3, "Which route?", { kind: "choice", id: "choice:x" }),
+    )));
+    expect(after.choices).toEqual([
+      { choiceId: "choice:x", sceneId: "scene:b", order: 0, optionOrder: [] },
+    ]);
+  });
+
+  it("moves an Option across a Choice boundary while keeping the Option ID", () => {
+    const after = expectReady(indexPlayableStructure(doc(
+      heading(2, "Arrival", { kind: "scene", id: "scene:a" }),
+      heading(3, "First", { kind: "choice", id: "choice:a" }),
+      heading(3, "Second", { kind: "choice", id: "choice:b" }),
+      heading(4, "Crossing", { kind: "option", id: "option:x" }),
+    )));
+    expect(after.choices).toEqual([
+      { choiceId: "choice:a", sceneId: "scene:a", order: 0, optionOrder: [] },
+      { choiceId: "choice:b", sceneId: "scene:a", order: 1, optionOrder: ["option:x"] },
+    ]);
+    expect(after.elements).toEqual(expect.arrayContaining([
+      { kind: "option", id: "option:x", order: 3, sceneId: "scene:a", choiceId: "choice:b" },
+    ]));
+  });
+
+  it("blocks an Option that follows a Beat after a Choice", () => {
+    const diagnostics = expectBlocked(indexPlayableStructure(doc(
+      heading(2, "Arrival", { kind: "scene", id: "scene:a" }),
+      heading(3, "Which route?", { kind: "choice", id: "choice:route" }),
+      heading(4, "Burn", { kind: "option", id: "option:fire" }),
+      heading(3, "Aftermath", { kind: "beat", id: "beat:after" }),
+      heading(4, "Wait", { kind: "option", id: "option:wait" }),
+    )));
+    expect(diagnostics).toEqual([
+      {
+        code: "orphan_option",
+        message: PLAYABLE_STRUCTURE_DIAGNOSTIC.orphanOption,
+        elementId: "option:wait",
+      },
+    ]);
+  });
+
+  it("blocks a Choice before any marked Scene", () => {
+    const diagnostics = expectBlocked(indexPlayableStructure(doc(
+      heading(3, "Too soon", { kind: "choice", id: "choice:x" }),
+      heading(2, "Arrival", { kind: "scene", id: "scene:a" }),
+    )));
+    expect(diagnostics).toEqual([
+      {
+        code: "orphan_choice",
+        message: PLAYABLE_STRUCTURE_DIAGNOSTIC.orphanChoice,
+        elementId: "choice:x",
+      },
+    ]);
+  });
+
+  it("blocks an Option before any active Choice", () => {
+    const diagnostics = expectBlocked(indexPlayableStructure(doc(
+      heading(2, "Arrival", { kind: "scene", id: "scene:a" }),
+      heading(4, "Too soon", { kind: "option", id: "option:x" }),
+    )));
+    expect(diagnostics).toEqual([
+      {
+        code: "orphan_option",
+        message: PLAYABLE_STRUCTURE_DIAGNOSTIC.orphanOption,
+        elementId: "option:x",
+      },
+    ]);
+  });
+
+  it("ignores unmarked H3/H4 between a Choice and its Options", () => {
+    const index = expectReady(indexPlayableStructure(doc(
+      heading(2, "Arrival", { kind: "scene", id: "scene:a" }),
+      heading(3, "Which route?", { kind: "choice", id: "choice:route" }),
+      heading(3, "Looks like a choice"),
+      heading(4, "Looks like an option"),
+      heading(4, "Burn", { kind: "option", id: "option:fire" }),
+    )));
+    expect(index.choices).toEqual([
+      { choiceId: "choice:route", sceneId: "scene:a", order: 0, optionOrder: ["option:fire"] },
+    ]);
   });
 });
