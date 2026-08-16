@@ -52,7 +52,7 @@ def _canonical_sha256(value: str, *, field_name: str) -> str:
     return cleaned
 
 
-def _utc_iso(value: str) -> str:
+def _parse_utc_iso(value: str) -> datetime:
     cleaned = value.strip()
     if not cleaned.endswith("Z"):
         raise ValueError("timestamp must be an ISO-8601 UTC value ending in Z")
@@ -62,6 +62,12 @@ def _utc_iso(value: str) -> str:
         raise ValueError("timestamp must be an ISO-8601 UTC value") from exc
     if parsed.utcoffset() != UTC.utcoffset(parsed):
         raise ValueError("timestamp must be UTC")
+    return parsed
+
+
+def _utc_iso(value: str) -> str:
+    cleaned = value.strip()
+    _parse_utc_iso(cleaned)
     return cleaned
 
 
@@ -239,7 +245,7 @@ def list_play_runs(
         ]
 
     records.sort(key=lambda record: record.run_id)
-    records.sort(key=lambda record: record.created_at, reverse=True)
+    records.sort(key=lambda record: _parse_utc_iso(record.created_at), reverse=True)
     return records
 
 
