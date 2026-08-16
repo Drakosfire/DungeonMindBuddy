@@ -19,8 +19,14 @@ pr_body_template: |
 
 # HANDOFF — durable Playable Scene and Beat identity
 
+> **MERGED / HISTORICAL (2026-08-15):** PR **#590** merged as
+> `5221fa9bb58283955165e507710d10bdf3e00d47`. Three review cycles. Scene/Beat
+> identity remains Play-owned; no `WorkObjectElementRef` hoist. Successor:
+> [`HANDOFF-PLAY-playable-structure-index.md`](HANDOFF-PLAY-playable-structure-index.md)
+> (P1B structure index; Choice/Option identity deferred to P1C).
+
 **Created:** 2026-08-15  
-**Status:** ACTIVE — base pinned; CODE may dispatch after steward collision review  
+**Status:** MERGED — PR #590 / main `5221fa9bb58283955165e507710d10bdf3e00d47`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-durable-scene-beat-identity.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P1A`  
 **Flow / owner:** `PLAY`  
@@ -164,7 +170,7 @@ The implementation must preserve existing fail-closed Markdown safety. P1A adds 
 | Base revision | Exact dispatch-time `main` SHA `180ffeb457106ca82f7744938c6697f88a8b7527` containing merged PR #589 |
 | Predecessor contract | Workspace-document Markdown round-trip + canonical Playable requirement that referenced Scene/Beat elements have stable identity |
 | Exact input consumed | `runbook` semantic Markdown and TipTap JSON at one workspace-document revision/digest |
-| Named successor | `P1B — Playable structure index + Choice/Option identity` |
+| Named successor | `P1B — Playable structure index` (`HANDOFF-PLAY-playable-structure-index.md`); Choice/Option identity deferred to P1C |
 | What remains false | No Run state; no Play Scene deck; no automatic legacy stabilization; no user-facing Scene/Beat creation command; no Choice/Option stable identity; no generic shared `WorkObjectElementRef`; no kernel context |
 | Explicit non-goals | New datastore, runtime schema, graph ontology, kernel/profile changes, adventure-specific bridges, broad HTML support |
 | Branch / isolated checkout | `agent/play-durable-scene-beat-identity` in an isolated worktree/equivalent |

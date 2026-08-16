@@ -106,6 +106,21 @@ Rules:
 |---|---|---|---|---|
 | [#590](https://github.com/Drakosfire/DungeonMindBuddy/pull/590) evidence `3fe4a403` | P1 | ROADMAP_REVIEW — UPDATED. First use of the living-roadmap exact-head rule showed that requiring the same-PR ledger to name the final reviewed head cannot converge: the ledger write creates a new SHA. Distinguish implementation/evidence head (this row) from the reviewed head recorded in the review handback. P1A identity remains Play-owned semantic Markdown plus editor projection attrs; no second consumer needed the same invariant. | Keep Scene/Beat identity Play-owned. Do not hoist `WorkObjectElementRef` yet. Living-roadmap rows name evidence heads, not the ledger-write SHA. | P1B — Playable structure index and authored Choice identity, after this PR is reviewed |
 
+### Current sequence
+
+Mutable workstream state after merged PR #590. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+
+| Field | Current truth |
+|---|---|
+| Integration tip | `5221fa9bb58283955165e507710d10bdf3e00d47` — merge of [PR #590](https://github.com/Drakosfire/DungeonMindBuddy/pull/590) |
+| Merged capability | P1A — durable Scene/Beat identity |
+| Next slice | P1B — read-only Playable Scene/Beat structure index |
+| Next handoff | [`Docs/Plans/HANDOFF-PLAY-playable-structure-index.md`](../Plans/HANDOFF-PLAY-playable-structure-index.md) |
+| Named successor after P1B | P1C — Choice / Option identity and minimal authored representation |
+| Hoist posture | Scene/Beat identity remains Play-owned. Do not hoist `WorkObjectElementRef` yet. |
+
+P1A review evidence split the former combined P1B item: new durable identity syntax is a material contract, so P1B consumes Scene/Beat identity before Choice/Option identity is designed.
+
 ---
 
 # 3. Delivery roadmap
@@ -152,7 +167,7 @@ Do **not** introduce a new datastore.
 
 P1 is intentionally split so stable identity is proven before richer Playable structure depends on it.
 
-#### P1A — Durable Scene / Beat identity grammar ← first implementation PR
+#### P1A — Durable Scene / Beat identity grammar ← merged PR #590
 
 Deliver one versioned semantic-Markdown identity convention for Scene and Beat headings and prove it survives:
 
@@ -166,11 +181,19 @@ Deliver one versioned semantic-Markdown identity convention for Scene and Beat h
 
 P1A does **not** implement Run runtime, choices/options, Play projections, legacy-runbook auto-migration, or DungeonMind contracts.
 
-#### P1B — Playable structure index and authored Choice identity
+#### P1B — Playable structure index ← current next slice
 
-After P1A review, add the smallest consumer-facing structure needed to address Scenes/Beats and, if Runtime will persist selections next, stable Choice/Option identity using the same exact work-object/revision boundary.
+After P1A, add the smallest consumer-facing structure needed to address Scenes/Beats by stable P1A IDs and document order. P1B is a read-only derived index: no new Markdown grammar, Save policy, persistence, or editor mutation.
 
 P1B must re-open the hoist decision instead of assuming P1A's representation belongs in the shared Canvas layer.
+
+Handoff: [`HANDOFF-PLAY-playable-structure-index.md`](../Plans/HANDOFF-PLAY-playable-structure-index.md).
+
+#### P1C — Choice / Option identity and minimal authored representation
+
+After P1B, design Choice/Option identity from an actual next consumer (Runtime selections) instead of guessing a second durable identity grammar into Markdown during structure indexing.
+
+P1C must re-open the hoist decision with whatever second-consumer evidence P1B produced.
 
 ### Hoist decision after P1
 
