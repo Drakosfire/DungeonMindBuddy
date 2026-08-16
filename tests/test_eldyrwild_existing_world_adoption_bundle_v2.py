@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 import hashlib
 import json
+import subprocess
 
 import pytest
+
+from dungeonmind.contracts.evidence import EvidenceRef, EvidenceRole, SourceDomain
 
 from apps.live_control_server.config import repo_root, world_graph_root
 from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
@@ -22,9 +26,14 @@ from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing
     HIRES_CORRECTION_RAW_ARTIFACT_SHA256,
     HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256,
     PRODUCER_REVISION,
+    EldyrwildAdoptionBundleV2Error,
+    assert_contribution_evidence_identity_closed,
     build_eldyrwild_existing_world_adoption_bundle_v2,
+    contribution_evidence_v1_binding_payload,
     evaluate_false_stop_edges,
+    exported_contribution_evidence_ref_id,
     partition_raw_stored_edges,
+    raw_buddy_evidence_ref_id,
     raw_edges_would_create_vocabulary_blockers,
     read_source_revision_body,
 )
@@ -374,3 +383,231 @@ def test_shared_buddy_revision_tokens_are_scoped_per_artifact(built_bundle) -> N
         if "::" in (contribution.source_revision_id or ""):
             artifact_id = contribution.source_artifact_id
             assert contribution.source_revision_id.endswith(f"::{artifact_id}")
+
+
+PRE_FIX_BUNDLE_BLOB = "14cbe3394cd622fd58f321da1a6dfbcd6a3b97d3"
+PRE_FIX_INTRA_CONTRIBUTION_COLLISIONS = 15
+PRE_FIX_CONFLICTING_RAW_EVIDENCE_IDS = 57
+PRE_FIX_AFFECTED_CONTRIBUTIONS = frozenset(
+    {
+        "contribution:2807888820d76c78",
+        "contribution:400ffb3a229f2b13",
+        "contribution:4e0276b24db50ee5",
+        "contribution:55047c991813532c",
+        "contribution:66f9834c455c7818",
+        "contribution:86ea8a3d97dd18cc",
+        "contribution:8b046da9ec0f4275",
+        "contribution:97f5ef69b6c6d14e",
+        "contribution:a5f8e745364e182c",
+        "contribution:a7ba15b146d7af1f",
+        "contribution:b8d6018f51828276",
+        "contribution:cc2574b7d2d274a9",
+        "contribution:d3d244474789879c",
+        "contribution:dfadb94646dd9d3c",
+        "contribution:f43a2446902be8a9",
+    }
+)
+WITNESS_RAW_EVIDENCE_ID = (
+    "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002"
+)
+WITNESS_CONTRIBUTION_ID = "contribution:2807888820d76c78"
+WITNESS_SOURCE_REVISIONS = frozenset(
+    {
+        "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+        "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+    }
+)
+
+
+def _pre_fix_bundle() -> dict:
+    raw = subprocess.check_output(
+        ["git", "cat-file", "-p", PRE_FIX_BUNDLE_BLOB],
+        cwd=REPO,
+    )
+    assert hashlib.sha1(b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw).hexdigest() == (
+        PRE_FIX_BUNDLE_BLOB
+    )
+    return json.loads(raw.decode("utf-8"))
+
+
+def _intra_contribution_evidence_collisions(bundle: dict) -> tuple[set[str], set[str]]:
+    contributions: set[str] = set()
+    raw_ids: set[str] = set()
+    for contribution in bundle["contributions"]:
+        by_id: dict[str, set[str]] = {}
+        for assertion in contribution["assertions"]:
+            for ref in assertion.get("evidence_refs") or []:
+                payload = json.dumps(ref, sort_keys=True, separators=(",", ":"))
+                by_id.setdefault(ref["evidence_ref_id"], set()).add(payload)
+        for evidence_id, payloads in by_id.items():
+            if len(payloads) > 1:
+                contributions.add(contribution["contribution_id"])
+                raw_ids.add(evidence_id)
+    return contributions, raw_ids
+
+
+def _evidence_ref(
+    *,
+    evidence_ref_id: str,
+    source_revision_id: str | None,
+    source_artifact_id: str = "artifact:recap:example",
+    can_highlight_span: bool = False,
+) -> EvidenceRef:
+    return EvidenceRef(
+        evidence_ref_id=evidence_ref_id,
+        source_artifact_id=source_artifact_id,
+        source_revision_id=source_revision_id,
+        source_domain=SourceDomain.SESSION_RECAP,
+        evidence_role=EvidenceRole.SUPPORT,
+        can_open_source=True,
+        can_highlight_span=can_highlight_span,
+        locator=None,
+        uri=None,
+    )
+
+
+def test_pre_fix_bundle_reproduces_fifteen_contribution_evidence_collisions() -> None:
+    bundle = _pre_fix_bundle()
+    contributions, raw_ids = _intra_contribution_evidence_collisions(bundle)
+    assert contributions == PRE_FIX_AFFECTED_CONTRIBUTIONS
+    assert len(contributions) == PRE_FIX_INTRA_CONTRIBUTION_COLLISIONS
+    assert len(raw_ids) == PRE_FIX_CONFLICTING_RAW_EVIDENCE_IDS
+    assert WITNESS_RAW_EVIDENCE_ID in raw_ids
+    witness_revs = {
+        ref["source_revision_id"]
+        for contribution in bundle["contributions"]
+        if contribution["contribution_id"] == WITNESS_CONTRIBUTION_ID
+        for assertion in contribution["assertions"]
+        for ref in assertion.get("evidence_refs") or []
+        if ref["evidence_ref_id"] == WITNESS_RAW_EVIDENCE_ID
+    }
+    assert witness_revs == WITNESS_SOURCE_REVISIONS
+
+
+def test_witness_source_revisions_export_distinct_durable_evidence_ids(built_bundle) -> None:
+    contribution = next(
+        item
+        for item in built_bundle.bundle.contributions
+        if item.contribution_id == WITNESS_CONTRIBUTION_ID
+    )
+    by_revision: dict[str, set[str]] = {}
+    for assertion in contribution.assertions:
+        for ref in assertion.evidence_refs:
+            if raw_buddy_evidence_ref_id(ref.evidence_ref_id) != WITNESS_RAW_EVIDENCE_ID:
+                continue
+            assert ref.source_revision_id in WITNESS_SOURCE_REVISIONS
+            by_revision.setdefault(ref.source_revision_id, set()).add(ref.evidence_ref_id)
+            assert ref.evidence_ref_id.startswith(WITNESS_RAW_EVIDENCE_ID + ":dmv1:")
+    assert set(by_revision) == WITNESS_SOURCE_REVISIONS
+    exported = [next(iter(ids)) for ids in by_revision.values()]
+    assert len(set(exported)) == 2
+
+
+def test_final_bundle_contribution_evidence_ids_are_payload_unique(built_bundle) -> None:
+    assert_contribution_evidence_identity_closed(built_bundle.bundle.contributions)
+    payloads: dict[str, str] = {}
+    raw_ids_in_affected: set[str] = set()
+    for contribution in built_bundle.bundle.contributions:
+        for assertion in contribution.assertions:
+            for ref in assertion.evidence_refs:
+                dumped = json.dumps(ref.model_dump(mode="json"), sort_keys=True)
+                prior = payloads.get(ref.evidence_ref_id)
+                if prior is None:
+                    payloads[ref.evidence_ref_id] = dumped
+                else:
+                    assert prior == dumped
+                if contribution.contribution_id in PRE_FIX_AFFECTED_CONTRIBUTIONS:
+                    raw_ids_in_affected.add(raw_buddy_evidence_ref_id(ref.evidence_ref_id))
+    assert PRE_FIX_AFFECTED_CONTRIBUTIONS <= {
+        item.contribution_id for item in built_bundle.bundle.contributions
+    }
+    assert WITNESS_RAW_EVIDENCE_ID in raw_ids_in_affected
+
+
+def test_contribution_evidence_identity_helper_is_stable_and_discriminating() -> None:
+    raw_a = "evidence:artifact:recap:example:paragraph:001"
+    raw_b = "evidence:artifact:recap:example:paragraph:002"
+    first = _evidence_ref(evidence_ref_id="tmp", source_revision_id="sha256:" + "aa" * 32)
+    same = _evidence_ref(evidence_ref_id="other-tmp", source_revision_id="sha256:" + "aa" * 32)
+    changed_rev = _evidence_ref(
+        evidence_ref_id="tmp",
+        source_revision_id="sha256:" + "bb" * 32,
+    )
+    changed_flag = _evidence_ref(
+        evidence_ref_id="tmp",
+        source_revision_id="sha256:" + "aa" * 32,
+        can_highlight_span=True,
+    )
+    id_same = exported_contribution_evidence_ref_id(raw_a, first)
+    id_same_again = exported_contribution_evidence_ref_id(raw_a, same)
+    reversed_binding = {
+        "uri": None,
+        "locator": None,
+        "can_highlight_span": False,
+        "can_open_source": True,
+        "evidence_role": "support",
+        "source_domain": "session_recap",
+        "source_revision_id": "sha256:" + "aa" * 32,
+        "source_artifact_id": "artifact:recap:example",
+        "schema_version": "dm_evidence_ref_v1",
+    }
+    id_reversed = exported_contribution_evidence_ref_id(raw_a, reversed_binding)
+    assert id_same == id_same_again == id_reversed
+    assert exported_contribution_evidence_ref_id(raw_a, changed_rev) != id_same
+    assert exported_contribution_evidence_ref_id(raw_a, changed_flag) != id_same
+    assert exported_contribution_evidence_ref_id(raw_b, first) != id_same
+    assert raw_buddy_evidence_ref_id(id_same) == raw_a
+    digest = id_same.rsplit(":dmv1:", 1)[1]
+    assert len(digest) == 64
+    assert digest == hashlib.sha256(
+        json.dumps(
+            contribution_evidence_v1_binding_payload(first),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def test_contribution_evidence_preflight_stops_on_payload_collision() -> None:
+    shared_id = "evidence:collision:dmv1:" + ("ab" * 32)
+    first = _evidence_ref(evidence_ref_id=shared_id, source_revision_id="sha256:" + "aa" * 32)
+    second = _evidence_ref(evidence_ref_id=shared_id, source_revision_id="sha256:" + "bb" * 32)
+    contributions = [
+        SimpleNamespace(
+            contribution_id="contribution:left",
+            assertions=[SimpleNamespace(assertion_id="assertion:left", evidence_refs=[first])],
+        ),
+        SimpleNamespace(
+            contribution_id="contribution:right",
+            assertions=[SimpleNamespace(assertion_id="assertion:right", evidence_refs=[second])],
+        ),
+    ]
+    with pytest.raises(EldyrwildAdoptionBundleV2Error, match="conflicting evidence_ref"):
+        assert_contribution_evidence_identity_closed(contributions)  # type: ignore[arg-type]
+
+
+def test_contribution_evidence_revisions_are_not_nulled(built_bundle) -> None:
+    pre_fix = _pre_fix_bundle()
+    pre_populated = 0
+    for contribution in pre_fix["contributions"]:
+        for assertion in contribution["assertions"]:
+            for ref in assertion.get("evidence_refs") or []:
+                if ref.get("source_revision_id"):
+                    pre_populated += 1
+    post_populated = 0
+    for contribution in built_bundle.bundle.contributions:
+        assert contribution.source_revision_id
+        for assertion in contribution.assertions:
+            assert assertion.source_revision_id
+            for ref in assertion.evidence_refs:
+                if ref.source_revision_id:
+                    post_populated += 1
+    assert post_populated == pre_populated
+    assert post_populated > 0
+
+
+def test_repeated_generation_is_byte_identical() -> None:
+    first = build_eldyrwild_existing_world_adoption_bundle_v2(root=ROOT, repo=REPO)
+    second = build_eldyrwild_existing_world_adoption_bundle_v2(root=ROOT, repo=REPO)
+    assert first.canonical_bytes == second.canonical_bytes
