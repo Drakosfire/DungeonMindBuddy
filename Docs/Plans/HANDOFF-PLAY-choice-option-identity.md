@@ -20,8 +20,15 @@ pr_body_template: |
 
 # HANDOFF — durable Playable Choice / Option identity
 
+> **MERGED / HISTORICAL (2026-08-15):** PR **#594** merged as
+> `bb937f4a0792e51d2dc7d73132c20253c0becf47`. Two review cycles. Four-kind
+> identity and derived index remain Play-owned; `WorkObjectElementRef` is not
+> yet justified. Successor:
+> [`HANDOFF-PLAY-durable-run-binding.md`](HANDOFF-PLAY-durable-run-binding.md)
+> (P2A durable Run binding; element progress is P2B).
+
 **Created:** 2026-08-15  
-**Status:** ACTIVE — base pinned after PR #593 state-authority sync; CODE may dispatch  
+**Status:** MERGED — PR #594 / main `bb937f4a0792e51d2dc7d73132c20253c0becf47`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-choice-option-identity.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P1C`  
 **Flow / owner:** `PLAY`  
