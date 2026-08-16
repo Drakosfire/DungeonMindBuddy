@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 import json
 
 import pytest
@@ -17,11 +18,15 @@ from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing
     EXPECTED_MECHANICS,
     EXPECTED_RAW_EDGE_COUNT,
     FALSE_STOP_EDGE_IDS,
+    HIRES_CORRECTION_ARTIFACT_ID,
+    HIRES_CORRECTION_RAW_ARTIFACT_SHA256,
+    HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256,
     PRODUCER_REVISION,
     build_eldyrwild_existing_world_adoption_bundle_v2,
     evaluate_false_stop_edges,
     partition_raw_stored_edges,
     raw_edges_would_create_vocabulary_blockers,
+    read_source_revision_body,
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
     _load_exact_buddy_revision,
@@ -267,8 +272,7 @@ def test_hires_correction_keeps_graph_native_source_revision(built_bundle) -> No
     correction = next(
         item
         for item in built.bundle.contributions
-        if item.source_artifact_id
-        == "graph-native:eldyrwild-correction:session25-ephanna-thrin-false-hires-v1"
+        if item.source_artifact_id == HIRES_CORRECTION_ARTIFACT_ID
     )
     assert (
         correction.source_revision_id
@@ -279,9 +283,41 @@ def test_hires_correction_keeps_graph_native_source_revision(built_bundle) -> No
         for item in built.bundle.source_revisions
         if item.source_revision_id == correction.source_revision_id
     )
+    artifact = next(
+        item
+        for item in built.bundle.source_artifacts
+        if item.source_artifact_id == correction.source_artifact_id
+    )
     assert revision.source_artifact_id == correction.source_artifact_id
-    assert revision.content_sha256
+    assert revision.content_sha256 == HIRES_CORRECTION_RAW_ARTIFACT_SHA256
     assert revision.locator.startswith("graph-data://")
+    assert revision.locator.endswith("session25-ephanna-thrin-false-hires-v1.json")
+    assert artifact.uri == revision.locator
+    assert (
+        artifact.lineage.get("buddy_source_payload_sha256")
+        == HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256
+    )
+    assert HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256 != HIRES_CORRECTION_RAW_ARTIFACT_SHA256
+
+
+def test_source_revision_content_sha256_hashes_located_body(built_bundle) -> None:
+    built = built_bundle
+    resolved = 0
+    for revision in built.bundle.source_revisions:
+        locator = revision.locator
+        assert locator
+        body = read_source_revision_body(locator, repo=REPO, world_root=ROOT)
+        if locator.startswith("graph-data://"):
+            assert body is not None
+        if body is None:
+            continue
+        resolved += 1
+        assert hashlib.sha256(body).hexdigest() == revision.content_sha256
+    assert resolved > 0
+    by_artifact: dict[str, set[str]] = {}
+    for revision in built.bundle.source_revisions:
+        by_artifact.setdefault(revision.source_artifact_id, set()).add(revision.content_sha256)
+    assert all(len(digests) == 1 for digests in by_artifact.values())
 
 
 def test_captain_and_thrin_aliases_use_sealed_587_authority(built_bundle) -> None:

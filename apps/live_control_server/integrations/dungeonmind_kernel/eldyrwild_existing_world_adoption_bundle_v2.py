@@ -136,6 +136,10 @@ from apps.live_control_server.services.eldyrwild_relationship_node_kind_source_r
     LOCKED_MANIFEST_SHA256 as KIND_REPAIR_LOCKED_SHA256,
     STAGE_B_REMAINING_RESIDUAL_EDGE_IDS,
 )
+from apps.live_control_server.services.eldyrwild_relationship_semantic_closure import (
+    CLOSURE_DIR_RELPATH,
+    LOCKED_MANIFEST_SHA256 as CLOSURE_MANIFEST_LOCKED_SHA256,
+)
 from apps.live_control_server.services.eldyrwild_relationship_node_kind_source_repair import (
     _overlay_store,
 )
@@ -185,6 +189,29 @@ STANDALONE_CORRECTION_FILES = {
         "session25-ephanna-thrin-false-hires-v1.json"
     ),
 }
+STANDALONE_CORRECTION_RAW_SHA256 = {
+    STANDALONE_CORRECTION_FILES["lysandra-threat-direction-v1"]: (
+        "ff0e07b1eee2085f8a6e8280e431e4d8d1eefa809b929538afe9f3f79a2c2518"
+    ),
+    STANDALONE_CORRECTION_FILES["session24-cube-karsemine-false-location-v1"]: (
+        "a06a12f75c0d1ca1e8659aa0ad5fbfa01214c6b3b7d8db6638d7706f634da159"
+    ),
+    STANDALONE_CORRECTION_FILES["session24-lysandra-caelynn-false-leads-v1"]: (
+        "2c2c8a6809e3909ece077d4453e4ed6c501ef8339e85c4ae02cba187530d7aae"
+    ),
+    STANDALONE_CORRECTION_FILES["session25-ephanna-thrin-false-hires-v1"]: (
+        "d4e679582a6764a1d846944a761eb697130fd54c63ead705cdf80e0c447f4e3d"
+    ),
+}
+HIRES_CORRECTION_ARTIFACT_ID = (
+    "graph-native:eldyrwild-correction:session25-ephanna-thrin-false-hires-v1"
+)
+HIRES_CORRECTION_RAW_ARTIFACT_SHA256 = STANDALONE_CORRECTION_RAW_SHA256[
+    STANDALONE_CORRECTION_FILES["session25-ephanna-thrin-false-hires-v1"]
+]
+HIRES_CORRECTION_SOURCE_PAYLOAD_SHA256 = (
+    "b9f0c283316057e859a00ae7374dd061260a5d21f8f00538ede3335e5a55a53c"
+)
 CLOSURE_ARTIFACT_PREFIX = (
     "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:"
 )
@@ -814,6 +841,99 @@ def _repo_out_uri(world_root: Path, path: Path) -> str:
     return "repo://out/" + str(relative).replace("\\", "/")
 
 
+def _graph_data_relpath_from_locator(locator: str) -> str | None:
+    if locator.startswith("graph-data://"):
+        return "graph_data/" + locator.removeprefix("graph-data://")
+    return None
+
+
+def source_revision_body_path(
+    locator: str,
+    *,
+    repo: Path,
+    world_root: Path,
+) -> Path | None:
+    """Return the local path named by a SourceRevision locator, if the scheme is local."""
+    if locator.startswith("graph-data://"):
+        return repo / "graph_data" / locator.removeprefix("graph-data://")
+    if locator.startswith("repo://out/"):
+        return world_root / locator.removeprefix("repo://out/")
+    if locator.startswith("repo://"):
+        return repo / locator.removeprefix("repo://")
+    return None
+
+
+def read_source_revision_body(
+    locator: str,
+    *,
+    repo: Path,
+    world_root: Path,
+) -> bytes | None:
+    """Open the body named by locator when it is a local file; otherwise return None."""
+    path = source_revision_body_path(locator, repo=repo, world_root=world_root)
+    if path is None or not path.is_file():
+        return None
+    return path.read_bytes()
+
+
+def _closure_child_raw_sha256(repo: Path) -> dict[str, str]:
+    manifest_relpath = f"{CLOSURE_DIR_RELPATH}/manifest.json"
+    path = repo / manifest_relpath
+    if not path.is_file():
+        raise _fail(f"closure manifest missing: {manifest_relpath}", "source_package_missing")
+    raw = path.read_bytes()
+    digest = _sha256_bytes(raw)
+    if digest != CLOSURE_MANIFEST_LOCKED_SHA256:
+        raise _fail(
+            f"closure manifest digest drifted: {digest}",
+            "source_package_tampered",
+        )
+    manifest = json.loads(raw.decode("utf-8"))
+    out: dict[str, str] = {}
+    for info in (manifest.get("artifacts") or {}).values():
+        child_relpath = f"{CLOSURE_DIR_RELPATH}/{info['path']}"
+        out[child_relpath] = str(info["sha256"])
+    return out
+
+
+def _locked_body_sha256_for_relpath(repo: Path, relpath: str) -> str | None:
+    locked = STANDALONE_CORRECTION_RAW_SHA256.get(relpath)
+    if locked is not None:
+        return locked
+    if relpath.startswith(f"{CLOSURE_DIR_RELPATH}/"):
+        return _closure_child_raw_sha256(repo).get(relpath)
+    return None
+
+
+def _lineage_with_payload(lineage: dict[str, Any], payload_digest: str) -> dict[str, Any]:
+    merged = dict(lineage)
+    merged["buddy_source_payload_sha256"] = payload_digest
+    return merged
+
+
+def _require_located_body_digest(
+    *,
+    locator: str,
+    body: bytes,
+    repo: Path,
+    store_digest: str | None,
+) -> str:
+    digest = _sha256_bytes(body)
+    relpath = _graph_data_relpath_from_locator(locator)
+    locked = _locked_body_sha256_for_relpath(repo, relpath) if relpath else None
+    if locked is not None and digest != locked:
+        raise _fail(
+            f"located source body hash drifted from locked authority: {locator}",
+            "source_revision_body_lock_mismatch",
+        )
+    if store_digest is not None and store_digest != digest:
+        raise _fail(
+            f"stored content_sha256 does not match located body: {locator}",
+            "source_revision_digest_mismatch",
+        )
+    return digest
+
+
 def _contribution_payload_digest(
     store: UnionSupergraphStore,
     contribution: BuddyGraphContribution,
@@ -900,6 +1020,8 @@ def _store_artifact_v2(
     artifact: Any,
     *,
     current_revision_id: str | None,
+    uri: str | None = None,
+    lineage: dict[str, Any] | None = None,
 ) -> SourceArtifactV2:
     domain_key = str(artifact.source_domain)
     domain = _map_source_domain(domain_key) or SourceDomain.OTHER
@@ -912,6 +1034,9 @@ def _store_artifact_v2(
     review_state = None
     if artifact.authority_state in {"draft", "reviewed", "canonical"}:
         review_state = SourceReviewState(artifact.authority_state)
+    merged_lineage = dict(artifact.lineage or {})
+    if lineage:
+        merged_lineage.update(lineage)
     return SourceArtifactV2(
         source_artifact_id=artifact.source_artifact_id,
         source_domain_key=domain_key,
@@ -919,7 +1044,7 @@ def _store_artifact_v2(
         world_id=artifact.world_id or WORLD_ID,
         campaign_id=artifact.campaign_id,
         session_id=artifact.session_id,
-        uri=artifact.uri,
+        uri=uri if uri is not None else artifact.uri,
         current_revision_id=current_revision_id,
         authority=None,
         visibility=None,
@@ -928,7 +1053,7 @@ def _store_artifact_v2(
         review_state=review_state,
         source_visibility_state=artifact.visibility_state,
         workspace_document_ref=workspace_ref,
-        lineage=dict(artifact.lineage or {}),
+        lineage=merged_lineage,
         status=SourceStatus(artifact.status),
         created_at=_parse_optional_aware(artifact.created_at),
         updated_at=_parse_optional_aware(artifact.updated_at),
@@ -943,7 +1068,11 @@ def _resolve_source_body(
     world_root: Path,
     ref: _BuddySourceRef,
 ) -> tuple[str, str, str, SourceDomain, str | None, str | None, dict[str, Any]]:
-    """Return digest, locator/uri, domain_key, domain, campaign, session, lineage."""
+    """Return digest, locator/uri, domain_key, domain, campaign, session, lineage.
+
+    ``content_sha256`` is the hash of the body named by ``locator``. Contribution
+    source-payload digests stay in lineage as ``buddy_source_payload_sha256``.
+    """
     contribution = contributions_by_id[ref.contribution_id]
     payload_digest = _contribution_payload_digest(store, contribution)
     store_artifact = store.source_artifacts.get(ref.artifact_id)
@@ -959,30 +1088,52 @@ def _resolve_source_body(
             )
         domain_key = str(store_artifact.source_domain)
         domain = _map_source_domain(domain_key) or SourceDomain.OTHER
-        if store_artifact.content_sha256:
-            digest = _strip_sha256(store_artifact.content_sha256)
-            if sha_digest is not None and sha_digest != digest:
-                raise _fail(
-                    f"Buddy revision hash does not match stored artifact body: {ref.artifact_id}",
-                    "source_revision_digest_mismatch",
-                )
-        elif sha_digest is not None:
-            digest = sha_digest
-        elif sealed_relpath is not None:
-            digest = payload_digest
-        else:
+        campaign = store_artifact.campaign_id or ref.campaign_id
+        session = store_artifact.session_id
+        lineage = dict(store_artifact.lineage or {})
+        store_digest = (
+            _strip_sha256(store_artifact.content_sha256) if store_artifact.content_sha256 else None
+        )
+        if sha_digest is not None and store_digest is not None and sha_digest != store_digest:
             raise _fail(
-                f"cannot construct SourceRevision for {ref.artifact_id} / {ref.buddy_revision_id}",
-                "source_revision_unresolvable",
+                f"Buddy revision hash does not match stored artifact body: {ref.artifact_id}",
+                "source_revision_digest_mismatch",
             )
-        return (
-            digest,
-            locator,
-            domain_key,
-            domain,
-            store_artifact.campaign_id or ref.campaign_id,
-            store_artifact.session_id,
-            dict(store_artifact.lineage or {}),
+        body = read_source_revision_body(locator, repo=repo, world_root=world_root)
+        if body is None and sealed_relpath is not None:
+            sealed_locator = _graph_data_uri(sealed_relpath)
+            sealed_body = read_source_revision_body(
+                sealed_locator, repo=repo, world_root=world_root
+            )
+            if sealed_body is not None:
+                if locator != sealed_locator:
+                    lineage["buddy_store_uri"] = locator
+                locator = sealed_locator
+                body = sealed_body
+                lineage = _lineage_with_payload(lineage, payload_digest)
+        if body is not None:
+            digest = _require_located_body_digest(
+                locator=locator,
+                body=body,
+                repo=repo,
+                store_digest=store_digest,
+            )
+            return digest, locator, domain_key, domain, campaign, session, lineage
+        if store_digest is not None:
+            return store_digest, locator, domain_key, domain, campaign, session, lineage
+        if sha_digest is not None and locator.startswith("threat-publication://"):
+            return (
+                sha_digest,
+                locator,
+                domain_key,
+                domain,
+                campaign,
+                session,
+                _lineage_with_payload(lineage, payload_digest),
+            )
+        raise _fail(
+            f"cannot construct SourceRevision for {ref.artifact_id} / {ref.buddy_revision_id}",
+            "source_revision_unresolvable",
         )
 
     if sealed_relpath is None:
@@ -996,7 +1147,18 @@ def _resolve_source_body(
                     "source_revision_unresolvable",
                 )
             locator = _repo_out_uri(world_root, ledger_path)
-            digest = sha_digest or payload_digest
+            body = read_source_revision_body(locator, repo=repo, world_root=world_root)
+            if body is None:
+                raise _fail(
+                    f"contribution ledger missing for {ref.artifact_id}",
+                    "source_revision_unresolvable",
+                )
+            digest = _require_located_body_digest(
+                locator=locator,
+                body=body,
+                repo=repo,
+                store_digest=None,
+            )
             return (
                 digest,
                 locator,
@@ -1014,13 +1176,17 @@ def _resolve_source_body(
     sealed_path = repo / sealed_relpath
     if not sealed_path.is_file():
         raise _fail(f"sealed source package missing: {sealed_relpath}", "source_package_missing")
-    digest = payload_digest
     locator = _graph_data_uri(sealed_relpath)
-    domain_key = "graph_native"
+    digest = _require_located_body_digest(
+        locator=locator,
+        body=sealed_path.read_bytes(),
+        repo=repo,
+        store_digest=None,
+    )
     return (
         digest,
         locator,
-        domain_key,
+        "graph_native",
         SourceDomain.OTHER,
         ref.campaign_id,
         None,
@@ -1037,9 +1203,17 @@ def _map_source_authority(
 ) -> tuple[list[SourceArtifactV2], list[SourceRevision], dict[str, str], dict[tuple[str, str], str]]:
     refs = _collect_buddy_source_refs(contributions)
     contributions_by_id = {item.contribution_id: item for item in contributions}
+    artifact_revs: dict[str, set[str]] = {}
     rev_to_artifacts: dict[str, set[str]] = {}
     for ref in refs:
+        artifact_revs.setdefault(ref.artifact_id, set()).add(ref.buddy_revision_id)
         rev_to_artifacts.setdefault(ref.buddy_revision_id, set()).add(ref.artifact_id)
+    multi = sorted(aid for aid, revs in artifact_revs.items() if len(revs) > 1)
+    if multi:
+        raise _fail(
+            f"Eldyrwild source artifact has multiple Buddy revision tokens: {multi[0]}",
+            "source_artifact_revision_body_ambiguous",
+        )
     colliding = {rev for rev, artifacts in rev_to_artifacts.items() if len(artifacts) > 1}
     pair_to_dm: dict[tuple[str, str], str] = {}
     for ref in refs:
@@ -1084,7 +1258,15 @@ def _map_source_authority(
             dm_rev = pair_to_dm[(artifact.source_artifact_id, buddy_rev)]
         elif artifact.content_sha256:
             dm_rev = f"sha256:{_strip_sha256(artifact.content_sha256)}"
-        artifacts.append(_store_artifact_v2(artifact, current_revision_id=dm_rev))
+        resolved_payload = resolved.get(artifact.source_artifact_id)
+        artifacts.append(
+            _store_artifact_v2(
+                artifact,
+                current_revision_id=dm_rev,
+                uri=None if resolved_payload is None else resolved_payload[1],
+                lineage=None if resolved_payload is None else resolved_payload[6],
+            )
+        )
         if dm_rev is not None:
             current_by_artifact[artifact.source_artifact_id] = dm_rev
 
@@ -1146,7 +1328,33 @@ def _map_source_authority(
         )
         seen_revision_ids.add(dm_rev)
 
+    _assert_locators_hash_located_bodies(revisions, repo=repo, world_root=world_root)
     return artifacts, revisions, current_by_artifact, pair_to_dm
+
+
+def _assert_locators_hash_located_bodies(
+    revisions: list[SourceRevision],
+    *,
+    repo: Path,
+    world_root: Path,
+) -> None:
+    for revision in revisions:
+        locator = revision.locator
+        if not locator:
+            raise _fail(
+                f"SourceRevision is missing a locator: {revision.source_revision_id}",
+                "source_locator_missing",
+            )
+        body = read_source_revision_body(locator, repo=repo, world_root=world_root)
+        if body is None:
+            continue
+        digest = _sha256_bytes(body)
+        if digest != revision.content_sha256:
+            raise _fail(
+                f"SourceRevision.content_sha256 does not hash locator body: "
+                f"{revision.source_revision_id}",
+                "source_revision_locator_hash_mismatch",
+            )
 
 
 def _map_graph_evidence(
