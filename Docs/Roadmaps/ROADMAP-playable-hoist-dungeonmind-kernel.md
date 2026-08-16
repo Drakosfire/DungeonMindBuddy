@@ -111,18 +111,18 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #594. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+Mutable workstream state after merged PR #596. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `bb937f4a0792e51d2dc7d73132c20253c0becf47` — merge of [PR #594](https://github.com/Drakosfire/DungeonMindBuddy/pull/594) |
-| Merged capability | P1C — durable Choice / Option identity and Scene→Choice→Option membership |
-| Next slice | P2A — durable Run identity + exact Playable revision/digest binding |
-| Next handoff | [`Docs/Plans/HANDOFF-PLAY-durable-run-binding.md`](../Plans/HANDOFF-PLAY-durable-run-binding.md) |
-| Named successor after P2A | P2B — durable element-referenced Run progress |
-| Hoist posture | Four-kind identity and the derived index remain Play-owned. Do not hoist `WorkObjectElementRef` yet. Runtime remains DungeonMindBuddy Play-owned. |
+| Integration tip | `bc80f7125499817050f08abc79b71b87d327b2a9` — merge of [PR #596](https://github.com/Drakosfire/DungeonMindBuddy/pull/596) |
+| Merged capability | P2A — durable opaque Run identity + exact committed Runbook revision/digest binding |
+| Next slice | P2B1 — immutable Run-bound Playable reference manifest |
+| Next handoff | [`Docs/Plans/HANDOFF-PLAY-run-reference-manifest.md`](../Plans/HANDOFF-PLAY-run-reference-manifest.md) |
+| Named successor after P2B1 | P2B2 — durable CAS Run progress against the sealed manifest |
+| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2B1 becomes a second **Play-owned** consumer of the P1 marker family; `WorkObjectRevisionRef` and `WorkObjectElementRef` remain not yet justified without an independent non-Play consumer. |
 
-P1C did not prove a second independent consumer of generic element addressing. P2A creates a Play Runtime authority bound to an exact committed Runbook revision/digest; it does not parse Playable structure or persist element progress.
+P2A intentionally persisted no Playable structure and proved that a Run binding may outlive the workspace document's current revision. That exposes a concrete P2B safety boundary: after a Runbook advances from N to N+1, current workspace bytes cannot truthfully prove which element IDs existed in the Run's bound N revision. P2B is therefore refined into P2B1 (seal only the exact ID/membership facts needed for later reference admission while N is available) and P2B2 (mutable CAS progress against that manifest). This is a sequencing refinement, not a stable architecture ownership change; historical Playable Markdown remains outside Runtime.
 
 ---
 
@@ -238,23 +238,33 @@ linkedRuntimeHandles
 
 Prove reload/restart and fail safely when a referenced element disappears in a newer Playable revision.
 
-The live-control server does not currently own a canonical Playable structure resolver. Putting reference-bearing progress fields into the first Run PR would force either trusting caller-supplied element IDs without owning-boundary validation, or cloning the Playable Markdown/index grammar in Python. P2 is therefore split:
+The live-control server does not currently own a canonical Playable structure resolver. P2A proved that exact Run→Playable binding can be established without one. P2B now has two separate durable concerns: freezing the minimum exact reference-admission facts for the bound revision and mutating progress under CAS. Those are split below so neither trusts current/latest Playable state after the Runbook advances.
 
 ### P2 delivery decomposition
 
-#### P2A — Durable Run identity + exact Playable revision/digest binding ← current next slice
+#### P2A — Durable Run identity + exact Playable revision/digest binding ← merged PR #596
 
 Create one Play Runtime authority: an opaque Run UUID bound to one admitted committed Runbook workspace-document identity + revision + content SHA. Persist outside authored workspace storage. Idempotent create replay. No element progress, no Playable parse, no UI.
 
 Handoff: [`HANDOFF-PLAY-durable-run-binding.md`](../Plans/HANDOFF-PLAY-durable-run-binding.md).
 
-#### P2B — Durable element-referenced Run progress
+#### P2B1 — Immutable Run-bound Playable reference manifest ← current next slice
 
-After P2A, persist current Scene/Beat, resolved Beats, `choiceId → optionId` selections, and notes against the bound Playable revision. P2B must design exact element-reference admission from the real consumer pressure created by the Run authority.
+For one existing P2A Run, seal one immutable Runtime sidecar derived from the **exact still-current bound Runbook revision/SHA**. The sidecar stores only canonical Scene/Beat/Choice/Option IDs and structural membership. It stores no Markdown, titles, prose, consequences, rendering order, progress, World/Source/Mechanics data, or migration state.
+
+The first seal fails closed if the workspace has already advanced beyond the Run's bound revision. Once sealed, replay uses the immutable sidecar and does not consult current workspace state.
+
+Handoff: [`HANDOFF-PLAY-run-reference-manifest.md`](../Plans/HANDOFF-PLAY-run-reference-manifest.md).
+
+#### P2B2 — Durable CAS Run progress against the sealed manifest
+
+After P2B1, persist current Scene/Beat, resolved Beats, `choiceId → optionId` selections, and notes. Every referenced ID must validate against the P2B1 manifest, and every mutation must use P2A `run_revision` as the compare-and-swap boundary. Do not add a second concurrency token.
+
+P2B2 must not parse current Runbook bytes as a fallback and must not silently create/rebuild a missing manifest from a newer Playable revision.
 
 #### P2C — Explicit Run rebase/migration
 
-After P2B, migrate a Run to a newer Playable revision with fail-closed missing/replaced reference handling. Do not invent historical Playable revision archive inside Runtime.
+After P2B2, migrate a Run to a newer Playable revision with fail-closed missing/replaced reference handling. Do not invent historical Playable revision archive inside Runtime.
 
 `linkedRuntimeHandles` stays deferred until a real Combat/other runtime consumer requires it.
 
