@@ -20,8 +20,14 @@ pr_body_template: |
 
 # HANDOFF — read-only Playable Scene / Beat structure index
 
+> **MERGED / HISTORICAL (2026-08-15):** PR **#592** merged as
+> `86a405ce7b8085515ef2804965ca4b3aad226c22`. Scene/Beat structure index remains
+> Play-owned; `WorkObjectElementRef` is not yet justified. Successor:
+> [`HANDOFF-PLAY-choice-option-identity.md`](HANDOFF-PLAY-choice-option-identity.md)
+> (P1C Choice/Option identity; P2 Runtime remains after that).
+
 **Created:** 2026-08-15  
-**Status:** ACTIVE — base pinned after PR #591 state-authority sync; CODE may dispatch  
+**Status:** MERGED — PR #592 / main `86a405ce7b8085515ef2804965ca4b3aad226c22`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-playable-structure-index.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P1B`  
 **Flow / owner:** `PLAY`  
