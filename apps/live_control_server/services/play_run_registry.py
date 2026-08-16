@@ -101,7 +101,7 @@ class PlayRunRecord(BaseModel):
     playable_artifact_id: str
     playable_revision: int = Field(gt=0)
     playable_content_sha256: str
-    run_revision: Literal[1] = 1
+    run_revision: int = Field(default=1, gt=0)
     created_at: str
     updated_at: str
 
