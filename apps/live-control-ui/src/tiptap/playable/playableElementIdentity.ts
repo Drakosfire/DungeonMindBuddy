@@ -1,7 +1,7 @@
 export const PLAYABLE_ELEMENT_MARKER_VERSION = "v1" as const;
 export const PLAYABLE_ELEMENT_MARKER_PREFIX = "dmb-playable-element:" as const;
 
-export const PLAYABLE_ELEMENT_KINDS = ["scene", "beat"] as const;
+export const PLAYABLE_ELEMENT_KINDS = ["scene", "beat", "choice", "option"] as const;
 export type PlayableElementKind = (typeof PLAYABLE_ELEMENT_KINDS)[number];
 
 export type PlayableElementIdentity = {
@@ -15,8 +15,8 @@ export type PlayableHtmlCommentParse =
   | { status: "canonical"; identity: PlayableElementIdentity };
 
 const CANONICAL_COMMENT_PATTERN =
-  /^<!-- dmb-playable-element:v1 kind=(scene|beat) id=((?:scene|beat):[a-z0-9][a-z0-9._-]{0,127}) -->$/;
-const PLAYABLE_ID_PATTERN = /^(scene|beat):[a-z0-9][a-z0-9._-]{0,127}$/;
+  /^<!-- dmb-playable-element:v1 kind=(scene|beat|choice|option) id=((?:scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}) -->$/;
+const PLAYABLE_ID_PATTERN = /^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$/;
 
 export const PLAYABLE_ELEMENT_KIND_HTML_ATTR = "data-dmb-playable-kind" as const;
 export const PLAYABLE_ELEMENT_ID_HTML_ATTR = "data-dmb-playable-id" as const;
@@ -42,11 +42,19 @@ export class PlayableIdentitySerializationError extends Error {
 }
 
 export function isPlayableElementKind(value: unknown): value is PlayableElementKind {
-  return value === "scene" || value === "beat";
+  return (PLAYABLE_ELEMENT_KINDS as readonly string[]).includes(value as string);
 }
 
-export function headingLevelForPlayableKind(kind: PlayableElementKind): 2 | 3 {
-  return kind === "scene" ? 2 : 3;
+export function headingLevelForPlayableKind(kind: PlayableElementKind): 2 | 3 | 4 {
+  switch (kind) {
+    case "scene":
+      return 2;
+    case "beat":
+    case "choice":
+      return 3;
+    case "option":
+      return 4;
+  }
 }
 
 export function isCanonicalPlayableElementId(kind: PlayableElementKind, id: string): boolean {
@@ -96,7 +104,7 @@ export type PlayableHeadingAttrs = {
 export type PlayableHeadingValidation =
   | { status: "absent" }
   | { status: "invalid"; reason: string }
-  | { status: "canonical"; identity: PlayableElementIdentity; level: 2 | 3 };
+  | { status: "canonical"; identity: PlayableElementIdentity; level: 2 | 3 | 4 };
 
 export function validatePlayableHeadingAttrs(attrs: PlayableHeadingAttrs | null | undefined): PlayableHeadingValidation {
   const kind = attrs?.playableElementKind ?? null;
