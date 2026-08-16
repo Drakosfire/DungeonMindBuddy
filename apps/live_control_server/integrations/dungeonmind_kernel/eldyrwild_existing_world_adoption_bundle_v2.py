@@ -90,6 +90,10 @@ from dungeonmind_dnd.application.world_object_vocabulary import (
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.live_control_server.config import repo_root, world_graph_root
+from apps.live_control_server.integrations.dungeonmind_kernel.alias_assertion_package_conformance_v1 import (
+    alias_package_binding_from_attested_revision,
+    prove_alias_assertion_package_v1,
+)
 from apps.live_control_server.integrations.dungeonmind_kernel.relationship_dual_sense_decomposition_v1 import (
     DualSenseDecompositionPackageV1,
     EndpointAssignmentV1,
@@ -109,6 +113,7 @@ from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_confor
     CURRENT_V5_TARGET,
     PredicateDisposition,
     _USES_STATBLOCK,
+    _alias_package_proof_sha256,
     _classify_edge_predicate_v4,
     _current_relationship_edge_ids,
     _edge_has_current_semantic_support,
@@ -116,6 +121,10 @@ from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_confor
 )
 from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v5 import (
     analyze_exact_buddy_world_revision_v5,
+)
+from apps.live_control_server.services.cutover_alias_assertion_package_after_shadow_alias_remove import (
+    FIXTURE_RELPATH as ALIAS_PACKAGE_FIXTURE_RELPATH,
+    LOCKED_FIXTURE_SHA256 as ALIAS_PACKAGE_LOCKED_FIXTURE_SHA256,
 )
 from apps.live_control_server.services.cutover_relationship_dual_sense_decomposition_after_alias_package import (
     LOCKED_PACKAGE_SHA256 as DUAL_SENSE_LOCKED_SHA256,
@@ -131,9 +140,14 @@ from apps.live_control_server.services.eldyrwild_relationship_node_kind_source_r
     _overlay_store,
 )
 from graph_memory.kernel.contribution_models import GraphContribution as BuddyGraphContribution
+from graph_memory.kernel.contributions import compute_contribution_source_payload_sha256
 from graph_memory.kernel.identity_models import IdentityDecisionRecord as BuddyIdentityDecision
 from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSupergraphStore
-from graph_memory.world_supergraph.contribution_store import list_contribution_records
+from graph_memory.world_supergraph import paths as world_paths
+from graph_memory.world_supergraph.contribution_store import (
+    list_contribution_records,
+    load_contribution_record,
+)
 from graph_memory.world_supergraph.identity_decision_store import (
     list_identity_decision_records,
 )
@@ -145,8 +159,48 @@ CANONICAL_GRAPH_PAYLOAD_SHA256 = (
 )
 DUNGEONMIND_PIN = "f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92"
 BUDDY_BASE_SHA = "26ddd83ddbec381c816fbd2ede891aa5d816b9e1"
+# Stamped to the implementation commit that contains this producer. Not the
+# original dispatch base, and not live git HEAD (that would break --check).
+PRODUCER_REVISION = "c054a4a4dad2308958d1bf2e6331790311210ddb"
 WORLD_OBJECT_V5_SHA256 = (
     "f9fd5420e0ab3849224e0d58cf83dd432ca2e5da22ce661b25654406ec9c60d8"
+)
+ALIAS_PACKAGE_PROOF_SHA256 = (
+    "24881d132f79d7692c5bad0fe5ad605765f9e25c7f83189546f075e1633d5ff6"
+)
+STANDALONE_CORRECTION_FILES = {
+    "lysandra-threat-direction-v1": (
+        "graph_data/approved_graph_corrections/eldyrwild/lysandra-threat-direction-v1.json"
+    ),
+    "session24-cube-karsemine-false-location-v1": (
+        "graph_data/approved_graph_corrections/eldyrwild/"
+        "session24-cube-karsemine-false-location-v1.json"
+    ),
+    "session24-lysandra-caelynn-false-leads-v1": (
+        "graph_data/approved_graph_corrections/eldyrwild/"
+        "session24-lysandra-caelynn-false-leads-v1.json"
+    ),
+    "session25-ephanna-thrin-false-hires-v1": (
+        "graph_data/approved_graph_corrections/eldyrwild/"
+        "session25-ephanna-thrin-false-hires-v1.json"
+    ),
+}
+CLOSURE_ARTIFACT_PREFIX = (
+    "graph-native:eldyrwild-correction:eldyrwild-relationship-semantic-closure-v1:"
+)
+CLOSURE_CHILD_RELPATHS = (
+    "graph_data/approved_graph_corrections/eldyrwild/"
+    "relationship-semantic-closure-v1/source-corrections.json",
+    "graph_data/approved_graph_corrections/eldyrwild/"
+    "relationship-semantic-closure-v1/compound-decompositions.json",
+    "graph_data/approved_graph_corrections/eldyrwild/"
+    "relationship-semantic-closure-v1/identity-migrations.json",
+    "graph_data/approved_graph_corrections/eldyrwild/"
+    "relationship-semantic-closure-v1/unsupported-assertions.json",
+)
+C2_INITIAL_PREFIX = "graph-native:eldyrwild-c2-initial-v1:"
+C2_INITIAL_BUNDLE_DIR = (
+    "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1/contributions"
 )
 EXPECTED_RAW_NODE_COUNT = 472
 EXPECTED_RAW_EDGE_COUNT = 376
@@ -461,6 +515,71 @@ def _load_dual_sense_package(repo: Path) -> DualSenseDecompositionPackageV1:
     return package
 
 
+def _load_captain_thrin_alias_records(
+    store: UnionSupergraphStore,
+    *,
+    repo: Path,
+    world_root: Path,
+) -> dict[str, list[AliasAssertionV4Record]]:
+    path = repo / ALIAS_PACKAGE_FIXTURE_RELPATH
+    raw = path.read_bytes()
+    digest = _sha256_bytes(raw)
+    if digest != ALIAS_PACKAGE_LOCKED_FIXTURE_SHA256:
+        raise _fail(
+            f"alias assertion package fixture digest drifted: {digest}",
+            "alias_package_tampered",
+        )
+    payload = json.loads(raw.decode("utf-8"))
+    sealed_rows = payload["alias_package_proof"]["package_rows"]
+    if len(sealed_rows) != 2:
+        raise _fail("sealed #587 alias package is not exactly two rows", "alias_package_shape_drift")
+
+    def _load_contribution(contribution_id: str) -> BuddyGraphContribution:
+        return load_contribution_record(world_root, WORLD_ID, contribution_id)
+
+    binding = alias_package_binding_from_attested_revision(
+        root=world_root,
+        world_id=WORLD_ID,
+        revision_id=CANONICAL_REVISION_ID,
+        expected_world_id=WORLD_ID,
+        expected_revision_id=CANONICAL_REVISION_ID,
+        expected_graph_payload_sha256=CANONICAL_GRAPH_PAYLOAD_SHA256,
+        store=store,
+    )
+    proof = prove_alias_assertion_package_v1(
+        store,
+        binding=binding,
+        contribution_loader=_load_contribution,
+    )
+    expected_blockers = {
+        "node:node:captain-lysandra-ironveil:field:aliases",
+        "node:node:thrin-branchborn:field:aliases",
+    }
+    if set(proof.blocker_element_ids) != expected_blockers:
+        raise _fail("exact-revision #587 alias blockers drifted", "alias_package_blocker_mismatch")
+    if not proof.passed or proof.residuals:
+        raise _fail("exact-revision #587 alias proof failed", "alias_package_proof_failed")
+    if _alias_package_proof_sha256(proof) != ALIAS_PACKAGE_PROOF_SHA256:
+        raise _fail("alias package proof SHA drifted", "alias_package_proof_sha_mismatch")
+    sealed_by_id = {
+        row["dungeonmind_assertion_id"]: row for row in sealed_rows
+    }
+    proved_by_id = {row.dungeonmind_assertion_id: row for row in proof.package_rows}
+    if set(sealed_by_id) != set(proved_by_id):
+        raise _fail("re-proved #587 alias IDs drifted from the sealed package", "alias_package_record_mismatch")
+    for assertion_id, sealed_row in sealed_by_id.items():
+        if proved_by_id[assertion_id].dungeonmind_alias_record != sealed_row["dungeonmind_alias_record"]:
+            raise _fail(
+                "re-proved #587 alias records are not equivalent to the sealed package",
+                "alias_package_record_mismatch",
+            )
+    by_node: dict[str, list[AliasAssertionV4Record]] = {}
+    for sealed_row in sealed_rows:
+        record = AliasAssertionV4Record.model_validate(sealed_row["dungeonmind_alias_record"])
+        by_node.setdefault(str(sealed_row["target_node_id"]), []).append(record)
+    return by_node
+
+
 def _kind_for(store: UnionSupergraphStore, node_id: str) -> str:
     node = store.nodes.get(node_id)
     if node is None:
@@ -619,11 +738,6 @@ def _object_assertion_id(node_id: str) -> str:
     return f"ka:object:{node_id}"
 
 
-def _alias_assertion_id(node_id: str, alias: str) -> str:
-    digest = hashlib.sha256(alias.encode("utf-8")).hexdigest()[:16]
-    return f"ka:alias:{node_id}:{digest}"
-
-
 def _aspect_assertion_id(node_id: str, aspect_key: str) -> str:
     return f"ka:aspect:{node_id}:{aspect_key}"
 
@@ -676,139 +790,368 @@ def _map_evidence_role(raw: str) -> EvidenceRole:
     return mapped
 
 
-def _revision_id_for_artifact(artifact_id: str, content_sha256: str) -> str:
-    digest = content_sha256.removeprefix("sha256:")
-    return f"rev:{artifact_id}:{digest}"
+def _strip_sha256(value: str) -> str:
+    return value.removeprefix("sha256:")
 
 
-def _history_artifact_domain_key(artifact_id: str) -> str:
-    if artifact_id.startswith("threat-publication-"):
-        return "threat_publication"
-    if artifact_id.startswith("graph-native:"):
-        return "graph_native"
-    return "other"
+def _digest_from_buddy_revision(buddy_revision_id: str) -> str | None:
+    if buddy_revision_id.startswith("sha256:"):
+        digest = buddy_revision_id.removeprefix("sha256:")
+        if len(digest) == 64:
+            return digest
+    return None
 
 
-def _synthetic_source_artifact(artifact_id: str, *, campaign_id: str | None) -> SourceArtifactV2:
-    return SourceArtifactV2(
-        source_artifact_id=artifact_id,
-        source_domain_key=_history_artifact_domain_key(artifact_id),
-        source_domain=SourceDomain.OTHER,
-        world_id=WORLD_ID,
-        campaign_id=campaign_id,
-        session_id=None,
-        uri=None,
-        current_revision_id=None,
-        authority=None,
-        visibility=None,
-        artifact_kind=None,
-        document_class=None,
-        review_state=None,
-        source_visibility_state=None,
-        workspace_document_ref=None,
-        lineage={"producer_reconstruction": "contribution_history_identity_only"},
-        status=SourceStatus.ACTIVE,
-        created_at=None,
-        updated_at=None,
-    )
+def _graph_data_uri(relpath: str) -> str:
+    return "graph-data://" + relpath.removeprefix("graph_data/")
 
 
-def _contribution_artifact_ids(
+def _repo_out_uri(world_root: Path, path: Path) -> str:
+    try:
+        relative = path.resolve().relative_to(world_root.resolve())
+    except ValueError:
+        relative = path
+    return "repo://out/" + str(relative).replace("\\", "/")
+
+
+def _contribution_payload_digest(
+    store: UnionSupergraphStore,
+    contribution: BuddyGraphContribution,
+) -> str:
+    computed = compute_contribution_source_payload_sha256(contribution)
+    sealed = (store.contribution_source_payload_sha256 or {}).get(contribution.contribution_id)
+    if sealed and sealed != computed:
+        raise _fail(
+            f"contribution source payload drifted: {contribution.contribution_id}",
+            "contribution_source_digest_drift",
+        )
+    return sealed or computed
+
+
+def _sealed_relpath_for_artifact(repo: Path, artifact_id: str, contribution_id: str) -> str | None:
+    if artifact_id.startswith("graph-native:eldyrwild-correction:"):
+        suffix = artifact_id.removeprefix("graph-native:eldyrwild-correction:")
+        standalone = STANDALONE_CORRECTION_FILES.get(suffix)
+        if standalone is not None:
+            return standalone
+    if artifact_id.startswith(CLOSURE_ARTIFACT_PREFIX):
+        needle = contribution_id.encode("utf-8")
+        for relpath in CLOSURE_CHILD_RELPATHS:
+            if needle in (repo / relpath).read_bytes():
+                return relpath
+        return None
+    if artifact_id.startswith(C2_INITIAL_PREFIX):
+        slug = artifact_id.removeprefix(C2_INITIAL_PREFIX)
+        return f"{C2_INITIAL_BUNDLE_DIR}/{slug}.json"
+    return None
+
+
+@dataclass(frozen=True)
+class _BuddySourceRef:
+    artifact_id: str
+    buddy_revision_id: str
+    campaign_id: str | None
+    produced_at: datetime
+    contribution_id: str
+
+
+def _collect_buddy_source_refs(
     contributions: list[BuddyGraphContribution],
-) -> dict[str, str | None]:
-    campaign_by_artifact: dict[str, str | None] = {}
+) -> list[_BuddySourceRef]:
+    refs: list[_BuddySourceRef] = []
     for contribution in contributions:
-        ids = [contribution.source_artifact_id]
+        produced_at = _parse_aware(contribution.produced_at, field_name="produced_at")
+        pairs = [(contribution.source_artifact_id, contribution.source_revision_id)]
         for assertion in (
             *contribution.candidate_assertions,
             *contribution.accepted_assertions,
             *contribution.rejected_assertions,
         ):
-            ids.append(assertion.source_artifact_id)
-        for artifact_id in ids:
-            if not artifact_id:
-                continue
-            campaign_by_artifact.setdefault(artifact_id, contribution.campaign_scope)
-    return campaign_by_artifact
-
-
-def _map_source_artifacts(
-    store: UnionSupergraphStore,
-    *,
-    extra_artifact_campaigns: dict[str, str | None] | None = None,
-) -> tuple[list[SourceArtifactV2], list[SourceRevision], dict[str, str | None]]:
-    artifacts: list[SourceArtifactV2] = []
-    revisions: list[SourceRevision] = []
-    current_by_artifact: dict[str, str | None] = {}
-    for artifact in store.source_artifacts.values():
-        domain_key = str(artifact.source_domain)
-        domain = _map_source_domain(domain_key)
-        if domain is None:
-            domain = SourceDomain.OTHER
-        current_revision_id = None
-        if artifact.content_sha256:
-            current_revision_id = _revision_id_for_artifact(
-                artifact.source_artifact_id, artifact.content_sha256
-            )
-            created_at = _parse_optional_aware(artifact.created_at) or _parse_optional_aware(
-                artifact.updated_at
-            )
-            if created_at is None:
-                created_at = datetime(1970, 1, 1, tzinfo=UTC)
-            revisions.append(
-                SourceRevision(
-                    source_revision_id=current_revision_id,
-                    source_artifact_id=artifact.source_artifact_id,
-                    content_sha256=artifact.content_sha256.removeprefix("sha256:"),
-                    body_storage="external",
-                    locator=artifact.uri,
-                    created_at=created_at,
+            pairs.append((assertion.source_artifact_id, assertion.source_revision_id))
+        for artifact_id, revision_id in pairs:
+            if not artifact_id or not revision_id:
+                raise _fail(
+                    f"contribution {contribution.contribution_id} is missing source identity",
+                    "source_identity_missing",
+                )
+            refs.append(
+                _BuddySourceRef(
+                    artifact_id=artifact_id,
+                    buddy_revision_id=revision_id,
+                    campaign_id=contribution.campaign_scope,
+                    produced_at=produced_at,
+                    contribution_id=contribution.contribution_id,
                 )
             )
-        workspace_ref = None
-        if artifact.workspace_document_id is not None:
-            workspace_ref = WorkspaceDocumentRefV1(
-                document_id=artifact.workspace_document_id,
-                revision=int(artifact.workspace_document_revision or 1),
-            )
-        review_state = None
-        if artifact.authority_state in {"draft", "reviewed", "canonical"}:
-            review_state = SourceReviewState(artifact.authority_state)
-        artifacts.append(
-            SourceArtifactV2(
-                source_artifact_id=artifact.source_artifact_id,
-                source_domain_key=domain_key,
-                source_domain=domain,
-                world_id=artifact.world_id or WORLD_ID,
-                campaign_id=artifact.campaign_id,
-                session_id=artifact.session_id,
-                uri=artifact.uri,
-                current_revision_id=current_revision_id,
-                authority=None,
-                visibility=None,
-                artifact_kind=artifact.artifact_kind,
-                document_class=artifact.document_class,
-                review_state=review_state,
-                source_visibility_state=artifact.visibility_state,
-                workspace_document_ref=workspace_ref,
-                lineage=dict(artifact.lineage or {}),
-                status=SourceStatus(artifact.status),
-                created_at=_parse_optional_aware(artifact.created_at),
-                updated_at=_parse_optional_aware(artifact.updated_at),
-            )
+    return refs
+
+
+def _dm_revision_id(
+    buddy_revision_id: str,
+    artifact_id: str,
+    colliding_revision_ids: set[str],
+) -> str:
+    if buddy_revision_id in colliding_revision_ids:
+        return f"{buddy_revision_id}::{artifact_id}"
+    return buddy_revision_id
+
+
+def _store_artifact_v2(
+    artifact: Any,
+    *,
+    current_revision_id: str | None,
+) -> SourceArtifactV2:
+    domain_key = str(artifact.source_domain)
+    domain = _map_source_domain(domain_key) or SourceDomain.OTHER
+    workspace_ref = None
+    if artifact.workspace_document_id is not None:
+        workspace_ref = WorkspaceDocumentRefV1(
+            document_id=artifact.workspace_document_id,
+            revision=int(artifact.workspace_document_revision or 1),
         )
-        current_by_artifact[artifact.source_artifact_id] = current_revision_id
-    for artifact_id, campaign_id in sorted((extra_artifact_campaigns or {}).items()):
+    review_state = None
+    if artifact.authority_state in {"draft", "reviewed", "canonical"}:
+        review_state = SourceReviewState(artifact.authority_state)
+    return SourceArtifactV2(
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain_key=domain_key,
+        source_domain=domain,
+        world_id=artifact.world_id or WORLD_ID,
+        campaign_id=artifact.campaign_id,
+        session_id=artifact.session_id,
+        uri=artifact.uri,
+        current_revision_id=current_revision_id,
+        authority=None,
+        visibility=None,
+        artifact_kind=artifact.artifact_kind,
+        document_class=artifact.document_class,
+        review_state=review_state,
+        source_visibility_state=artifact.visibility_state,
+        workspace_document_ref=workspace_ref,
+        lineage=dict(artifact.lineage or {}),
+        status=SourceStatus(artifact.status),
+        created_at=_parse_optional_aware(artifact.created_at),
+        updated_at=_parse_optional_aware(artifact.updated_at),
+    )
+
+
+def _resolve_source_body(
+    *,
+    store: UnionSupergraphStore,
+    contributions_by_id: dict[str, BuddyGraphContribution],
+    repo: Path,
+    world_root: Path,
+    ref: _BuddySourceRef,
+) -> tuple[str, str, str, SourceDomain, str | None, str | None, dict[str, Any]]:
+    """Return digest, locator/uri, domain_key, domain, campaign, session, lineage."""
+    contribution = contributions_by_id[ref.contribution_id]
+    payload_digest = _contribution_payload_digest(store, contribution)
+    store_artifact = store.source_artifacts.get(ref.artifact_id)
+    sealed_relpath = _sealed_relpath_for_artifact(repo, ref.artifact_id, ref.contribution_id)
+    sha_digest = _digest_from_buddy_revision(ref.buddy_revision_id)
+
+    if store_artifact is not None:
+        locator = store_artifact.uri
+        if not locator:
+            raise _fail(
+                f"store source artifact has no locator: {ref.artifact_id}",
+                "source_locator_missing",
+            )
+        domain_key = str(store_artifact.source_domain)
+        domain = _map_source_domain(domain_key) or SourceDomain.OTHER
+        if store_artifact.content_sha256:
+            digest = _strip_sha256(store_artifact.content_sha256)
+            if sha_digest is not None and sha_digest != digest:
+                raise _fail(
+                    f"Buddy revision hash does not match stored artifact body: {ref.artifact_id}",
+                    "source_revision_digest_mismatch",
+                )
+        elif sha_digest is not None:
+            digest = sha_digest
+        elif sealed_relpath is not None:
+            digest = payload_digest
+        else:
+            raise _fail(
+                f"cannot construct SourceRevision for {ref.artifact_id} / {ref.buddy_revision_id}",
+                "source_revision_unresolvable",
+            )
+        return (
+            digest,
+            locator,
+            domain_key,
+            domain,
+            store_artifact.campaign_id or ref.campaign_id,
+            store_artifact.session_id,
+            dict(store_artifact.lineage or {}),
+        )
+
+    if sealed_relpath is None:
+        if ref.artifact_id.startswith("threat-publication-"):
+            ledger_path = world_paths.contribution_path(
+                world_root, WORLD_ID, ref.contribution_id
+            )
+            if not ledger_path.is_file():
+                raise _fail(
+                    f"history source artifact {ref.artifact_id} has no sealed body or ledger",
+                    "source_revision_unresolvable",
+                )
+            locator = _repo_out_uri(world_root, ledger_path)
+            digest = sha_digest or payload_digest
+            return (
+                digest,
+                locator,
+                "threat_publication",
+                SourceDomain.OTHER,
+                ref.campaign_id,
+                None,
+                {"buddy_source_payload_sha256": payload_digest},
+            )
+        raise _fail(
+            f"cannot construct SourceRevision for {ref.artifact_id} / {ref.buddy_revision_id}",
+            "source_revision_unresolvable",
+        )
+
+    sealed_path = repo / sealed_relpath
+    if not sealed_path.is_file():
+        raise _fail(f"sealed source package missing: {sealed_relpath}", "source_package_missing")
+    digest = payload_digest
+    locator = _graph_data_uri(sealed_relpath)
+    domain_key = "graph_native"
+    return (
+        digest,
+        locator,
+        domain_key,
+        SourceDomain.OTHER,
+        ref.campaign_id,
+        None,
+        {"buddy_source_payload_sha256": payload_digest},
+    )
+
+
+def _map_source_authority(
+    store: UnionSupergraphStore,
+    contributions: list[BuddyGraphContribution],
+    *,
+    repo: Path,
+    world_root: Path,
+) -> tuple[list[SourceArtifactV2], list[SourceRevision], dict[str, str], dict[tuple[str, str], str]]:
+    refs = _collect_buddy_source_refs(contributions)
+    contributions_by_id = {item.contribution_id: item for item in contributions}
+    rev_to_artifacts: dict[str, set[str]] = {}
+    for ref in refs:
+        rev_to_artifacts.setdefault(ref.buddy_revision_id, set()).add(ref.artifact_id)
+    colliding = {rev for rev, artifacts in rev_to_artifacts.items() if len(artifacts) > 1}
+    pair_to_dm: dict[tuple[str, str], str] = {}
+    for ref in refs:
+        pair_to_dm[(ref.artifact_id, ref.buddy_revision_id)] = _dm_revision_id(
+            ref.buddy_revision_id, ref.artifact_id, colliding
+        )
+
+    resolved: dict[str, tuple[str, str, str, SourceDomain, str | None, str | None, dict[str, Any], datetime]] = {}
+    for ref in refs:
+        if ref.artifact_id in resolved:
+            continue
+        digest, locator, domain_key, domain, campaign, session, lineage = _resolve_source_body(
+            store=store,
+            contributions_by_id=contributions_by_id,
+            repo=repo,
+            world_root=world_root,
+            ref=ref,
+        )
+        resolved[ref.artifact_id] = (
+            digest,
+            locator,
+            domain_key,
+            domain,
+            campaign,
+            session,
+            lineage,
+            ref.produced_at,
+        )
+
+    artifacts: list[SourceArtifactV2] = []
+    revisions: list[SourceRevision] = []
+    current_by_artifact: dict[str, str] = {}
+    seen_revision_ids: set[str] = set()
+
+    for artifact in store.source_artifacts.values():
+        buddy_rev = next(
+            (ref.buddy_revision_id for ref in refs if ref.artifact_id == artifact.source_artifact_id),
+            None,
+        )
+        dm_rev = None
+        if buddy_rev is not None:
+            dm_rev = pair_to_dm[(artifact.source_artifact_id, buddy_rev)]
+        elif artifact.content_sha256:
+            dm_rev = f"sha256:{_strip_sha256(artifact.content_sha256)}"
+        artifacts.append(_store_artifact_v2(artifact, current_revision_id=dm_rev))
+        if dm_rev is not None:
+            current_by_artifact[artifact.source_artifact_id] = dm_rev
+
+    for artifact_id, payload in sorted(resolved.items()):
         if artifact_id in current_by_artifact:
             continue
-        artifacts.append(_synthetic_source_artifact(artifact_id, campaign_id=campaign_id))
-        current_by_artifact[artifact_id] = None
-    return artifacts, revisions, current_by_artifact
+        digest, locator, domain_key, domain, campaign, session, lineage, produced_at = payload
+        buddy_rev = next(ref.buddy_revision_id for ref in refs if ref.artifact_id == artifact_id)
+        dm_rev = pair_to_dm[(artifact_id, buddy_rev)]
+        artifacts.append(
+            SourceArtifactV2(
+                source_artifact_id=artifact_id,
+                source_domain_key=domain_key,
+                source_domain=domain,
+                world_id=WORLD_ID,
+                campaign_id=campaign,
+                session_id=session,
+                uri=locator,
+                current_revision_id=dm_rev,
+                authority=None,
+                visibility=None,
+                artifact_kind=None,
+                document_class=None,
+                review_state=None,
+                source_visibility_state=None,
+                workspace_document_ref=None,
+                lineage=lineage,
+                status=SourceStatus.ACTIVE,
+                created_at=produced_at,
+                updated_at=None,
+            )
+        )
+        current_by_artifact[artifact_id] = dm_rev
+
+    for ref in refs:
+        dm_rev = pair_to_dm[(ref.artifact_id, ref.buddy_revision_id)]
+        if dm_rev in seen_revision_ids:
+            continue
+        digest, locator, _domain_key, _domain, _campaign, _session, _lineage, produced_at = resolved[
+            ref.artifact_id
+        ]
+        store_artifact = store.source_artifacts.get(ref.artifact_id)
+        created_at = produced_at
+        if store_artifact is not None:
+            created_at = (
+                _parse_optional_aware(store_artifact.created_at)
+                or _parse_optional_aware(store_artifact.updated_at)
+                or produced_at
+            )
+        revisions.append(
+            SourceRevision(
+                source_revision_id=dm_rev,
+                source_artifact_id=ref.artifact_id,
+                content_sha256=digest,
+                body_storage="external",
+                locator=locator,
+                created_at=created_at,
+            )
+        )
+        seen_revision_ids.add(dm_rev)
+
+    return artifacts, revisions, current_by_artifact, pair_to_dm
 
 
 def _map_graph_evidence(
     store: UnionSupergraphStore,
-    current_by_artifact: dict[str, str | None],
+    current_by_artifact: dict[str, str],
     required_ids: set[str],
 ) -> list[EvidenceRefV2]:
     refs: list[EvidenceRefV2] = []
@@ -819,11 +1162,17 @@ def _map_graph_evidence(
         domain_key = str(evidence.source_domain)
         domain = _map_source_domain(domain_key) or SourceDomain.OTHER
         artifact_id = evidence.source_artifact_id
+        revision_id = current_by_artifact.get(artifact_id)
+        if revision_id is None:
+            raise _fail(
+                f"graph evidence {evidence_id} has no current source revision",
+                "evidence_source_revision_missing",
+            )
         refs.append(
             EvidenceRefV2(
                 evidence_ref_id=evidence.evidence_ref_id,
                 source_artifact_id=artifact_id,
-                source_revision_id=current_by_artifact.get(artifact_id),
+                source_revision_id=revision_id,
                 source_domain_key=domain_key,
                 source_domain=domain,
                 evidence_role=_map_evidence_role(str(evidence.evidence_role)),
@@ -845,6 +1194,7 @@ def _map_contribution_evidence_ref(
     evidence_ref_id: str,
     *,
     fallback_source_artifact_id: str | None,
+    source_revision_id: str | None,
 ) -> EvidenceRef:
     evidence = store.evidence.get(evidence_ref_id)
     if evidence is not None:
@@ -853,7 +1203,7 @@ def _map_contribution_evidence_ref(
         return EvidenceRef(
             evidence_ref_id=evidence.evidence_ref_id,
             source_artifact_id=evidence.source_artifact_id,
-            source_revision_id=None,
+            source_revision_id=source_revision_id,
             source_domain=domain,
             evidence_role=_map_evidence_role(str(evidence.evidence_role)),
             can_open_source=bool(evidence.can_open_source),
@@ -866,7 +1216,7 @@ def _map_contribution_evidence_ref(
     return EvidenceRef(
         evidence_ref_id=evidence_ref_id,
         source_artifact_id=fallback_source_artifact_id,
-        source_revision_id=None,
+        source_revision_id=source_revision_id,
         source_domain=SourceDomain.OTHER,
         evidence_role=EvidenceRole.SUPPORT,
         can_open_source=False,
@@ -913,15 +1263,32 @@ def _map_identity_outcome(raw: str | None) -> IdentityOutcome | None:
         raise _fail(f"unsupported identity outcome {raw!r}", "identity_outcome_unmapped") from exc
 
 
+def _require_source_pair(
+    artifact_id: str | None,
+    revision_id: str | None,
+    *,
+    field: str,
+) -> tuple[str, str]:
+    if not artifact_id or not revision_id:
+        raise _fail(f"{field} is missing source identity", "source_identity_missing")
+    return artifact_id, revision_id
+
+
 def _map_contributions(
     store: UnionSupergraphStore,
     contributions: list[BuddyGraphContribution],
+    pair_to_dm: dict[tuple[str, str], str],
 ) -> list[GraphContributionV2]:
     mapped: list[GraphContributionV2] = []
     for contribution in contributions:
         assertions: list[GraphContributionAssertionV2] = []
         epistemic_history: dict[str, str | None] = {}
-        assertion_source_revisions: dict[str, str] = {}
+        contribution_pair = _require_source_pair(
+            contribution.source_artifact_id,
+            contribution.source_revision_id,
+            field=contribution.contribution_id,
+        )
+        contribution_revision_id = pair_to_dm[contribution_pair]
         for assertion, _partition in (
             *((item, "candidate") for item in contribution.candidate_assertions),
             *((item, "accepted") for item in contribution.accepted_assertions),
@@ -930,8 +1297,12 @@ def _map_contributions(
             epistemic, original = _map_contribution_epistemic(assertion.epistemic_kind)
             if original is not None:
                 epistemic_history[assertion.assertion_id] = None if original == "null" else original
-            if assertion.source_revision_id:
-                assertion_source_revisions[assertion.assertion_id] = assertion.source_revision_id
+            assertion_pair = _require_source_pair(
+                assertion.source_artifact_id,
+                assertion.source_revision_id,
+                field=assertion.assertion_id,
+            )
+            assertion_revision_id = pair_to_dm[assertion_pair]
             assertions.append(
                 GraphContributionAssertionV2(
                     assertion_id=assertion.assertion_id,
@@ -946,11 +1317,12 @@ def _map_contributions(
                             store,
                             evidence_id,
                             fallback_source_artifact_id=assertion.source_artifact_id,
+                            source_revision_id=assertion_revision_id,
                         )
                         for evidence_id in assertion.evidence_ref_ids
                     ],
                     source_artifact_id=assertion.source_artifact_id,
-                    source_revision_id=None,
+                    source_revision_id=assertion_revision_id,
                     campaign_scope=assertion.campaign_scope,
                     temporal_scope=assertion.temporal_scope,
                     visibility=_map_visibility(assertion.visibility),
@@ -975,17 +1347,13 @@ def _map_contributions(
             diagnostics["buddy_diagnostics"] = list(contribution.diagnostics)
         if epistemic_history:
             diagnostics["buddy_assertion_epistemic"] = epistemic_history
-        if contribution.source_revision_id:
-            diagnostics["buddy_source_revision_id"] = contribution.source_revision_id
-        if assertion_source_revisions:
-            diagnostics["buddy_assertion_source_revision_id"] = assertion_source_revisions
         mapped.append(
             GraphContributionV2(
                 contribution_id=contribution.contribution_id,
                 world_id=contribution.world_id,
                 source_kind=_SOURCE_KIND_MAP[contribution.source_kind],
                 source_artifact_id=contribution.source_artifact_id,
-                source_revision_id=None,
+                source_revision_id=contribution_revision_id,
                 extraction_profile=contribution.extraction_profile,
                 produced_at=_parse_aware(contribution.produced_at, field_name="produced_at"),
                 campaign_scope=contribution.campaign_scope,
@@ -1065,9 +1433,10 @@ def _build_graph_payload(
     overlay: UnionSupergraphStore,
     mapped_relationships: list[MappedRelationshipV2],
     package: DualSenseDecompositionPackageV1,
+    alias_records_by_node: dict[str, list[AliasAssertionV4Record]],
     artifacts: list[SourceArtifactV2],
     revisions: list[SourceRevision],
-    current_by_artifact: dict[str, str | None],
+    current_by_artifact: dict[str, str],
 ) -> dict[str, Any]:
     descriptor = load_builtin_v3_descriptor()
     profile = SemanticProfileRef(
@@ -1087,20 +1456,20 @@ def _build_graph_payload(
         source_node = store.nodes[node_id]
         required_evidence.update(source_node.evidence_ref_ids)
         canon = _node_canon(source_node)
-        aliases = [
-            AliasAssertionV4Record(
-                value=alias,
-                assertion_metadata=_knowledge_metadata(
-                    assertion_id=_alias_assertion_id(node_id, alias),
-                    campaign_scope=None,
-                    evidence_ref_ids=list(source_node.evidence_ref_ids),
-                    session_refs=[],
-                    canon_state=canon,
-                ),
-            )
+        aliases = list(alias_records_by_node.get(node_id, []))
+        extra_aliases = [
+            alias
             for alias in source_node.aliases
             if alias and alias.strip() and alias != source_node.label
         ]
+        packaged_values = {record.value for record in aliases}
+        if set(extra_aliases) - packaged_values:
+            raise _fail(
+                f"current node aliases are not covered by sealed #587 authority: {node_id}",
+                "alias_authority_missing",
+            )
+        for record in aliases:
+            required_evidence.update(record.assertion_metadata.evidence_ref_ids)
         aspect_records: list[ObjectAspectAssertionV6Record] = []
         aspect = aspects_by_node.get(node_id)
         if aspect is not None:
@@ -1267,24 +1636,30 @@ def build_eldyrwild_existing_world_adoption_bundle_v2(
     }
     if residual_after_kind != set(STAGE_B_REMAINING_RESIDUAL_EDGE_IDS):
         raise _fail("post-#566 residual five drifted", "post_kind_repair_residual_mismatch")
-    artifacts, revisions, current_by_artifact = _map_source_artifacts(
+    artifacts, revisions, current_by_artifact, pair_to_dm = _map_source_authority(
         store,
-        extra_artifact_campaigns=_contribution_artifact_ids(contributions),
+        contributions,
+        repo=repository,
+        world_root=world_root,
+    )
+    alias_records_by_node = _load_captain_thrin_alias_records(
+        store, repo=repository, world_root=world_root
     )
     graph_payload = _build_graph_payload(
         store,
         overlay,
         mapped,
         package,
+        alias_records_by_node,
         artifacts,
         revisions,
         current_by_artifact,
     )
-    dm_contributions = _map_contributions(store, contributions)
+    dm_contributions = _map_contributions(store, contributions, pair_to_dm)
     dm_identities = _map_identity_decisions(identity_decisions)
     assertion_count = sum(len(item.assertions) for item in dm_contributions)
     correction_count = sum(len(item.assertion_corrections) for item in dm_contributions)
-    producer_revision = BUDDY_BASE_SHA
+    producer_revision = PRODUCER_REVISION
     bundle = ExistingWorldAdoptionBundleV2(
         schema_version=EXISTING_WORLD_ADOPTION_BUNDLE_V2_SCHEMA,
         adoption_id=ADOPTION_ID,
@@ -1304,6 +1679,11 @@ def build_eldyrwild_existing_world_adoption_bundle_v2(
                     schema="dmb_relationship_dual_sense_decomposition_v1",
                     identifier="relationship-dual-sense-decomposition-v1",
                     sha256=DUAL_SENSE_LOCKED_SHA256,
+                ),
+                ExistingWorldAdoptionAuthorityRefV1(
+                    schema="dmb_cutover_alias_assertion_package_after_shadow_alias_remove_v1",
+                    identifier="eldyrwild-cutover-alias-assertion-package-after-shadow-alias-remove-v1",
+                    sha256=ALIAS_PACKAGE_LOCKED_FIXTURE_SHA256,
                 ),
                 ExistingWorldAdoptionAuthorityRefV1(
                     schema="dmb_eldyrwild_relationship_node_kind_source_repair_v1",

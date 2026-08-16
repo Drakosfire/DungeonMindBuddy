@@ -13,6 +13,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (  # noqa: E402
+    EldyrwildAdoptionBundleV2Build,
     EldyrwildAdoptionBundleV2Error,
     check_eldyrwild_existing_world_adoption_bundle_v2,
     write_eldyrwild_existing_world_adoption_bundle_v2,
@@ -23,7 +24,7 @@ def _path(value: str | None) -> Path | None:
     return Path(value).resolve() if value else None
 
 
-def _summary(built: object) -> dict[str, object]:
+def _summary(built: EldyrwildAdoptionBundleV2Build) -> dict[str, object]:
     return {
         "schema_version": built.bundle.schema_version,
         "adoption_id": built.bundle.adoption_id,

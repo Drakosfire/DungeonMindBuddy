@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pytest
 
 from apps.live_control_server.config import repo_root, world_graph_root
 from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+    ALIAS_PACKAGE_LOCKED_FIXTURE_SHA256,
+    ALIAS_PACKAGE_PROOF_SHA256,
+    BUDDY_BASE_SHA,
     EXPECTED_CURRENT_SEMANTIC,
     EXPECTED_HISTORY_ONLY,
     EXPECTED_MECHANICS,
     EXPECTED_RAW_EDGE_COUNT,
     FALSE_STOP_EDGE_IDS,
+    PRODUCER_REVISION,
     build_eldyrwild_existing_world_adoption_bundle_v2,
     evaluate_false_stop_edges,
     partition_raw_stored_edges,
@@ -233,3 +238,103 @@ def test_producer_does_not_import_adoption_persistence() -> None:
     ).read_text(encoding="utf-8")
     assert "adopt_existing_world" not in source
     assert "ExistingWorldAdoptionCommandV2" not in source
+
+
+def test_contribution_source_revision_is_first_class_not_diagnostics(built_bundle) -> None:
+    built = built_bundle
+    revision_ids = {item.source_revision_id for item in built.bundle.source_revisions}
+    artifact_ids = {item.source_artifact_id for item in built.bundle.source_artifacts}
+    assert all(item.current_revision_id for item in built.bundle.source_artifacts)
+    assert all(item.uri for item in built.bundle.source_artifacts)
+    assert all(item.locator for item in built.bundle.source_revisions)
+    assert "producer_reconstruction" not in json.dumps(
+        [item.lineage for item in built.bundle.source_artifacts], ensure_ascii=True
+    )
+    for contribution in built.bundle.contributions:
+        assert contribution.source_revision_id
+        assert contribution.source_revision_id in revision_ids
+        assert contribution.source_artifact_id in artifact_ids
+        assert "buddy_source_revision_id" not in contribution.diagnostics
+        assert "buddy_assertion_source_revision_id" not in contribution.diagnostics
+        for assertion in contribution.assertions:
+            assert assertion.source_revision_id
+            assert assertion.source_revision_id in revision_ids
+            assert assertion.source_artifact_id in artifact_ids
+
+
+def test_hires_correction_keeps_graph_native_source_revision(built_bundle) -> None:
+    built = built_bundle
+    correction = next(
+        item
+        for item in built.bundle.contributions
+        if item.source_artifact_id
+        == "graph-native:eldyrwild-correction:session25-ephanna-thrin-false-hires-v1"
+    )
+    assert (
+        correction.source_revision_id
+        == "correction:eldyrwild:session25-ephanna-thrin-false-hires-v1"
+    )
+    revision = next(
+        item
+        for item in built.bundle.source_revisions
+        if item.source_revision_id == correction.source_revision_id
+    )
+    assert revision.source_artifact_id == correction.source_artifact_id
+    assert revision.content_sha256
+    assert revision.locator.startswith("graph-data://")
+
+
+def test_captain_and_thrin_aliases_use_sealed_587_authority(built_bundle) -> None:
+    built = built_bundle
+    objects = {item["object_id"]: item for item in built.bundle.graph_payload["objects"]}
+    captain = objects["node:captain-lysandra-ironveil"]["aliases"]
+    thrin = objects["node:thrin-branchborn"]["aliases"]
+    assert len(captain) == 1
+    assert len(thrin) == 1
+    captain_meta = captain[0]["assertion_metadata"]
+    thrin_meta = thrin[0]["assertion_metadata"]
+    assert captain[0]["value"] == "Captain"
+    assert thrin[0]["value"] == "Thrin Branchborn"
+    assert captain_meta["campaign_scope"] == "longmont-c2"
+    assert thrin_meta["campaign_scope"] == "longmont-c2"
+    assert captain_meta["epistemic_kind"] == "source_derived_candidate"
+    assert thrin_meta["epistemic_kind"] == "source_derived_candidate"
+    assert captain_meta["session_refs"] == ["session-25"]
+    assert thrin_meta["session_refs"] == ["session-25"]
+    assert captain_meta["assertion_id"] == "assertion:cutover-alias:efac2be8dcac08b80b6a71ee"
+    assert thrin_meta["assertion_id"] == "assertion:cutover-alias:ed979aedbe0b7885e4ef1471"
+    refs = {(item.schema_, item.identifier, item.sha256) for item in built.bundle.source_provenance.authority_refs}
+    assert (
+        "dmb_cutover_alias_assertion_package_after_shadow_alias_remove_v1",
+        "eldyrwild-cutover-alias-assertion-package-after-shadow-alias-remove-v1",
+        ALIAS_PACKAGE_LOCKED_FIXTURE_SHA256,
+    ) in refs
+    assert ALIAS_PACKAGE_PROOF_SHA256
+    other_alias_nodes = [
+        item["object_id"]
+        for item in built.bundle.graph_payload["objects"]
+        if item["aliases"]
+        and item["object_id"]
+        not in {"node:captain-lysandra-ironveil", "node:thrin-branchborn"}
+    ]
+    assert other_alias_nodes == []
+
+
+def test_producer_revision_identifies_producer_not_dispatch_base(built_bundle) -> None:
+    built = built_bundle
+    assert built.bundle.source_provenance.producer_revision == PRODUCER_REVISION
+    assert PRODUCER_REVISION != BUDDY_BASE_SHA
+    assert len(PRODUCER_REVISION) == 40
+
+
+def test_shared_buddy_revision_tokens_are_scoped_per_artifact(built_bundle) -> None:
+    built = built_bundle
+    revision_ids = [item.source_revision_id for item in built.bundle.source_revisions]
+    assert len(revision_ids) == len(set(revision_ids))
+    scoped = [item for item in revision_ids if "::" in item]
+    assert scoped
+    assert all(item.startswith("sha256:") or item.startswith("bundle-revision:") for item in scoped)
+    for contribution in built.bundle.contributions:
+        if "::" in (contribution.source_revision_id or ""):
+            artifact_id = contribution.source_artifact_id
+            assert contribution.source_revision_id.endswith(f"::{artifact_id}")
