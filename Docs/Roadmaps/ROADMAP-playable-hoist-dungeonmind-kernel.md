@@ -113,18 +113,18 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #599. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+Mutable workstream state after merged PR #601. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `26ddd83ddbec381c816fbd2ede891aa5d816b9e1` — merge of [PR #599](https://github.com/Drakosfire/DungeonMindBuddy/pull/599) |
-| Merged capability | P2B1 — immutable Run-bound Playable reference manifest |
-| Next slice | P2B2 — durable CAS Run progress against the sealed manifest |
-| Next handoff | [`Docs/Plans/HANDOFF-PLAY-run-progress-cas.md`](../Plans/HANDOFF-PLAY-run-progress-cas.md) |
-| Named successor after P2B2 | P2C — explicit Run rebase/migration to a newer Playable revision |
-| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2B1 sealed a Play-owned reference-admission sidecar; P2B2 will mutate Play-owned Run progress against that sidecar under `run_revision` CAS. `WorkObjectRevisionRef` and `WorkObjectElementRef` remain not yet justified without an independent non-Play consumer. |
+| Integration tip | `51ed2a6e89b56d2ef033215e23d309ce03a51c87` — merge of [PR #601](https://github.com/Drakosfire/DungeonMindBuddy/pull/601) |
+| Merged capability | P2B2 — durable CAS Run progress against the sealed manifest |
+| Next slice | P2C — explicit preserve-only Run rebase to a newer Playable revision |
+| Next handoff | [`Docs/Plans/HANDOFF-PLAY-run-rebase.md`](../Plans/HANDOFF-PLAY-run-rebase.md) |
+| Named successor after P2C | P3 — native Play projections |
+| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2B2 mutates Play-owned Run progress under `run_revision` CAS against a Play-owned sealed manifest. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
 
-P2B1 proved that exact Scene/Beat/Choice/Option membership can be frozen for a bound Runbook revision without trusting later workspace bytes. P2B2 is the remaining progress mutation: one full snapshot replacement inside the existing Run JSON, admitted only by that sealed manifest. P2C rebase/migration remains false. This is a sequencing update, not a stable architecture ownership change.
+P2B2 proved that one Run can carry a full progress snapshot without consulting later Runbook bytes. P2C is the remaining P2 lifecycle: an explicit preserve-only rebase of that Run to a newer committed revision of the same Runbook artifact. P3 native Play projections remain false. This is a sequencing update, not a stable architecture ownership change.
 
 ---
 
@@ -258,7 +258,7 @@ The first seal fails closed if the workspace has already advanced beyond the Run
 
 Handoff: [`HANDOFF-PLAY-run-reference-manifest.md`](../Plans/HANDOFF-PLAY-run-reference-manifest.md).
 
-#### P2B2 — Durable CAS Run progress against the sealed manifest ← current next slice
+#### P2B2 — Durable CAS Run progress against the sealed manifest ← merged PR #601
 
 After P2B1, persist current Scene/Beat, resolved Beats, `choiceId → optionId` selections, and notes. Every referenced ID must validate against the P2B1 manifest, and every mutation must use P2A `run_revision` as the compare-and-swap boundary. Do not add a second concurrency token.
 
@@ -266,9 +266,11 @@ P2B2 must not parse current Runbook bytes as a fallback and must not silently cr
 
 Handoff: [`HANDOFF-PLAY-run-progress-cas.md`](../Plans/HANDOFF-PLAY-run-progress-cas.md).
 
-#### P2C — Explicit Run rebase/migration
+#### P2C — Explicit preserve-only Run rebase to a newer Playable revision ← current next slice
 
-After P2B2, migrate a Run to a newer Playable revision with fail-closed missing/replaced reference handling. Do not invent historical Playable revision archive inside Runtime.
+After P2B2, explicitly move one Run UUID to a newer committed revision of the same Runbook artifact, preserving current progress only when every durable reference remains admissible in the target revision. Do not invent a mapping language, historical Playable archive, or second concurrency token.
+
+Handoff: [`HANDOFF-PLAY-run-rebase.md`](../Plans/HANDOFF-PLAY-run-rebase.md).
 
 `linkedRuntimeHandles` stays deferred until a real Combat/other runtime consumer requires it.
 
