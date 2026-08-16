@@ -25,7 +25,7 @@ pr_body_template: |
 # HANDOFF — project exact Threat mechanics inside native Play object sheets
 
 **Created:** 2026-08-16
-**Status:** CODE IN PR #608 — steward authorized executing against design-anchor `main` without waiting for a P3B implementation merge. Living-roadmap **dispatch authority remains P2C**.
+**Status:** CODE IN PR #608 — Cycle 2 repair of stale relationship-scope key. This PR implements P3C shared exact-mechanics extraction plus an early Play composition component (`PlayGraphObjectSheet` / `PlayThreatMechanicsSection`). It does **not** complete P3B (click/open, occurrence derivation, native `/play` host, Projection-host lease). Living-roadmap **dispatch authority remains P2C**.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-threat-mechanics.md`
 **Conversation/workstream:** `Playable Architecture Graduation / P3C`
 **Flow / owner:** `PLAY`
@@ -33,7 +33,7 @@ pr_body_template: |
 **Design anchor:** merged PR #606 / `bad7496677cb2f739935ebc454c153934994d160`
 **P3B design head:** `61aa6325b38e0902b360b63e8f06d7573c5e3966`
 **P3A design anchor:** `b47c66c6a780308ceb2d8720de2f3086aad33cfc` on `documents/play-p3a-native-runbook-deck`
-**Required predecessor:** P3B product sheet is still design-only; this PR creates the designed Play wrapper over existing resolved-graph World/Source fields plus shared mechanics.
+**Required predecessor:** P3B remains design-only and unimplemented. #608 does not claim P3B completion. The Play files here are an early composition wrapper over resolved-graph World/Source fields plus shared mechanics, not the native graph-object sheet capability.
 **Implementation base:** `bad7496677cb2f739935ebc454c153934994d160`
 **Suggested branch:** `documents/play-p3c-native-threat-mechanics`
 **PR title:** `PLAY: design native Threat mechanics`
@@ -602,6 +602,7 @@ No button labeled `Add to Combat`, `Start Combat`, or equivalent belongs in this
 |---|---|---|
 | X@G1 open → hydration response says G2 | integrity failure; no statblock render | exact-scope test |
 | X@G1 request → open Y → X resolves late | X completion discarded; Y sheet unchanged | stale-selection test |
+| same node/world/revision, campaignId or scopeMode changes while relationship pending | old relationship completion discarded; `openResolvedReference` not called | Cycle 2 campaign/scope stale-nav test |
 | X has bindings A+B | both represented; no first/highest/default winner | multi-binding test |
 | binding says statblock A/rev1/digest1 → revision payload says A/rev2/digest2 | integrity failure; renderer withheld | binding/revision coherence test |
 | available binding returns incomplete revision shape | integrity failure; renderer withheld | complete-resource gate regression |
@@ -622,8 +623,8 @@ Pinned against design-anchor `bad7496677cb2f739935ebc454c153934994d160`. `apps/l
 |---|---|---|
 | Create / Modify | `Docs/Plans/HANDOFF-PLAY-native-threat-mechanics.md` | pin base/status + evidence handback |
 | Modify | `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` | P3C evidence row/disposition and successor state during implementation/state-sync as required |
-| Modify | `apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.tsx` | compose exact mechanics into authored Threat sheet without losing P3B context |
-| Modify | `apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.test.tsx` | Play hierarchy/degradation/non-Threat/no-mutation proof |
+| Create | `apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.tsx` | early Play composition around shared mechanics; not P3B completion. Cycle 2: selection/generation key is `graphNodeId + worldId + campaignId + scopeMode + revisionId` |
+| Create | `apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.test.tsx` | Play composition/degradation proof plus Cycle 2 stale campaignId/scopeMode relationship-completion discard |
 | Create if useful | `apps/live-control-ui/src/playSurface/reference/PlayThreatMechanicsSection.tsx` | Play-owned wrapper/label around shared mechanics primitive; no authority |
 | Create if useful | `apps/live-control-ui/src/playSurface/reference/PlayThreatMechanicsSection.test.tsx` | Play composition and degradation proof |
 | Create | `apps/live-control-ui/src/statblocks/projection/useExactThreatMechanics.ts` | extract exact hydration lifecycle from current Threat sheet into surface-neutral read seam |
@@ -904,7 +905,7 @@ Every material clause must be proved at its owning boundary.
 | no binding degrades truthfully | Play composition | degradation | World/Runbook/Source remains; mechanics says no binding |
 | mechanics service failure is local | Play composition | degradation | surrounding P3B sheet remains on 503/transport error |
 | Runbook context remains visible | Play object sheet | component | exact occurrence/current context survives loading/ready/error mechanics states |
-| stale X completion cannot paint Y | shared hook + Play component | concurrency | X request → switch Y → resolve X; Y remains authoritative |
+| stale X completion cannot paint Y | shared hook + Play component | concurrency | X request → switch Y → resolve X; Y remains authoritative; same node under a different campaignId/scopeMode also discards the pending relationship completion |
 | relationship-drilled Threat keeps origin graph revision | P3B + mechanics integration | adversarial | X@G1 drill Y@G1 while ambient G2; Y mechanics request pins G1 |
 | Plan/Build behavior preserved | existing ThreatSheetProjection | regression | current shared Threat tests remain green after extraction |
 | neutral primitive has no Plan/Play policy | static/diff | review | no PlanSessionDescriptor/buildPlanGraphObjectActions/Scene/Beat imports in shared mechanics hook/panel |

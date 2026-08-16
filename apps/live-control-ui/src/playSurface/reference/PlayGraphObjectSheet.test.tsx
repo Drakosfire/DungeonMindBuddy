@@ -33,6 +33,7 @@ function graphResolution(input: {
   label: string;
   kind: string;
   role?: string;
+  graphScope?: typeof scopeG1;
   relationships?: GraphReferenceResolution extends { kind: "resolved_graph" }
     ? Extract<GraphReferenceResolution, { kind: "resolved_graph" }>["graphObject"]["relationships"]
     : never;
@@ -64,7 +65,7 @@ function graphResolution(input: {
         sourceAnchorText: input.kind === "threat" ? "the tripod calf" : null,
       },
     },
-    graphScope: scopeG1,
+    graphScope: input.graphScope ?? scopeG1,
     projectionState: "ready",
     message: "Resolved.",
   };
@@ -268,6 +269,65 @@ describe("PlayGraphObjectSheet", () => {
     );
     await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
     rerender(<PlayGraphObjectSheet resolution={second} graphReferenceBinding={binding} />);
+
+    await act(async () => {
+      resolveRelationship?.(first);
+      await deferred;
+    });
+    expect(openResolvedReference).not.toHaveBeenCalled();
+  });
+
+  it("does not paint a stale relationship resolution after campaignId or scopeMode changes", async () => {
+    vi.mocked(postThreatQueryHydration)
+      .mockResolvedValueOnce(hydrationOk("threat:tripod-null-calf"))
+      .mockResolvedValueOnce(hydrationOk("threat:tripod-null-calf"));
+    let resolveRelationship: ((value: ReturnType<typeof graphResolution>) => void) | undefined;
+    const deferred = new Promise<ReturnType<typeof graphResolution>>((resolve) => {
+      resolveRelationship = resolve;
+    });
+    const openResolvedReference = vi.fn();
+    const binding: GraphReferenceProjectionBinding = {
+      resolverState: "ready",
+      resolveRelationship: vi.fn(() => deferred),
+      openResolvedReference,
+      openTool: vi.fn(),
+    };
+    const first = graphResolution({
+      nodeId: "threat:tripod-null-calf",
+      label: "Tripod Null-Calf",
+      kind: "threat",
+      relationships: [
+        {
+          id: "edge-inn",
+          label: "Inn",
+          predicate: "guards",
+          direction: "outgoing",
+          targetId: "location-inn",
+        },
+      ],
+    });
+    const sameNodeDifferentCampaign = graphResolution({
+      nodeId: "threat:tripod-null-calf",
+      label: "Tripod Null-Calf",
+      kind: "threat",
+      graphScope: {
+        ...scopeG1,
+        campaignId: "longmont-c1",
+        scopeMode: "campaign",
+      },
+    });
+
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <PlayGraphObjectSheet resolution={first} graphReferenceBinding={binding} />,
+    );
+    await user.click(screen.getByRole("button", { name: /Inn.*guards/i }));
+    rerender(
+      <PlayGraphObjectSheet
+        resolution={sameNodeDifferentCampaign}
+        graphReferenceBinding={binding}
+      />,
+    );
 
     await act(async () => {
       resolveRelationship?.(first);

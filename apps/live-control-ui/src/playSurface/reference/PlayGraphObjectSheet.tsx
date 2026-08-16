@@ -56,7 +56,13 @@ export function PlayGraphObjectSheet({
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
   const graphReferenceBindingRef = useRef(graphReferenceBinding);
   graphReferenceBindingRef.current = graphReferenceBinding;
-  const selectedObjectKey = `${resolution.graphNodeId}\0${resolution.graphScope.worldId}\0${resolution.graphScope.revisionId}`;
+  const selectedObjectKey = [
+    resolution.graphNodeId,
+    resolution.graphScope.worldId,
+    resolution.graphScope.campaignId,
+    resolution.graphScope.scopeMode,
+    resolution.graphScope.revisionId,
+  ].join("\0");
   const selectedObjectKeyRef = useRef(selectedObjectKey);
   const navigationGenerationRef = useRef(0);
   const mountedRef = useRef(false);
