@@ -646,7 +646,7 @@ Every material invariant clause needs proof at the owning boundary.
 | Exact Choice/Option markers admit exact attrs | Markdown admission via P1A helpers | contract | focused Vitest using real Markdown | Choice H3 / Option H4 exact IDs, no diagnostics | production parser needs new semantic branch |
 | Existing Scene/Beat markers remain byte/semantic stable | parser + serializer | regression | import/serialize existing P1A fixture | exact same Markdown / index parents | existing bytes change |
 | Choice/Option serialize and re-import exactly | serializer + admission | round-trip | focused Vitest | exact IDs/kinds/levels after reload | ID regenerated/lost |
-| Workspace Save/reload preserves Choice/Option | workspace authoring CAS path | persistence | focused hook/integration test | prepare/commit body contains exact markers; reload reconstructs IDs | Save production code must change |
+| Workspace Save/reload preserves Choice/Option | workspace authoring CAS path | persistence | focused hook/integration test | prepare/commit body contains exact markers; post-commit snapshot matches receipt (revision/SHA/fingerprint); verification succeeds; reloadFromSnapshot re-admits IDs | Save production code must change |
 | Choice belongs to exact marked Scene | P1B index | structure | focused Vitest | exact `sceneId`; unmarked H3 ignored | title/level heuristic used |
 | Option belongs to exact active Choice | P1B index | structure | focused Vitest | exact `choiceId` and `sceneId` | implicit/default parent |
 | Beat closes active Choice option run | P1B index | adversarial | Choice→Option→Beat→Option | final Option blocks `orphan_option` | Option leaks across Beat |
@@ -789,6 +789,12 @@ The reviewer may PASS with `not yet` on hoisting. P1C must not manufacture a sha
 - [ ] Focused tests + typecheck + build + diff checks pass or baseline differences are truthfully recorded.
 - [ ] Roadmap review disposition and P1C hoist observation are explicit.
 - [ ] P2 remains the named successor and is not silently started in this PR.
+
+### Review Cycle 1 response — 2026-08-15
+
+| Finding | Resolution |
+|---|---|
+| C1-F1 P1 — Save/reload test mocked a revision-1 / `sha-source` / `fp-source` snapshot against a revision-2 commit receipt, so `verifyCommitReceiptAgainstSnapshot` mismatched and the test only parsed committed Markdown out-of-band | The refreshed snapshot now matches the receipt. The test asserts `ready_clean` after verification, then calls `reloadFromSnapshot()` and indexes Choice/Option membership from the reloaded `editorContent`. |
 
 ## Stop conditions
 

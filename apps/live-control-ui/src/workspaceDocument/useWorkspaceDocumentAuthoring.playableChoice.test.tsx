@@ -51,7 +51,13 @@ const renamedMarkdown = [
   "",
 ].join("\n");
 
-function snapshot(markdown: string): WorkspaceDocumentSnapshot {
+function snapshot(args: {
+  markdown: string;
+  revision: number;
+  contentSha: string;
+  fingerprint: string;
+  contentStatus?: "draft" | "committed";
+}): WorkspaceDocumentSnapshot {
   return {
     schema_version: "dmb_workspace_document_snapshot_v1",
     record: fixtureWorkspaceDocumentRecord({
@@ -59,16 +65,32 @@ function snapshot(markdown: string): WorkspaceDocumentSnapshot {
       kind: "worldbuilding_source",
       campaign_id: "eldyrwild",
       target_session: null,
-      revision: 1,
-      content_status: "draft",
+      revision: args.revision,
+      content_status: args.contentStatus ?? "draft",
     }),
-    markdown,
-    content_sha256: "sha-source",
-    file_fingerprint: "fp-source",
+    markdown: args.markdown,
+    content_sha256: args.contentSha,
+    file_fingerprint: args.fingerprint,
     file_exists: true,
-    loaded_revision: 1,
+    loaded_revision: args.revision,
   };
 }
+
+const sourceSnapshot = snapshot({
+  markdown: sourceMarkdown,
+  revision: 1,
+  contentSha: "sha-source",
+  fingerprint: "fp-source",
+  contentStatus: "draft",
+});
+
+const committedSnapshot = snapshot({
+  markdown: renamedMarkdown,
+  revision: 2,
+  contentSha: "sha-committed",
+  fingerprint: "fp-committed",
+  contentStatus: "committed",
+});
 
 function editorWithJson(json: unknown): Editor {
   return { getJSON: vi.fn(() => json) } as unknown as Editor;
@@ -82,8 +104,8 @@ describe("workspace Save/reload for Choice/Option identity", () => {
 
   it("commits renamed Choice/Option labels while preserving exact IDs, then reloads them", async () => {
     vi.mocked(getWorkspaceDocumentSnapshot)
-      .mockResolvedValueOnce(snapshot(sourceMarkdown))
-      .mockResolvedValueOnce(snapshot(renamedMarkdown));
+      .mockResolvedValueOnce(sourceSnapshot)
+      .mockResolvedValue(committedSnapshot);
     vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_prepare_v1",
       document_id: DOC_ID,
@@ -154,19 +176,47 @@ describe("workspace Save/reload for Choice/Option identity", () => {
     expect(commitTiptapMarkdownWrite).toHaveBeenCalledWith(expect.objectContaining({
       markdown: renamedMarkdown,
     }));
+    expect(result.current.phase).toBe("ready_clean");
+    expect(result.current.error).toBeNull();
+    expect(result.current.lastCommitReceipt).toEqual(expect.objectContaining({
+      committed_revision: 2,
+      normalized_content_sha256: "sha-committed",
+      file_fingerprint: "fp-committed",
+    }));
+    expect(result.current.snapshot).toEqual(expect.objectContaining({
+      loaded_revision: 2,
+      content_sha256: "sha-committed",
+      file_fingerprint: "fp-committed",
+      markdown: renamedMarkdown,
+    }));
 
-    const reloaded = markdownToTiptapDoc(renamedMarkdown);
-    expect(reloaded.diagnostics).toEqual([]);
-    const index = indexPlayableStructure(reloaded.doc);
+    await act(async () => {
+      await result.current.reloadFromSnapshot();
+    });
+    await waitFor(() => expect(result.current.phase).toBe("ready_clean"));
+    expect(result.current.snapshot?.loaded_revision).toBe(2);
+    expect(result.current.snapshot?.content_sha256).toBe("sha-committed");
+    expect(result.current.snapshot?.file_fingerprint).toBe("fp-committed");
+
+    const index = indexPlayableStructure(result.current.editorContent);
     expect(index.status).toBe("ready");
     if (index.status !== "ready") throw new Error("expected ready");
     expect(index.index.choices).toEqual([
       { choiceId: "choice:route", sceneId: "scene:gate", order: 0, optionOrder: ["option:fire", "option:wait"] },
     ]);
+    expect(index.index.elements).toEqual(expect.arrayContaining([
+      { kind: "option", id: "option:fire", order: 2, sceneId: "scene:gate", choiceId: "choice:route" },
+      { kind: "option", id: "option:wait", order: 3, sceneId: "scene:gate", choiceId: "choice:route" },
+    ]));
   });
 
   it("blocks durable save when Choice identity is nested inside a callout", async () => {
-    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot("# Safe source\n"));
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot({
+      markdown: "# Safe source\n",
+      revision: 1,
+      contentSha: "sha-source",
+      fingerprint: "fp-source",
+    }));
 
     const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
       documentId: DOC_ID,
