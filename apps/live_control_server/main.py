@@ -9,6 +9,7 @@ from apps.live_control_server.routes.graph_authoring import router as graph_auth
 from apps.live_control_server.routes.graph_preview import router as graph_preview_router
 from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.party_registry import router as party_registry_router
+from apps.live_control_server.routes.play_runs import router as play_runs_router
 from apps.live_control_server.routes.recap_ingest import router as recap_ingest_router
 from apps.live_control_server.routes.world_graph_bootstrap import (
     router as world_graph_bootstrap_router,
@@ -97,6 +98,7 @@ def create_app() -> FastAPI:
     application.include_router(graph_authoring_router)
     application.include_router(recap_ingest_router)
     application.include_router(party_registry_router)
+    application.include_router(play_runs_router)
     application.include_router(world_graph_bootstrap_router)
     application.include_router(extract_promote_router)
     application.include_router(world_graph_projection_router)
