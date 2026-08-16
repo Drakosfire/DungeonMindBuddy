@@ -12,9 +12,11 @@ from apps.live_control_server.services.play_run_registry import (
     PlayRunRecord,
     PlayRunRegistryError,
     PlayRunsListResponse,
+    ReplacePlayRunProgressRequest,
     create_or_replay_play_run,
     get_play_run,
     list_play_runs,
+    replace_play_run_progress,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     PlayRunReferenceManifest,
@@ -95,6 +97,23 @@ def get_play_run_reference_manifest_route(run_id: str) -> dict[str, Any]:
     except PlayRunReferenceManifestError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return manifest.model_dump(mode="json", exclude_none=True)
+
+
+@router.put("/play-runs/{run_id}/progress", response_model=PlayRunRecord)
+def put_play_run_progress_route(
+    run_id: str,
+    body: ReplacePlayRunProgressRequest,
+) -> dict[str, Any]:
+    try:
+        record = replace_play_run_progress(
+            repo_root(),
+            run_id=run_id,
+            expected_run_revision=body.expected_run_revision,
+            progress=body.progress,
+        )
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return _record_response(record)
 
 
 @router.get("/play-runs/{run_id}", response_model=PlayRunRecord)

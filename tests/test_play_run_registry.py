@@ -120,8 +120,11 @@ def test_exact_create_persists_binding_without_mutating_runbook(tmp_path: Path) 
     assert path.is_file()
     raw = path.read_text(encoding="utf-8")
     assert "markdown" not in raw
-    assert "current_scene" not in raw
-    assert "resolved_beat" not in raw
+    assert record.progress.current_scene_id is None
+    assert record.progress.current_beat_id is None
+    assert record.progress.resolved_beat_ids == []
+    assert record.progress.selections == {}
+    assert record.progress.notes_by_element_id == {}
 
     snapshot_after = get_workspace_document_snapshot(
         tmp_path,
