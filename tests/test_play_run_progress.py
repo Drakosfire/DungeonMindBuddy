@@ -512,6 +512,53 @@ def test_persisted_cross_choice_selection_fails_closed(tmp_path: Path) -> None:
     assert path.read_bytes() == corrupted
 
 
+@pytest.mark.parametrize(
+    "tampered_beats",
+    [
+        ["beat:briefing", "beat:arrival"],
+        ["beat:arrival", "beat:arrival"],
+    ],
+)
+def test_persisted_resolved_beats_must_be_duplicate_free_and_sorted(
+    tmp_path: Path,
+    tampered_beats: list[str],
+) -> None:
+    snapshot = _create_committed_runbook(tmp_path)
+    _seal(tmp_path, snapshot)
+    replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_progress(resolved_beat_ids=["beat:briefing", "beat:arrival"]),
+    )
+    path = play_run_path(tmp_path, RUN_ID_A)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["progress"]["resolved_beat_ids"] == ["beat:arrival", "beat:briefing"]
+    payload["progress"]["resolved_beat_ids"] = tampered_beats
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    corrupted = path.read_bytes()
+
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        get_play_run(tmp_path, RUN_ID_A)
+    assert exc_info.value.status_code == 500
+    assert path.read_bytes() == corrupted
+
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        list_play_runs(tmp_path)
+    assert exc_info.value.status_code == 500
+    assert path.read_bytes() == corrupted
+
+    with pytest.raises(PlayRunRegistryError) as exc_info:
+        replace_play_run_progress(
+            tmp_path,
+            run_id=RUN_ID_A,
+            expected_run_revision=2,
+            progress=_progress(),
+        )
+    assert exc_info.value.status_code == 500
+    assert path.read_bytes() == corrupted
+
+
 def test_legacy_record_without_progress_reads_empty_and_can_mutate(
     tmp_path: Path,
 ) -> None:

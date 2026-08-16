@@ -336,7 +336,12 @@ def _revalidate_persisted_progress(root: Path, record: PlayRunRecord) -> None:
             f"persisted Play Run progress cannot be admitted: {exc}",
             status_code=status,
         ) from exc
-    _admit_progress(record.progress, manifest=manifest, status_code=500)
+    canonical = _admit_progress(record.progress, manifest=manifest, status_code=500)
+    if record.progress.resolved_beat_ids != canonical.resolved_beat_ids:
+        raise PlayRunRegistryError(
+            "persisted resolved_beat_ids must be duplicate-free and lexicographically sorted",
+            status_code=500,
+        )
 
 
 def _load_authoritative_record(root: Path, path: Path) -> PlayRunRecord:
