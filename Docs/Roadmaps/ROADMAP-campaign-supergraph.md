@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-09 — land `HANDOFF-eldyrwild-contribution-integrity-heal` after PR #538 merge `5dae4183…`; heal READY for BUILD; Lysandra BLOCKED until heal live exit. Historical adjudication-domain effective conformance remains `294 represented / 52 residual`.  
-**Repository anchor:** `5dae41830220c50b162fe76c349101c4955aff0c`  
+**Updated:** 2026-08-15 — record #587/#588 and DungeonMind #31/#32 DONE; next CUTOVER CODE is the offline Eldyrwild v6 adoption-bundle producer  
+**Repository anchor:** `bc80f7125499817050f08abc79b71b87d327b2a9`  
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
+**DungeonMind pin:** Buddy lock remains `be76acc997c5fbcb8ceaa090969ec051afa6051d`; next CUTOVER CODE consumes `3d34d53b1c24862da32cf5f9f25e9b05b6ba5441`  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -96,45 +96,35 @@ At the immutable Eldyrwild adjudication domain:
 
 The remaining relationship debt is Buddy-owned. The adjudication ledger distinguishes source corrections, compound assertions that are not one relationship, identity-not-relationship cases, and insufficient-evidence cases. Those are different authority problems and should not be collapsed into one migration PR.
 
-## Current critical path — semantic correction before cutover
+## Current critical path — exact Eldyrwild bundle before durable adoption
+
+The tracker owns exact sequence. This roadmap records only the current CUTOVER
+critical path after #587/#588 and DungeonMind #31/#32:
 
 ```text
-READY   eldyrwild-contribution-integrity-heal
-        Owning handoff: Docs/Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md
-        Forensic first, repair second for contribution:d3d244474789879c:
-        reproduce same-ID/different-source ledger overwrite; Kernel pre-write
-        guard; recover exact D* only if digest equals immutable E; heal mutable
-        ledger/index only (no revision publish). Merge-ready on temp clone;
-        DONE requires post-merge canonical live heal. Do not “change the hash
-        until green.”
+DONE    cutover-alias-assertion-package-after-shadow-alias-remove / #587
+        Captain + Thrin alias package sealed; no World Graph mutation.
 
-BLOCKED eldyrwild-lysandra-threat-direction-correction
-        Depends on contribution-integrity heal DONE (merged package and live
-        exit), plus merged #534+#536.
-        Merge-ready package: parent-relative gate on a temp clone
-        (semantic unchanged / represented +1 / residual −1 / mechanics unchanged);
-        live-write fence, complete preflight, dual artifact seals,
-        integrity_failure status, and successful pinned rebuild of Q.
-        Slice DONE additionally requires post-merge canonical apply:
-        status/preflight → P_live → apply --allow-live-world → Q_live →
-        verify 0/+1/−1/0 → already_applied. Only then is the real Eldyrwild
-        correction complete.
+DONE    cutover-dual-sense-relationship-decomposition-package / #588
+        Dual-sense package sealed; five Buddy relationship STOPs unchanged.
 
-BLOCKED effective-conformance-after-first-correction
-        READY only after Lysandra DONE (merged package and live Q_live).
-        Re-anchor descendant fixtures/tracker on the actual post-Q_live baseline.
-        Do not force historical absolute counts onto an evolved live head.
-        The original adjudication anchor and historical analyzers remain unchanged.
+DONE    DungeonMind #31 dm_union_graph_v6 endpoint aspects
+DONE    DungeonMind #32 atomic existing-world adoption boundary
 
-BLOCKED remaining-buddy-semantic-correction-slices
-        Select the next bounded correction/decomposition/identity/evidence slice
-        from the residual ledger only after the first real correction proves the
-        write/replay pattern on the live Eldyrwild head.
+READY   cutover-eldyrwild-dungeonmind-v6-adoption-bundle
+        Owning handoff:
+        Docs/Plans/HANDOFF-CUTOVER-eldyrwild-dungeonmind-v6-adoption-bundle.md
+        Offline producer of one canonical dm_existing_world_adoption_bundle_v1
+        for exact Eldyrwild rev:0c644e56… / payload 0640d7ef….
+        No Buddy mutation. No DungeonMind persistence. CODE waits for the
+        CUTOVER state-authority sync merge SHA.
+
+BLOCKED operator apply of the sealed bundle to real DungeonMind PostgreSQL
+        Named successor after the producer merges and its post-merge sync.
 
 BLOCKED DungeonMind whole-world authority cutover
-        Requires Buddy semantic closure plus a public governed DungeonMind
-        existing-world adoption seam. Diagnostic readiness alone cannot switch
-        product or Play mechanics authority.
+        Requires durable external adoption plus Buddy remeasurement of the
+        five relationship STOPs. A sealed bundle is not cutover.
 ```
 
 ### Why targeted assertion correction was a prerequisite
