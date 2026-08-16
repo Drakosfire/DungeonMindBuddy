@@ -21,8 +21,15 @@ pr_body_template: |
 
 # HANDOFF — durable Run binding to exact Playable revision
 
+> **MERGED / HISTORICAL (2026-08-15):** PR **#596** merged as
+> `bc80f7125499817050f08abc79b71b87d327b2a9` after **2 review cycles**. P2A
+> established the durable opaque Run identity + exact committed Runbook
+> revision/digest binding. Successor:
+> [`HANDOFF-PLAY-run-reference-manifest.md`](HANDOFF-PLAY-run-reference-manifest.md)
+> (P2B1 immutable Run-bound Playable reference manifest; mutable progress is P2B2).
+
 **Created:** 2026-08-15  
-**Status:** ACTIVE IMPLEMENTATION / MERGE BLOCKED — PR #595 satisfied the state-sync/base gate; CODE was dispatched from the exact pinned base, while required executable §7/preflight evidence remains outstanding.  
+**Status:** MERGED — PR #596 / main `bc80f7125499817050f08abc79b71b87d327b2a9`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-durable-run-binding.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2A`  
 **Flow / owner:** `PLAY`  
