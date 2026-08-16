@@ -207,7 +207,7 @@ describe("ThreatSheetProjection", () => {
               definitionDigest: revision.definition_digest,
               hydrationStatus: "available",
               binding: null,
-              revision,
+              revision: { ...revision, statblock_id: "sb_000002" },
               message: null,
             },
           ],

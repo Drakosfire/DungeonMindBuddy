@@ -12,6 +12,7 @@ import type { GraphReferenceResolution } from "../../graphReference/types";
 import revisionFixture from "../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json";
 import type { StatblockRevisionResourceV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import {
+  bindingRevisionCoheres,
   buildThreatQueryHydrationRequest,
   buildThreatSheetViewModel,
   isCompleteStatblockRevisionResource,
@@ -345,5 +346,26 @@ describe("threatSheetViewModel", () => {
       hydrationStatus: "integrity_failure",
       revision: null,
     });
+  });
+
+  it("fails closed when an available revision disagrees with the binding locator triple", () => {
+    const mismatched = binding({
+      statblockId: "sb_other",
+      revisionId: revision.revision_id,
+      definitionDigest: revision.definition_digest,
+    });
+    expect(bindingRevisionCoheres(mismatched, revision)).toBe(false);
+    const model = buildThreatSheetViewModel({
+      resolution: resolvedThreat(),
+      hit: makeHit("threat:tripod-null-calf", "Tripod Null-Calf", [mismatched]),
+      loadStatus: "ready",
+    });
+
+    expect(model.bindings[0]).toMatchObject({
+      hydrationStatus: "integrity_failure",
+      revision: null,
+      message: "Binding locator does not cohere with returned StatblockRevision identity.",
+    });
+    expect(model.loadStatus).toBe("integrity_failure");
   });
 });

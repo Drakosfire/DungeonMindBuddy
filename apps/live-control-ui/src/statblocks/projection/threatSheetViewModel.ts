@@ -386,15 +386,25 @@ export function sortThreatSheetBindings(
   });
 }
 
+function bindingLocatorIsComplete(binding: ThreatBindingHydrationV1): boolean {
+  return Boolean(binding.statblockId && binding.revisionId && binding.definitionDigest);
+}
+
+export function bindingRevisionCoheres(
+  binding: ThreatBindingHydrationV1,
+  revision: StatblockRevisionResourceV1,
+): boolean {
+  return (
+    bindingLocatorIsComplete(binding)
+    && revision.statblock_id === binding.statblockId
+    && revision.revision_id === binding.revisionId
+    && revision.definition_digest === binding.definitionDigest
+  );
+}
+
 export function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSheetBindingViewModel {
   const typedBinding = binding.binding;
-  const completeRevision =
-    binding.hydrationStatus === "available"
-    && isCompleteStatblockRevisionResource(binding.revision);
-  const hydrationStatus = completeRevision ? "available" : (
-    binding.hydrationStatus === "available" ? "integrity_failure" : binding.hydrationStatus
-  );
-  return {
+  const base = {
     relationshipEdgeId: binding.relationshipEdgeId,
     bindingId: binding.bindingId,
     role: binding.bindingRole ?? typedBinding?.role ?? null,
@@ -403,13 +413,49 @@ export function mapBindingHydration(binding: ThreatBindingHydrationV1): ThreatSh
     statblockId: binding.statblockId,
     revisionId: binding.revisionId,
     definitionDigest: binding.definitionDigest,
-    hydrationStatus,
-    revision: completeRevision ? binding.revision : null,
-    message: completeRevision
-      ? binding.message
-      : binding.hydrationStatus === "available"
-        ? "Exact revision response is incomplete; mechanics were withheld."
-        : binding.message,
+  };
+
+  if (binding.hydrationStatus !== "available") {
+    return {
+      ...base,
+      hydrationStatus: binding.hydrationStatus,
+      revision: null,
+      message: binding.message,
+    };
+  }
+
+  if (!bindingLocatorIsComplete(binding)) {
+    return {
+      ...base,
+      hydrationStatus: "integrity_failure",
+      revision: null,
+      message: "Exact mechanics binding is missing statblock/revision/digest identity.",
+    };
+  }
+
+  if (!isCompleteStatblockRevisionResource(binding.revision)) {
+    return {
+      ...base,
+      hydrationStatus: "integrity_failure",
+      revision: null,
+      message: "Exact revision response is incomplete; mechanics were withheld.",
+    };
+  }
+
+  if (!bindingRevisionCoheres(binding, binding.revision)) {
+    return {
+      ...base,
+      hydrationStatus: "integrity_failure",
+      revision: null,
+      message: "Binding locator does not cohere with returned StatblockRevision identity.",
+    };
+  }
+
+  return {
+    ...base,
+    hydrationStatus: "available",
+    revision: binding.revision,
+    message: binding.message,
   };
 }
 

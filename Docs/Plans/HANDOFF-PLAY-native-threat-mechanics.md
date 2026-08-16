@@ -5,14 +5,15 @@ pr_body_template: |
   - Flow: PLAY
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-PLAY-native-threat-mechanics.md
-  - Branch / PR: agent/play-native-threat-mechanics / `PLAY: project exact Threat mechanics`
+  - Branch / PR: documents/play-p3c-native-threat-mechanics / `PLAY: design native Threat mechanics`
+  - Base/head: `bad7496677cb2f739935ebc454c153934994d160` / <implementation head>
 
   ## Verification pointer
   - Design anchor: merged PR #606 / current main at `bad7496677cb2f739935ebc454c153934994d160`
   - P3B design head: `61aa6325b38e0902b360b63e8f06d7573c5e3966`
   - P3A design anchor: `b47c66c6a780308ceb2d8720de2f3086aad33cfc` on `documents/play-p3a-native-runbook-deck`
-  - Required predecessor before dispatch: merged P3B native graph-object sheets + post-merge state-authority sync naming P3C next
-  - Base/head: <PIN_AFTER_P3B_STATE_SYNC> / <implementation head>
+  - Required predecessor before dispatch: living-roadmap P2C remains current; this PR executes P3C CODE on design-anchor main by steward instruction
+  - Base/head: `bad7496677cb2f739935ebc454c153934994d160` / <implementation head>
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
 
@@ -23,19 +24,19 @@ pr_body_template: |
 
 # HANDOFF — project exact Threat mechanics inside native Play object sheets
 
-**Created:** 2026-08-16  
-**Status:** DESIGNED — **DO NOT DISPATCH** until P3B is implemented, merged, and atomically synchronized as complete with P3C named next; then pin the exact implementation base.  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-threat-mechanics.md`  
-**Conversation/workstream:** `Playable Architecture Graduation / P3C`  
-**Flow / owner:** `PLAY`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Design anchor:** merged PR #606 / `bad7496677cb2f739935ebc454c153934994d160`  
-**P3B design head:** `61aa6325b38e0902b360b63e8f06d7573c5e3966`  
-**P3A design anchor:** `b47c66c6a780308ceb2d8720de2f3086aad33cfc` on `documents/play-p3a-native-runbook-deck`  
-**Required predecessor:** P3B — native Play graph-object sheets over exact Runbook/World/Source authority  
-**Implementation base:** `PIN_AFTER_P3B_STATE_SYNC`  
-**Suggested branch:** `agent/play-native-threat-mechanics`  
-**PR title:** `PLAY: project exact Threat mechanics`
+**Created:** 2026-08-16
+**Status:** CODE IN PR #608 — steward authorized executing against design-anchor `main` without waiting for a P3B implementation merge. Living-roadmap **dispatch authority remains P2C**.
+**Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-threat-mechanics.md`
+**Conversation/workstream:** `Playable Architecture Graduation / P3C`
+**Flow / owner:** `PLAY`
+**Direction:** DESIGN → CODE → REVIEW
+**Design anchor:** merged PR #606 / `bad7496677cb2f739935ebc454c153934994d160`
+**P3B design head:** `61aa6325b38e0902b360b63e8f06d7573c5e3966`
+**P3A design anchor:** `b47c66c6a780308ceb2d8720de2f3086aad33cfc` on `documents/play-p3a-native-runbook-deck`
+**Required predecessor:** P3B product sheet is still design-only; this PR creates the designed Play wrapper over existing resolved-graph World/Source fields plus shared mechanics.
+**Implementation base:** `bad7496677cb2f739935ebc454c153934994d160`
+**Suggested branch:** `documents/play-p3c-native-threat-mechanics`
+**PR title:** `PLAY: design native Threat mechanics`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
@@ -615,7 +616,7 @@ No button labeled `Add to Combat`, `Start Combat`, or equivalent belongs in this
 
 ## §4 Files in scope — write lease
 
-The exact merged P3B topology must be re-read and this table pinned before CODE. Expected lease if predecessors land near their designed shapes:
+Pinned against design-anchor `bad7496677cb2f739935ebc454c153934994d160`. `apps/live-control-ui/src/playSurface/` did not exist on that base, so the designed Play paths were created rather than substituted. `ResolvedGraphObjectProjection.tsx` was not modified: Plan/Build still route authored Threats to `ThreatSheetProjection`. No `ResolvedGraphObjectProjection.test.tsx` exists; Build Threat routing is covered by `BuildReferenceObjectProjection.test.tsx`.
 
 | Action | Path | Purpose |
 |---|---|---|
@@ -925,10 +926,12 @@ pnpm exec vitest run \
   src/statblocks/projection/ThreatMechanicsPanel.test.tsx \
   src/statblocks/projection/ThreatSheetProjection.test.tsx \
   src/statblocks/projection/threatSheetViewModel.test.ts \
-  src/graphReference/ResolvedGraphObjectProjection.test.tsx
+  src/buildSurface/reference/BuildReferenceObjectProjection.test.tsx
 ```
 
-Omit nonexistent optional files only if the final implementation topology does not create/modify that seam; record the exact reason.
+`src/graphReference/ResolvedGraphObjectProjection.test.tsx` does not exist on this base and was not created: the wrapper signature did not change. Build Threat routing remains covered by `BuildReferenceObjectProjection.test.tsx`.
+
+Native `/play?run=` dogfood is not available on this base (`playSurface` had no product route). Owning Play proof is the new Play object-sheet / mechanics-section tests.
 
 ### Required predecessor regressions
 
