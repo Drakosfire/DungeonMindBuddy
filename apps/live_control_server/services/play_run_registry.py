@@ -66,7 +66,7 @@ def _utc_iso(value: str) -> str:
 
 
 class CreatePlayRunRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     playable_artifact_id: str
     expected_playable_revision: int = Field(gt=0)
@@ -87,7 +87,7 @@ class CreatePlayRunRequest(BaseModel):
 
 
 class PlayRunRecord(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     schema_version: Literal["dmb_play_run_record_v1"] = PLAY_RUN_RECORD_SCHEMA
     run_id: str
@@ -128,7 +128,7 @@ class PlayRunRecord(BaseModel):
 
 
 class PlayRunsListResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     schema_version: Literal["dmb_play_runs_list_v1"] = PLAY_RUNS_LIST_SCHEMA
     records: list[PlayRunRecord] = Field(default_factory=list)
@@ -165,7 +165,11 @@ def _validate_playable_artifact_id(playable_artifact_id: str) -> str:
 
 
 def _validate_expected_revision(expected_playable_revision: int) -> int:
-    if isinstance(expected_playable_revision, bool) or expected_playable_revision <= 0:
+    if (
+        not isinstance(expected_playable_revision, int)
+        or isinstance(expected_playable_revision, bool)
+        or expected_playable_revision <= 0
+    ):
         raise PlayRunRegistryError(
             "expected_playable_revision must be a positive integer",
             status_code=422,
