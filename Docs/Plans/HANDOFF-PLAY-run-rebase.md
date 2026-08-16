@@ -108,7 +108,7 @@ uv run python scripts/steward_preflight.py \
 
 **Merge-ready invariant:**
 
-> **For one existing Run UUID at exact `run_revision = N`, an actual rebase either writes nothing, or durably prepares one exact forward-only rebase intent and eventually commits exactly one coherent target pair consisting of (a) the same Run UUID/artifact/campaign with target Playable revision+SHA, unchanged admitted progress, and `run_revision = N+1`, and (b) one replacement immutable P2B1-format manifest derived from that exact target revision. No current/latest Runbook bytes are consulted after intent is durable; no non-rebase operation may observe or mutate through a pending half-transition; removed/wrong-kind/wrong-membership Runtime references block before intent; exact retry can recover each recognized commit stage without double-incrementing; successful rebase retains no old manifest, old Run snapshot, historical Markdown, mapping history, or second concurrency token.**
+> **For one existing Run UUID at exact `run_revision = N`, an actual rebase either writes nothing, or durably prepares one exact forward-only rebase intent and eventually commits exactly one coherent target pair consisting of (a) the same Run UUID/artifact/campaign with target Playable revision+SHA, unchanged admitted progress, and `run_revision = N+1`, and (b) one replacement immutable P2B1-format manifest derived from that exact target revision. No current/latest Runbook bytes are consulted after intent is durable; no non-rebase operation may observe or mutate through a pending half-transition; removed/wrong-kind/wrong-membership Runtime references block before intent; exact retry can recover each recognized commit stage without double-incrementing; completed no-intent replay or current-token same-target no-op returns success only when the persisted target Run and target manifest still form that same coherent pair; successful rebase retains no old manifest, old Run snapshot, historical Markdown, mapping history, or second concurrency token.**
 
 ### Why P2C is preserve-only
 
@@ -392,12 +392,18 @@ Under the Run lifecycle lock:
 
 1. validate canonical Run UUID and request fields;
 2. load the exact persisted Run record without recursively entering the public Run GET;
-3. recognize clean no-op/response-loss replay first (§3 below);
+3. if current Run binding == requested target binding, prove the persisted target pair before any success return (§3 below):
+   - load the canonical persisted manifest; the empty-progress missing-manifest exception does **not** apply here;
+   - require strict P2B1 persisted integrity and exact `run_id` / artifact / revision / content-SHA binding to the current target Run;
+   - missing, corrupt, or mismatched manifest → 500; no workspace fallback, no rewrite, no 200;
+   - `run_revision == expected_run_revision + 1` → completed response-loss replay; return current Run unchanged;
+   - `run_revision == expected_run_revision` → current-token same-target no-op; return current Run unchanged;
+   - any other revision relation → 409;
 4. require `expected_run_revision == current.run_revision` for a new rebase;
 5. require `target_playable_revision > current.playable_revision`;
-6. load the current P2B1 manifest when present and require exact current binding;
+6. load the current P2B1 source manifest when present and require exact current binding;
    - malformed/mismatched current manifest → 500;
-   - missing current manifest is allowed **only when current progress is empty**;
+   - missing current manifest is allowed **only when this is a new rebase and current progress is empty**;
    - missing current manifest with any durable progress reference → 409/no intent;
 7. acquire the canonical manifest mutation lock;
 8. acquire the workspace-document mutation lock for the same `playable_artifact_id`;
@@ -528,23 +534,34 @@ Normal in-process readers cannot observe the intermediate source-Run/target-mani
 
 If the process dies in that stage, the durable intent blocks ordinary operations and exact replay completes the target Run commit.
 
-After successful cleanup, no intent remains. A lost HTTP response is recognized without workspace lookup:
+After successful cleanup, no intent remains. A lost HTTP response is recognized without workspace lookup, but **not from the Run record alone**. Completed replay must prove the coherent target pair.
+
+Completed response-loss replay:
 
 ```text
 current Run binding == requested target binding
 and current run_revision == expected_run_revision + 1
+and canonical persisted target manifest exists
+and that manifest passes strict P2B1 persisted integrity
+and that manifest binds exactly to the current target Run
+  (run_id / artifact / revision / content SHA)
 → exact response-loss replay
 → return current Run unchanged
-→ no manifest rewrite / no revision increment
+→ no manifest rewrite / no revision increment / no workspace read
 ```
 
-Also permit a current-token no-op:
+If the Run matches that completed-replay revision/binding relation but the canonical target manifest is missing, corrupt, or bound to a different Run/artifact/revision/SHA, fail closed **500**. Do not return 200, do not consult workspace, and do not rewrite or recreate the manifest. Ordinary Run GET with empty progress may omit a manifest read; rebase completed-replay must not reuse that shortcut.
+
+Current-token same-target no-op is a distinct admission with the same pair-integrity proof, not an implicit sibling of the early return:
 
 ```text
 current Run binding == requested target binding
 and current run_revision == expected_run_revision
+and the same canonical target-manifest integrity/binding proof as completed replay
 → return current Run unchanged
 ```
+
+Missing/corrupt/mismatched target manifest on this path is also 500 with no workspace fallback or rewrite.
 
 Any stale request naming a different target returns 409.
 
@@ -577,8 +594,9 @@ Error text must identify at least the failing progress field and element ID. A c
 | Rebase with removed note target | 409 before intent; source bytes unchanged | target progress admission |
 | Target revision/SHA not current exact snapshot | 409; no intent | workspace target admission |
 | Target malformed P1 identity/membership | fail closed; no intent | existing P2B1 resolver |
-| Same target/current token | 200 no-op; bytes unchanged | rebase replay admission |
-| Lost response after completed rebase | exact old-token retry returns target unchanged | rebase replay admission |
+| Same target/current token | 200 no-op only after target-pair integrity; missing/corrupt/mismatched target manifest 500 | rebase replay admission |
+| Lost response after completed rebase | exact old-token retry returns target unchanged only after target-pair integrity | rebase replay admission |
+| Completed rebase then missing/corrupt/wrong-binding target manifest | old-token retry 500; no workspace; no rewrite | rebase replay integrity |
 | Different stale target | 409 | CAS/replay admission |
 | Missing source manifest + empty progress | allowed; source token=`absent`, target manifest is installed | compatibility path |
 | Missing source manifest + non-empty progress | 409/no intent | Runtime integrity prerequisite |
@@ -612,7 +630,8 @@ Error text must identify at least the failing progress field and element ID. A c
 | target intent M/B durable → process dies → workspace advances M+1/C → exact retry | completes M/B from intent; never parses C | recovery-after-advance test |
 | target removes `beat:old` still resolved in Runtime | 409 before intent; no manifest/Run changes | blocker test |
 | operator clears `beat:old` through P2B2 then retries | rebase succeeds if remaining refs survive | composition test |
-| rebase completes → request response lost → exact old-token retry | current target returned; no rewrite/increment/workspace read | response-loss test |
+| rebase completes → request response lost → exact old-token retry | current target Run+manifest returned unchanged; no rewrite/increment/workspace read | response-loss test |
+| rebase completes → delete/corrupt/retarget target manifest → exact old-token retry | not 200; 500 fail-closed; no workspace read; no rewrite/recreate; Run bytes unchanged | completed-replay pair-integrity test |
 
 ---
 
@@ -722,8 +741,8 @@ Failure behavior:
   malformed/contradictory intent recovery state -> 500, no speculative repair
 
 Replay / idempotency:
-  current-token same target -> no-op
-  old-token exact completed target -> response-loss replay
+  current-token same target -> no-op only after persisted target-pair integrity
+  old-token exact completed target -> response-loss replay only after persisted target-pair integrity
   exact request with pending intent -> resume recognized forward stage
   different request with pending intent -> 409
   stale different target without intent -> 409
@@ -731,7 +750,8 @@ Replay / idempotency:
 Trust boundary:
   Verifies:
     current Run persisted shape / canonical progress
-    current manifest when required/present
+    canonical persisted target manifest on completed replay / current-token no-op
+    current source manifest when required/present for a new rebase
     expected_run_revision
     exact current target workspace revision + SHA before intent
     target P1 identity/membership through existing resolver
@@ -798,7 +818,7 @@ No backward transition exists in P2C.
 
 | Observable path | Exact success | Ordinary miss/conflict | Dependency unavailable | Integrity failure | Stale/superseded | Retry/replay |
 |---|---|---|---|---|---|---|
-| Rebase PUT, no intent | target pair N→N+1 | unknown Run 404; blockers/target mismatch 409 | write failure pre-intent 500 | malformed source/target 500/422 | stale run revision 409 | same-target no-op/replay |
+| Rebase PUT, no intent | target pair N→N+1 | unknown Run 404; blockers/target mismatch 409 | write failure pre-intent 500 | malformed source/target 500/422; completed-replay missing/corrupt/mismatched target manifest 500 | stale run revision 409 | same-target no-op/replay only after target-pair integrity |
 | Rebase PUT, intent exists | resume recognized stage | different request 409 | post-intent I/O 503 | bad intent/contradictory stage 500 | n/a | exact request only |
 | Run GET/list during intent | none | recovery pending 503 | n/a | malformed intent may surface on rebase as 500 | n/a | no fallback |
 | P2B2 progress during intent | none | recovery pending 503 | n/a | n/a | n/a | retry after rebase clean |
@@ -825,8 +845,8 @@ No backward transition exists in P2C.
 |---|---|---|---|---|---|
 | Prepare rebase | one intent JSON | exact target Run+manifest recoverable without workspace | exact request resumes | source manifest may be absent only with empty progress | none |
 | Manifest install | canonical manifest path replaced | exact target P2B1 payload | replay recognizes exact target | source manifest not archived | none |
-| Run commit | same Run JSON path, revision N+1 | same progress + target binding after restart | old-token exact target replay | P2A old binding now conflicts | none |
-| Cleanup | intent deleted | steady state has no migration artifact | completed retry no-op | no history retained | n/a |
+| Run commit | same Run JSON path, revision N+1 | same progress + target binding after restart | old-token exact target replay only after target-pair integrity | P2A old binding now conflicts | none |
+| Cleanup | intent deleted | steady state has no migration artifact | completed retry no-op only after target-pair integrity | no history retained | n/a |
 
 ### F. Predecessor → consumer mapping
 
@@ -858,7 +878,7 @@ Cleanup:
   delete intent
 ```
 
-Do not report a clean completed rebase while the canonical target Run or target manifest is missing/mismatched.
+Do not report a clean completed rebase, completed response-loss replay, or current-token same-target no-op while the canonical target Run or target manifest is missing, corrupt, or mismatched. Fail closed without workspace fallback or rewrite.
 
 ---
 
@@ -881,7 +901,8 @@ Do not report a clean completed rebase while the canonical target Run or target 
 | Different request cannot hijack intent | recovery identity | adversarial | pending target M, retry target K | 409, bytes unchanged | intent retarget |
 | Corrupt/contradictory intent fails closed | recovery integrity | corruption | tamper intent or canonical stage | 500, no speculative repair | first-match recovery |
 | Workspace advance after intent is irrelevant | recovery | restart | prepare intent, force recoverable failure, advance Runbook, retry | completes target from intent; workspace seam can explode | latest-state dependency |
-| Completed response-loss replay is idempotent | rebase service | replay | clean N→N+1, exact retry expected N | current target unchanged; no workspace/write | second increment |
+| Completed response-loss replay is idempotent | rebase service | replay | clean N→N+1, exact retry expected N against intact target pair | current target Run+manifest unchanged; no workspace/write; no N+2 | second increment |
+| Completed replay proves target pair | rebase service | adversarial | clean N→N+1, then delete/corrupt/retarget the target manifest, exact old-token retry | not 200; 500 fail-closed; no workspace/rewrite; Run bytes unchanged | success from Run record alone |
 | Pending intent isolates predecessors | public Run/manifest APIs | integration | GET/list/create/progress/manifest GET+PUT while intent remains | 503/no writes | stale/mixed authority exposed |
 | P2B1 replay works after rebase | manifest service | regression | completed target then manifest PUT | exact target manifest unchanged/no workspace | rebuild/rewrite |
 | P2B2 progresses target-only ID after rebase | progress service | composition | rebase then progress PUT selecting new target element | N+1→N+2 valid mutation | old manifest still used |
@@ -989,7 +1010,7 @@ Record:
 8. baseline failures/waivers;
 9. prior finding ledger on re-review;
 10. exact target-admission / blocker / CAS conclusions;
-11. exact intent-stage recovery and pending-isolation conclusions;
+11. exact intent-stage recovery, pending-isolation, and completed-replay pair-integrity conclusions;
 12. roadmap disposition + `P2C_HOIST_OBSERVATION`;
 13. whether P2 is now complete and P3 remains the named successor.
 
@@ -1015,7 +1036,8 @@ Record:
 - [ ] Recovery never consults current workspace state after intent is durable.
 - [ ] Different request cannot retarget a pending intent.
 - [ ] Contradictory/tampered recovery state fails 500 without speculative repair.
-- [ ] Completed response-loss replay returns current target without a second revision increment or rewrite.
+- [ ] Completed response-loss replay returns the current target Run only after proving the persisted target manifest still exists, is well-formed, and binds exactly to that Run; missing/corrupt/mismatched manifest fails closed without workspace fallback or rewrite.
+- [ ] Current-token same-target no-op uses the same target-pair integrity proof rather than an implicit early return from the Run record alone.
 - [ ] Successful steady state contains exactly one Run + one target manifest and no rebase intent/history artifact.
 - [ ] P2B1 manifest replay after rebase returns target sidecar unchanged.
 - [ ] P2B2 can mutate target-only references after rebase using the new target manifest.
