@@ -9,8 +9,8 @@ pr_body_template: |
 
   ## Verification pointer
   - Design anchor: `bb937f4a0792e51d2dc7d73132c20253c0becf47` (merge of PR #594)
-  - Base/head: <PIN_AFTER_POST_594_STATE_SYNC> / <implementation head>
-  - Predecessor: merged PR #594 / P1C Choice+Option identity
+  - Base/head: `0ec7c6711ada5a05b5dc301ce7a5394ff2d7ee96` / <implementation head>
+  - Predecessor: merged PR #595 state sync after PR #594 / P1C Choice+Option identity
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
 
@@ -22,13 +22,13 @@ pr_body_template: |
 # HANDOFF — durable Run binding to exact Playable revision
 
 **Created:** 2026-08-15  
-**Status:** DESIGNED — **DO NOT DISPATCH** until the post-PR-#594 state-authority sync lands on `main`, then pin the exact implementation base.  
+**Status:** ACTIVE IMPLEMENTATION / MERGE BLOCKED — PR #595 satisfied the state-sync/base gate; CODE was dispatched from the exact pinned base, while required executable §7/preflight evidence remains outstanding.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-durable-run-binding.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2A`  
 **Flow / owner:** `PLAY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** merged PR #594 at `main` `bb937f4a0792e51d2dc7d73132c20253c0becf47`  
-**Implementation base:** `PIN_AFTER_POST_594_STATE_SYNC`  
+**Implementation base:** `0ec7c6711ada5a05b5dc301ce7a5394ff2d7ee96`  
 **Suggested branch:** `agent/play-durable-run-binding`  
 **PR title:** `PLAY: bind durable Run to exact Playable revision`
 
@@ -36,31 +36,27 @@ pr_body_template: |
 
 ---
 
-## Dispatch gate — close P1C state first
+## Dispatch gate — state sync and base pin satisfied; executable preflight evidence outstanding
 
-PR #594 is merged. At design time, `main` is exactly:
+PR #595 completed the post-PR-#594 mutable state-authority sync and merged to `main` as:
 
 ```text
-bb937f4a0792e51d2dc7d73132c20253c0becf47
+0ec7c6711ada5a05b5dc301ce7a5394ff2d7ee96
 ```
 
-Repository law requires the mutable workstream authorities to agree before the next dependent dispatch.
+That merge:
 
-The post-#594 state-sync transaction must, at minimum:
+- recorded P1C / PR #594 as merged;
+- decomposed P2 into P2A / P2B / P2C;
+- made P2A the current next slice;
+- checked in this handoff;
+- kept Runtime DungeonMindBuddy Play-owned;
+- kept `WorkObjectElementRef` unjustified;
+- made no stable architecture change.
 
-1. update `Docs/Plans/HANDOFF-PLAY-choice-option-identity.md` to the repository's merged/completed status convention;
-2. update `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` so:
-   - integration tip names merged PR #594 / `bb937f4a0792e51d2dc7d73132c20253c0becf47`;
-   - P1C is recorded as merged;
-   - P2 is decomposed as P2A/P2B/P2C below;
-   - P2A is the current next slice;
-   - this handoff is the current next handoff;
-   - the `WorkObjectElementRef` hoist remains **not yet justified**;
-   - Runtime remains DungeonMindBuddy Play-owned;
-3. check in this handoff;
-4. make no stable architecture edit unless the state-sync review discovers an actual claim conflict.
+The P2A lane was re-anchored against that exact SHA before code changes. The branch `agent/play-durable-run-binding` was created directly from it, the roadmap still named P2A as next, and the workspace snapshot/lock/persistence seams were re-read before implementation.
 
-Required P2 decomposition for that sync:
+Required P2 decomposition remains:
 
 ```text
 P2A — durable Run identity + exact Playable revision/digest binding
@@ -72,22 +68,16 @@ P2C — explicit Run rebase/migration to a newer Playable revision
 
 `linkedRuntimeHandles` stays deferred until a real Combat/other runtime consumer requires it.
 
-After the state-sync lands:
-
-1. fetch/re-read current `main`;
-2. replace `PIN_AFTER_POST_594_STATE_SYNC` everywhere in this handoff with that exact SHA;
-3. verify the P1C identity/index paths and workspace snapshot contract still exist;
-4. verify the roadmap still names P2A as next;
-5. run:
+The canonical executable preflight remains:
 
 ```bash
 uv run python scripts/steward_preflight.py \
   --handoff Docs/Plans/HANDOFF-PLAY-durable-run-binding.md
 ```
 
-6. stop if the base, authority, workspace snapshot shape, lock/persistence primitives, or §4 ownership materially changed.
+The current stewardship environment can inspect and mutate the repository through the GitHub connector but does not provide a runnable repository checkout/`gh` environment. Connector-backed re-anchor, open-PR/branch collision review, and §4 changed-path checks were performed, but those are **not** recorded as a passing invocation of `steward_preflight.py`. The command remains required merge evidence and is an explicit blocker until independently produced.
 
-The pin-at-dispatch edit is handoff completion, not capability expansion.
+The dispatch pin is handoff completion, not capability expansion.
 
 ---
 
@@ -260,7 +250,7 @@ Do not persist `file_fingerprint` as version identity. It is an integrity/physic
 
 | Field | Required content |
 |---|---|
-| Base revision | `PIN_AFTER_POST_594_STATE_SYNC` |
+| Base revision | `0ec7c6711ada5a05b5dc301ce7a5394ff2d7ee96` |
 | Design anchor | `bb937f4a0792e51d2dc7d73132c20253c0becf47`, merge of PR #594 |
 | Predecessor contract | P1A/P1B/P1C durable four-kind Playable identity/index plus existing workspace snapshot revision/digest authority |
 | Exact input consumed | Caller Run UUID + exact committed Runbook workspace `document_id`, expected revision, expected content SHA |
@@ -725,13 +715,15 @@ From repository root, adapt only to repository-standard equivalents:
 ```bash
 uv run pytest -q \
   tests/test_play_run_registry.py \
-  tests/test_live_play_runs.py
+  tests/test_live_play_runs.py \
+  tests/test_play_run_registry_integrity.py
 
 uv run ruff check \
   apps/live_control_server/services/play_run_registry.py \
   apps/live_control_server/routes/play_runs.py \
   tests/test_play_run_registry.py \
-  tests/test_live_play_runs.py
+  tests/test_live_play_runs.py \
+  tests/test_play_run_registry_integrity.py
 
 uv run python scripts/steward_preflight.py \
   --handoff Docs/Plans/HANDOFF-PLAY-durable-run-binding.md \
