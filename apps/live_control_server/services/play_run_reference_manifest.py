@@ -34,7 +34,8 @@ CANONICAL_MARKER_RE = re.compile(
 )
 PLAYABLE_ID_RE = re.compile(r"^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$")
 ATX_HEADING_RE = re.compile(r"^(#{2,4}) (.+)$")
-FENCE_RE = re.compile(r"^```")
+_FENCE_OPEN_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
+_FENCE_CLOSE_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})[ \t]*$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 KIND_HEADING_LEVEL = {
     "scene": 2,
@@ -164,6 +165,29 @@ class PlayRunReferenceManifest(BaseModel):
             raise ValueError("manifest elements must have unique element_id values")
         if ids != sorted(ids):
             raise ValueError("manifest elements must be sorted lexicographically by element_id")
+        by_id = {element.element_id: element for element in self.elements}
+        for element in self.elements:
+            if element.kind in {"beat", "choice"}:
+                scene = by_id.get(element.scene_id or "")
+                if scene is None or scene.kind != "scene":
+                    raise ValueError(
+                        f"{element.kind} scene_id does not resolve to a Scene in this manifest"
+                    )
+            if element.kind == "option":
+                scene = by_id.get(element.scene_id or "")
+                choice = by_id.get(element.choice_id or "")
+                if scene is None or scene.kind != "scene":
+                    raise ValueError(
+                        "option scene_id does not resolve to a Scene in this manifest"
+                    )
+                if choice is None or choice.kind != "choice":
+                    raise ValueError(
+                        "option choice_id does not resolve to a Choice in this manifest"
+                    )
+                if choice.scene_id != element.scene_id:
+                    raise ValueError(
+                        "option choice_id belongs to a different Scene than option scene_id"
+                    )
         return self
 
 
@@ -183,13 +207,34 @@ def _dump_manifest(manifest: PlayRunReferenceManifest) -> dict[str, object]:
     return manifest.model_dump(mode="json", exclude_none=True)
 
 
+def _opening_fence(line: str) -> tuple[str, int] | None:
+    match = _FENCE_OPEN_RE.fullmatch(line)
+    if match is None:
+        return None
+    marker = match.group(2)
+    info = match.group(3)
+    char = marker[0]
+    if char == "`" and "`" in info:
+        return None
+    return char, len(marker)
+
+
+def _closes_fence(line: str, char: str, length: int) -> bool:
+    match = _FENCE_CLOSE_RE.fullmatch(line)
+    if match is None:
+        return False
+    marker = match.group(2)
+    return marker[0] == char and len(marker) >= length
+
+
 def derive_play_run_reference_elements(markdown: str) -> list[PlayRunReferenceElement]:
     """Fail-closed P1 marker/membership scan. Returns unsorted elements."""
     normalized = markdown.replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n")
     lines = normalized.split("\n")
     pending_kind: str | None = None
     pending_id: str | None = None
-    in_fence = False
+    fence_char: str | None = None
+    fence_length = 0
     seen_ids: set[str] = set()
     current_scene_id: str | None = None
     current_choice_id: str | None = None
@@ -242,13 +287,16 @@ def derive_play_run_reference_elements(markdown: str) -> list[PlayRunReferenceEl
         )
 
     for line in lines:
-        stripped_left = line.lstrip()
-        if FENCE_RE.match(stripped_left):
+        if fence_char is not None:
+            if _closes_fence(line, fence_char, fence_length):
+                fence_char = None
+                fence_length = 0
+            continue
+        opening = _opening_fence(line)
+        if opening is not None:
             if pending_kind is not None:
                 fail("playable element marker is orphaned; it must immediately precede a heading")
-            in_fence = not in_fence
-            continue
-        if in_fence:
+            fence_char, fence_length = opening
             continue
         if MARKER_PREFIX in line:
             if pending_kind is not None:
