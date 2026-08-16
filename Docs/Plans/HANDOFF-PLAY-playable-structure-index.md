@@ -8,7 +8,7 @@ pr_body_template: |
   - Branch / PR: agent/play-playable-structure-index / `PLAY: index durable Scene and Beat structure`
 
   ## Verification pointer
-  - Base/head: <PIN_AT_DISPATCH> / <implementation head>
+  - Base/head: `e05e850349e81163402dbd6718cd83bcc778a894` / <implementation head>
   - Predecessor: merged PR #590 / main `5221fa9bb58283955165e507710d10bdf3e00d47` at design time
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
@@ -21,13 +21,13 @@ pr_body_template: |
 # HANDOFF — read-only Playable Scene / Beat structure index
 
 **Created:** 2026-08-15  
-**Status:** DESIGNED — **DO NOT DISPATCH** until the post-PR-#590 state-authority sync lands on `main`, then pin the exact implementation base.  
+**Status:** ACTIVE — base pinned after PR #591 state-authority sync; CODE may dispatch  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-playable-structure-index.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P1B`  
 **Flow / owner:** `PLAY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** merged PR #590 at main `5221fa9bb58283955165e507710d10bdf3e00d47`  
-**Implementation base:** `PIN_AT_DISPATCH_AFTER_STATE_SYNC`  
+**Implementation base:** `e05e850349e81163402dbd6718cd83bcc778a894`  
 **Suggested branch:** `agent/play-playable-structure-index`  
 **PR title:** `PLAY: index durable Scene and Beat structure`
 
@@ -59,6 +59,20 @@ After that state-sync transaction lands:
 5. stop if another active lane owns any §4 path or if `main` materially changed the P1A identity contract.
 
 The pin-at-dispatch edit is handoff completion, not capability expansion.
+
+### Dispatch-gate finding — 2026-08-15 (DESIGN, pre-CODE)
+
+| Check | Result |
+|---|---|
+| PR #590 state | **MERGED** at 2026-08-15T23:49:14Z as `5221fa9bb58283955165e507710d10bdf3e00d47` |
+| Post-#590 state-authority sync | **MERGED** PR #591 at 2026-08-16T00:25:07Z |
+| Current `origin/main` | `e05e850349e81163402dbd6718cd83bcc778a894` |
+| P1A identity module | **PRESENT** at `apps/live-control-ui/src/tiptap/playable/playableElementIdentity.ts` |
+| Roadmap current next slice | **P1B — read-only Playable Scene/Beat structure index** |
+| Hoist posture | Scene/Beat identity remains Play-owned; no `WorkObjectElementRef` yet |
+| `PIN_AT_DISPATCH_AFTER_STATE_SYNC` | **replaced** with `e05e850349e81163402dbd6718cd83bcc778a894` |
+
+Architecture / state-sync dispatch gate: **PASS**.
 
 ---
 
@@ -153,7 +167,7 @@ P1B **must consume those semantics rather than redefining them.**
 
 | Field | Required content |
 |---|---|
-| Base revision | `PIN_AT_DISPATCH_AFTER_STATE_SYNC` |
+| Base revision | Exact dispatch-time `main` SHA `e05e850349e81163402dbd6718cd83bcc778a894` containing merged PR #591 |
 | Design anchor | `5221fa9bb58283955165e507710d10bdf3e00d47`, merge of PR #590 |
 | Predecessor contract | P1A stable root-level Scene/Beat identity |
 | Exact input consumed | One TipTap JSON `doc` projection using P1A heading attrs |
@@ -502,8 +516,8 @@ The reviewer may PASS with `not yet`; P1B is deliberately an evidence-producing 
 
 ## §9 Acceptance rubric
 
-- [ ] Post-#590 state-authority sync landed before dispatch.
-- [ ] Exact implementation base is pinned after that sync.
+- [x] Post-#590 state-authority sync landed before dispatch.
+- [x] Exact implementation base is pinned after that sync.
 - [ ] P1B consumes P1A identity exports without changing P1A durable grammar.
 - [ ] Valid marked Scenes/Beats produce one deterministic ordered index.
 - [ ] Every marked Beat has exactly one preceding marked Scene or the index blocks.
