@@ -27,10 +27,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
 )
 
-RUN_ID_A = "11111111-1111-4111-8111-111111111111"
-RUN_ID_B = "22222222-2222-4222-8222-222222222222"
-RUN_ID_C = "33333333-3333-4333-8333-333333333333"
-RUN_ID_D = "44444444-4444-4444-8444-444444444444"
+RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+RUN_ID_C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+RUN_ID_D = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
 
 
 def _commit_record(
