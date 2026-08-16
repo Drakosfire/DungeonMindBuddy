@@ -166,7 +166,7 @@ DUNGEONMIND_PIN = "f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92"
 BUDDY_BASE_SHA = "26ddd83ddbec381c816fbd2ede891aa5d816b9e1"
 # Stamped to the implementation commit that contains this producer. Not the
 # original dispatch base, not this seal commit, and not live git HEAD.
-PRODUCER_REVISION = "ee3c11d18f552769fd14a1379980910f5bd6566b"
+PRODUCER_REVISION = "4446b6d207921a4be121ebb756d68b6078b8eee0"
 WORLD_OBJECT_V5_SHA256 = (
     "f9fd5420e0ab3849224e0d58cf83dd432ca2e5da22ce661b25654406ec9c60d8"
 )
