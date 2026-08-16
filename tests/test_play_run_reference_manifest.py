@@ -466,6 +466,27 @@ def test_persisted_membership_must_resolve_inside_manifest(tmp_path: Path) -> No
     assert original.is_file()
 
 
+def test_corrupted_membership_replay_fails_without_rewriting_sidecar(
+    tmp_path: Path,
+) -> None:
+    snapshot = _create_committed_runbook(tmp_path)
+    _create_run(tmp_path, snapshot)
+    first = seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+    path = play_run_reference_manifest_path(tmp_path, RUN_ID_A)
+    payload = first.model_dump(mode="json", exclude_none=True)
+    for element in payload["elements"]:
+        if element["element_id"] == "option:fire":
+            element["choice_id"] = "choice:missing"
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    bytes_before = path.read_bytes()
+
+    with pytest.raises(PlayRunReferenceManifestError) as exc_info:
+        seal_or_replay_play_run_reference_manifest(tmp_path, RUN_ID_A)
+
+    assert exc_info.value.status_code == 500
+    assert path.read_bytes() == bytes_before
+
+
 def test_corrupt_manifest_fails_closed_without_rebuild(tmp_path: Path) -> None:
     snapshot = _create_committed_runbook(tmp_path)
     _create_run(tmp_path, snapshot)
