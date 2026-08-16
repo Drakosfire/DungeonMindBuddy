@@ -110,18 +110,18 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #592. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+Mutable workstream state after merged PR #594. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `86a405ce7b8085515ef2804965ca4b3aad226c22` — merge of [PR #592](https://github.com/Drakosfire/DungeonMindBuddy/pull/592) |
-| Merged capability | P1B — read-only Playable Scene/Beat structure index |
-| Next slice | P1C — Choice / Option identity and minimal authored representation |
-| Next handoff | [`Docs/Plans/HANDOFF-PLAY-choice-option-identity.md`](../Plans/HANDOFF-PLAY-choice-option-identity.md) |
-| Named successor after P1C | P2 — separate Run runtime |
-| Hoist posture | Scene/Beat identity and the derived structure index remain Play-owned. Do not hoist `WorkObjectElementRef` yet. |
+| Integration tip | `bb937f4a0792e51d2dc7d73132c20253c0becf47` — merge of [PR #594](https://github.com/Drakosfire/DungeonMindBuddy/pull/594) |
+| Merged capability | P1C — durable Choice / Option identity and Scene→Choice→Option membership |
+| Next slice | P2A — durable Run identity + exact Playable revision/digest binding |
+| Next handoff | [`Docs/Plans/HANDOFF-PLAY-durable-run-binding.md`](../Plans/HANDOFF-PLAY-durable-run-binding.md) |
+| Named successor after P2A | P2B — durable element-referenced Run progress |
+| Hoist posture | Four-kind identity and the derived index remain Play-owned. Do not hoist `WorkObjectElementRef` yet. Runtime remains DungeonMindBuddy Play-owned. |
 
-P1B did not prove a second independent consumer of generic element addressing. P1C extends the same Play-owned identity family rather than inventing a shared-layer ref.
+P1C did not prove a second independent consumer of generic element addressing. P2A creates a Play Runtime authority bound to an exact committed Runbook revision/digest; it does not parse Playable structure or persist element progress.
 
 ---
 
@@ -191,7 +191,7 @@ P1B must re-open the hoist decision instead of assuming P1A's representation bel
 
 Handoff: [`HANDOFF-PLAY-playable-structure-index.md`](../Plans/HANDOFF-PLAY-playable-structure-index.md).
 
-#### P1C — Choice / Option identity and minimal authored representation ← current next slice
+#### P1C — Choice / Option identity and minimal authored representation ← merged PR #594
 
 After P1B, add durable Choice/Option identity to the existing `dmb-playable-element:v1` family and extend the structure index with Scene→Choice→Option membership so P2 can later persist `choiceId → optionId` without labels or position as identity.
 
@@ -236,6 +236,26 @@ linkedRuntimeHandles
 ```
 
 Prove reload/restart and fail safely when a referenced element disappears in a newer Playable revision.
+
+The live-control server does not currently own a canonical Playable structure resolver. Putting reference-bearing progress fields into the first Run PR would force either trusting caller-supplied element IDs without owning-boundary validation, or cloning the Playable Markdown/index grammar in Python. P2 is therefore split:
+
+### P2 delivery decomposition
+
+#### P2A — Durable Run identity + exact Playable revision/digest binding ← current next slice
+
+Create one Play Runtime authority: an opaque Run UUID bound to one admitted committed Runbook workspace-document identity + revision + content SHA. Persist outside authored workspace storage. Idempotent create replay. No element progress, no Playable parse, no UI.
+
+Handoff: [`HANDOFF-PLAY-durable-run-binding.md`](../Plans/HANDOFF-PLAY-durable-run-binding.md).
+
+#### P2B — Durable element-referenced Run progress
+
+After P2A, persist current Scene/Beat, resolved Beats, `choiceId → optionId` selections, and notes against the bound Playable revision. P2B must design exact element-reference admission from the real consumer pressure created by the Run authority.
+
+#### P2C — Explicit Run rebase/migration
+
+After P2B, migrate a Run to a newer Playable revision with fail-closed missing/replaced reference handling. Do not invent historical Playable revision archive inside Runtime.
+
+`linkedRuntimeHandles` stays deferred until a real Combat/other runtime consumer requires it.
 
 ### Hoist decision after P2
 
