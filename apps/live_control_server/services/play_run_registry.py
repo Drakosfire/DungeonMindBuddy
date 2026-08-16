@@ -189,7 +189,14 @@ def _validate_expected_sha(expected_playable_content_sha256: str) -> str:
 
 def _load_record(path: Path) -> PlayRunRecord:
     try:
-        return PlayRunRecord.model_validate(load_json(path))
+        expected_run_id = _canonical_uuid(path.stem, field_name="run file name")
+        record = PlayRunRecord.model_validate(load_json(path))
+        if record.run_id != expected_run_id:
+            raise ValueError(
+                "persisted run_id does not match the Run file name: "
+                f"{record.run_id} != {expected_run_id}"
+            )
+        return record
     except (OSError, TypeError, ValueError, ValidationError) as exc:
         raise PlayRunRegistryError(
             f"malformed persisted Play Run {path.name}: {exc}",
