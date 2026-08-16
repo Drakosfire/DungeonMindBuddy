@@ -9,7 +9,7 @@ pr_body_template: |
 
   ## Verification pointer
   - Design anchor: `bc80f7125499817050f08abc79b71b87d327b2a9` (merge of PR #596 / P2A)
-  - Base/head: <PIN_AFTER_POST_596_STATE_SYNC> / <implementation head>
+  - Base/head: <f29132f14e0a29565979c3de95dce6d01976db05> / <implementation head>
   - Predecessor: merged PR #596 / P2A exact Run→Runbook revision+digest binding
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
@@ -22,13 +22,13 @@ pr_body_template: |
 # HANDOFF — seal exact Run-bound Playable reference manifest
 
 **Created:** 2026-08-15  
-**Status:** DESIGNED — **DO NOT DISPATCH** until the post-PR-#596 state-authority sync lands on `main`, then pin the exact implementation base.  
+**Status:** ACTIVE IMPLEMENTATION — post-PR-#596 state-authority sync is on `main` as `f29132f14e0a29565979c3de95dce6d01976db05` (PR #597); implementation base is pinned to that SHA.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-reference-manifest.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2B1`  
 **Flow / owner:** `PLAY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design anchor:** merged PR #596 at `main` `bc80f7125499817050f08abc79b71b87d327b2a9`  
-**Implementation base:** `PIN_AFTER_POST_596_STATE_SYNC`  
+**Implementation base:** `f29132f14e0a29565979c3de95dce6d01976db05`  
 **Suggested branch:** `agent/play-run-reference-manifest`  
 **PR title:** `PLAY: seal Run-bound Playable reference manifest`
 
@@ -75,7 +75,7 @@ P2C  — explicit Run rebase/migration to a newer Playable revision
 After the state sync lands:
 
 1. fetch/re-read current `main`;
-2. replace `PIN_AFTER_POST_596_STATE_SYNC` everywhere in this handoff with that exact SHA;
+2. replace `f29132f14e0a29565979c3de95dce6d01976db05` everywhere in this handoff with that exact SHA;
 3. verify P2A Run service/routes and P1 identity/index authorities still match §2;
 4. verify the roadmap still names P2B1 next;
 5. run:
@@ -289,7 +289,7 @@ It must not become:
 
 | Field | Required content |
 |---|---|
-| Base revision | `PIN_AFTER_POST_596_STATE_SYNC` |
+| Base revision | `f29132f14e0a29565979c3de95dce6d01976db05` |
 | Design anchor | `bc80f7125499817050f08abc79b71b87d327b2a9`, merge of PR #596 |
 | Predecessor contract | P1 four-kind marker/index + P2A immutable Run binding |
 | Exact input consumed | Existing Run UUID; its persisted artifact/revision/SHA binding; current coherent workspace snapshot only when sealing is not already complete |
