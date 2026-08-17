@@ -25,7 +25,7 @@ pr_body_template: |
 # HANDOFF — project exact Threat mechanics inside native Play object sheets
 
 **Created:** 2026-08-16
-**Status:** CODE IN PR #608 — Cycle 2 repair of stale relationship-scope key. This PR implements P3C shared exact-mechanics extraction plus an early Play composition component (`PlayGraphObjectSheet` / `PlayThreatMechanicsSection`). It does **not** complete P3B (click/open, occurrence derivation, native `/play` host, Projection-host lease). Living-roadmap **dispatch authority remains P2C**.
+**Status:** MERGED / HISTORICAL — PR #608 merged as `53aaf9a566cfd40dd09f1a4c9723276cefa2a98a` after **2 formal review cycles**. Final reviewed head `6b0b177f08a09c2b1f8c8ff9a1eb71b450b57087`; implementation/evidence repair head `32cee38b53d4d24337bffa20560aace01b54556a`. P3C is complete; the historical design/review body below is retained as evidence and is not current dispatch authority.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-threat-mechanics.md`
 **Conversation/workstream:** `Playable Architecture Graduation / P3C`
 **Flow / owner:** `PLAY`
