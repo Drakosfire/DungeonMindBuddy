@@ -25,7 +25,7 @@ pr_body_template: |
 # HANDOFF — project exact Threat mechanics inside native Play object sheets
 
 **Created:** 2026-08-16
-**Status:** MERGED / HISTORICAL — PR #608 merged as `53aaf9a566cfd40dd09f1a4c9723276cefa2a98a` after **2 formal review cycles**. Final reviewed head `6b0b177f08a09c2b1f8c8ff9a1eb71b450b57087`; implementation/evidence repair head `32cee38b53d4d24337bffa20560aace01b54556a`. P3C is complete; the historical design/review body below is retained as evidence and is not current dispatch authority.
+**Status:** MERGED / HISTORICAL — PR #608 merged as `53aaf9a566cfd40dd09f1a4c9723276cefa2a98a` after **2 formal review cycles**. Implementation/evidence head `9b6918d66643094c06821f354f9afb80322f39ac`; final reviewed / repair head `6b0b177f08a09c2b1f8c8ff9a1eb71b450b57087`. P3C is complete; the historical design/review body below is retained as evidence and is not current dispatch authority.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-threat-mechanics.md`
 **Conversation/workstream:** `Playable Architecture Graduation / P3C`
 **Flow / owner:** `PLAY`
