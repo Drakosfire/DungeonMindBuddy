@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — add exact Threat mechanics to the existing Combat runtime
 
 **Created:** 2026-08-16  
-**Status:** DESIGNED — Cycle 3 repair of Combat-owned generation bootstrap and the exact-revision model path. Binding identity and predecessor seed mapping remain as Cycle 2. Staged successor and directly dispatchable when the steward selects P4 and re-anchors the implementation branch. **No prerequisite exists merely because another handoff/document is absent from `main`, and P4 does not require P3A/P3B implementation merely to establish this exact Threat→Combat transition.**
+**Status:** DESIGNED — Cycle 4 repair of generation-local Add receipts on save/load. Generation bootstrap, exact-revision model path, binding identity, and predecessor seed mapping remain as Cycles 2–3. Staged successor and directly dispatchable when the steward selects P4 and re-anchors the implementation branch. **No prerequisite exists merely because another handoff/document is absent from `main`, and P4 does not require P3A/P3B implementation merely to establish this exact Threat→Combat transition.**
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-add-to-combat.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P4`  
 **Flow / owner:** `PLAY`  
@@ -152,6 +152,7 @@ P4 does **not** include a generic transaction framework or a Combat UI overhaul.
 | Most dangerous mutation race | Add reads current Combat, HP/initiative/new/load mutates it, Add writes stale copy and loses the other change. All current-Combat writers must share one Combat mutation lock. |
 | Most dangerous response-loss sequence | Server commits entities, response is lost, then `new_combat_encounter`/`load_combat_save` recycles `encounter_id` without the later receipt. Receipts bound only to `encounter_id` would append again. Bind receipts to non-recyclable `combat_generation_id`. |
 | Most dangerous generation bootstrap hole | `GET /api/live/combat/current` currently returns synthetic unpersisted `_initial_state`. If the client copies an ephemeral UUID, later reads/Add admission can see a different generation; if Add mints for absent/legacy state, Add becomes the bootstrap mutation. Persist generation under the Combat lock on the current-Combat bootstrap read **before** Add is actionable. Add never mints. |
+| Most dangerous save/load receipt import | `save_current_as` snapshots G1 receipts; `load_combat_save` mints G2. Retaining those receipts makes G2 carry G1 replay guards. Rebinding them to G2 claims those requests committed in G2. Clear `add_receipts` in the same atomic current-Combat write that mints G2. The save file and entity provenance stay untouched. |
 | Most likely scope creep | Rebuilding Combat tracker, encounter authoring, P3B host, generic CAS, or Run-linked Combat architecture. Stop/split instead. |
 
 ---
@@ -562,10 +563,18 @@ absent current_combat.json
   → persist _initial_state with a minted combat_generation_id
   → return that persisted state
 
-existing current file missing/blank combat_generation_id (legacy live current)
+existing current file missing/blank combat_generation_id
+AND add_receipts empty/absent (legacy live current)
   → persist the same Combat plus a minted combat_generation_id
   → no other semantic change except the new field and updated_at
   → return that persisted state
+
+existing current file missing/blank combat_generation_id
+AND add_receipts non-empty
+  → 500 fail-closed
+  → no persist, no mint
+  → do not drop receipts to make bootstrap succeed
+  → do not mint a generation that would own another generation's replay guards
 
 existing current file already has combat_generation_id
   → return it unchanged
@@ -586,9 +595,22 @@ load_combat_save                        # always a new live generation; do not r
 unload_current_combat                   # fresh empty current Combat
 ```
 
-Do **not** mint on Add, HP/temp HP, initiative, turn, or `save_current_as`. A save snapshots whatever generation was current; loading that save into current still mints a new generation so restored content is a new live instance.
+Do **not** mint on Add, HP/temp HP, initiative, turn, or `save_current_as`. A save snapshots whatever generation was current, including that generation's `add_receipts`. Loading that save into current still mints a new generation so restored content is a new live instance.
 
-Do **not** rewrite `combat/saves/*.json` on disk merely to add `combat_generation_id`. Legacy save slots remain readable; generation is established on the live current file by bootstrap or by new/load/unload persist.
+**Receipts are generation-local replay guards, not snapshot history.** `load_combat_save` must, in the same atomic current-Combat write:
+
+```text
+mint a fresh combat_generation_id   # G2; do not reuse the save's G1
+clear loaded add_receipts           # empty collection on current Combat
+restore entities and other Combat fields from the save
+leave combat/saves/<id>.json untouched
+```
+
+Do **not** retain G1 receipts on G2 current Combat. Do **not** rewrite those receipts' `combat_generation_id` to G2. Either would give G2 replay or conflict authority for requests that never committed in G2. Entity `source_threat_ref` / `mechanics_attachment_ref` provenance remains intact.
+
+`new_combat_encounter` and `unload_current_combat` persist a fresh generation with empty `add_receipts`.
+
+Do **not** rewrite `combat/saves/*.json` on disk merely to add `combat_generation_id` or to strip receipts. Legacy save slots remain readable; generation is established on the live current file by bootstrap or by new/load/unload persist.
 
 HP/initiative/turn remain valid on a legacy current file that still lacks generation. Those routes are not Add and are not required to mint. Visiting GET is what makes Add actionable.
 
@@ -637,7 +659,7 @@ request combat_generation_id != current combat_generation_id
   → even if encounter_id matches
 ```
 
-Receipts live on the current Combat generation. Do not invent a cross-encounter global receipt ledger or a generic transaction/CAS primitive.
+Receipts live on the current Combat generation as replay guards for that generation only. After `load_combat_save` they are empty on current Combat even if the save file still contains G1 receipts. Do not invent a cross-encounter global receipt ledger or a generic transaction/CAS primitive.
 
 This remains Combat-local: `combat_saves.py` / `combat_state.py` mint and compare the generation id. It does not hoist a Buddy-shared mutation token.
 
@@ -688,6 +710,7 @@ with the lower-level write helper remaining non-locking.
 |---|---|
 | Run missing | 404 / no write |
 | Current Combat missing or unbootstrapped generation | 409 / no write / no mint |
+| Legacy bootstrap: non-empty `add_receipts` and missing generation | 500 / no persist / no mint |
 | Encounter mismatch | 409 / no write |
 | Combat generation mismatch | 409 / no write |
 | Run/request/Combat campaign mismatch | 409 / no write |
@@ -722,7 +745,7 @@ Pin the exact implementation base at dispatch. These are current expected owners
 | Action | Path | Purpose |
 |---|---|---|
 | Modify | `apps/live_control_server/services/combat_state.py` | exact source/`binding_id`/revision refs, `combat_generation_id`, Combat-owned GET bootstrap persist, receipt, exact Add mutation, Combat-local serialization, predecessor seed mapping from `ExactRevisionResourceV1` |
-| Modify | `apps/live_control_server/services/combat_saves.py` | mint non-recyclable `combat_generation_id` on new/load/unload; share the same current-Combat lock |
+| Modify | `apps/live_control_server/services/combat_saves.py` | mint non-recyclable `combat_generation_id` on new/load/unload; on load, clear loaded `add_receipts` in the same atomic current write; share the same current-Combat lock; do not rewrite save files |
 | Modify | `apps/live_control_server/routes/live.py` | exact Add route/request/response transport under existing Combat API owner |
 
 ### Server — read/reuse, not redesign
@@ -917,15 +940,17 @@ It must continue to deserialize and support existing HP/initiative/turn/lifecycl
 
 P4 must not force a migration rewrite of `combat/saves/*.json` merely on read.
 
-GET `/api/live/combat/current` **does** persist-establish `combat_generation_id` on the live current file when that file is absent or legacy-missing-generation. That is bootstrap, not a save-slot migration.
+GET `/api/live/combat/current` **does** persist-establish `combat_generation_id` on the live current file when that file is absent or legacy-missing-generation **and** `add_receipts` is empty/absent. Non-empty receipts with a missing generation is incoherent: GET fail-closes (`500`), no persist, no mint.
 
 Legacy generated-statblock Add remains functional unless the slice explicitly proves it should be retired; retiring it is not required for P4.
 
 ### H. Combat lifecycle and receipt scope
 
-A receipt belongs to the loaded current Combat *generation*.
+A receipt belongs to the loaded current Combat *generation* as a replay guard for that generation only. It is not imported snapshot history.
 
 `encounter_id` may recycle. `combat_generation_id` must not.
+
+`save_current_as` snapshots the current generation, including `add_receipts`. `load_combat_save` mints a new generation and **clears** loaded `add_receipts` in that same current-Combat write. The save file is not rewritten. Entity provenance is not stripped.
 
 The UI reads `combat_generation_id` from **persisted** current Combat after GET bootstrap, owns a fresh `request_id` per explicit Add intent, and may reuse that `request_id` only to retry that same unresolved command against the same generation.
 
@@ -933,7 +958,7 @@ The Add control is not actionable until that GET returned a persisted `combat_ge
 
 When the selected encounter/generation/action context changes, discard the old retry identity and require a fresh operator action.
 
-Do not automatically retry an old request across a new/load/unload Combat lifecycle transition. Those transitions mint a new `combat_generation_id`; a stale retry must 409 rather than append.
+Do not automatically retry an old request across a new/load/unload Combat lifecycle transition. Those transitions mint a new `combat_generation_id` and, on load, drop imported receipts; a stale G1 retry must 409 rather than append or conflict against G1 receipts in G2.
 
 ### I. UI local state
 
@@ -1002,11 +1027,12 @@ Required tests:
 15. **Missing Run:** 404/no write.
 16. **Unbootstrapped current Combat:** Add against absent `current_combat.json` or a current file missing `combat_generation_id` → 409 / no write / **no mint**. Add is not a bootstrap fallback.
 17. **Absent-state bootstrap:** `GET /api/live/combat/current` with no current file persists `_initial_state` plus a `combat_generation_id`; the file exists afterward; the response generation equals the on-disk generation. This replaces `test_current_combat_read_initializes_empty_without_writing`.
-18. **Legacy-state bootstrap:** GET a pre-P4 current file that lacks `combat_generation_id` persists exactly one generation onto that same live current file; other Combat fields besides `updated_at` remain; save slots are not rewritten.
+18. **Legacy-state bootstrap:** GET a pre-P4 current file that lacks `combat_generation_id` **and** has empty/absent `add_receipts` persists exactly one generation onto that same live current file; other Combat fields besides `updated_at` remain; save slots are not rewritten.
+18b. **Incoherent receipts without generation:** GET a current file that lacks `combat_generation_id` but has non-empty `add_receipts` → `500` fail-closed; no persist; no mint; receipts are not dropped to make bootstrap succeed.
 19. **Stable repeated reads:** two sequential GETs after bootstrap return the same `combat_generation_id`; the second GET does not mint or rewrite.
 20. **First-Add retry safety:** GET bootstrap → successful Add → lost response → GET again still same generation → exact old-token retry replays and does not append. Bootstrap between Add and retry must not mint a new generation.
 21. **Concurrent bootstrap:** two overlapping GETs against absent current serialize on the Combat lock and persist exactly one generation; both responses carry that same id.
-22. **new/load/unload rotation:** each of `new_combat_encounter`, `load_combat_save`, and `unload_current_combat` persists a new `combat_generation_id` distinct from the prior live generation, even when `encounter_id` is reused; an old-token Add then 409s.
+22. **new/load/unload rotation:** each of `new_combat_encounter`, `load_combat_save`, and `unload_current_combat` persists a new `combat_generation_id` distinct from the prior live generation, even when `encounter_id` is reused; an old-token Add then 409s. new/unload persist empty `add_receipts`.
 23. **Hydration dependency unavailable:** 503/no write.
 24. **Hydration response scope mismatch:** fail closed/no write.
 25. **Duplicate exact Threat hit/internal response ambiguity:** 500/no write.
@@ -1014,13 +1040,25 @@ Required tests:
 27. **Exact replay:** same request ID + same canonical intent including `binding_id` and `combat_generation_id` returns original entity IDs with no duplicate.
 28. **Intent conflict:** same request ID + changed team/count/source/`binding_id`/triple → 409/no write.
 29. **Recycled encounter_id after new:** complete Add, `new_combat_encounter` with the same `encounter_id`, exact old-token retry → 409; no duplicate entities.
-30. **Older save restore:** complete Add, `load_combat_save` of a prior snapshot of the same `encounter_id` that lacks that receipt, exact old-token retry → 409; no duplicate entities.
-31. **Concurrent distinct exact Adds:** both commits survive.
-32. **Add vs HP mutation:** both commits survive; HP change is not lost.
-33. **Add vs initiative/entity mutation:** both commits survive.
-34. **Add vs new/load/unload lifecycle:** serialized deterministic valid result; no torn/malformed current Combat; lifecycle mints a new `combat_generation_id`.
-35. **Legacy HP without generation:** pre-P4 current Combat JSON without new refs/receipts/generation id still supports existing HP/initiative/turn routes without requiring Add. GET of that same file is the bootstrap that persist-establishes generation before Add is actionable. Save slots are not rewritten merely by that GET.
-36. **Post-add mutability:** HP/temp HP/init/conditions/team changes preserve immutable source/`binding_id`/revision refs and never call World/Run/statblock write paths.
+30. **Post-P4 save/load receipt isolation:**
+    ```text
+    G1 Add
+      → save G1 with that receipt
+      → load save as G2
+      → current Combat has G2, empty add_receipts, restored entities
+      → combat/saves/<id>.json still has G1 + G1 receipts
+      → old G1 token 409s
+      → G1 receipt cannot replay or intent-conflict in G2
+      → new G2 Add succeeds normally
+    ```
+    Do not rebind G1 receipts onto G2.
+31. **Older save restore without that receipt:** complete Add, `load_combat_save` of a prior snapshot of the same `encounter_id` that lacks that receipt, exact old-token retry → 409; no duplicate entities.
+32. **Concurrent distinct exact Adds:** both commits survive.
+33. **Add vs HP mutation:** both commits survive; HP change is not lost.
+34. **Add vs initiative/entity mutation:** both commits survive.
+35. **Add vs new/load/unload lifecycle:** serialized deterministic valid result; no torn/malformed current Combat; lifecycle mints a new `combat_generation_id`; load clears imported `add_receipts`.
+36. **Legacy HP without generation:** pre-P4 current Combat JSON without new refs/receipts/generation id still supports existing HP/initiative/turn routes without requiring Add. GET of that same file is the bootstrap that persist-establishes generation before Add is actionable. Save slots are not rewritten merely by that GET.
+37. **Post-add mutability:** HP/temp HP/init/conditions/team changes preserve immutable source/`binding_id`/revision refs and never call World/Run/statblock write paths.
 
 Use an exact revision fixture or governed mocked hydration response. Do not fake the core admission by directly injecting a caller-provided statblock body into the Add service.
 
@@ -1146,6 +1184,7 @@ P4_HOIST_OBSERVATION
 - Two bindings sharing one revision triple remained independently actionable? yes/no
 - Replay bound to Combat-local `combat_generation_id` rather than recyclable `encounter_id`? yes/no
 - Combat persist-established that generation on GET bootstrap before Add, and Add never minted it? yes/no
+- Load of a post-P4 save minted G2 and cleared imported `add_receipts` without rewriting the save or stripping entity provenance? yes/no
 - Seed name/AC/HP used predecessor identity/defenses/vitality fields with fail-closed AC/HP rules? yes/no
 - Mutable HP/init/conditions/team remain Combat-only? yes/no
 - Any World/Run/Runbook/statblock writeback? yes/no
@@ -1162,9 +1201,9 @@ ROADMAP_REVIEW — NO DESIGN CHANGE
 P4 graduated the explicit exact Threat→Combat transition onto the existing Combat
 runtime. Attachment identity is `binding_id` with a coherent revision triple; replay
 is bound to Combat-local `combat_generation_id` persist-established on the current-Combat
-bootstrap read before Add. Mutable combat state remains Combat-owned. No second Combat
-store, generic runtime/transaction, or DungeonMind kernel contract was justified. P5
-remains independent.
+bootstrap read before Add. Load mints a new generation and clears imported Add receipts.
+Mutable combat state remains Combat-owned. No second Combat store, generic
+runtime/transaction, or DungeonMind kernel contract was justified. P5 remains independent.
 ```
 
 ---
@@ -1178,13 +1217,13 @@ Record:
 3. P3C source contract consumed, including exact reviewed/merge anchors if still relevant;
 4. actual route path and request/response schema names;
 5. exact Combat schema additions;
-6. exact request receipt/replay semantics, including the single Combat-owned generation bootstrap rule and proof that Add never mints;
+6. exact request receipt/replay semantics, including the single Combat-owned generation bootstrap rule, proof that Add never mints, and proof that load mints G2 and clears imported `add_receipts`;
 7. exact Combat lock owner and every current writer brought under it;
 8. happy-path exact Threat + `binding_id` + revision tuple used in proof;
 9. shared-triple multi-binding proof: two `binding_id`s with one revision triple remain independently actionable;
 9b. predecessor seed proof: Ironhide Brute name/AC/HP plus AC/HP fail-closed cases;
 10. all failure-code/no-write proofs;
-11. concurrency/lifecycle evidence, including absent/legacy/stable/first-Add-retry/concurrent bootstrap and new/load/unload rotation;
+11. concurrency/lifecycle evidence, including absent/legacy/stable/first-Add-retry/concurrent bootstrap, new/load/unload rotation, post-P4 save/load receipt isolation, and receipts-without-generation fail-closed;
 12. legacy Combat compatibility evidence;
 13. frontend exact-action evidence;
 14. confirmation client sends no statblock body;
@@ -1226,6 +1265,8 @@ PASS only if all are true:
 - [ ] Same request ID + same intent against the same `combat_generation_id` is idempotent.
 - [ ] Same request ID + different intent, including a different `binding_id`, conflicts without write.
 - [ ] Recycled `encounter_id` via new/load cannot satisfy an older request receipt.
+- [ ] `load_combat_save` of a post-P4 save mints G2 and clears loaded `add_receipts` in the same current-Combat write; the save file and entity provenance remain intact; old G1 tokens 409 and cannot replay or conflict in G2.
+- [ ] GET bootstrap of non-empty `add_receipts` with missing generation fail-closes (`500`) without minting or dropping receipts.
 - [ ] Current Combat mutation/lifecycle writers serialize so no concurrent lost updates occur.
 - [ ] Legacy current Combat remains readable/mutable.
 - [ ] Existing legacy generated Add remains valid unless separately rebriefed.
@@ -1255,6 +1296,7 @@ Stop and report rather than expanding if any of these becomes true:
 - exact Add requires a new DungeonMind/DungeonMindDnD contract;
 - Combat-local `combat_generation_id` cannot be persist-established on GET bootstrap / new / load / unload without introducing a generic transaction/CAS framework;
 - GET `/api/live/combat/current` cannot persist generation under the Combat lock, or Add would have to mint for absent/legacy current files;
+- `load_combat_save` cannot mint a new generation and clear imported `add_receipts` in the same current-Combat write without introducing a generic transaction/CAS framework or rewriting save files;
 - unique-default AC or method-specific HP seed cannot be derived from the current exact-revision contract without inventing fields;
 - safe concurrent mutation requires a generic transaction/CAS framework rather than a Combat-local file lock;
 - action requires persistent active mechanics selection in Run;
