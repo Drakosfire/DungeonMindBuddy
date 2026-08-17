@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — record post-#609 CUTOVER adoption-proof authority
 
 **Created:** 2026-08-16
-**Status:** ACTIVE — required post-merge state-authority synchronization
+**Status:** DONE / HISTORICAL — implemented by PR #611. Do not redispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOCUMENTS-cutover-post-609-authority-sync.md`
 **Conversation/workstream:** `CUTOVER — post-#609 authority sync`
 **Flow / owner:** `DOCUMENTS`
@@ -32,13 +32,30 @@ pr_body_template: |
 **Suggested branch:** `documents/cutover-post-609-authority-sync`
 **PR title:** `DOCUMENTS: record post-#609 CUTOVER adoption-proof authority`
 
+### Completion record
+
+```text
+DONE / HISTORICAL — do not redispatch.
+
+This status is the checked-in merge-ready state. scripts/steward_preflight.py
+classifies a handoff as an active lane only when **Status:** begins with
+ACTIVE. After PR #611 merges, this seven-path lease must not remain an
+active lane. Do not wait for a later cleanup PR to flip this line.
+
+PR: #611
+review cycle 1: formal COMMENT on 601efe7705cf2bd38f1e5380803eba9ace1a5c99
+  (GitHub did not allow REQUEST_CHANGES because reviewer == author)
+implementation head: this PR's GitHub head at merge
+merge: this PR's GitHub merge commit
+
+Do not dispatch the DungeonMind PostgreSQL adoption proof until #611 is
+merged and main has been re-anchored to that merge.
+```
+
 > Repository law: [`AGENTS.md`](../../AGENTS.md).
 > Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md).
 >
 > This PR closes the development cycle opened by PR #609.
->
-> Do not dispatch the dependent DungeonMind PostgreSQL adoption proof until this
-> state sync is merged and `main` has been re-anchored to that merge.
 
 ---
 
@@ -137,6 +154,7 @@ DungeonMind #33 merge / main:
 | Roadmap critical path | Heal/Lysandra READY/BLOCKED | Post-#609 adoption proof READY; product cutover BLOCKED |
 | Alias-package handoff | `READY AFTER LIFECYCLE-PROOF STATE-SYNC MERGES` | `DONE / HISTORICAL` |
 | Lifecycle-sync handoff | `ACTIVE` | `DONE / HISTORICAL` |
+| This documents handoff | `ACTIVE` | `DONE / HISTORICAL` (self-terminating; preflight must not match `ACTIVE`) |
 
 | Sequence | Required safe outcome | Owning §7 proof |
 |---|---|---|
@@ -144,6 +162,7 @@ DungeonMind #33 merge / main:
 | Worker reads status only | Same next slice; product cutover blocked | Status scan |
 | Worker reads roadmap only | Same next slice; heal/Lysandra not current | Roadmap scan |
 | Worker opens old alias-package handoff | Status forbids redispatch | Predecessor-handoff status |
+| Worker runs `steward_preflight.py` after #611 merges | This seven-path lease is not an active lane | This handoff's `**Status:**` does not begin with `ACTIVE` |
 
 ---
 
@@ -239,6 +258,14 @@ not yet:
   correspondence/shadow-read acceptance
 ```
 
+### This handoff is not an active preflight lane
+
+```bash
+rg -n '^\*\*Status:\*\*\s*ACTIVE\b' Docs/Plans/HANDOFF-DOCUMENTS-cutover-post-609-authority-sync.md
+```
+
+Expect no match. `scripts/steward_preflight.py` uses that pattern to discover active lanes.
+
 ### Mechanical checks
 
 ```bash
@@ -259,7 +286,10 @@ branch
 final head SHA
 changed paths
 confirmation that §4 was the exclusive write set
+confirmation that this handoff's **Status:** does not begin with ACTIVE
 confirmation that successor handoff names unchanged DungeonMind f2e27380…
+confirmation that successor §7 includes PostgreSQL history fingerprint round-trip
+confirmation that successor post-merge sync set includes that handoff itself
 confirmation that product-authority switch remains BLOCKED
 ```
 
@@ -272,6 +302,7 @@ confirmation that product-authority switch remains BLOCKED
 - [ ] Next named CUTOVER capability is exact Eldyrwild PostgreSQL existing-world adoption proof
 - [ ] Product-authority switch remains `BLOCKED`
 - [ ] Predecessor Captain/Thrin and post-#585 documents handoffs are `DONE / HISTORICAL`
-- [ ] Successor DungeonMind handoff is dispatch-complete and forbids runtime repair
+- [ ] This documents handoff is `DONE / HISTORICAL` and its `**Status:**` line does not begin with `ACTIVE`
+- [ ] Successor DungeonMind handoff is dispatch-complete, forbids runtime repair, requires PostgreSQL history fingerprint round-trip, and includes itself in its post-merge sync set
 - [ ] `Backlog.md` and architecture were not edited
 - [ ] Diff is documentation-only

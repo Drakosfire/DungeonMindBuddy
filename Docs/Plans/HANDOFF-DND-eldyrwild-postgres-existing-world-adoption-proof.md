@@ -46,7 +46,7 @@ pr_body_template: |
 
 **Mission:** Starting from an empty PostgreSQL target, unchanged DungeonMind #33 adopts the exact sealed post-#609 Eldyrwild `dm_existing_world_adoption_bundle_v2` into exactly one durable world/head/revision with complete source, contribution, correction, identity, and graph state.
 
-**Merge-ready invariant:** Exact raw sealed bundle bytes parse through the real v2 adoption/parser boundary; first PostgreSQL adoption writes one world, one first graph revision, and one terminal receipt; exact replay returns the original success without duplication; changed bytes under the same adoption identity conflict; precommit failure leaves no partial Eldyrwild state; postcommit response loss recovers the committed outcome; readback matches the sealed bundle, including contribution evidence refs with no same-ID/different-payload conflict.
+**Merge-ready invariant:** Exact raw sealed bundle bytes parse through the real v2 adoption/parser boundary; first PostgreSQL adoption writes one world, one first graph revision, and one terminal receipt; exact replay returns the original success without duplication; changed bytes under the same adoption identity conflict; precommit failure leaves no partial Eldyrwild state; postcommit response loss recovers the committed outcome; durable PostgreSQL readback of source artifacts/revisions, `GraphContributionV2` records (including typed `assertion_corrections` and per-assertion `epistemic_kind`, notably `source_derived_candidate`), and `IdentityDecisionV2` records (including `merge_side_effects`) is ID-complete and canonical-payload/fingerprint-equal to the parsed sealed bundle; contribution evidence refs have no same-ID/different-payload conflict.
 
 ### Pre-dispatch critique
 
@@ -55,7 +55,7 @@ pr_body_template: |
 | Can one invariant govern every claimed path? | **Yes**, if the slice stays acceptance-only. Runtime/schema repair is a split. |
 | Most likely adversarial sequence | Bundle parses in memory, then PostgreSQL rejects a new durable-identity/schema class. |
 | Will §7 detect that failure? | **Yes.** The owning boundary is real PostgreSQL adoption, not in-memory helpers. |
-| Easiest boundary to under-test | Postcommit recovery and contribution-evidence uniqueness on the real evidence table. |
+| Easiest boundary to under-test | Count-only graph/history readback (469/323/3/5 or row counts) while a nested v2 correction, merge side effect, or `source_derived_candidate` is dropped. |
 | Fact that forces stop/split | Any need to change DungeonMind runtime, migrations, `dm_evidence_ref_v1`, or the sealed Buddy bundle. |
 
 ---
@@ -75,7 +75,7 @@ pr_body_template: |
 | Branch / isolated checkout | `dnd/cutover-eldyrwild-postgres-existing-world-adoption-proof` in a DungeonMind worktree from `f2e27380…` |
 | Parallel lanes / collision hotspots | Do not share the live `dungeonmind-postgres-dev` target with another mutating lane without serialization |
 | Runtime/state ownership | Isolated empty PostgreSQL target. Suggested local DSN: `postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:54329/dungeonmind` (`dungeonmind-postgres-dev`). Source isolation is not database isolation |
-| State-authority sync set after merge | Buddy tracker/status/roadmap: mark this proof `DONE` and keep product cutover `BLOCKED`. Do not edit Buddy architecture |
+| State-authority sync set after merge | Buddy tracker/status/roadmap **and this handoff**. Mark this proof `DONE` on the tracker/status/roadmap and keep product cutover `BLOCKED`. Mark **this file** `DONE / HISTORICAL — do not redispatch` with exact DungeonMind PR number, implementation head, merge SHA, and review-cycle count. Do not leave this handoff saying `READY`. Do not edit Buddy architecture. |
 
 Start review-cycle counting from the first formal judgment against a distinct DungeonMind PR head.
 
@@ -91,6 +91,7 @@ Start review-cycle counting from the first formal judgment against a distinct Du
 | Precommit injected failure | Unknown outcome | Zero Eldyrwild durable rows | Yes | PostgreSQL adoption |
 | Postcommit response loss | Commit may have succeeded | Recovery returns the committed receipt | Yes | PostgreSQL adoption |
 | Evidence extract | Pre-#609 collided on raw Buddy IDs | No same-ID/different-payload conflict on post-#609 IDs | Yes | PostgreSQL evidence persistence |
+| History round-trip | Counts-only readback can pass | Parsed sealed-bundle source/contribution/identity records are ID-complete and fingerprint-equal on durable PostgreSQL readback, including correction links, merge side effects, and `source_derived_candidate` | Yes | PostgreSQL contributions / identity / sources |
 | In-memory adopt | Already green | May support but cannot prove this PR | Support only | Memory repository |
 
 Required proof sequence:
@@ -105,7 +106,8 @@ Required proof sequence:
 7. same-world different bundle conflict
 8. injected precommit failure
 9. injected postcommit response-loss recovery
-10. durable readback
+10. durable graph readback (469/323/3/5)
+11. durable history round-trip (source / GraphContributionV2 / IdentityDecisionV2)
 ```
 
 Readback must prove at least:
@@ -125,6 +127,33 @@ complete GraphContributionV2 history
 typed assertion correction history
 complete IdentityDecisionV2 history
 ```
+
+History round-trip is not implied by those counts. After first adopt, enumerate every parsed sealed-bundle source artifact, source revision, `GraphContributionV2`, and `IdentityDecisionRecordV2`. Durable PostgreSQL readback (`pg.sources`, `pg.contributions.list_for_world`, `pg.identity_decisions.list_for_world`) must:
+
+```text
+1. reconstruct v2 records (v1 reconstruction is a STOP)
+2. match the parsed ID sets exactly (no missing, no extra)
+3. match model_fingerprint / canonical payload of each reconstructed
+   record to the parsed input record with the same ID
+4. additionally equal, field-for-field:
+   - assertion_corrections
+     (correction_kind, target_contribution_id, target_assertion_id,
+      replacement_assertion_id)
+   - assertion.epistemic_kind, including source_derived_candidate
+     where present
+   - identity merge_side_effects
+     (aliases_added_to_target, evidence_ref_ids_added_to_target,
+      source_domains_added_to_target, alias_map_rewrites)
+5. preserve source artifact/revision IDs and body-hash / fingerprint
+```
+
+Count-only graph or history totals are support evidence. They cannot close this clause.
+
+| Sequence | Required safe outcome | Owning §7 proof |
+|---|---|---|
+| Adopt then assert only 469/323/3/5 or history row counts | Not merge-ready | History round-trip row |
+| Reconstruct a v1 contribution/identity record | STOP | History round-trip row |
+| Drop or remap `source_derived_candidate`, correction links, or `merge_side_effects` | STOP | History round-trip row |
 
 Also prove contribution evidence refs extract/insert without any same-ID/different-payload conflict.
 
@@ -203,6 +232,45 @@ Records/trusts without proving: Buddy producer internals; product-authority swit
 
 Copy the fixture from Buddy; do not recanonicalize the bytes.
 
+Include only the matrices that apply. Count-only graph totals are not a persistence round-trip guarantee.
+
+### A. State / fallback matrix
+
+| Observable path | Loading/init | Exact success | Ordinary miss | Dependency unavailable | Integrity failure | Stale/superseded | Retry/replay |
+|---|---|---|---|---|---|---|---|
+| Empty PostgreSQL target | No Eldyrwild world/head/receipt/history | First adopt writes exactly one of each plus complete v2 history | World absent is success precondition, not a miss to paper over | `PersistenceUnavailableError` / unknown outcome; no partial Eldyrwild rows if precommit | Fingerprint or nested-history mismatch → STOP, no runtime patch | Different bundle / same adoption identity → `IdempotencyConflictError`; stored receipt unchanged | Same bytes return original receipt; no duplicate history rows |
+| Durable history readback | Reconstruct v2 records from PostgreSQL | ID-complete + `model_fingerprint` equal to parsed bundle, including correction links / merge side effects / `source_derived_candidate` | Missing parsed ID → STOP | Do not treat in-memory adopt as substitute | v1 reconstruction or dropped nested field → STOP | Do not compare against a regenerated Buddy bundle | Replay must not rewrite fingerprints |
+
+### B. Identity matrix
+
+| Situation | Required rule | Ambiguity behavior | Fallback permitted? |
+|---|---|---|---|
+| Exact IDs (`world_id`, `adoption_id`, contribution/decision/source IDs, `evidence_ref_id`) | Durable identity is the sealed parsed ID | Collision with different payload/fingerprint → conflict/STOP | No |
+| Alias/label | Not an adoption identity | Must not select records by display name | No |
+| Normalized / reconstructed key | Canonical payload / `model_fingerprint` of the reconstructed v2 record | Drift from parsed input → STOP | No |
+| Rename/delete/rebind | Not in scope; sealed IDs are immutable for this proof | Any rewrite of sealed identity → STOP | No |
+
+### C. Persistence / replay matrix
+
+| Operation | Durable representation | Round-trip guarantee | Duplicate/replay | Compatibility/migration | Rollback/reversion |
+|---|---|---|---|---|---|
+| First adopt | PostgreSQL world/head/revision/receipt plus v2 contribution, identity, and source rows | Parsed sealed-bundle records == reconstructed durable records by ID and `model_fingerprint`, including `assertion_corrections`, `merge_side_effects`, and `source_derived_candidate` | One receipt; one first revision | Unchanged DungeonMind #33 schema; no migration in this PR | Precommit failure → zero Eldyrwild rows |
+| Exact retry | Same durable rows | Original receipt; fingerprints unchanged | No second contribution/identity/source set | Same | N/A |
+| Different bundle, same adoption identity | Unchanged stored receipt | Conflict; no overwrite | N/A | N/A | Stored history unchanged |
+| Postcommit response loss | Committed rows already durable | Recovery probe returns committed receipt | Retry does not duplicate | N/A | Unknown-as-failure is forbidden once commit succeeded |
+
+### D. Predecessor → consumer mapping
+
+**Grounding source:** exact parsed `ExistingWorldAdoptionBundleV2` from Buddy blob `274cdd9e…` through unchanged DungeonMind `parse_existing_world_adoption_bundle`.
+
+| Predecessor field/outcome | Real shape/optionality | Consumer behavior | Transformation | Proof |
+|---|---|---|---|---|
+| `source_artifacts` / `source_revisions` | Complete sealed lists | Persist and reconstruct v2 source records | Identity-preserving; body hashes intact | PostgreSQL source list vs parsed IDs + fingerprints |
+| `contributions[].assertion_corrections` | Typed `contradicts` / `contradicts_and_replaces` links | Persist on `GraphContributionV2` | No dropping or flattening to diagnostics | Field-equal round-trip |
+| `contributions[].assertions[].epistemic_kind` | Includes `source_derived_candidate` exactly | Persist as `ContributionEpistemicKind`; not remapped to `inferred` | Identity-preserving | Field-equal round-trip |
+| `identity_decisions[].merge_side_effects` | Required on merge v2; null on non-merge | Persist `IdentityMergeSideEffects` including alias-map rewrites | Identity-preserving | Field-equal round-trip |
+| Graph payload | 469/323/3/5 plus published digest | Persist graph revision | `canonical_sha256` of stored payload | Graph readback |
+
 ---
 
 ## §7 Evidence required to merge
@@ -217,6 +285,7 @@ Copy the fixture from Buddy; do not recanonicalize the bytes.
 | Precommit rollback | PostgreSQL | Adversarial | failure_hook before commit | zero Eldyrwild rows | Leftover rows |
 | Postcommit recovery | PostgreSQL | Adversarial | adopt then PersistenceUnavailableError | recovered receipt == committed | Duplicate or unknown-as-failure |
 | Readback graph counts | PostgreSQL | Contract | stored revision payload | 469/323/3/5 | Count drift |
+| History round-trip | PostgreSQL | Contract | parsed bundle vs `pg.sources` / `pg.contributions.list_for_world` / `pg.identity_decisions.list_for_world` | ID-complete v2 reconstruction; `model_fingerprint` equal; `assertion_corrections`, `merge_side_effects`, and `source_derived_candidate` field-equal | Missing/extra ID, v1 reconstruction, fingerprint drift, or dropped nested history field |
 | Evidence identity closed | PostgreSQL | Contract | no conflicting evidence_ref | previous Session-10 error gone | New identity collision |
 
 Exact verification commands (DungeonMind worktree):
@@ -243,7 +312,7 @@ git diff --check
 git diff --name-only f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92...HEAD
 ```
 
-There is no pre-authorized baseline waiver.
+There is no pre-authorized baseline waiver. Graph-count readback and history row counts cannot substitute for the history round-trip row.
 
 ---
 
@@ -255,10 +324,13 @@ confirmation HEAD's only production-adjacent changes are the leased test/fixture
 fixture blob SHA-1 and SHA-256
 exact unit and PostgreSQL command outputs
 readback counts
+history round-trip: ID sets + fingerprints + nested correction/merge/epistemic fields
 confirmation previous evidence_ref conflict is gone
 any new STOP, with object/row/contract
 confirmation no DungeonMind runtime/migration change
 confirmation no Buddy product-authority claim
+confirmation this handoff is in the post-merge sync set and will be marked
+  DONE / HISTORICAL — do not redispatch with PR/head/merge/review-cycle evidence
 ```
 
 Do not merge a DungeonMind PR that repaired runtime to get green.
@@ -269,8 +341,10 @@ Do not merge a DungeonMind PR that repaired runtime to get green.
 
 - [ ] Fixture bytes are Git blob `274cdd9e6d38d5a00aa43d780779e95a7919d975`
 - [ ] DungeonMind base is `f2e27380…` unless a documented re-anchor required a newer pin
-- [ ] Empty target, first adopt, exact retry, conflict, precommit rollback, postcommit recovery, and readback all pass on real PostgreSQL
+- [ ] Empty target, first adopt, exact retry, conflict, precommit rollback, postcommit recovery, graph readback, and history fingerprint round-trip all pass on real PostgreSQL
 - [ ] 469 objects / 323 relationships / 3 aspects / 5 aspect-selected relationships
+- [ ] Parsed source/contribution/identity records are ID-complete and fingerprint-equal on PostgreSQL readback, including correction links, merge side effects, and `source_derived_candidate`
 - [ ] No `contribution embeds conflicting evidence_ref`
 - [ ] No DungeonMind `src/` or `migrations/` edits
 - [ ] Product-authority switch remains false
+- [ ] Post-merge Buddy sync set includes this handoff marked `DONE / HISTORICAL — do not redispatch` with PR/head/merge/review-cycle evidence
