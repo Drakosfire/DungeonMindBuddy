@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-16 — post-#609: next CUTOVER capability is exact Eldyrwild PostgreSQL existing-world adoption proof; product-authority cutover remains BLOCKED
-**Repository anchor:** `7922b6108cf9e05787f9c79cddcee9347edb0b44`
+**Updated:** 2026-08-16 — post-DungeonMind #34: exact Eldyrwild PostgreSQL existing-world adoption proof is DONE; next CUTOVER capability is correspondence / authority-transition DESIGN; product-authority cutover remains BLOCKED
+**Repository anchor:** `a2c88d95397d972ad86834912b00a244edcdba17`
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`
+**DungeonMind pin:** `d2204dd0901237d8b446b4f2363f896306e32e6f` (PR #34 merge / current DungeonMind `main`; unchanged #33 runtime-under-proof remains `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -96,7 +96,7 @@ At the immutable Eldyrwild adjudication domain:
 
 The remaining relationship debt is Buddy-owned. The adjudication ledger distinguishes source corrections, compound assertions that are not one relationship, identity-not-relationship cases, and insufficient-evidence cases. Those are different authority problems and should not be collapsed into one migration PR.
 
-## Current critical path — exact PostgreSQL adoption proof before product cutover
+## Current critical path — correspondence / authority-transition design before product cutover
 
 ```text
 DONE    Captain/Thrin alias package (#587)
@@ -105,19 +105,24 @@ DONE    DungeonMind adoption v2 runtime (#31/#32/#33)
 DONE    exact Eldyrwild adoption-v2 bundle (#602)
 STOPPED first real PostgreSQL attempt (evidence identity collision)
 DONE    Buddy contribution evidence identity (#609)
+DONE    dungeonmind-eldyrwild-postgres-existing-world-adoption-proof
+        DungeonMind PR #34; head 935d3d9117442a92ef2dd8f11967fed20f863ea1;
+        merge d2204dd0901237d8b446b4f2363f896306e32e6f; 2 review cycles;
+        Cycle 2 4948479110. Unchanged #33 runtime f2e27380… accepted exact
+        blob 274cdd9e… / sha256 90574dfc… / published rev:34b1f8e2… /
+        payload 047214f1… / shape 469/323/3/5. Three test/fixture paths
+        only. Does not prove correspondence, snapshot drift, writer
+        ownership, or product-authority switch.
 
-READY   dungeonmind-eldyrwild-postgres-existing-world-adoption-proof
-        Owning handoff:
-        Docs/Plans/HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md
-        Unchanged DungeonMind f2e27380… consumes exact post-#609 Buddy
-        blob 274cdd9e…. Empty PostgreSQL target → one world/head/revision/
-        receipt; exact replay; conflict; precommit rollback; postcommit
-        recovery; readback 469/323/3/5. STOP rather than patch runtime.
+READY   correspondence / authority-transition DESIGN
+        Bounded design gate. Must resolve/decompose observational
+        correspondence, snapshot drift/quiescence or catch-up,
+        living-write ownership, switch/rollback authority, and first
+        post-cutover mutation proof before CODE cutover is dispatchable.
 
 BLOCKED DungeonMind whole-world authority cutover
-        Requires the independent PostgreSQL proof plus a separately
-        reviewed correspondence / authority-transition design.
-        A green adoption PR does not switch Buddy reads/writes.
+        Requires the accepted DESIGN plus later CODE. Exact PostgreSQL
+        adoption does not switch Buddy reads/writes.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.
@@ -170,7 +175,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to exact Eldyrwild PostgreSQL existing-world adoption proof, before any product-authority cutover.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to correspondence / authority-transition DESIGN, before any product-authority cutover.
 
 ## Phase 8 exit criteria
 
