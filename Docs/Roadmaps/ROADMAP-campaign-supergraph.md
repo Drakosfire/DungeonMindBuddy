@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-16 — post-#609: next CUTOVER capability is exact Eldyrwild PostgreSQL existing-world adoption proof; product-authority cutover remains BLOCKED  
-**Repository anchor:** `7922b6108cf9e05787f9c79cddcee9347edb0b44`  
+**Updated:** 2026-08-16 — post-#609: next CUTOVER capability is exact Eldyrwild PostgreSQL existing-world adoption proof; product-authority cutover remains BLOCKED
+**Repository anchor:** `7922b6108cf9e05787f9c79cddcee9347edb0b44`
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`  
+**DungeonMind pin:** `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
