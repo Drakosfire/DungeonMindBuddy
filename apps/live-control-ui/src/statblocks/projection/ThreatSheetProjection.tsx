@@ -7,8 +7,6 @@ import {
   type RefObject,
 } from "react";
 
-import { LiveApiError, postThreatQueryHydration } from "../../api/liveApi";
-import type { ThreatQueryHydrationHitV1, ThreatQueryHydrationResponseV1 } from "../../api/types";
 import type {
   GraphObjectActionViewModel,
   GraphObjectCardViewModel,
@@ -25,21 +23,17 @@ import type {
 } from "../../graphReference/types";
 import { buildPlanGraphObjectActions } from "../../planSurface/reference/buildPlanGraphObjectActions";
 import type { PlanSessionDescriptor } from "../../planSurface/types";
-import { StatblockAdvancedLedger, StatblockRenderer } from "../render/StatblockRenderer";
+import { StatblockAdvancedLedger } from "../render/StatblockRenderer";
 import { ThreatCampaignGlance } from "./ThreatCampaignGlance";
+import { ThreatMechanicsPanel } from "./ThreatMechanicsPanel";
 import "./threatSheetProjection.css";
 import {
   availableBindingCount,
-  buildThreatQueryHydrationRequest,
   buildThreatSheetViewModel,
-  mapHydrationResultLabelToLoadStatus,
-  selectExactThreatHit,
   shouldRenderThreatCampaignSheet,
-  threatSelectionTupleFromResolution,
-  threatSelectionTupleKey,
-  type ThreatSheetBindingViewModel,
   type ThreatSheetViewModel,
 } from "./threatSheetViewModel";
+import { useExactThreatMechanics } from "./useExactThreatMechanics";
 
 function resolveThreatActionHandler(
   action: GraphObjectActionViewModel,
@@ -65,45 +59,6 @@ export interface ThreatSheetProjectionProps {
   projectionState?: GraphReferenceProjectionState | null;
   graphReferenceBinding?: GraphReferenceProjectionBinding | null;
   glanceOnly?: boolean;
-}
-
-function BindingStatusPanel({ binding }: { binding: ThreatSheetBindingViewModel }) {
-  return (
-    <section
-      className="threat-sheet-projection__binding-panel"
-      aria-label={`Binding status ${binding.bindingId ?? binding.relationshipEdgeId}`}
-      data-testid="threat-sheet-binding-status"
-      data-hydration-status={binding.hydrationStatus}
-    >
-      <h4>
-        {binding.role ?? "Binding"}
-        {binding.phaseKey ? ` · ${binding.phaseKey}` : ""}
-        {binding.variantLabel ? ` · ${binding.variantLabel}` : ""}
-      </h4>
-      <p className="threat-sheet-projection__binding-locator">
-        Status: <strong>{binding.hydrationStatus}</strong>
-        {binding.statblockId ? (
-          <>
-            {" "}
-            · statblock <code>{binding.statblockId}</code>
-          </>
-        ) : null}
-        {binding.revisionId ? (
-          <>
-            {" "}
-            · revision <code>{binding.revisionId}</code>
-          </>
-        ) : null}
-        {binding.definitionDigest ? (
-          <>
-            {" "}
-            · digest <code>{binding.definitionDigest}</code>
-          </>
-        ) : null}
-      </p>
-      {binding.message ? <p className="module-muted">{binding.message}</p> : null}
-    </section>
-  );
 }
 
 function ThreatRelationshipsSection({
@@ -335,49 +290,11 @@ function ThreatSheetBody({
           variant="sheet"
         />
       ) : (
-        <>
-          {model.loadStatus === "loading" ? (
-            <p className="threat-sheet-projection__status threat-sheet-projection__status--loading" role="status">
-              Loading exact mechanics…
-            </p>
-          ) : null}
-
-          {model.loadStatus !== "loading" && model.loadStatus !== "ready" ? (
-            <p
-              className="threat-sheet-projection__status threat-sheet-projection__status--error"
-              role="status"
-              data-testid="threat-sheet-load-status"
-              data-load-status={model.loadStatus}
-            >
-              {model.message ?? `Exact mechanics ${model.loadStatus.replace(/_/g, " ")}.`}
-            </p>
-          ) : null}
-
-          <div className="threat-sheet-projection__bindings">
-            {model.bindings.map((binding) =>
-              binding.hydrationStatus === "available" && binding.revision ? (
-                <section
-                  key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}`}
-                  className="threat-sheet-projection__full-statblock"
-                >
-                  {model.bindings.length > 1 ? (
-                    <h4>
-                      {binding.role ?? "Binding"}
-                      {binding.phaseKey ? ` · ${binding.phaseKey}` : ""}
-                      {binding.variantLabel ? ` · ${binding.variantLabel}` : ""}
-                    </h4>
-                  ) : null}
-                  <StatblockRenderer revision={binding.revision} mode="full" chrome="campaign" />
-                </section>
-              ) : (
-                <BindingStatusPanel
-                  key={`${binding.relationshipEdgeId}:${binding.bindingId ?? "none"}`}
-                  binding={binding}
-                />
-              ),
-            )}
-          </div>
-        </>
+        <ThreatMechanicsPanel
+          loadStatus={model.loadStatus}
+          bindings={model.bindings}
+          message={model.message}
+        />
       )}
 
       {model.loadStatus !== "loading" && model.loadStatus !== "ready" && glanceOnly ? (
@@ -423,13 +340,10 @@ export function ThreatSheetProjection({
   const graphReferenceBindingRef = useRef(graphReferenceBinding);
   graphReferenceBindingRef.current = graphReferenceBinding;
 
-  const selectionTuple = useMemo(() => threatSelectionTupleFromResolution(resolution), [resolution]);
-  const selectionKey = selectionTuple ? threatSelectionTupleKey(selectionTuple) : null;
+  const { selectionTuple, selectionKey, loadStatus, hit: selectedHit, message: loadMessage } =
+    useExactThreatMechanics(resolution);
   const selectedObjectKey = selectionKey ?? `${resolution.kind}\0${resolution.locator}`;
 
-  const [selectedHit, setSelectedHit] = useState<ThreatQueryHydrationHitV1 | null>(null);
-  const [loadStatus, setLoadStatus] = useState<ThreatSheetViewModel["loadStatus"]>("loading");
-  const [loadMessage, setLoadMessage] = useState<string | null>(null);
   const selectedObjectKeyRef = useRef<string | null>(null);
   const navigationGenerationRef = useRef(0);
   const mountedRef = useRef(false);
@@ -448,79 +362,6 @@ export function ThreatSheetProjection({
   useEffect(() => {
     setNavigatingRelationshipId(null);
   }, [selectedObjectKey]);
-
-  useEffect(() => {
-    if (!selectionTuple || !selectionKey) {
-      setLoadStatus("integrity_failure");
-      setLoadMessage("Exact graph scope is required for Threat Sheet projection.");
-      setSelectedHit(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoadStatus("loading");
-    setLoadMessage(null);
-    setSelectedHit(null);
-
-    const request = buildThreatQueryHydrationRequest(
-      {
-        worldId: selectionTuple.worldId,
-        campaignId: selectionTuple.campaignId,
-        scopeMode: selectionTuple.scopeMode,
-        revisionId: selectionTuple.revisionId,
-      },
-      selectionTuple.threatNodeId,
-    );
-
-    void postThreatQueryHydration(request)
-      .then((response: ThreatQueryHydrationResponseV1) => {
-        if (cancelled) return;
-        const selection = selectExactThreatHit(
-          response,
-          selectionTuple,
-          selectionTuple.threatNodeId,
-        );
-        setLoadStatus(mapHydrationResultLabelToLoadStatus(response.resultLabel, selection));
-        if (selection.status === "ready") {
-          setSelectedHit(selection.hit);
-          setLoadMessage(response.message);
-          return;
-        }
-        setSelectedHit(null);
-        if (selection.status === "not_found") {
-          setLoadMessage(selection.message ?? "Exact Threat mechanics not found.");
-          return;
-        }
-        setLoadMessage(selection.message);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setSelectedHit(null);
-        if (error instanceof LiveApiError) {
-          if (error.status === 404) {
-            setLoadStatus("not_found");
-            setLoadMessage(error.message);
-            return;
-          }
-          if (error.status === 503) {
-            setLoadStatus("unavailable");
-            setLoadMessage(error.message);
-            return;
-          }
-          if (error.status >= 500) {
-            setLoadStatus("integrity_failure");
-            setLoadMessage(error.message);
-            return;
-          }
-        }
-        setLoadStatus("unavailable");
-        setLoadMessage(error instanceof Error ? error.message : "Threat mechanics unavailable.");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectionKey, selectionTuple]);
 
   const resolverProjectionState = graphReferenceBinding?.resolverState ?? null;
   const effectiveProjectionState =
