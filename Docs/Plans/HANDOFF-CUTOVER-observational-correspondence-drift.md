@@ -41,7 +41,7 @@ pr_body_template: |
 
 **Mission:** CUTOVER can determine whether one exact Buddy authority snapshot and one durable DungeonMind adopted world are observationally the same authority state, so stale or incompatible snapshots fail visibly before any product read/write switch.
 
-**Merge-ready invariant:** Given one exact Buddy adoption bundle identity and one durable DungeonMind world/adoption receipt, a read-only correspondence check returns a deterministic classification bound to both exact revisions: `CORRESPONDING` only when the durable DungeonMind state reconstructs the sealed source semantics and authority history represented by that bundle; `STALE` when the supplied Buddy authority snapshot is a different otherwise-valid source snapshot than the one DungeonMind adopted; and `MISMATCH`/integrity failure when the claimed same snapshot cannot be reconstructed equivalently. No classification may mutate either system or imply product-authority cutover.
+**Merge-ready invariant:** Given one exact Buddy adoption bundle identity and one durable DungeonMind world/adoption receipt, a read-only correspondence check returns a deterministic classification bound to both exact revisions: `CORRESPONDING` only when the durable DungeonMind state reconstructs the sealed source semantics and authority history represented by that bundle; `STALE` when the supplied Buddy authority snapshot is a different otherwise-valid source snapshot than the one DungeonMind adopted; `MISMATCH` when the claimed same snapshot reconstructs but diverges; and a typed integrity error when input or durable bytes cannot be reconstructed at all. No classification may mutate either system or imply product-authority cutover.
 
 ### Pre-dispatch critique
 
@@ -94,7 +94,8 @@ If those four Buddy authority paths have changed materially before the sync, re-
 | Path | Required classification | Same §1 invariant? | Owning boundary |
 |---|---|---:|---|
 | Exact #34 bundle + exact #34 durable world | `CORRESPONDING` with exact source/adopted revision identities | Yes | DungeonMind durable readback + correspondence evaluator |
-| Same exact bundle identity, durable graph/history corruption | `MISMATCH` / integrity failure; never `CORRESPONDING` | Yes | Durable readback reconstruction |
+| Same exact bundle identity, durable graph/history divergence after successful reconstruction | `MISMATCH`; never `CORRESPONDING` | Yes | Durable readback reconstruction |
+| Malformed input bundle or integrity-invalid durable bytes | typed `PersistenceIntegrityError`; no classification; never `CORRESPONDING` | Yes | Contract parse + integrity readback |
 | Different valid Buddy source snapshot for same world | `STALE`; report adopted source revision and observed source revision | Yes | Correspondence evaluator |
 | Unknown world/adoption | explicit unresolved/not-adopted result; no fallback to label/latest world | Yes | Repository lookup boundary |
 | Retry same read-only check | deterministic same classification; no durable writes/head events | Yes | Service/repository boundary |
@@ -105,6 +106,7 @@ Adversarial sequences:
 |---|---|---|
 | adopt exact A → check A → present valid changed snapshot B | first `CORRESPONDING`, second `STALE`; DND durable state unchanged | PostgreSQL integration |
 | adopt exact A → alter reconstructed expected semantic/history field while claiming A | `MISMATCH`; shape-only equality cannot pass | contract/integration |
+| supply malformed bundle bytes claiming A | `PersistenceIntegrityError`; no classification emitted | unit contract |
 | check while no adoption receipt exists | explicit not-adopted/unresolved; no current-head guessing | repository/service test |
 | run checker twice | byte/semantic-equivalent result; zero write/head/receipt delta | integration read-only proof |
 
@@ -146,30 +148,54 @@ Input:
   exact ExistingWorldAdoptionBundleV2 bytes / parsed identity
   durable DungeonMind world_id + adoption receipt / adopted revision
 
-Output:
+Output (returned only for a well-formed evaluation):
   ExistingWorldCorrespondenceResultV1
+    schema_version = "dm_existing_world_correspondence_result_v1" (Literal)
     classification = CORRESPONDING | STALE | MISMATCH | NOT_ADOPTED
-    world_id
-    observed_source_revision
-    adopted_source_revision?
-    adoption_id?
-    adopted_revision?
-    exact comparison/evidence summary sufficient to diagnose mismatch class
+    world_id: str
+    observed_source_revision: str        (identity derived from the supplied Buddy snapshot)
+    adopted_source_revision: str | None  (from the durable receipt; null iff NOT_ADOPTED)
+    adoption_id: str | None              (null iff NOT_ADOPTED)
+    adopted_revision: str | None         (published DND revision; null iff NOT_ADOPTED)
+    checks: list[ExistingWorldCorrespondenceCheckV1]
+
+  ExistingWorldCorrespondenceCheckV1
+    schema_version = "dm_existing_world_correspondence_check_v1" (Literal)
+    check   = source_identity | graph_payload | source_history |
+              contribution_history | identity_history | evidence_identity
+    outcome = match | diverged | not_evaluated
+    detail: str                          (operator diagnostic; "" when outcome is match)
+
+  Classification algebra (closed):
+    CORRESPONDING: all six checks match.
+    STALE:         source_identity diverged; both source revisions reported;
+                   every other check not_evaluated.
+    MISMATCH:      source_identity match and at least one other check diverged;
+                   checks past the first divergence may be not_evaluated.
+    NOT_ADOPTED:   no receipt/world; adopted_* fields null; checks == [].
 
 Invariant:
   CORRESPONDING is impossible unless exact source identity and reconstructed durable
   semantic/history authority agree; changed valid source snapshot is STALE, not mismatch
   and not corresponding; checker performs no writes.
 
-Failure behavior:
-  malformed/integrity-invalid source input → fail closed / MISMATCH-or-contract error
-  persistence unavailable → unavailable, never corresponding
-  no receipt/world → NOT_ADOPTED
+Failure behavior — errors are raised, never returned as classifications:
+  malformed/integrity-invalid source input
+      → PersistenceIntegrityError; details.reason names the parse/schema/self-hash failure
+  integrity-invalid durable bytes on readback
+      → PersistenceIntegrityError; details.reason names the failed integrity check
+      (distinct from MISMATCH: MISMATCH means reconstruction succeeded and diverged)
+  persistence unavailable
+      → PersistenceUnavailableError; no result; never corresponding
+  no receipt/world
+      → NOT_ADOPTED (a classification, not an error)
+  No new error types are introduced; domain/errors.py is not in the lease.
 
 Replay / idempotency:
-  same source + same durable state → identical classification/result
+  same well-formed source + same durable state → canonically equal result
   changed valid source snapshot + same durable state → STALE
-  retry after dependency failure → fresh read-only evaluation, no recovery write
+  retry after any raised error → fresh read-only re-evaluation; errors are not
+    cached, persisted, or converted into classifications; zero recovery writes
 
 Trust boundary:
   Verifies: exact source/adoption identities, durable graph semantic payload,
@@ -178,7 +204,7 @@ Trust boundary:
             descendant to catch up automatically; product routing/writer ownership.
 ```
 
-`ExistingWorldCorrespondenceResultV1` follows the repository's versioned public-contract convention: it lives in `src/dungeonmind/contracts/existing_world_correspondence.py` and is re-exported from `dungeonmind.contracts` like the other `*V1`/`V2` models. The read-only evaluator seam lives in `src/dungeonmind/application/existing_world_correspondence.py`.
+`ExistingWorldCorrespondenceResultV1` follows the repository's versioned public-contract convention: it and the nested `ExistingWorldCorrespondenceCheckV1` live in `src/dungeonmind/contracts/existing_world_correspondence.py` and are re-exported from `dungeonmind.contracts` like the other `*V1`/`V2` models. The read-only evaluator seam lives in `src/dungeonmind/application/existing_world_correspondence.py`.
 
 No new persisted correspondence record is required in this slice. Correspondence is a derived observation over two durable authorities. If implementation discovers it needs durable sync checkpoints, cursor state, replication offsets, or operator-managed transitions, STOP and split.
 
@@ -188,8 +214,10 @@ No new persisted correspondence record is required in this slice. Correspondence
 |---|---|---|---|---|
 | Exact #34 state corresponds | PostgreSQL readback | focused integration | `CORRESPONDING`; exact source/adopted IDs; no row/head deltas | any inferred/current-head shortcut |
 | Valid changed source is stale | correspondence service + PostgreSQL | adversarial integration | `STALE`; both source revision identities visible | auto-adopt/catch-up or `CORRESPONDING` |
-| Semantic/history corruption is mismatch | contract/readback | unit + integration | `MISMATCH`/integrity failure even if graph counts match | shape-only comparison passes |
+| Semantic/history divergence is mismatch | contract/readback | unit + integration | `MISMATCH` even if graph counts match | shape-only comparison passes |
+| Malformed/integrity-invalid input fails closed | contract parse | unit | `PersistenceIntegrityError`; no classification; never `CORRESPONDING` | malformed input returns a classification |
 | Unknown adoption is explicit | repository/service | unit/integration | `NOT_ADOPTED`; no fallback | label/latest lookup |
+| Dependency unavailable is an error, not a state | service/repository | unit | `PersistenceUnavailableError`; no result; retry re-evaluates fresh | unavailable cached or returned as a classification |
 | Checker is read-only/idempotent | PostgreSQL | before/after row/head/receipt counts + repeated result | zero durable mutation | any write/head event |
 | #34 regression stays intact | existing #34 tests | focused regression | existing adoption suite remains green subject to truthful baseline | regression introduced |
 | predecessor doc sync is backward-looking only | steward Buddy sync diff inspection | changed-path + semantic review | design predecessor recorded; implementation not pre-marked DONE | own future completion claimed |
@@ -232,7 +260,7 @@ Record:
 2. exact design PR merge SHA and review-cycle count recorded by the predecessor doc sync;
 3. exact source/adopted revision identities for `CORRESPONDING` proof;
 4. exact changed-source identity pair for `STALE` proof;
-5. mismatch case that proves graph counts alone cannot establish correspondence;
+5. mismatch case that proves graph counts alone cannot establish correspondence, plus the malformed-input and dependency-unavailable typed-error proofs;
 6. proof the checker produced no world/head/revision/receipt/history mutations;
 7. complete §7 results and provenance;
 8. actual DND changed paths versus the §4 lease, plus the steward Buddy predecessor-sync commit SHA and its four paths;
@@ -245,7 +273,8 @@ Record:
 - [ ] Exact #34 state classifies `CORRESPONDING` at the PostgreSQL owning boundary.
 - [ ] A different valid Buddy snapshot classifies `STALE` with both revision identities.
 - [ ] Same-snapshot semantic/history corruption cannot pass as corresponding.
-- [ ] Unknown/unavailable state fails visibly; no label/latest/current-head fallback exists.
+- [ ] `ExistingWorldCorrespondenceResultV1` carries the exact §6 schema identity, field nullability, closed check algebra, and raised-error failure semantics.
+- [ ] Unknown adoption classifies `NOT_ADOPTED`; malformed input and unavailable persistence raise typed errors, never classifications; no label/latest/current-head fallback exists.
 - [ ] Repeated checks create no durable writes or head events.
 - [ ] No replication, catch-up, writer transfer, product read switch, rollback workflow, or first post-cutover mutation is introduced.
 - [ ] The completed design predecessor is recorded across Buddy tracker/status/roadmap/handoff by the steward's direct guarded sync after this design PR merges.
