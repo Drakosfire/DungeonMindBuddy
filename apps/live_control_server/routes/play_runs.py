@@ -7,6 +7,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.play_run_rebase import (
+    PlayRunRebaseError,
+    RebasePlayRunRequest,
+    rebase_or_replay_play_run,
+)
 from apps.live_control_server.services.play_run_registry import (
     CreatePlayRunRequest,
     PlayRunRecord,
@@ -112,6 +117,23 @@ def put_play_run_progress_route(
             progress=body.progress,
         )
     except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return _record_response(record)
+
+
+@router.put("/play-runs/{run_id}/rebase", response_model=PlayRunRecord)
+def put_play_run_rebase(run_id: str, body: RebasePlayRunRequest) -> dict[str, Any]:
+    try:
+        record = rebase_or_replay_play_run(
+            repo_root(),
+            run_id=run_id,
+            expected_run_revision=body.expected_run_revision,
+            target_playable_revision=body.target_playable_revision,
+            target_playable_content_sha256=body.target_playable_content_sha256,
+        )
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except PlayRunRebaseError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _record_response(record)
 

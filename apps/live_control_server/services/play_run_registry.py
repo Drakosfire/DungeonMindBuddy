@@ -350,14 +350,35 @@ def _load_authoritative_record(root: Path, path: Path) -> PlayRunRecord:
     return record
 
 
+def _require_no_pending_rebase(root: Path, run_id: str) -> None:
+    from apps.live_control_server.services.play_run_rebase import (
+        PlayRunRebaseError,
+        require_no_pending_rebase_intent,
+    )
+
+    try:
+        require_no_pending_rebase_intent(root, run_id)
+    except PlayRunRebaseError as exc:
+        raise PlayRunRegistryError(str(exc), status_code=exc.status_code) from exc
+
+
 def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
     path = play_run_path(root, run_id)
-    if not path.is_file():
+    from apps.live_control_server.services.play_run_rebase import rebase_intent_exists
+
+    if not path.is_file() and not rebase_intent_exists(root, run_id):
         raise PlayRunRegistryError(
             f"Play Run not found: {_validate_run_id(run_id)}",
             status_code=404,
         )
-    return _load_authoritative_record(root, path)
+    with registry_mutation_lock(path):
+        _require_no_pending_rebase(root, run_id)
+        if not path.is_file():
+            raise PlayRunRegistryError(
+                f"Play Run not found: {_validate_run_id(run_id)}",
+                status_code=404,
+            )
+        return _load_authoritative_record(root, path)
 
 
 def list_play_runs(
@@ -374,9 +395,11 @@ def list_play_runs(
     if not directory.is_dir():
         return []
 
-    records = [
-        _load_authoritative_record(root, path) for path in sorted(directory.glob("*.json"))
-    ]
+    records: list[PlayRunRecord] = []
+    for path in sorted(directory.glob("*.json")):
+        with registry_mutation_lock(path):
+            _require_no_pending_rebase(root, path.stem)
+            records.append(_load_authoritative_record(root, path))
     if campaign_id is not None:
         records = [record for record in records if record.campaign_id == campaign_id]
     if resolved_artifact_id is not None:
@@ -406,6 +429,7 @@ def create_or_replay_play_run(
     path = play_runs_dir(root) / f"{canonical_run_id}.json"
 
     with registry_mutation_lock(path):
+        _require_no_pending_rebase(root, canonical_run_id)
         if path.is_file():
             existing = _load_authoritative_record(root, path)
             if (
@@ -505,6 +529,7 @@ def replace_play_run_progress(
     path = play_run_path(root, canonical_run_id)
 
     with registry_mutation_lock(path):
+        _require_no_pending_rebase(root, canonical_run_id)
         if not path.is_file():
             raise PlayRunRegistryError(
                 f"Play Run not found: {canonical_run_id}",

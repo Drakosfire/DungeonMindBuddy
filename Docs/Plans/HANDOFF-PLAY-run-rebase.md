@@ -11,7 +11,7 @@ pr_body_template: |
   - Design anchor: merged PR #601 / P2B2 at `51ed2a6e89b56d2ef033215e23d309ce03a51c87`
   - P2B2 reviewed head: `c9d2697c1f7e6b11235a753ceb45c4e514a423eb`
   - P2B2 implementation/evidence head: `8538409e1027ca8e84990bd86cd07ee2ccf99a72`
-  - Base/head: <PIN_AFTER_POST_601_STATE_SYNC> / <implementation head>
+  - Base/head: `47b71c64dc880c051339e5cf08c4be344ea74366` / <implementation head>
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
 
@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — explicitly rebase one Run to a newer Playable revision
 
 **Created:** 2026-08-16  
-**Status:** DESIGNED — **DO NOT DISPATCH** until merged PR #601 is recorded by one guarded post-merge state-authority sync and this handoff is present on `main`; then pin the exact implementation base.  
+**Status:** CODE — preserve-only Run rebase implementation on `agent/play-run-rebase`.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-rebase.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2C`  
 **Flow / owner:** `PLAY`  
@@ -32,7 +32,7 @@ pr_body_template: |
 **P2B2 reviewed head:** `c9d2697c1f7e6b11235a753ceb45c4e514a423eb`  
 **P2B2 implementation/evidence head:** `8538409e1027ca8e84990bd86cd07ee2ccf99a72`  
 **P2B2 review cycles:** `2`  
-**Implementation base:** `PIN_AFTER_POST_601_STATE_SYNC`  
+**Implementation base:** `47b71c64dc880c051339e5cf08c4be344ea74366`
 **Suggested branch:** `agent/play-run-rebase`  
 **PR title:** `PLAY: rebase Run to newer Playable revision`
 
@@ -326,7 +326,7 @@ Once a rebase intent is durable, exact replay may complete from the intent even 
 | Field | Required content |
 |---|---|
 | Parent authority | `ARCHITECTURE-playable-material-and-runtime.md` + living Playable hoist roadmap |
-| Base revision | `PIN_AFTER_POST_601_STATE_SYNC` |
+| Base revision | `47b71c64dc880c051339e5cf08c4be344ea74366` |
 | Design anchor | merged PR #601 / `51ed2a6e89b56d2ef033215e23d309ce03a51c87` |
 | Predecessor contract | P2A Run identity + P2B1 immutable manifest + P2B2 canonical CAS progress |
 | Exact input consumed | existing Run UUID + `expected_run_revision` + exact target revision/SHA of the same Runbook artifact |
