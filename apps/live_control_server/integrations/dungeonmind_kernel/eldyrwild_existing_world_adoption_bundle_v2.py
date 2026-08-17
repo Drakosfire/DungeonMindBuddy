@@ -54,6 +54,7 @@ from dungeonmind.contracts.evidence import (
     SourceStatus,
     WorkspaceDocumentRefV1,
 )
+from dungeonmind.domain.canonical import canonical_json, canonical_sha256
 from dungeonmind.contracts.existing_world_adoption import (
     EXISTING_WORLD_ADOPTION_BUNDLE_V2_SCHEMA,
     ExistingWorldAdoptionAuthorityRefV1,
@@ -165,7 +166,7 @@ DUNGEONMIND_PIN = "f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92"
 BUDDY_BASE_SHA = "26ddd83ddbec381c816fbd2ede891aa5d816b9e1"
 # Stamped to the implementation commit that contains this producer. Not the
 # original dispatch base, not this seal commit, and not live git HEAD.
-PRODUCER_REVISION = "ee3c11d18f552769fd14a1379980910f5bd6566b"
+PRODUCER_REVISION = "4446b6d207921a4be121ebb756d68b6078b8eee0"
 WORLD_OBJECT_V5_SHA256 = (
     "f9fd5420e0ab3849224e0d58cf83dd432ca2e5da22ce661b25654406ec9c60d8"
 )
@@ -502,6 +503,80 @@ def _sha256_bytes(raw: bytes) -> str:
 
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+CONTRIBUTION_EVIDENCE_ID_MARK = ":dmv1:"
+CONTRIBUTION_EVIDENCE_V1_BINDING_FIELDS = (
+    "schema_version",
+    "source_artifact_id",
+    "source_revision_id",
+    "source_domain",
+    "evidence_role",
+    "can_open_source",
+    "can_highlight_span",
+    "locator",
+    "uri",
+)
+
+
+def contribution_evidence_v1_binding_payload(
+    ref: EvidenceRef | dict[str, Any],
+) -> dict[str, Any]:
+    """Immutable dm_evidence_ref_v1 fields excluding evidence_ref_id."""
+    if isinstance(ref, EvidenceRef):
+        payload = ref.model_dump(mode="json")
+    else:
+        payload = dict(ref)
+    return {field: payload.get(field) for field in CONTRIBUTION_EVIDENCE_V1_BINDING_FIELDS}
+
+
+def exported_contribution_evidence_ref_id(
+    raw_buddy_evidence_ref_id: str,
+    binding: EvidenceRef | dict[str, Any],
+) -> str:
+    digest = canonical_sha256(contribution_evidence_v1_binding_payload(binding))
+    return f"{raw_buddy_evidence_ref_id}{CONTRIBUTION_EVIDENCE_ID_MARK}{digest}"
+
+
+def raw_buddy_evidence_ref_id(exported_evidence_ref_id: str) -> str:
+    marker = CONTRIBUTION_EVIDENCE_ID_MARK
+    if marker not in exported_evidence_ref_id:
+        raise _fail(
+            f"exported evidence_ref_id is missing {marker}: {exported_evidence_ref_id}",
+            "contribution_evidence_id_unmarked",
+        )
+    raw, digest = exported_evidence_ref_id.rsplit(marker, 1)
+    if not raw or len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise _fail(
+            f"exported evidence_ref_id is not raw:dmv1:<sha256>: {exported_evidence_ref_id}",
+            "contribution_evidence_id_malformed",
+        )
+    return raw
+
+
+def assert_contribution_evidence_identity_closed(
+    contributions: list[GraphContributionV2],
+) -> None:
+    """Reject the same emitted evidence ID bound to more than one v1 payload."""
+    seen: dict[str, str] = {}
+    locations: dict[str, list[str]] = {}
+    for contribution in contributions:
+        for assertion in contribution.assertions:
+            for ref in assertion.evidence_refs:
+                payload = canonical_json(ref.model_dump(mode="json"))
+                prior = seen.get(ref.evidence_ref_id)
+                loc = f"{contribution.contribution_id}/{assertion.assertion_id}"
+                if prior is None:
+                    seen[ref.evidence_ref_id] = payload
+                    locations[ref.evidence_ref_id] = [loc]
+                    continue
+                locations[ref.evidence_ref_id].append(loc)
+                if prior != payload:
+                    raise _fail(
+                        "contribution embeds conflicting evidence_ref "
+                        f"{ref.evidence_ref_id} at {locations[ref.evidence_ref_id]}",
+                        "contribution_evidence_identity_collision",
+                    )
 
 
 def _parse_aware(value: str | None, *, field_name: str) -> datetime:
@@ -1408,7 +1483,7 @@ def _map_contribution_evidence_ref(
     if evidence is not None:
         domain_key = str(evidence.source_domain)
         domain = _map_source_domain(domain_key) or SourceDomain.OTHER
-        return EvidenceRef(
+        draft = EvidenceRef(
             evidence_ref_id=evidence.evidence_ref_id,
             source_artifact_id=evidence.source_artifact_id,
             source_revision_id=source_revision_id,
@@ -1419,9 +1494,17 @@ def _map_contribution_evidence_ref(
             locator=evidence.locator,
             uri=evidence.uri,
         )
+        return draft.model_copy(
+            update={
+                "evidence_ref_id": exported_contribution_evidence_ref_id(
+                    evidence_ref_id,
+                    draft,
+                )
+            }
+        )
     if not fallback_source_artifact_id:
         raise _fail(f"contribution evidence missing: {evidence_ref_id}", "evidence_missing")
-    return EvidenceRef(
+    draft = EvidenceRef(
         evidence_ref_id=evidence_ref_id,
         source_artifact_id=fallback_source_artifact_id,
         source_revision_id=source_revision_id,
@@ -1431,6 +1514,11 @@ def _map_contribution_evidence_ref(
         can_highlight_span=False,
         locator=None,
         uri=None,
+    )
+    return draft.model_copy(
+        update={
+            "evidence_ref_id": exported_contribution_evidence_ref_id(evidence_ref_id, draft)
+        }
     )
 
 
@@ -1864,6 +1952,7 @@ def build_eldyrwild_existing_world_adoption_bundle_v2(
         current_by_artifact,
     )
     dm_contributions = _map_contributions(store, contributions, pair_to_dm)
+    assert_contribution_evidence_identity_closed(dm_contributions)
     dm_identities = _map_identity_decisions(identity_decisions)
     assertion_count = sum(len(item.assertions) for item in dm_contributions)
     correction_count = sum(len(item.assertion_corrections) for item in dm_contributions)
@@ -1933,7 +2022,6 @@ def build_eldyrwild_existing_world_adoption_bundle_v2(
     digest_after = snapshot_world_graph_tree_digest(world_root, WORLD_ID)
     if digest_before != digest_after:
         raise _fail("producer mutated Buddy World Graph storage", "buddy_graph_mutated")
-    from dungeonmind.domain.canonical import canonical_sha256
     from dungeonmind.domain.revision_ids import compute_revision_id
 
     expected_revision = compute_revision_id(
