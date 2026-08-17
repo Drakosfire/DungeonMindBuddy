@@ -166,6 +166,7 @@ def test_http_rebase_round_trip_and_replay(client: TestClient, root: Path) -> No
     assert first.status_code == 200
     body = first.json()
     assert body["run_revision"] == 2
+    assert body["rebased_from_run_revision"] == 1
     assert body["playable_revision"] == target.loaded_revision
     assert body["playable_content_sha256"] == target.content_sha256
     assert body["progress"]["current_scene_id"] is None

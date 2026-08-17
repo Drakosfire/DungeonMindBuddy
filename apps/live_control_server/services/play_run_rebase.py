@@ -23,6 +23,8 @@ from apps.live_control_server.services.play_run_registry import (
     PlayRunProgress,
     PlayRunRecord,
     PlayRunRegistryError,
+    _admit_progress,
+    _load_authoritative_record,
     _load_record,
     _progress_is_empty,
     _utc_now_iso,
@@ -108,6 +110,10 @@ class PlayRunRebaseIntent(BaseModel):
             raise ValueError("target_run.run_revision must be expected_source_run_revision + 1")
         if target.playable_revision <= self.source_playable_revision:
             raise ValueError("target_run.playable_revision must be strictly newer")
+        if target.rebased_from_run_revision != self.expected_source_run_revision:
+            raise ValueError(
+                "target_run.rebased_from_run_revision must equal expected_source_run_revision"
+            )
         if (
             manifest.run_id != target.run_id
             or manifest.playable_artifact_id != target.playable_artifact_id
@@ -127,6 +133,13 @@ def play_run_rebase_intent_path(root: Path, run_id: str) -> Path:
 
     canonical = _validate_run_id(run_id)
     return play_run_rebase_intents_dir(root) / f"{canonical}.json"
+
+
+def pending_rebase_intent_names(root: Path) -> list[str]:
+    directory = play_run_rebase_intents_dir(root)
+    if not directory.is_dir():
+        return []
+    return sorted(path.name for path in directory.glob("*.json") if path.is_file())
 
 
 def rebase_intent_exists(root: Path, run_id: str) -> bool:
@@ -228,6 +241,52 @@ def _admit_progress_for_rebase(
         )
 
 
+def _require_progress_integrity(
+    progress: PlayRunProgress,
+    *,
+    manifest: PlayRunReferenceManifest,
+    status_code: int,
+) -> None:
+    try:
+        admitted = _admit_progress(progress, manifest=manifest, status_code=status_code)
+    except PlayRunRegistryError as exc:
+        raise PlayRunRebaseError(str(exc), status_code=exc.status_code) from exc
+    if progress.resolved_beat_ids != admitted.resolved_beat_ids:
+        raise PlayRunRebaseError(
+            "persisted resolved_beat_ids must be duplicate-free and lexicographically sorted",
+            status_code=status_code,
+        )
+
+
+def _require_intent_preserves_source(
+    source: PlayRunRecord,
+    intent: PlayRunRebaseIntent,
+) -> None:
+    target = intent.target_run
+    if (
+        target.run_id != source.run_id
+        or target.campaign_id != source.campaign_id
+        or target.created_at != source.created_at
+        or target.playable_artifact_id != source.playable_artifact_id
+        or target.progress != source.progress
+        or target.run_revision != source.run_revision + 1
+        or target.rebased_from_run_revision != source.run_revision
+        or intent.expected_source_run_revision != source.run_revision
+        or intent.source_playable_artifact_id != source.playable_artifact_id
+        or intent.source_playable_revision != source.playable_revision
+        or intent.source_playable_content_sha256 != source.playable_content_sha256
+    ):
+        raise PlayRunRebaseError(
+            "persisted rebase intent does not preserve the source Run",
+            status_code=500,
+        )
+    _require_progress_integrity(
+        target.progress,
+        manifest=intent.target_manifest,
+        status_code=500,
+    )
+
+
 def _prove_target_pair(root: Path, record: PlayRunRecord) -> PlayRunReferenceManifest:
     path = play_run_reference_manifest_path(root, record.run_id)
     if not path.is_file():
@@ -244,13 +303,11 @@ def _prove_target_pair(root: Path, record: PlayRunRecord) -> PlayRunReferenceMan
             status_code=500,
         ) from exc
     if not _progress_is_empty(record.progress):
-        try:
-            _admit_progress_for_rebase(record.progress, manifest=manifest)
-        except PlayRunRebaseError as exc:
-            raise PlayRunRebaseError(
-                f"completed rebase target progress failed integrity: {exc}",
-                status_code=500,
-            ) from exc
+        _require_progress_integrity(
+            record.progress,
+            manifest=manifest,
+            status_code=500,
+        )
     return manifest
 
 
@@ -436,6 +493,17 @@ def _resume_intent(
             manifest_path=manifest_path,
             intent=intent,
         )
+        if stage in {"prepared", "manifest_installed"}:
+            if not run_path.is_file():
+                raise PlayRunRebaseError(
+                    "contradictory Play Run rebase recovery state",
+                    status_code=500,
+                )
+            try:
+                source = _load_record(run_path)
+            except PlayRunRegistryError as exc:
+                _raise_registry(exc)
+            _require_intent_preserves_source(source, intent)
         return _complete_from_stage(
             run_path=run_path,
             manifest_path=manifest_path,
@@ -481,15 +549,18 @@ def rebase_or_replay_play_run(
                 status_code=404,
             )
         try:
-            record = _load_record(run_path)
+            record = _load_authoritative_record(root, run_path)
         except PlayRunRegistryError as exc:
             _raise_registry(exc)
 
         if _same_target_binding(record, request):
             _prove_target_pair(root, record)
-            if record.run_revision == request.expected_run_revision + 1:
-                return record
             if record.run_revision == request.expected_run_revision:
+                return record
+            if (
+                record.run_revision == request.expected_run_revision + 1
+                and record.rebased_from_run_revision == request.expected_run_revision
+            ):
                 return record
             raise PlayRunRebaseError(
                 "run_revision does not match the current Play Run",
@@ -554,6 +625,7 @@ def rebase_or_replay_play_run(
                             "run_revision": record.run_revision + 1,
                             "updated_at": updated_at,
                             "progress": record.progress,
+                            "rebased_from_run_revision": record.run_revision,
                         }
                     )
                     intent = PlayRunRebaseIntent(

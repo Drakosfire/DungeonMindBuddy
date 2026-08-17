@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — explicitly rebase one Run to a newer Playable revision
 
 **Created:** 2026-08-16  
-**Status:** CODE IN PR [#612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) — preserve-only Run rebase. Implementation/evidence head `5d0c050492886e03e7e6e8e323c359c29930e9cd`.
+**Status:** CODE IN PR [#612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) — Cycle 1 repair of source integrity, preserve-only intent proof, rebase receipt, and orphan-intent list isolation.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-rebase.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2C`  
 **Flow / owner:** `PLAY`  
@@ -108,7 +108,7 @@ uv run python scripts/steward_preflight.py \
 
 **Merge-ready invariant:**
 
-> **For one existing Run UUID at exact `run_revision = N`, an actual rebase either writes nothing, or durably prepares one exact forward-only rebase intent and eventually commits exactly one coherent target pair consisting of (a) the same Run UUID/artifact/campaign with target Playable revision+SHA, unchanged admitted progress, and `run_revision = N+1`, and (b) one replacement immutable P2B1-format manifest derived from that exact target revision. No current/latest Runbook bytes are consulted after intent is durable; no non-rebase operation may observe or mutate through a pending half-transition; removed/wrong-kind/wrong-membership Runtime references block before intent; exact retry can recover each recognized commit stage without double-incrementing; completed no-intent replay or current-token same-target no-op returns success only when the persisted target Run and target manifest still form that same coherent pair; successful rebase retains no old manifest, old Run snapshot, historical Markdown, mapping history, or second concurrency token.**
+> **For one existing Run UUID at exact `run_revision = N`, an actual rebase either writes nothing, or durably prepares one exact forward-only rebase intent and eventually commits exactly one coherent target pair consisting of (a) the same Run UUID/artifact/campaign with target Playable revision+SHA, unchanged admitted progress, `run_revision = N+1`, and `rebased_from_run_revision = N`, and (b) one replacement immutable P2B1-format manifest derived from that exact target revision. No current/latest Runbook bytes are consulted after intent is durable; no non-rebase operation may observe or mutate through a pending half-transition; removed/wrong-kind/wrong-membership Runtime references block before intent; exact retry can recover each recognized commit stage without double-incrementing; completed no-intent replay requires that receipt plus the persisted target pair, and current-token same-target no-op returns success only when the persisted target Run and target manifest still form that same coherent pair; successful rebase retains no old manifest, old Run snapshot, historical Markdown, mapping history, or second concurrency token.**
 
 ### Why P2C is preserve-only
 
@@ -391,20 +391,21 @@ There is no separate dry-run, rebase-plan, abort, rollback, or history endpoint 
 Under the Run lifecycle lock:
 
 1. validate canonical Run UUID and request fields;
-2. load the exact persisted Run record without recursively entering the public Run GET;
+2. load the exact persisted Run through the same P2B2 authoritative integrity contract as ordinary Run reads (`_load_authoritative_record`), without recursively entering public Run GET. Empty progress may omit a source-manifest read; non-empty persisted progress must already be canonical and admitted by the current source manifest;
 3. if current Run binding == requested target binding, prove the persisted target pair before any success return (§3 below):
    - load the canonical persisted manifest; the empty-progress missing-manifest exception does **not** apply here;
    - require strict P2B1 persisted integrity and exact `run_id` / artifact / revision / content-SHA binding to the current target Run;
+   - require persisted progress, when present, to be canonical and admitted by that target manifest;
    - missing, corrupt, or mismatched manifest → 500; no workspace fallback, no rewrite, no 200;
-   - `run_revision == expected_run_revision + 1` → completed response-loss replay; return current Run unchanged;
+   - `run_revision == expected_run_revision + 1` **and** `rebased_from_run_revision == expected_run_revision` → completed response-loss replay; return current Run unchanged;
    - `run_revision == expected_run_revision` → current-token same-target no-op; return current Run unchanged;
-   - any other revision relation → 409;
+   - any other revision relation, including `expected + 1` from an unrelated progress mutation, → 409;
 4. require `expected_run_revision == current.run_revision` for a new rebase;
 5. require `target_playable_revision > current.playable_revision`;
 6. load the current P2B1 source manifest when present and require exact current binding;
    - malformed/mismatched current manifest → 500;
    - missing current manifest is allowed **only when this is a new rebase and current progress is empty**;
-   - missing current manifest with any durable progress reference → 409/no intent;
+   - missing current manifest with any durable progress reference → 500/no intent;
 7. acquire the canonical manifest mutation lock;
 8. acquire the workspace-document mutation lock for the same `playable_artifact_id`;
 9. load one coherent current workspace snapshot through the unlocked seam;
@@ -495,6 +496,8 @@ P2B1 manifest GET
 P2B1 manifest PUT/seal
 ```
 
+List isolation must discover pending intent files independently of `out/runtime/play/runs/*.json`. An intent with no corresponding Run file still fails the whole list (503); it must not return a successful list that omits the pending Run.
+
 Reason: after a crash the canonical files may be source/source, source/target, or target/target-with-cleanup-pending. No other operation may mutate or present stale/mixed authority before the rebase is reconciled.
 
 ### Forward-only commit state machine
@@ -520,6 +523,8 @@ Recognized exact-replay stages:
 | exact target Run + exact target manifest | product commit happened; cleanup pending | delete intent, return target Run |
 | anything else | contradictory/tampered recovery state | 500, no write |
 
+Before installing canonical state from `prepared` or `manifest_installed`, recovery must re-prove the intent's preserve-only relation against the still-present source Run: campaign, creation identity, artifact, and progress must equal the source; target progress must remain canonical and admitted by the intent's target manifest. A structurally valid tamper of those preserved fields is 500 with no write, not silent recovery.
+
 After intent exists, recovery must not consult workspace state.
 
 I/O failure **before** the intent becomes durable leaves source authority untouched and retryable normally.
@@ -541,6 +546,7 @@ Completed response-loss replay:
 ```text
 current Run binding == requested target binding
 and current run_revision == expected_run_revision + 1
+and current rebased_from_run_revision == expected_run_revision
 and canonical persisted target manifest exists
 and that manifest passes strict P2B1 persisted integrity
 and that manifest binds exactly to the current target Run
@@ -550,7 +556,9 @@ and that manifest binds exactly to the current target Run
 → no manifest rewrite / no revision increment / no workspace read
 ```
 
-If the Run matches that completed-replay revision/binding relation but the canonical target manifest is missing, corrupt, or bound to a different Run/artifact/revision/SHA, fail closed **500**. Do not return 200, do not consult workspace, and do not rewrite or recreate the manifest. Ordinary Run GET with empty progress may omit a manifest read; rebase completed-replay must not reuse that shortcut.
+`run_revision == expected + 1` is not sufficient by itself. P2B2 progress mutation increments the same CAS counter without changing the Playable binding, so completed rebase replay also requires the explicit `rebased_from_run_revision` receipt written by that rebase. An unrelated progress N→N+1 on an already-bound target must remain 409.
+
+If the Run matches that completed-replay revision/binding/receipt relation but the canonical target manifest is missing, corrupt, or bound to a different Run/artifact/revision/SHA, fail closed **500**. Do not return 200, do not consult workspace, and do not rewrite or recreate the manifest. Ordinary Run GET with empty progress may omit a manifest read; rebase completed-replay must not reuse that shortcut.
 
 Current-token same-target no-op is a distinct admission with the same pair-integrity proof, not an implicit sibling of the early return:
 
@@ -599,7 +607,7 @@ Error text must identify at least the failing progress field and element ID. A c
 | Completed rebase then missing/corrupt/wrong-binding target manifest | old-token retry 500; no workspace; no rewrite | rebase replay integrity |
 | Different stale target | 409 | CAS/replay admission |
 | Missing source manifest + empty progress | allowed; source token=`absent`, target manifest is installed | compatibility path |
-| Missing source manifest + non-empty progress | 409/no intent | Runtime integrity prerequisite |
+| Missing source manifest + non-empty progress | 500/no intent | Runtime integrity prerequisite |
 | Malformed/mismatched source manifest | 500/no intent | P2B1 persisted integrity |
 | Failure writing intent | 500; canonical source pair unchanged; no durable intent | pre-commit persistence |
 | Failure after intent before/while manifest write | 503; intent remains; exact replay completes | recovery state machine |
@@ -856,6 +864,7 @@ No backward transition exists in P2C.
 | `campaign_id` / artifact ID | unchanged | target admission assertions |
 | `playable_revision` / SHA | source → exact target only at explicit commit | before/after + replay |
 | `run_revision` | sole CAS token; +1 once per actual rebase | CAS/recovery tests |
+| `rebased_from_run_revision` | explicit completed-rebase receipt; omitted until a rebase commits; cleared by later progress mutation | old-token replay vs progress N→N+1 |
 | `progress` | preserved exactly; only target-admitted or block | blocker + equality assertions |
 | source manifest | validate if present; absence allowed only for empty progress | compatibility tests |
 | P2B1 P1 resolver | derive target manifest; no parser divergence | predecessor suite |
@@ -1021,7 +1030,7 @@ Record:
 - [ ] Exactly one same-artifact preserve-only Run rebase capability is delivered.
 - [ ] Actual rebase requires exact `expected_run_revision` and exact newer current target revision/SHA.
 - [ ] `run_id`, campaign, artifact, created time, and progress remain unchanged across actual rebase.
-- [ ] Actual rebase advances `run_revision` exactly once and changes only binding + updated time in the Run record.
+- [ ] Actual rebase advances `run_revision` exactly once, writes `rebased_from_run_revision` as that source revision, and otherwise changes only binding + updated time in the Run record.
 - [ ] Target manifest is derived through existing P2B1 identity/membership semantics.
 - [ ] Every existing Runtime reference must survive target admission; missing/wrong-membership references return 409 before intent with no writes.
 - [ ] No caller-authored ID mapping or silent drop/remap exists.

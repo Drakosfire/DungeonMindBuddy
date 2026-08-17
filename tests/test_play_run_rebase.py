@@ -38,9 +38,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
     update_workspace_document_metadata,
 )
-from src.live_play.live_store import write_json
+from src.live_play.live_store import load_json, write_json
 
 RUN_ID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+RUN_ID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 SOURCE_MARKDOWN = "\n".join(
     [
@@ -250,6 +251,7 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     assert rebased.playable_revision == target.loaded_revision
     assert rebased.playable_content_sha256 == target.content_sha256
     assert rebased.run_revision == 3
+    assert rebased.rebased_from_run_revision == 2
     assert play_run_path(tmp_path, RUN_ID_A).read_bytes() != source_run_bytes
     assert play_run_reference_manifest_path(tmp_path, RUN_ID_A).read_bytes() != source_manifest_bytes
     assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
@@ -370,7 +372,7 @@ def test_missing_source_manifest_with_progress_is_409(tmp_path: Path) -> None:
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         _rebase(tmp_path, target, expected_run_revision=record.run_revision)
-    assert exc_info.value.status_code == 409
+    assert exc_info.value.status_code == 500
     assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -995,3 +997,174 @@ def test_deleted_target_manifest_blocks_completed_replay(tmp_path: Path) -> None
     assert exc_info.value.status_code == 500
     assert play_run_path(tmp_path, RUN_ID_A).read_bytes() == run_bytes
     assert first.run_revision == 2
+
+
+def test_unsorted_persisted_resolved_beats_are_not_legitimized(tmp_path: Path) -> None:
+    source = _create_committed_runbook(tmp_path)
+    _seal(tmp_path, source)
+    replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_progress(selections={}, notes_by_element_id={}),
+    )
+    payload = json.loads(play_run_path(tmp_path, RUN_ID_A).read_text(encoding="utf-8"))
+    payload["progress"]["resolved_beat_ids"] = ["beat:briefing", "beat:arrival"]
+    play_run_path(tmp_path, RUN_ID_A).write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
+    with pytest.raises(PlayRunRebaseError) as exc_info:
+        _rebase(tmp_path, target, expected_run_revision=2)
+    assert exc_info.value.status_code == 500
+    assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+
+
+def test_source_invalid_ref_is_not_saved_by_target_admission(tmp_path: Path) -> None:
+    source = _create_committed_runbook(tmp_path)
+    _seal(tmp_path, source)
+    payload = json.loads(play_run_path(tmp_path, RUN_ID_A).read_text(encoding="utf-8"))
+    payload["progress"] = _progress(
+        current_scene_id="scene:keep",
+        current_beat_id=None,
+        resolved_beat_ids=[],
+        selections={},
+        notes_by_element_id={},
+    ).model_dump(mode="json")
+    play_run_path(tmp_path, RUN_ID_A).write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
+    with pytest.raises(PlayRunRebaseError) as exc_info:
+        _rebase(tmp_path, target, expected_run_revision=1)
+    assert exc_info.value.status_code == 500
+    assert not play_run_rebase_intent_path(tmp_path, RUN_ID_A).exists()
+
+
+def _stop_after_intent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    original = write_json
+
+    def boom(path: Path, data: dict) -> None:
+        if path == play_run_reference_manifest_path(tmp_path, RUN_ID_A) and play_run_rebase_intent_path(
+            tmp_path, RUN_ID_A
+        ).is_file():
+            raise OSError("stop after intent")
+        original(path, data)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.play_run_rebase.write_json",
+        boom,
+    )
+    return original
+
+
+def test_tampered_intent_progress_cannot_drop_source_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _create_committed_runbook(tmp_path)
+    _seal(tmp_path, source)
+    replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_progress(),
+    )
+    target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
+    original = _stop_after_intent(tmp_path, monkeypatch)
+    with pytest.raises(PlayRunRebaseError):
+        _rebase(tmp_path, target, expected_run_revision=2)
+    intent_path = play_run_rebase_intent_path(tmp_path, RUN_ID_A)
+    payload = load_json(intent_path)
+    payload["target_run"]["progress"] = {
+        "current_scene_id": None,
+        "current_beat_id": None,
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
+    original(intent_path, payload)
+    run_before = play_run_path(tmp_path, RUN_ID_A).read_bytes()
+    monkeypatch.setattr(
+        "apps.live_control_server.services.play_run_rebase.write_json",
+        original,
+    )
+    with pytest.raises(PlayRunRebaseError) as exc_info:
+        _rebase(tmp_path, target, expected_run_revision=2)
+    assert exc_info.value.status_code == 500
+    assert play_run_path(tmp_path, RUN_ID_A).read_bytes() == run_before
+    assert intent_path.is_file()
+
+
+def test_tampered_intent_campaign_cannot_rewrite_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _create_committed_runbook(tmp_path)
+    _seal(tmp_path, source)
+    target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
+    original = _stop_after_intent(tmp_path, monkeypatch)
+    with pytest.raises(PlayRunRebaseError):
+        _rebase(tmp_path, target, expected_run_revision=1)
+    intent_path = play_run_rebase_intent_path(tmp_path, RUN_ID_A)
+    payload = load_json(intent_path)
+    payload["target_run"]["campaign_id"] = "other-campaign"
+    original(intent_path, payload)
+    run_before = play_run_path(tmp_path, RUN_ID_A).read_bytes()
+    monkeypatch.setattr(
+        "apps.live_control_server.services.play_run_rebase.write_json",
+        original,
+    )
+    with pytest.raises(PlayRunRebaseError) as exc_info:
+        _rebase(tmp_path, target, expected_run_revision=1)
+    assert exc_info.value.status_code == 500
+    assert play_run_path(tmp_path, RUN_ID_A).read_bytes() == run_before
+    assert json.loads(run_before)["campaign_id"] == "longmont-c2"
+
+
+def test_progress_mutation_is_not_completed_rebase_replay(tmp_path: Path) -> None:
+    source = _create_committed_runbook(tmp_path, markdown=SURVIVING_TARGET_MARKDOWN)
+    _seal(tmp_path, source)
+    progressed = replace_play_run_progress(
+        tmp_path,
+        run_id=RUN_ID_A,
+        expected_run_revision=1,
+        progress=_progress(
+            current_scene_id="scene:keep",
+            current_beat_id="beat:inside",
+            resolved_beat_ids=["beat:arrival"],
+            selections={"choice:route": "option:wait"},
+            notes_by_element_id={},
+        ),
+    )
+    assert progressed.run_revision == 2
+    assert progressed.rebased_from_run_revision is None
+    run_before = play_run_path(tmp_path, RUN_ID_A).read_bytes()
+    with pytest.raises(PlayRunRebaseError) as exc_info:
+        _rebase(tmp_path, source, expected_run_revision=1)
+    assert exc_info.value.status_code == 409
+    assert play_run_path(tmp_path, RUN_ID_A).read_bytes() == run_before
+    noop = _rebase(tmp_path, source, expected_run_revision=2)
+    assert noop.run_revision == 2
+    assert play_run_path(tmp_path, RUN_ID_A).read_bytes() == run_before
+
+
+def test_orphan_pending_intent_fails_the_whole_list(tmp_path: Path) -> None:
+    source = _create_committed_runbook(tmp_path)
+    _seal(tmp_path, source)
+    intent_path = play_run_rebase_intent_path(tmp_path, RUN_ID_B)
+    intent_path.parent.mkdir(parents=True, exist_ok=True)
+    intent_path.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(PlayRunRegistryError) as listed:
+        list_play_runs(tmp_path)
+    assert listed.value.status_code == 503
+    assert get_play_run(tmp_path, RUN_ID_A).run_id == RUN_ID_A
+
+
+def test_orphan_intent_without_runs_dir_does_not_list_empty(tmp_path: Path) -> None:
+    intent_path = play_run_rebase_intent_path(tmp_path, RUN_ID_A)
+    intent_path.parent.mkdir(parents=True, exist_ok=True)
+    intent_path.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(PlayRunRegistryError) as listed:
+        list_play_runs(tmp_path)
+    assert listed.value.status_code == 503
