@@ -1434,6 +1434,60 @@ export interface WorkspaceDocumentSnapshot {
   loaded_revision: number;
 }
 
+export type PlayRunRecordSchema = "dmb_play_run_record_v1";
+export type PlayRunsListSchema = "dmb_play_runs_list_v1";
+export type PlayRunReferenceManifestSchema = "dmb_play_run_reference_manifest_v1";
+export type PlayableReferenceKind = "scene" | "beat" | "choice" | "option";
+
+export interface PlayRunProgress {
+  current_scene_id: string | null;
+  current_beat_id: string | null;
+  resolved_beat_ids: string[];
+  selections: Record<string, string>;
+  notes_by_element_id: Record<string, string>;
+}
+
+export interface PlayRunRecord {
+  schema_version: PlayRunRecordSchema;
+  run_id: string;
+  campaign_id: string;
+  playable_artifact_id: string;
+  playable_revision: number;
+  playable_content_sha256: string;
+  run_revision: number;
+  created_at: string;
+  updated_at: string;
+  progress: PlayRunProgress;
+  rebased_from_run_revision?: number;
+}
+
+export interface PlayRunsListResponse {
+  schema_version: PlayRunsListSchema;
+  records: PlayRunRecord[];
+}
+
+export interface ReplacePlayRunProgressRequest {
+  expected_run_revision: number;
+  progress: PlayRunProgress;
+}
+
+export interface PlayRunReferenceElement {
+  kind: PlayableReferenceKind;
+  element_id: string;
+  scene_id?: string | null;
+  choice_id?: string | null;
+}
+
+export interface PlayRunReferenceManifest {
+  schema_version: PlayRunReferenceManifestSchema;
+  run_id: string;
+  playable_artifact_id: string;
+  playable_revision: number;
+  playable_content_sha256: string;
+  elements: PlayRunReferenceElement[];
+  sealed_at: string;
+}
+
 export interface TiptapMarkdownWritePrepareRequest {
   document_id: string;
   markdown: string;

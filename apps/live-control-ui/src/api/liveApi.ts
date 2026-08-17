@@ -54,6 +54,10 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
+  PlayRunRecord,
+  PlayRunsListResponse,
+  PlayRunReferenceManifest,
+  ReplacePlayRunProgressRequest,
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
   WorkspaceDocumentRevisionRequest,
@@ -1793,4 +1797,35 @@ export async function saveCurrentCombatAs(
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+export async function listPlayRuns(args: {
+  campaign_id?: string;
+  playable_artifact_id?: string;
+} = {}): Promise<PlayRunsListResponse> {
+  const params = new URLSearchParams();
+  if (args.campaign_id) params.set("campaign_id", args.campaign_id);
+  if (args.playable_artifact_id) params.set("playable_artifact_id", args.playable_artifact_id);
+  const query = params.toString();
+  return apiFetch<PlayRunsListResponse>(`/api/live/play-runs${query ? `?${query}` : ""}`);
+}
+
+export async function getPlayRun(runId: string): Promise<PlayRunRecord> {
+  return apiFetch<PlayRunRecord>(`/api/live/play-runs/${encodeURIComponent(runId)}`);
+}
+
+export async function getPlayRunReferenceManifest(runId: string): Promise<PlayRunReferenceManifest> {
+  return apiFetch<PlayRunReferenceManifest>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}/reference-manifest`,
+  );
+}
+
+export async function putPlayRunProgress(
+  runId: string,
+  request: ReplacePlayRunProgressRequest,
+): Promise<PlayRunRecord> {
+  return apiFetch<PlayRunRecord>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}/progress`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
 }
