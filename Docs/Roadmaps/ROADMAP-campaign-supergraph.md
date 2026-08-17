@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-17 — post-DungeonMind #34: exact Eldyrwild PostgreSQL existing-world adoption proof is DONE; next CUTOVER capability is correspondence / authority-transition DESIGN; product-authority cutover remains BLOCKED
-**Repository anchor:** `c0a008312b5305ada48157b6a7fb1efa879ec574` (Buddy `main` at guarded CUTOVER authority-sync start)
+**Updated:** 2026-08-17 — post-#614: CUTOVER observational-correspondence DESIGN is DONE; next CUTOVER capability is the DungeonMind observational-correspondence implementation; product-authority cutover remains BLOCKED
+**Repository anchor:** `e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a` (Buddy `main` at guarded CUTOVER authority-sync start)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `d2204dd0901237d8b446b4f2363f896306e32e6f` (PR #34 merge / current DungeonMind `main`; unchanged #33 runtime-under-proof remains `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -96,7 +96,7 @@ At the immutable Eldyrwild adjudication domain:
 
 The remaining relationship debt is Buddy-owned. The adjudication ledger distinguishes source corrections, compound assertions that are not one relationship, identity-not-relationship cases, and insufficient-evidence cases. Those are different authority problems and should not be collapsed into one migration PR.
 
-## Current critical path — correspondence / authority-transition design before product cutover
+## Current critical path — observational-correspondence implementation before product cutover
 
 ```text
 DONE    Captain/Thrin alias package (#587)
@@ -114,15 +114,28 @@ DONE    dungeonmind-eldyrwild-postgres-existing-world-adoption-proof
         only. Does not prove correspondence, snapshot drift, writer
         ownership, or product-authority switch.
 
-READY   correspondence / authority-transition DESIGN
-        Bounded design gate. Must resolve/decompose observational
-        correspondence, snapshot drift/quiescence or catch-up,
-        living-write ownership, switch/rollback authority, and first
-        post-cutover mutation proof before CODE cutover is dispatchable.
+DONE    cutover-observational-correspondence-drift DESIGN (#614)
+        Buddy PR #614; head b270b1ea13d198ba0008e38cf6b5dedb64036bdf;
+        merge e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a; 4 review cycles;
+        accepting Cycle 4 4953256382. Accepted the read-only
+        correspondence contract: CORRESPONDING / STALE / MISMATCH /
+        NOT_ADOPTED plus typed integrity/unavailable errors; no dual
+        writes, no authority transfer.
+
+READY   dungeonmind-observational-correspondence-implementation
+        DungeonMind implementation of the accepted contract per the
+        handoff's DND-only lease (base d2204dd0…). Must prove the
+        classifications and typed failure semantics at the PostgreSQL
+        owning boundary with zero durable writes. A pinned
+        exact-snapshot catch-up successor handoff is drafted on branch
+        cutover/design-pinned-snapshot-catchup (unmerged; DO NOT
+        DISPATCH until this implementation is merged and recorded).
 
 BLOCKED DungeonMind whole-world authority cutover
-        Requires the accepted DESIGN plus later CODE. Exact PostgreSQL
-        adoption does not switch Buddy reads/writes.
+        Requires the merged correspondence implementation plus later
+        catch-up and quiescence/authority-transition designs and CODE.
+        Exact PostgreSQL adoption and read-only correspondence do not
+        switch Buddy reads/writes.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.
@@ -175,7 +188,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to correspondence / authority-transition DESIGN, before any product-authority cutover.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the DungeonMind observational-correspondence implementation, before any product-authority cutover.
 
 ## Phase 8 exit criteria
 

@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — observational correspondence and snapshot drift
 
 **Created:** 2026-08-17
-**Status:** ACTIVE DESIGN HANDOFF — implementation may dispatch only after this CUTOVER design PR is accepted/merged and the §2 steward Buddy sync has landed
+**Status:** DESIGN ACCEPTED — Buddy PR #614 merged `e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a` (2026-08-17; 4 review cycles; accepting Cycle 4 `4953256382`); the §2 steward Buddy sync lands with this commit; the observational-correspondence implementation is the current CUTOVER work and may dispatch per §4/§7
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-observational-correspondence-drift.md`
 **Conversation/workstream:** `CUTOVER — observational correspondence and snapshot drift`
 **Flow / owner:** `CUTOVER`
@@ -36,6 +36,12 @@ pr_body_template: |
 > Repository authority: Buddy [`AGENTS.md`](../../AGENTS.md), [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md), [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md), [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md), and [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md).
 >
 > This is a rare steward-designated design PR. Routine state maintenance is not a design PR. The backward-looking Buddy authority sync for this completed design predecessor is a steward direct guarded commit after merge (§2); it must not pre-mark the implementation complete.
+
+## Completion record — design gate
+
+- **Design PR:** Buddy #614; final head `b270b1ea13d198ba0008e38cf6b5dedb64036bdf`; merge `e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a` (2026-08-17); 4 review cycles — Cycle 1 `4952698951` on `3d4ff31c…`, Cycle 2 `4953087216` on `5b4a15c6…`, Cycle 3 `4953155964` on `d92f65b7…`, accepting Cycle 4 `4953256382` on `b270b1ea…` (formal COMMENTs because reviewer == author).
+- **What the design fixed:** the read-only `ExistingWorldCorrespondenceResultV1` contract — `CORRESPONDING` / `STALE` / `MISMATCH` / `NOT_ADOPTED` classifications, the closed six-check algebra, and typed failure semantics (`PersistenceIntegrityError` for malformed input, integrity-invalid durable bytes, or a dangling adoption receipt; `PersistenceUnavailableError` for unavailable persistence; `NOT_ADOPTED` only on a `get_for_world` receipt miss). The §4 lease is DND-only; the cross-repo Buddy predecessor sync is steward-owned (§2) and landed as a direct guarded commit.
+- **What remains false:** the DungeonMind observational-correspondence implementation has not been dispatched or merged; §7 evidence does not exist yet. Product authority remains Buddy; disposition remains `CUTOVER_NOT_READY`. Catch-up/quiescence, living-write ownership, authority switch, first post-cutover mutation, and demolition remain unresolved.
 
 ## §1 Mission and merge-ready invariant
 
