@@ -84,6 +84,10 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     createWorkspaceDocument: vi.fn(),
     postWorldGraphProjection: vi.fn(),
+    listPlayRuns: vi.fn(),
+    getPlayRun: vi.fn(),
+    getPlayRunReferenceManifest: vi.fn(),
+    putPlayRunProgress: vi.fn(),
   };
 });
 
@@ -206,6 +210,15 @@ describe("App inspector integration", () => {
       }
       return fixtureSnapshot({ record: fixtureWorkspaceDocumentRecord({ document_id: documentId }) });
     });
+    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
+      schema_version: "dmb_play_runs_list_v1",
+      records: [],
+    });
+    vi.mocked(liveApi.getPlayRun).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockRejectedValue(
+      new liveApi.LiveApiError("not found", 404),
+    );
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
   });
 
   it("renders the launcher at the root route", () => {
@@ -213,6 +226,7 @@ describe("App inspector integration", () => {
 
     expect(screen.getByRole("heading", { name: /command board/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
+    expect(screen.getByRole("link", { name: /play runbook table deck/i })).toHaveAttribute("href", "/play");
     expect(screen.getByRole("link", { name: /ingest memory review/i })).toHaveAttribute("href", "/ingest");
     expect(screen.getByRole("link", { name: /build worldbuilding source/i })).toHaveAttribute("href", "/build");
     expect(screen.getByRole("link", { name: /combat tracker north reach gate tracker/i })).toHaveAttribute(
@@ -236,6 +250,7 @@ describe("App inspector integration", () => {
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
       "/plan",
+      "/play",
       "/ingest",
       "/build",
       "/combat",
@@ -380,7 +395,8 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
-    expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
     expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
@@ -550,6 +566,216 @@ describe("App inspector integration", () => {
 
     const editToggle = await screen.findByRole("button", { name: "Edit" });
     expect(editToggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  const PLAY_RUN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const PLAY_ARTIFACT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const PLAY_SHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+  const PLAY_MARKDOWN = [
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+    "## Gate",
+    "",
+    "Scene intro.",
+    "",
+    "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+    "### Approach",
+    "",
+    "Approach body.",
+    "",
+  ].join("\n");
+
+  function playRunRecord() {
+    return {
+      schema_version: "dmb_play_run_record_v1" as const,
+      run_id: PLAY_RUN_ID,
+      campaign_id: "longmont-c2",
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: PLAY_SHA,
+      run_revision: 4,
+      created_at: "2026-08-17T00:00:00Z",
+      updated_at: "2026-08-17T00:00:00Z",
+      progress: {
+        current_scene_id: null,
+        current_beat_id: null,
+        resolved_beat_ids: [] as string[],
+        selections: {} as Record<string, string>,
+        notes_by_element_id: {} as Record<string, string>,
+      },
+    };
+  }
+
+  function mockReadyPlayRun() {
+    const record = playRunRecord();
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(record);
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: PLAY_ARTIFACT_ID,
+          title: "North Gate Runbook",
+          kind: "runbook",
+          revision: 3,
+        }),
+        markdown: PLAY_MARKDOWN,
+        content_sha256: PLAY_SHA,
+        loaded_revision: 3,
+        file_exists: true,
+        file_fingerprint: "present",
+      }),
+    );
+    return record;
+  }
+
+  it("mounts /play through shared AppChrome without auto-selecting a Run", async () => {
+    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
+      schema_version: "dmb_play_runs_list_v1",
+      records: [playRunRecord()],
+    });
+    window.history.pushState({}, "", "/play");
+    render(<App />);
+
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Play" })).toHaveClass("active");
+    expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Choose a Run" })).toBeInTheDocument();
+    expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+      "href",
+      `/play?run=${PLAY_RUN_ID}`,
+    );
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
+  });
+
+  it("loads only the exact Run UUID from /play?run=", async () => {
+    mockReadyPlayRun();
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(liveApi.getPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID);
+    expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "North Gate Runbook" })).toBeInTheDocument();
+    expect(screen.queryByTestId("play-run-chooser")).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".surface-projection-host").length).toBeLessThanOrEqual(1);
+    expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
+  });
+
+  it("does not auto-select another Run for a malformed run query", async () => {
+    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
+      schema_version: "dmb_play_runs_list_v1",
+      records: [playRunRecord()],
+    });
+    window.history.pushState({}, "", "/play?run=not-a-uuid");
+    render(<App />);
+
+    expect(await screen.findByTestId("play-status-miss")).toBeInTheDocument();
+    expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+  });
+
+  it("blocks recovery-pending Runs before presenting mutation controls", async () => {
+    vi.mocked(liveApi.getPlayRun).mockRejectedValue(
+      new liveApi.LiveApiError("Play Run rebase recovery is pending", 503),
+    );
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-status-recovery_pending")).toBeInTheDocument();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
+  });
+
+  it("blocks a newer workspace Runbook as rebase required without overlaying Runtime", async () => {
+    mockReadyPlayRun();
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: PLAY_ARTIFACT_ID,
+          title: "North Gate Runbook",
+          kind: "runbook",
+          revision: 4,
+        }),
+        markdown: `${PLAY_MARKDOWN}\nNewer prose that must not render.\n`,
+        content_sha256: PLAY_SHA,
+        loaded_revision: 4,
+        file_exists: true,
+        file_fingerprint: "present",
+      }),
+    );
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-status-rebase_required")).toBeInTheDocument();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Newer prose that must not render/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
+  });
+
+  it("discards a stale exact-Run load after the route changes", async () => {
+    const otherRunId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    let resolveFirst: (value: ReturnType<typeof playRunRecord>) => void = () => undefined;
+    const firstLoad = new Promise<ReturnType<typeof playRunRecord>>((resolve) => {
+      resolveFirst = resolve;
+    });
+    vi.mocked(liveApi.getPlayRun).mockImplementation(async (runId) => {
+      if (runId === PLAY_RUN_ID) return firstLoad;
+      return { ...playRunRecord(), run_id: otherRunId };
+    });
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async (runId) => ({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: runId,
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+    }));
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      fixtureSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: PLAY_ARTIFACT_ID,
+          title: "North Gate Runbook",
+          kind: "runbook",
+          revision: 3,
+        }),
+        markdown: PLAY_MARKDOWN,
+        content_sha256: PLAY_SHA,
+        loaded_revision: 3,
+        file_exists: true,
+        file_fingerprint: "present",
+      }),
+    );
+
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+    expect(await screen.findByText(/Loading exact Run/i)).toBeInTheDocument();
+
+    window.history.pushState({}, "", `/play?run=${otherRunId}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    expect(await screen.findByText(`Run ${otherRunId}`)).toBeInTheDocument();
+    resolveFirst(playRunRecord());
+    await waitFor(() => {
+      expect(screen.queryByText(`Run ${PLAY_RUN_ID}`)).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(`Run ${otherRunId}`)).toBeInTheDocument();
   });
 
 });
