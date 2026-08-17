@@ -116,12 +116,14 @@ Expected DND lease:
 
 | Action | Path | Purpose |
 |---|---|---|
-| Create | `src/dungeonmind/application/existing_world_correspondence.py` | Read-only correspondence result + evaluator/service contract |
+| Create | `src/dungeonmind/contracts/existing_world_correspondence.py` | Versioned `ExistingWorldCorrespondenceResultV1` public contract |
+| Modify | `src/dungeonmind/contracts/__init__.py` | Export the result contract under the established public-contract convention |
+| Create | `src/dungeonmind/application/existing_world_correspondence.py` | Read-only correspondence evaluator/service seam |
 | Create | `tests/unit/test_existing_world_correspondence.py` | Exact classification/identity/integrity contract |
 | Create | `tests/integration/test_postgres_existing_world_correspondence.py` | Owning PostgreSQL proof including no-write and stale-snapshot sequence |
 | Reuse only | `tests/fixtures/dungeonmind_dnd/eldyrwild_existing_world_adoption_bundle_v2.json` | Exact #34 accepted source fixture; bytes must remain unchanged |
 
-**Bounded discovery exception:** one existing DungeonMind package export/`__init__` path may be modified only if the new public application contract must be exported under the repository's established package convention. No repository/schema/migration mutation path is authorized by this exception.
+**Bounded discovery exception:** one additional existing DungeonMind package export/`__init__` path (expected `src/dungeonmind/application/__init__.py`) may be modified only if the new application seam must be exported under the repository's established package convention. No repository/schema/migration mutation path is authorized by this exception.
 
 No Buddy paths are authorized for the implementation worker; the §2 Buddy sync is steward-owned. No Buddy runtime/source/schema changes are authorized anywhere in this slice.
 
@@ -175,6 +177,8 @@ Trust boundary:
   Records/trusts without proving: whether a different source revision is a safe
             descendant to catch up automatically; product routing/writer ownership.
 ```
+
+`ExistingWorldCorrespondenceResultV1` follows the repository's versioned public-contract convention: it lives in `src/dungeonmind/contracts/existing_world_correspondence.py` and is re-exported from `dungeonmind.contracts` like the other `*V1`/`V2` models. The read-only evaluator seam lives in `src/dungeonmind/application/existing_world_correspondence.py`.
 
 No new persisted correspondence record is required in this slice. Correspondence is a derived observation over two durable authorities. If implementation discovers it needs durable sync checkpoints, cursor state, replication offsets, or operator-managed transitions, STOP and split.
 
