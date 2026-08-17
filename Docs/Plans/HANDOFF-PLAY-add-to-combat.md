@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — add exact Threat mechanics to the existing Combat runtime
 
 **Created:** 2026-08-16  
-**Status:** DESIGNED — staged successor and directly dispatchable when the steward selects P4 and re-anchors the implementation branch. **No prerequisite exists merely because another handoff/document is absent from `main`, and P4 does not require P3A/P3B implementation merely to establish this exact Threat→Combat transition.**  
+**Status:** DESIGNED — Cycle 2 repair of binding identity, Combat generation replay authority, and exact-revision seed mapping. Staged successor and directly dispatchable when the steward selects P4 and re-anchors the implementation branch. **No prerequisite exists merely because another handoff/document is absent from `main`, and P4 does not require P3A/P3B implementation merely to establish this exact Threat→Combat transition.**
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-add-to-combat.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P4`  
 **Flow / owner:** `PLAY`  
@@ -64,7 +64,7 @@ If current `main` has gained a real native Play host by dispatch, wire the actio
 
 **Merge-ready invariant:**
 
-> **`Add to Combat` is an explicit, idempotent authority transition from one exact resolved Threat at one exact World Graph scope plus one exact immutable mechanics attachment `(statblock_id, revision_id, definition_digest)` into the existing `dmb_combat_encounter_state_v1` current Combat. The server independently revalidates the Run/campaign, exact Threat/scope, exact mechanics binding, immutable revision identity, and validation digest before creating entities. The client never submits a statblock body, never chooses first/latest/display-name mechanics, and never silently selects one of multiple exact bindings. Each created Combat entity retains immutable source Threat + statblock-revision references while Combat owns all mutable combat fields. A replay of the same request identity and same canonical intent creates nothing twice; the same request identity with different intent conflicts. All writers of the single current-Combat file serialize at the same Combat-owned mutation boundary so exact Add cannot lose concurrent HP/initiative/lifecycle changes. P4 does not create a second Combat store, does not add generic transaction/CAS infrastructure, does not implement missing P3B product behavior, and does not mutate World/Runbook/Run/mechanics authority.**
+> **`Add to Combat` is an explicit, idempotent authority transition from one exact resolved Threat at one exact World Graph scope plus one exact mechanics attachment identified by `binding_id` together with its coherent immutable revision triple `(statblock_id, revision_id, definition_digest)` into the existing `dmb_combat_encounter_state_v1` current Combat. The server independently revalidates the Run/campaign, exact Threat/scope, exact `binding_id`, immutable revision identity, and validation digest before creating entities. The client never submits a statblock body, never chooses first/latest/display-name mechanics, and never silently selects one of multiple exact bindings — including two bindings that share one revision triple. Each created Combat entity retains immutable source Threat + `binding_id` + statblock-revision references while Combat owns all mutable combat fields. Replay identity is bound to a non-recyclable Combat-owned `combat_generation_id`, not merely recyclable `encounter_id`. A replay of the same request identity and same canonical intent against that same generation creates nothing twice; the same request identity with different intent conflicts. All writers of the single current-Combat file serialize at the same Combat-owned mutation boundary so exact Add cannot lose concurrent HP/initiative/lifecycle changes. P4 does not create a second Combat store, does not add generic transaction/CAS infrastructure, does not implement missing P3B product behavior, and does not mutate World/Runbook/Run/mechanics authority.**
 
 ### Architecture boundary
 
@@ -124,10 +124,10 @@ P4 does **not** include a generic transaction framework or a Combat UI overhaul.
 | Explicit Add action for one exact P3C binding | Yes | New Play→Combat command | **Include** |
 | Select quantity/team explicitly | No; command inputs | Existing Combat semantics | **Include** |
 | Revalidate exact Threat + graph scope server-side | No; authority clause | Existing Threat hydration contract | **Include / reuse** |
-| Revalidate exact statblock revision triple | No; authority clause | Existing DungeonMindDnD/statblock contract | **Include / reuse** |
+| Revalidate exact `binding_id` plus coherent revision triple | No; authority clause | Existing World→statblock binding + DungeonMindDnD/statblock contract | **Include / reuse** |
 | Seed name/AC/HP from exact immutable revision | No; creation clause | Existing statblock definition | **Include** |
 | Persist exact Threat + revision provenance on Combat entity | No; traceability clause | Combat schema extension | **Include** |
-| Idempotent response-loss retry | No; mutation safety | Combat-owned request receipt | **Include** |
+| Idempotent response-loss retry | No; mutation safety | Combat-owned request receipt bound to non-recyclable `combat_generation_id` | **Include** |
 | Serialize all current-Combat writers | No; same persistence safety boundary | Existing file mutation ownership | **Include if current code still lacks shared serialization** |
 | Choose first/highest/primary mechanics automatically | No | Unsafe hidden policy | **Prohibit** |
 | Name/HP/initiative override during Add | Yes | Additional creation workflow | **Exclude** |
@@ -147,9 +147,9 @@ P4 does **not** include a generic transaction framework or a Combat UI overhaul.
 | Question | Answer |
 |---|---|
 | Most dangerous shortcut | Client sends the already-rendered statblock body and server trusts it. **Forbidden.** Client sends exact refs only; server re-hydrates/revalidates. |
-| Most dangerous ambiguity | Threat has multiple exact mechanics bindings and UI/server chooses array[0] or “primary.” **Forbidden.** Each exact available attachment is independently actionable. |
+| Most dangerous ambiguity | Threat has multiple exact mechanics bindings, including two that share one revision triple, and UI/server chooses array[0], “primary,” or the triple alone. **Forbidden.** Each available `binding_id` is independently actionable. |
 | Most dangerous mutation race | Add reads current Combat, HP/initiative/new/load mutates it, Add writes stale copy and loses the other change. All current-Combat writers must share one Combat mutation lock. |
-| Most dangerous response-loss sequence | Server commits entities, response is lost, client retries and duplicates combatants. Request receipt makes exact replay a no-op. |
+| Most dangerous response-loss sequence | Server commits entities, response is lost, then `new_combat_encounter`/`load_combat_save` recycles `encounter_id` without the later receipt. Receipts bound only to `encounter_id` would append again. Bind receipts to non-recyclable `combat_generation_id`. |
 | Most likely scope creep | Rebuilding Combat tracker, encounter authoring, P3B host, generic CAS, or Run-linked Combat architecture. Stop/split instead. |
 
 ---
@@ -197,12 +197,15 @@ At `53aaf9a566cfd40dd09f1a4c9723276cefa2a98a`:
 ```text
 P3C exact mechanics read/render seam exists.
 P3C Play composition wrapper exists but does not complete P3B.
-Threat mechanics identity is statblock_id + revision_id + definition_digest.
-Threat hydration is already server-owned and can return exact immutable revisions.
+Threat mechanics *revision* identity is statblock_id + revision_id + definition_digest.
+Threat *attachment* identity is binding_id, which additionally incorporates role, phase_key, and variant_label (`compute_binding_id` / `compute_world_object_statblock_binding_id`). Two available bindings may share one revision triple.
+Threat hydration is already server-owned and can return exact immutable revisions plus locator `bindingId`.
 Existing Combat state is dmb_combat_encounter_state_v1 in current_combat.json.
 CombatEntity already owns mutable hp/temp_hp/init/conditions/team/notes.
 Existing Combat has a legacy generated-statblock Add path using artifact/corpus provenance.
 Existing Combat save/load/new/unload lifecycle writes the same current-combat file.
+`new_combat_encounter` currently accepts an arbitrary existing `encounter_id`; `load_combat_save` restores a saved encounter wholesale. `encounter_id` is therefore recyclable and is not by itself a safe replay authority.
+Exact revision seed fields are `definition.identity.name`, `definition.defenses.armor_classes[]` with unique `default`, and `definition.vitality.hit_points` (`method`, `displayed_average`, `fixed_value`, formula). There is no `definition.name`, `definition.armor_class`, or `definition.hit_points.average`.
 registry_mutation_lock already exists as a repository file-mutation primitive.
 ```
 
@@ -214,7 +217,8 @@ P4 should replace none of those owners. It extends them narrowly.
 |---|---|---|
 | Threat identity | World Graph | World Graph; copied exact ref as immutable Combat provenance |
 | World graph scope/revision used for admission | World Graph projection | immutable source ref on created Combat entity/receipt |
-| Mechanics binding identity | World→DungeonMindDnD/statblock attachment | immutable exact ref on Combat entity/receipt |
+| Mechanics attachment identity (`binding_id`) | World→DungeonMindDnD/statblock attachment | immutable exact ref on Combat entity/receipt |
+| Immutable revision triple | StatblockRevision | copied onto Combat entity/receipt; must cohere with `binding_id` |
 | Statblock definition | immutable StatblockRevision | immutable revision remains source; Combat seeds creation values only |
 | Name/AC/max HP seed | exact immutable revision | Combat entity snapshot at creation |
 | Current HP/temp HP | n/a | Combat only |
@@ -303,6 +307,7 @@ Conceptual request:
 AddExactThreatCombatRequest {
   request_id: UUID
   encounter_id: string
+  combat_generation_id: UUID
 
   source: {
     run_id: UUID
@@ -314,6 +319,7 @@ AddExactThreatCombatRequest {
   }
 
   mechanics: {
+    binding_id: string
     statblock_id: string
     revision_id: string
     definition_digest: string
@@ -325,6 +331,10 @@ AddExactThreatCombatRequest {
 ```
 
 Exact wire nesting/naming may follow repository style, but these semantics may not be weakened.
+
+`binding_id` is required and non-empty. It is the mechanics *attachment* identity from the current hydration locator (`ThreatBindingHydrationV1.bindingId`) / typed binding (`ThreatStatblockBindingV1.bindingId`). Predecessor computation already includes role, phase_key, and variant_label (`src/graph_memory/union_supergraph/statblock_binding.py`). The revision triple remains required and must cohere with that binding; it is not a substitute for `binding_id`.
+
+`combat_generation_id` is required. The client copies it from the loaded current Combat. It is the Combat-owned non-recyclable instance identity defined in §3H. Recyclable `encounter_id` remains a consistency check, not replay authority.
 
 The client MUST NOT send:
 
@@ -373,25 +383,28 @@ Before writing Combat:
 5. load current Combat;
 6. missing current Combat → `404`, no write;
 7. require request `encounter_id` to equal current Combat `encounter_id` → otherwise `409`, no write;
-8. require Combat campaign, request campaign, and Run campaign to agree → otherwise `409`, no write;
-9. construct the existing exact Threat hydration request from request world/campaign/scope/revision + exact Threat node ID with mechanics included;
-10. call existing server `query_threats_with_hydration(...)` / current equivalent;
-11. require response world/campaign/scope/revision to equal the requested exact tuple;
-12. require exactly one exact returned Threat node ID match;
-13. find the **exact requested mechanics triple** among available hydrated bindings;
-14. zero exact matching available binding → `409`, no write;
-15. multiple exact matches for the same requested identity → integrity failure `500`, no write;
-16. require returned revision identity to equal the requested binding triple;
-17. require revision validation receipt/digest coherence using current statblock contract;
-18. incoherent server/hydration payload → `500`, no write;
-19. hydration dependency unavailable → `503`, no write;
-20. derive name/AC/max HP/current HP seed only from that exact immutable revision;
-21. enter the Combat mutation lock;
-22. re-read current Combat and re-check encounter/campaign + request receipt under the lock;
-23. exact replay → return prior entity IDs/current Combat with `replayed=true`, no append;
-24. request-ID intent conflict → `409`, no write;
-25. append `count` Combat entities + durable receipt in one atomic current-Combat write;
-26. return `replayed=false`.
+8. require request `combat_generation_id` to equal current Combat `combat_generation_id` → otherwise `409`, no write;
+9. require Combat campaign, request campaign, and Run campaign to agree → otherwise `409`, no write;
+10. construct the existing exact Threat hydration request from request world/campaign/scope/revision + exact Threat node ID with mechanics included;
+11. call existing server `query_threats_with_hydration(...)` / current equivalent;
+12. require response world/campaign/scope/revision to equal the requested exact tuple;
+13. require exactly one exact returned Threat node ID match;
+14. find the **exact requested `binding_id`** among available hydrated bindings (`hydrationStatus == available` and non-empty locator `bindingId`);
+15. zero exact matching available `binding_id` → `409`, no write;
+16. multiple hydrated rows with the same requested `binding_id` → integrity failure `500`, no write;
+17. require that binding's locator triple `(statblockId, revisionId, definitionDigest)` equals the requested triple;
+18. when the typed binding object is present, require `binding.bindingId` equals the requested `binding_id` and its revision triple equals the requested triple;
+19. require returned revision identity to equal the requested triple;
+20. require revision validation receipt/digest coherence using current statblock contract;
+21. incoherent server/hydration payload → `500`, no write;
+22. hydration dependency unavailable → `503`, no write;
+23. derive name/AC/max HP/current HP seed only from that exact immutable revision using §3G predecessor mapping; mapping failure → `500`, no write;
+24. enter the Combat mutation lock;
+25. re-read current Combat and re-check encounter_id + combat_generation_id + campaign + request receipt under the lock;
+26. exact replay against the same `combat_generation_id` → return prior entity IDs/current Combat with `replayed=true`, no append;
+27. request-ID intent conflict → `409`, no write;
+28. append `count` Combat entities + durable receipt in one atomic current-Combat write;
+29. return `replayed=false`.
 
 The authority verification may perform network/read work before the Combat lock. The lock protects the read-modify-write and replay decision. Revalidate the current encounter under the lock before committing.
 
@@ -411,14 +424,15 @@ CombatThreatSourceRef {
   graph_revision_id
 }
 
-ExactStatblockRevisionRef {
+ExactMechanicsAttachmentRef {
+  binding_id
   statblock_id
   revision_id
   definition_digest
 }
 ```
 
-Each newly created exact-Threat entity carries both.
+Each newly created exact-Threat entity carries both. `binding_id` is required provenance; the revision triple is required and must cohere with it. Role/phase/variant remain diagnostic labels on the hydration binding, not a second identity.
 
 Existing legacy Combat entities without these refs remain readable/mutable.
 
@@ -434,15 +448,65 @@ Use the smallest vocabulary change consistent with existing model style.
 
 ### G. Seed values vs mutable Combat values
 
-Creation seeds:
+Creation seeds come from the current exact `StatblockRevisionResourceV1.definition` predecessor, not invented aliases. There is no `definition.name`, `definition.armor_class`, or `definition.hit_points.average`.
 
 ```text
-name    ← exact revision definition.name
-ac      ← exact revision definition.armor_class
-max_hp  ← exact revision definition.hit_points.average
+name    ← definition.identity.name
+ac      ← unique default armor-class profile value
+max_hp  ← method-specific HP seed below
 hp      ← same max_hp seed
 team    ← explicit operator input
 init    ← existing unset/default Combat behavior
+```
+
+**Name.** `definition.identity.name` must be a non-empty string. Missing/blank → `500`, no write.
+
+**Armor class.** Use `definition.defenses.armor_classes`.
+
+```text
+require a non-empty array
+require exactly one profile with default == true
+seed ac from that profile's integer `value`
+```
+
+Fail closed (`500`, no write) if:
+
+```text
+armor_classes is missing/empty/not an array
+zero default profiles
+two or more default profiles
+the unique default profile has a non-integer or missing value
+```
+
+Do **not** fall back to `armor_classes[0]`. `combatMinimums()` in `apps/live-control-ui/src/contracts/dungeonbuddy-statblocks-v1/combatMinimums.ts` is a presentation helper and its `[0]` fallback is forbidden for Combat seed admission. The generated contract already requires exactly one default profile; a hydrated revision that violates that is an integrity failure.
+
+**Hit points.** Use `definition.vitality.hit_points`. P4 does not roll dice.
+
+```text
+method == "fixed"
+  → seed max_hp/hp from integer `fixed_value`
+  → `fixed_value` missing/null/non-integer → 500, no write
+  → do not use displayed_average as the Combat seed
+
+method == "formula"
+  → seed max_hp/hp from integer `displayed_average`
+  → `displayed_average` missing/null/non-integer → 500, no write
+  → do not evaluate `formula` at Add time
+  → do not use `fixed_value` (predecessor leaves it null for formula)
+
+any other method
+  → 500, no write
+```
+
+Do **not** use `displayed_average ?? fixed_value` as a silent fallback.
+
+Concrete predecessor fixture `tests/fixtures/statblocks/v1/exact-revision-response.json` must seed:
+
+```text
+name   = "Ironhide Brute"
+ac     = 15          # unique default natural_armor
+max_hp = 68          # method=formula displayed_average
+hp     = 68
 ```
 
 After creation:
@@ -468,14 +532,41 @@ A later new statblock revision does not auto-refresh an existing combatant. The 
 
 Response loss must not duplicate combatants.
 
+Current main already recycles `encounter_id`:
+
+```text
+new_combat_encounter accepts an arbitrary existing encounter_id
+load_combat_save restores a saved encounter record wholesale
+```
+
+An older save can therefore restore the same `encounter_id` without a receipt written later. Binding receipts only to `encounter_id` would make response-loss replay append again. That is the handoff's own stop condition; P4 must not pretend the current label is safe.
+
+**Required Combat-local replay authority:** add `combat_generation_id` (UUID) on `CombatEncounterState`.
+
+Mint a fresh `combat_generation_id` when current Combat is created or replaced as a distinct live instance:
+
+```text
+first write of a new current Combat
+new_combat_encounter          # always, even if the caller reuses encounter_id
+load_combat_save              # always a new live generation; do not reuse the save's generation as current
+unload_current_combat         # fresh empty current Combat
+```
+
+Do **not** mint on Add, HP/temp HP, initiative, turn, or `save_current_as`. A save snapshots whatever generation was current; loading that save into current still mints a new generation so restored content is a new live instance.
+
+Legacy current Combat JSON without `combat_generation_id` remains readable for existing HP/initiative/lifecycle routes. Exact Add, and the P4-touched lifecycle writers, mint one in the same atomic current-Combat write that needs it. Do not rewrite old saves on disk merely to add the field.
+
+`encounter_id` remains a recyclable human/lifecycle label and a consistency check. It is not replay authority.
+
 Add a Combat-owned receipt representation, conceptually:
 
 ```text
 CombatAddReceipt {
   request_id: UUID
   encounter_id: string
+  combat_generation_id: UUID
   source_threat_ref: CombatThreatSourceRef
-  statblock_revision_ref: ExactStatblockRevisionRef
+  mechanics_attachment_ref: ExactMechanicsAttachmentRef
   team: CombatTeam
   count: int
   entity_ids: string[]
@@ -488,9 +579,11 @@ Canonical replay semantics:
 
 ```text
 same request_id
++ same combat_generation_id
 + same encounter_id
 + same exact source ref
-+ same exact mechanics ref
++ same exact binding_id
++ same exact revision triple
 + same team
 + same count
   → replay success
@@ -498,14 +591,19 @@ same request_id
   → same original entity_ids
 
 same request_id
-+ any material intent difference
++ any material intent difference, including a different binding_id
   → 409
   → no write
+
+request combat_generation_id != current combat_generation_id
+  → 409
+  → no write
+  → even if encounter_id matches
 ```
 
-Receipts are encounter-local. Do not invent a cross-encounter global receipt ledger in P4.
+Receipts live on the current Combat generation. Do not invent a cross-encounter global receipt ledger or a generic transaction/CAS primitive.
 
-If implementation proves current encounter lifecycle can recycle the same encounter identity in a way that makes safe replay impossible, **stop/rebrief** rather than hiding the problem with a generic transaction system.
+This remains Combat-local: `combat_saves.py` / `combat_state.py` mint and compare the generation id. It does not hoist a Buddy-shared mutation token.
 
 ### I. Current-Combat serialization
 
@@ -554,9 +652,11 @@ with the lower-level write helper remaining non-locking.
 | Run missing | 404 / no write |
 | Current Combat missing | 404 / no write |
 | Encounter mismatch | 409 / no write |
+| Combat generation mismatch | 409 / no write |
 | Run/request/Combat campaign mismatch | 409 / no write |
 | Exact Threat absent | 409 / no write |
-| Requested mechanics triple absent/not available | 409 / no write |
+| Requested `binding_id` absent/not available | 409 / no write |
+| Requested `binding_id` present but revision triple does not cohere | 500 / no write |
 | Hydration scope mismatch / duplicate exact Threat / internally incoherent revision | 500 / no write |
 | Threat/mechanics hydration dependency unavailable | 503 / no write |
 | Same request ID + same intent | 200 success / replayed true / no duplicate |
@@ -584,8 +684,8 @@ Pin the exact implementation base at dispatch. These are current expected owners
 
 | Action | Path | Purpose |
 |---|---|---|
-| Modify | `apps/live_control_server/services/combat_state.py` | exact source/revision refs, receipt, exact Add mutation, Combat-local serialization |
-| Modify if needed | `apps/live_control_server/services/combat_saves.py` | make lifecycle writers share the same current-Combat lock |
+| Modify | `apps/live_control_server/services/combat_state.py` | exact source/`binding_id`/revision refs, `combat_generation_id`, receipt, exact Add mutation, Combat-local serialization, predecessor seed mapping |
+| Modify | `apps/live_control_server/services/combat_saves.py` | mint non-recyclable `combat_generation_id` on new/load/unload; share the same current-Combat lock |
 | Modify | `apps/live_control_server/routes/live.py` | exact Add route/request/response transport under existing Combat API owner |
 
 ### Server — read/reuse, not redesign
@@ -689,8 +789,10 @@ The durable mutation identity is:
 
 ```text
 request_id
++ combat_generation_id
 + encounter_id
 + exact Threat source tuple
++ exact binding_id
 + exact mechanics revision tuple
 + explicit team
 + explicit count
@@ -711,15 +813,20 @@ graph_revision_id
 
 Every field participates in canonical replay intent.
 
-### C. Exact mechanics tuple
+### C. Exact mechanics attachment
 
 ```text
+binding_id
 statblock_id
 revision_id
 definition_digest
 ```
 
 Every field participates in canonical replay intent.
+
+`binding_id` is the attachment identity. The revision triple is the immutable mechanics revision and must cohere with that attachment. Two available bindings that share one revision triple remain two commands.
+
+A missing/blank `binding_id` is not a legal request. An available hydration row with a null/blank locator `bindingId` is not actionable.
 
 ### D. No body trust
 
@@ -731,23 +838,25 @@ The server independently obtains the exact immutable revision through the existi
 
 ### E. Multi-binding command semantics
 
-For Threat bindings A and B:
+For Threat bindings A and B, including the case where A and B share one revision triple:
 
 ```text
 Add A
-  → request exact triple A
+  → request binding_id A + A's coherent revision triple
 
 Add B
-  → request exact triple B
+  → request binding_id B + B's coherent revision triple
 ```
 
-The server does not know or infer which one is “active.” It proves only that the requested exact triple is an available accepted attachment for the exact Threat at the exact requested graph revision.
+The server does not know or infer which one is “active.” It proves only that the requested `binding_id` is an available accepted attachment for the exact Threat at the exact requested graph revision and that the requested revision triple coheres with that binding.
+
+Selecting by revision triple alone is forbidden: it would make A and B indistinguishable, then classify two legitimate triple matches as an integrity failure.
 
 ### F. Entity creation
 
 For count N, create N distinct Combat entity IDs in deterministic current repository style.
 
-All N entities receive the same immutable source/mechanics refs and explicit team, but remain separate mutable Combat entities.
+All N entities receive the same immutable source/`binding_id`/revision refs and explicit team, but remain separate mutable Combat entities.
 
 Do not persist the entire statblock revision definition inside each entity unless the existing Combat schema already requires a bounded creation snapshot. Exact refs are the provenance contract.
 
@@ -757,7 +866,8 @@ Existing Combat JSON may lack:
 
 ```text
 source_threat_ref
-statblock_revision_ref
+mechanics_attachment_ref
+combat_generation_id
 add_receipts
 ```
 
@@ -769,13 +879,15 @@ Legacy generated-statblock Add remains functional unless the slice explicitly pr
 
 ### H. Combat lifecycle and receipt scope
 
-A receipt belongs to the loaded current encounter.
+A receipt belongs to the loaded current Combat *generation*.
 
-The UI owns a fresh `request_id` per explicit Add intent and may reuse it only to retry that same unresolved command.
+`encounter_id` may recycle. `combat_generation_id` must not.
 
-When the selected encounter/action context changes, discard the old retry identity and require a fresh operator action.
+The UI reads `combat_generation_id` from current Combat, owns a fresh `request_id` per explicit Add intent, and may reuse that `request_id` only to retry that same unresolved command against the same generation.
 
-Do not automatically retry an old request across a new/load/unload Combat lifecycle transition.
+When the selected encounter/generation/action context changes, discard the old retry identity and require a fresh operator action.
+
+Do not automatically retry an old request across a new/load/unload Combat lifecycle transition. Those transitions mint a new `combat_generation_id`; a stale retry must 409 rather than append.
 
 ### I. UI local state
 
@@ -785,6 +897,7 @@ Do not automatically retry an old request across a new/load/unload Combat lifecy
 team
 count
 request_id for current unresolved intent
+combat_generation_id copied from current Combat
 submitting
 local error/success acknowledgement
 ```
@@ -826,29 +939,36 @@ Evidence must prove the mutation at the owner, not merely helpers.
 
 Required tests:
 
-1. **Happy path:** exact Threat + exact available revision adds one Combat entity.
+1. **Happy path:** exact Threat + exact available `binding_id` adds one Combat entity.
 2. **Count:** count > 1 creates exactly N distinct entities.
-3. **Seed authority:** name/AC/max HP/current HP come from the independently hydrated exact immutable revision, not caller fields.
-4. **Exact source refs:** created entities retain exact Run/Threat/world/campaign/scope/graph-revision provenance.
-5. **Exact mechanics refs:** entities retain exact statblock/revision/digest provenance.
-6. **Multi-binding:** requesting B adds B even if A appears first; no array-order/primary fallback.
-7. **Missing exact mechanics triple:** 409 and byte-for-byte current Combat unchanged.
-8. **Run campaign mismatch:** 409/no write.
-9. **Encounter mismatch:** 409/no write.
-10. **Missing Run:** 404/no write.
-11. **Missing current Combat:** 404/no write.
-12. **Hydration dependency unavailable:** 503/no write.
-13. **Hydration response scope mismatch:** fail closed/no write.
-14. **Duplicate exact Threat hit/internal response ambiguity:** 500/no write.
-15. **Binding/revision identity or digest incoherence:** 500/no write.
-16. **Exact replay:** same request ID + same canonical intent returns original entity IDs with no duplicate.
-17. **Intent conflict:** same request ID + changed team/count/source/mechanics → 409/no write.
-18. **Concurrent distinct exact Adds:** both commits survive.
-19. **Add vs HP mutation:** both commits survive; HP change is not lost.
-20. **Add vs initiative/entity mutation:** both commits survive.
-21. **Add vs new/load/unload lifecycle:** serialized deterministic valid result; no torn/malformed current Combat.
-22. **Legacy state:** pre-P4 Combat JSON without new refs/receipts loads and existing mutation routes remain valid.
-23. **Post-add mutability:** HP/temp HP/init/conditions/team changes preserve immutable source/mechanics refs and never call World/Run/statblock write paths.
+3. **Seed authority against the predecessor fixture:** using `tests/fixtures/statblocks/v1/exact-revision-response.json` (or an equivalent governed hydration of that revision), created entity `name == "Ironhide Brute"`, `ac == 15`, `max_hp == 68`, `hp == 68`. Caller-supplied name/AC/HP are ignored/rejected.
+4. **AC unique-default rule:** zero default profiles or two default profiles → `500` / no write; do not seed from `armor_classes[0]`.
+5. **HP method rule:** `method=formula` with null `displayed_average` → `500` / no write; `method=fixed` with null `fixed_value` → `500` / no write; formula method must not evaluate dice and must not fall back to `fixed_value`.
+6. **Exact source refs:** created entities retain exact Run/Threat/world/campaign/scope/graph-revision provenance.
+7. **Exact mechanics refs:** entities retain exact `binding_id` plus coherent statblock/revision/digest provenance.
+8. **Shared-triple multi-binding:** two available bindings A and B share one revision triple and differ by `binding_id` (role/phase/variant). Add A creates entities whose provenance `binding_id` is A; Add B independently creates entities whose provenance `binding_id` is B. Neither request is an integrity failure merely because the triples match.
+9. **Array-order:** requesting B adds B even if A appears first; no primary/first fallback.
+10. **Missing `binding_id` / unavailable binding:** 409 and byte-for-byte current Combat unchanged.
+11. **`binding_id` vs triple mismatch:** requested `binding_id` exists but the requested triple does not cohere → `500` / no write.
+12. **Run campaign mismatch:** 409/no write.
+13. **Encounter mismatch:** 409/no write.
+14. **Combat generation mismatch:** same `encounter_id`, different `combat_generation_id` → 409/no write.
+15. **Missing Run:** 404/no write.
+16. **Missing current Combat:** 404/no write.
+17. **Hydration dependency unavailable:** 503/no write.
+18. **Hydration response scope mismatch:** fail closed/no write.
+19. **Duplicate exact Threat hit/internal response ambiguity:** 500/no write.
+20. **Binding/revision identity or digest incoherence:** 500/no write.
+21. **Exact replay:** same request ID + same canonical intent including `binding_id` and `combat_generation_id` returns original entity IDs with no duplicate.
+22. **Intent conflict:** same request ID + changed team/count/source/`binding_id`/triple → 409/no write.
+23. **Recycled encounter_id after new:** complete Add, `new_combat_encounter` with the same `encounter_id`, exact old-token retry → 409; no duplicate entities.
+24. **Older save restore:** complete Add, `load_combat_save` of a prior snapshot of the same `encounter_id` that lacks that receipt, exact old-token retry → 409; no duplicate entities.
+25. **Concurrent distinct exact Adds:** both commits survive.
+26. **Add vs HP mutation:** both commits survive; HP change is not lost.
+27. **Add vs initiative/entity mutation:** both commits survive.
+28. **Add vs new/load/unload lifecycle:** serialized deterministic valid result; no torn/malformed current Combat; lifecycle mints a new `combat_generation_id`.
+29. **Legacy state:** pre-P4 Combat JSON without new refs/receipts/generation id loads and existing mutation routes remain valid.
+30. **Post-add mutability:** HP/temp HP/init/conditions/team changes preserve immutable source/`binding_id`/revision refs and never call World/Run/statblock write paths.
 
 Use an exact revision fixture or governed mocked hydration response. Do not fake the core admission by directly injecting a caller-provided statblock body into the Add service.
 
@@ -856,18 +976,18 @@ Use an exact revision fixture or governed mocked hydration response. Do not fake
 
 Required component/API tests:
 
-1. one exact available binding → one Add affordance tied to its exact triple;
-2. multiple available bindings → one explicit affordance per exact binding; no hidden winner;
-3. unavailable/partial/integrity-failed binding → not actionable;
+1. one exact available binding → one Add affordance tied to its `binding_id`;
+2. multiple available bindings, including two that share a revision triple → one explicit affordance per `binding_id`; no hidden winner;
+3. unavailable/partial/integrity-failed/missing-`bindingId` binding → not actionable;
 4. team/count are visible and submitted exactly;
-5. request contains exact Run/Threat/world/campaign/scope/revision + mechanics triple;
+5. request contains exact Run/Threat/world/campaign/scope/revision + `combat_generation_id` + `binding_id` + revision triple;
 6. request contains **no statblock definition/body/name/HP**;
 7. no action context → P3C mechanics remains read-only;
 8. double click/in-flight interaction produces one request;
 9. retry after uncertain transport failure reuses request ID + canonical intent;
 10. new deliberate Add after success receives a new request ID;
 11. 409/503 is local and leaves mechanics/object sheet rendered;
-12. changing encounter/source/binding context clears stale retry identity;
+12. changing encounter/generation/source/`binding_id` context clears stale retry identity;
 13. `ThreatMechanicsPanel` has no Combat action/import regression;
 14. P3C existing mechanics tests remain green.
 
@@ -968,8 +1088,11 @@ At implementation completion answer:
 ```text
 P4_HOIST_OBSERVATION
 - Reused existing current Combat store/runtime? yes/no
-- Server independently revalidated exact Threat + exact mechanics? yes/no
-- Combat entity retains exact immutable Threat/mechanics provenance? yes/no
+- Server independently revalidated exact Threat + exact `binding_id` + coherent revision triple? yes/no
+- Combat entity retains exact immutable Threat/`binding_id`/revision provenance? yes/no
+- Two bindings sharing one revision triple remained independently actionable? yes/no
+- Replay bound to Combat-local `combat_generation_id` rather than recyclable `encounter_id`? yes/no
+- Seed name/AC/HP used predecessor identity/defenses/vitality fields with fail-closed AC/HP rules? yes/no
 - Mutable HP/init/conditions/team remain Combat-only? yes/no
 - Any World/Run/Runbook/statblock writeback? yes/no
 - Any generic transaction/CAS primitive required? yes/no
@@ -983,9 +1106,10 @@ Expected if this design holds:
 ```text
 ROADMAP_REVIEW — NO DESIGN CHANGE
 P4 graduated the explicit exact Threat→Combat transition onto the existing Combat
-runtime. Exact source/mechanics identity is retained as provenance while all mutable
-combat state remains Combat-owned. No second Combat store, generic runtime/transaction,
-or DungeonMind kernel contract was justified. P5 remains independent.
+runtime. Attachment identity is `binding_id` with a coherent revision triple; replay
+is bound to Combat-local `combat_generation_id`. Mutable combat state remains
+Combat-owned. No second Combat store, generic runtime/transaction, or DungeonMind
+kernel contract was justified. P5 remains independent.
 ```
 
 ---
@@ -999,10 +1123,11 @@ Record:
 3. P3C source contract consumed, including exact reviewed/merge anchors if still relevant;
 4. actual route path and request/response schema names;
 5. exact Combat schema additions;
-6. exact request receipt/replay semantics;
+6. exact request receipt/replay semantics, including `combat_generation_id` mint rules;
 7. exact Combat lock owner and every current writer brought under it;
-8. happy-path exact Threat + mechanics tuple used in proof;
-9. multi-binding proof and selected exact attachment;
+8. happy-path exact Threat + `binding_id` + revision tuple used in proof;
+9. shared-triple multi-binding proof: two `binding_id`s with one revision triple remain independently actionable;
+9b. predecessor seed proof: Ironhide Brute name/AC/HP plus AC/HP fail-closed cases;
 10. all failure-code/no-write proofs;
 11. concurrency/lifecycle evidence;
 12. legacy Combat compatibility evidence;
@@ -1032,16 +1157,18 @@ PASS only if all are true:
 - [ ] Multiple exact bindings never collapse to a hidden winner.
 - [ ] Team/count are explicit visible inputs.
 - [ ] Client sends exact refs only, not statblock body/name/HP.
-- [ ] Server independently validates Run/campaign/current encounter.
+- [ ] Server independently validates Run/campaign/current encounter and `combat_generation_id`.
 - [ ] Server independently hydrates exact Threat at exact graph scope.
-- [ ] Server selects only the exact requested statblock/revision/digest attachment.
+- [ ] Server selects only the exact requested `binding_id` and requires its revision triple to cohere.
+- [ ] Two bindings sharing one revision triple remain independently actionable.
 - [ ] Server verifies immutable revision + validation digest coherence.
-- [ ] Seed name/AC/HP come from exact immutable revision.
-- [ ] Combat entities retain immutable exact Threat + mechanics provenance.
+- [ ] Seed name/AC/HP come from predecessor fields `identity.name`, unique default `armor_classes[].value`, and method-specific `vitality.hit_points` (`displayed_average` for formula, `fixed_value` for fixed), with the Ironhide Brute fixture proving `name="Ironhide Brute"`, `ac=15`, `hp=68`.
+- [ ] Combat entities retain immutable exact Threat + `binding_id` + revision provenance.
 - [ ] HP/temp HP/init/conditions/team/notes remain Combat-only mutable fields.
 - [ ] No World/Run/Runbook/statblock writeback occurs.
-- [ ] Same request ID + same intent is idempotent.
-- [ ] Same request ID + different intent conflicts without write.
+- [ ] Same request ID + same intent against the same `combat_generation_id` is idempotent.
+- [ ] Same request ID + different intent, including a different `binding_id`, conflicts without write.
+- [ ] Recycled `encounter_id` via new/load cannot satisfy an older request receipt.
 - [ ] Current Combat mutation/lifecycle writers serialize so no concurrent lost updates occur.
 - [ ] Legacy current Combat remains readable/mutable.
 - [ ] Existing legacy generated Add remains valid unless separately rebriefed.
@@ -1065,11 +1192,12 @@ Stop and report rather than expanding if any of these becomes true:
 
 - current Combat has been replaced by a materially different owner and this design would create a second store;
 - exact Threat hydration can no longer prove exact world/campaign/scope/revision identity;
-- exact statblock binding cannot be identified by `(statblock_id, revision_id, definition_digest)`;
+- exact mechanics attachment cannot be identified by `binding_id` on the current hydration contract;
+- `binding_id` cannot be carried without a new DungeonMind/DungeonMindDnD contract;
 - server must trust a caller-supplied statblock body to perform Add;
 - exact Add requires a new DungeonMind/DungeonMindDnD contract;
-- safe response-loss replay cannot be represented encounter-locally without a new cross-encounter identity model;
-- current Combat lifecycle recycles encounter identity in a way that makes request replay unsafe and cannot be fixed locally;
+- Combat-local `combat_generation_id` cannot be minted on new/load/unload without introducing a generic transaction/CAS framework;
+- unique-default AC or method-specific HP seed cannot be derived from the current exact-revision contract without inventing fields;
 - safe concurrent mutation requires a generic transaction/CAS framework rather than a Combat-local file lock;
 - action requires persistent active mechanics selection in Run;
 - action requires World or mechanics binding mutation;
