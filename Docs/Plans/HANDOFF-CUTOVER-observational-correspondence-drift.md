@@ -41,7 +41,7 @@ pr_body_template: |
 
 **Mission:** CUTOVER can determine whether one exact Buddy authority snapshot and one durable DungeonMind adopted world are observationally the same authority state, so stale or incompatible snapshots fail visibly before any product read/write switch.
 
-**Merge-ready invariant:** Given one exact Buddy adoption bundle identity and one durable DungeonMind world/adoption receipt, a read-only correspondence check returns a deterministic classification bound to both exact revisions: `CORRESPONDING` only when the durable DungeonMind state reconstructs the sealed source semantics and authority history represented by that bundle; `STALE` when the supplied Buddy authority snapshot is a different otherwise-valid source snapshot than the one DungeonMind adopted; `MISMATCH` when the claimed same snapshot reconstructs but diverges; and a typed integrity error when input or durable bytes cannot be reconstructed at all. No classification may mutate either system or imply product-authority cutover.
+**Merge-ready invariant:** Given one exact Buddy adoption bundle identity and one durable DungeonMind world_id, a read-only correspondence check returns a deterministic classification bound to both exact revisions: `CORRESPONDING` only when the durable DungeonMind state reconstructs the sealed source semantics and authority history represented by that bundle; `STALE` when the supplied Buddy authority snapshot is a different otherwise-valid source snapshot than the one DungeonMind adopted; `MISMATCH` when the claimed same snapshot reconstructs but diverges; `NOT_ADOPTED` only when no adoption receipt exists for the world; and a typed integrity error when input or durable bytes cannot be reconstructed at all — including when a receipt exists but its referenced world/revision/history/evidence is missing or integrity-invalid. No classification may mutate either system or imply product-authority cutover.
 
 ### Pre-dispatch critique
 
@@ -97,7 +97,8 @@ If those four Buddy authority paths have changed materially before the sync, re-
 | Same exact bundle identity, durable graph/history divergence after successful reconstruction | `MISMATCH`; never `CORRESPONDING` | Yes | Durable readback reconstruction |
 | Malformed input bundle or integrity-invalid durable bytes | typed `PersistenceIntegrityError`; no classification; never `CORRESPONDING` | Yes | Contract parse + integrity readback |
 | Different valid Buddy source snapshot for same world | `STALE`; report adopted source revision and observed source revision | Yes | Correspondence evaluator |
-| Unknown world/adoption | explicit unresolved/not-adopted result; no fallback to label/latest world | Yes | Repository lookup boundary |
+| No adoption receipt for world_id (`get_for_world` miss) | `NOT_ADOPTED`; adopted_* fields null; no fallback to label/latest world | Yes | Repository lookup boundary |
+| Receipt exists but referenced world/revision/history/evidence missing or integrity-invalid | typed `PersistenceIntegrityError`; no classification; never `NOT_ADOPTED` | Yes | Repository lookup + durable readback |
 | Retry same read-only check | deterministic same classification; no durable writes/head events | Yes | Service/repository boundary |
 
 Adversarial sequences:
@@ -107,7 +108,8 @@ Adversarial sequences:
 | adopt exact A → check A → present valid changed snapshot B | first `CORRESPONDING`, second `STALE`; DND durable state unchanged | PostgreSQL integration |
 | adopt exact A → alter reconstructed expected semantic/history field while claiming A | `MISMATCH`; shape-only equality cannot pass | contract/integration |
 | supply malformed bundle bytes claiming A | `PersistenceIntegrityError`; no classification emitted | unit contract |
-| check while no adoption receipt exists | explicit not-adopted/unresolved; no current-head guessing | repository/service test |
+| check while no adoption receipt exists | `NOT_ADOPTED`; no current-head guessing | repository/service test |
+| receipt exists for world → referenced adopted durable state (world/revision/history/evidence) missing | `PersistenceIntegrityError`; no classification; never `NOT_ADOPTED` | repository/integration |
 | run checker twice | byte/semantic-equivalent result; zero write/head/receipt delta | integration read-only proof |
 
 ## §4 Files in scope — implementation write lease
@@ -146,7 +148,9 @@ If repository inspection shows the owning DND contract/application module conven
 ```text
 Input:
   exact ExistingWorldAdoptionBundleV2 bytes / parsed identity
-  durable DungeonMind world_id + adoption receipt / adopted revision
+  durable DungeonMind world_id; the adoption receipt is retrieved
+  independently via get_for_world(world_id), never inferred from
+  world/label/latest state
 
 Output (returned only for a well-formed evaluation):
   ExistingWorldCorrespondenceResultV1
@@ -172,7 +176,15 @@ Output (returned only for a well-formed evaluation):
                    every other check not_evaluated.
     MISMATCH:      source_identity match and at least one other check diverged;
                    checks past the first divergence may be not_evaluated.
-    NOT_ADOPTED:   no receipt/world; adopted_* fields null; checks == [].
+    NOT_ADOPTED:   no adoption receipt for world_id (get_for_world miss);
+                   adopted_* fields null; checks == [].
+
+Evaluation order (receipt presence is decided before any comparison):
+  1. parse/validate source input; malformed/integrity-invalid input raises
+  2. receipt lookup via get_for_world(world_id); a miss classifies NOT_ADOPTED
+  3. resolve the receipt's referenced world/revision/history/evidence;
+     missing or integrity-invalid referenced state raises PersistenceIntegrityError
+  4. compare reconstructed state; CORRESPONDING / STALE / MISMATCH per algebra
 
 Invariant:
   CORRESPONDING is impossible unless exact source identity and reconstructed durable
@@ -185,9 +197,14 @@ Failure behavior — errors are raised, never returned as classifications:
   integrity-invalid durable bytes on readback
       → PersistenceIntegrityError; details.reason names the failed integrity check
       (distinct from MISMATCH: MISMATCH means reconstruction succeeded and diverged)
+  receipt exists but its referenced world/revision/history/evidence is
+  missing or integrity-invalid
+      → PersistenceIntegrityError; no classification; never NOT_ADOPTED
+      (receipt presence is established independently via get_for_world;
+       a dangling/corrupt receipt is corrupted adopted state, not absence)
   persistence unavailable
       → PersistenceUnavailableError; no result; never corresponding
-  no receipt/world
+  no adoption receipt for world_id (get_for_world miss)
       → NOT_ADOPTED (a classification, not an error)
   No new error types are introduced; domain/errors.py is not in the lease.
 
@@ -216,7 +233,8 @@ No new persisted correspondence record is required in this slice. Correspondence
 | Valid changed source is stale | correspondence service + PostgreSQL | adversarial integration | `STALE`; both source revision identities visible | auto-adopt/catch-up or `CORRESPONDING` |
 | Semantic/history divergence is mismatch | contract/readback | unit + integration | `MISMATCH` even if graph counts match | shape-only comparison passes |
 | Malformed/integrity-invalid input fails closed | contract parse | unit | `PersistenceIntegrityError`; no classification; never `CORRESPONDING` | malformed input returns a classification |
-| Unknown adoption is explicit | repository/service | unit/integration | `NOT_ADOPTED`; no fallback | label/latest lookup |
+| Missing receipt is explicit absence | repository/service | unit/integration | `get_for_world` miss → `NOT_ADOPTED`; adopted_* null; no fallback | label/latest lookup |
+| Dangling receipt fails closed | repository/readback | unit + integration | receipt exists; referenced world/revision/history/evidence missing or invalid → `PersistenceIntegrityError`; no classification | dangling receipt classified `NOT_ADOPTED` or `MISMATCH` |
 | Dependency unavailable is an error, not a state | service/repository | unit | `PersistenceUnavailableError`; no result; retry re-evaluates fresh | unavailable cached or returned as a classification |
 | Checker is read-only/idempotent | PostgreSQL | before/after row/head/receipt counts + repeated result | zero durable mutation | any write/head event |
 | #34 regression stays intact | existing #34 tests | focused regression | existing adoption suite remains green subject to truthful baseline | regression introduced |
@@ -260,7 +278,7 @@ Record:
 2. exact design PR merge SHA and review-cycle count recorded by the predecessor doc sync;
 3. exact source/adopted revision identities for `CORRESPONDING` proof;
 4. exact changed-source identity pair for `STALE` proof;
-5. mismatch case that proves graph counts alone cannot establish correspondence, plus the malformed-input and dependency-unavailable typed-error proofs;
+5. mismatch case that proves graph counts alone cannot establish correspondence, plus the malformed-input, dangling-receipt, and dependency-unavailable typed-error proofs;
 6. proof the checker produced no world/head/revision/receipt/history mutations;
 7. complete §7 results and provenance;
 8. actual DND changed paths versus the §4 lease, plus the steward Buddy predecessor-sync commit SHA and its four paths;
@@ -274,7 +292,7 @@ Record:
 - [ ] A different valid Buddy snapshot classifies `STALE` with both revision identities.
 - [ ] Same-snapshot semantic/history corruption cannot pass as corresponding.
 - [ ] `ExistingWorldCorrespondenceResultV1` carries the exact §6 schema identity, field nullability, closed check algebra, and raised-error failure semantics.
-- [ ] Unknown adoption classifies `NOT_ADOPTED`; malformed input and unavailable persistence raise typed errors, never classifications; no label/latest/current-head fallback exists.
+- [ ] A missing adoption receipt (`get_for_world` miss) classifies `NOT_ADOPTED`; a receipt whose referenced durable world/revision/history/evidence is missing or invalid raises `PersistenceIntegrityError`, never a classification; malformed input and unavailable persistence raise typed errors, never classifications; no label/latest/current-head fallback exists.
 - [ ] Repeated checks create no durable writes or head events.
 - [ ] No replication, catch-up, writer transfer, product read switch, rollback workflow, or first post-cutover mutation is introduced.
 - [ ] The completed design predecessor is recorded across Buddy tracker/status/roadmap/handoff by the steward's direct guarded sync after this design PR merges.
