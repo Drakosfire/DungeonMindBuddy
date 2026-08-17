@@ -13,7 +13,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from apps.live_control_server.services.play_run_registry import (
     PlayRunRecord,
     PlayRunRegistryError,
-    get_play_run,
+    _load_authoritative_record,
+    _require_no_pending_rebase,
+    play_run_path,
 )
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
@@ -381,8 +383,16 @@ def load_play_run_reference_manifest_for_record(
 
 
 def get_play_run_reference_manifest(root: Path, run_id: str) -> PlayRunReferenceManifest:
-    record = get_play_run(root, run_id)
-    return load_play_run_reference_manifest_for_record(root, record)
+    run_file = play_run_path(root, run_id)
+    with registry_mutation_lock(run_file):
+        _require_no_pending_rebase(root, run_id)
+        if not run_file.is_file():
+            raise PlayRunRegistryError(
+                f"Play Run not found: {run_file.stem}",
+                status_code=404,
+            )
+        record = _load_authoritative_record(root, run_file)
+        return load_play_run_reference_manifest_for_record(root, record)
 
 
 def _admit_snapshot(record: PlayRunRecord, root: Path) -> str:
@@ -430,51 +440,59 @@ def seal_or_replay_play_run_reference_manifest(
     root: Path,
     run_id: str,
 ) -> PlayRunReferenceManifest:
-    record = get_play_run(root, run_id)
-    path = play_run_reference_manifest_path(root, record.run_id)
+    run_file = play_run_path(root, run_id)
+    with registry_mutation_lock(run_file):
+        _require_no_pending_rebase(root, run_id)
+        if not run_file.is_file():
+            raise PlayRunRegistryError(
+                f"Play Run not found: {run_file.stem}",
+                status_code=404,
+            )
+        record = _load_authoritative_record(root, run_file)
+        path = play_run_reference_manifest_path(root, record.run_id)
 
-    with registry_mutation_lock(path):
-        if path.is_file():
-            manifest = _load_manifest(path)
-            _require_binding_match(manifest, record)
-            return manifest
-
-        try:
-            with workspace_document_mutation_lock(root, record.playable_artifact_id):
-                if path.is_file():
-                    manifest = _load_manifest(path)
-                    _require_binding_match(manifest, record)
-                    return manifest
-
-                markdown = _admit_snapshot(record, root)
-                elements = sorted(
-                    derive_play_run_reference_elements(markdown),
-                    key=lambda element: element.element_id,
-                )
-                manifest = PlayRunReferenceManifest(
-                    run_id=record.run_id,
-                    playable_artifact_id=record.playable_artifact_id,
-                    playable_revision=record.playable_revision,
-                    playable_content_sha256=record.playable_content_sha256,
-                    elements=elements,
-                    sealed_at=_utc_now_iso(),
-                )
-                path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    write_json(path, _dump_manifest(manifest))
-                except (OSError, TypeError, ValueError) as exc:
-                    raise PlayRunReferenceManifestError(
-                        f"failed to persist Play Run reference manifest: {exc}",
-                        status_code=500,
-                    ) from exc
+        with registry_mutation_lock(path):
+            if path.is_file():
+                manifest = _load_manifest(path)
+                _require_binding_match(manifest, record)
                 return manifest
-        except WorkspaceDocumentRegistryError as exc:
-            raise PlayRunReferenceManifestError(
-                str(exc),
-                status_code=exc.status_code,
-            ) from exc
-        except PlayRunRegistryError as exc:
-            raise PlayRunReferenceManifestError(
-                str(exc),
-                status_code=exc.status_code,
-            ) from exc
+
+            try:
+                with workspace_document_mutation_lock(root, record.playable_artifact_id):
+                    if path.is_file():
+                        manifest = _load_manifest(path)
+                        _require_binding_match(manifest, record)
+                        return manifest
+
+                    markdown = _admit_snapshot(record, root)
+                    elements = sorted(
+                        derive_play_run_reference_elements(markdown),
+                        key=lambda element: element.element_id,
+                    )
+                    manifest = PlayRunReferenceManifest(
+                        run_id=record.run_id,
+                        playable_artifact_id=record.playable_artifact_id,
+                        playable_revision=record.playable_revision,
+                        playable_content_sha256=record.playable_content_sha256,
+                        elements=elements,
+                        sealed_at=_utc_now_iso(),
+                    )
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        write_json(path, _dump_manifest(manifest))
+                    except (OSError, TypeError, ValueError) as exc:
+                        raise PlayRunReferenceManifestError(
+                            f"failed to persist Play Run reference manifest: {exc}",
+                            status_code=500,
+                        ) from exc
+                    return manifest
+            except WorkspaceDocumentRegistryError as exc:
+                raise PlayRunReferenceManifestError(
+                    str(exc),
+                    status_code=exc.status_code,
+                ) from exc
+            except PlayRunRegistryError as exc:
+                raise PlayRunReferenceManifestError(
+                    str(exc),
+                    status_code=exc.status_code,
+                ) from exc

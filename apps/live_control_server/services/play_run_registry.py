@@ -8,7 +8,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_serializer,
+)
 
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
@@ -135,6 +142,7 @@ class PlayRunRecord(BaseModel):
     created_at: str
     updated_at: str
     progress: PlayRunProgress = Field(default_factory=empty_play_run_progress)
+    rebased_from_run_revision: int | None = None
 
     @field_validator("run_id")
     @classmethod
@@ -162,6 +170,22 @@ class PlayRunRecord(BaseModel):
     @classmethod
     def _validate_timestamp(cls, value: str) -> str:
         return _utc_iso(value)
+
+    @field_validator("rebased_from_run_revision")
+    @classmethod
+    def _validate_rebased_from_run_revision(cls, value: int | None) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or value <= 0:
+            raise ValueError("rebased_from_run_revision must be a positive integer")
+        return value
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_rebase_receipt(self, serializer: object) -> dict[str, object]:
+        payload = serializer(self)
+        if payload.get("rebased_from_run_revision") is None:
+            payload.pop("rebased_from_run_revision", None)
+        return payload
 
 
 class PlayRunsListResponse(BaseModel):
@@ -350,14 +374,46 @@ def _load_authoritative_record(root: Path, path: Path) -> PlayRunRecord:
     return record
 
 
+def _require_no_pending_rebase(root: Path, run_id: str) -> None:
+    from apps.live_control_server.services.play_run_rebase import (
+        PlayRunRebaseError,
+        require_no_pending_rebase_intent,
+    )
+
+    try:
+        require_no_pending_rebase_intent(root, run_id)
+    except PlayRunRebaseError as exc:
+        raise PlayRunRegistryError(str(exc), status_code=exc.status_code) from exc
+
+
 def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
     path = play_run_path(root, run_id)
-    if not path.is_file():
+    from apps.live_control_server.services.play_run_rebase import rebase_intent_exists
+
+    if not path.is_file() and not rebase_intent_exists(root, run_id):
         raise PlayRunRegistryError(
             f"Play Run not found: {_validate_run_id(run_id)}",
             status_code=404,
         )
-    return _load_authoritative_record(root, path)
+    with registry_mutation_lock(path):
+        _require_no_pending_rebase(root, run_id)
+        if not path.is_file():
+            raise PlayRunRegistryError(
+                f"Play Run not found: {_validate_run_id(run_id)}",
+                status_code=404,
+            )
+        return _load_authoritative_record(root, path)
+
+
+def _require_no_pending_rebase_intents(root: Path) -> None:
+    from apps.live_control_server.services.play_run_rebase import pending_rebase_intent_names
+
+    names = pending_rebase_intent_names(root)
+    if names:
+        raise PlayRunRegistryError(
+            f"Play Run rebase recovery is pending: {Path(names[0]).stem}",
+            status_code=503,
+        )
 
 
 def list_play_runs(
@@ -370,13 +426,17 @@ def list_play_runs(
     if playable_artifact_id is not None:
         resolved_artifact_id = _validate_playable_artifact_id(playable_artifact_id)
 
+    _require_no_pending_rebase_intents(root)
     directory = play_runs_dir(root)
     if not directory.is_dir():
         return []
 
-    records = [
-        _load_authoritative_record(root, path) for path in sorted(directory.glob("*.json"))
-    ]
+    records: list[PlayRunRecord] = []
+    for path in sorted(directory.glob("*.json")):
+        with registry_mutation_lock(path):
+            _require_no_pending_rebase(root, path.stem)
+            records.append(_load_authoritative_record(root, path))
+    _require_no_pending_rebase_intents(root)
     if campaign_id is not None:
         records = [record for record in records if record.campaign_id == campaign_id]
     if resolved_artifact_id is not None:
@@ -406,6 +466,7 @@ def create_or_replay_play_run(
     path = play_runs_dir(root) / f"{canonical_run_id}.json"
 
     with registry_mutation_lock(path):
+        _require_no_pending_rebase(root, canonical_run_id)
         if path.is_file():
             existing = _load_authoritative_record(root, path)
             if (
@@ -505,6 +566,7 @@ def replace_play_run_progress(
     path = play_run_path(root, canonical_run_id)
 
     with registry_mutation_lock(path):
+        _require_no_pending_rebase(root, canonical_run_id)
         if not path.is_file():
             raise PlayRunRegistryError(
                 f"Play Run not found: {canonical_run_id}",
@@ -553,6 +615,7 @@ def replace_play_run_progress(
                 "run_revision": existing.run_revision + 1,
                 "updated_at": _utc_now_iso(),
                 "progress": admitted,
+                "rebased_from_run_revision": None,
             }
         )
         try:
