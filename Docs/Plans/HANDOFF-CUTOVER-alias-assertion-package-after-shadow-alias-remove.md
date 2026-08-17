@@ -29,7 +29,7 @@ pr_body_template: |
 # HANDOFF — seal Captain and Thrin alias assertion package
 
 **Created:** 2026-08-14
-**Status:** READY AFTER LIFECYCLE-PROOF STATE-SYNC MERGES
+**Status:** DONE / HISTORICAL — implemented by PR #587. Do not redispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-alias-assertion-package-after-shadow-alias-remove.md`
 **Conversation/workstream:** `CUTOVER — Captain and Thrin alias assertion package`
 **Flow / owner:** `CUTOVER`
@@ -38,13 +38,35 @@ pr_body_template: |
 **Suggested branch:** `cutover/alias-assertion-package-after-shadow-alias-remove`
 **PR title:** `CUTOVER: seal Captain and Thrin alias assertion package`
 
-> Do not dispatch from `0fe9f88…` directly.
->
-> Re-anchor after the required DOCUMENTS state-sync merges, branch from that
-> merge / current `main`, and record the actual dispatch-base SHA.
->
-> PR #577 is forensic evidence only. Do not reopen it, merge it, extend it, or
-> wholesale cherry-pick it.
+### Completion record
+
+```text
+DONE / HISTORICAL — do not redispatch.
+
+PR: #587
+implementation head: e3f33ddde879637d6d8bfb9b03b2c5690e235a3d
+merge: cc5dc6ddba0750924a46cf13843498c124937e5f
+GitHub reviews: none recorded; do not invent a cycle count
+
+canonical: rev:0c644e56b45bcaac709012206e3e41c2
+payload: 0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2
+
+Sealed Captain and Thrin Branchborn as revision-bound
+DungeonMind-compatible alias assertion package rows.
+No World Graph mutation.
+
+Successor chain after this slice:
+  #588 dual-sense package DONE
+  DungeonMind #31/#32/#33 DONE
+  #602 exact Eldyrwild adoption-v2 bundle DONE
+  first PostgreSQL attempt STOPPED on evidence identity
+  #609 durable contribution evidence identity DONE
+  next: exact Eldyrwild PostgreSQL existing-world adoption proof
+  product-authority switch remains BLOCKED
+```
+
+> Historical dispatch note: do not dispatch from `0fe9f88…` directly. This slice
+> already merged. PR #577 remains forensic evidence only.
 
 ---
 
@@ -196,11 +218,15 @@ Current implementation must rederive everything against the current revision.
 
 ### Pinned DungeonMind contract
 
-Current dependency:
+Historical dispatch-time DungeonMind dependency (PR #30; not current adoption runtime):
 
 ```text
 be76acc997c5fbcb8ceaa090969ec051afa6051d
 ```
+
+Current adoption runtime after later DungeonMind #31/#32/#33 is
+`f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`. Do not treat the PR #30 pin as
+current CUTOVER authority.
 
 Existing DungeonMind contract already admits alias assertions through the
 current `AliasAssertionV4Record` semantics.
