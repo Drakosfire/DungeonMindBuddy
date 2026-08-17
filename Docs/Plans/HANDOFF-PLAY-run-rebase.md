@@ -11,7 +11,7 @@ pr_body_template: |
   - Design anchor: merged PR #601 / P2B2 at `51ed2a6e89b56d2ef033215e23d309ce03a51c87`
   - P2B2 reviewed head: `c9d2697c1f7e6b11235a753ceb45c4e514a423eb`
   - P2B2 implementation/evidence head: `8538409e1027ca8e84990bd86cd07ee2ccf99a72`
-  - Base/head: `47b71c64dc880c051339e5cf08c4be344ea74366` / `5d0c050492886e03e7e6e8e323c359c29930e9cd`
+  - Base/head: `47b71c64dc880c051339e5cf08c4be344ea74366` / `0299d6a610566eebbad83b1786d72aa567826258`
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
 
@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — explicitly rebase one Run to a newer Playable revision
 
 **Created:** 2026-08-16  
-**Status:** CODE IN PR [#612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) — Cycle 1 repair of source integrity, preserve-only intent proof, rebase receipt, and orphan-intent list isolation.
+**Status:** CODE IN PR [#612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) — Cycle 1 repair of source integrity, preserve-only intent proof, rebase receipt, and orphan-intent list isolation. Implementation/evidence head `0299d6a610566eebbad83b1786d72aa567826258`.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-rebase.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2C`  
 **Flow / owner:** `PLAY`  
