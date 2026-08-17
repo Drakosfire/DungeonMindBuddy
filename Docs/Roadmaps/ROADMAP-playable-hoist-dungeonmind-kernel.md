@@ -115,19 +115,19 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #612. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+Mutable workstream state after merged PR #617. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync. This PR selects P3A as the current P3 implementation; it does not mark P3A merged.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `a2c88d95397d972ad86834912b00a244edcdba17` — merge of [PR #612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) |
-| Merged capability | P2C — explicit preserve-only Run rebase to a newer Playable revision |
+| Integration tip | `93ad974d2f9690e5f8f552059d2fb71f5181b9b9` — merge of [PR #617](https://github.com/Drakosfire/DungeonMindBuddy/pull/617) |
+| Merged capability | P2 complete. P3C landed early as a partial P3 sibling. PR #617 repaired accidental #615 merge and left the next P3 implementation unselected until this PR. |
 | P2 status | **COMPLETE** — P2A/P2B1/P2B2/P2C merged |
-| Next slice | P3 — native Play projections; decompose the phase before CODE dispatch |
-| Next handoff | Not yet selected — re-anchor current P3 implementation/design and choose one implementation-sized capability |
-| Named successor after P2C | P3 — native Play projections |
-| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2C adds one Play-owned forward-recovery journal and explicit rebase receipt for the Run+manifest pair. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
+| Next slice | P3A — native Runbook table deck (this PR; not merged) |
+| Next handoff | `Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md` |
+| Named successor after P3A | P3B — exact graph-reference opening (not this PR; not active) |
+| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. Native Runbook projection is the current P3 implementation under review. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
 
-P2 is complete. P2C proved explicit preserve-only Run rebase without caller-authored ID mapping, historical Playable storage, a second concurrency token, a generic multi-file transaction framework, or a DungeonMind contract. P3 native Play projections is the successor phase; its next implementation-sized capability remains unselected pending re-anchor and decomposition. This is a sequencing update, not a stable architecture ownership change.
+P2 is complete. P3 native Play projections is the successor phase. P3A (native `/play` Runbook table deck over one exact Run + sealed manifest + bound committed Runbook) is the selected implementation-sized capability. P3A is not merged. P3B remains the first graph-object/reference-open successor. P4 remains the first Combat mutation. This is a sequencing update, not a stable architecture ownership change.
 
 ---
 
