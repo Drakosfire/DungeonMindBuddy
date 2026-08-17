@@ -115,18 +115,19 @@ Rules:
 
 ### Current sequence
 
-Mutable workstream state after merged PR #601. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
+Mutable workstream state after merged PR #612. Implementation PRs still add a ledger row; they do not rewrite this block except as post-merge state-authority sync.
 
 | Field | Current truth |
 |---|---|
-| Integration tip | `51ed2a6e89b56d2ef033215e23d309ce03a51c87` — merge of [PR #601](https://github.com/Drakosfire/DungeonMindBuddy/pull/601) |
-| Merged capability | P2B2 — durable CAS Run progress against the sealed manifest |
-| Next slice | P2C — explicit preserve-only Run rebase to a newer Playable revision |
-| Next handoff | [`Docs/Plans/HANDOFF-PLAY-run-rebase.md`](../Plans/HANDOFF-PLAY-run-rebase.md) |
+| Integration tip | `a2c88d95397d972ad86834912b00a244edcdba17` — merge of [PR #612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) |
+| Merged capability | P2C — explicit preserve-only Run rebase to a newer Playable revision |
+| P2 status | **COMPLETE** — P2A/P2B1/P2B2/P2C merged |
+| Next slice | P3 — native Play projections; decompose the phase before CODE dispatch |
+| Next handoff | Not yet selected — re-anchor current P3 implementation/design and choose one implementation-sized capability |
 | Named successor after P2C | P3 — native Play projections |
-| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2B2 mutates Play-owned Run progress under `run_revision` CAS against a Play-owned sealed manifest. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
+| Hoist posture | Runtime remains DungeonMindBuddy Play-owned. P2C adds one Play-owned forward-recovery journal and explicit rebase receipt for the Run+manifest pair. `WorkObjectRevisionRef`, `WorkObjectElementRef`, and a generic transaction framework remain not yet justified without an independent non-Play consumer. |
 
-P2B2 proved that one Run can carry a full progress snapshot without consulting later Runbook bytes. P2C is the remaining P2 lifecycle: an explicit preserve-only rebase of that Run to a newer committed revision of the same Runbook artifact. P3 native Play projections remain false. This is a sequencing update, not a stable architecture ownership change.
+P2 is complete. P2C proved explicit preserve-only Run rebase without caller-authored ID mapping, historical Playable storage, a second concurrency token, a generic multi-file transaction framework, or a DungeonMind contract. P3 native Play projections is the successor phase; its next implementation-sized capability remains unselected pending re-anchor and decomposition. This is a sequencing update, not a stable architecture ownership change.
 
 ---
 
@@ -268,7 +269,7 @@ P2B2 must not parse current Runbook bytes as a fallback and must not silently cr
 
 Handoff: [`HANDOFF-PLAY-run-progress-cas.md`](../Plans/HANDOFF-PLAY-run-progress-cas.md).
 
-#### P2C — Explicit preserve-only Run rebase to a newer Playable revision ← current next slice
+#### P2C — Explicit preserve-only Run rebase to a newer Playable revision ← merged PR #612
 
 After P2B2, explicitly move one Run UUID to a newer committed revision of the same Runbook artifact, preserving current progress only when every durable reference remains admissible in the target revision. Do not invent a mapping language, historical Playable archive, or second concurrency token.
 

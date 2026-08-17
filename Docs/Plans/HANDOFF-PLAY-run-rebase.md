@@ -22,8 +22,15 @@ pr_body_template: |
 
 # HANDOFF — explicitly rebase one Run to a newer Playable revision
 
+> **MERGED / HISTORICAL (2026-08-16):** PR **#612** merged as
+> `a2c88d95397d972ad86834912b00a244edcdba17` after **2 review cycles**.
+> Reviewed head `13b09b7a52e573082857d09dc0413e1b29e39774`;
+> implementation/evidence head `0299d6a610566eebbad83b1786d72aa567826258`.
+> P2C proved explicit preserve-only Run rebase and completed P2. Successor phase:
+> **P3 — native Play projections**; re-anchor and decompose P3 before CODE dispatch.
+
 **Created:** 2026-08-16  
-**Status:** CODE IN PR [#612](https://github.com/Drakosfire/DungeonMindBuddy/pull/612) — Cycle 1 repair of source integrity, preserve-only intent proof, rebase receipt, and orphan-intent list isolation. Implementation/evidence head `0299d6a610566eebbad83b1786d72aa567826258`.
+**Status:** MERGED — PR #612 / main `a2c88d95397d972ad86834912b00a244edcdba17`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-run-rebase.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P2C`  
 **Flow / owner:** `PLAY`  
