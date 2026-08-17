@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — observational correspondence and snapshot drift
 
 **Created:** 2026-08-17
-**Status:** ACTIVE DESIGN HANDOFF — implementation may dispatch only after this CUTOVER design PR is accepted/merged
+**Status:** ACTIVE DESIGN HANDOFF — implementation may dispatch only after this CUTOVER design PR is accepted/merged and the §2 steward Buddy sync has landed
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-observational-correspondence-drift.md`
 **Conversation/workstream:** `CUTOVER — observational correspondence and snapshot drift`
 **Flow / owner:** `CUTOVER`
@@ -35,7 +35,7 @@ pr_body_template: |
 
 > Repository authority: Buddy [`AGENTS.md`](../../AGENTS.md), [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md), [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md), [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md), and [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md).
 >
-> This is a rare steward-designated design PR. Routine state maintenance is not a design PR. The implementation PR owns the backward-looking atomic authority sync for this completed design predecessor; it must not pre-mark its own implementation complete.
+> This is a rare steward-designated design PR. Routine state maintenance is not a design PR. The backward-looking Buddy authority sync for this completed design predecessor is a steward direct guarded commit after merge (§2); it must not pre-mark the implementation complete.
 
 ## §1 Mission and merge-ready invariant
 
@@ -68,11 +68,11 @@ pr_body_template: |
 | Runtime/state ownership | Read-only against an isolated PostgreSQL target seeded by #34 fixture/proof. No mutation of a shared product world. |
 | Parallel collision hotspot | PostgreSQL integration database namespace; serialize with any other mutating DND integration lane. |
 
-### Backward-looking atomic authority sync — REQUIRED IN THE IMPLEMENTATION PR
+### Backward-looking atomic authority sync — steward Buddy commit, not the DND PR
 
-The implementation PR must include the atomic document sync for **this completed design predecessor**, once this design PR has merged. These edits are maintenance of facts already true before implementation review; they are not a claim that the implementation PR itself is complete.
+The atomic document sync for **this completed design predecessor** lives in DungeonMindBuddy and cannot travel in the DungeonMind implementation PR. Per `AGENTS.md` (cross-repository sync follows the direct guarded steward rule), the steward applies it as a direct guarded Buddy commit after this design PR merges and before the DungeonMind implementation is dispatched. These edits are maintenance of facts already true at that point; they are not a claim that the implementation slice is complete.
 
-Implementation PR sync set:
+Steward Buddy sync set:
 
 - `Docs/Plans/PR-TRACKER-campaign-supergraph.md`
 - `Docs/Design/STATUS-world-graph-continuity-spine.md`
@@ -87,7 +87,7 @@ Required meaning of that sync:
 4. keep catch-up/quiescence, living-write ownership, authority switch, first mutation, and demolition explicitly unresolved;
 5. do **not** mark the implementation slice `DONE`, invent its merge SHA/review count, or advance the next successor as completed.
 
-If those four Buddy authority paths have changed materially before implementation dispatch, re-anchor and reconcile them before editing; do not overwrite newer authority.
+If those four Buddy authority paths have changed materially before the sync, re-anchor and reconcile them before editing; do not overwrite newer authority.
 
 ## §3 Observable paths and adversarial sequences
 
@@ -110,7 +110,7 @@ Adversarial sequences:
 
 ## §4 Files in scope — implementation write lease
 
-Repository: `Drakosfire/DungeonMind` for executable implementation, plus the four Buddy authority files above for predecessor sync.
+Repository: `Drakosfire/DungeonMind` only. The four Buddy authority paths in §2 are **not** in this lease; they are the steward's direct guarded Buddy commit after this design PR merges. A DungeonMind PR cannot edit DungeonMindBuddy.
 
 Expected DND lease:
 
@@ -123,9 +123,9 @@ Expected DND lease:
 
 **Bounded discovery exception:** one existing DungeonMind package export/`__init__` path may be modified only if the new public application contract must be exported under the repository's established package convention. No repository/schema/migration mutation path is authorized by this exception.
 
-Buddy predecessor-sync lease is exactly the four paths listed in §2. No Buddy runtime/source/schema changes are authorized.
+No Buddy paths are authorized for the implementation worker; the §2 Buddy sync is steward-owned. No Buddy runtime/source/schema changes are authorized anywhere in this slice.
 
-If repository inspection shows the owning DND application module convention differs from the proposed path above, stop before implementation and re-brief the lease rather than silently placing the contract elsewhere.
+If repository inspection shows the owning DND contract/application module convention differs from the proposed paths above, stop before implementation and re-brief the lease rather than silently placing the contract elsewhere.
 
 ## §5 Explicitly out of scope / collision boundary
 
@@ -188,7 +188,7 @@ No new persisted correspondence record is required in this slice. Correspondence
 | Unknown adoption is explicit | repository/service | unit/integration | `NOT_ADOPTED`; no fallback | label/latest lookup |
 | Checker is read-only/idempotent | PostgreSQL | before/after row/head/receipt counts + repeated result | zero durable mutation | any write/head event |
 | #34 regression stays intact | existing #34 tests | focused regression | existing adoption suite remains green subject to truthful baseline | regression introduced |
-| predecessor doc sync is backward-looking only | Buddy diff inspection | changed-path + semantic review | design predecessor recorded; implementation not pre-marked DONE | own future completion claimed |
+| predecessor doc sync is backward-looking only | steward Buddy sync diff inspection | changed-path + semantic review | design predecessor recorded; implementation not pre-marked DONE | own future completion claimed |
 
 Suggested exact commands in the DungeonMind implementation worktree:
 
@@ -205,11 +205,13 @@ git diff --check
 git diff --name-only <implementation-base>...HEAD
 ```
 
-For Buddy predecessor-sync verification:
+The DungeonMind implementation PR evidence is the DND command set above; its `git diff --name-only <implementation-base>...HEAD` must show only §4-leased DND paths.
+
+The Buddy predecessor sync is verified by the steward in the DungeonMindBuddy checkout at sync time, not by the DND worker:
 
 ```bash
 git diff --check
-git diff --name-only <Buddy-design-merge-base>...HEAD -- \
+git diff --name-only <Buddy-pre-sync-main>...HEAD -- \
   Docs/Plans/PR-TRACKER-campaign-supergraph.md \
   Docs/Design/STATUS-world-graph-continuity-spine.md \
   Docs/Roadmaps/ROADMAP-campaign-supergraph.md \
@@ -229,7 +231,7 @@ Record:
 5. mismatch case that proves graph counts alone cannot establish correspondence;
 6. proof the checker produced no world/head/revision/receipt/history mutations;
 7. complete §7 results and provenance;
-8. actual DND + Buddy changed paths versus §4;
+8. actual DND changed paths versus the §4 lease, plus the steward Buddy predecessor-sync commit SHA and its four paths;
 9. confirmation the Buddy doc sync looks backward only and does not mark this implementation complete;
 10. confirmation product authority remains Buddy / `CUTOVER_NOT_READY`.
 
@@ -242,8 +244,8 @@ Record:
 - [ ] Unknown/unavailable state fails visibly; no label/latest/current-head fallback exists.
 - [ ] Repeated checks create no durable writes or head events.
 - [ ] No replication, catch-up, writer transfer, product read switch, rollback workflow, or first post-cutover mutation is introduced.
-- [ ] Implementation PR atomically syncs the completed design predecessor across tracker/status/roadmap/handoff.
-- [ ] That doc sync does not pre-mark the implementation PR itself `DONE` or invent its future merge/review facts.
+- [ ] The completed design predecessor is recorded across Buddy tracker/status/roadmap/handoff by the steward's direct guarded sync after this design PR merges.
+- [ ] That sync does not pre-mark the observational-correspondence implementation `DONE` or invent its future merge/review facts.
 - [ ] Product authority remains Buddy and disposition remains `CUTOVER_NOT_READY`.
 
 ## Stop conditions
