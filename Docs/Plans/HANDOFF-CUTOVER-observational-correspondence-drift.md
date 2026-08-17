@@ -22,15 +22,15 @@ pr_body_template: |
 
 # HANDOFF — observational correspondence and snapshot drift
 
-**Created:** 2026-08-17  
-**Status:** ACTIVE DESIGN HANDOFF — implementation may dispatch only after this CUTOVER design PR is accepted/merged  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-observational-correspondence-drift.md`  
-**Conversation/workstream:** `CUTOVER — observational correspondence and snapshot drift`  
-**Flow / owner:** `CUTOVER`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Buddy design base:** `1d8ec2d24439648644dff87857a85b4bf83efda9`  
-**DungeonMind implementation base:** `d2204dd0901237d8b446b4f2363f896306e32e6f`  
-**Suggested implementation branch:** `dnd/cutover-observational-correspondence-drift-v1`  
+**Created:** 2026-08-17
+**Status:** ACTIVE DESIGN HANDOFF — implementation may dispatch only after this CUTOVER design PR is accepted/merged
+**Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-observational-correspondence-drift.md`
+**Conversation/workstream:** `CUTOVER — observational correspondence and snapshot drift`
+**Flow / owner:** `CUTOVER`
+**Direction:** DESIGN → CODE → REVIEW
+**Buddy design base:** `1d8ec2d24439648644dff87857a85b4bf83efda9`
+**DungeonMind implementation base:** `d2204dd0901237d8b446b4f2363f896306e32e6f`
+**Suggested implementation branch:** `dnd/cutover-observational-correspondence-drift-v1`
 **Suggested implementation PR title:** `CUTOVER: prove observational correspondence and snapshot drift`
 
 > Repository authority: Buddy [`AGENTS.md`](../../AGENTS.md), [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md), [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md), [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md), and [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md).
