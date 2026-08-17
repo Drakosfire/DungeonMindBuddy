@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-09 — land `HANDOFF-eldyrwild-contribution-integrity-heal` after PR #538 merge `5dae4183…`; heal READY for BUILD; Lysandra BLOCKED until heal live exit. Historical adjudication-domain effective conformance remains `294 represented / 52 residual`.  
-**Repository anchor:** `5dae41830220c50b162fe76c349101c4955aff0c`  
+**Updated:** 2026-08-16 — post-#609: next CUTOVER capability is exact Eldyrwild PostgreSQL existing-world adoption proof; product-authority cutover remains BLOCKED  
+**Repository anchor:** `7922b6108cf9e05787f9c79cddcee9347edb0b44`  
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `2e4fdc51f91c5c2a428500f7c2ece0d6742d04b4`  
+**DungeonMind pin:** `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`  
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -57,7 +57,7 @@ Source artifacts remain prose and evidence authority. The graph is durable mater
 | 8 — Governed context, correction, and tools | ACTIVE | Human confirm reference path exists; exact assertion-correction authority and candidate-path cleanup remain |
 | 9 — Living memory and cleanup | NOT STARTED | Continuous Plan/Play use with obsolete dual paths removed and corrected memory surviving normal operation |
 
-Phase 2's foundational lifecycle is complete, but it should not be read as claiming every correction granularity exists. The current Kernel can supersede or retract whole contributions. It does **not** yet expose a governed assertion-level correction operation that can replace one defective assertion while preserving unrelated assertions from the same source contribution. That missing capability is active Phase-8 work because it is required for safe human-authored correction over already-published memory.
+Phase 2's foundational lifecycle is complete. PR #534 later published the governed assertion-level correction operation that can replace one defective assertion while preserving unrelated assertions from the same source contribution. That primitive is historical `DONE`, not current CUTOVER work.
 
 ## Completed product authority spine
 
@@ -96,46 +96,31 @@ At the immutable Eldyrwild adjudication domain:
 
 The remaining relationship debt is Buddy-owned. The adjudication ledger distinguishes source corrections, compound assertions that are not one relationship, identity-not-relationship cases, and insufficient-evidence cases. Those are different authority problems and should not be collapsed into one migration PR.
 
-## Current critical path — semantic correction before cutover
+## Current critical path — exact PostgreSQL adoption proof before product cutover
 
 ```text
-READY   eldyrwild-contribution-integrity-heal
-        Owning handoff: Docs/Plans/HANDOFF-eldyrwild-contribution-integrity-heal.md
-        Forensic first, repair second for contribution:d3d244474789879c:
-        reproduce same-ID/different-source ledger overwrite; Kernel pre-write
-        guard; recover exact D* only if digest equals immutable E; heal mutable
-        ledger/index only (no revision publish). Merge-ready on temp clone;
-        DONE requires post-merge canonical live heal. Do not “change the hash
-        until green.”
+DONE    Captain/Thrin alias package (#587)
+DONE    dual-sense relationship package (#588)
+DONE    DungeonMind adoption v2 runtime (#31/#32/#33)
+DONE    exact Eldyrwild adoption-v2 bundle (#602)
+STOPPED first real PostgreSQL attempt (evidence identity collision)
+DONE    Buddy contribution evidence identity (#609)
 
-BLOCKED eldyrwild-lysandra-threat-direction-correction
-        Depends on contribution-integrity heal DONE (merged package and live
-        exit), plus merged #534+#536.
-        Merge-ready package: parent-relative gate on a temp clone
-        (semantic unchanged / represented +1 / residual −1 / mechanics unchanged);
-        live-write fence, complete preflight, dual artifact seals,
-        integrity_failure status, and successful pinned rebuild of Q.
-        Slice DONE additionally requires post-merge canonical apply:
-        status/preflight → P_live → apply --allow-live-world → Q_live →
-        verify 0/+1/−1/0 → already_applied. Only then is the real Eldyrwild
-        correction complete.
-
-BLOCKED effective-conformance-after-first-correction
-        READY only after Lysandra DONE (merged package and live Q_live).
-        Re-anchor descendant fixtures/tracker on the actual post-Q_live baseline.
-        Do not force historical absolute counts onto an evolved live head.
-        The original adjudication anchor and historical analyzers remain unchanged.
-
-BLOCKED remaining-buddy-semantic-correction-slices
-        Select the next bounded correction/decomposition/identity/evidence slice
-        from the residual ledger only after the first real correction proves the
-        write/replay pattern on the live Eldyrwild head.
+READY   dungeonmind-eldyrwild-postgres-existing-world-adoption-proof
+        Owning handoff:
+        Docs/Plans/HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md
+        Unchanged DungeonMind f2e27380… consumes exact post-#609 Buddy
+        blob 274cdd9e…. Empty PostgreSQL target → one world/head/revision/
+        receipt; exact replay; conflict; precommit rollback; postcommit
+        recovery; readback 469/323/3/5. STOP rather than patch runtime.
 
 BLOCKED DungeonMind whole-world authority cutover
-        Requires Buddy semantic closure plus a public governed DungeonMind
-        existing-world adoption seam. Diagnostic readiness alone cannot switch
-        product or Play mechanics authority.
+        Requires the independent PostgreSQL proof plus a separately
+        reviewed correspondence / authority-transition design.
+        A green adoption PR does not switch Buddy reads/writes.
 ```
+
+Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.
 
 ### Why targeted assertion correction was a prerequisite
 
@@ -148,7 +133,7 @@ PR #534 published the correction primitive that preserves four distinct facts at
 3. unrelated assertions from the historical contribution remain actively supported;
 4. replay of contributions plus correction records reconstructs the corrected head exactly.
 
-The first synthetic proof used a multi-assertion source contribution so the implementation could not accidentally pass by superseding an entire one-assertion contribution. The next proof must apply that seam to the exact Lysandra Eldyrwild target.
+The first synthetic proof used a multi-assertion source contribution so the implementation could not accidentally pass by superseding an entire one-assertion contribution. The later Lysandra live correction applied that seam and is historical `DONE`, not current dispatch.
 
 ## Parallel product path retained
 
@@ -185,7 +170,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the bounded Lysandra threat-direction correction, then the exact `294/52 → 295/51` descendant conformance proof, before the next whole-world semantic slice.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to exact Eldyrwild PostgreSQL existing-world adoption proof, before any product-authority cutover.
 
 ## Phase 8 exit criteria
 

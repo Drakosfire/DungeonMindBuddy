@@ -28,7 +28,7 @@ pr_body_template: |
 # HANDOFF — record lifecycle-proof CUTOVER exit and ready alias package
 
 **Created:** 2026-08-14
-**Status:** ACTIVE — required post-merge state-authority synchronization
+**Status:** DONE / HISTORICAL — implemented by PR #586. Do not redispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOCUMENTS-cutover-lifecycle-proof-exit-state-sync.md`
 **Conversation/workstream:** `CUTOVER — lifecycle-proof exit state sync`
 **Flow / owner:** `DOCUMENTS`
@@ -37,13 +37,28 @@ pr_body_template: |
 **Suggested branch:** `documents/cutover-lifecycle-proof-exit-state-sync`
 **PR title:** `DOCUMENTS: record lifecycle-proof CUTOVER exit`
 
+### Completion record
+
+```text
+DONE / HISTORICAL — do not redispatch.
+
+PR: #586
+implementation: 1b430c6bbc303248af5ec99318e7d51e2be5dd3c
+merge: 17a58740502e99d592f05ba9a10f1d8401e09581
+
+Recorded the already-proven PR #585 lifecycle exit and authored the
+Captain/Thrin alias-package successor. That successor later merged as
+PR #587 and is itself DONE / HISTORICAL.
+
+Current next CUTOVER capability is exact Eldyrwild PostgreSQL
+existing-world adoption proof. Product-authority switch remains BLOCKED.
+```
+
 > Repository law: [`AGENTS.md`](../../AGENTS.md).
 > Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md).
 >
-> This PR closes the development cycle opened by PR #585.
->
-> Do not dispatch the dependent Captain/Thrin implementation until this state
-> sync is merged and `main` has been re-anchored to that merge.
+> Historical: this PR closed the development cycle opened by PR #585. Do not
+> redispatch Captain/Thrin packaging from this handoff.
 
 ---
 

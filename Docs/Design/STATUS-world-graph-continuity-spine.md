@@ -1,12 +1,12 @@
 # Current State — World Graph Continuity Spine
 
 **Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-14 — PR #585 lifecycle-through-alias_remove DONE; ATTRIBUTE_ASSERTION=0 under current passed proof; Captain/Thrin alias package is the next dependent CUTOVER slice
-**Active CUTOVER slice:** `cutover-alias-assertion-package-after-shadow-alias-remove` — reconstruct exactly the two remaining source-grounded current-node aliases, Captain and Thrin Branchborn, as revision-bound DungeonMind-compatible alias assertion package rows. Predecessor PR #585 is `DONE` (head `7c339a23…`; merge `0fe9f88c…`; 2 review cycles; current proof 28/28 passed, unresolved `[]`; fixture SHA `c31e8c15…`). Canonical Eldyrwild is `rev:0c644e56b45bcaac709012206e3e41c2` / payload `0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2` with relationship inventories `323 / 314 / 9 / 3` (canonical) and `323 / 318 / 5 / 3` (four-kind migration projection). Current classification: `ATTRIBUTE_ASSERTION=0` authorized from the current lifecycle proof; `EVIDENCE_PROVENANCE` is 2; remaining aliases are `Captain` and `Thrin Branchborn`; `IDENTITY_HISTORY` is 20 and `CONTRIBUTION_HISTORY` is 5291. Five dual-sense `RELATIONSHIP_PREDICATE` STOPs remain; Case B is still forbidden. Disposition remains `CUTOVER_NOT_READY`.
-**Repository anchor:** `0fe9f88cfafda38319145e88d0f8b354d53830ca` (PR #585 merge / `origin/main` at this state-sync dispatch)
-**Dispatch gate:** this state-sync PR. After merge, re-anchor to its merge SHA / current `main` and record that SHA as the Captain/Thrin alias-package implementation dispatch base.
+**Updated:** 2026-08-16 — PR #609 durable contribution evidence identity DONE; next is exact Eldyrwild PostgreSQL existing-world adoption proof
+**Active CUTOVER slice:** `dungeonmind-eldyrwild-postgres-existing-world-adoption-proof` — prove unchanged DungeonMind #33 adopts the exact post-#609 Eldyrwild bundle into an empty PostgreSQL target atomically and recoverably. Predecessor PR #609 is `DONE` (head `ef71a7eb…`; merge `7922b610…`; implementation stamp `4446b6d2…`; new blob `274cdd9e…`). Canonical Eldyrwild remains `rev:0c644e56b45bcaac709012206e3e41c2` / payload `0640d7ef8ce152ee4f656959e0e9a6c9c2fdf5ecc8bd721729b3019170d677f2`. Sealed current graph shape is 469 objects / 323 relationships / 3 secondary aspects / 5 aspect-selected relationships. Captain/Thrin alias package (#587) and dual-sense package (#588) are `DONE`. First PostgreSQL attempt STOPped on evidence identity; #609 repaired export IDs. Product-authority cutover remains `BLOCKED`. Disposition remains `CUTOVER_NOT_READY`.
+**Repository anchor:** `7922b6108cf9e05787f9c79cddcee9347edb0b44` (PR #609 merge / `origin/main` at this state-sync dispatch)
+**Dispatch gate:** this state-sync PR. After merge, re-anchor to its merge SHA / current `main` and record that SHA as the DungeonMind PostgreSQL proof dispatch base. Do not dispatch from `7922b610…` directly.
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
-**DungeonMind pin:** `be76acc997c5fbcb8ceaa090969ec051afa6051d` (PR #30 semantic authority; world-object-v5 `f9fd5420…`, world-property-v3 `aa94df78…`)
+**DungeonMind pin:** `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92` (PR #33 / current DungeonMind `main`; existing-world history replay v2)
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Tracker:** [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
@@ -181,21 +181,22 @@ nodes[loc:guilds].kind
 nodes[item:torvak-hemp-caravan].kind
 ```
 
-The five dual-sense residual edges remain explicit migration/materialization
-decisions. The active re-anchor report keeps canonical Buddy truth separate from
+The five dual-sense residual edges were later packaged as DungeonMind v6 endpoint aspects by Buddy #588 rather than remaining current package-construction blockers. The active re-anchor report keeps canonical Buddy truth separate from
 that projection, replaces raw v4 relationship blocker totals with effective
 conformance / #566 owning-proof ledgers, and confirms zero unaccounted durable
-elements in both views. CUTOVER remains `NOT_READY`. After DungeonMind PR #30
+elements in both views. CUTOVER remains `NOT_READY` because the independent
+PostgreSQL existing-world adoption proof is not yet landed and product authority
+has not switched. After DungeonMind PR #30
 and Buddy PR #571, `WORLD_OBJECT_KIND` is cleared and the 28 identity-lifecycle
 shadow fields left `ATTRIBUTE_ASSERTION` **on the pre-`alias_remove` world**.
-After PR #583, the merge-only proof reconstructs 16/28, so that classification
-is not current authority until a lifecycle proof through `alias_remove`
-regenerates policy. The normalized projected ledger currently still names
-**Case C** (Buddy: `EVIDENCE_PROVENANCE` count 2) as the remaining alias
-package-construction work, but that package is `BLOCKED` on the current
-lifecycle proof. The public DungeonMind existing-world adoption seam remains a
-later Case B gate only after package-construction semantic gaps are cleared
-(including five dual-sense STOPs).
+After PR #583/#585, current lifecycle through `alias_remove` is proven.
+Captain/Thrin packaging is `DONE` in #587. Dual-sense packaging is `DONE` in #588.
+DungeonMind #31/#32/#33 published v6 aspects and the atomic existing-world
+adoption/replay runtime. #602 sealed the exact Eldyrwild adoption-v2 bundle.
+The first real PostgreSQL attempt STOPped on contribution evidence identity;
+#609 repaired the Buddy export. The public DungeonMind existing-world adoption
+proof is the next Case B / DND slice. Product-authority switch remains later
+and blocked.
 
 ### Current Eldyrwild semantic state
 
@@ -233,7 +234,7 @@ The exact post-#583 canonical CUTOVER head is `rev:0c644e56b45bcaac709012206e3e4
 - canonical effective relationship inventory: `323 / 314 / 9 / 3`;
 - approved four-kind migration projection: `323 / 318 / 5 / 3`, in memory only;
 - live parent `rev:5a7c13ae45c49a65b402920499be72ed` / `2632870e…` is historical;
-- the five dual-sense STOP edges remain migration/materialization decisions.
+- the five dual-sense edges were later packaged as DungeonMind v6 endpoint aspects by Buddy #588 rather than remaining current package-construction STOPs.
 
 The residual classes still distinguish Buddy source corrections, compound assertions that are not one atomic relationship, identity-not-relationship cases, insufficient-evidence cases, and unadjudicated residuals. Different classes may require different write authority and therefore different PRs.
 
@@ -279,7 +280,7 @@ P: rev:b8dfc063bc13a4fb297e83f5f9b313d9
 Q₃ / R_current: rev:ba3abde1bfc3659795bcd77bb55eb9f7
 ```
 
-Integrity heal, Lysandra, Session-24 cube, Session-24 false-leads, closure, and PR #566 live exits are complete. The next step is the bounded CUTOVER whole-world blocker ledger; do not reopen broad Buddy repair or treat the migration projection as published truth.
+Integrity heal, Lysandra, Session-24 cube, Session-24 false-leads, closure, PR #566, #587 alias package, #588 dual-sense package, DungeonMind #31/#32/#33, #602 adoption-v2 bundle, and #609 evidence identity are complete. The next step is the independent DungeonMind PostgreSQL existing-world adoption proof; do not reopen packaged alias/dual-sense work or treat the migration projection as published truth.
 
 ## Current surface state
 
@@ -321,11 +322,11 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. After this state-sync PR merges, re-anchor to its merge SHA / current `main`, confirm PR #577 remains closed unmerged, then start `cutover-alias-assertion-package-after-shadow-alias-remove` from that descendant. Reconstruct exactly the two remaining source-grounded current-node aliases, Captain and Thrin Branchborn, as revision-bound DungeonMind-compatible alias assertion package rows. Authorize classification only from a complete current package proof. Remeasure `EVIDENCE_PROVENANCE`. Do not mutate the World Graph. Do not dispatch from `0fe9f88…` directly.
-2. Keep the five dual-sense edges as migration decisions and keep DungeonMind product-authority cutover blocked. Confirm PR #577 remains closed unmerged. `CUTOVER_NOT_READY` remains true until remaining normalized blockers clear. Case B stays forbidden while package-construction blockers remain.
+1. After this state-sync PR merges, re-anchor to its merge SHA / current `main`, then start `dungeonmind-eldyrwild-postgres-existing-world-adoption-proof` from that descendant using [`HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md`](../Plans/HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md). Consume exact Buddy blob `274cdd9e…` and unchanged DungeonMind `f2e27380…`. Do not patch DungeonMind runtime. Do not dispatch from `7922b610…` directly.
+2. Keep DungeonMind product-authority cutover blocked. A green PostgreSQL proof does not switch Buddy reads/writes. Confirm PR #577 remains closed unmerged. `CUTOVER_NOT_READY` remains true until the independent adoption proof lands and a later correspondence/authority-transition design is accepted.
 3. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` `DONE`, Session-25 descendant residual adjudication `DONE`, Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `Q₄` `DONE`, relationship semantic closure `DONE`, PR #566 non-publishing kind-repair authority `DONE`, CUTOVER re-anchor `#568` `DONE`, PR #571 DungeonMind v5 re-pin `DONE`, identity-lifecycle history `#575` `DONE` (3 review cycles, merge `d32c244e…`; historical merge-only proof, not current `ATTRIBUTE_ASSERTION` authority after #583), Kernel `alias_remove` `#580` `DONE` (2 review cycles, merge `3a52d309…`, no Eldyrwild mutation), exact-six Eldyrwild identity-shadow `alias_remove` `#583` `DONE` (3 review cycles, merge `299579bd…`, canonical live/replay exit proven, `EVIDENCE_PROVENANCE` 8→2), and identity lifecycle through `alias_remove` `#585` `DONE` (2 review cycles, merge `0fe9f88c…`, current proof 28/28 passed, unresolved `[]`, `ATTRIBUTE_ASSERTION=0` authorized from the current passed proof). PR #577 is a closed unmerged forensic STOP. The active next dependent slice is `cutover-alias-assertion-package-after-shadow-alias-remove`. Current `EVIDENCE_PROVENANCE` is 2. Remaining aliases are Captain and Thrin Branchborn. Five relationship STOPs remain.
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` `DONE`, Session-25 descendant residual adjudication `DONE`, Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `Q₄` `DONE`, relationship semantic closure `DONE`, PR #566 non-publishing kind-repair authority `DONE`, CUTOVER re-anchor `#568` `DONE`, PR #571 DungeonMind v5 re-pin `DONE`, identity-lifecycle history `#575` `DONE`, Kernel `alias_remove` `#580` `DONE`, exact-six Eldyrwild identity-shadow `alias_remove` `#583` `DONE`, identity lifecycle through `alias_remove` `#585` `DONE`, Captain/Thrin alias package `#587` `DONE`, dual-sense relationship package `#588` `DONE`, DungeonMind `#31/#32/#33` `DONE`, exact Eldyrwild adoption-v2 bundle `#602` `DONE`, first PostgreSQL attempt `STOPPED` on evidence identity, and durable contribution evidence identity `#609` `DONE`. PR #577 is a closed unmerged forensic STOP. The active next dependent slice is `dungeonmind-eldyrwild-postgres-existing-world-adoption-proof`. Product-authority cutover remains `BLOCKED`.
 
 ## Fast diagnostic questions
 
