@@ -9,19 +9,20 @@ pr_body_template: |
   - Repository: Drakosfire/DungeonMind
 
   ## Verification pointer
-  - DungeonMind base: `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`
-  - Buddy input merge: `7922b6108cf9e05787f9c79cddcee9347edb0b44`
+  - DungeonMind PR #34 implementation head: `935d3d9117442a92ef2dd8f11967fed20f863ea1`
+  - DungeonMind PR #34 merge / current main: `d2204dd0901237d8b446b4f2363f896306e32e6f`
+  - Unchanged #33 runtime-under-proof: `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`
+  - Review Cycle 2: `4948479110`
   - Sealed bundle Git blob: `274cdd9e6d38d5a00aa43d780779e95a7919d975`
 
-  Prove unchanged DungeonMind #33 can adopt the exact post-#609 Eldyrwild
-  bundle into a real empty PostgreSQL target atomically and replay/recover it
-  without loss. Do not repair adoption runtime.
+  Historical: unchanged DungeonMind #33 adopted the exact post-#609 Eldyrwild
+  bundle into a real empty PostgreSQL target. Do not redispatch this proof.
 ---
 
 # HANDOFF — prove exact Eldyrwild PostgreSQL existing-world adoption
 
 **Created:** 2026-08-16
-**Status:** READY after the post-#609 DOCUMENTS state-sync merges; do not dispatch from `7922b610…` directly
+**Status:** DONE / HISTORICAL — implemented by DungeonMind PR #34. Do not redispatch.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md`
 **Conversation/workstream:** `CUTOVER — Eldyrwild PostgreSQL existing-world adoption proof`
 **Flow / owner:** `DND`
@@ -32,13 +33,58 @@ pr_body_template: |
 **Suggested branch:** `dnd/cutover-eldyrwild-postgres-existing-world-adoption-proof`
 **PR title:** `DND: prove exact Eldyrwild PostgreSQL existing-world adoption`
 
+### Completion record
+
+```text
+DONE / HISTORICAL — do not redispatch.
+
+DungeonMind PR:                 #34
+PR title:                       BUILD: prove Eldyrwild PostgreSQL adoption
+implementation head:            935d3d9117442a92ef2dd8f11967fed20f863ea1
+merge / current DND main:       d2204dd0901237d8b446b4f2363f896306e32e6f
+unchanged #33 runtime-under-proof:
+                                f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92
+review cycles:                  2
+Cycle 1 review:                 4948116743 — CHANGES REQUIRED
+Cycle 2 review:                 4948479110 — MERGE-READY
+                                (formal COMMENT because reviewer == author)
+changed paths:                  exactly 3 test/fixture paths;
+                                no production runtime/schema edits
+
+sealed fixture Git blob:        274cdd9e6d38d5a00aa43d780779e95a7919d975
+bundle SHA-256:                 90574dfc4101e4198c7fd96478d6f49e65aa534d0aa91fa41a9a17da9d49695f
+published graph payload SHA:    047214f19e3a2d22b1cf3e0596283844ef34853dd2e4f38d341c6b212ae320ef
+published revision:             rev:34b1f8e2625d5ba693fc726a2a1a4720
+shape:                          469 objects / 323 relationships /
+                                3 secondary aspects / 5 aspect-selected
+source history:                 83 artifacts / 83 revisions
+contribution history:           93 GraphContributionV2
+identity history:               13 IdentityDecisionRecordV2
+
+PROVED: empty-target first adopt, durable receipt, exact retry
+cardinality including one head event, conflict without mutation,
+all #33 precommit failpoint rollback including worlds and
+evidence_refs, postcommit response-loss recovery, 469/323/3/5
+graph readback, ID-complete v2 fingerprint round-trip including
+assertion_corrections / source_derived_candidate / merge_side_effects,
+and post-#609 evidence identity collision absence.
+
+NOT PROVED: observational correspondence after later Buddy changes,
+snapshot drift / descendant catch-up, living-world writer ownership,
+production read switch, rollback operator workflow, first
+post-cutover mutation, old-authority demolition, or CUTOVER_READY.
+
+PostgreSQL integration was green. Inherited repo-wide Ruff SIM300
+left ci / core red; do not rewrite that baseline into a green
+full-repo claim.
+
+Next bounded capability is correspondence / authority-transition
+DESIGN. Product authority remains Buddy.
+```
+
 > Repository law for Buddy sequencing: [`AGENTS.md`](../../AGENTS.md).
-> Dispatch base for this implementation is the **merged post-#609 DOCUMENTS
-> state-sync SHA / then-current Buddy `main`**, not `7922b610…` merely because
-> it is recorded here. Re-anchor before opening the DungeonMind PR.
->
-> This is an acceptance/proof slice over existing adoption runtime. It is not
-> permission to redesign DungeonMind persistence.
+> This handoff is historical. Do not redispatch the PostgreSQL adoption proof.
+> The body below is the original implementation contract that #34 satisfied.
 
 ---
 
@@ -339,12 +385,14 @@ Do not merge a DungeonMind PR that repaired runtime to get green.
 
 ## §9 Acceptance checklist
 
-- [ ] Fixture bytes are Git blob `274cdd9e6d38d5a00aa43d780779e95a7919d975`
-- [ ] DungeonMind base is `f2e27380…` unless a documented re-anchor required a newer pin
-- [ ] Empty target, first adopt, exact retry, conflict, precommit rollback, postcommit recovery, graph readback, and history fingerprint round-trip all pass on real PostgreSQL
-- [ ] 469 objects / 323 relationships / 3 aspects / 5 aspect-selected relationships
-- [ ] Parsed source/contribution/identity records are ID-complete and fingerprint-equal on PostgreSQL readback, including correction links, merge side effects, and `source_derived_candidate`
-- [ ] No `contribution embeds conflicting evidence_ref`
-- [ ] No DungeonMind `src/` or `migrations/` edits
-- [ ] Product-authority switch remains false
-- [ ] Post-merge Buddy sync set includes this handoff marked `DONE / HISTORICAL — do not redispatch` with PR/head/merge/review-cycle evidence
+Historical — satisfied by merged DungeonMind PR #34 (`935d3d91…` / `d2204dd0…`, 2 review cycles). Do not redispatch.
+
+- [x] Fixture bytes are Git blob `274cdd9e6d38d5a00aa43d780779e95a7919d975`
+- [x] DungeonMind base is `f2e27380…` unless a documented re-anchor required a newer pin
+- [x] Empty target, first adopt, exact retry, conflict, precommit rollback, postcommit recovery, graph readback, and history fingerprint round-trip all pass on real PostgreSQL
+- [x] 469 objects / 323 relationships / 3 aspects / 5 aspect-selected relationships
+- [x] Parsed source/contribution/identity records are ID-complete and fingerprint-equal on PostgreSQL readback, including correction links, merge side effects, and `source_derived_candidate`
+- [x] No `contribution embeds conflicting evidence_ref`
+- [x] No DungeonMind `src/` or `migrations/` edits
+- [x] Product-authority switch remains false
+- [x] Post-merge Buddy sync set includes this handoff marked `DONE / HISTORICAL — do not redispatch` with PR/head/merge/review-cycle evidence
