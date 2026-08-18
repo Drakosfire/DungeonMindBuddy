@@ -38,6 +38,7 @@ import os
 import shutil
 import tempfile
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -1665,6 +1666,7 @@ def _build_v2_candidate(
                 },
             )
         verdict_states[assertion.assertion_id] = state
+    endpoint_kinds = _candidate_endpoint_kinds(store, candidate)
     return (
         candidate.model_copy(
             update={
@@ -1675,7 +1677,9 @@ def _build_v2_candidate(
                             "temporal_scope": _normalized_temporal_scope(
                                 assertion.temporal_scope
                             ),
-                            **_qualified_assertion_update(assertion),
+                            **_qualified_assertion_update(
+                                assertion, endpoint_kinds=endpoint_kinds
+                            ),
                         }
                     )
                     for assertion in candidate.assertions
@@ -1690,16 +1694,49 @@ def _build_v2_candidate(
     )
 
 
-def _qualified_assertion_update(assertion: Any) -> dict[str, Any]:
+def _candidate_endpoint_kinds(store: Any, candidate: Any) -> dict[str, str]:
+    """Buddy kind per node id visible to the confirmation.
+
+    Endpoint admission for accepted edges is checked against the graph state
+    the publication produces: pre-existing nodes come from the hydrated head
+    store (the durable kind is authoritative), and the candidate's own node
+    assertions contribute the kinds of nodes first materializing alongside
+    the edges that reference them.
+    """
+    kinds: dict[str, str] = {}
+    for node_id, node in getattr(store, "nodes", {}).items():
+        kind = getattr(node, "kind", None)
+        if isinstance(kind, str) and kind.strip():
+            kinds[node_id] = kind
+    for assertion in candidate.assertions:
+        if assertion.assertion_kind != "node" or not assertion.value:
+            continue
+        try:
+            value = json.loads(assertion.value)
+        except ValueError:
+            continue
+        if not isinstance(value, dict):
+            continue
+        kind = value.get("kind")
+        if isinstance(kind, str) and kind.strip():
+            kinds.setdefault(assertion.subject_object_id, kind)
+    return kinds
+
+
+def _qualified_assertion_update(
+    assertion: Any, *, endpoint_kinds: Mapping[str, str]
+) -> dict[str, Any]:
     """Per-kind DungeonMind qualification for one mapped candidate assertion."""
     if assertion.assertion_kind == "node":
         return {"value": _qualified_value(assertion)}
     if assertion.assertion_kind == "edge":
-        return _qualified_edge_update(assertion)
+        return _qualified_edge_update(assertion, endpoint_kinds=endpoint_kinds)
     return {}
 
 
-def _qualified_edge_update(assertion: Any) -> dict[str, Any]:
+def _qualified_edge_update(
+    assertion: Any, *, endpoint_kinds: Mapping[str, str]
+) -> dict[str, Any]:
     """Inject the qualified ``dm_predicate`` into an edge assertion's value.
 
     Buddy edges carry the raw Buddy ``predicate``; the v6 materializer
@@ -1712,6 +1749,14 @@ def _qualified_edge_update(assertion: Any) -> dict[str, Any]:
     value's ``edge_id`` keeps the original Buddy orientation, so the
     relationship id and the Buddy content-addressed assertion id are
     unchanged (the inverse translation un-swaps deterministically).
+
+    The name mapping alone is not sufficient for publication: the concrete
+    endpoint kinds must also be admitted for the qualified predicate by the
+    world-object-v5 vocabulary (``dnd5e:leads_to`` is Location→Location).
+    DungeonMind's materializer requires the qualified predicate and existing
+    endpoints but does not re-check predicate-specific endpoint kinds, so
+    this writer is the last governed gate — an inadmitted endpoint pair fails
+    closed here rather than becoming authoritative.
     """
     import json as _json
 
@@ -1738,6 +1783,12 @@ def _qualified_edge_update(assertion: Any) -> dict[str, Any]:
             },
         )
     dm_predicate, reverse_endpoints = mapping
+    _assert_edge_endpoint_admission(
+        assertion,
+        dm_predicate=dm_predicate,
+        reverse_endpoints=reverse_endpoints,
+        endpoint_kinds=endpoint_kinds,
+    )
     update: dict[str, Any] = {
         "value": _canonical_json({**value, "dm_predicate": dm_predicate})
     }
@@ -1745,6 +1796,76 @@ def _qualified_edge_update(assertion: Any) -> dict[str, Any]:
         update["subject_object_id"] = assertion.object_object_id
         update["object_object_id"] = assertion.subject_object_id
     return update
+
+
+def _assert_edge_endpoint_admission(
+    assertion: Any,
+    *,
+    dm_predicate: str,
+    reverse_endpoints: bool,
+    endpoint_kinds: Mapping[str, str],
+) -> None:
+    """Fail closed unless the edge's concrete endpoint kinds are admitted for
+    the qualified predicate by the world-object-v5 vocabulary.
+
+    This mirrors the conformance contract's endpoint-admission rule
+    (``_admit_mapped_edge_v4``): endpoint Buddy kinds resolve through the
+    same ``CURRENT_V5_TARGET.buddy_to_dm_kind`` table used for node
+    qualification, reverse-mapped predicates admit the swapped orientation,
+    and an endpoint that is missing, unmapped, or outside the predicate's
+    admitted subject/object kinds makes the edge inexpressible — the writer
+    never publishes a relationship the vocabulary does not admit.
+    """
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance import (
+        _predicate_allowed_endpoints,
+    )
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+        CURRENT_V5_TARGET,
+    )
+
+    allowed = _predicate_allowed_endpoints(
+        dm_predicate, CURRENT_V5_TARGET.world_object_loader()
+    )
+    if allowed is None:
+        raise WorldGraphAuthorityError(
+            "DungeonMind vocabulary does not define the qualified predicate",
+            code="governed_write_inexpressible",
+            details={
+                "assertion_id": assertion.assertion_id,
+                "buddy_predicate": assertion.predicate,
+                "dm_predicate": dm_predicate,
+                "reason": "vocabulary_missing_predicate",
+            },
+        )
+    subject_kinds, object_kinds = allowed
+    src_dm = CURRENT_V5_TARGET.buddy_to_dm_kind.get(
+        endpoint_kinds.get(assertion.subject_object_id) or ""
+    )
+    tgt_dm = CURRENT_V5_TARGET.buddy_to_dm_kind.get(
+        endpoint_kinds.get(assertion.object_object_id) or ""
+    )
+    admit_src, admit_tgt = (tgt_dm, src_dm) if reverse_endpoints else (src_dm, tgt_dm)
+    if (
+        admit_src is None
+        or admit_tgt is None
+        or admit_src not in subject_kinds
+        or admit_tgt not in object_kinds
+    ):
+        raise WorldGraphAuthorityError(
+            "confirmed edge endpoint kinds are not admitted for the qualified predicate",
+            code="governed_write_inexpressible",
+            details={
+                "assertion_id": assertion.assertion_id,
+                "buddy_predicate": assertion.predicate,
+                "dm_predicate": dm_predicate,
+                "subject_object_id": assertion.subject_object_id,
+                "object_object_id": assertion.object_object_id,
+                "subject_dm_kind": admit_src,
+                "object_dm_kind": admit_tgt,
+                "reverse_endpoints": reverse_endpoints,
+                "reason": "endpoint_kind_not_admitted",
+            },
+        )
 
 
 def _qualified_value(assertion: Any) -> str | None:

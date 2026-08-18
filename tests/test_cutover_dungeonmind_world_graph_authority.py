@@ -458,7 +458,8 @@ def test_edge_predicate_qualification_round_trip():
             value=_json.dumps(value),
         )
 
-    # Direct-mapped predicate: qualify in place, no endpoint swap.
+    # Direct-mapped predicate: qualify in place, no endpoint swap. The
+    # endpoint kinds are admitted: npc → dnd5e:located_in → location.
     direct_value = {
         "edge_id": "edge:node:a:located_in:node:b",
         "predicate": "located_in",
@@ -467,7 +468,9 @@ def test_edge_predicate_qualification_round_trip():
     direct = _assertion(
         predicate="located_in", value=direct_value, subject="node:a", target="node:b"
     )
-    update = wga._qualified_edge_update(direct)
+    update = wga._qualified_edge_update(
+        direct, endpoint_kinds={"node:a": "npc", "node:b": "location"}
+    )
     qualified_value = _json.loads(update["value"])
     assert qualified_value["dm_predicate"] == "dnd5e:located_in"
     assert qualified_value["edge_id"] == direct_value["edge_id"]
@@ -496,6 +499,8 @@ def test_edge_predicate_qualification_round_trip():
     )
 
     # Reverse-mapped predicate: swap endpoints forward, un-swap on recovery.
+    # Admitted orientation: dnd5e:owns is faction/group/npc/party/pc →
+    # creature/item/location, so a location belonging to a faction qualifies.
     reverse_value = {
         "edge_id": "edge:node:a:belongs_to:node:b",
         "predicate": "belongs_to",
@@ -503,7 +508,9 @@ def test_edge_predicate_qualification_round_trip():
     reverse = _assertion(
         predicate="belongs_to", value=reverse_value, subject="node:a", target="node:b"
     )
-    reverse_update = wga._qualified_edge_update(reverse)
+    reverse_update = wga._qualified_edge_update(
+        reverse, endpoint_kinds={"node:a": "location", "node:b": "faction"}
+    )
     assert _json.loads(reverse_update["value"])["dm_predicate"] == "dnd5e:owns"
     assert reverse_update["subject_object_id"] == "node:b"
     assert reverse_update["object_object_id"] == "node:a"
@@ -544,8 +551,87 @@ def test_edge_predicate_qualification_round_trip():
         target="node:b",
     )
     with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
-        wga._qualified_edge_update(unmapped)
+        wga._qualified_edge_update(unmapped, endpoint_kinds={})
     assert excinfo.value.code == "governed_write_inexpressible"
+
+
+def test_edge_endpoint_admission_enforced():
+    """The name mapping alone does not admit an edge: the concrete endpoint
+    kinds must be admitted for the qualified predicate by world-object-v5
+    (``dnd5e:leads_to`` is Location→Location; ``dnd5e:owns`` is
+    faction/group/npc/party/pc → creature/item/location). Inadmitted,
+    unknown, or unmapped endpoint kinds fail closed — reverse-mapped
+    predicates admit the swapped orientation."""
+    import json as _json
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    def _edge(*, predicate: str, subject: str, target: str):
+        return SimpleNamespace(
+            assertion_id=f"assertion:{subject}:{predicate}:{target}",
+            assertion_kind="edge",
+            subject_object_id=subject,
+            object_object_id=target,
+            predicate=predicate,
+            label=predicate,
+            value=_json.dumps(
+                {
+                    "edge_id": f"edge:{subject}:{predicate}:{target}",
+                    "predicate": predicate,
+                }
+            ),
+        )
+
+    # Admitted: location leads_to location qualifies.
+    update = wga._qualified_edge_update(
+        _edge(predicate="leads_to", subject="node:a", target="node:b"),
+        endpoint_kinds={"node:a": "location", "node:b": "location"},
+    )
+    assert _json.loads(update["value"])["dm_predicate"] == "dnd5e:leads_to"
+
+    # Inadmitted subject/object kinds fail closed.
+    for kinds in (
+        {"node:a": "npc", "node:b": "location"},  # npc cannot lead_to
+        {"node:a": "location", "node:b": "npc"},  # object must be a location
+    ):
+        with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+            wga._qualified_edge_update(
+                _edge(predicate="leads_to", subject="node:a", target="node:b"),
+                endpoint_kinds=kinds,
+            )
+        assert excinfo.value.code == "governed_write_inexpressible"
+        assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
+
+    # Unknown endpoint (absent from the hydrated head and the candidate) and
+    # unmapped Buddy endpoint kind (job has no world-object-v5 term) fail.
+    for kinds in ({"node:a": "location"}, {"node:a": "job", "node:b": "location"}):
+        with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+            wga._qualified_edge_update(
+                _edge(predicate="leads_to", subject="node:a", target="node:b"),
+                endpoint_kinds=kinds,
+            )
+        assert excinfo.value.code == "governed_write_inexpressible"
+
+    # Reverse-mapped admission uses the swapped orientation: a creature
+    # belonging to an npc qualifies (dnd5e:owns — npc owns creature); an npc
+    # belonging to a creature does not (a creature cannot own).
+    reverse_ok = wga._qualified_edge_update(
+        _edge(predicate="belongs_to", subject="node:a", target="node:b"),
+        endpoint_kinds={"node:a": "creature", "node:b": "npc"},
+    )
+    assert _json.loads(reverse_ok["value"])["dm_predicate"] == "dnd5e:owns"
+    assert reverse_ok["subject_object_id"] == "node:b"
+    assert reverse_ok["object_object_id"] == "node:a"
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga._qualified_edge_update(
+            _edge(predicate="belongs_to", subject="node:a", target="node:b"),
+            endpoint_kinds={"node:a": "npc", "node:b": "creature"},
+        )
+    assert excinfo.value.code == "governed_write_inexpressible"
+    assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
 
 
 def test_temporal_scope_session_hint_round_trip():
@@ -2037,8 +2123,8 @@ def test_governed_write_preserves_gm_partition_and_publishes_edges(write_world):
             ),
             _preview_edge(
                 artifact_id,
-                edge_id="edge:cutover-a-belongs-to-c",
-                from_node_id="node:cutover-edge-a",
+                edge_id="edge:cutover-b-belongs-to-c",
+                from_node_id="node:cutover-edge-b",
                 to_node_id="node:cutover-edge-c",
                 predicate="belongs_to",
                 span="session-26:recap:paragraph:006",
@@ -2129,11 +2215,12 @@ def test_governed_write_preserves_gm_partition_and_publishes_edges(write_world):
     assert direct["predicate"] == "dnd5e:located_in"
     assert direct["source_object_id"] == "node:cutover-edge-a"
     assert direct["target_object_id"] == "node:cutover-edge-b"
-    reverse = relationships["edge:node:cutover-edge-a:belongs_to:node:cutover-edge-c"]
+    reverse = relationships["edge:node:cutover-edge-b:belongs_to:node:cutover-edge-c"]
     assert reverse["predicate"] == "dnd5e:owns"
-    # Reverse-mapped: the materialized direction follows dnd5e:owns semantics.
+    # Reverse-mapped: the materialized direction follows dnd5e:owns semantics
+    # (the faction owns the location — an admitted owns endpoint pair).
     assert reverse["source_object_id"] == "node:cutover-edge-c"
-    assert reverse["target_object_id"] == "node:cutover-edge-a"
+    assert reverse["target_object_id"] == "node:cutover-edge-b"
 
     # The hydrated Buddy read model recovers the original Buddy edge
     # orientation and predicate (the inverse translation un-swaps and strips
@@ -2156,10 +2243,10 @@ def test_governed_write_preserves_gm_partition_and_publishes_edges(write_world):
     assert buddy_direct.source_node_id == "node:cutover-edge-a"
     assert buddy_direct.target_node_id == "node:cutover-edge-b"
     buddy_reverse = store_b.edges[
-        "edge:node:cutover-edge-a:belongs_to:node:cutover-edge-c"
+        "edge:node:cutover-edge-b:belongs_to:node:cutover-edge-c"
     ]
     assert buddy_reverse.predicate == "belongs_to"
-    assert buddy_reverse.source_node_id == "node:cutover-edge-a"
+    assert buddy_reverse.source_node_id == "node:cutover-edge-b"
     assert buddy_reverse.target_node_id == "node:cutover-edge-c"
 
     assert _tree_digest(frozen_root) == frozen_digest_before
@@ -2233,6 +2320,96 @@ def test_governed_write_unmapped_edge_predicate_fails_closed(write_world):
             repo_root=write_world["tmp_path"],
         )
     assert excinfo.value.code == "governed_write_inexpressible"
+
+    # Zero mutation: head, revisions, reviews, and the frozen store unchanged.
+    head = write_world["bundle"].world_graph.get_head(WORLD_ID)
+    assert head is not None and head.head_revision_id == d_a
+    assert _graph_revision_ids(dsn) == revisions_before
+    with psycopg.connect(dsn) as conn:
+        review_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.contribution_reviews"
+        ).fetchone()[0]
+        publication_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.finalized_review_publications"
+        ).fetchone()[0]
+    assert review_rows == 0
+    assert publication_rows == 0
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_endpoint_admission_fails_closed(write_world):
+    """§3 repair: an accepted edge whose Buddy predicate has an explicit
+    DungeonMind mapping but whose concrete endpoint kinds are not admitted for
+    the qualified predicate fails closed (``governed_write_inexpressible``)
+    with zero mutation. world-object-v5 defines ``dnd5e:leads_to`` as
+    Location→Location; an NPC→Location ``leads_to`` edge must never become
+    authoritative. The name mapping alone is not admission."""
+    import psycopg
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+    revisions_before = _graph_revision_ids(dsn)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-admission"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-admit-a",
+        label="Admission Anchor",
+        extra_nodes=[
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-admit-b",
+                label="Admission Target",
+                node_type="location",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+        edges=[
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:cutover-admit-leads-to",
+                from_node_id="node:cutover-admit-a",  # npc — not a Location
+                to_node_id="node:cutover-admit-b",
+                predicate="leads_to",
+                span="session-26:recap:paragraph:003",
+            ),
+        ],
+    )
+    # Buddy's identity gate admits the edge; DungeonMind endpoint admission is
+    # the writer's governed responsibility.
+    assert len(accepted_ids) == 3
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.confirm_via_dungeonmind(
+            _Request(),
+            world_root=frozen_root,
+            database_url=dsn,
+            cache_root=cache_root,
+            frozen_root=frozen_root,
+            confirming_principal="gm@confirm",
+            assertion_ids=None,
+            repo_root=write_world["tmp_path"],
+        )
+    assert excinfo.value.code == "governed_write_inexpressible"
+    assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
 
     # Zero mutation: head, revisions, reviews, and the frozen store unchanged.
     head = write_world["bundle"].world_graph.get_head(WORLD_ID)
