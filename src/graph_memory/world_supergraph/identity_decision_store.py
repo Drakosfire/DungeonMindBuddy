@@ -17,14 +17,14 @@ from graph_memory.kernel.identity_models import IdentityDecisionRecord
 from graph_memory.world_supergraph import paths as world_paths
 
 
-def _assert_mutation_allowed(world_id: str, operation: str) -> None:
+def _assert_mutation_allowed(root: Path, world_id: str, operation: str) -> None:
     # Lazy import: storage -> union_supergraph.load reaches back into the
     # contribution merge path, so a module-level import would cycle.
     from graph_memory.world_supergraph.storage import (
         assert_local_world_graph_mutation_allowed,
     )
 
-    assert_local_world_graph_mutation_allowed(world_id, operation=operation)
+    assert_local_world_graph_mutation_allowed(root, world_id, operation=operation)
 
 
 class IdentityDecisionIndex(BaseModel):
@@ -63,7 +63,7 @@ def load_identity_decision_index(root: Path, world_id: str) -> IdentityDecisionI
 def save_identity_decision_index(
     root: Path, world_id: str, index: IdentityDecisionIndex
 ) -> None:
-    _assert_mutation_allowed(world_id, "save_identity_decision_index")
+    _assert_mutation_allowed(root, world_id, "save_identity_decision_index")
     path = world_paths.identity_decision_index_path(root, world_id)
     _atomic_write_json(path, index.model_dump(mode="json"))
 
@@ -71,7 +71,7 @@ def save_identity_decision_index(
 def write_identity_decision_record(
     root: Path, world_id: str, decision: IdentityDecisionRecord
 ) -> Path:
-    _assert_mutation_allowed(world_id, "write_identity_decision_record")
+    _assert_mutation_allowed(root, world_id, "write_identity_decision_record")
     path = world_paths.identity_decision_path(root, world_id, decision.decision_id)
     _atomic_write_json(path, decision.model_dump(mode="json"))
     return path

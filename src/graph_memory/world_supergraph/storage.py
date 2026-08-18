@@ -88,7 +88,35 @@ def world_graph_authority_mode(environ: dict[str, str] | None = None) -> str:
     return raw
 
 
+_WORLD_GRAPH_CACHE_ROOTS: set[Path] = set()
+
+
+def register_world_graph_cache_root(root: Path) -> None:
+    """Mark ``root`` as a derived read-model cache, exempt from the mutation guard.
+
+    The DungeonMind-backed authority adapter hydrates a Buddy-shaped read model
+    under a cache root keyed by DungeonMind head revision. That cache is a pure
+    derivative of DungeonMind durable state — never a second authority — so the
+    kernel's rebuild/publish machinery may write it in any authority mode.
+    """
+    _WORLD_GRAPH_CACHE_ROOTS.add(Path(root).resolve())
+
+
+def clear_world_graph_cache_roots() -> None:
+    """Drop all registered cache roots (test isolation hook)."""
+    _WORLD_GRAPH_CACHE_ROOTS.clear()
+
+
+def _is_registered_cache_root(root: Path) -> bool:
+    resolved = Path(root).resolve()
+    return any(
+        resolved == cache or resolved.is_relative_to(cache)
+        for cache in _WORLD_GRAPH_CACHE_ROOTS
+    )
+
+
 def assert_local_world_graph_mutation_allowed(
+    root: Path,
     world_id: str,
     *,
     operation: str,
@@ -99,12 +127,16 @@ def assert_local_world_graph_mutation_allowed(
     When the authority mode is not ``buddy_files`` the file-backed store is no
     longer the write authority, so any local mutation would fork a second
     history. Raising here keeps a forgotten caller from doing exactly that.
+    Registered cache roots (derived read models, never authority) are exempt.
     """
     mode = world_graph_authority_mode(environ)
-    if mode != WORLD_GRAPH_AUTHORITY_BUDDY_FILES:
-        raise WorldGraphAuthorityQuiescedError(
-            world_id=world_id, mode=mode, operation=operation
-        )
+    if mode == WORLD_GRAPH_AUTHORITY_BUDDY_FILES:
+        return
+    if _is_registered_cache_root(root):
+        return
+    raise WorldGraphAuthorityQuiescedError(
+        world_id=world_id, mode=mode, operation=operation
+    )
 
 
 def _utc_now_iso() -> str:
@@ -267,7 +299,9 @@ def publish_world_graph_revision(
     observed under that lock (stale-parent reject).
     """
     world_paths.assert_safe_world_id(world_id)
-    assert_local_world_graph_mutation_allowed(world_id, operation="publish_world_graph_revision")
+    assert_local_world_graph_mutation_allowed(
+        root, world_id, operation="publish_world_graph_revision"
+    )
     if not operation_ids:
         raise ValueError("operation_ids must be non-empty")
 
@@ -359,7 +393,9 @@ def rollback_world_graph_head(
 ) -> WorldGraphHead:
     """Crude rollback: validate revision exists, then atomically repoint head."""
     world_paths.assert_safe_world_id(world_id)
-    assert_local_world_graph_mutation_allowed(world_id, operation="rollback_world_graph_head")
+    assert_local_world_graph_mutation_allowed(
+        root, world_id, operation="rollback_world_graph_head"
+    )
     world_paths.assert_safe_revision_id(revision_id)
 
     graph_path = world_paths.graph_payload_path(root, world_id, revision_id)
