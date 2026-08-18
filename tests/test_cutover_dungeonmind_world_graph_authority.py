@@ -118,7 +118,10 @@ def _minimal_store() -> object:
 
 
 def test_authority_mode_defaults_to_buddy_files(monkeypatch):
-    assert storage.world_graph_authority_mode() == storage.WORLD_GRAPH_AUTHORITY_BUDDY_FILES
+    assert (
+        storage.world_graph_authority_mode()
+        == storage.WORLD_GRAPH_AUTHORITY_BUDDY_FILES
+    )
 
 
 def test_authority_mode_unknown_value_fails_closed(monkeypatch):
@@ -142,7 +145,9 @@ def test_local_mutation_guard_rejects_non_local_modes(tmp_path, monkeypatch, mod
 
 
 def test_local_mutation_guard_allows_buddy_files(tmp_path, monkeypatch):
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_BUDDY_FILES)
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_BUDDY_FILES
+    )
     result = storage.publish_world_graph_revision(
         tmp_path, WORLD_ID, _minimal_store(), operation_ids=["test"]
     )
@@ -150,7 +155,9 @@ def test_local_mutation_guard_allows_buddy_files(tmp_path, monkeypatch):
 
 
 def test_local_mutation_guard_exempts_registered_cache_root(tmp_path, monkeypatch):
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
     cache = tmp_path / "cache"
     storage.register_world_graph_cache_root(cache)
     result = storage.publish_world_graph_revision(
@@ -193,7 +200,9 @@ def test_translate_all_bundle_contributions_recover_content_ids(bundle_payload):
     ]
     assert len(contributions) == len(bundle_payload["contributions"])
     assertion_total = sum(
-        len(c.candidate_assertions) + len(c.accepted_assertions) + len(c.rejected_assertions)
+        len(c.candidate_assertions)
+        + len(c.accepted_assertions)
+        + len(c.rejected_assertions)
         for c in contributions
     )
     assert assertion_total > 1800  # Eldyrwild ledger scale guard
@@ -234,7 +243,9 @@ def test_order_contributions_sealed_first_then_new(bundle_payload):
     new = ordered[4:]
     assert [c.contribution_id for c in new] == [
         c.contribution_id
-        for c in sorted(translated[4:], key=lambda c: (c.produced_at, c.contribution_id))
+        for c in sorted(
+            translated[4:], key=lambda c: (c.produced_at, c.contribution_id)
+        )
     ]
 
 
@@ -273,7 +284,9 @@ def test_route_service_read_passthrough_in_quiesced(tmp_path, monkeypatch):
         world_graph_authority as wga,
     )
 
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_QUIESCED)
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_QUIESCED
+    )
     request = _projection_request()
     root, routed = wga.route_service_read(request, None, default_root=tmp_path)
     assert root == tmp_path
@@ -285,7 +298,9 @@ def test_route_service_read_explicit_root_bypasses_dungeonmind(tmp_path, monkeyp
         world_graph_authority as wga,
     )
 
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
     explicit = tmp_path / "explicit"
     request = _projection_request()
     root, routed = wga.route_service_read(request, explicit, default_root=tmp_path)
@@ -298,7 +313,9 @@ def test_route_service_read_dungeonmind_requires_database_url(tmp_path, monkeypa
         world_graph_authority as wga,
     )
 
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
     with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
         wga.route_service_read(_projection_request(), None, default_root=tmp_path)
     assert excinfo.value.code == "authority_unavailable"
@@ -311,7 +328,9 @@ def test_route_service_read_dungeonmind_unreachable_fails_closed(tmp_path, monke
         world_graph_authority as wga,
     )
 
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL",
         "postgresql://dungeonmind:wrong@127.0.0.1:1/nowhere",
@@ -329,7 +348,9 @@ def test_projection_service_unreachable_authority_fails_closed(tmp_path, monkeyp
         project_world_graph,
     )
 
-    monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL",
         "postgresql://dungeonmind:wrong@127.0.0.1:1/nowhere",
@@ -576,11 +597,11 @@ def hydrated(adopted_world, tmp_path, monkeypatch):
     monkeypatch.setenv(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", adopted_world["dsn"]
     )
-    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(adopted_world["frozen_root"]))
-    cache_root = tmp_path / "authority-cache"
     monkeypatch.setenv(
-        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT", str(cache_root)
+        "DUNGEONMIND_WORLD_GRAPH_ROOT", str(adopted_world["frozen_root"])
     )
+    cache_root = tmp_path / "authority-cache"
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT", str(cache_root))
     handle = wga.ensure_hydrated_authority(
         WORLD_ID,
         database_url=adopted_world["dsn"],
@@ -628,11 +649,13 @@ def test_projection_read_served_from_dungeonmind(hydrated):
     frozen_projection = project_world_graph(
         _projection_request(), root=hydrated["frozen_root"]
     )
-    assert projected.model_dump(mode="json")["relationships"] == (
-        frozen_projection.model_dump(mode="json")["relationships"]
+    assert (
+        projected.model_dump(mode="json")["relationships"]
+        == (frozen_projection.model_dump(mode="json")["relationships"])
     )
-    assert projected.model_dump(mode="json")["attributes"] == (
-        frozen_projection.model_dump(mode="json")["attributes"]
+    assert (
+        projected.model_dump(mode="json")["attributes"]
+        == (frozen_projection.model_dump(mode="json")["attributes"])
     )
     # Node sets are identical; per-node adjacency list order follows Buddy's
     # own rebuild semantics (the frozen head's adjacency is a stale accretion
@@ -674,11 +697,13 @@ def test_retrieval_read_served_from_dungeonmind(hydrated):
     routed_object = retrieval.get_campaign_object(object_request)
     frozen_object = retrieval.get_campaign_object(object_request, root=frozen)
     assert routed_object.outcome == frozen_object.outcome
-    assert routed_object.model_dump(mode="json")["nodes"] == (
-        frozen_object.model_dump(mode="json")["nodes"]
+    assert (
+        routed_object.model_dump(mode="json")["nodes"]
+        == (frozen_object.model_dump(mode="json")["nodes"])
     )
-    assert routed_object.model_dump(mode="json")["attributes"] == (
-        frozen_object.model_dump(mode="json")["attributes"]
+    assert (
+        routed_object.model_dump(mode="json")["attributes"]
+        == (frozen_object.model_dump(mode="json")["attributes"])
     )
     assert routed_object.snapshot.revision_id == hydrated["handle"].buddy_revision_id
 
@@ -694,11 +719,13 @@ def test_retrieval_read_served_from_dungeonmind(hydrated):
     frozen_neighborhood = retrieval.get_object_neighborhood(
         neighborhood_request, root=frozen
     )
-    assert routed_neighborhood.model_dump(mode="json")["nodes"] == (
-        frozen_neighborhood.model_dump(mode="json")["nodes"]
+    assert (
+        routed_neighborhood.model_dump(mode="json")["nodes"]
+        == (frozen_neighborhood.model_dump(mode="json")["nodes"])
     )
-    assert routed_neighborhood.model_dump(mode="json")["relationships"] == (
-        frozen_neighborhood.model_dump(mode="json")["relationships"]
+    assert (
+        routed_neighborhood.model_dump(mode="json")["relationships"]
+        == (frozen_neighborhood.model_dump(mode="json")["relationships"])
     )
 
 
@@ -714,7 +741,9 @@ def test_legacy_a_reference_resolves_through_bridge(hydrated):
     )
 
     # Service-level: a pinned exact-A projection resolves through the bridge.
-    projected = project_world_graph(_projection_request(revision_pin=FROZEN_HEAD_REVISION))
+    projected = project_world_graph(
+        _projection_request(revision_pin=FROZEN_HEAD_REVISION)
+    )
     assert projected.snapshot.revision_id == hydrated["handle"].buddy_revision_id
 
     # An unbridged historical revision fails closed rather than reading files.
@@ -761,7 +790,9 @@ def _tree_digest(root: Path) -> str:
 
 
 @pytest.mark.integration
-def test_governed_write_fails_closed_and_changes_nothing(hydrated, tmp_path, monkeypatch):
+def test_governed_write_fails_closed_and_changes_nothing(
+    hydrated, tmp_path, monkeypatch
+):
     """§10: the normal confirmed-publication path routes into DungeonMind and
     fails closed at the characterized governed-write gap; neither the frozen
     Buddy store nor the DungeonMind ledger is mutated."""
@@ -782,9 +813,7 @@ def test_governed_write_fails_closed_and_changes_nothing(hydrated, tmp_path, mon
     )
 
     frozen_digest_before = _tree_digest(hydrated["frozen_root"])
-    contributions_before = (
-        adopted_world_contributions(hydrated["dsn"])
-    )
+    contributions_before = adopted_world_contributions(hydrated["dsn"])
 
     cache_root = hydrated["handle"].cache_world_root
     parent = hydrated["handle"].buddy_revision_id

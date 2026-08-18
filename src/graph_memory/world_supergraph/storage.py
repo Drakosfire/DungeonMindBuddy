@@ -180,7 +180,10 @@ def _require_parent_matches(
 
 def canonicalize_graph_payload(payload: dict[str, Any]) -> str:
     """Stable JSON serialization used for hashing and on-disk graph.json bytes."""
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
+    return (
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        + "\n"
+    )
 
 
 def sha256_hex(text: str) -> str:
@@ -433,5 +436,7 @@ def list_revision_ids(root: Path, world_id: str) -> list[str]:
     rev_root = world_paths.revisions_dir(root, world_id)
     if not rev_root.is_dir():
         return []
-    ids = [p.name for p in rev_root.iterdir() if p.is_dir() and p.name.startswith("rev:")]
+    ids = [
+        p.name for p in rev_root.iterdir() if p.is_dir() and p.name.startswith("rev:")
+    ]
     return sorted(ids)

@@ -19,7 +19,9 @@ EXTRACT_PROMOTE_SOURCE_ROOT_ENV = "DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT"
 WORLD_GRAPH_AUTHORITY_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY"
 # PostgreSQL DSN for the DungeonMind-backed World Graph authority adapter.
 # Required only when WORLD_GRAPH_AUTHORITY_ENV=dungeonmind.
-WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"
+WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
+    "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"
+)
 # Cache root for the DungeonMind-hydrated read model. The cache is a pure
 # derivative of DungeonMind durable state keyed by head revision; it never
 # chooses authority and is never consulted when DungeonMind is unavailable.
@@ -85,4 +87,6 @@ def world_graph_authority_cache_root() -> Path:
     override = os.environ.get(WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV, "").strip()
     if override:
         return Path(override).expanduser().resolve()
-    return (repo_root() / "out" / "cache" / "dungeonmind_world_graph_authority").resolve()
+    return (
+        repo_root() / "out" / "cache" / "dungeonmind_world_graph_authority"
+    ).resolve()

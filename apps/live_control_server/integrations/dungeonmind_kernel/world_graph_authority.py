@@ -330,9 +330,7 @@ def _translate_assertion(
     if assertion_id in epistemic_history:
         epistemic = epistemic_history[assertion_id]
     else:
-        epistemic = _REVERSE_EPISTEMIC.get(
-            str(assertion.epistemic_kind or ""), None
-        )
+        epistemic = _REVERSE_EPISTEMIC.get(str(assertion.epistemic_kind or ""), None)
     value = json.loads(assertion.value) if assertion.value else {}
     visibility: str | None = None
     matched = False
@@ -372,7 +370,9 @@ def _translate_assertion(
         ],
         "source_artifact_id": assertion.source_artifact_id,
         "source_revision_id": (
-            _reverse_revision_id(assertion.source_revision_id, assertion.source_artifact_id)
+            _reverse_revision_id(
+                assertion.source_revision_id, assertion.source_artifact_id
+            )
             if assertion.source_revision_id
             else None
         ),
@@ -406,7 +406,9 @@ def translate_contribution(record: Any) -> GraphContribution:
             "source_kind": _REVERSE_SOURCE_KIND[str(record.source_kind)],
             "source_artifact_id": record.source_artifact_id,
             "source_revision_id": (
-                _reverse_revision_id(record.source_revision_id, record.source_artifact_id)
+                _reverse_revision_id(
+                    record.source_revision_id, record.source_artifact_id
+                )
                 if record.source_revision_id
                 else None
             ),
@@ -578,7 +580,9 @@ def _verify_hydration_against_snapshot(
     hydrated store. Missing ids mean the hydration (or a mid-hydration head
     move) is unsound and must not serve.
     """
-    snapshot_node_ids = {str(o["object_id"]) for o in graph_payload.get("objects") or []}
+    snapshot_node_ids = {
+        str(o["object_id"]) for o in graph_payload.get("objects") or []
+    }
     snapshot_edge_ids = {
         str(r["relationship_id"]) for r in graph_payload.get("relationships") or []
     }
@@ -680,9 +684,7 @@ def hydrate_world_graph(
         key=lambda d: (_parse_utc(d.created_at), d.decision_id),
     )
 
-    staged = Path(
-        tempfile.mkdtemp(prefix=f".hydrate-{world_id}-", dir=cache_root)
-    )
+    staged = Path(tempfile.mkdtemp(prefix=f".hydrate-{world_id}-", dir=cache_root))
     try:
         baseline = UnionSupergraphStore.model_validate(
             {
@@ -791,9 +793,7 @@ def hydrate_world_graph(
         }
         _write_hydration_metadata(staged, metadata)
 
-        final_dir = (
-            cache_root / world_id / _safe_dir_name(dungeonmind_head)
-        )
+        final_dir = cache_root / world_id / _safe_dir_name(dungeonmind_head)
         if final_dir.exists():
             shutil.rmtree(final_dir)
         final_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -809,9 +809,13 @@ def hydrate_world_graph(
         legacy_map[binding.legacy_buddy_revision_id] = rebuild.revision_id
     else:
         legacy_dir = (
-            cache_root / world_id / _safe_dir_name(binding.dungeonmind_first_revision_id)
+            cache_root
+            / world_id
+            / _safe_dir_name(binding.dungeonmind_first_revision_id)
         )
-        legacy_meta = read_hydration_metadata(legacy_dir) if legacy_dir.is_dir() else None
+        legacy_meta = (
+            read_hydration_metadata(legacy_dir) if legacy_dir.is_dir() else None
+        )
         if legacy_meta:
             legacy_map[binding.legacy_buddy_revision_id] = str(
                 legacy_meta["buddy_hydrated_revision_id"]
@@ -1052,7 +1056,9 @@ def confirm_via_dungeonmind(
     v6-materialization gaps (§7 repair items) — never partially, never by
     touching the frozen Buddy store.
     """
-    from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
+    from graph_memory.extract_promote_ops import (
+        resolve_merged_contribution_from_package,
+    )
 
     package = dict(request.review_package or {})
     world_id = str((package.get("effect") or {}).get("world_id") or "").strip()
