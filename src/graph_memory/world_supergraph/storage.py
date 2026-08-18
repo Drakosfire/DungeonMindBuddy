@@ -101,12 +101,18 @@ def register_world_graph_cache_root(root: Path, *, world_root: Path) -> None:
 
     The exemption must never cover the durable local store itself: a cache root
     equal to, or an ancestor of, ``world_root`` would silently exempt every
-    authoritative file under it from the quiescence guard. Reject before
-    registration so a misconfigured cache can never install that exemption.
+    authoritative file under it from the quiescence guard. A cache root
+    *inside* the durable graph tree (for example ``worlds/eldyrwild`` under
+    ``worlds/``) is equally unsafe: hydration would write derived files into
+    the authoritative subtree and any caller writing under the cache root
+    would bypass the guard there. Reject overlap with the durable
+    ``graph_memory`` tree in either direction before registration so a
+    misconfigured cache can never install that exemption.
     """
     resolved = Path(root).resolve()
     durable = Path(world_root).resolve()
-    if resolved == durable or durable.is_relative_to(resolved):
+    durable_graph = durable / "graph_memory"
+    if resolved.is_relative_to(durable_graph) or durable_graph.is_relative_to(resolved):
         raise ValueError(
             "world graph cache root overlaps durable world graph storage: "
             f"cache_root={resolved} world_root={durable}"
