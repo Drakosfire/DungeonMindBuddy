@@ -12,6 +12,20 @@ LIVE_WORLD_GRAPH_ROOT_ENV = "DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT"
 # Dedicated root for promote source evidence fixtures / server-owned sources.
 # Never treat the world graph store (world_graph_root / out/) as source authority.
 EXTRACT_PROMOTE_SOURCE_ROOT_ENV = "DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT"
+# Whole-world authority transfer (cutover): tri-state World Graph authority
+# selector (buddy_files | quiesced | dungeonmind). The canonical parser and the
+# fail-closed local-mutation guard live in
+# ``graph_memory.world_supergraph.storage``; re-exported here for the app layer.
+WORLD_GRAPH_AUTHORITY_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY"
+# PostgreSQL DSN for the DungeonMind-backed World Graph authority adapter.
+# Required only when WORLD_GRAPH_AUTHORITY_ENV=dungeonmind.
+WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
+    "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"
+)
+# Cache root for the DungeonMind-hydrated read model. The cache is a pure
+# derivative of DungeonMind durable state keyed by head revision; it never
+# chooses authority and is never consulted when DungeonMind is unavailable.
+WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
 
 
 def repo_root() -> Path:
@@ -51,3 +65,28 @@ def extract_promote_source_root() -> Path | None:
     if not override:
         return None
     return Path(override).expanduser().resolve()
+
+
+def world_graph_authority_mode() -> str:
+    """Current World Graph authority mode (see world_supergraph.storage)."""
+    from graph_memory.world_supergraph.storage import (
+        world_graph_authority_mode as _mode,
+    )
+
+    return _mode()
+
+
+def world_graph_authority_database_url() -> str | None:
+    """PostgreSQL DSN for the DungeonMind-backed authority, when configured."""
+    override = os.environ.get(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, "").strip()
+    return override or None
+
+
+def world_graph_authority_cache_root() -> Path:
+    """Root for the DungeonMind-hydrated read-model cache (never authority)."""
+    override = os.environ.get(WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV, "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    return (
+        repo_root() / "out" / "cache" / "dungeonmind_world_graph_authority"
+    ).resolve()

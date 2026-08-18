@@ -19,6 +19,16 @@ from graph_memory.kernel.contribution_models import GraphContribution
 from graph_memory.world_supergraph import paths as world_paths
 
 
+def _assert_mutation_allowed(root: Path, world_id: str, operation: str) -> None:
+    # Lazy import: storage -> union_supergraph.load reaches back into the
+    # contribution merge path, so a module-level import would cycle.
+    from graph_memory.world_supergraph.storage import (
+        assert_local_world_graph_mutation_allowed,
+    )
+
+    assert_local_world_graph_mutation_allowed(root, world_id, operation=operation)
+
+
 class ContributionIndex(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -77,6 +87,7 @@ def load_contribution_index(root: Path, world_id: str) -> ContributionIndex:
 
 
 def save_contribution_index(root: Path, world_id: str, index: ContributionIndex) -> None:
+    _assert_mutation_allowed(root, world_id, "save_contribution_index")
     path = world_paths.contribution_index_path(root, world_id)
     _atomic_write_json(path, index.model_dump(mode="json"))
 
@@ -84,6 +95,7 @@ def save_contribution_index(root: Path, world_id: str, index: ContributionIndex)
 def write_contribution_record(
     root: Path, world_id: str, contribution: GraphContribution
 ) -> Path:
+    _assert_mutation_allowed(root, world_id, "write_contribution_record")
     path = world_paths.contribution_path(root, world_id, contribution.contribution_id)
     _atomic_write_json(path, contribution.model_dump(mode="json"))
     return path

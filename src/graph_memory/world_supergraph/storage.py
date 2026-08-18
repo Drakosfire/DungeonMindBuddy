@@ -39,6 +39,105 @@ from graph_memory.world_supergraph.model import (
 )
 from graph_memory.world_supergraph import paths as world_paths
 
+# Whole-world authority transfer (cutover): the tri-state authority selector.
+# ``buddy_files`` (default) keeps the file-backed store as the durable World
+# Graph authority. ``quiesced`` freezes all local mutation primitives while
+# reads keep serving the file store (final pre-switch correspondence window).
+# ``dungeonmind`` keeps local mutations frozen while reads/writes route to the
+# DungeonMind-backed authority adapter. Unknown values fail closed.
+WORLD_GRAPH_AUTHORITY_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY"
+WORLD_GRAPH_AUTHORITY_BUDDY_FILES = "buddy_files"
+WORLD_GRAPH_AUTHORITY_QUIESCED = "quiesced"
+WORLD_GRAPH_AUTHORITY_DUNGEONMIND = "dungeonmind"
+_WORLD_GRAPH_AUTHORITY_MODES = frozenset(
+    {
+        WORLD_GRAPH_AUTHORITY_BUDDY_FILES,
+        WORLD_GRAPH_AUTHORITY_QUIESCED,
+        WORLD_GRAPH_AUTHORITY_DUNGEONMIND,
+    }
+)
+
+
+class WorldGraphAuthorityQuiescedError(RuntimeError):
+    """A local World Graph mutation was attempted while authority is not local."""
+
+    code = "world_graph_authority_quiesced"
+
+    def __init__(self, *, world_id: str, mode: str, operation: str) -> None:
+        self.world_id = world_id
+        self.mode = mode
+        self.operation = operation
+        super().__init__(
+            f"local World Graph mutation {operation!r} refused for world "
+            f"{world_id!r}: authority mode is {mode!r} "
+            f"({WORLD_GRAPH_AUTHORITY_ENV})"
+        )
+
+
+def world_graph_authority_mode(environ: dict[str, str] | None = None) -> str:
+    """Parse the process authority mode; unknown values fail closed."""
+    source = os.environ if environ is None else environ
+    raw = source.get(WORLD_GRAPH_AUTHORITY_ENV, "").strip().lower()
+    if not raw:
+        return WORLD_GRAPH_AUTHORITY_BUDDY_FILES
+    if raw not in _WORLD_GRAPH_AUTHORITY_MODES:
+        raise ValueError(
+            f"unsupported {WORLD_GRAPH_AUTHORITY_ENV} value {raw!r}; "
+            f"expected one of {sorted(_WORLD_GRAPH_AUTHORITY_MODES)}"
+        )
+    return raw
+
+
+_WORLD_GRAPH_CACHE_ROOTS: set[Path] = set()
+
+
+def register_world_graph_cache_root(root: Path) -> None:
+    """Mark ``root`` as a derived read-model cache, exempt from the mutation guard.
+
+    The DungeonMind-backed authority adapter hydrates a Buddy-shaped read model
+    under a cache root keyed by DungeonMind head revision. That cache is a pure
+    derivative of DungeonMind durable state — never a second authority — so the
+    kernel's rebuild/publish machinery may write it in any authority mode.
+    """
+    _WORLD_GRAPH_CACHE_ROOTS.add(Path(root).resolve())
+
+
+def clear_world_graph_cache_roots() -> None:
+    """Drop all registered cache roots (test isolation hook)."""
+    _WORLD_GRAPH_CACHE_ROOTS.clear()
+
+
+def _is_registered_cache_root(root: Path) -> bool:
+    resolved = Path(root).resolve()
+    return any(
+        resolved == cache or resolved.is_relative_to(cache)
+        for cache in _WORLD_GRAPH_CACHE_ROOTS
+    )
+
+
+def assert_local_world_graph_mutation_allowed(
+    root: Path,
+    world_id: str,
+    *,
+    operation: str,
+    environ: dict[str, str] | None = None,
+) -> None:
+    """Fail-closed guard on every local World Graph mutation primitive.
+
+    When the authority mode is not ``buddy_files`` the file-backed store is no
+    longer the write authority, so any local mutation would fork a second
+    history. Raising here keeps a forgotten caller from doing exactly that.
+    Registered cache roots (derived read models, never authority) are exempt.
+    """
+    mode = world_graph_authority_mode(environ)
+    if mode == WORLD_GRAPH_AUTHORITY_BUDDY_FILES:
+        return
+    if _is_registered_cache_root(root):
+        return
+    raise WorldGraphAuthorityQuiescedError(
+        world_id=world_id, mode=mode, operation=operation
+    )
+
 
 def _utc_now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -81,7 +180,10 @@ def _require_parent_matches(
 
 def canonicalize_graph_payload(payload: dict[str, Any]) -> str:
     """Stable JSON serialization used for hashing and on-disk graph.json bytes."""
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
+    return (
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        + "\n"
+    )
 
 
 def sha256_hex(text: str) -> str:
@@ -200,6 +302,9 @@ def publish_world_graph_revision(
     observed under that lock (stale-parent reject).
     """
     world_paths.assert_safe_world_id(world_id)
+    assert_local_world_graph_mutation_allowed(
+        root, world_id, operation="publish_world_graph_revision"
+    )
     if not operation_ids:
         raise ValueError("operation_ids must be non-empty")
 
@@ -291,6 +396,9 @@ def rollback_world_graph_head(
 ) -> WorldGraphHead:
     """Crude rollback: validate revision exists, then atomically repoint head."""
     world_paths.assert_safe_world_id(world_id)
+    assert_local_world_graph_mutation_allowed(
+        root, world_id, operation="rollback_world_graph_head"
+    )
     world_paths.assert_safe_revision_id(revision_id)
 
     graph_path = world_paths.graph_payload_path(root, world_id, revision_id)
@@ -328,5 +436,7 @@ def list_revision_ids(root: Path, world_id: str) -> list[str]:
     rev_root = world_paths.revisions_dir(root, world_id)
     if not rev_root.is_dir():
         return []
-    ids = [p.name for p in rev_root.iterdir() if p.is_dir() and p.name.startswith("rev:")]
+    ids = [
+        p.name for p in rev_root.iterdir() if p.is_dir() and p.name.startswith("rev:")
+    ]
     return sorted(ids)

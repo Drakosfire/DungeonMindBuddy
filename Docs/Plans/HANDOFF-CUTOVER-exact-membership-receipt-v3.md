@@ -21,7 +21,7 @@ pr_body_template: |
 # HANDOFF — exact adopted-membership receipt V3
 
 **Created:** 2026-08-17
-**Status:** ACTIVE — predecessor gate satisfied: DungeonMind PR #35 merged `9ff0d1f9e278e44fb1444bdf1fda8beb6348bc11` (2026-08-18) and the §11 guarded Buddy predecessor sync lands with this commit; the exact-membership receipt V3 implementation is the current CUTOVER work and may dispatch per §8/§9
+**Status:** DONE / HISTORICAL — DungeonMind PR #36 merged `9a19584d31baea77f590d7726e508b144c7dd39d` (head `6a249b483687c5f25c46298016c53dbb9afe4521`; Review Cycle 3 PASS / no code changes requested; formal review `4956825887`; integration green; inherited core lint baseline `tests/unit/test_dnd_world_object_v5.py:203 SIM300`). The exact-membership receipt V3 capability is delivered; this handoff remains as the historical dispatch contract. The active CUTOVER work is the whole-world authority transfer per `HANDOFF-CUTOVER-whole-world-authority-transfer.md`.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-exact-membership-receipt-v3.md`
 **Conversation/workstream:** `CUTOVER — exact adopted-membership checkpoint`
 **Flow / owner:** `CUTOVER`

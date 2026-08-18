@@ -199,9 +199,15 @@ the exact post-#609 snapshot into empty PostgreSQL against unchanged #33
 runtime. Exact adoption is no longer Case B acceptance debt. Buddy PR #614
 accepted the observational-correspondence design and DungeonMind PR #35
 merged the bounded read-only correspondence implementation; its Cycle 3
-exact-membership residual is owned by the receipt V3 successor, which is the
-current CUTOVER work. Product-authority switch remains later and blocked;
-pinned catch-up and writer ownership are successor DESIGN debt.
+exact-membership residual is closed by DungeonMind PR #36 (`DONE`: exact
+adopted-membership receipt V3, `membership_sha256`, steward-supervised
+Eldyrwild V2→V3 promotion; head `6a249b48…`, merge `9a19584d…`, Review
+Cycle 3 PASS). The whole-world authority transfer is now the active CUTOVER
+work (`DOING`) per
+[`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](../Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md):
+preparation is over, concrete failures become repair work, and pinned
+exact-snapshot catch-up is `DEFERRED` (activates only on an observed
+`STALE`).
 
 ### Current Eldyrwild semantic state
 
@@ -327,11 +333,11 @@ Keep these visibly and semantically distinct:
 
 The PR tracker is the sequencing authority. At this anchor the current gates are:
 
-1. Dispatch the exact adopted-membership receipt V3 implementation per [`HANDOFF-CUTOVER-exact-membership-receipt-v3.md`](../Plans/HANDOFF-CUTOVER-exact-membership-receipt-v3.md) (DND-only §8 lease; DungeonMind base `9ff0d1f9…`). Do not redispatch [`HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md`](../Plans/HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md), the #614 design, or the #35 correspondence implementation. Do not dispatch the parked catch-up handoff or any CODE cutover before the V3 implementation is merged and recorded.
-2. Keep DungeonMind product-authority cutover blocked. Exact PostgreSQL adoption and read-only correspondence do not switch Buddy reads/writes. Confirm PR #577 remains closed unmerged. `CUTOVER_NOT_READY` remains true until exact membership checkpointing exists and the later catch-up/authority-transition designs are accepted.
+1. Implement the whole-world authority transfer per [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](../Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md) (dispatched directly on `main` at `ad0ca263…`). Do not redispatch [`HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md`](../Plans/HANDOFF-DND-eldyrwild-postgres-existing-world-adoption-proof.md), the #614 design, the #35 correspondence implementation, or the #36 receipt V3 implementation. Do not dispatch the parked catch-up handoff unless the final real pre-switch correspondence check returns `STALE`.
+2. The transfer is an attempt/repair loop: concrete, reproducible failures become bounded repair work; a generic `CUTOVER_NOT_READY` requires a newly observed, reproducible failing invariant. Confirm PR #577 remains closed unmerged.
 3. In parallel, direct exact-ExtractionRun candidate review, PR380D projection coordination, Ingest simplification, fresh durable-memory dogfood, Hermes governed writes, and Play projection migration retain their tracker statuses.
 
-Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` `DONE`, Session-25 descendant residual adjudication `DONE`, Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `Q₄` `DONE`, relationship semantic closure `DONE`, PR #566 non-publishing kind-repair authority `DONE`, CUTOVER re-anchor `#568` `DONE`, PR #571 DungeonMind v5 re-pin `DONE`, identity-lifecycle history `#575` `DONE`, Kernel `alias_remove` `#580` `DONE`, exact-six Eldyrwild identity-shadow `alias_remove` `#583` `DONE`, identity lifecycle through `alias_remove` `#585` `DONE`, Captain/Thrin alias package `#587` `DONE`, dual-sense relationship package `#588` `DONE`, DungeonMind `#31/#32/#33` `DONE`, exact Eldyrwild adoption-v2 bundle `#602` `DONE`, first PostgreSQL attempt `STOPPED` on evidence identity, durable contribution evidence identity `#609` `DONE`, and DungeonMind `#34` exact PostgreSQL existing-world adoption proof `DONE`. CUTOVER observational-correspondence DESIGN `#614` `DONE`. DungeonMind `#35` read-only observational-correspondence implementation `DONE` (Cycle 3 exact-membership residual split into the receipt V3 successor). PR #577 is a closed unmerged forensic STOP. The next bounded capability is the exact adopted-membership receipt V3 implementation. Product-authority cutover remains `BLOCKED`.
+Closed in this sequence: integrity heal `DONE`, Lysandra `#537` + live exit `DONE`, first effective re-anchor `DONE`, Session-24 `#545` + live exit `DONE`, second effective re-anchor `DONE`, Session-24 false-leads `#550` + live exit `DONE`, third effective re-anchor to `R_current = Q₃` `DONE`, Session-25 descendant residual adjudication `DONE`, Session-25 false-hires C₄ `#559` + canonical `Q₃→Q₄` live exit `DONE`, fourth effective re-anchor to `Q₄` `DONE`, relationship semantic closure `DONE`, PR #566 non-publishing kind-repair authority `DONE`, CUTOVER re-anchor `#568` `DONE`, PR #571 DungeonMind v5 re-pin `DONE`, identity-lifecycle history `#575` `DONE`, Kernel `alias_remove` `#580` `DONE`, exact-six Eldyrwild identity-shadow `alias_remove` `#583` `DONE`, identity lifecycle through `alias_remove` `#585` `DONE`, Captain/Thrin alias package `#587` `DONE`, dual-sense relationship package `#588` `DONE`, DungeonMind `#31/#32/#33` `DONE`, exact Eldyrwild adoption-v2 bundle `#602` `DONE`, first PostgreSQL attempt `STOPPED` on evidence identity, durable contribution evidence identity `#609` `DONE`, and DungeonMind `#34` exact PostgreSQL existing-world adoption proof `DONE`. CUTOVER observational-correspondence DESIGN `#614` `DONE`. DungeonMind `#35` read-only observational-correspondence implementation `DONE` (Cycle 3 exact-membership residual split into the receipt V3 successor). DungeonMind `#36` exact adopted-membership receipt V3 `DONE`. PR #577 is a closed unmerged forensic STOP. The active capability is the whole-world authority transfer (`DOING`).
 
 ## Fast diagnostic questions
 
