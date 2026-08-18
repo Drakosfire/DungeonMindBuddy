@@ -140,7 +140,9 @@ function Harness({
       deck={deck}
       mutationStatus={mutationStatus}
       onMutationStatus={setMutationStatus}
-      onAuthoritativeRun={(run) => setDeck((current) => overlayRuntimeOnDeck(current, run))}
+      onAuthoritativeRun={(run) =>
+        setDeck((current) => overlayRuntimeOnDeck(current, run) ?? current)
+      }
     />
   );
 }

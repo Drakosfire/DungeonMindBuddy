@@ -13,6 +13,7 @@ import { indexPlayableStructure } from "../../tiptap/playable/playableStructureI
 import {
   admitNativeRunbook,
   displayedSceneAndBeat,
+  overlayRuntimeOnDeck,
   slicePlayableBodies,
 } from "./nativeRunbookProjection";
 
@@ -241,6 +242,43 @@ describe("admitNativeRunbook", () => {
     expect(admitted.status).toBe("integrity_failure");
   });
 
+  it("fails closed when the workspace Runbook is discarded", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord(),
+      manifest: manifest(),
+      snapshot: snapshot({
+        record: workspaceRecord({ status: "discarded" }),
+      }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("discarded Runbook must not reach READY");
+    expect(admitted.reason).toMatch(/discarded/i);
+  });
+
+  it("fails closed when the workspace Runbook is uncommitted", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord(),
+      manifest: manifest(),
+      snapshot: snapshot({
+        record: workspaceRecord({ content_status: "draft" }),
+      }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("uncommitted Runbook must not reach READY");
+    expect(admitted.reason).toMatch(/not committed/i);
+  });
+
+  it("fails closed when the committed Runbook target file is missing", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord(),
+      manifest: manifest(),
+      snapshot: snapshot({ file_exists: false }),
+    });
+    expect(admitted.status).toBe("integrity_failure");
+    if (admitted.status === "ready") throw new Error("missing-target Runbook must not reach READY");
+    expect(admitted.reason).toMatch(/missing/i);
+  });
+
   it("overlays current Scene/Beat from Runtime rather than authored order", () => {
     const admitted = admitNativeRunbook({
       run: runRecord({
@@ -273,6 +311,52 @@ describe("admitNativeRunbook", () => {
     expect(admitted.currentIsPreview).toBe(true);
     expect(admitted.displayedSceneId).toBe("scene:gate");
     expect(admitted.displayedBeatId).toBe("beat:approach");
+  });
+});
+
+describe("overlayRuntimeOnDeck", () => {
+  it("overlays Runtime progress when the Playable binding is unchanged", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord(),
+      manifest: manifest(),
+      snapshot: snapshot(),
+    });
+    expect(admitted.status).toBe("ready");
+    if (admitted.status !== "ready") throw new Error("expected ready");
+    const overlaid = overlayRuntimeOnDeck(
+      admitted,
+      runRecord({
+        run_revision: 9,
+        progress: progress({
+          current_scene_id: "scene:gate",
+          current_beat_id: "beat:inside",
+        }),
+      }),
+    );
+    expect(overlaid).not.toBeNull();
+    expect(overlaid?.run.run_revision).toBe(9);
+    expect(overlaid?.displayedBeatId).toBe("beat:inside");
+    expect(overlaid?.scenes[0]?.beats[0]?.bodyText).toBe("Beat one prose UNIQUE.");
+  });
+
+  it("refuses to overlay a rebased Run onto the still-admitted scenes", () => {
+    const admitted = admitNativeRunbook({
+      run: runRecord(),
+      manifest: manifest(),
+      snapshot: snapshot(),
+    });
+    expect(admitted.status).toBe("ready");
+    if (admitted.status !== "ready") throw new Error("expected ready");
+    const rebased = runRecord({
+      playable_revision: 4,
+      playable_content_sha256: OTHER_SHA,
+      run_revision: 10,
+      progress: progress({ current_scene_id: "scene:gate", current_beat_id: "beat:inside" }),
+    });
+    expect(overlayRuntimeOnDeck(admitted, rebased)).toBeNull();
+    expect(admitted.status).toBe("ready");
+    expect(admitted.run.playable_revision).toBe(3);
+    expect(admitted.scenes[0]?.beats[0]?.bodyText).toBe("Beat one prose UNIQUE.");
   });
 });
 

@@ -583,6 +583,19 @@ describe("App inspector integration", () => {
     "Approach body.",
     "",
   ].join("\n");
+  const PLAY_SHA_R4 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const PLAY_MARKDOWN_R4 = [
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+    "## Gate",
+    "",
+    "R4 replacement scene.",
+    "",
+    "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+    "### Approach",
+    "",
+    "R4 replacement beat that must not mix with R3 Approach body.",
+    "",
+  ].join("\n");
 
   function playRunRecord() {
     return {
@@ -627,6 +640,7 @@ describe("App inspector integration", () => {
           title: "North Gate Runbook",
           kind: "runbook",
           revision: 3,
+          content_status: "committed",
         }),
         markdown: PLAY_MARKDOWN,
         content_sha256: PLAY_SHA,
@@ -669,6 +683,9 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlayRun).toHaveBeenCalledTimes(1);
     expect(screen.getByText(`Run ${PLAY_RUN_ID}`)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "North Gate Runbook" })).toBeInTheDocument();
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-campaign-id", "longmont-c2");
+    expect(screen.getByTestId("play-surface-ready")).toHaveAttribute("data-play-document-id", PLAY_ARTIFACT_ID);
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
     expect(screen.queryByTestId("play-run-chooser")).not.toBeInTheDocument();
     expect(document.querySelectorAll(".surface-projection-host").length).toBeLessThanOrEqual(1);
     expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
@@ -708,6 +725,7 @@ describe("App inspector integration", () => {
           title: "North Gate Runbook",
           kind: "runbook",
           revision: 4,
+          content_status: "committed",
         }),
         markdown: `${PLAY_MARKDOWN}\nNewer prose that must not render.\n`,
         content_sha256: PLAY_SHA,
@@ -723,6 +741,36 @@ describe("App inspector integration", () => {
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
     expect(screen.queryByText(/Newer prose that must not render/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "Resolved" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-status-rebase_required")).toHaveAttribute("data-play-campaign-id", "");
+    expect(screen.getByTestId("play-status-rebase_required")).toHaveAttribute("data-play-document-id", "");
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
+    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent(PLAY_ARTIFACT_ID);
+  });
+
+  it("does not publish unadmitted campaign or document authority after integrity failure", async () => {
+    mockReadyPlayRun();
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: 99,
+      playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+    });
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("play-status-integrity_failure")).toBeInTheDocument();
+    expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-campaign-id", "");
+    expect(screen.getByTestId("play-status-integrity_failure")).toHaveAttribute("data-play-document-id", "");
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "play");
+    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent("longmont-c2");
+    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveTextContent(PLAY_ARTIFACT_ID);
   });
 
   it("discards a stale exact-Run load after the route changes", async () => {
@@ -754,6 +802,7 @@ describe("App inspector integration", () => {
           title: "North Gate Runbook",
           kind: "runbook",
           revision: 3,
+          content_status: "committed",
         }),
         markdown: PLAY_MARKDOWN,
         content_sha256: PLAY_SHA,
@@ -776,6 +825,74 @@ describe("App inspector integration", () => {
       expect(screen.queryByText(`Run ${PLAY_RUN_ID}`)).not.toBeInTheDocument();
     });
     expect(screen.getByText(`Run ${otherRunId}`)).toBeInTheDocument();
+  });
+
+  it("does not keep R3 authored content READY after a concurrent rebase 409 reconciliation", async () => {
+    const user = userEvent.setup();
+    mockReadyPlayRun();
+    const r3Run = playRunRecord();
+    const r4Run = {
+      ...playRunRecord(),
+      playable_revision: 4,
+      playable_content_sha256: PLAY_SHA_R4,
+      run_revision: 20,
+      progress: {
+        ...playRunRecord().progress,
+        current_scene_id: "scene:gate",
+        current_beat_id: "beat:approach",
+      },
+    };
+    let boundRevision = 3;
+    vi.mocked(liveApi.putPlayRunProgress).mockImplementation(async () => {
+      boundRevision = 4;
+      throw new liveApi.LiveApiError("CAS conflict", 409);
+    });
+    vi.mocked(liveApi.getPlayRun).mockImplementation(async () => (boundRevision === 3 ? r3Run : r4Run));
+    vi.mocked(liveApi.getPlayRunReferenceManifest).mockImplementation(async () => ({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: boundRevision,
+      playable_content_sha256: boundRevision === 3 ? PLAY_SHA : PLAY_SHA_R4,
+      sealed_at: "2026-08-17T00:00:00Z",
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+    }));
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async () =>
+      fixtureSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: PLAY_ARTIFACT_ID,
+          title: "North Gate Runbook",
+          kind: "runbook",
+          revision: boundRevision,
+          content_status: "committed",
+        }),
+        markdown: boundRevision === 3 ? PLAY_MARKDOWN : PLAY_MARKDOWN_R4,
+        content_sha256: boundRevision === 3 ? PLAY_SHA : PLAY_SHA_R4,
+        loaded_revision: boundRevision,
+        file_exists: true,
+        file_fingerprint: "present",
+      }),
+    );
+
+    window.history.pushState({}, "", `/play?run=${PLAY_RUN_ID}`);
+    render(<App />);
+
+    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(screen.getByText("Approach body.")).toBeInTheDocument();
+    expect(screen.queryByText(/R4 replacement beat/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Resolved" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Approach body.")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(screen.getByText(/R4 replacement beat that must not mix with R3 Approach body/i)).toBeInTheDocument();
+    expect(screen.getByText(/Runbook revision 4/i)).toBeInTheDocument();
   });
 
 });

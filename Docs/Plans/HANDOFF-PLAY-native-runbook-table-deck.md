@@ -185,9 +185,11 @@ On timeout/network/unknown outcome: do not assume success or failure; refetch ex
 | Workspace revision differs from Run             | `rebase required`                              |
 | Workspace SHA differs from Run                  | `rebase required` / integrity block            |
 | Client structure disagrees with sealed manifest | integrity failure                              |
+| Workspace discarded / uncommitted / missing target | integrity failure; no READY deck           |
 | READY coherent authority set                    | native table deck                              |
 | Progress PUT succeeds                           | adopt returned authoritative Run               |
-| CAS 409                                         | conflict + exact Run reload; no implicit retry |
+| CAS 409 same Playable binding                   | conflict + exact Run reload; no implicit retry |
+| CAS 409 / unknown outcome with changed Playable binding | re-admit; never overlay new Run on old scenes |
 | Unknown write outcome                           | reconcile by exact Run reload                  |
 | Route changes to another Run during async load  | stale completion discarded                     |
 | Component unmounts / surface lease changes      | stale completion cannot repopulate Play        |
@@ -207,6 +209,8 @@ Run identity is exact canonical `run_id` only. Playable work object is exact `pl
 | Modify | `apps/live-control-ui/src/App.tsx`                                             | native `/play` route + launcher composition                             |
 | Modify | `apps/live-control-ui/src/App.test.tsx`                                        | owning route tests                                                      |
 | Modify | `apps/live-control-ui/src/chrome/appChromeConfig.ts`                           | Play route/nav label through shared AppChrome                           |
+| Modify | `apps/live-control-ui/src/test/combatTrackerProductNav.test.ts`                | preserve Combat product-nav correspondence with `APP_NAV_ITEMS`         |
+| Modify | `evals/c2_live_prep/mireward-prep/assets/prep.js`                              | add Play to Combat `PRODUCT_NAV` to match AppChrome                     |
 | Modify | `apps/live-control-ui/src/api/types.ts`                                        | exact frontend mirrors of existing P2 Run/manifest contracts            |
 | Modify | `apps/live-control-ui/src/api/liveApi.ts`                                      | thin clients over existing Run/manifest/progress endpoints              |
 | Create | `apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx`                     | chooser, admission lifecycle, Play surface publication                  |
@@ -292,11 +296,12 @@ pnpm exec vitest run \
   src/playSurface/runbook/nativeRunbookProjection.test.ts \
   src/playSurface/runbook/RunbookTableDeck.test.tsx \
   src/App.test.tsx \
+  src/test/combatTrackerProductNav.test.ts \
   src/tiptap/playable/playableStructureIndex.test.ts \
   src/tiptap/markdown/markdownToTiptap.test.ts
 ```
 
-Must prove at least: `/play` exists and uses shared AppChrome; `/play` does not auto-select a Run; `/play?run=<uuid>` loads that exact Run; matching Run + manifest + workspace revision/SHA reaches READY; revision mismatch blocks; digest mismatch blocks; manifest mismatch blocks; client P1 structure/manifest disagreement blocks; recovery-pending Run blocks; current Scene/Beat overlay comes from Runtime; current-null may preview without hidden write; resolved Beat update uses exact `run_revision`; Choice selection changes only the named selection; note mutation changes only the named element note; 409 does not silently retry/merge; unknown mutation outcome reconciles via exact Run reload; stale async completion after Run/surface change cannot attach; no `ofConks*` data is used; no graph-reference opening is introduced.
+Must prove at least: `/play` exists and uses shared AppChrome; `/play` does not auto-select a Run; `/play?run=<uuid>` loads that exact Run; matching Run + manifest + workspace revision/SHA reaches READY; revision mismatch blocks; digest mismatch blocks; discarded/uncommitted/missing-target workspace blocks; manifest mismatch blocks; client P1 structure/manifest disagreement blocks; recovery-pending Run blocks; current Scene/Beat overlay comes from Runtime; current-null may preview without hidden write; resolved Beat update uses exact `run_revision`; Choice selection changes only the named selection; note mutation changes only the named element note; 409 does not silently retry/merge; unknown mutation outcome reconciles via exact Run reload; concurrent rebase 409 does not overlay the new Run on the old admitted scenes; stale async completion after Run/surface change cannot attach; blocked Play publishes surface identity without admitted campaign/document authority; Combat product nav matches `APP_NAV_ITEMS`; no `ofConks*` data is used; no graph-reference opening is introduced.
 
 P2 owning regression proof from repository root, plus `pnpm run typecheck` / `pnpm run build`, steward preflight, and static search that new P3A paths contain no `ofConks`, corpus fallback, `PlayGraphObjectSheet`, `PlayThreatMechanicsSection`, `AgentInteractionProvider`, or `ProjectionHost`.
 

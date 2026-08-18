@@ -276,6 +276,15 @@ function workspaceBindingFailure(
   if (snapshot.record.kind !== "runbook") {
     return failed("integrity_failure", "workspace snapshot kind is not the admitted Runbook kind");
   }
+  if (snapshot.record.status !== "active") {
+    return failed("integrity_failure", "runbook workspace document is discarded");
+  }
+  if (snapshot.record.content_status !== "committed") {
+    return failed("integrity_failure", "runbook workspace document is not committed");
+  }
+  if (!snapshot.file_exists) {
+    return failed("integrity_failure", "committed runbook workspace target file is missing");
+  }
   if (
     snapshot.record.revision !== run.playable_revision
     || snapshot.loaded_revision !== run.playable_revision
@@ -376,10 +385,25 @@ export function displayedSceneAndBeat(
   };
 }
 
+export function sameAdmittedRunBinding(admitted: PlayRunRecord, next: PlayRunRecord): boolean {
+  return (
+    admitted.run_id === next.run_id
+    && admitted.playable_artifact_id === next.playable_artifact_id
+    && admitted.playable_revision === next.playable_revision
+    && admitted.playable_content_sha256 === next.playable_content_sha256
+  );
+}
+
+/**
+ * Overlay Runtime progress onto an already-admitted deck.
+ * Returns null when the Run's Playable binding changed — callers must
+ * re-admit or block rather than keep the old scenes READY.
+ */
 export function overlayRuntimeOnDeck(
   admission: NativeRunbookReadyDeck,
   run: PlayRunRecord,
-): NativeRunbookReadyDeck {
+): NativeRunbookReadyDeck | null {
+  if (!sameAdmittedRunBinding(admission.run, run)) return null;
   const displayed = displayedSceneAndBeat(admission.scenes, run.progress);
   return {
     ...admission,

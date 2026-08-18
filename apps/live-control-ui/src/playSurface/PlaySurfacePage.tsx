@@ -22,6 +22,7 @@ import {
   isCanonicalUuid,
   overlayRuntimeOnDeck,
   type NativeRunbookAdmission,
+  type NativeRunbookReadyDeck,
 } from "./runbook/nativeRunbookProjection";
 import "./playSurface.css";
 
@@ -60,50 +61,74 @@ function classifyLoadError(error: unknown): Extract<PlayLoadStatus, "miss" | "un
   return "unavailable";
 }
 
+type PlayPublicationAuthority = {
+  campaignId: string | null;
+  documentId: string | null;
+  ambientSummary: string;
+  instanceId: string;
+};
+
+function playPublicationAuthority(input: {
+  admittedRun: PlayRunRecord | null;
+  runQuery: string | null;
+}): PlayPublicationAuthority {
+  const admittedRun = input.admittedRun;
+  return {
+    campaignId: admittedRun?.campaign_id ?? null,
+    documentId: admittedRun?.playable_artifact_id ?? null,
+    ambientSummary: admittedRun
+      ? `Play · run ${admittedRun.run_id}`
+      : input.runQuery
+        ? `Play · run ${input.runQuery}`
+        : "Play · choose a Run",
+    instanceId: admittedRun?.run_id ?? input.runQuery ?? "chooser",
+  };
+}
+
 function PlaySurfacePublisher({
-  run,
+  admittedRun,
   runQuery,
 }: {
-  run: PlayRunRecord | null;
+  admittedRun: PlayRunRecord | null;
   runQuery: string | null;
 }) {
+  const authority = useMemo(
+    () => playPublicationAuthority({ admittedRun, runQuery }),
+    [admittedRun, runQuery],
+  );
   const publication = useMemo<SurfaceInteractionPublication>(() => ({
     surfaceId: "play",
     label: "Play",
     identity: buildSurfaceInteractionIdentity({
       surfaceId: "play",
-      instanceParts: ["play", run?.run_id ?? runQuery ?? "chooser"],
+      instanceParts: ["play", authority.instanceId],
     }),
     canvas: null,
     agentContext: {
       label: "Play",
-      campaignId: run?.campaign_id ?? null,
-      documentId: run?.playable_artifact_id ?? null,
+      campaignId: authority.campaignId,
+      documentId: authority.documentId,
       sessionNumber: null,
-      ambientSummary: run
-        ? `Play · run ${run.run_id}`
-        : runQuery
-          ? `Play · run ${runQuery}`
-          : "Play · choose a Run",
+      ambientSummary: authority.ambientSummary,
       pointers: [],
     },
     tools: [],
     editCommands: [],
     projections: [],
     projectionBindings: [],
-  }), [run, runQuery]);
+  }), [authority]);
 
   const agentContext = useMemo(
     () => ({
       surfaceId: "play" as const,
       label: "Play",
-      campaignId: run?.campaign_id ?? null,
-      documentId: run?.playable_artifact_id ?? null,
+      campaignId: authority.campaignId,
+      documentId: authority.documentId,
       sessionNumber: null,
-      ambientSummary: publication.agentContext?.ambientSummary ?? "Play",
+      ambientSummary: authority.ambientSummary,
       sourceEnvelope: null,
     }),
-    [publication.agentContext?.ambientSummary, run],
+    [authority],
   );
 
   usePublishSurfaceInteraction(publication);
@@ -213,7 +238,6 @@ export function PlaySurfacePage() {
   const runQuery = useSyncExternalStore(subscribeLocation, playRunQuery, playRunQuery);
   const [loadStatus, setLoadStatus] = useState<PlayLoadStatus>(runQuery == null ? "chooser" : "loading");
   const [detail, setDetail] = useState<string | null>(null);
-  const [run, setRun] = useState<PlayRunRecord | null>(null);
   const [admission, setAdmission] = useState<NativeRunbookAdmission | null>(null);
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   const loadSerialRef = useRef(0);
@@ -223,7 +247,6 @@ export function PlaySurfacePage() {
     loadSerialRef.current = serial;
     setLoadStatus("loading");
     setDetail(null);
-    setRun(null);
     setAdmission(null);
     setMutationStatus("idle");
     try {
@@ -243,7 +266,6 @@ export function PlaySurfacePage() {
             ? "sealed Playable reference manifest is missing or unreadable"
             : error instanceof Error ? error.message : null,
         );
-        setRun(null);
         setAdmission(null);
         return;
       }
@@ -255,23 +277,27 @@ export function PlaySurfacePage() {
         const classified = classifyLoadError(error);
         setLoadStatus(classified === "integrity_failure" ? "unavailable" : classified);
         setDetail(error instanceof Error ? error.message : null);
-        setRun(null);
         setAdmission(null);
         return;
       }
       if (loadSerialRef.current !== serial) return;
       const nextAdmission = admitNativeRunbook({ run: loaded, manifest, snapshot });
       if (loadSerialRef.current !== serial) return;
-      setRun(loaded);
       setAdmission(nextAdmission);
-      setLoadStatus(nextAdmission.status === "ready" ? "ready" : nextAdmission.status);
-      if (nextAdmission.status !== "ready") setDetail(nextAdmission.reason);
+      if (nextAdmission.status === "ready") {
+        setLoadStatus("ready");
+        setDetail(null);
+        setMutationStatus("idle");
+      } else {
+        setLoadStatus(nextAdmission.status);
+        setDetail(nextAdmission.reason);
+        setMutationStatus("idle");
+      }
     } catch (error) {
       if (loadSerialRef.current !== serial) return;
       const classified = classifyLoadError(error);
       setLoadStatus(classified);
       setDetail(error instanceof Error ? error.message : null);
-      setRun(null);
       setAdmission(null);
     }
   }, []);
@@ -280,7 +306,6 @@ export function PlaySurfacePage() {
     if (runQuery == null) {
       loadSerialRef.current += 1;
       setLoadStatus("chooser");
-      setRun(null);
       setAdmission(null);
       setMutationStatus("idle");
       return;
@@ -289,7 +314,6 @@ export function PlaySurfacePage() {
       loadSerialRef.current += 1;
       setLoadStatus("miss");
       setDetail("Run identity must be the exact canonical UUID.");
-      setRun(null);
       setAdmission(null);
       return;
     }
@@ -299,34 +323,60 @@ export function PlaySurfacePage() {
     };
   }, [runQuery, loadExactRun]);
 
-  const blocked = loadStatus !== "ready" || admission?.status !== "ready";
+  const readyDeck: NativeRunbookReadyDeck | null =
+    loadStatus === "ready" && admission?.status === "ready" ? admission : null;
+  const admittedRun = readyDeck?.run ?? null;
+  const publication = playPublicationAuthority({ admittedRun, runQuery });
+  const blocked = readyDeck == null;
 
   return (
     <AppChrome activeRoute="play">
-      <PlaySurfacePublisher run={run} runQuery={runQuery} />
-      {loadStatus === "chooser" ? <PlayChooser /> : null}
+      <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery} />
+      {loadStatus === "chooser" ? (
+        <PlayChooser />
+      ) : null}
       {loadStatus === "loading" ? (
-        <main className="play-status">
+        <main
+          className="play-status"
+          data-testid="play-status-loading"
+          data-play-campaign-id=""
+          data-play-document-id=""
+        >
           <p>Loading exact Run…</p>
         </main>
       ) : null}
-      {loadStatus === "ready" && admission?.status === "ready" ? (
-        <main className="play-surface">
+      {readyDeck ? (
+        <main
+          className="play-surface"
+          data-testid="play-surface-ready"
+          data-play-campaign-id={publication.campaignId ?? ""}
+          data-play-document-id={publication.documentId ?? ""}
+        >
           <RunbookTableDeck
-            key={admission.run.run_id}
-            deck={admission}
+            key={readyDeck.run.run_id}
+            deck={readyDeck}
             mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
             onAuthoritativeRun={(nextRun) => {
-              if (nextRun.run_id !== admission.run.run_id) return;
-              setRun(nextRun);
-              setAdmission(overlayRuntimeOnDeck(admission, nextRun));
+              if (nextRun.run_id !== readyDeck.run.run_id) return;
+              const overlaid = overlayRuntimeOnDeck(readyDeck, nextRun);
+              if (!overlaid) {
+                void loadExactRun(nextRun.run_id);
+                return;
+              }
+              setAdmission(overlaid);
             }}
           />
         </main>
       ) : null}
       {blocked && loadStatus !== "chooser" && loadStatus !== "loading" && loadStatus !== "ready" ? (
-        <main className="play-status" role="alert" data-testid={`play-status-${loadStatus}`}>
+        <main
+          className="play-status"
+          role="alert"
+          data-testid={`play-status-${loadStatus}`}
+          data-play-campaign-id=""
+          data-play-document-id=""
+        >
           <h1>{statusCopy(loadStatus, detail).title}</h1>
           <p>{statusCopy(loadStatus, detail).body}</p>
         </main>

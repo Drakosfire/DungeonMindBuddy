@@ -5,6 +5,7 @@ export {
   emptyPlayRunProgress,
   isCanonicalUuid,
   overlayRuntimeOnDeck,
+  sameAdmittedRunBinding,
   slicePlayableBodies,
   type NativeRunbookAdmission,
   type NativeRunbookReadyDeck,
