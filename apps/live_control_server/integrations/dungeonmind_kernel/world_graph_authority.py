@@ -840,6 +840,8 @@ def ensure_hydrated_authority(
     to the frozen Buddy store in ``dungeonmind`` authority mode.
     """
     with _HYDRATION_LOCK:
+        cache_root.mkdir(parents=True, exist_ok=True)
+        register_world_graph_cache_root(cache_root)
         bundle = _open_repository_bundle(database_url)
         binding = bind_world_authority(bundle, world_id, frozen_root=frozen_root)
         final_dir = (
@@ -880,8 +882,6 @@ def ensure_hydrated_authority(
                 dungeonmind_head_revision_id=binding.dungeonmind_head_revision_id,
                 legacy_revision_map=legacy_map,
             )
-        cache_root.mkdir(parents=True, exist_ok=True)
-        register_world_graph_cache_root(cache_root)
         return hydrate_world_graph(
             bundle,
             world_id,

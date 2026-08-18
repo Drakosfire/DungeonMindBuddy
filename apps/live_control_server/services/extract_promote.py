@@ -1876,6 +1876,13 @@ def confirm(
     normalized_assertion_ids = tuple(request.assertion_ids)
     world_root = world_graph_root()
 
+    sealed_uri = str(
+        ((request.review_package or {}).get("effect") or {}).get("verified_source_uri")
+        or ""
+    ).strip()
+    if sealed_uri:
+        assert_sealed_source_uri_allowed(sealed_uri)
+
     from apps.live_control_server import config as _config
     from graph_memory.world_supergraph import storage as _wg_storage
 
@@ -1902,13 +1909,6 @@ def confirm(
                 status_code=world_graph_authority.authority_error_status_code(exc),
                 diagnostics=[_diagnostic(exc.code, str(exc))],
             ) from None
-
-    sealed_uri = str(
-        ((request.review_package or {}).get("effect") or {}).get("verified_source_uri")
-        or ""
-    ).strip()
-    if sealed_uri:
-        assert_sealed_source_uri_allowed(sealed_uri)
 
     try:
         result = confirm_extract_promote(
