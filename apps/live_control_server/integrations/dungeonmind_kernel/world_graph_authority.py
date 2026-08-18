@@ -491,6 +491,65 @@ def _strip_derived_dm_kind(value: dict[str, Any]) -> dict[str, Any]:
     return {key: item for key, item in value.items() if key != "dm_kind"}
 
 
+def _strip_derived_dm_predicate(
+    assertion: Any, value: dict[str, Any]
+) -> tuple[dict[str, Any], str | None, str | None]:
+    """Recover the Buddy edge value and endpoints from a qualified assertion.
+
+    The confirm-path forward mapping injects ``dm_predicate`` (the v6
+    materializer requires the qualified predicate) and swaps the endpoints of
+    reverse-mapped predicates (``belongs_to`` → ``dnd5e:owns``). Both are
+    pure functions of the Buddy ``predicate``; reversing them recovers the
+    original Buddy value and orientation so the content-addressed assertion
+    id recomputes exactly — the same recovery pattern as ``dm_kind``. A
+    ``dm_predicate`` that is NOT the derived value is preserved (and the id
+    match fails closed if no candidate reproduces it).
+    """
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+        resolve_buddy_predicate_mapping_v4,
+    )
+
+    subject = assertion.subject_object_id
+    target = assertion.object_object_id
+    if assertion.assertion_kind != "edge":
+        return value, subject, target
+    dm_predicate = value.get("dm_predicate")
+    if not isinstance(dm_predicate, str) or not dm_predicate.strip():
+        return value, subject, target
+    mapping = resolve_buddy_predicate_mapping_v4(str(assertion.predicate or ""))
+    if mapping is None or mapping[0] != dm_predicate:
+        return value, subject, target
+    stripped = {key: item for key, item in value.items() if key != "dm_predicate"}
+    if mapping[1]:
+        return stripped, target, subject
+    return stripped, subject, target
+
+
+def _temporal_scope_candidates(temporal_scope: Any, value: dict[str, Any]) -> list[Any]:
+    """Content-address candidates for the Buddy temporal scope.
+
+    The confirm-path forward mapping normalizes Buddy's real-world-session
+    hint (``{"session_id": ...}``) to ``None`` — DungeonMind carries that
+    provenance as session refs, never as temporal scope. When the stored
+    scope is ``None`` and the value carries exactly one ``session_ids``
+    entry, the hint is reconstructed so the content-addressed assertion id
+    recomputes exactly. Buddy's producer only ever pairs a single
+    ``session_ids`` entry with the hint, so the reconstruction is
+    unambiguous; anything else fails closed on the id match.
+    """
+    candidates = [temporal_scope]
+    if temporal_scope is None:
+        session_ids = value.get("session_ids")
+        if (
+            isinstance(session_ids, list)
+            and len(session_ids) == 1
+            and isinstance(session_ids[0], str)
+            and session_ids[0].strip()
+        ):
+            candidates.append({"session_id": session_ids[0]})
+    return candidates
+
+
 def _translate_assertion(
     assertion: Any,
     epistemic_history: dict[str, str | None],
@@ -498,9 +557,11 @@ def _translate_assertion(
 ) -> dict[str, Any]:
     """Translate one v2 assertion back to Buddy's kernel assertion shape.
 
-    The forward map collapsed visibility ``None``/``"gm"`` to ``gm``. The
-    original is recovered by content-addressed id match: exactly one candidate
-    reproduces the recorded assertion id (proven 1838/1838 on Eldyrwild).
+    The forward map collapsed visibility ``None``/``"gm"`` to ``gm`` and
+    normalized Buddy's real-world-session temporal hint to ``None``. The
+    originals are recovered by content-addressed id match: exactly one
+    candidate reproduces the recorded assertion id (proven 1838/1838 on
+    Eldyrwild).
     """
     from graph_memory.kernel.contributions import compute_assertion_id
 
@@ -509,27 +570,35 @@ def _translate_assertion(
         epistemic = epistemic_history[assertion_id]
     else:
         epistemic = _REVERSE_EPISTEMIC.get(str(assertion.epistemic_kind or ""), None)
-    value = _strip_derived_dm_kind(
-        json.loads(assertion.value) if assertion.value else {}
+    value, subject_id, target_id = _strip_derived_dm_predicate(
+        assertion,
+        _strip_derived_dm_kind(json.loads(assertion.value) if assertion.value else {}),
     )
     visibility: str | None = None
+    temporal_scope: Any = None
     matched = False
-    for candidate in (None, "gm", "player"):
-        computed = compute_assertion_id(
-            assertion_kind=assertion.assertion_kind,
-            subject_node_id=assertion.subject_object_id,
-            target_node_id=assertion.object_object_id,
-            predicate=assertion.predicate,
-            label=assertion.label,
-            value=value,
-            campaign_scope=assertion.campaign_scope,
-            temporal_scope=assertion.temporal_scope,
-            epistemic_kind=epistemic,
-            visibility=candidate,
-        )
-        if computed == assertion_id:
-            visibility = candidate
-            matched = True
+    for temporal_candidate in _temporal_scope_candidates(
+        assertion.temporal_scope, value
+    ):
+        for candidate in (None, "gm", "player"):
+            computed = compute_assertion_id(
+                assertion_kind=assertion.assertion_kind,
+                subject_node_id=subject_id,
+                target_node_id=target_id,
+                predicate=assertion.predicate,
+                label=assertion.label,
+                value=value,
+                campaign_scope=assertion.campaign_scope,
+                temporal_scope=temporal_candidate,
+                epistemic_kind=epistemic,
+                visibility=candidate,
+            )
+            if computed == assertion_id:
+                temporal_scope = temporal_candidate
+                visibility = candidate
+                matched = True
+                break
+        if matched:
             break
     if not matched:
         raise WorldGraphAuthorityError(
@@ -540,8 +609,8 @@ def _translate_assertion(
     return {
         "assertion_id": assertion_id,
         "assertion_kind": assertion.assertion_kind,
-        "subject_node_id": assertion.subject_object_id,
-        "target_node_id": assertion.object_object_id,
+        "subject_node_id": subject_id,
+        "target_node_id": target_id,
         "predicate": assertion.predicate,
         "label": assertion.label,
         "value": value,
@@ -557,7 +626,7 @@ def _translate_assertion(
             else None
         ),
         "campaign_scope": assertion.campaign_scope,
-        "temporal_scope": assertion.temporal_scope,
+        "temporal_scope": temporal_scope,
         "visibility": visibility,
         "epistemic_kind": epistemic,
         "acceptance_state": str(assertion.acceptance_state),
@@ -1541,15 +1610,25 @@ def _build_v2_candidate(
     store: Any,
     pair_to_dm: dict[tuple[str, str], str],
     produced_at: Any,
-) -> Any:
+) -> tuple[Any, dict[str, Any]]:
     """Translate the merged Buddy contribution to a reviewable v2 candidate.
 
     Reuses the sealed adoption producer's per-assertion forward mapping (the
     grounding vocabulary), then normalizes to the review model: every
     assertion becomes a CANDIDATE (the review verdicts carry the accept
-    decisions), status ACTIVE, no supersession, no identity decision ids. The
+    decisions), status ACTIVE, no supersession, no identity decision ids, and
+    Buddy's real-world-session temporal hint is normalized away (DungeonMind
+    carries that provenance as session refs, never as temporal scope). The
     produced_at is the deterministic parent-revision timestamp so the same
     logical confirmation derives the same candidate digest.
+
+    Returns the candidate plus the GM's adjudication partition: a mapping of
+    assertion id to the acceptance state Buddy's identity gate and selection
+    already decided (accepted vs rejected). The caller turns those states
+    into the review's assertion verdicts, so DungeonMind's durable review
+    history never claims approval for an assertion Buddy rejected. An
+    un-adjudicated (CANDIDATE) mapped assertion cannot be honestly reviewed
+    here and fails closed.
     """
     from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
         _map_contributions,
@@ -1564,23 +1643,99 @@ def _build_v2_candidate(
             details={"contribution_id": contribution.contribution_id},
         )
     candidate = mapped[0]
-    return candidate.model_copy(
-        update={
-            "assertions": [
-                assertion.model_copy(
-                    update={
-                        "acceptance_state": AcceptanceState.CANDIDATE,
-                        "value": _qualified_value(assertion),
-                    }
-                )
-                for assertion in candidate.assertions
-            ],
-            "status": ContributionStatus.ACTIVE,
-            "supersedes_contribution_id": None,
-            "identity_decision_ids": [],
-            "produced_at": produced_at,
-        }
+    verdict_states: dict[str, Any] = {}
+    for assertion in candidate.assertions:
+        state = assertion.acceptance_state
+        if state is AcceptanceState.CANDIDATE:
+            raise WorldGraphAuthorityError(
+                "confirmed contribution carries an un-adjudicated assertion",
+                code="governed_write_inexpressible",
+                details={
+                    "contribution_id": contribution.contribution_id,
+                    "assertion_id": assertion.assertion_id,
+                },
+            )
+        verdict_states[assertion.assertion_id] = state
+    return (
+        candidate.model_copy(
+            update={
+                "assertions": [
+                    assertion.model_copy(
+                        update={
+                            "acceptance_state": AcceptanceState.CANDIDATE,
+                            "temporal_scope": _normalized_temporal_scope(
+                                assertion.temporal_scope
+                            ),
+                            **_qualified_assertion_update(assertion),
+                        }
+                    )
+                    for assertion in candidate.assertions
+                ],
+                "status": ContributionStatus.ACTIVE,
+                "supersedes_contribution_id": None,
+                "identity_decision_ids": [],
+                "produced_at": produced_at,
+            }
+        ),
+        verdict_states,
     )
+
+
+def _qualified_assertion_update(assertion: Any) -> dict[str, Any]:
+    """Per-kind DungeonMind qualification for one mapped candidate assertion."""
+    if assertion.assertion_kind == "node":
+        return {"value": _qualified_value(assertion)}
+    if assertion.assertion_kind == "edge":
+        return _qualified_edge_update(assertion)
+    return {}
+
+
+def _qualified_edge_update(assertion: Any) -> dict[str, Any]:
+    """Inject the qualified ``dm_predicate`` into an edge assertion's value.
+
+    Buddy edges carry the raw Buddy ``predicate``; the v6 materializer
+    requires the DungeonMind-qualified predicate in the value. The mapping
+    is the conformance contract's explicit table, which deliberately refuses
+    invented mappings — an unmappable predicate fails closed rather than
+    publishing a fabricated term. Reverse-endpoint predicates (``belongs_to``
+    → ``dnd5e:owns``) swap the assertion endpoints so the materialized
+    relationship direction matches the adopted graph's convention; the
+    value's ``edge_id`` keeps the original Buddy orientation, so the
+    relationship id and the Buddy content-addressed assertion id are
+    unchanged (the inverse translation un-swaps deterministically).
+    """
+    import json as _json
+
+    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+        _canonical_json,
+    )
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+        resolve_buddy_predicate_mapping_v4,
+    )
+
+    value = _json.loads(assertion.value) if assertion.value else {}
+    if not isinstance(value, dict):
+        value = {}
+    if isinstance(value.get("dm_predicate"), str) and value["dm_predicate"].strip():
+        return {}
+    mapping = resolve_buddy_predicate_mapping_v4(str(assertion.predicate or ""))
+    if mapping is None or not mapping[0]:
+        raise WorldGraphAuthorityError(
+            "confirmed edge predicate has no DungeonMind mapping",
+            code="governed_write_inexpressible",
+            details={
+                "assertion_id": assertion.assertion_id,
+                "buddy_predicate": assertion.predicate,
+            },
+        )
+    dm_predicate, reverse_endpoints = mapping
+    update: dict[str, Any] = {
+        "value": _canonical_json({**value, "dm_predicate": dm_predicate})
+    }
+    if reverse_endpoints:
+        update["subject_object_id"] = assertion.object_object_id
+        update["object_object_id"] = assertion.subject_object_id
+    return update
 
 
 def _qualified_value(assertion: Any) -> str | None:
@@ -1623,7 +1778,32 @@ def _qualified_value(assertion: Any) -> str | None:
     return _canonical_json({**value, "dm_kind": mapped})
 
 
-def _build_identity_dispositions(candidate: Any) -> tuple[list[Any], list[Any]]:
+def _normalized_temporal_scope(temporal_scope: Any) -> Any:
+    """Normalize Buddy's real-world-session temporal hint for DungeonMind.
+
+    Buddy's edge producer encodes "surfaced in this real-world session" as
+    ``temporal_scope={"session_id": ...}``. DungeonMind's contract separates
+    real-world sessions (``session_refs`` — already carried in the edge
+    value's ``session_ids``) from fictional-time knowledge state, and the v6
+    materializer only accepts a typed ``TemporalScopeRefV1``. The hint is
+    therefore normalized to ``None`` (temporal scope unknown); the hydration
+    inverse reconstructs it from the value's ``session_ids`` so the
+    content-addressed assertion id recomputes exactly. Any other shape passes
+    through to the materializer's fail-closed validation.
+    """
+    if (
+        isinstance(temporal_scope, dict)
+        and set(temporal_scope) == {"session_id"}
+        and isinstance(temporal_scope["session_id"], str)
+    ):
+        return None
+    return temporal_scope
+
+
+def _build_identity_dispositions(
+    candidate: Any,
+    verdict_states: dict[str, Any],
+) -> tuple[list[Any], list[Any]]:
     """Build v2 identity proposals/verdicts from reviewed Buddy outcomes.
 
     Buddy's identity gate already resolved every accepted node/alias target:
@@ -1632,7 +1812,13 @@ def _build_identity_dispositions(candidate: Any) -> tuple[list[Any], list[Any]]:
     target) + CONFIRM_EXISTING verdict. Any other outcome on an accepted
     node/alias target cannot be honestly represented in the v2 review model
     and fails closed.
+
+    Only targets whose assertion verdict is ACCEPTED are covered: the v2
+    contract requires proposals to cover exactly the accepted node/alias
+    subject targets, and a rejected assertion keeps its candidate identity
+    outcome untouched.
     """
+    from dungeonmind.contracts.contribution import AcceptanceState
     from dungeonmind.contracts.contribution_review import (
         ContributionIdentityProposal,
         ContributionIdentityVerdict,
@@ -1643,6 +1829,8 @@ def _build_identity_dispositions(candidate: Any) -> tuple[list[Any], list[Any]]:
     outcome_by_target: dict[str, str] = {}
     for assertion in candidate.assertions:
         if assertion.assertion_kind not in ("node", "alias"):
+            continue
+        if verdict_states.get(assertion.assertion_id) is not AcceptanceState.ACCEPTED:
             continue
         target = assertion.subject_object_id
         outcome = (
@@ -1805,7 +1993,6 @@ def confirm_via_dungeonmind(
         contribution_v2_payload_sha256,
         derive_review_intent_sha256_v2,
     )
-    from dungeonmind.contracts.contribution import AcceptanceState
     from dungeonmind.contracts.semantic_profile import SemanticProfileRef
     from dungeonmind.domain.canonical import canonical_sha256
     from dungeonmind.domain.errors import (
@@ -1923,17 +2110,21 @@ def confirm_via_dungeonmind(
     # wall-clock value would break retry identity; the parent timestamp is a
     # real durable value bound to the exact state under review.
     reviewed_at = parent_envelope.created_at
-    candidate = _build_v2_candidate(
+    candidate, verdict_states = _build_v2_candidate(
         contribution,
         store=hydrated_store,
         pair_to_dm=pair_to_dm,
         produced_at=reviewed_at,
     )
-    proposals, verdicts = _build_identity_dispositions(candidate)
+    proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
+    # The review verdicts replay the GM's adjudication exactly: assertions the
+    # Buddy gate/selection accepted are ACCEPTED, assertions it rejected are
+    # REJECTED. DungeonMind's durable review history must never claim approval
+    # for an assertion Buddy rejected (rejected assertions never materialize).
     assertion_verdicts = [
         ContributionAssertionVerdict(
             assertion_id=assertion.assertion_id,
-            acceptance_state=AcceptanceState.ACCEPTED,
+            acceptance_state=verdict_states[assertion.assertion_id],
         )
         for assertion in sorted(
             candidate.assertions, key=lambda item: item.assertion_id
