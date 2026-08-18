@@ -5,8 +5,9 @@
 **Created:** 2026-08-17  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Anchor creation parent:** `ad0ca263225173962f0d59e76a3e95fd200d6aca`  
-**DungeonMind authority anchor:** `9a19584d31baea77f590d7726e508b144c7dd39d` (merge of DungeonMind PR #36)  
-**Active implementation handoff:** [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md)  
+**DungeonMind authority anchor:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (merge of DungeonMind PR #37 — governed review publication: v2 finalize + v6 materialization + head CAS publication)  
+**Active implementation handoff:** [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md)  
+**Merged forward-fix predecessor:** Buddy PR #619 (whole-world authority transfer adapter) merged at `6c2fe9d37dcecf34e025db8373fce072de30b62e`; its remaining merged repair debt is owned by the active handoff above.  
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
 **Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
 
@@ -281,8 +282,10 @@ Bring the mutable Campaign Supergraph authority set into agreement with:
 #34 adoption DONE
 #35 correspondence DONE
 #36 exact membership V3 DONE
+#37 governed review publication DONE (merge 2edc07ff27a21b1c83aed847edf95b77d297910e)
+Buddy #619 authority transfer adapter MERGED — forward-fix predecessor with known repair debt
 pinned catch-up CONDITIONAL / not dispatched absent STALE
-authority transfer CURRENT
+authority completion repair CURRENT
 ```
 
 Do not pre-mark authority transfer complete.
@@ -291,15 +294,15 @@ Do not pre-mark authority transfer complete.
 
 Primary handoff:
 
-`Docs/Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md`
+`Docs/Plans/HANDOFF-CUTOVER-dungeonmind-authority-completion.md`
 
 The intended Buddy branch is:
 
-`cutover/whole-world-authority-transfer`
+`cutover/dungeonmind-world-graph-authority-completion`
 
 The intended PR is:
 
-`CUTOVER: transfer World Graph authority to DungeonMind`
+`CUTOVER: complete DungeonMind World Graph authority`
 
 Amend the implementation handoff only when current code proves a material seam/lease change. Preserve the mission and locked decisions above.
 
@@ -439,7 +442,7 @@ Unless a concrete cutover failure promotes them, do not spend the workstream on:
 At pickup, read in this order:
 
 1. **This document** — steward mission and locked decisions.
-2. [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md) — current implementation/operation payload.
+2. [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md) — current implementation/operation payload; [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md) — parent transfer contract (merged #619 adapter plus this completion slice).
 3. [`../../AGENTS.md`](../../AGENTS.md) — repository operating law.
 4. [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md) — design/dispatch/review/re-anchor process.
 5. Current `main`, open CUTOVER PRs/branches, and current worktrees/runtime state.
@@ -464,7 +467,7 @@ old Buddy product writer is retired.
 Start by reading:
 
 1. Docs/Plans/STEWARDS-ANCHOR-cutover.md
-2. Docs/Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md
+2. Docs/Plans/HANDOFF-CUTOVER-dungeonmind-authority-completion.md
 3. AGENTS.md
 4. Docs/Process/STEWARD-CYCLE.md
 
@@ -473,8 +476,10 @@ Then re-anchor both repositories and active PRs before acting.
 Important inherited decisions:
 
 - The migration preparation program is complete enough to attempt cutover now.
-- DungeonMind #34 adoption, #35 correspondence, and #36 exact membership V3 are
-  completed predecessors, not work to redispatch.
+- DungeonMind #34 adoption, #35 correspondence, #36 exact membership V3, and #37
+  governed review publication are completed predecessors, not work to redispatch.
+- Buddy #619 (authority transfer adapter) is merged; its known repair debt is
+  owned by the active authority-completion handoff, not by a new design gate.
 - No later Buddy World Graph snapshot B has been observed; do not implement the
   parked pinned-snapshot catch-up unless the final live correspondence check
   actually returns STALE.

@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-18 — post-DungeonMind #35: read-only observational-correspondence implementation is DONE; next CUTOVER capability is the exact adopted-membership receipt V3 implementation; product-authority cutover remains BLOCKED
-**Repository anchor:** `93ad974d2f9690e5f8f552059d2fb71f5181b9b9` (Buddy `main` at guarded CUTOVER authority-sync start)
+**Updated:** 2026-08-18 — DungeonMind #37 governed review publication is DONE; Buddy #619 authority transfer adapter is merged as an incomplete forward-fix predecessor; current CUTOVER capability is the Buddy DungeonMind authority completion repair; the live cutover itself remains unexecuted
+**Repository anchor:** `866e3a435d4f615fa3fb627d62765802445f2a21` (Buddy `main` at authority-completion dispatch)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `9ff0d1f9e278e44fb1444bdf1fda8beb6348bc11` (PR #35 merge / current DungeonMind `main`; unchanged #33 runtime-under-proof remains `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`)
+**DungeonMind pin:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (PR #37 merge / current DungeonMind `main`)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -141,21 +141,34 @@ DONE    cutover-exact-membership-receipt-v3 (DungeonMind #36)
         pairs; steward-supervised Eldyrwild V2→V3 promotion; pre-STALE
         checkpoint verification; unpromoted V2 fails closed.
 
+DONE    cutover-v6-governed-review-publication (DungeonMind #37)
+        DungeonMind PR #37; merge 2edc07ff27a21b1c83aed847edf95b77d297910e;
+        3 review cycles; final PASS review 4963853068. Delivered the
+        DungeonMind public v2 contribution-review finalize + v6
+        materialization + head CAS publication seam.
+
 DEFERRED pinned exact-snapshot catch-up
         Activates only if the final real pre-switch correspondence check
         returns STALE. No observed B means no A→B project. The parked
         design handoff on branch cutover/design-pinned-snapshot-catchup
         stays unmerged.
 
-DOING   DungeonMind whole-world authority cutover
-        Whole-world authority transfer per
-        Docs/Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md
-        (dispatched directly on main at ad0ca263…): implement routing,
-        freeze Buddy graph writes, require final V3 CORRESPONDING, switch
-        reads, switch the normal GM-confirmed writer, make a real
-        DungeonMind-owned mutation, reload it. Concrete failures become
-        repair work; generic CUTOVER_NOT_READY is disallowed without a
-        newly observed failing invariant.
+MERGED  cutover/whole-world-authority-transfer (Buddy #619)
+        Buddy PR #619 merged at 6c2fe9d37dcecf34e025db8373fce072de30b62e;
+        2 review cycles. Landed the DungeonMind authority adapter,
+        hydration, read routing, and quiescence guard with known repair
+        debt; incomplete forward-fix predecessor, not a completed cutover.
+
+DOING   DungeonMind World Graph authority completion
+        Buddy authority completion per
+        Docs/Plans/HANDOFF-CUTOVER-dungeonmind-authority-completion.md
+        (steward dispatch commit 866e3a43…): exact #37 repin,
+        published-head-bound hydration excluding CAS losers, DND public
+        revision identity, cold-cache A→D_A bridge, exact V3 membership
+        enforcement, explicit-root routing closure, cache-root guard
+        safety, and the real Buddy confirmation → DND v2/v6
+        finalize/publish path. The live cutover executes against the
+        parent handoff after this repair merges.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.
