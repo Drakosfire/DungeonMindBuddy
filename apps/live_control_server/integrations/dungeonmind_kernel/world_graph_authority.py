@@ -1627,10 +1627,11 @@ def _build_v2_candidate(
     grounding vocabulary), then normalizes to the review model: every
     assertion becomes a CANDIDATE (the review verdicts carry the accept
     decisions), status ACTIVE, no supersession, no identity decision ids, and
-    Buddy's real-world-session temporal hint is normalized away (DungeonMind
-    carries that provenance as session refs, never as temporal scope). The
-    produced_at is the deterministic parent-revision timestamp so the same
-    logical confirmation derives the same candidate digest.
+    each accepted assertion's Buddy real-world-session temporal hint is
+    normalized away (DungeonMind carries that provenance as session refs,
+    never as temporal scope). The produced_at is the deterministic
+    parent-revision timestamp so the same logical confirmation derives the
+    same candidate digest.
 
     Returns the candidate plus the GM's adjudication partition: a mapping of
     assertion id to the acceptance state Buddy's identity gate and selection
@@ -1640,13 +1641,17 @@ def _build_v2_candidate(
     un-adjudicated (CANDIDATE) mapped assertion cannot be honestly reviewed
     here and fails closed.
 
-    DungeonMind qualification (``dm_kind``/``dm_predicate`` injection and the
-    world-object-v5 endpoint admission check) applies only to assertions the
-    GM accepted: the v6 materializer skips every non-accepted assertion, so a
-    rejected assertion is preserved in the durable review record exactly as
-    adjudicated and must not be required to be materializable — a rejected
-    assertion with an unmapped kind/predicate or inadmitted endpoints cannot
-    veto the publication of the accepted assertions alongside it.
+    DungeonMind qualification (``dm_kind``/``dm_predicate`` injection, the
+    reverse-direction audit, and the world-object-v5 endpoint admission
+    check) applies only to assertions the GM accepted: the v6 materializer
+    skips every non-accepted assertion, so a rejected assertion is preserved
+    in the durable review record exactly as adjudicated and must not be
+    required to be materializable — a rejected assertion with an unmapped
+    kind/predicate or inadmitted endpoints cannot veto the publication of the
+    accepted assertions alongside it. The session-hint normalization is
+    accept-only for the same reason: only accepted assertions materialize,
+    so only they need the DungeonMind-shaped temporal scope; a rejected
+    assertion keeps its Buddy temporal hint verbatim in the review record.
     """
     from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
         _map_contributions,
@@ -1682,14 +1687,16 @@ def _build_v2_candidate(
                     assertion.model_copy(
                         update={
                             "acceptance_state": AcceptanceState.CANDIDATE,
-                            "temporal_scope": _normalized_temporal_scope(
-                                assertion.temporal_scope
-                            ),
                             **(
-                                _qualified_assertion_update(
-                                    assertion,
-                                    endpoint_kinds=endpoint_kinds,
-                                )
+                                {
+                                    "temporal_scope": _normalized_temporal_scope(
+                                        assertion.temporal_scope
+                                    ),
+                                    **_qualified_assertion_update(
+                                        assertion,
+                                        endpoint_kinds=endpoint_kinds,
+                                    ),
+                                }
                                 if verdict_states[assertion.assertion_id]
                                 is AcceptanceState.ACCEPTED
                                 else {}

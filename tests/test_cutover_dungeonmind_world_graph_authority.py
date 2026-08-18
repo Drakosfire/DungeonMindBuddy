@@ -781,6 +781,105 @@ def test_temporal_scope_session_hint_round_trip():
     assert translated["temporal_scope"] == buddy_temporal
 
 
+def test_build_v2_candidate_temporal_normalization_is_accept_only():
+    """Buddy's real-world-session temporal hint (``{"session_id": ...}``) is
+    normalized away only for assertions the GM accepted: DungeonMind carries
+    that provenance as session refs at materialization, and only accepted
+    assertions ever materialize. A rejected assertion is preserved in the
+    durable review record exactly as adjudicated — session hint included —
+    because it never needs materialization and must not be rewritten. The
+    rejected edge here also has endpoints unknown to the hydrated head, so
+    qualification would fail closed if it were attempted."""
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    from graph_memory.kernel.contributions import (
+        build_assertion,
+        create_graph_contribution,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    artifact_id = "artifact:recap:longmont-c2:session-26"
+    buddy_revision = "sha256:session-26-recap"
+    session_hint = {"session_id": "session-26"}
+
+    def _edge_assertion(*, acceptance: str, subject: str, target: str, edge_id: str):
+        return build_assertion(
+            assertion_kind="edge",
+            acceptance_state=acceptance,
+            subject_node_id=subject,
+            target_node_id=target,
+            predicate="located_in",
+            label="located_in",
+            value={
+                "edge_id": edge_id,
+                "predicate": "located_in",
+                "session_ids": ["session-26"],
+            },
+            evidence_ref_ids=[],
+            source_artifact_id=artifact_id,
+            source_revision_id=buddy_revision,
+            campaign_scope=CAMPAIGN_ID,
+            epistemic_kind="asserted",
+            temporal_scope=dict(session_hint),
+        )
+
+    accepted = _edge_assertion(
+        acceptance="accepted",
+        subject="node:a",
+        target="node:b",
+        edge_id="edge:node:a:located_in:node:b",
+    )
+    rejected = _edge_assertion(
+        acceptance="rejected",
+        subject="node:c",
+        target="node:d",
+        edge_id="edge:node:c:located_in:node:d",
+    )
+    contribution = create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id=artifact_id,
+        source_revision_id=buddy_revision,
+        campaign_scope=CAMPAIGN_ID,
+        candidate_assertions=[],
+        accepted_assertions=[accepted],
+        rejected_assertions=[rejected],
+    )
+    store = SimpleNamespace(
+        nodes={
+            "node:a": SimpleNamespace(kind="npc"),
+            "node:b": SimpleNamespace(kind="location"),
+        }
+    )
+    candidate, verdict_states = wga._build_v2_candidate(
+        contribution,
+        store=store,
+        pair_to_dm={(artifact_id, buddy_revision): "dm-source-revision"},
+        produced_at=datetime(2026, 8, 18, tzinfo=timezone.utc),
+    )
+
+    by_id = {assertion.assertion_id: assertion for assertion in candidate.assertions}
+    assert set(by_id) == {accepted.assertion_id, rejected.assertion_id}
+    # Accepted: qualified (dm_predicate injected) and the session hint is
+    # normalized away — DungeonMind expresses it as session refs.
+    accepted_out = by_id[accepted.assertion_id]
+    assert accepted_out.temporal_scope is None
+    import json as _json
+
+    assert _json.loads(accepted_out.value)["dm_predicate"] == "dnd5e:located_in"
+    # Rejected: preserved exactly as adjudicated — no qualification, and the
+    # session hint survives in the durable review record.
+    rejected_out = by_id[rejected.assertion_id]
+    assert rejected_out.temporal_scope == session_hint
+    assert "dm_predicate" not in _json.loads(rejected_out.value)
+    assert verdict_states[accepted.assertion_id].name == "ACCEPTED"
+    assert verdict_states[rejected.assertion_id].name == "REJECTED"
+
+
 # ---------------------------------------------------------------------------
 # Integration layer (env-gated)
 # ---------------------------------------------------------------------------
@@ -2264,6 +2363,28 @@ def test_governed_write_preserves_gm_partition_and_publishes_edges(write_world):
         assert verdict_by_id[assertion_id] == "rejected"
         assert str(reviewed_by_id[assertion_id].acceptance_state) == "rejected"
 
+    # Accepted edges: the Buddy session hint is normalized away in the
+    # durable review record (DungeonMind expresses real-world session
+    # provenance as session refs); the value's session_ids carry that
+    # provenance into materialization. Rejected assertions are preserved
+    # exactly as the sealed package adjudicated them.
+    import json as _json
+
+    package_temporal_by_id = {
+        str(item["assertion_id"]): item.get("temporal_scope") or None
+        for item in package["effect"]["rejected_assertions"]
+    }
+    for assertion_id in accepted_ids:
+        reviewed = reviewed_by_id[assertion_id]
+        assert reviewed.temporal_scope is None
+        if reviewed.assertion_kind == "edge":
+            assert _json.loads(reviewed.value)["session_ids"] == ["session-26"]
+    for assertion_id in rejected_ids:
+        assert (
+            reviewed_by_id[assertion_id].temporal_scope
+            == package_temporal_by_id[assertion_id]
+        )
+
     # Identity proposals cover exactly the accepted node/alias targets — the
     # rejected node's target demands no adjudication.
     proposal_targets = {
@@ -2694,6 +2815,27 @@ def test_governed_write_rejected_unmapped_kind_does_not_veto(write_world):
         assert verdict_by_id[assertion_id] == "accepted"
     for assertion_id in rejected_ids:
         assert verdict_by_id[assertion_id] == "rejected"
+
+    # Temporal normalization is accept-only: the accepted assertion's Buddy
+    # session hint is normalized away (DungeonMind expresses real-world
+    # session provenance as session refs at materialization), while every
+    # rejected assertion is preserved in the durable review record exactly as
+    # the sealed package adjudicated it — the writer never rewrites rejected
+    # material that never materializes. (Today's gate emits only rejected
+    # nodes, which carry no session hint; the rejected-edge-with-hint shape
+    # is proven directly at the writer seam in
+    # test_build_v2_candidate_temporal_normalization_is_accept_only.)
+    package_rejected_temporal = {
+        str(item["assertion_id"]): item.get("temporal_scope") or None
+        for item in package["effect"]["rejected_assertions"]
+    }
+    for assertion_id in accepted_ids:
+        assert reviewed_by_id[assertion_id].temporal_scope is None
+    for assertion_id in rejected_ids:
+        assert (
+            reviewed_by_id[assertion_id].temporal_scope
+            == package_rejected_temporal[assertion_id]
+        )
 
     # The published graph carries the accepted node; the rejected unmapped
     # node never materializes.
