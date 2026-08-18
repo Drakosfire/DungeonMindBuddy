@@ -2428,6 +2428,111 @@ def test_governed_write_endpoint_admission_fails_closed(write_world):
 
 
 @pytest.mark.integration
+def test_governed_write_rejected_unmapped_kind_does_not_veto(write_world):
+    """§3 repair: a rejected assertion is preserved in the durable review
+    record without DungeonMind qualification, so a rejected node whose Buddy
+    kind has no DungeonMind mapping (``job``) cannot veto the publication of
+    the accepted assertions alongside it. The v6 materializer skips rejected
+    assertions; the writer must not demand their materializability."""
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-rejected-veto"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-veto-a",
+        label="Veto Anchor",
+        extra_nodes=[
+            # Cross-kind label collision with the existing location:mireward:
+            # the identity gate rejects this node (blocked_collision). Its
+            # Buddy kind "job" has no world-object-v5 mapping — before the
+            # repair, qualifying it vetoed the whole confirmation.
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-mireward-job",
+                label="Mireward",
+                node_type="quest",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+    )
+    assert len(accepted_ids) == 1
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    payload = wga.confirm_via_dungeonmind(
+        _Request(),
+        world_root=frozen_root,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=write_world["tmp_path"],
+    )
+    assert payload["outcome"] == "published"
+    assert payload["parent_revision_id"] == d_a
+    d_b = payload["committed_revision_id"]
+
+    # The durable review record preserves the rejected assertion with a
+    # REJECTED verdict; the accepted node is ACCEPTED.
+    operation_id = wga._derive_confirm_operation_id(
+        world_id=WORLD_ID, package=package, assertion_ids=None
+    )
+    publication = bundle.finalized_review_publications.get(WORLD_ID, operation_id)
+    assert publication is not None
+    review_state = bundle.contribution_reviews.get(WORLD_ID, publication.review_id)
+    assert review_state is not None
+    verdict_by_id = {
+        verdict.assertion_id: str(verdict.acceptance_state)
+        for verdict in review_state.record.assertion_verdicts
+    }
+    reviewed_by_id = {
+        assertion.assertion_id: assertion
+        for assertion in review_state.reviewed_contribution.assertions
+    }
+    assert set(verdict_by_id) == set(reviewed_by_id)
+    rejected_ids = {
+        assertion_id
+        for assertion_id, assertion in reviewed_by_id.items()
+        if assertion.subject_object_id == "node:cutover-mireward-job"
+    }
+    assert len(rejected_ids) == 1
+    for assertion_id in accepted_ids:
+        assert verdict_by_id[assertion_id] == "accepted"
+    for assertion_id in rejected_ids:
+        assert verdict_by_id[assertion_id] == "rejected"
+
+    # The published graph carries the accepted node; the rejected unmapped
+    # node never materializes.
+    stored = bundle.world_graph.get_revision(WORLD_ID, d_b)
+    assert stored is not None
+    object_ids = {
+        obj.get("object_id") for obj in stored.graph_payload.get("objects") or []
+    }
+    assert "node:cutover-veto-a" in object_ids
+    assert "node:cutover-mireward-job" not in object_ids
+
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
 def test_hermes_latest_recap_compares_dungeonmind_head_not_frozen_store(
     write_world, monkeypatch
 ):
