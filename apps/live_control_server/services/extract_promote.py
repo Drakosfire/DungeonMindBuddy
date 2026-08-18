@@ -1876,6 +1876,33 @@ def confirm(
     normalized_assertion_ids = tuple(request.assertion_ids)
     world_root = world_graph_root()
 
+    from apps.live_control_server import config as _config
+    from graph_memory.world_supergraph import storage as _wg_storage
+
+    if _config.world_graph_authority_mode() == _wg_storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
+        from apps.live_control_server.integrations.dungeonmind_kernel import (
+            world_graph_authority,
+        )
+
+        try:
+            return world_graph_authority.confirm_via_dungeonmind(
+                request,
+                world_root=world_root,
+                database_url=_config.world_graph_authority_database_url() or "",
+                cache_root=_config.world_graph_authority_cache_root(),
+                frozen_root=world_root,
+                confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
+                assertion_ids=normalized_assertion_ids,
+                repo_root=repo_root(),
+            )
+        except world_graph_authority.WorldGraphAuthorityError as exc:
+            raise ExtractPromoteError(
+                str(exc),
+                code=exc.code,
+                status_code=world_graph_authority.authority_error_status_code(exc),
+                diagnostics=[_diagnostic(exc.code, str(exc))],
+            ) from None
+
     sealed_uri = str(
         ((request.review_package or {}).get("effect") or {}).get("verified_source_uri")
         or ""
