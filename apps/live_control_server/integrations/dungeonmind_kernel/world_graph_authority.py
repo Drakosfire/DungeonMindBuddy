@@ -19,19 +19,16 @@ assertion — always comes from DungeonMind's ledger.
 Write architecture: the GM-confirmed publication path is routed here in
 ``dungeonmind`` authority mode. The sealed Buddy review package is verified
 against the DungeonMind-backed hydrated head (real verification, unchanged
-semantics), then the adapter attempts to enter DungeonMind's governed write
-path. Two characterized DungeonMind gaps currently fail that path closed:
-
-1. ``dm_contribution_review_intent_v1`` admits only label/alias/summary/
-   relationship assertions with restricted shapes; Buddy kernel contributions
-   (node/edge assertions with attribute values, labels, temporal scopes, and
-   typed corrections) are not expressible.
-2. ``materialize_finalized_review`` is bound to ``dm_union_graph_v3`` parents;
-   Eldyrwild's adopted world is ``dm_union_graph_v6``.
-
-Both are §7 repair items for DungeonMind, specified in the implementation PR
-handback. Until they land, every DungeonMind-routed write fails closed with a
-typed error before mutating either store.
+semantics), then translated through the same Buddy→DungeonMind v2 mapping
+vocabulary as the sealed adoption producer into a ``dm_contribution_review_
+intent_v2``, finalized via DungeonMind's public ``finalize_contribution_review_
+v2``, and published via ``publish_finalized_review`` (v6 materialization + head
+CAS). The operation id is derived deterministically from the sealed package
+content, the assertion selection, and the exact DungeonMind parent revision, so
+an exact retry of the same logical confirmation returns the same durable
+publication without duplicating a child revision. There is no local fallback:
+any DungeonMind failure raises a typed error and the frozen Buddy store never
+mutates.
 """
 
 from __future__ import annotations
@@ -52,7 +49,10 @@ from graph_memory.world_supergraph.storage import (
     register_world_graph_cache_root,
 )
 
-HYDRATION_TRANSLATION_VERSION = "cutover-hydration-v1"
+# v2: published-ancestry-bound post-adoption selection (CAS-losing finalized
+# reviews are excluded) + exact adopted-membership verification at hydration.
+# v1 caches predate those semantics and are never served.
+HYDRATION_TRANSLATION_VERSION = "cutover-hydration-v2"
 HYDRATION_METADATA_SCHEMA = "dmb_dungeonmind_authority_hydration_v1"
 HYDRATION_METADATA_FILENAME = "hydration_metadata.json"
 
@@ -161,6 +161,10 @@ class AuthorityBinding:
     dungeonmind_first_revision_id: str  # D_A — the adoption-published revision
     dungeonmind_head_revision_id: str  # current DungeonMind head (>= D_A)
     graph_schema: str
+    source_artifact_count: int
+    source_revision_count: int
+    contribution_count: int
+    identity_decision_count: int
 
 
 def _load_frozen_head_revision_id(frozen_root: Path, world_id: str) -> str:
@@ -245,6 +249,10 @@ def bind_world_authority(
         dungeonmind_first_revision_id=receipt.published_revision_id,
         dungeonmind_head_revision_id=head.head_revision_id,
         graph_schema=receipt.graph_schema,
+        source_artifact_count=receipt.source_artifact_count,
+        source_revision_count=receipt.source_revision_count,
+        contribution_count=receipt.contribution_count,
+        identity_decision_count=receipt.identity_decision_count,
     )
 
 
@@ -296,6 +304,152 @@ def check_world_correspondence(
 
 
 # ---------------------------------------------------------------------------
+# Adopted-membership integrity (V3 receipt enforcement at serve time)
+# ---------------------------------------------------------------------------
+
+
+def _adopted_source_identity(
+    adopted_contributions: list[Any],
+) -> tuple[set[str], set[str]]:
+    """Reconstruct the adopted source artifact/revision id sets.
+
+    The adoption minted exactly one source artifact/revision pair per
+    (artifact, revision) identity referenced by the adopted contributions and
+    their assertions/evidence (the bundle producer's ref collection). The DND
+    records already carry the minted DungeonMind revision ids, so the adopted
+    set is read back directly — no Buddy-side collision replay is needed.
+    """
+    artifact_ids: set[str] = set()
+    revision_ids: set[str] = set()
+    for contribution in adopted_contributions:
+        if contribution.source_artifact_id:
+            artifact_ids.add(contribution.source_artifact_id)
+        if contribution.source_revision_id:
+            revision_ids.add(contribution.source_revision_id)
+        for assertion in contribution.assertions:
+            if assertion.source_artifact_id:
+                artifact_ids.add(assertion.source_artifact_id)
+            if assertion.source_revision_id:
+                revision_ids.add(assertion.source_revision_id)
+            for evidence in assertion.evidence_refs or []:
+                if evidence.source_artifact_id:
+                    artifact_ids.add(evidence.source_artifact_id)
+                if evidence.source_revision_id:
+                    revision_ids.add(evidence.source_revision_id)
+    return artifact_ids, revision_ids
+
+
+def _verify_adopted_membership(
+    bundle: Any,
+    world_id: str,
+    *,
+    binding: AuthorityBinding,
+    frozen_root: Path,
+) -> None:
+    """Recompute the exact adopted V3 membership and fail closed on any drift.
+
+    The adopted id sets come from the frozen pre-switch Buddy store (the
+    authoritative record of what was adopted); the current payloads come from
+    DungeonMind. Deletion, mutation, and same-cardinality substitution of any
+    adopted row change the digest and refuse service. Post-adoption records
+    (review states, publications, revisions) are not members and never
+    weaken the check.
+    """
+    from dungeonmind.domain.existing_world_membership import (
+        existing_world_adoption_membership_sha256,
+    )
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+    )
+    from graph_memory.world_supergraph.identity_decision_store import (
+        load_identity_decision_index,
+    )
+
+    adopted_contribution_ids = set(
+        load_contribution_index(frozen_root, world_id).all_contribution_ids
+    )
+    adopted_decision_ids = set(
+        load_identity_decision_index(frozen_root, world_id).all_decision_ids
+    )
+
+    try:
+        all_contributions = bundle.contributions.list_for_world(world_id)
+        all_decisions = bundle.identity_decisions.list_for_world(world_id)
+        all_artifacts = bundle.sources.list_artifacts_for_world(world_id)
+    except Exception as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind authority read failed during membership verification",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+
+    contributions = [
+        c for c in all_contributions if c.contribution_id in adopted_contribution_ids
+    ]
+    decisions = [d for d in all_decisions if d.decision_id in adopted_decision_ids]
+    adopted_artifact_ids, adopted_revision_ids = _adopted_source_identity(contributions)
+    artifacts = [
+        a for a in all_artifacts if a.source_artifact_id in adopted_artifact_ids
+    ]
+    revisions: list[Any] = []
+    try:
+        for artifact_id in sorted(adopted_artifact_ids):
+            revisions.extend(
+                revision
+                for revision in bundle.sources.list_revisions(artifact_id)
+                if revision.source_revision_id in adopted_revision_ids
+            )
+    except Exception as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind authority read failed during membership verification",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+
+    observed_counts = {
+        "source_artifacts": len(artifacts),
+        "source_revisions": len(revisions),
+        "contributions": len(contributions),
+        "identity_decisions": len(decisions),
+    }
+    expected_counts = {
+        "source_artifacts": binding.source_artifact_count,
+        "source_revisions": binding.source_revision_count,
+        "contributions": binding.contribution_count,
+        "identity_decisions": binding.identity_decision_count,
+    }
+    if observed_counts != expected_counts:
+        raise WorldGraphAuthorityError(
+            "adopted DungeonMind membership is incomplete",
+            code="adopted_membership_incomplete",
+            details={
+                "world_id": world_id,
+                "adoption_id": binding.adoption_id,
+                "expected_counts": expected_counts,
+                "observed_counts": observed_counts,
+            },
+        )
+
+    digest = existing_world_adoption_membership_sha256(
+        source_artifacts=artifacts,
+        source_revisions=revisions,
+        contributions=contributions,
+        identity_decisions=decisions,
+    )
+    if digest != binding.membership_sha256:
+        raise WorldGraphAuthorityError(
+            "adopted DungeonMind membership does not match the V3 receipt",
+            code="adopted_membership_mismatch",
+            details={
+                "world_id": world_id,
+                "adoption_id": binding.adoption_id,
+                "expected_membership_sha256": binding.membership_sha256,
+                "observed_membership_sha256": digest,
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # Translation: DungeonMind v2 durable records -> Buddy kernel records
 # ---------------------------------------------------------------------------
 
@@ -311,6 +465,30 @@ def _raw_evidence_id(exported_id: str) -> str:
     if _EVIDENCE_EXPORT_MARKER in exported_id:
         return exported_id.rsplit(_EVIDENCE_EXPORT_MARKER, 1)[0]
     return exported_id
+
+
+def _strip_derived_dm_kind(value: dict[str, Any]) -> dict[str, Any]:
+    """Remove a ``dm_kind`` key that is derivable from the Buddy ``kind``.
+
+    The Buddy→v2 confirm-path mapping injects ``dm_kind`` (the v6
+    materializer requires the qualified kind for new objects). The key is a
+    pure function of the Buddy ``kind``; stripping it recovers the original
+    Buddy value so the content-addressed assertion id recomputes exactly —
+    the same recovery pattern as the forward map's visibility collapse. A
+    ``dm_kind`` that is NOT the derived value is preserved (and the id match
+    fails closed if no candidate reproduces it).
+    """
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+        CURRENT_V5_TARGET,
+    )
+
+    dm_kind = value.get("dm_kind")
+    if not isinstance(dm_kind, str):
+        return value
+    mapped = CURRENT_V5_TARGET.buddy_to_dm_kind.get(str(value.get("kind") or ""))
+    if mapped is None or mapped != dm_kind:
+        return value
+    return {key: item for key, item in value.items() if key != "dm_kind"}
 
 
 def _translate_assertion(
@@ -331,7 +509,9 @@ def _translate_assertion(
         epistemic = epistemic_history[assertion_id]
     else:
         epistemic = _REVERSE_EPISTEMIC.get(str(assertion.epistemic_kind or ""), None)
-    value = json.loads(assertion.value) if assertion.value else {}
+    value = _strip_derived_dm_kind(
+        json.loads(assertion.value) if assertion.value else {}
+    )
     visibility: str | None = None
     matched = False
     for candidate in (None, "gm", "player"):
@@ -390,18 +570,42 @@ def _translate_assertion(
     }
 
 
+def _buddy_contribution_id(dm_contribution_id: str) -> str:
+    """Map a DungeonMind contribution id to Buddy's path-safe vocabulary.
+
+    Adopted contributions carry Buddy's own ``contribution:<16 hex>`` ids and
+    pass through unchanged. Post-adoption reviewed contributions are named by
+    DungeonMind's finalize service as ``contrib:<32 hex>`` (derived from the
+    review id); the cache ledger is Buddy path-safety checked, so the id is
+    re-vocabularied to ``contribution:<same 32 hex>`` — deterministic, and
+    length-disjoint from the adopted 16-hex ids. Anything else fails closed.
+    """
+    if dm_contribution_id.startswith("contrib:"):
+        hexpart = dm_contribution_id.removeprefix("contrib:")
+        if len(hexpart) == 32 and all(c in "0123456789abcdef" for c in hexpart):
+            return f"contribution:{hexpart}"
+    if dm_contribution_id.startswith("contribution:"):
+        return dm_contribution_id
+    raise WorldGraphAuthorityError(
+        "DungeonMind contribution id cannot be represented in the Buddy cache",
+        code="hydration_integrity",
+        details={"contribution_id": dm_contribution_id},
+    )
+
+
 def translate_contribution(record: Any) -> GraphContribution:
     """Translate one DungeonMind durable contribution to Buddy's kernel shape."""
     diagnostics = record.diagnostics or {}
     epistemic_history = diagnostics.get("buddy_assertion_epistemic") or {}
     buddy_diagnostics = diagnostics.get("buddy_diagnostics") or []
+    contribution_id = _buddy_contribution_id(record.contribution_id)
     assertions = [
-        _translate_assertion(a, epistemic_history, record.contribution_id)
+        _translate_assertion(a, epistemic_history, contribution_id)
         for a in record.assertions
     ]
     return GraphContribution.model_validate(
         {
-            "contribution_id": record.contribution_id,
+            "contribution_id": contribution_id,
             "world_id": record.world_id,
             "source_kind": _REVERSE_SOURCE_KIND[str(record.source_kind)],
             "source_artifact_id": record.source_artifact_id,
@@ -483,27 +687,144 @@ def order_contributions_for_replay(
     contributions: list[GraphContribution],
     *,
     sealed_manifest_ids: list[str],
+    lineage_contribution_ids: list[str] | tuple[str, ...] = (),
 ) -> list[GraphContribution]:
     """Order the translated ledger for Buddy's replay engine.
 
     Adopted contributions replay in the sealed manifest order recovered from
     the frozen pre-switch store (Buddy's historical merge order; DungeonMind's
-    ledger is id-ordered and carries no replay order). Contributions that
-    arrived in DungeonMind after the adoption (post-cutover governed writes)
-    append in ``produced_at`` order. Unknown sealed ids are ignored; adopted
-    contributions missing from the sealed manifest fail closed.
+    ledger is id-ordered and carries no replay order). Post-adoption
+    contributions replay in the exact published-ancestry order supplied as
+    ``lineage_contribution_ids`` (the CAS-winning review chain from D_A to the
+    selected DungeonMind revision). Remaining rows — adopted contributions
+    whose status excludes them from the active replay manifest — append in
+    deterministic order; they are written to the cache ledger for status truth
+    but never replayed. Unknown lineage ids fail closed.
     """
     by_id = {c.contribution_id: c for c in contributions}
     sealed_present = [cid for cid in sealed_manifest_ids if cid in by_id]
-    sealed_set = set(sealed_present)
-    # Contributions absent from the sealed manifest are post-adoption arrivals
-    # (the sealed manifest covers the whole adopted history; the closing
-    # snapshot id-set gate proves the assembled replay matches the authority).
-    new_contributions = sorted(
-        (c for c in contributions if c.contribution_id not in sealed_set),
+    ordered_ids = set(sealed_present) | set(lineage_contribution_ids)
+    lineage: list[GraphContribution] = []
+    for cid in lineage_contribution_ids:
+        if cid not in by_id:
+            raise WorldGraphAuthorityError(
+                "published lineage contribution is missing from the translated set",
+                code="hydration_integrity",
+                details={"contribution_id": cid},
+            )
+        lineage.append(by_id[cid])
+    remainder = sorted(
+        (c for c in contributions if c.contribution_id not in ordered_ids),
         key=lambda c: (_parse_utc(c.produced_at), c.contribution_id),
     )
-    return [by_id[cid] for cid in sealed_present] + new_contributions
+    return [by_id[cid] for cid in sealed_present] + lineage + remainder
+
+
+# ---------------------------------------------------------------------------
+# Published-ancestry resolution
+# ---------------------------------------------------------------------------
+
+
+def _published_lineage_reviewed_contributions(
+    bundle: Any,
+    world_id: str,
+    *,
+    binding: AuthorityBinding,
+    selected_revision_id: str,
+) -> list[Any]:
+    """Reviewed contributions materialized by the selected revision's ancestry.
+
+    Walks the published revision parent chain from the selected revision back
+    to the adoption revision D_A. Each intermediate revision names its
+    publication operation ids; each publication record names its finalized
+    review; the review state carries the reviewed contribution payload. Only
+    those contributions — the CAS winners that actually published — are
+    returned, oldest first. A finalized review that lost the head CAS never
+    published, names no revision, and is therefore excluded by construction.
+
+    Fail-closed: a selected revision that does not descend from D_A, a missing
+    revision/publication/review row, or a non-v2 review state all raise.
+    """
+    from dungeonmind.contracts.contribution_review_v2 import (
+        ContributionReviewStateV2,
+    )
+
+    if selected_revision_id == binding.dungeonmind_first_revision_id:
+        return []
+
+    lineage_revision_ids: list[str] = []  # newest-first while walking
+    visited = {binding.dungeonmind_first_revision_id}
+    cursor = selected_revision_id
+    while cursor != binding.dungeonmind_first_revision_id:
+        if cursor in visited:
+            raise WorldGraphAuthorityError(
+                "selected DungeonMind revision ancestry contains a cycle",
+                code="hydration_integrity",
+                details={"world_id": world_id, "revision_id": cursor},
+            )
+        visited.add(cursor)
+        try:
+            stored = bundle.world_graph.get_revision(world_id, cursor)
+        except Exception as exc:
+            raise WorldGraphAuthorityError(
+                "DungeonMind authority read failed during ancestry resolution",
+                code="authority_unavailable",
+                details={"world_id": world_id, "reason": type(exc).__name__},
+            ) from exc
+        if stored is None:
+            raise WorldGraphAuthorityError(
+                "selected DungeonMind revision is not readable",
+                code="hydration_integrity",
+                details={"world_id": world_id, "revision_id": cursor},
+            )
+        parent = stored.revision.parent_revision_id
+        if parent is None:
+            raise WorldGraphAuthorityError(
+                "selected DungeonMind revision does not descend from the "
+                "adoption revision",
+                code="hydration_integrity",
+                details={
+                    "world_id": world_id,
+                    "selected_revision_id": selected_revision_id,
+                    "adoption_revision_id": binding.dungeonmind_first_revision_id,
+                },
+            )
+        lineage_revision_ids.append(cursor)
+        cursor = parent
+    lineage_revision_ids.reverse()  # oldest first
+
+    reviewed: list[Any] = []
+    for revision_id in lineage_revision_ids:
+        stored = bundle.world_graph.get_revision(world_id, revision_id)
+        for operation_id in list(stored.revision.operation_ids or []):
+            publication = bundle.finalized_review_publications.get(
+                world_id, operation_id
+            )
+            if publication is None:
+                raise WorldGraphAuthorityError(
+                    "published DungeonMind revision names an operation with no "
+                    "publication record",
+                    code="hydration_integrity",
+                    details={
+                        "world_id": world_id,
+                        "revision_id": revision_id,
+                        "operation_id": operation_id,
+                    },
+                )
+            state = bundle.contribution_reviews.get(world_id, publication.review_id)
+            if state is None or not isinstance(state, ContributionReviewStateV2):
+                raise WorldGraphAuthorityError(
+                    "published DungeonMind revision's review state is missing or "
+                    "not a v2 review",
+                    code="hydration_integrity",
+                    details={
+                        "world_id": world_id,
+                        "revision_id": revision_id,
+                        "review_id": publication.review_id,
+                    },
+                )
+            reviewed.append(state.reviewed_contribution)
+    return reviewed
 
 
 # ---------------------------------------------------------------------------
@@ -513,13 +834,13 @@ def order_contributions_for_replay(
 
 @dataclass(frozen=True)
 class HydrationHandle:
-    """A hydrated, servable Buddy-shaped read model for one DungeonMind head."""
+    """A hydrated, servable Buddy-shaped read model for one DungeonMind revision."""
 
     world_id: str
-    cache_world_root: Path  # Buddy ``root`` for kernel reads
-    buddy_revision_id: str  # hydrated head revision (Buddy content-addressed)
-    dungeonmind_head_revision_id: str
-    legacy_revision_map: dict[str, str]  # legacy Buddy A rev -> hydrated rev
+    cache_world_root: Path  # Buddy ``root`` for kernel reads (private)
+    buddy_revision_id: str  # hydrated revision (Buddy content-addressed; private)
+    selected_revision_id: str  # DungeonMind revision this cache serves (public)
+    head_revision_id: str  # current DungeonMind head (public)
 
 
 def _safe_dir_name(revision_id: str) -> str:
@@ -609,18 +930,27 @@ def hydrate_world_graph(
     binding: AuthorityBinding,
     cache_root: Path,
     frozen_root: Path,
+    revision_id: str | None = None,
 ) -> HydrationHandle:
-    """Hydrate the Buddy-shaped read model for the binding's DungeonMind head.
+    """Hydrate the Buddy-shaped read model for one exact DungeonMind revision.
 
-    Writes a fresh cache directory keyed by the DungeonMind head revision and
-    atomically renames it into place; concurrent readers never see a partial
-    cache. Replays DungeonMind's translated ledger through Buddy's own rebuild
-    engine, then gates on the DungeonMind authority snapshot's id sets.
+    ``revision_id`` defaults to the binding's current DungeonMind head; an
+    explicit value hydrates that exact published revision (the legacy-A bridge
+    and DND revision self-pinning depend on this). Writes a fresh cache
+    directory keyed by the selected DungeonMind revision and atomically renames
+    it into place; concurrent readers never see a partial cache.
+
+    Integrity gates, in order: the exact adopted V3 membership is recomputed
+    and must match the receipt; the replay set is the adopted ledger plus only
+    the selected revision's published-ancestry reviewed contributions (a
+    CAS-losing finalized review is never replayed); the hydrated store must
+    cover the selected revision's authority snapshot id sets.
     """
     from graph_memory.kernel.contribution_rebuild import rebuild_from_contributions
     from graph_memory.union_supergraph.model import UnionSupergraphStore
     from graph_memory.world_supergraph.contribution_store import (
         ContributionIndex,
+        load_contribution_index,
         save_contribution_index,
         write_contribution_record,
     )
@@ -634,50 +964,81 @@ def hydrate_world_graph(
         publish_world_graph_revision,
     )
 
-    # Head → ledger → head: pin the head, read the ledger, then require the
-    # head to be unchanged so the cache key honestly names the hydrated state.
+    selected_revision = revision_id or binding.dungeonmind_head_revision_id
+    if revision_id is None:
+        # Head → ledger → head: pin the head, read the ledger, then require the
+        # head to be unchanged so the cache key honestly names the hydrated
+        # state. Exact-revision hydration skips this guard: a historical
+        # revision's cache key is honest regardless of later head movement.
+        try:
+            head_before = bundle.world_graph.get_head(world_id)
+            head_after = bundle.world_graph.get_head(world_id)
+        except Exception as exc:
+            raise WorldGraphAuthorityError(
+                "DungeonMind authority read failed during hydration",
+                code="authority_unavailable",
+                details={"world_id": world_id, "reason": type(exc).__name__},
+            ) from exc
+        if head_before is None or head_after is None:
+            raise WorldGraphAuthorityError(
+                f"world {world_id!r} has no DungeonMind head revision",
+                code="authority_head_missing",
+                details={"world_id": world_id},
+            )
+        if head_before.head_revision_id != head_after.head_revision_id:
+            raise WorldGraphAuthorityError(
+                "DungeonMind head moved during hydration; retry",
+                code="authority_head_moved",
+                details={
+                    "world_id": world_id,
+                    "head_before": head_before.head_revision_id,
+                    "head_after": head_after.head_revision_id,
+                },
+            )
+
+    _verify_adopted_membership(
+        bundle, world_id, binding=binding, frozen_root=frozen_root
+    )
+
     try:
-        head_before = bundle.world_graph.get_head(world_id)
+        stored = bundle.world_graph.get_revision(world_id, selected_revision)
         raw_contributions = bundle.contributions.list_for_world(world_id)
         raw_decisions = bundle.identity_decisions.list_for_world(world_id)
-        head_after = bundle.world_graph.get_head(world_id)
     except Exception as exc:
         raise WorldGraphAuthorityError(
             "DungeonMind authority read failed during hydration",
             code="authority_unavailable",
             details={"world_id": world_id, "reason": type(exc).__name__},
         ) from exc
-    if head_before is None or head_after is None:
-        raise WorldGraphAuthorityError(
-            f"world {world_id!r} has no DungeonMind head revision",
-            code="authority_head_missing",
-            details={"world_id": world_id},
-        )
-    if head_before.head_revision_id != head_after.head_revision_id:
-        raise WorldGraphAuthorityError(
-            "DungeonMind head moved during hydration; retry",
-            code="authority_head_moved",
-            details={
-                "world_id": world_id,
-                "head_before": head_before.head_revision_id,
-                "head_after": head_after.head_revision_id,
-            },
-        )
-    dungeonmind_head = head_before.head_revision_id
-    stored = bundle.world_graph.get_revision(world_id, dungeonmind_head)
     if stored is None:
         raise WorldGraphAuthorityError(
-            "DungeonMind head revision payload is unreadable",
+            "selected DungeonMind revision payload is unreadable",
             code="authority_head_missing",
-            details={"world_id": world_id, "revision_id": dungeonmind_head},
+            details={"world_id": world_id, "revision_id": selected_revision},
         )
 
     manifest, campaign_id, focus_session_id = _load_frozen_migration_metadata(
         frozen_root, world_id
     )
+    adopted_ids = set(
+        load_contribution_index(frozen_root, world_id).all_contribution_ids
+    )
+    adopted = [
+        translate_contribution(c)
+        for c in raw_contributions
+        if c.contribution_id in adopted_ids
+    ]
+    lineage_records = _published_lineage_reviewed_contributions(
+        bundle,
+        world_id,
+        binding=binding,
+        selected_revision_id=selected_revision,
+    )
+    lineage = [translate_contribution(c) for c in lineage_records]
     contributions = order_contributions_for_replay(
-        [translate_contribution(c) for c in raw_contributions],
+        [*adopted, *lineage],
         sealed_manifest_ids=manifest,
+        lineage_contribution_ids=[c.contribution_id for c in lineage],
     )
     decisions = sorted(
         (translate_identity_decision(d) for d in raw_decisions),
@@ -777,7 +1138,7 @@ def hydrate_world_graph(
         _verify_hydration_against_snapshot(
             store=hydrated_store,
             graph_payload=stored.graph_payload,
-            dungeonmind_head_revision_id=dungeonmind_head,
+            dungeonmind_head_revision_id=selected_revision,
         )
 
         metadata = {
@@ -786,14 +1147,14 @@ def hydrate_world_graph(
             "world_id": world_id,
             "adoption_id": binding.adoption_id,
             "membership_sha256": binding.membership_sha256,
-            "dungeonmind_head_revision_id": dungeonmind_head,
+            "dungeonmind_revision_id": selected_revision,
             "dungeonmind_first_revision_id": binding.dungeonmind_first_revision_id,
             "legacy_buddy_revision_id": binding.legacy_buddy_revision_id,
             "buddy_hydrated_revision_id": rebuild.revision_id,
         }
         _write_hydration_metadata(staged, metadata)
 
-        final_dir = cache_root / world_id / _safe_dir_name(dungeonmind_head)
+        final_dir = cache_root / world_id / _safe_dir_name(selected_revision)
         if final_dir.exists():
             shutil.rmtree(final_dir)
         final_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -802,31 +1163,55 @@ def hydrate_world_graph(
         shutil.rmtree(staged, ignore_errors=True)
         raise
 
-    legacy_map = {}
-    if dungeonmind_head == binding.dungeonmind_first_revision_id:
-        # While the DungeonMind head is the adoption revision, the hydrated
-        # head IS snapshot A's content (correspondence-gated pre-switch).
-        legacy_map[binding.legacy_buddy_revision_id] = rebuild.revision_id
-    else:
-        legacy_dir = (
-            cache_root
-            / world_id
-            / _safe_dir_name(binding.dungeonmind_first_revision_id)
-        )
-        legacy_meta = (
-            read_hydration_metadata(legacy_dir) if legacy_dir.is_dir() else None
-        )
-        if legacy_meta:
-            legacy_map[binding.legacy_buddy_revision_id] = str(
-                legacy_meta["buddy_hydrated_revision_id"]
-            )
     return HydrationHandle(
         world_id=world_id,
         cache_world_root=final_dir,
         buddy_revision_id=rebuild.revision_id,
-        dungeonmind_head_revision_id=dungeonmind_head,
-        legacy_revision_map=legacy_map,
+        selected_revision_id=selected_revision,
+        head_revision_id=binding.dungeonmind_head_revision_id,
     )
+
+
+def _ensure_hydrated_revision(
+    bundle: Any,
+    world_id: str,
+    *,
+    binding: AuthorityBinding,
+    revision_id: str,
+    cache_root: Path,
+    frozen_root: Path,
+) -> HydrationHandle:
+    """Return a servable hydration for one exact DungeonMind revision.
+
+    Cache hit when a prior hydration already covers the revision (and the
+    translation version matches); otherwise re-hydrates from DungeonMind
+    durable state alone — the derivative cache is expendable.
+    """
+    with _HYDRATION_LOCK:
+        cache_root.mkdir(parents=True, exist_ok=True)
+        register_world_graph_cache_root(cache_root, world_root=frozen_root)
+        final_dir = cache_root / world_id / _safe_dir_name(revision_id)
+        metadata = read_hydration_metadata(final_dir) if final_dir.is_dir() else None
+        if (
+            metadata is not None
+            and metadata.get("translation_version") == HYDRATION_TRANSLATION_VERSION
+            and metadata.get("dungeonmind_revision_id") == revision_id
+        ):
+            return HydrationHandle(
+                world_id=world_id,
+                cache_world_root=final_dir,
+                buddy_revision_id=str(metadata["buddy_hydrated_revision_id"]),
+                selected_revision_id=revision_id,
+                head_revision_id=binding.dungeonmind_head_revision_id,
+            )
+        return hydrate_world_graph(
+            bundle,
+            world_id,
+            binding=binding,
+            cache_root=cache_root,
+            frozen_root=frozen_root,
+            revision_id=revision_id,
+        )
 
 
 def ensure_hydrated_authority(
@@ -838,66 +1223,40 @@ def ensure_hydrated_authority(
 ) -> HydrationHandle:
     """Return a servable hydration for the world's current DungeonMind head.
 
-    Cache hit when a prior hydration already covers the current head (and the
-    translation version matches); otherwise re-hydrates. DungeonMind
-    unavailability or integrity failure raises — there is no silent fallback
-    to the frozen Buddy store in ``dungeonmind`` authority mode.
+    DungeonMind unavailability or integrity failure raises — there is no
+    silent fallback to the frozen Buddy store in ``dungeonmind`` authority
+    mode.
     """
-    with _HYDRATION_LOCK:
-        cache_root.mkdir(parents=True, exist_ok=True)
-        register_world_graph_cache_root(cache_root)
-        bundle = _open_repository_bundle(database_url)
-        binding = bind_world_authority(bundle, world_id, frozen_root=frozen_root)
-        final_dir = (
-            cache_root / world_id / _safe_dir_name(binding.dungeonmind_head_revision_id)
-        )
-        metadata = read_hydration_metadata(final_dir) if final_dir.is_dir() else None
-        if (
-            metadata is not None
-            and metadata.get("translation_version") == HYDRATION_TRANSLATION_VERSION
-            and metadata.get("dungeonmind_head_revision_id")
-            == binding.dungeonmind_head_revision_id
-        ):
-            legacy_map: dict[str, str] = {}
-            if (
-                binding.dungeonmind_head_revision_id
-                == binding.dungeonmind_first_revision_id
-            ):
-                legacy_map[binding.legacy_buddy_revision_id] = str(
-                    metadata["buddy_hydrated_revision_id"]
-                )
-            else:
-                legacy_dir = (
-                    cache_root
-                    / world_id
-                    / _safe_dir_name(binding.dungeonmind_first_revision_id)
-                )
-                legacy_meta = (
-                    read_hydration_metadata(legacy_dir) if legacy_dir.is_dir() else None
-                )
-                if legacy_meta:
-                    legacy_map[binding.legacy_buddy_revision_id] = str(
-                        legacy_meta["buddy_hydrated_revision_id"]
-                    )
-            return HydrationHandle(
-                world_id=world_id,
-                cache_world_root=final_dir,
-                buddy_revision_id=str(metadata["buddy_hydrated_revision_id"]),
-                dungeonmind_head_revision_id=binding.dungeonmind_head_revision_id,
-                legacy_revision_map=legacy_map,
-            )
-        return hydrate_world_graph(
-            bundle,
-            world_id,
-            binding=binding,
-            cache_root=cache_root,
-            frozen_root=frozen_root,
-        )
+    bundle = _open_repository_bundle(database_url)
+    binding = bind_world_authority(bundle, world_id, frozen_root=frozen_root)
+    return _ensure_hydrated_revision(
+        bundle,
+        world_id,
+        binding=binding,
+        revision_id=binding.dungeonmind_head_revision_id,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Read-path routing (service boundary)
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AuthorityReadRoute:
+    """The routed read: private graph root plus public DungeonMind identity.
+
+    ``public_revision_id`` / ``public_head_revision_id`` are ``None`` whenever
+    the read was not DungeonMind-routed (buddy_files/quiesced modes, explicit
+    non-production roots); services then serve the kernel response unchanged.
+    """
+
+    graph_root: Path
+    request: Any
+    public_revision_id: str | None
+    public_head_revision_id: str | None
 
 
 def route_read_request(
@@ -907,32 +1266,75 @@ def route_read_request(
     database_url: str,
     cache_root: Path,
     frozen_root: Path,
-) -> tuple[Path, Any]:
-    """Resolve the read root and rewrite legacy revision pins.
+) -> AuthorityReadRoute:
+    """Resolve the read root and bridge exact revision pins.
 
-    Returns ``(graph_root, request)``. In ``dungeonmind`` mode the graph root
-    is the hydrated cache root and a pin of the legacy Buddy snapshot A
-    revision is rewritten to the hydrated revision that carries A's content.
-    Pins of any other legacy revision fail closed: historical pre-adoption
-    Buddy revisions were never adopted into DungeonMind and are not served.
+    Pin algebra in ``dungeonmind`` mode:
+
+    - no pin → the current published DungeonMind head;
+    - the legacy Buddy snapshot A revision → the receipt-bound adoption
+      revision D_A, hydrated on demand (survives a cold cache and later
+      DungeonMind heads);
+    - an exact DungeonMind revision id → that exact published revision,
+      hydrated on demand (a returned DND revision id is always re-pinnable);
+    - anything else → fail closed. Historical pre-adoption Buddy revisions
+      were never adopted into DungeonMind and are not served.
+
+    The returned request carries the private hydrated cache revision pin; the
+    route's public identity fields name the selected/current DungeonMind
+    revisions for response normalization.
     """
-    handle = ensure_hydrated_authority(
-        world_id,
-        database_url=database_url,
-        cache_root=cache_root,
-        frozen_root=frozen_root,
-    )
-    pin = getattr(request, "revision_pin", None)
-    if pin:
-        mapped = handle.legacy_revision_map.get(pin)
-        if mapped is None:
+    bundle = _open_repository_bundle(database_url)
+    binding = bind_world_authority(bundle, world_id, frozen_root=frozen_root)
+    pin = str(getattr(request, "revision_pin", None) or "").strip()
+    if not pin:
+        handle = _ensure_hydrated_revision(
+            bundle,
+            world_id,
+            binding=binding,
+            revision_id=binding.dungeonmind_head_revision_id,
+            cache_root=cache_root,
+            frozen_root=frozen_root,
+        )
+        return AuthorityReadRoute(
+            graph_root=handle.cache_world_root,
+            request=request,
+            public_revision_id=handle.selected_revision_id,
+            public_head_revision_id=handle.head_revision_id,
+        )
+
+    if pin == binding.legacy_buddy_revision_id:
+        selected = binding.dungeonmind_first_revision_id
+    else:
+        try:
+            stored = bundle.world_graph.get_revision(world_id, pin)
+        except Exception as exc:
+            raise WorldGraphAuthorityError(
+                "DungeonMind authority read failed during pin resolution",
+                code="authority_unavailable",
+                details={"world_id": world_id, "reason": type(exc).__name__},
+            ) from exc
+        if stored is None:
             raise WorldGraphAuthorityError(
                 "revision pin is not bridged to the DungeonMind authority",
                 code="revision_not_bridged",
                 details={"world_id": world_id, "revision_pin": pin},
             )
-        request = request.model_copy(update={"revision_pin": mapped})
-    return handle.cache_world_root, request
+        selected = pin
+    handle = _ensure_hydrated_revision(
+        bundle,
+        world_id,
+        binding=binding,
+        revision_id=selected,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+    )
+    return AuthorityReadRoute(
+        graph_root=handle.cache_world_root,
+        request=request.model_copy(update={"revision_pin": handle.buddy_revision_id}),
+        public_revision_id=handle.selected_revision_id,
+        public_head_revision_id=handle.head_revision_id,
+    )
 
 
 def authority_error_status_code(exc: WorldGraphAuthorityError) -> int:
@@ -944,11 +1346,15 @@ def authority_error_status_code(exc: WorldGraphAuthorityError) -> int:
         "revision_not_bridged": 404,
         "adoption_receipt_missing": 409,
         "adoption_receipt_not_v3": 409,
+        "adopted_membership_incomplete": 409,
+        "adopted_membership_mismatch": 409,
         "frozen_store_missing": 500,
         "frozen_store_mismatch": 500,
         "hydration_integrity": 500,
         "governed_write_inexpressible": 409,
-        "governed_write_materialization_unsupported": 409,
+        "governed_write_materialization_failed": 409,
+        "governed_write_stale_parent": 409,
+        "governed_write_failed": 502,
         "invalid_request": 422,
     }.get(exc.code, 500)
 
@@ -958,21 +1364,43 @@ def route_service_read(
     explicit_root: Path | None,
     *,
     default_root: Path,
-) -> tuple[Path, Any]:
+) -> AuthorityReadRoute:
     """Authority-aware read routing shared by projection/retrieval services.
 
-    Explicit roots (tests, tooling) bypass authority routing. ``buddy_files``
-    and ``quiesced`` modes serve the file store unchanged. ``dungeonmind``
-    mode serves the hydrated cache root and rewrites bridged revision pins.
+    Explicit roots that are genuinely different from the configured production
+    World Graph root (tests, tooling) bypass authority routing. In
+    ``dungeonmind`` mode the configured production root is **not** an
+    authority override: a mounted caller that passes ``world_graph_root()``
+    explicitly is routed to DungeonMind exactly like a rootless call.
+    ``buddy_files`` and ``quiesced`` modes serve the file store unchanged.
     """
     from apps.live_control_server import config
     from graph_memory.world_supergraph import storage
 
-    if explicit_root is not None:
-        return Path(explicit_root).resolve(), request
     mode = config.world_graph_authority_mode()
+    if explicit_root is not None:
+        resolved = Path(explicit_root).resolve()
+        if (
+            mode == storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+            and resolved == Path(config.world_graph_root()).resolve()
+        ):
+            # Mounted production callers hand the configured root down
+            # explicitly; that is not a test/tool override.
+            pass
+        else:
+            return AuthorityReadRoute(
+                graph_root=resolved,
+                request=request,
+                public_revision_id=None,
+                public_head_revision_id=None,
+            )
     if mode != storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
-        return default_root, request
+        return AuthorityReadRoute(
+            graph_root=default_root,
+            request=request,
+            public_revision_id=None,
+            public_head_revision_id=None,
+        )
     world_id = str(getattr(request, "world_id", "") or "").strip()
     if not world_id:
         raise WorldGraphAuthorityError(
@@ -998,43 +1426,349 @@ def route_service_read(
 # Write-path routing (governed GM-confirmed publication)
 # ---------------------------------------------------------------------------
 
-# DungeonMind's dm_contribution_review_intent_v1 admits exactly these
-# assertion kinds, with per-kind field restrictions enforced by the contract.
-_V1_REVIEWABLE_KINDS = frozenset({"label", "alias", "summary", "relationship"})
+
+def _derive_confirm_operation_id(
+    *,
+    world_id: str,
+    package: dict[str, Any],
+    assertion_ids: tuple[str, ...] | None,
+) -> str:
+    """Deterministic operation identity for one logical Buddy confirmation.
+
+    Same sealed package + same assertion selection ⇒ same operation id ⇒ an
+    exact retry finds the durable publication and returns it without
+    re-verifying against a head that has legitimately advanced. The sealed
+    package pins the Buddy parent revision, which determines the intended
+    DungeonMind parent, so the package digest alone commits the operation to
+    its parent. ``None`` selection names the full sealed set.
+    """
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    digest = canonical_sha256(
+        {
+            "schema": "dmb_cutover_confirm_operation_v1",
+            "world_id": world_id,
+            "proposal_id": str(package.get("proposal_id") or ""),
+            "proposal_digest": str(package.get("proposal_digest") or ""),
+            "selected_assertion_ids": (
+                sorted(assertion_ids) if assertion_ids is not None else None
+            ),
+        }
+    )
+    return f"reviewop:{digest[:32]}"
 
 
-def _v1_review_expressibility_blockers(
+def _build_pair_to_dm(
+    bundle: Any,
+    world_id: str,
     contribution: GraphContribution,
-) -> list[dict[str, Any]]:
-    """List the accepted assertions DungeonMind's v1 review contract cannot express."""
-    blockers: list[dict[str, Any]] = []
-    for assertion in contribution.accepted_assertions:
-        kind = assertion.assertion_kind
-        reason: str | None = None
-        if kind not in _V1_REVIEWABLE_KINDS:
-            reason = f"assertion_kind {kind!r} is not a v1 reviewable kind"
-        elif kind == "relationship":
-            if assertion.label is not None or assertion.value:
-                reason = "v1 relationship assertions forbid label and value"
-        elif kind == "label":
-            if assertion.predicate is not None or assertion.value:
-                reason = "v1 label assertions forbid predicate and value"
-        elif kind in {"alias", "summary"}:
-            if assertion.predicate is not None or assertion.label is not None:
-                reason = f"v1 {kind} assertions forbid predicate and label"
-        if assertion.campaign_scope is not None or assertion.temporal_scope:
-            reason = (reason + "; " if reason else "") + (
-                "v1 review assertions do not carry campaign/temporal scope"
+) -> dict[tuple[str, str], str]:
+    """Map the contribution's (artifact, Buddy revision) pairs to DND ids.
+
+    Adopted pairs resolve to the exact DungeonMind source revision ids minted
+    at adoption. New pairs are minted with the producer's collision rule
+    (``_dm_revision_id``: bare Buddy token unless the token is bound to a
+    different artifact, then ``token::artifact``), computed over existing
+    DungeonMind usage ∪ this contribution's pairs so the mapping matches the
+    sealed adoption producer's vocabulary exactly.
+    """
+    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+        _dm_revision_id,
+    )
+
+    pair_to_dm: dict[tuple[str, str], str] = {}
+    token_artifacts: dict[str, set[str]] = {}
+    try:
+        artifacts = bundle.sources.list_artifacts_for_world(world_id)
+        for artifact in artifacts:
+            for revision in bundle.sources.list_revisions(artifact.source_artifact_id):
+                token = _reverse_revision_id(
+                    revision.source_revision_id, artifact.source_artifact_id
+                )
+                pair_to_dm[(artifact.source_artifact_id, token)] = (
+                    revision.source_revision_id
+                )
+                token_artifacts.setdefault(token, set()).add(
+                    artifact.source_artifact_id
+                )
+    except Exception as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind authority read failed while resolving source identity",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+
+    pairs: set[tuple[str, str]] = set()
+    contribution_pairs = [
+        (contribution.source_artifact_id, contribution.source_revision_id)
+    ]
+    for assertion in (
+        *contribution.candidate_assertions,
+        *contribution.accepted_assertions,
+        *contribution.rejected_assertions,
+    ):
+        contribution_pairs.append(
+            (assertion.source_artifact_id, assertion.source_revision_id)
+        )
+    for artifact_id, token in contribution_pairs:
+        if not artifact_id or not token:
+            raise WorldGraphAuthorityError(
+                "confirmed contribution is missing source identity",
+                code="governed_write_inexpressible",
+                details={
+                    "world_id": world_id,
+                    "contribution_id": contribution.contribution_id,
+                    "reason": "source_identity_missing",
+                },
             )
-        if reason is not None:
-            blockers.append(
-                {
-                    "assertion_id": assertion.assertion_id,
-                    "assertion_kind": kind,
-                    "reason": reason,
-                }
+        pairs.add((artifact_id, token))
+        token_artifacts.setdefault(token, set()).add(artifact_id)
+
+    colliding = {
+        token for token, artifacts in token_artifacts.items() if len(artifacts) > 1
+    }
+    for artifact_id, token in sorted(pairs):
+        if (artifact_id, token) not in pair_to_dm:
+            pair_to_dm[(artifact_id, token)] = _dm_revision_id(
+                token, artifact_id, colliding
             )
-    return blockers
+    return pair_to_dm
+
+
+def _build_v2_candidate(
+    contribution: GraphContribution,
+    *,
+    store: Any,
+    pair_to_dm: dict[tuple[str, str], str],
+    produced_at: Any,
+) -> Any:
+    """Translate the merged Buddy contribution to a reviewable v2 candidate.
+
+    Reuses the sealed adoption producer's per-assertion forward mapping (the
+    grounding vocabulary), then normalizes to the review model: every
+    assertion becomes a CANDIDATE (the review verdicts carry the accept
+    decisions), status ACTIVE, no supersession, no identity decision ids. The
+    produced_at is the deterministic parent-revision timestamp so the same
+    logical confirmation derives the same candidate digest.
+    """
+    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+        _map_contributions,
+    )
+    from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
+
+    mapped = _map_contributions(store, [contribution], pair_to_dm)
+    if len(mapped) != 1:
+        raise WorldGraphAuthorityError(
+            "contribution mapping did not produce exactly one candidate",
+            code="governed_write_failed",
+            details={"contribution_id": contribution.contribution_id},
+        )
+    candidate = mapped[0]
+    return candidate.model_copy(
+        update={
+            "assertions": [
+                assertion.model_copy(
+                    update={
+                        "acceptance_state": AcceptanceState.CANDIDATE,
+                        "value": _qualified_value(assertion),
+                    }
+                )
+                for assertion in candidate.assertions
+            ],
+            "status": ContributionStatus.ACTIVE,
+            "supersedes_contribution_id": None,
+            "identity_decision_ids": [],
+            "produced_at": produced_at,
+        }
+    )
+
+
+def _qualified_value(assertion: Any) -> str | None:
+    """Inject the qualified ``dm_kind`` into a node assertion's value.
+
+    The v6 materializer creates new objects from the assertion value and
+    requires the DungeonMind-qualified kind. Buddy node values carry the
+    Buddy ``kind`` vocabulary; qualify it through the same
+    ``CURRENT_V5_TARGET.buddy_to_dm_kind`` mapping the sealed adoption
+    producer used for the adopted graph payload. An unmapped kind fails
+    closed — the confirmed node cannot be represented in the v6 graph.
+    """
+    import json as _json
+
+    from apps.live_control_server.integrations.dungeonmind_kernel.eldyrwild_existing_world_adoption_bundle_v2 import (
+        _canonical_json,
+    )
+    from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+        CURRENT_V5_TARGET,
+    )
+
+    if assertion.assertion_kind != "node" or not assertion.value:
+        return assertion.value
+    value = _json.loads(assertion.value)
+    if not isinstance(value, dict):
+        return assertion.value
+    if isinstance(value.get("dm_kind"), str) and value["dm_kind"].strip():
+        return assertion.value
+    buddy_kind = value.get("kind")
+    mapped = CURRENT_V5_TARGET.buddy_to_dm_kind.get(str(buddy_kind or ""))
+    if mapped is None:
+        raise WorldGraphAuthorityError(
+            "confirmed node kind has no DungeonMind mapping",
+            code="governed_write_inexpressible",
+            details={
+                "assertion_id": assertion.assertion_id,
+                "buddy_kind": buddy_kind,
+            },
+        )
+    return _canonical_json({**value, "dm_kind": mapped})
+
+
+def _build_identity_dispositions(candidate: Any) -> tuple[list[Any], list[Any]]:
+    """Build v2 identity proposals/verdicts from reviewed Buddy outcomes.
+
+    Buddy's identity gate already resolved every accepted node/alias target:
+    ``created_new`` maps to a PROVISIONAL_NEW proposal + CREATE_NEW verdict;
+    ``resolved_existing`` maps to a RESOLVED_EXISTING proposal (matched to the
+    target) + CONFIRM_EXISTING verdict. Any other outcome on an accepted
+    node/alias target cannot be honestly represented in the v2 review model
+    and fails closed.
+    """
+    from dungeonmind.contracts.contribution_review import (
+        ContributionIdentityProposal,
+        ContributionIdentityVerdict,
+        ContributionIdentityVerdictKind,
+    )
+    from dungeonmind.contracts.identity import IdentityOutcome
+
+    outcome_by_target: dict[str, str] = {}
+    for assertion in candidate.assertions:
+        if assertion.assertion_kind not in ("node", "alias"):
+            continue
+        target = assertion.subject_object_id
+        outcome = (
+            str(assertion.identity_resolution_outcome)
+            if assertion.identity_resolution_outcome
+            else None
+        )
+        prior = outcome_by_target.setdefault(target, outcome or "")
+        if prior != (outcome or ""):
+            raise WorldGraphAuthorityError(
+                "accepted assertions disagree on the identity outcome of a "
+                "node/alias target",
+                code="governed_write_inexpressible",
+                details={"target_object_id": target},
+            )
+    proposals: list[Any] = []
+    verdicts: list[Any] = []
+    for target in sorted(outcome_by_target):
+        outcome = outcome_by_target[target]
+        candidate_id = f"identity:{target}"
+        if outcome == "created_new":
+            planned = IdentityOutcome.PROVISIONAL_NEW
+            matched: list[str] = []
+            verdict_kind = ContributionIdentityVerdictKind.CREATE_NEW
+        elif outcome == "resolved_existing":
+            planned = IdentityOutcome.RESOLVED_EXISTING
+            matched = [target]
+            verdict_kind = ContributionIdentityVerdictKind.CONFIRM_EXISTING
+        else:
+            raise WorldGraphAuthorityError(
+                "accepted node/alias assertion carries an identity outcome the "
+                "v2 review model cannot represent",
+                code="governed_write_inexpressible",
+                details={
+                    "target_object_id": target,
+                    "identity_resolution_outcome": outcome or None,
+                },
+            )
+        proposals.append(
+            ContributionIdentityProposal(
+                candidate_id=candidate_id,
+                candidate_kind="object",
+                planned_outcome=planned,
+                target_object_id=target,
+                matched_object_ids=matched,
+            )
+        )
+        verdicts.append(
+            ContributionIdentityVerdict(
+                candidate_id=candidate_id,
+                verdict=verdict_kind,
+                target_object_id=target,
+            )
+        )
+    return proposals, verdicts
+
+
+def _confirm_capability_policy(
+    *,
+    world_id: str,
+    campaign_id: str | None,
+    parent_revision_id: str,
+) -> Any:
+    """The server-side confirm_commit policy bound to the exact review scope."""
+    from dungeonmind.contracts.capability import (
+        CapabilityCategory,
+        CapabilityEffect,
+        CapabilityPolicy,
+        GraphScope,
+        ToolCapabilityRule,
+    )
+    from dungeonmind.contracts.contribution_review_v2 import FINALIZE_REVIEW_V2_TOOL
+    from dungeonmind.contracts.projection import Admissibility
+
+    return CapabilityPolicy(
+        policy_id="cutover:graph-review-confirm",
+        graph_scope=GraphScope(
+            world_id=world_id,
+            campaign_id=campaign_id,
+            admissibility=Admissibility.GM,
+            revision_pin=parent_revision_id,
+        ),
+        enabled_tools=[FINALIZE_REVIEW_V2_TOOL],
+        tool_rules=[
+            ToolCapabilityRule(
+                tool_name=FINALIZE_REVIEW_V2_TOOL,
+                category=CapabilityCategory.CONFIRM_COMMIT,
+                require_graph_scope=True,
+                allowed_effects=[CapabilityEffect.COMMIT],
+            )
+        ],
+    )
+
+
+def _confirm_proof_payload(
+    package: dict[str, Any],
+    *,
+    world_id: str,
+    outcome: str,
+    parent_revision_id: str,
+    committed_revision_id: str,
+    contribution_id: str,
+    projection_world_root: Path | None = None,
+) -> dict[str, Any]:
+    """The existing Buddy confirm proof shape, with DungeonMind identity.
+
+    ``projection_world_root`` points the service's receipt decoration at the
+    hydrated cache (which can resolve the DungeonMind-sealed parent); the
+    frozen store cannot.
+    """
+    return {
+        "schema": "dmb_promote_extract_proof_v1",
+        "ok": True,
+        "published": True,
+        "outcome": outcome,
+        "world_id": world_id,
+        "proposal_id": str(package.get("proposal_id") or ""),
+        "proposal_digest": str(package.get("proposal_digest") or ""),
+        "parent_revision_id": parent_revision_id,
+        "committed_revision_id": committed_revision_id,
+        "contribution_id": contribution_id,
+        "post_publication_verification": "passed",
+        "projection_world_root": (
+            str(projection_world_root) if projection_world_root is not None else None
+        ),
+    }
 
 
 def confirm_via_dungeonmind(
@@ -1045,20 +1779,44 @@ def confirm_via_dungeonmind(
     cache_root: Path,
     frozen_root: Path,
     confirming_principal: str,
-    assertion_ids: tuple[str, ...],
+    assertion_ids: tuple[str, ...] | None,
     repo_root: Path,
 ) -> Any:
     """Route one GM-confirmed publication through DungeonMind's governed write.
 
     The sealed Buddy review package is verified against the DungeonMind-backed
-    hydrated head with unchanged semantics. Entering DungeonMind's governed
-    write path then fails closed at the characterized v1-review-contract and
-    v6-materialization gaps (§7 repair items) — never partially, never by
-    touching the frozen Buddy store.
+    hydrated head (real verification, unchanged semantics), translated to a
+    ``dm_contribution_review_intent_v2`` through the adoption producer's
+    mapping vocabulary, finalized via ``finalize_contribution_review_v2``, and
+    published via ``publish_finalized_review`` (v6 materialization + head CAS).
+    The deterministic operation id makes an exact retry return the same
+    durable publication. Every failure raises a typed error before the frozen
+    Buddy store can mutate — there is no local fallback.
     """
+    from dungeonmind.contracts.contribution_review import (
+        ContributionAssertionVerdict,
+        ContributionPlanRef,
+        derive_confirmation_id,
+    )
+    from dungeonmind.contracts.contribution_review_v2 import (
+        CommitConfirmationReceiptV2,
+        ContributionReviewIntentV2,
+        ContributionReviewSubmissionV2,
+        contribution_v2_payload_sha256,
+        derive_review_intent_sha256_v2,
+    )
+    from dungeonmind.contracts.contribution import AcceptanceState
+    from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+    from dungeonmind.domain.canonical import canonical_sha256
+    from dungeonmind.domain.errors import (
+        ContributionMaterializationError,
+        DungeonMindError,
+        StaleParentRevisionError,
+    )
     from graph_memory.extract_promote_ops import (
         resolve_merged_contribution_from_package,
     )
+    from graph_memory.world_supergraph.storage import load_world_graph_revision
 
     package = dict(request.review_package or {})
     world_id = str((package.get("effect") or {}).get("world_id") or "").strip()
@@ -1067,9 +1825,57 @@ def confirm_via_dungeonmind(
             "review package carries no world_id",
             code="invalid_request",
         )
-    handle = ensure_hydrated_authority(
+    bundle = _open_repository_bundle(database_url)
+    binding = bind_world_authority(bundle, world_id, frozen_root=frozen_root)
+
+    # Retry short-circuit BEFORE hydration/verification: the operation id is
+    # derived from the sealed package content and selection alone, so an exact
+    # retry of an already-published confirmation returns the durable receipt
+    # even though the head has legitimately advanced past the sealed parent.
+    operation_id = _derive_confirm_operation_id(
+        world_id=world_id,
+        package=package,
+        assertion_ids=assertion_ids,
+    )
+    try:
+        existing = bundle.finalized_review_publications.get(world_id, operation_id)
+    except Exception as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind authority read failed during confirm",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if existing is not None:
+        # Best-effort projection root for receipt decoration: hydrate the
+        # sealed parent so the service can re-resolve the package. Failure
+        # here must not turn a durable publication into an error.
+        projection_root: Path | None = None
+        try:
+            projection_root = _ensure_hydrated_revision(
+                bundle,
+                world_id,
+                binding=binding,
+                revision_id=existing.expected_parent_revision_id,
+                cache_root=cache_root,
+                frozen_root=frozen_root,
+            ).cache_world_root
+        except Exception:  # noqa: BLE001 — receipt decoration only
+            projection_root = None
+        return _confirm_proof_payload(
+            package,
+            world_id=world_id,
+            outcome="already_applied",
+            parent_revision_id=existing.expected_parent_revision_id,
+            committed_revision_id=existing.published_revision_id,
+            contribution_id=existing.reviewed_contribution_id,
+            projection_world_root=projection_root,
+        )
+
+    handle = _ensure_hydrated_revision(
+        bundle,
         world_id,
-        database_url=database_url,
+        binding=binding,
+        revision_id=binding.dungeonmind_head_revision_id,
         cache_root=cache_root,
         frozen_root=frozen_root,
     )
@@ -1088,40 +1894,216 @@ def confirm_via_dungeonmind(
         verify_source=True,
     )
 
-    blockers = _v1_review_expressibility_blockers(contribution)
-    if blockers:
+    # The DungeonMind parent is the exact revision the package was verified
+    # against (the head at hydration time). If the head has since moved,
+    # DungeonMind's finalize CAS fails closed and the GM re-prepares.
+    parent_revision_id = handle.selected_revision_id
+    try:
+        parent_stored = bundle.world_graph.get_revision(world_id, parent_revision_id)
+    except Exception as exc:
         raise WorldGraphAuthorityError(
-            "DungeonMind's governed write contract "
-            "(dm_contribution_review_intent_v1) cannot express this confirmed "
-            "contribution; a v2 review contract is required (cutover §7 repair)",
+            "DungeonMind authority read failed during confirm",
+            code="authority_unavailable",
+            details={"world_id": world_id, "reason": type(exc).__name__},
+        ) from exc
+    if parent_stored is None:
+        raise WorldGraphAuthorityError(
+            "DungeonMind parent revision is unreadable",
+            code="authority_head_missing",
+            details={"world_id": world_id, "revision_id": parent_revision_id},
+        )
+    parent_envelope = parent_stored.revision
+
+    hydrated_store = load_world_graph_revision(
+        handle.cache_world_root, world_id, handle.buddy_revision_id
+    )
+    pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
+    # Deterministic review timestamps: the exact parent revision's durable
+    # created_at. The sealed Buddy package carries no stable timestamp and a
+    # wall-clock value would break retry identity; the parent timestamp is a
+    # real durable value bound to the exact state under review.
+    reviewed_at = parent_envelope.created_at
+    candidate = _build_v2_candidate(
+        contribution,
+        store=hydrated_store,
+        pair_to_dm=pair_to_dm,
+        produced_at=reviewed_at,
+    )
+    proposals, verdicts = _build_identity_dispositions(candidate)
+    assertion_verdicts = [
+        ContributionAssertionVerdict(
+            assertion_id=assertion.assertion_id,
+            acceptance_state=AcceptanceState.ACCEPTED,
+        )
+        for assertion in sorted(
+            candidate.assertions, key=lambda item: item.assertion_id
+        )
+    ]
+    campaign_id = contribution.campaign_scope or None
+    raw_profile = parent_stored.graph_payload.get("semantic_profile")
+    if raw_profile is None:
+        raise WorldGraphAuthorityError(
+            "DungeonMind parent revision payload declares no semantic profile",
+            code="hydration_integrity",
+            details={"world_id": world_id, "revision_id": parent_revision_id},
+        )
+    plan_ref = ContributionPlanRef(
+        source_plan_schema=str(
+            package.get("schema") or "dmb_promote_extract_review_package_v1"
+        ),
+        source_plan_id=str(package.get("proposal_id") or ""),
+        source_plan_sha256=str(package.get("proposal_digest") or ""),
+        source_input_sha256=canonical_sha256(package.get("effect") or {}),
+        preview_content_sha256=canonical_sha256(package.get("preview") or {}),
+        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        expected_parent_revision_id=parent_revision_id,
+        base_graph_schema=parent_envelope.graph_schema,
+        base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
+        semantic_profile=SemanticProfileRef.model_validate(raw_profile),
+    )
+    intent_sha256 = derive_review_intent_sha256_v2(
+        operation_id=operation_id,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        plan_ref=plan_ref,
+        candidate_contribution=candidate,
+        identity_proposals=proposals,
+        identity_verdicts=verdicts,
+        assertion_verdicts=assertion_verdicts,
+        reviewer_id=confirming_principal,
+        reviewed_at=reviewed_at,
+    )
+    from dungeonmind.contracts.contribution_review_v2 import FINALIZE_REVIEW_V2_TOOL
+
+    try:
+        intent = ContributionReviewIntentV2(
+            operation_id=operation_id,
+            world_id=world_id,
+            campaign_id=campaign_id,
+            plan_ref=plan_ref,
+            candidate_contribution=candidate,
+            identity_proposals=proposals,
+            identity_verdicts=verdicts,
+            assertion_verdicts=assertion_verdicts,
+            reviewer_id=confirming_principal,
+            reviewed_at=reviewed_at,
+            review_intent_sha256=intent_sha256,
+        )
+        confirmation = CommitConfirmationReceiptV2(
+            confirmation_id=derive_confirmation_id(
+                operation_id=operation_id,
+                review_intent_sha256=intent_sha256,
+                actor=confirming_principal,
+                confirmed_at=reviewed_at,
+            ),
+            operation_id=operation_id,
+            review_intent_sha256=intent_sha256,
+            actor=confirming_principal,
+            tool_name=FINALIZE_REVIEW_V2_TOOL,
+            effect="commit",
+            world_id=world_id,
+            campaign_id=campaign_id,
+            expected_parent_revision_id=parent_revision_id,
+            confirmed_at=reviewed_at,
+        )
+        submission = ContributionReviewSubmissionV2(
+            intent=intent, confirmation=confirmation
+        )
+    except Exception as exc:
+        raise WorldGraphAuthorityError(
+            "confirmed package cannot be expressed as a DungeonMind v2 review",
             code="governed_write_inexpressible",
             details={
                 "world_id": world_id,
                 "contribution_id": contribution.contribution_id,
-                "blocker_count": len(blockers),
-                "blockers": blockers[:10],
+                "reason": str(exc)[:500],
             },
+        ) from exc
+
+    from dungeonmind.application.contribution_review_v2 import (
+        finalize_contribution_review_v2,
+    )
+    from dungeonmind.application.review_publication import (
+        publish_finalized_review,
+    )
+
+    try:
+        state = finalize_contribution_review_v2(
+            submission,
+            capability_policy=_confirm_capability_policy(
+                world_id=world_id,
+                campaign_id=campaign_id,
+                parent_revision_id=parent_revision_id,
+            ),
+            world_graph_repository=bundle.world_graph,
+            review_repository=bundle.contribution_reviews,
         )
-    # Fully v1-expressible contributions still cannot publish: DungeonMind's
-    # materialization is bound to dm_union_graph_v3 parents and this world is
-    # dm_union_graph_v6. Fail closed with the precise downstream gap rather
-    # than constructing a review state that can only fail deep inside
-    # DungeonMind's publication flow.
-    raise WorldGraphAuthorityError(
-        "DungeonMind governed materialization is bound to dm_union_graph_v3; "
-        f"world {world_id!r} is dm_union_graph_v6 (cutover §7 repair)",
-        code="governed_write_materialization_unsupported",
-        details={
-            "world_id": world_id,
-            "contribution_id": contribution.contribution_id,
-            "graph_schema": "dm_union_graph_v6",
-            "materialization_schema": "dm_union_graph_v3",
-        },
+    except StaleParentRevisionError as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind head advanced past the sealed package's parent; "
+            "re-prepare the review against the current head",
+            code="governed_write_stale_parent",
+            details={
+                "world_id": world_id,
+                "expected_parent_revision_id": parent_revision_id,
+                "actual_head_revision_id": getattr(
+                    exc, "actual_head_revision_id", None
+                ),
+            },
+        ) from exc
+    except DungeonMindError as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind review finalization failed",
+            code="governed_write_failed",
+            details={"world_id": world_id, "reason": str(exc)[:500]},
+        ) from exc
+
+    try:
+        publication = publish_finalized_review(
+            world_id,
+            state.record.review_id,
+            published_at=reviewed_at,
+            review_repository=bundle.contribution_reviews,
+            world_graph_repository=bundle.world_graph,
+            publication_repository=bundle.finalized_review_publications,
+            graph_reader=build_authority_graph_reader(),
+        )
+    except ContributionMaterializationError as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind v6 materialization rejected the finalized review",
+            code="governed_write_materialization_failed",
+            details={
+                "world_id": world_id,
+                "review_id": state.record.review_id,
+                "reason": exc.reason,
+                **{k: v for k, v in (exc.details or {}).items() if k not in {"reason"}},
+            },
+        ) from exc
+    except DungeonMindError as exc:
+        raise WorldGraphAuthorityError(
+            "DungeonMind review publication failed",
+            code="governed_write_failed",
+            details={
+                "world_id": world_id,
+                "review_id": state.record.review_id,
+                "reason": str(exc)[:500],
+            },
+        ) from exc
+
+    return _confirm_proof_payload(
+        package,
+        world_id=world_id,
+        outcome="published",
+        parent_revision_id=parent_revision_id,
+        committed_revision_id=publication.published_revision_id,
+        contribution_id=publication.reviewed_contribution_id,
+        projection_world_root=handle.cache_world_root,
     )
 
 
 __all__ = [
     "AuthorityBinding",
+    "AuthorityReadRoute",
     "HYDRATION_METADATA_SCHEMA",
     "HYDRATION_TRANSLATION_VERSION",
     "HydrationHandle",

@@ -110,7 +110,8 @@ class ExtractPromoteError(ValueError):
         diagnostics: list[ExtractPromoteDiagnostic] | None = None,
         failure_payload: dict[str, Any] | None = None,
         run_status: str | None = None,
-        inspection_status: Literal["ready", "blocked", "invalid_evidence"] | None = None,
+        inspection_status: Literal["ready", "blocked", "invalid_evidence"]
+        | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -457,7 +458,9 @@ def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusRespo
     )
 
 
-def _paragraph_for_span(source_lines: list[str], *, start_line: int, end_line: int) -> str:
+def _paragraph_for_span(
+    source_lines: list[str], *, start_line: int, end_line: int
+) -> str:
     if start_line < 1 or end_line < start_line or end_line > len(source_lines):
         return ""
     return "\n".join(source_lines[start_line - 1 : end_line])
@@ -534,7 +537,9 @@ def _worldbuilding_inspect_only_error() -> ExtractPromoteError:
         code="not_promote_eligible",
         status_code=422,
         diagnostics=[
-            _diagnostic("worldbuilding_draft_not_promotable", _WORLDBUILDING_INSPECT_ONLY_REASON)
+            _diagnostic(
+                "worldbuilding_draft_not_promotable", _WORLDBUILDING_INSPECT_ONLY_REASON
+            )
         ],
     )
 
@@ -617,7 +622,9 @@ def _assert_and_project_candidate_evidence(
                     code="run_not_promotable",
                     status_code=422,
                     diagnostics=[
-                        _diagnostic("source_artifact_mismatch", artifact_id or "<missing>"),
+                        _diagnostic(
+                            "source_artifact_mismatch", artifact_id or "<missing>"
+                        ),
                         _diagnostic("run_source_artifact", expected_artifact),
                     ],
                 )
@@ -810,7 +817,9 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             assertions=assertions,
             diagnostics=list(resolved.diagnostics),
             promotable=not inspect_only,
-            promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None,
+            promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON
+            if inspect_only
+            else None,
             world_id=capability.world_id,
             world_state=capability.world_state,
             first_world_publish_eligible=capability.eligible,
@@ -1529,7 +1538,10 @@ def confirm_worldbuilding(
                 accepted_assertion_ids=materialized_accepted,
                 rejected_assertion_ids=materialized_rejected,
                 audit_status="degraded",
-                warnings=[f"merge_value_error_after_publish:{message}", *audit_warnings],
+                warnings=[
+                    f"merge_value_error_after_publish:{message}",
+                    *audit_warnings,
+                ],
             )
         raise ExtractPromoteError(
             message,
@@ -1581,8 +1593,12 @@ def confirm_worldbuilding(
         ) from exc
 
     published = bool(result.published)
-    accepted_assertion_ids = list(result.accepted_assertion_ids or materialized_accepted)
-    rejected_assertion_ids = list(result.rejected_assertion_ids or materialized_rejected)
+    accepted_assertion_ids = list(
+        result.accepted_assertion_ids or materialized_accepted
+    )
+    rejected_assertion_ids = list(
+        result.rejected_assertion_ids or materialized_rejected
+    )
     committed = str(result.revision_id or "").strip()
 
     if published and committed:
@@ -1646,7 +1662,6 @@ def confirm_worldbuilding(
     )
 
 
-
 def _project_assertion_fields(
     review_package: dict[str, Any],
     normalized_assertion_ids: tuple[str, ...],
@@ -1674,7 +1689,9 @@ def _project_assertion_fields(
             expected_parent_revision_id=None,
             assertion_ids=normalized_assertion_ids,
         )
-        accepted_assertion_ids = [item.assertion_id for item in contribution.accepted_assertions]
+        accepted_assertion_ids = [
+            item.assertion_id for item in contribution.accepted_assertions
+        ]
         affected_object_ids: list[str] = []
         seen: set[str] = set()
         for assertion in contribution.accepted_assertions:
@@ -1710,9 +1727,7 @@ def _confirm_outcome_from_ops(
     if published and result_ok and verification == "passed":
         return "committed", True, "ok", []
 
-    if published and (
-        not result_ok or verification in {"degraded", "failed"}
-    ):
+    if published and (not result_ok or verification in {"degraded", "failed"}):
         warnings: list[str] = []
         for key in ("failure_reason", "verification_error"):
             value = payload.get(key)
@@ -1740,11 +1755,17 @@ def _build_confirm_receipt(
     outcome, head_advanced, audit_status, outcome_warnings = _confirm_outcome_from_ops(
         result_ok, payload
     )
+    # In dungeonmind authority mode the adapter names the hydrated cache root
+    # that can resolve the DungeonMind-sealed parent; the frozen store cannot.
+    projection_root = world_root
+    projection_override = str(payload.get("projection_world_root") or "").strip()
+    if projection_override:
+        projection_root = Path(projection_override)
     accepted_assertion_ids, affected_object_ids, projection_warnings = (
         _project_assertion_fields(
             request.review_package,
             normalized_assertion_ids,
-            world_root=world_root,
+            world_root=projection_root,
         )
     )
     committed_revision_id = str(payload.get("committed_revision_id") or "").strip()
@@ -1886,13 +1907,16 @@ def confirm(
     from apps.live_control_server import config as _config
     from graph_memory.world_supergraph import storage as _wg_storage
 
-    if _config.world_graph_authority_mode() == _wg_storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND:
+    if (
+        _config.world_graph_authority_mode()
+        == _wg_storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    ):
         from apps.live_control_server.integrations.dungeonmind_kernel import (
             world_graph_authority,
         )
 
         try:
-            return world_graph_authority.confirm_via_dungeonmind(
+            payload = world_graph_authority.confirm_via_dungeonmind(
                 request,
                 world_root=world_root,
                 database_url=_config.world_graph_authority_database_url() or "",
@@ -1909,6 +1933,13 @@ def confirm(
                 status_code=world_graph_authority.authority_error_status_code(exc),
                 diagnostics=[_diagnostic(exc.code, str(exc))],
             ) from None
+        return _build_confirm_receipt(
+            request=request,
+            normalized_assertion_ids=normalized_assertion_ids,
+            result_ok=True,
+            payload=payload,
+            world_root=world_root,
+        )
 
     try:
         result = confirm_extract_promote(

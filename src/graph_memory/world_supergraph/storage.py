@@ -91,15 +91,27 @@ def world_graph_authority_mode(environ: dict[str, str] | None = None) -> str:
 _WORLD_GRAPH_CACHE_ROOTS: set[Path] = set()
 
 
-def register_world_graph_cache_root(root: Path) -> None:
+def register_world_graph_cache_root(root: Path, *, world_root: Path) -> None:
     """Mark ``root`` as a derived read-model cache, exempt from the mutation guard.
 
     The DungeonMind-backed authority adapter hydrates a Buddy-shaped read model
     under a cache root keyed by DungeonMind head revision. That cache is a pure
     derivative of DungeonMind durable state — never a second authority — so the
     kernel's rebuild/publish machinery may write it in any authority mode.
+
+    The exemption must never cover the durable local store itself: a cache root
+    equal to, or an ancestor of, ``world_root`` would silently exempt every
+    authoritative file under it from the quiescence guard. Reject before
+    registration so a misconfigured cache can never install that exemption.
     """
-    _WORLD_GRAPH_CACHE_ROOTS.add(Path(root).resolve())
+    resolved = Path(root).resolve()
+    durable = Path(world_root).resolve()
+    if resolved == durable or durable.is_relative_to(resolved):
+        raise ValueError(
+            "world graph cache root overlaps durable world graph storage: "
+            f"cache_root={resolved} world_root={durable}"
+        )
+    _WORLD_GRAPH_CACHE_ROOTS.add(resolved)
 
 
 def clear_world_graph_cache_roots() -> None:
