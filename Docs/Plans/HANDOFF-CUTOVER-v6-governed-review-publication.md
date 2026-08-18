@@ -21,7 +21,7 @@ pr_body_template: |
 # HANDOFF — v6 governed review publication
 
 **Created:** 2026-08-18
-**Status:** ACTIVE — dispatched after Buddy PR #619 Review Cycle 1 Finding 1 confirmed the governed-write gap by live switch attempt.
+**Status:** DONE / HISTORICAL — DungeonMind PR #37 merged `2edc07ff27a21b1c83aed847edf95b77d297910e` (3 review cycles; final PASS review `4963853068`). The v2 finalize + v6 materialization + head CAS publication seam is delivered; this handoff remains as the historical dispatch contract. The active CUTOVER implementation is the Buddy-side authority completion per `HANDOFF-CUTOVER-dungeonmind-authority-completion.md`.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-v6-governed-review-publication.md`
 **Conversation/workstream:** `CUTOVER — whole-world authority transfer`
 **Flow / owner:** `CUTOVER`

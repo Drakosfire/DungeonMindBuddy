@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import repo_root as default_repo_root
@@ -58,12 +59,13 @@ def _resolved_root(root: Path | None) -> Path:
 def _route_authority_read(
     request: WorldGraphRetrievalRequestContext,
     root: Path | None,
-) -> tuple[Path, WorldGraphRetrievalRequestContext]:
+) -> Any:
     """Route the read through the selected World Graph authority.
 
-    Explicit roots (tests) bypass routing. In ``dungeonmind`` authority mode
-    the read is served from the DungeonMind-hydrated cache root and legacy
-    pre-cutover revision pins are rewritten through the adoption bridge.
+    Explicit non-production roots (tests) bypass routing. In ``dungeonmind``
+    authority mode the read is served from the DungeonMind-hydrated cache root,
+    exact revision pins are bridged, and the returned route carries the public
+    DungeonMind revision identity for response normalization.
     """
     from apps.live_control_server.integrations.dungeonmind_kernel import (
         world_graph_authority,
@@ -86,6 +88,32 @@ def _route_authority_read(
                 )
             ],
         ) from None
+
+
+def _normalize_authority_identity(result: Any, route: Any) -> Any:
+    """Rewrite private hydrated-cache revision ids to public DungeonMind ids.
+
+    Product-visible revision/head identity names the selected/current
+    DungeonMind revision so a returned id is exactly re-pinnable against the
+    authority; the hydrated cache's Buddy content-addressed ids stay internal.
+    """
+    if route.public_revision_id is None:
+        return result
+    snapshot = getattr(result, "snapshot", None)
+    if snapshot is None:
+        return result
+    return result.model_copy(
+        update={
+            "snapshot": snapshot.model_copy(
+                update={
+                    "revision_id": route.public_revision_id,
+                    "head_revision_id": route.public_head_revision_id,
+                    "is_head": route.public_revision_id
+                    == route.public_head_revision_id,
+                }
+            )
+        }
+    )
 
 
 def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
@@ -139,9 +167,11 @@ def search_campaign_graph(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root, request = _route_authority_read(request, root)
+    route = _route_authority_read(request, root)
     try:
-        return kernel.search_campaign_graph(graph_root, request)
+        return _normalize_authority_identity(
+            kernel.search_campaign_graph(route.graph_root, route.request), route
+        )
     except kernel.WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
@@ -153,9 +183,11 @@ def get_campaign_object(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root, request = _route_authority_read(request, root)
+    route = _route_authority_read(request, root)
     try:
-        return kernel.get_campaign_object(graph_root, request)
+        return _normalize_authority_identity(
+            kernel.get_campaign_object(route.graph_root, route.request), route
+        )
     except kernel.WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
@@ -167,9 +199,11 @@ def get_object_neighborhood(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root, request = _route_authority_read(request, root)
+    route = _route_authority_read(request, root)
     try:
-        return kernel.get_object_neighborhood(graph_root, request)
+        return _normalize_authority_identity(
+            kernel.get_object_neighborhood(route.graph_root, route.request), route
+        )
     except kernel.WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
@@ -181,9 +215,11 @@ def get_object_evidence(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root, request = _route_authority_read(request, root)
+    route = _route_authority_read(request, root)
     try:
-        return kernel.get_object_evidence(graph_root, request)
+        return _normalize_authority_identity(
+            kernel.get_object_evidence(route.graph_root, route.request), route
+        )
     except kernel.WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None
     except Exception:
@@ -196,33 +232,38 @@ def read_source_anchor(
     root: Path | None = None,
     repo_root: Path | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
-    graph_root, request = _route_authority_read(request, root)
+    route = _route_authority_read(request, root)
+    graph_root, request = route.graph_root, route.request
     file_root = _resolved_repo_root(root=root, repo_root=repo_root)
     try:
         resolved = kernel.resolve_admitted_anchor_match(graph_root, request)
         if isinstance(resolved, WorldGraphSourceAnchorReadResult):
-            return resolved
+            return _normalize_authority_identity(resolved, route)
         anchor = resolved.derivation.anchor
         if (
             anchor.locator_kind == "source_span"
             and str(anchor.source_domain) == "worldbuilding"
             and (anchor.source_span_ref_id or "").strip()
         ):
-            return read_admitted_worldbuilding_span(
-                root=file_root,
-                source_artifact_id=anchor.source_artifact_id,
-                source_span_ref_id=str(anchor.source_span_ref_id),
-                graph_content_sha256=resolved.graph_content_sha256,
-                max_chars=request.max_chars,
-                anchor_id=request.anchor_id,
-                evidence_ref_id=anchor.evidence_ref_id,
-                snapshot=resolved.snapshot,
-                graph_artifact=resolved.store.source_artifacts.get(
-                    anchor.source_artifact_id
+            return _normalize_authority_identity(
+                read_admitted_worldbuilding_span(
+                    root=file_root,
+                    source_artifact_id=anchor.source_artifact_id,
+                    source_span_ref_id=str(anchor.source_span_ref_id),
+                    graph_content_sha256=resolved.graph_content_sha256,
+                    max_chars=request.max_chars,
+                    anchor_id=request.anchor_id,
+                    evidence_ref_id=anchor.evidence_ref_id,
+                    snapshot=resolved.snapshot,
+                    graph_artifact=resolved.store.source_artifacts.get(
+                        anchor.source_artifact_id
+                    ),
                 ),
+                route,
             )
-        return kernel.read_source_anchor(
-            graph_root, request, repo_root=file_root
+        return _normalize_authority_identity(
+            kernel.read_source_anchor(graph_root, request, repo_root=file_root),
+            route,
         )
     except kernel.WorldGraphRetrievalError as exc:
         raise _map_kernel_error(exc) from None

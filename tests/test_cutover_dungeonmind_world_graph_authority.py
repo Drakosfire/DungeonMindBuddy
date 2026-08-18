@@ -159,7 +159,7 @@ def test_local_mutation_guard_exempts_registered_cache_root(tmp_path, monkeypatc
         storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
     )
     cache = tmp_path / "cache"
-    storage.register_world_graph_cache_root(cache)
+    storage.register_world_graph_cache_root(cache, world_root=tmp_path / "worlds")
     result = storage.publish_world_graph_revision(
         cache / "nested", WORLD_ID, _minimal_store(), operation_ids=["test"]
     )
@@ -169,6 +169,31 @@ def test_local_mutation_guard_exempts_registered_cache_root(tmp_path, monkeypatc
         storage.publish_world_graph_revision(
             tmp_path / "elsewhere", WORLD_ID, _minimal_store(), operation_ids=["test"]
         )
+
+
+def test_register_cache_root_rejects_durable_overlap(tmp_path):
+    """A cache root overlapping the durable graph tree in either direction is
+    unsafe: equal/ancestor roots silently exempt every authoritative file from
+    the quiescence guard, and a descendant cache (for example
+    ``worlds/eldyrwild`` under ``worlds/``) would write derived files into the
+    authoritative subtree while bypassing the guard there."""
+    durable = tmp_path / "worlds"
+    with pytest.raises(ValueError, match="overlaps durable"):
+        storage.register_world_graph_cache_root(durable, world_root=durable)
+    with pytest.raises(ValueError, match="overlaps durable"):
+        storage.register_world_graph_cache_root(tmp_path, world_root=durable)
+    # Descendant caches inside the durable graph_memory tree are rejected too.
+    with pytest.raises(ValueError, match="overlaps durable"):
+        storage.register_world_graph_cache_root(
+            durable / "graph_memory", world_root=durable
+        )
+    with pytest.raises(ValueError, match="overlaps durable"):
+        storage.register_world_graph_cache_root(
+            durable / "graph_memory" / "worlds" / WORLD_ID, world_root=durable
+        )
+    # A disjoint sibling cache root remains registerable.
+    storage.register_world_graph_cache_root(tmp_path / "cache", world_root=durable)
+    storage.register_world_graph_cache_root(durable / "cache", world_root=durable)
 
 
 # ---------------------------------------------------------------------------
@@ -274,9 +299,10 @@ def test_route_service_read_passthrough_in_buddy_files(tmp_path):
     )
 
     request = _projection_request()
-    root, routed = wga.route_service_read(request, None, default_root=tmp_path)
-    assert root == tmp_path
-    assert routed is request
+    route = wga.route_service_read(request, None, default_root=tmp_path)
+    assert route.graph_root == tmp_path
+    assert route.request is request
+    assert route.public_revision_id is None
 
 
 def test_route_service_read_passthrough_in_quiesced(tmp_path, monkeypatch):
@@ -288,12 +314,14 @@ def test_route_service_read_passthrough_in_quiesced(tmp_path, monkeypatch):
         storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_QUIESCED
     )
     request = _projection_request()
-    root, routed = wga.route_service_read(request, None, default_root=tmp_path)
-    assert root == tmp_path
-    assert routed is request
+    route = wga.route_service_read(request, None, default_root=tmp_path)
+    assert route.graph_root == tmp_path
+    assert route.request is request
+    assert route.public_revision_id is None
 
 
 def test_route_service_read_explicit_root_bypasses_dungeonmind(tmp_path, monkeypatch):
+    """A genuinely different explicit root (tests/tooling) bypasses routing."""
     from apps.live_control_server.integrations.dungeonmind_kernel import (
         world_graph_authority as wga,
     )
@@ -303,9 +331,10 @@ def test_route_service_read_explicit_root_bypasses_dungeonmind(tmp_path, monkeyp
     )
     explicit = tmp_path / "explicit"
     request = _projection_request()
-    root, routed = wga.route_service_read(request, explicit, default_root=tmp_path)
-    assert root == explicit.resolve()
-    assert routed is request
+    route = wga.route_service_read(request, explicit, default_root=tmp_path)
+    assert route.graph_root == explicit.resolve()
+    assert route.request is request
+    assert route.public_revision_id is None
 
 
 def test_route_service_read_dungeonmind_requires_database_url(tmp_path, monkeypatch):
@@ -362,58 +391,493 @@ def test_projection_service_unreachable_authority_fails_closed(tmp_path, monkeyp
     assert excinfo.value.status_code == 503
 
 
-def test_v1_review_expressibility_blockers():
+def test_derive_confirm_operation_id_is_deterministic_and_selection_bound():
+    """Stable retry identity: same package + selection ⇒ same operation id; a
+    different selection or package is a genuinely different operation. The id
+    is parent-independent because the sealed package pins the parent."""
     from apps.live_control_server.integrations.dungeonmind_kernel import (
         world_graph_authority as wga,
     )
 
-    node_assertion = {
-        "assertion_id": "assertion:node1",
-        "assertion_kind": "node",
-        "subject_node_id": "node:x",
-        "label": "X",
-        "value": {"kind": "npc"},
-        "evidence_ref_ids": ["evidence:1"],
-        "acceptance_state": "accepted",
-        "contribution_id": "contribution:1",
-    }
-    edge_with_label = {
-        "assertion_id": "assertion:edge1",
-        "assertion_kind": "edge",
-        "subject_node_id": "node:x",
-        "target_node_id": "node:y",
-        "predicate": "knows",
-        "label": "knows",
-        "value": {},
-        "evidence_ref_ids": ["evidence:1"],
-        "acceptance_state": "accepted",
-        "contribution_id": "contribution:1",
-    }
-    plain_alias = {
-        "assertion_id": "assertion:alias1",
-        "assertion_kind": "alias",
-        "subject_node_id": "node:x",
-        "value": {"alias": "X the Elder"},
-        "evidence_ref_ids": ["evidence:1"],
-        "acceptance_state": "accepted",
-        "contribution_id": "contribution:1",
-    }
-    from graph_memory.kernel.contribution_models import GraphContribution
+    package = {"proposal_id": "proposal:1", "proposal_digest": "a" * 64}
+    base = wga._derive_confirm_operation_id(
+        world_id=WORLD_ID, package=package, assertion_ids=("assertion:1",)
+    )
+    again = wga._derive_confirm_operation_id(
+        world_id=WORLD_ID, package=package, assertion_ids=("assertion:1",)
+    )
+    assert base == again
+    assert base.startswith("reviewop:")
+    assert base != wga._derive_confirm_operation_id(
+        world_id=WORLD_ID, package=package, assertion_ids=("assertion:2",)
+    )
+    assert base != wga._derive_confirm_operation_id(
+        world_id=WORLD_ID, package=package, assertion_ids=None
+    )
+    assert base != wga._derive_confirm_operation_id(
+        world_id=WORLD_ID,
+        package={"proposal_id": "proposal:2", "proposal_digest": "b" * 64},
+        assertion_ids=("assertion:1",),
+    )
 
-    contribution = GraphContribution.model_validate(
-        {
-            "contribution_id": "contribution:1",
-            "world_id": WORLD_ID,
-            "source_kind": "source_extraction",
-            "produced_at": "2026-08-18T00:00:00Z",
-            "accepted_assertions": [node_assertion, edge_with_label, plain_alias],
+
+def test_edge_predicate_qualification_round_trip():
+    """The confirm path injects the explicit ``dm_predicate`` (swapping
+    endpoints for reverse-mapped predicates); the hydration inverse strips
+    exactly the derived qualification and un-swaps, so the Buddy
+    content-addressed assertion id recomputes. Unmapped predicates fail
+    closed — no invented mapping."""
+    import json as _json
+    from types import SimpleNamespace
+
+    from graph_memory.kernel.contributions import compute_assertion_id
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    def _assertion(*, predicate: str, value: dict, subject: str, target: str):
+        return SimpleNamespace(
+            assertion_id=compute_assertion_id(
+                assertion_kind="edge",
+                subject_node_id=subject,
+                target_node_id=target,
+                predicate=predicate,
+                label=predicate,
+                value=value,
+                campaign_scope=CAMPAIGN_ID,
+                temporal_scope=None,
+                epistemic_kind="asserted",
+                visibility=None,
+            ),
+            assertion_kind="edge",
+            subject_object_id=subject,
+            object_object_id=target,
+            predicate=predicate,
+            label=predicate,
+            value=_json.dumps(value),
+        )
+
+    # Direct-mapped predicate: qualify in place, no endpoint swap. The
+    # endpoint kinds are admitted: npc → dnd5e:located_in → location.
+    direct_value = {
+        "edge_id": "edge:node:a:located_in:node:b",
+        "predicate": "located_in",
+        "session_ids": ["session-26"],
+    }
+    direct = _assertion(
+        predicate="located_in", value=direct_value, subject="node:a", target="node:b"
+    )
+    update = wga._qualified_edge_update(
+        direct, endpoint_kinds={"node:a": "npc", "node:b": "location"}
+    )
+    qualified_value = _json.loads(update["value"])
+    assert qualified_value["dm_predicate"] == "dnd5e:located_in"
+    assert qualified_value["edge_id"] == direct_value["edge_id"]
+    assert "subject_object_id" not in update
+    assert "object_object_id" not in update
+    qualified = SimpleNamespace(**{**vars(direct), "value": update["value"]})
+    stripped_value, subject, target = wga._strip_derived_dm_predicate(
+        qualified, qualified_value
+    )
+    assert stripped_value == direct_value
+    assert (subject, target) == ("node:a", "node:b")
+    assert (
+        compute_assertion_id(
+            assertion_kind="edge",
+            subject_node_id=subject,
+            target_node_id=target,
+            predicate="located_in",
+            label="located_in",
+            value=stripped_value,
+            campaign_scope=CAMPAIGN_ID,
+            temporal_scope=None,
+            epistemic_kind="asserted",
+            visibility=None,
+        )
+        == direct.assertion_id
+    )
+
+    # Reverse-mapped predicate: swap endpoints forward, un-swap on recovery.
+    # Admitted orientation: dnd5e:owns is faction/group/npc/party/pc →
+    # creature/item/location, so a location belonging to a faction qualifies.
+    reverse_value = {
+        "edge_id": "edge:node:a:belongs_to:node:b",
+        "predicate": "belongs_to",
+    }
+    reverse = _assertion(
+        predicate="belongs_to", value=reverse_value, subject="node:a", target="node:b"
+    )
+    reverse_update = wga._qualified_edge_update(
+        reverse, endpoint_kinds={"node:a": "location", "node:b": "faction"}
+    )
+    assert _json.loads(reverse_update["value"])["dm_predicate"] == "dnd5e:owns"
+    assert reverse_update["subject_object_id"] == "node:b"
+    assert reverse_update["object_object_id"] == "node:a"
+    qualified_reverse = SimpleNamespace(
+        **{
+            **vars(reverse),
+            "value": reverse_update["value"],
+            "subject_object_id": "node:b",
+            "object_object_id": "node:a",
         }
     )
-    blockers = wga._v1_review_expressibility_blockers(contribution)
-    blocked_ids = {b["assertion_id"] for b in blockers}
-    assert "assertion:node1" in blocked_ids  # node kind is not v1-reviewable
-    assert "assertion:edge1" in blocked_ids  # edge kind is not v1-reviewable
-    assert "assertion:alias1" not in blocked_ids  # bare alias is v1-expressible
+    stripped_reverse, r_subject, r_target = wga._strip_derived_dm_predicate(
+        qualified_reverse, _json.loads(reverse_update["value"])
+    )
+    assert stripped_reverse == reverse_value
+    assert (r_subject, r_target) == ("node:a", "node:b")
+    assert (
+        compute_assertion_id(
+            assertion_kind="edge",
+            subject_node_id=r_subject,
+            target_node_id=r_target,
+            predicate="belongs_to",
+            label="belongs_to",
+            value=stripped_reverse,
+            campaign_scope=CAMPAIGN_ID,
+            temporal_scope=None,
+            epistemic_kind="asserted",
+            visibility=None,
+        )
+        == reverse.assertion_id
+    )
+
+    # Intentionally unresolved predicates fail closed; nothing is invented.
+    unmapped = _assertion(
+        predicate="same_as",
+        value={"edge_id": "edge:node:a:same_as:node:b"},
+        subject="node:a",
+        target="node:b",
+    )
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga._qualified_edge_update(unmapped, endpoint_kinds={})
+    assert excinfo.value.code == "governed_write_inexpressible"
+
+
+def test_edge_endpoint_admission_enforced():
+    """The name mapping alone does not admit an edge: the concrete endpoint
+    kinds must be admitted for the qualified predicate by world-object-v5
+    (``dnd5e:leads_to`` is Location→Location; ``dnd5e:owns`` is
+    faction/group/npc/party/pc → creature/item/location). Inadmitted,
+    unknown, or unmapped endpoint kinds fail closed — reverse-mapped
+    predicates admit the swapped orientation."""
+    import json as _json
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    def _edge(*, predicate: str, subject: str, target: str):
+        return SimpleNamespace(
+            assertion_id=f"assertion:{subject}:{predicate}:{target}",
+            assertion_kind="edge",
+            subject_object_id=subject,
+            object_object_id=target,
+            predicate=predicate,
+            label=predicate,
+            value=_json.dumps(
+                {
+                    "edge_id": f"edge:{subject}:{predicate}:{target}",
+                    "predicate": predicate,
+                }
+            ),
+        )
+
+    # Admitted: location leads_to location qualifies.
+    update = wga._qualified_edge_update(
+        _edge(predicate="leads_to", subject="node:a", target="node:b"),
+        endpoint_kinds={"node:a": "location", "node:b": "location"},
+    )
+    assert _json.loads(update["value"])["dm_predicate"] == "dnd5e:leads_to"
+
+    # Inadmitted subject/object kinds fail closed.
+    for kinds in (
+        {"node:a": "npc", "node:b": "location"},  # npc cannot lead_to
+        {"node:a": "location", "node:b": "npc"},  # object must be a location
+    ):
+        with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+            wga._qualified_edge_update(
+                _edge(predicate="leads_to", subject="node:a", target="node:b"),
+                endpoint_kinds=kinds,
+            )
+        assert excinfo.value.code == "governed_write_inexpressible"
+        assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
+
+    # Unknown endpoint (absent from the hydrated head and the candidate) and
+    # unmapped Buddy endpoint kind (job has no world-object-v5 term) fail.
+    for kinds in ({"node:a": "location"}, {"node:a": "job", "node:b": "location"}):
+        with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+            wga._qualified_edge_update(
+                _edge(predicate="leads_to", subject="node:a", target="node:b"),
+                endpoint_kinds=kinds,
+            )
+        assert excinfo.value.code == "governed_write_inexpressible"
+
+    # Reverse-mapped admission uses the swapped orientation: a creature
+    # belonging to an npc qualifies (dnd5e:owns — npc owns creature); an npc
+    # belonging to a creature does not (a creature cannot own).
+    reverse_ok = wga._qualified_edge_update(
+        _edge(predicate="belongs_to", subject="node:a", target="node:b"),
+        endpoint_kinds={"node:a": "creature", "node:b": "npc"},
+    )
+    assert _json.loads(reverse_ok["value"])["dm_predicate"] == "dnd5e:owns"
+    assert reverse_ok["subject_object_id"] == "node:b"
+    assert reverse_ok["object_object_id"] == "node:a"
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga._qualified_edge_update(
+            _edge(predicate="belongs_to", subject="node:a", target="node:b"),
+            endpoint_kinds={"node:a": "npc", "node:b": "creature"},
+        )
+    assert excinfo.value.code == "governed_write_inexpressible"
+    assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
+
+
+def test_edge_reverse_direction_audit_enforced():
+    """The conformance contract's full-edge direction audit also gates
+    accepted writes: an edge id carrying a reverse-qualifier pattern for its
+    Buddy predicate (``is-threatened-by``) marks a relationship authored in
+    the reverse direction, so name mapping plus admission-valid endpoints
+    would publish inverted semantics. The writer fails closed before
+    automatic translation — the same audit the conformance contract applies
+    (``edge_has_reverse_direction_qualifier_v4``), keyed on the Buddy
+    predicate and casefolded. A clean edge id with the same predicate and
+    endpoint kinds qualifies."""
+    import json as _json
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    def _edge(*, predicate: str, edge_id: str, subject: str, target: str):
+        return SimpleNamespace(
+            assertion_id=f"assertion:{edge_id}",
+            assertion_kind="edge",
+            subject_object_id=subject,
+            object_object_id=target,
+            predicate=predicate,
+            label=predicate,
+            value=_json.dumps({"edge_id": edge_id, "predicate": predicate}),
+        )
+
+    # dnd5e:threatens admits npc → location, so only the direction audit can
+    # fail these: the endpoint pair is valid for the qualified predicate.
+    kinds = {"node:a": "npc", "node:b": "location"}
+    for edge_id in (
+        "edge:node:a:threatens:node:b:is-threatened-by-b",
+        "edge:node:a:threatens:node:b:IS-THREATENED-BY-b",  # casefolded
+        "edge:node:a:threatens:node:b:threatened-by-b",
+    ):
+        with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+            wga._qualified_edge_update(
+                _edge(
+                    predicate="threatens",
+                    edge_id=edge_id,
+                    subject="node:a",
+                    target="node:b",
+                ),
+                endpoint_kinds=kinds,
+            )
+        assert excinfo.value.code == "governed_write_inexpressible"
+        assert excinfo.value.details.get("reason") == "reverse_direction_qualifier"
+        assert excinfo.value.details.get("dm_predicate") == "dnd5e:threatens"
+
+    # The audit keys on the Buddy predicate: an attacks edge is audited
+    # against the attacks patterns. dnd5e:attacks admits npc → npc, so here
+    # too only the direction audit can fail the write.
+    attack_kinds = {"node:a": "npc", "node:b": "npc"}
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga._qualified_edge_update(
+            _edge(
+                predicate="attacks",
+                edge_id="edge:node:a:attacks:node:b:attacked-by-b",
+                subject="node:a",
+                target="node:b",
+            ),
+            endpoint_kinds=attack_kinds,
+        )
+    assert excinfo.value.details.get("reason") == "reverse_direction_qualifier"
+
+    # Control: the same predicates and admitted endpoint kinds with clean
+    # edge ids qualify.
+    for predicate, control_kinds in (("threatens", kinds), ("attacks", attack_kinds)):
+        update = wga._qualified_edge_update(
+            _edge(
+                predicate=predicate,
+                edge_id=f"edge:node:a:{predicate}:node:b",
+                subject="node:a",
+                target="node:b",
+            ),
+            endpoint_kinds=control_kinds,
+        )
+        assert _json.loads(update["value"])["dm_predicate"] == f"dnd5e:{predicate}"
+
+
+def test_temporal_scope_session_hint_round_trip():
+    """Buddy's edge producer encodes real-world session provenance as
+    ``temporal_scope={"session_id": ...}``. The confirm path normalizes the
+    hint to ``None`` (DungeonMind carries real-world sessions as session
+    refs, never as temporal scope), and the hydration inverse reconstructs
+    the hint from the value's single ``session_ids`` entry so the
+    content-addressed assertion id recomputes exactly."""
+    import json as _json
+    from types import SimpleNamespace
+
+    from graph_memory.kernel.contributions import compute_assertion_id
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    value = {
+        "edge_id": "edge:node:a:located_in:node:b",
+        "predicate": "located_in",
+        "session_ids": ["session-26"],
+    }
+    buddy_temporal = {"session_id": "session-26"}
+    assertion_id = compute_assertion_id(
+        assertion_kind="edge",
+        subject_node_id="node:a",
+        target_node_id="node:b",
+        predicate="located_in",
+        label="located_in",
+        value=value,
+        campaign_scope=CAMPAIGN_ID,
+        temporal_scope=buddy_temporal,
+        epistemic_kind="asserted",
+        visibility=None,
+    )
+
+    # Forward: the session hint normalizes to None; other shapes pass through.
+    assert wga._normalized_temporal_scope(buddy_temporal) is None
+    assert wga._normalized_temporal_scope(None) is None
+    assert wga._normalized_temporal_scope({"kind": "unknown"}) == {"kind": "unknown"}
+
+    # Inverse: the stored assertion (temporal_scope None) recovers the hint,
+    # so the content-addressed id recomputes exactly.
+    stored = SimpleNamespace(
+        assertion_id=assertion_id,
+        assertion_kind="edge",
+        subject_object_id="node:a",
+        object_object_id="node:b",
+        predicate="located_in",
+        label="located_in",
+        value=_json.dumps(value),
+        campaign_scope=CAMPAIGN_ID,
+        temporal_scope=None,
+        epistemic_kind="asserted",
+        evidence_refs=[],
+        source_artifact_id="artifact:recap:longmont-c2:session-26",
+        source_revision_id=None,
+        acceptance_state="accepted",
+        identity_resolution_outcome=None,
+    )
+    translated = wga._translate_assertion(
+        stored, {assertion_id: "asserted"}, "contribution:1"
+    )
+    assert translated["assertion_id"] == assertion_id
+    assert translated["temporal_scope"] == buddy_temporal
+
+
+def test_build_v2_candidate_temporal_normalization_is_accept_only():
+    """Buddy's real-world-session temporal hint (``{"session_id": ...}``) is
+    normalized away only for assertions the GM accepted: DungeonMind carries
+    that provenance as session refs at materialization, and only accepted
+    assertions ever materialize. A rejected assertion is preserved in the
+    durable review record exactly as adjudicated — session hint included —
+    because it never needs materialization and must not be rewritten. The
+    rejected edge here also has endpoints unknown to the hydrated head, so
+    qualification would fail closed if it were attempted."""
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    from graph_memory.kernel.contributions import (
+        build_assertion,
+        create_graph_contribution,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    artifact_id = "artifact:recap:longmont-c2:session-26"
+    buddy_revision = "sha256:session-26-recap"
+    session_hint = {"session_id": "session-26"}
+
+    def _edge_assertion(*, acceptance: str, subject: str, target: str, edge_id: str):
+        return build_assertion(
+            assertion_kind="edge",
+            acceptance_state=acceptance,
+            subject_node_id=subject,
+            target_node_id=target,
+            predicate="located_in",
+            label="located_in",
+            value={
+                "edge_id": edge_id,
+                "predicate": "located_in",
+                "session_ids": ["session-26"],
+            },
+            evidence_ref_ids=[],
+            source_artifact_id=artifact_id,
+            source_revision_id=buddy_revision,
+            campaign_scope=CAMPAIGN_ID,
+            epistemic_kind="asserted",
+            temporal_scope=dict(session_hint),
+        )
+
+    accepted = _edge_assertion(
+        acceptance="accepted",
+        subject="node:a",
+        target="node:b",
+        edge_id="edge:node:a:located_in:node:b",
+    )
+    rejected = _edge_assertion(
+        acceptance="rejected",
+        subject="node:c",
+        target="node:d",
+        edge_id="edge:node:c:located_in:node:d",
+    )
+    contribution = create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id=artifact_id,
+        source_revision_id=buddy_revision,
+        campaign_scope=CAMPAIGN_ID,
+        candidate_assertions=[],
+        accepted_assertions=[accepted],
+        rejected_assertions=[rejected],
+    )
+    store = SimpleNamespace(
+        nodes={
+            "node:a": SimpleNamespace(kind="npc"),
+            "node:b": SimpleNamespace(kind="location"),
+        }
+    )
+    candidate, verdict_states = wga._build_v2_candidate(
+        contribution,
+        store=store,
+        pair_to_dm={(artifact_id, buddy_revision): "dm-source-revision"},
+        produced_at=datetime(2026, 8, 18, tzinfo=timezone.utc),
+    )
+
+    by_id = {assertion.assertion_id: assertion for assertion in candidate.assertions}
+    assert set(by_id) == {accepted.assertion_id, rejected.assertion_id}
+    # Accepted: qualified (dm_predicate injected) and the session hint is
+    # normalized away — DungeonMind expresses it as session refs.
+    accepted_out = by_id[accepted.assertion_id]
+    assert accepted_out.temporal_scope is None
+    import json as _json
+
+    assert _json.loads(accepted_out.value)["dm_predicate"] == "dnd5e:located_in"
+    # Rejected: preserved exactly as adjudicated — no qualification, and the
+    # session hint survives in the durable review record.
+    rejected_out = by_id[rejected.assertion_id]
+    assert rejected_out.temporal_scope == session_hint
+    assert "dm_predicate" not in _json.loads(rejected_out.value)
+    assert verdict_states[accepted.assertion_id].name == "ACCEPTED"
+    assert verdict_states[rejected.assertion_id].name == "REJECTED"
 
 
 # ---------------------------------------------------------------------------
@@ -635,17 +1099,23 @@ def test_hydration_fingerprint_exact_against_frozen_snapshot(hydrated):
 
 
 @pytest.mark.integration
-def test_projection_read_served_from_dungeonmind(hydrated):
+def test_projection_read_served_from_dungeonmind(hydrated, monkeypatch):
     """§10: the normal projection service returns Eldyrwild data backed by DungeonMind.
 
     Called rootless: the service itself routes through the configured
     authority, proving the routing seam rather than just the cache content.
+    The frozen comparison read runs in ``quiesced`` mode: in ``dungeonmind``
+    mode the configured root is not an override, so an explicit frozen-root
+    read would route back to DungeonMind.
     """
     from apps.live_control_server.services.world_graph_projection import (
         project_world_graph,
     )
 
     projected = project_world_graph(_projection_request())
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_QUIESCED
+    )
     frozen_projection = project_world_graph(
         _projection_request(), root=hydrated["frozen_root"]
     )
@@ -664,15 +1134,21 @@ def test_projection_read_served_from_dungeonmind(hydrated):
     assert {n.node_id for n in projected.nodes} == {
         n.node_id for n in frozen_projection.nodes
     }
-    # The served snapshot revision is the hydrated head, not a Buddy file rev.
-    assert projected.snapshot.revision_id == hydrated["handle"].buddy_revision_id
+    # Public identity is the exact DungeonMind head revision, not the private
+    # hydrated-cache Buddy revision.
+    assert projected.snapshot.revision_id == hydrated["handle"].selected_revision_id
+    assert projected.snapshot.revision_id != hydrated["handle"].buddy_revision_id
+    assert projected.snapshot.head_revision_id == hydrated["handle"].head_revision_id
+    assert projected.snapshot.is_head is True
 
 
 @pytest.mark.integration
-def test_retrieval_read_served_from_dungeonmind(hydrated):
+def test_retrieval_read_served_from_dungeonmind(hydrated, monkeypatch):
     """§10: the normal object/evidence/neighborhood path returns exact data.
 
-    Called rootless: the service routes through the configured authority.
+    Called rootless: the service routes through the configured authority. The
+    frozen comparison read runs in ``quiesced`` mode (the configured root is
+    not an authority override in ``dungeonmind`` mode).
     """
     from graph_memory.retrieval.models import (
         RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
@@ -694,8 +1170,25 @@ def test_retrieval_read_served_from_dungeonmind(hydrated):
             "nodeId": node_id,
         }
     )
+    neighborhood_request = WorldGraphNeighborhoodRequest.model_validate(
+        {
+            "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+            "worldId": WORLD_ID,
+            "campaignId": CAMPAIGN_ID,
+            "seedNodeIds": [node_id],
+        }
+    )
     routed_object = retrieval.get_campaign_object(object_request)
+    routed_neighborhood = retrieval.get_object_neighborhood(neighborhood_request)
+
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_QUIESCED
+    )
     frozen_object = retrieval.get_campaign_object(object_request, root=frozen)
+    frozen_neighborhood = retrieval.get_object_neighborhood(
+        neighborhood_request, root=frozen
+    )
+
     assert routed_object.outcome == frozen_object.outcome
     assert (
         routed_object.model_dump(mode="json")["nodes"]
@@ -705,19 +1198,9 @@ def test_retrieval_read_served_from_dungeonmind(hydrated):
         routed_object.model_dump(mode="json")["attributes"]
         == (frozen_object.model_dump(mode="json")["attributes"])
     )
-    assert routed_object.snapshot.revision_id == hydrated["handle"].buddy_revision_id
-
-    neighborhood_request = WorldGraphNeighborhoodRequest.model_validate(
-        {
-            "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
-            "worldId": WORLD_ID,
-            "campaignId": CAMPAIGN_ID,
-            "seedNodeIds": [node_id],
-        }
-    )
-    routed_neighborhood = retrieval.get_object_neighborhood(neighborhood_request)
-    frozen_neighborhood = retrieval.get_object_neighborhood(
-        neighborhood_request, root=frozen
+    assert routed_object.snapshot is not None
+    assert routed_object.snapshot.revision_id == (
+        hydrated["handle"].selected_revision_id
     )
     assert (
         routed_neighborhood.model_dump(mode="json")["nodes"]
@@ -731,7 +1214,8 @@ def test_retrieval_read_served_from_dungeonmind(hydrated):
 
 @pytest.mark.integration
 def test_legacy_a_reference_resolves_through_bridge(hydrated):
-    """§10: a real exact-A reference remains openable after the switch."""
+    """§10: a real exact-A reference remains openable after the switch, and its
+    public identity is the receipt-bound adoption revision D_A."""
     from apps.live_control_server.services.world_graph_projection import (
         project_world_graph,
     )
@@ -740,11 +1224,21 @@ def test_legacy_a_reference_resolves_through_bridge(hydrated):
         world_graph_authority as wga,
     )
 
+    binding = wga.bind_world_authority(
+        wga._open_repository_bundle(hydrated["dsn"]),
+        WORLD_ID,
+        frozen_root=hydrated["frozen_root"],
+    )
+
     # Service-level: a pinned exact-A projection resolves through the bridge.
     projected = project_world_graph(
         _projection_request(revision_pin=FROZEN_HEAD_REVISION)
     )
-    assert projected.snapshot.revision_id == hydrated["handle"].buddy_revision_id
+    assert projected.snapshot.revision_id == binding.dungeonmind_first_revision_id
+    assert projected.snapshot.head_revision_id == binding.dungeonmind_head_revision_id
+    assert projected.snapshot.is_head is (
+        binding.dungeonmind_first_revision_id == binding.dungeonmind_head_revision_id
+    )
 
     # An unbridged historical revision fails closed rather than reading files.
     with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
@@ -756,6 +1250,93 @@ def test_legacy_a_reference_resolves_through_bridge(hydrated):
             frozen_root=hydrated["frozen_root"],
         )
     assert excinfo.value.code == "revision_not_bridged"
+
+
+@pytest.mark.integration
+def test_mounted_caller_explicit_configured_root_routes_to_dungeonmind(hydrated):
+    """§3: a mounted caller passing the configured production root explicitly
+    is routed to DungeonMind exactly like a rootless call — the configured
+    root is not an authority override in ``dungeonmind`` mode."""
+    from apps.live_control_server.config import world_graph_root
+    from apps.live_control_server.services.world_graph_projection import (
+        project_world_graph,
+    )
+
+    assert world_graph_root() == hydrated["frozen_root"]
+    projected = project_world_graph(_projection_request(), root=world_graph_root())
+    assert projected.snapshot.revision_id == hydrated["handle"].selected_revision_id
+    assert projected.snapshot.revision_id != hydrated["handle"].buddy_revision_id
+
+
+@pytest.mark.integration
+def test_mounted_hermes_tool_and_threat_query_route_to_dungeonmind(hydrated):
+    """§7: the mounted Hermes tool seam (expansion executor → retrieval
+    service) and the Threat hydration query both receive the configured
+    production root explicitly from their callers. In ``dungeonmind`` mode
+    the shared router serves DungeonMind state with public DungeonMind
+    revision identity — the frozen store is never selected."""
+    from apps.live_control_server.config import world_graph_root
+    from apps.live_control_server.models.threat_query_hydration import (
+        ThreatQueryHydrationRequestV1,
+    )
+    from apps.live_control_server.services.threat_query_hydration import (
+        query_threats_with_hydration,
+    )
+    from graph_memory.interaction.expansion_executor import (
+        execute_expand_graph_retrieval,
+    )
+    from graph_memory.interaction.initial_resolve import (
+        create_session_from_preflight,
+    )
+
+    configured_root = world_graph_root()
+    assert configured_root == hydrated["frozen_root"]
+    d_a = hydrated["handle"].selected_revision_id
+
+    # Hermes tool seam: the host dispatches expand_graph_retrieval with the
+    # explicit configured root taken from the turn request.
+    session = create_session_from_preflight(
+        {
+            "world_id": WORLD_ID,
+            "campaign_id": CAMPAIGN_ID,
+            "revision_id": d_a,
+            "matched_node_ids": [],
+            "nodes": [],
+            "attributes": [],
+            "focus": {"kind": "none"},
+            "admissibility": "gm",
+        },
+        question="Tripod",
+    )
+    hermes_result = execute_expand_graph_retrieval(
+        {
+            "operation": "search",
+            "query_text": "Tripod",
+            "retrieval_session_id": session.id,
+        },
+        root=configured_root,
+    )
+    assert hermes_result.get("schema") != "dmb_world_graph_retrieval_error_v1", (
+        hermes_result
+    )
+    assert hermes_result["snapshot"]["revisionId"] == d_a
+    assert "threat:tripod-null-calf" in hermes_result["matchedNodeIds"]
+
+    # Threat path: the mounted route passes world_graph_root() explicitly.
+    threat_response = query_threats_with_hydration(
+        ThreatQueryHydrationRequestV1(
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ID,
+            revision_pin=d_a,
+            query_text="Tripod",
+            include_mechanics=False,
+        ),
+        root=configured_root,
+    )
+    assert threat_response.revision_id == d_a
+    assert any(
+        hit.threat.node_id == "threat:tripod-null-calf" for hit in threat_response.hits
+    )
 
 
 @pytest.mark.integration
@@ -775,9 +1356,8 @@ def test_restart_rereads_same_dungeonmind_revision(hydrated, monkeypatch):
         frozen_root=hydrated["frozen_root"],
     )
     assert handle.buddy_revision_id == hydrated["handle"].buddy_revision_id
-    assert handle.dungeonmind_head_revision_id == (
-        hydrated["handle"].dungeonmind_head_revision_id
-    )
+    assert handle.selected_revision_id == hydrated["handle"].selected_revision_id
+    assert handle.head_revision_id == hydrated["handle"].head_revision_id
 
 
 def _tree_digest(root: Path) -> str:
@@ -789,13 +1369,182 @@ def _tree_digest(root: Path) -> str:
     return digest.hexdigest()
 
 
-@pytest.mark.integration
-def test_governed_write_fails_closed_and_changes_nothing(
-    hydrated, tmp_path, monkeypatch
-):
-    """§10: the normal confirmed-publication path routes into DungeonMind and
-    fails closed at the characterized governed-write gap; neither the frozen
-    Buddy store nor the DungeonMind ledger is mutated."""
+def adopted_world_contributions(dsn: str) -> list[str]:
+    import psycopg
+
+    with psycopg.connect(dsn) as conn:
+        rows = conn.execute(
+            "SELECT contribution_id FROM dungeonmind.graph_contributions ORDER BY 1"
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
+def _graph_revision_ids(dsn: str) -> list[str]:
+    import psycopg
+
+    with psycopg.connect(dsn) as conn:
+        rows = conn.execute(
+            "SELECT revision_id FROM dungeonmind.graph_revisions ORDER BY 1"
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
+# ---------------------------------------------------------------------------
+# Integration layer: mutation proofs (function-scoped fresh adoption)
+#
+# These tests mutate the shared test database (publications advance the head;
+# the tamper test corrupts a row). Each uses its own fresh adoption fixture,
+# and all are defined after the read-only integration tests so the
+# module-scoped ``adopted_world`` state stays at D_A for them.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def write_world(tmp_path, monkeypatch):
+    """A fresh V3 adoption plus full ``dungeonmind`` authority env config."""
+    from datetime import UTC, datetime
+
+    from dungeonmind.application.existing_world_adoption import (
+        adopt_existing_world,
+        promote_existing_world_adoption_receipt_v3,
+    )
+    from dungeonmind.infrastructure.postgres import (
+        PostgresDatabase,
+        PostgresRepositoryBundle,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = _test_dsn()
+    _ensure_migrated(dsn)
+    database = PostgresDatabase(dsn)
+    with database.connect() as conn:
+        conn.execute(TRUNCATE_SQL)
+        conn.commit()
+    bundle = PostgresRepositoryBundle(database)
+    raw = BUNDLE_PATH.read_bytes()
+    receipt = adopt_existing_world(
+        raw,
+        adopted_at=datetime.now(UTC),
+        adoption_repository=bundle.existing_world_adoptions,
+        graph_reader=wga.build_authority_graph_reader(),
+    )
+    if receipt.schema_version != "dm_existing_world_adoption_receipt_v3":
+        receipt = promote_existing_world_adoption_receipt_v3(
+            raw,
+            world_id=WORLD_ID,
+            adoption_repository=bundle.existing_world_adoptions,
+        )
+    frozen_root = _frozen_root()
+    cache_root = tmp_path / "authority-cache"
+    monkeypatch.setenv(
+        storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
+    )
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", dsn)
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(frozen_root))
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT", str(cache_root))
+    # The product confirm service re-checks the sealed sourceUri against
+    # server-owned source roots; allow the test's tmp source directory.
+    monkeypatch.setenv("DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT", str(tmp_path))
+    return {
+        "dsn": dsn,
+        "bundle": bundle,
+        "receipt": receipt,
+        "frozen_root": frozen_root,
+        "cache_root": cache_root,
+        "tmp_path": tmp_path,
+    }
+
+
+def _preview_node(
+    artifact_id: str, *, node_id: str, label: str, node_type: str, span: str
+) -> dict:
+    return {
+        "node_id": node_id,
+        "label": label,
+        "node_type": node_type,
+        "description": f"{label}.",
+        "importance": "low",
+        "semantic_state": {
+            "canon_state": "played_canon",
+            "lifecycle_state": "candidate",
+            "evidence_role": "source_evidence",
+            "authority_state": "system_derived",
+            "visibility_state": "gm_private",
+        },
+        "evidence_refs": [
+            {
+                "source_ref_id": f"ref:{node_id}",
+                "source_artifact_id": artifact_id,
+                "source_anchor_id": f"anchor:{node_id}",
+                "label": "span",
+                "evidence_role": "source_evidence",
+                "can_open_source": True,
+                "can_highlight_span": True,
+                "source_span_ref_id": span,
+                "anchor_quotes": [label],
+            }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+    }
+
+
+def _preview_edge(
+    artifact_id: str,
+    *,
+    edge_id: str,
+    from_node_id: str,
+    to_node_id: str,
+    predicate: str,
+    span: str,
+) -> dict:
+    return {
+        "edge_id": edge_id,
+        "from_node_id": from_node_id,
+        "to_node_id": to_node_id,
+        "label": predicate,
+        "relationship_type": predicate,
+        "semantic_state": {
+            "canon_state": "played_canon",
+            "lifecycle_state": "candidate",
+            "evidence_role": "source_evidence",
+            "authority_state": "system_derived",
+            "visibility_state": "gm_private",
+        },
+        "evidence_refs": [
+            {
+                "source_ref_id": f"ref:{edge_id}",
+                "source_artifact_id": artifact_id,
+                "source_anchor_id": f"anchor:{edge_id}",
+                "label": "span",
+                "evidence_role": "source_evidence",
+                "can_open_source": True,
+                "can_highlight_span": True,
+                "source_span_ref_id": span,
+                "anchor_quotes": [predicate],
+            }
+        ],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+    }
+
+
+def _seal_tinker_package(
+    cache_world_root: Path,
+    tmp_path: Path,
+    *,
+    preview_slug: str,
+    node_id: str,
+    label: str,
+    extra_nodes: list[dict] | None = None,
+    edges: list[dict] | None = None,
+) -> dict:
+    """Build a real sealed Buddy review package against a hydrated cache."""
     from graph_memory.candidate_graph_preview import (
         CANDIDATE_GRAPH_PREVIEW_SCHEMA,
         CANDIDATE_GRAPH_PREVIEW_VERSION,
@@ -808,61 +1557,32 @@ def test_governed_write_fails_closed_and_changes_nothing(
         seal_multi_contribution_promote_proposal,
     )
 
-    from apps.live_control_server.integrations.dungeonmind_kernel import (
-        world_graph_authority as wga,
-    )
+    from graph_memory.world_supergraph.storage import open_world_graph_head
 
-    frozen_digest_before = _tree_digest(hydrated["frozen_root"])
-    contributions_before = adopted_world_contributions(hydrated["dsn"])
-
-    cache_root = hydrated["handle"].cache_world_root
-    parent = hydrated["handle"].buddy_revision_id
-
-    source = tmp_path / "session-26-recap.md"
-    source.write_text("A new traveling tinker arrives in Mireward.\n")
+    parent = open_world_graph_head(cache_world_root, WORLD_ID).head_revision_id
+    source = tmp_path / f"{preview_slug}-recap.md"
+    source.write_text(f"{label} arrives in Mireward.\n")
     source_revision = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
-    artifact_id = "artifact:recap:longmont-c2:session-26-cutover-test"
+    artifact_id = f"artifact:recap:longmont-c2:{preview_slug}"
     graph = {
         "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
         "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
-        "preview_id": "preview:cutover-write-test",
+        "preview_id": f"preview:{preview_slug}",
         "session_id": "session-26",
         "campaign_id": CAMPAIGN_ID,
         "source_artifact_ids": [artifact_id],
         "status": "preview",
         "nodes": [
-            {
-                "node_id": "node:cutover-tinker",
-                "label": "Cutover Tinker",
-                "node_type": "npc",
-                "description": "A traveling tinker.",
-                "importance": "low",
-                "semantic_state": {
-                    "canon_state": "played_canon",
-                    "lifecycle_state": "candidate",
-                    "evidence_role": "source_evidence",
-                    "authority_state": "system_derived",
-                    "visibility_state": "gm_private",
-                },
-                "evidence_refs": [
-                    {
-                        "source_ref_id": "ref:tinker",
-                        "source_artifact_id": artifact_id,
-                        "source_anchor_id": "anchor:tinker",
-                        "label": "span",
-                        "evidence_role": "source_evidence",
-                        "can_open_source": True,
-                        "can_highlight_span": True,
-                        "source_span_ref_id": "session-26:recap:paragraph:001",
-                        "anchor_quotes": ["traveling tinker"],
-                    }
-                ],
-                "proposed_action": "create",
-                "confidence": "medium",
-                "warnings": [],
-            }
+            _preview_node(
+                artifact_id,
+                node_id=node_id,
+                label=label,
+                node_type="npc",
+                span="session-26:recap:paragraph:001",
+            ),
+            *list(extra_nodes or []),
         ],
-        "edges": [],
+        "edges": list(edges or []),
         "beats": [],
         "proposed_writes": [],
         "ignored_items": [],
@@ -885,7 +1605,7 @@ def test_governed_write_fails_closed_and_changes_nothing(
     }
     gate = gate_candidate_graph_against_head(
         candidate_graph_preview_from_dict(graph),
-        root=cache_root,
+        root=cache_world_root,
         world_id=WORLD_ID,
         source_artifact_id=artifact_id,
         source_revision_id=source_revision,
@@ -915,8 +1635,876 @@ def test_governed_write_fails_closed_and_changes_nothing(
         contribution_slices=[slice_body],
         prepared_by="gm@prepare",
         diagnostics=["cutover_write_test"],
-        world_root=str(cache_root),
+        world_root=str(cache_world_root),
     )
+    return package, [a.assertion_id for a in gate.accepted_proposals]
+
+
+@pytest.mark.integration
+def test_governed_write_publishes_d_a_to_d_b_through_real_confirm_path(
+    write_world,
+):
+    """§3: a real Buddy confirmation routes through DungeonMind's v2 finalize +
+    v6 materialization + head CAS publication; the head advances D_A → D_B;
+    an exact retry returns the same durable publication; the frozen Buddy
+    store never mutates."""
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+    revisions_before = _graph_revision_ids(dsn)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+    )
+    assert handle.selected_revision_id == d_a
+    package, _accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug="session-26-cutover-write",
+        node_id="node:cutover-tinker",
+        label="Cutover Tinker",
+    )
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    payload = wga.confirm_via_dungeonmind(
+        _Request(),
+        world_root=frozen_root,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=write_world["tmp_path"],
+    )
+    assert payload["outcome"] == "published"
+    assert payload["parent_revision_id"] == d_a
+    d_b = payload["committed_revision_id"]
+    assert d_b != d_a
+
+    head = bundle.world_graph.get_head(WORLD_ID)
+    assert head is not None and head.head_revision_id == d_b
+    stored = bundle.world_graph.get_revision(WORLD_ID, d_b)
+    assert stored is not None
+    assert stored.revision.parent_revision_id == d_a
+    assert any(
+        obj.get("object_id") == "node:cutover-tinker"
+        for obj in stored.graph_payload.get("objects") or []
+    )
+
+    # Exact retry: same package + same selection + same parent ⇒ the durable
+    # publication is returned; no second child revision is created.
+    retry = wga.confirm_via_dungeonmind(
+        _Request(),
+        world_root=frozen_root,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=write_world["tmp_path"],
+    )
+    assert retry["outcome"] == "already_applied"
+    assert retry["committed_revision_id"] == d_b
+    assert bundle.world_graph.get_head(WORLD_ID).head_revision_id == d_b  # type: ignore[union-attr]
+    assert set(_graph_revision_ids(dsn)) == set(revisions_before) | {d_b}
+
+    # The hydrated read model for D_B contains the confirmed node.
+    storage.clear_world_graph_cache_roots()
+    handle_b = wga.ensure_hydrated_authority(
+        WORLD_ID,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+    )
+    assert handle_b.selected_revision_id == d_b
+    from graph_memory.world_supergraph.storage import load_world_graph_revision
+
+    store_b = load_world_graph_revision(
+        handle_b.cache_world_root, WORLD_ID, handle_b.buddy_revision_id
+    )
+    assert "node:cutover-tinker" in store_b.nodes
+
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_through_service_confirm_path(write_world):
+    """§3: the actual product confirm service publishes through DungeonMind
+    and returns the existing Buddy receipt shape with DungeonMind identity."""
+    from apps.live_control_server.models.extract_promote import (
+        ExtractPromoteConfirmRequest,
+    )
+    from apps.live_control_server.services.extract_promote import (
+        confirm as confirm_extract_promote,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+    )
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug="session-26-cutover-service",
+        node_id="node:cutover-service-tinker",
+        label="Service Tinker",
+    )
+    receipt = confirm_extract_promote(
+        ExtractPromoteConfirmRequest(
+            review_package=package,
+            assertion_ids=accepted_ids,
+        )
+    )
+    assert receipt.outcome == "committed"
+    assert receipt.parent_revision_id == d_a
+    assert receipt.applied_assertion_count == len(accepted_ids)
+    assert receipt.affected_object_ids == ["node:cutover-service-tinker"]
+    committed = receipt.committed_revision_id
+    assert committed != d_a
+    bundle = write_world["bundle"]
+    head = bundle.world_graph.get_head(WORLD_ID)
+    assert head is not None and head.head_revision_id == committed
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+def _finalize_minimal_v2_review(
+    bundle,
+    *,
+    parent_stored,
+    operation_id: str,
+    object_id: str,
+    label: str,
+):
+    """Finalize a minimal one-node v2 review directly through DungeonMind's
+    public API (the CAS-loser setup: two durable finalized reviews, one
+    parent, only one can publish)."""
+    from dungeonmind.application.contribution_review_v2 import (
+        finalize_contribution_review_v2,
+    )
+    from dungeonmind.contracts.contribution import (
+        AcceptanceState,
+        ContributionSourceKind,
+        GraphContributionAssertionV2,
+        GraphContributionV2,
+    )
+    from dungeonmind.contracts.contribution_review import (
+        ContributionAssertionVerdict,
+        ContributionIdentityProposal,
+        ContributionIdentityVerdict,
+        ContributionIdentityVerdictKind,
+        ContributionPlanRef,
+        derive_confirmation_id,
+    )
+    from dungeonmind.contracts.contribution_review_v2 import (
+        FINALIZE_REVIEW_V2_TOOL,
+        CommitConfirmationReceiptV2,
+        ContributionReviewIntentV2,
+        ContributionReviewSubmissionV2,
+        contribution_v2_payload_sha256,
+        derive_review_intent_sha256_v2,
+    )
+    from dungeonmind.contracts.evidence import (
+        EvidenceRef,
+        EvidenceRole,
+        SourceDomain,
+    )
+    from dungeonmind.contracts.identity import IdentityOutcome
+    from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+    from graph_memory.kernel.contributions import compute_assertion_id
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    parent_envelope = parent_stored.revision
+    reviewed_at = parent_envelope.created_at
+    # Anchor the synthetic review to a session_recap adopted artifact so the
+    # embedded Buddy evidence domain ("recap") matches the hydrated artifact.
+    recap_artifact_ids = {
+        a.source_artifact_id
+        for a in bundle.sources.list_artifacts_for_world(WORLD_ID)
+        if a.source_domain == SourceDomain.SESSION_RECAP
+    }
+    adopted = next(
+        c
+        for c in bundle.contributions.list_for_world(WORLD_ID)
+        if c.source_artifact_id in recap_artifact_ids
+    )
+    # The assertion id must be a real Buddy content address: hydration's
+    # inverse translation recomputes it from the (dm_kind-stripped) value.
+    # The value carries the Buddy-shaped embedded evidence list because the
+    # Buddy replay registers evidence records from it.
+    session_id = adopted.source_artifact_id.rsplit(":", 1)[-1]
+    buddy_value = {
+        "kind": "npc",
+        "aliases": [label],
+        "evidence": [
+            {
+                "evidence_ref_id": f"evidence:{object_id}",
+                "source_artifact_id": adopted.source_artifact_id,
+                "source_domain": "recap",
+                "locator": "paragraph:001",
+                "session_id": session_id,
+                "source_span_ref_id": f"{session_id}:recap:paragraph:001",
+            }
+        ],
+    }
+    assertion_id = compute_assertion_id(
+        assertion_kind="node",
+        subject_node_id=object_id,
+        target_node_id=None,
+        predicate=None,
+        label=label,
+        value=buddy_value,
+        campaign_scope=CAMPAIGN_ID,
+        temporal_scope=None,
+        epistemic_kind="asserted",
+        visibility=None,
+    )
+    candidate = GraphContributionV2(
+        contribution_id=f"contrib:{operation_id.removeprefix('reviewop:')}",
+        world_id=WORLD_ID,
+        source_kind=ContributionSourceKind.GRAPH_REVIEW,
+        produced_at=reviewed_at,
+        authored_by="buddy:cutover-cas-test",
+        campaign_scope=CAMPAIGN_ID,
+        source_artifact_id=adopted.source_artifact_id,
+        source_revision_id=adopted.source_revision_id,
+        assertions=[
+            GraphContributionAssertionV2(
+                assertion_id=assertion_id,
+                assertion_kind="node",
+                subject_object_id=object_id,
+                label=label,
+                value=json.dumps({"dm_kind": "dnd5e:npc", **buddy_value}),
+                evidence_refs=[
+                    EvidenceRef(
+                        evidence_ref_id=f"evidence:{object_id}",
+                        source_artifact_id=adopted.source_artifact_id,
+                        source_revision_id=adopted.source_revision_id,
+                        source_domain=SourceDomain.SESSION_RECAP,
+                        evidence_role=EvidenceRole.SUPPORT,
+                        can_open_source=True,
+                        can_highlight_span=False,
+                        locator="paragraph:001",
+                    )
+                ],
+                epistemic_kind="asserted",
+                campaign_scope=CAMPAIGN_ID,
+            )
+        ],
+    )
+    plan_ref = ContributionPlanRef(
+        source_plan_schema="dmb_promote_extract_review_package_v1",
+        source_plan_id=f"plan:{operation_id}",
+        source_plan_sha256="1" * 64,
+        source_input_sha256="2" * 64,
+        preview_content_sha256="3" * 64,
+        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        expected_parent_revision_id=parent_envelope.revision_id,
+        base_graph_schema=parent_envelope.graph_schema,
+        base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
+        semantic_profile=SemanticProfileRef.model_validate(
+            parent_stored.graph_payload["semantic_profile"]
+        ),
+    )
+    proposals = [
+        ContributionIdentityProposal(
+            candidate_id=f"identity:{object_id}",
+            candidate_kind="object",
+            planned_outcome=IdentityOutcome.PROVISIONAL_NEW,
+            target_object_id=object_id,
+        )
+    ]
+    verdicts = [
+        ContributionIdentityVerdict(
+            candidate_id=f"identity:{object_id}",
+            verdict=ContributionIdentityVerdictKind.CREATE_NEW,
+            target_object_id=object_id,
+        )
+    ]
+    assertion_verdicts = [
+        ContributionAssertionVerdict(
+            assertion_id=assertion.assertion_id,
+            acceptance_state=AcceptanceState.ACCEPTED,
+        )
+        for assertion in candidate.assertions
+    ]
+    intent_sha256 = derive_review_intent_sha256_v2(
+        operation_id=operation_id,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        plan_ref=plan_ref,
+        candidate_contribution=candidate,
+        identity_proposals=proposals,
+        identity_verdicts=verdicts,
+        assertion_verdicts=assertion_verdicts,
+        reviewer_id="gm:cas-test",
+        reviewed_at=reviewed_at,
+    )
+    intent = ContributionReviewIntentV2(
+        operation_id=operation_id,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        plan_ref=plan_ref,
+        candidate_contribution=candidate,
+        identity_proposals=proposals,
+        identity_verdicts=verdicts,
+        assertion_verdicts=assertion_verdicts,
+        reviewer_id="gm:cas-test",
+        reviewed_at=reviewed_at,
+        review_intent_sha256=intent_sha256,
+    )
+    submission = ContributionReviewSubmissionV2(
+        intent=intent,
+        confirmation=CommitConfirmationReceiptV2(
+            confirmation_id=derive_confirmation_id(
+                operation_id=operation_id,
+                review_intent_sha256=intent_sha256,
+                actor="gm:cas-test",
+                confirmed_at=reviewed_at,
+            ),
+            operation_id=operation_id,
+            review_intent_sha256=intent_sha256,
+            actor="gm:cas-test",
+            tool_name=FINALIZE_REVIEW_V2_TOOL,
+            effect="commit",
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ID,
+            expected_parent_revision_id=parent_envelope.revision_id,
+            confirmed_at=reviewed_at,
+        ),
+    )
+    return finalize_contribution_review_v2(
+        submission,
+        capability_policy=wga._confirm_capability_policy(
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ID,
+            parent_revision_id=parent_envelope.revision_id,
+        ),
+        world_graph_repository=bundle.world_graph,
+        review_repository=bundle.contribution_reviews,
+    )
+
+
+@pytest.mark.integration
+def test_hydration_replays_only_published_ancestry(write_world):
+    """§3: two finalized reviews race; one wins the head CAS. Hydration of the
+    winning head replays the winner and never the durable-but-unpublished
+    loser; D_B re-pins by its own id; a cold legacy-A reference still serves
+    D_A; the derivative cache can be deleted and rebuilt from durable state."""
+    import shutil
+
+    from dungeonmind.application.review_publication import publish_finalized_review
+    from dungeonmind.domain.errors import StaleParentRevisionError
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+    from apps.live_control_server.services.world_graph_projection import (
+        project_world_graph,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+
+    parent = bundle.world_graph.get_revision(WORLD_ID, d_a)
+    assert parent is not None
+    winner_state = _finalize_minimal_v2_review(
+        bundle,
+        parent_stored=parent,
+        operation_id="reviewop:" + "a" * 32,
+        object_id="node:cas-winner",
+        label="CAS Winner",
+    )
+    loser_state = _finalize_minimal_v2_review(
+        bundle,
+        parent_stored=parent,
+        operation_id="reviewop:" + "b" * 32,
+        object_id="node:cas-loser",
+        label="CAS Loser",
+    )
+
+    publication = publish_finalized_review(
+        WORLD_ID,
+        winner_state.record.review_id,
+        published_at=parent.revision.created_at,
+        review_repository=bundle.contribution_reviews,
+        world_graph_repository=bundle.world_graph,
+        publication_repository=bundle.finalized_review_publications,
+        graph_reader=wga.build_authority_graph_reader(),
+    )
+    d_b = publication.published_revision_id
+    with pytest.raises(StaleParentRevisionError):
+        publish_finalized_review(
+            WORLD_ID,
+            loser_state.record.review_id,
+            published_at=parent.revision.created_at,
+            review_repository=bundle.contribution_reviews,
+            world_graph_repository=bundle.world_graph,
+            publication_repository=bundle.finalized_review_publications,
+            graph_reader=wga.build_authority_graph_reader(),
+        )
+    # The loser stays durable but unpublished.
+    assert bundle.contribution_reviews.get(WORLD_ID, loser_state.record.review_id)
+    assert (
+        bundle.finalized_review_publications.get_for_review(
+            WORLD_ID, loser_state.record.review_id
+        )
+        is None
+    )
+
+    # Hydrate the winning head: winner present, loser absent.
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    assert handle.selected_revision_id == d_b
+    from graph_memory.world_supergraph.storage import load_world_graph_revision
+
+    store = load_world_graph_revision(
+        handle.cache_world_root, WORLD_ID, handle.buddy_revision_id
+    )
+    assert "node:cas-winner" in store.nodes
+    assert "node:cas-loser" not in store.nodes
+
+    # Derivative-cache deletion: rebuild from DungeonMind durable state alone.
+    shutil.rmtree(cache_root)
+    storage.clear_world_graph_cache_roots()
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    assert handle.selected_revision_id == d_b
+    store = load_world_graph_revision(
+        handle.cache_world_root, WORLD_ID, handle.buddy_revision_id
+    )
+    assert "node:cas-winner" in store.nodes
+    assert "node:cas-loser" not in store.nodes
+
+    # D_B self-repin: a returned DungeonMind revision id is exactly re-pinnable.
+    projected = project_world_graph(_projection_request(revision_pin=d_b))
+    assert projected.snapshot.revision_id == d_b
+    assert projected.snapshot.head_revision_id == d_b
+    assert projected.snapshot.is_head is True
+    assert any(n.node_id == "node:cas-winner" for n in projected.nodes)
+    assert not any(n.node_id == "node:cas-loser" for n in projected.nodes)
+
+    # Cold legacy-A access after D_B: all caches deleted, the A pin still
+    # serves the exact adoption revision D_A (winner absent).
+    shutil.rmtree(cache_root)
+    storage.clear_world_graph_cache_roots()
+    projected_a = project_world_graph(
+        _projection_request(revision_pin=FROZEN_HEAD_REVISION)
+    )
+    assert projected_a.snapshot.revision_id == d_a
+    assert projected_a.snapshot.head_revision_id == d_b
+    assert projected_a.snapshot.is_head is False
+    assert not any(n.node_id == "node:cas-winner" for n in projected_a.nodes)
+
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_adopted_membership_tamper_fails_closed(write_world):
+    """§3: mutating any adopted DungeonMind row (payload + fingerprint, so the
+    row still reads) changes the recomputed V3 membership digest and refuses
+    service."""
+    import psycopg
+    from dungeonmind.infrastructure.postgres.serialization import (
+        dump_payload,
+        model_fingerprint,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    victim = bundle.contributions.list_for_world(WORLD_ID)[0]
+    tampered = victim.model_copy(update={"authored_by": "tampered:intruder"})
+    with psycopg.connect(dsn) as conn:
+        conn.execute(
+            "UPDATE dungeonmind.graph_contributions "
+            "SET payload = %s, record_fingerprint = %s "
+            "WHERE contribution_id = %s",
+            (
+                json.dumps(dump_payload(tampered)),
+                model_fingerprint(tampered),
+                victim.contribution_id,
+            ),
+        )
+        conn.commit()
+
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.ensure_hydrated_authority(
+            WORLD_ID,
+            database_url=dsn,
+            cache_root=write_world["cache_root"],
+            frozen_root=write_world["frozen_root"],
+        )
+    assert excinfo.value.code == "adopted_membership_mismatch"
+    assert wga.authority_error_status_code(excinfo.value) == 409
+
+
+@pytest.mark.integration
+def test_warm_cache_reverifies_adopted_membership(write_world, monkeypatch):
+    """§3 repair: a valid existing hydration cache is never trusted on its
+    own — the exact V3 adopted-membership verification reruns on every cache
+    hit, so tampering with durable adopted rows after hydration fails closed
+    instead of remaining invisible behind the warm cache."""
+    import psycopg
+    from dungeonmind.infrastructure.postgres.serialization import (
+        dump_payload,
+        model_fingerprint,
+    )
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    cache_root = write_world["cache_root"]
+    frozen_root = write_world["frozen_root"]
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    # Sanity: the second call is a warm cache hit serving the same revision.
+    again = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    assert again.buddy_revision_id == handle.buddy_revision_id
+    assert again.selected_revision_id == handle.selected_revision_id
+
+    # Tamper with an adopted row (payload + fingerprint, so the row still reads).
+    victim = bundle.contributions.list_for_world(WORLD_ID)[0]
+    tampered = victim.model_copy(update={"authored_by": "tampered:intruder"})
+    with psycopg.connect(dsn) as conn:
+        conn.execute(
+            "UPDATE dungeonmind.graph_contributions "
+            "SET payload = %s, record_fingerprint = %s "
+            "WHERE contribution_id = %s",
+            (
+                json.dumps(dump_payload(tampered)),
+                model_fingerprint(tampered),
+                victim.contribution_id,
+            ),
+        )
+        conn.commit()
+
+    # The warm-cache path must fail closed BEFORE any rebuild: the cached
+    # directory still matches the revision, so only the re-verification can
+    # see the tampering.
+    def _no_rebuild(*args, **kwargs):
+        raise AssertionError("warm cache hit must not rebuild from durable state")
+
+    monkeypatch.setattr(wga, "hydrate_world_graph", _no_rebuild)
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.ensure_hydrated_authority(
+            WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+        )
+    assert excinfo.value.code == "adopted_membership_mismatch"
+
+
+@pytest.mark.integration
+def test_governed_write_preserves_gm_partition_and_publishes_edges(write_world):
+    """§3 repair: the DungeonMind writer preserves the GM's adjudication
+    partition — a gate-rejected assertion receives a REJECTED verdict, is
+    covered by no identity proposal, and never materializes — and ordinary
+    Buddy edges publish through the explicit predicate mapping, both
+    direct-mapped (``located_in`` → ``dnd5e:located_in``) and reverse-mapped
+    (``belongs_to`` → ``dnd5e:owns`` with swapped endpoints). The hydrated
+    Buddy read model recovers the original edge orientation and predicate."""
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-partition"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-edge-a",
+        label="Edge Anchor",
+        extra_nodes=[
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-edge-b",
+                label="Edge Target",
+                node_type="location",
+                span="session-26:recap:paragraph:002",
+            ),
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-edge-c",
+                label="Edge Owner",
+                node_type="faction",
+                span="session-26:recap:paragraph:003",
+            ),
+            # Cross-kind label collision with the existing location:mireward:
+            # the identity gate rejects this node (blocked_collision).
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-mireward-clash",
+                label="Mireward",
+                node_type="npc",
+                span="session-26:recap:paragraph:004",
+            ),
+        ],
+        edges=[
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:cutover-a-located-in-b",
+                from_node_id="node:cutover-edge-a",
+                to_node_id="node:cutover-edge-b",
+                predicate="located_in",
+                span="session-26:recap:paragraph:005",
+            ),
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:cutover-b-belongs-to-c",
+                from_node_id="node:cutover-edge-b",
+                to_node_id="node:cutover-edge-c",
+                predicate="belongs_to",
+                span="session-26:recap:paragraph:006",
+            ),
+        ],
+    )
+    # The gate produced both partitions: 5 accepted (3 nodes + 2 edges) and
+    # exactly 1 rejected (the colliding node).
+    assert len(accepted_ids) == 5
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    payload = wga.confirm_via_dungeonmind(
+        _Request(),
+        world_root=frozen_root,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=write_world["tmp_path"],
+    )
+    assert payload["outcome"] == "published"
+    assert payload["parent_revision_id"] == d_a
+    d_b = payload["committed_revision_id"]
+
+    # The durable review record preserves the GM's partition exactly.
+    operation_id = wga._derive_confirm_operation_id(
+        world_id=WORLD_ID, package=package, assertion_ids=None
+    )
+    publication = bundle.finalized_review_publications.get(WORLD_ID, operation_id)
+    assert publication is not None
+    review_state = bundle.contribution_reviews.get(WORLD_ID, publication.review_id)
+    assert review_state is not None
+    verdict_by_id = {
+        verdict.assertion_id: str(verdict.acceptance_state)
+        for verdict in review_state.record.assertion_verdicts
+    }
+    reviewed_by_id = {
+        assertion.assertion_id: assertion
+        for assertion in review_state.reviewed_contribution.assertions
+    }
+    assert set(verdict_by_id) == set(reviewed_by_id)
+    rejected_ids = {
+        assertion_id
+        for assertion_id, assertion in reviewed_by_id.items()
+        if assertion.subject_object_id == "node:cutover-mireward-clash"
+    }
+    assert len(rejected_ids) == 1
+    for assertion_id in accepted_ids:
+        assert verdict_by_id[assertion_id] == "accepted"
+        assert str(reviewed_by_id[assertion_id].acceptance_state) == "accepted"
+    for assertion_id in rejected_ids:
+        assert verdict_by_id[assertion_id] == "rejected"
+        assert str(reviewed_by_id[assertion_id].acceptance_state) == "rejected"
+
+    # Accepted edges: the Buddy session hint is normalized away in the
+    # durable review record (DungeonMind expresses real-world session
+    # provenance as session refs); the value's session_ids carry that
+    # provenance into materialization. Rejected assertions are preserved
+    # exactly as the sealed package adjudicated them.
+    import json as _json
+
+    package_temporal_by_id = {
+        str(item["assertion_id"]): item.get("temporal_scope") or None
+        for item in package["effect"]["rejected_assertions"]
+    }
+    for assertion_id in accepted_ids:
+        reviewed = reviewed_by_id[assertion_id]
+        assert reviewed.temporal_scope is None
+        if reviewed.assertion_kind == "edge":
+            assert _json.loads(reviewed.value)["session_ids"] == ["session-26"]
+    for assertion_id in rejected_ids:
+        assert (
+            reviewed_by_id[assertion_id].temporal_scope
+            == package_temporal_by_id[assertion_id]
+        )
+
+    # Identity proposals cover exactly the accepted node/alias targets — the
+    # rejected node's target demands no adjudication.
+    proposal_targets = {
+        proposal.target_object_id for proposal in review_state.record.identity_proposals
+    }
+    assert proposal_targets == {
+        "node:cutover-edge-a",
+        "node:cutover-edge-b",
+        "node:cutover-edge-c",
+    }
+
+    # The published DungeonMind graph: accepted nodes and both edges
+    # materialized with qualified predicates; the rejected node is absent.
+    stored = bundle.world_graph.get_revision(WORLD_ID, d_b)
+    assert stored is not None
+    object_ids = {
+        obj.get("object_id") for obj in stored.graph_payload.get("objects") or []
+    }
+    assert {
+        "node:cutover-edge-a",
+        "node:cutover-edge-b",
+        "node:cutover-edge-c",
+    } <= object_ids
+    assert "node:cutover-mireward-clash" not in object_ids
+    relationships = {
+        rel.get("relationship_id"): rel
+        for rel in stored.graph_payload.get("relationships") or []
+    }
+    direct = relationships["edge:node:cutover-edge-a:located_in:node:cutover-edge-b"]
+    assert direct["predicate"] == "dnd5e:located_in"
+    assert direct["source_object_id"] == "node:cutover-edge-a"
+    assert direct["target_object_id"] == "node:cutover-edge-b"
+    reverse = relationships["edge:node:cutover-edge-b:belongs_to:node:cutover-edge-c"]
+    assert reverse["predicate"] == "dnd5e:owns"
+    # Reverse-mapped: the materialized direction follows dnd5e:owns semantics
+    # (the faction owns the location — an admitted owns endpoint pair).
+    assert reverse["source_object_id"] == "node:cutover-edge-c"
+    assert reverse["target_object_id"] == "node:cutover-edge-b"
+
+    # The hydrated Buddy read model recovers the original Buddy edge
+    # orientation and predicate (the inverse translation un-swaps and strips
+    # the derived dm_predicate), and the rejected node stays absent.
+    storage.clear_world_graph_cache_roots()
+    handle_b = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    assert handle_b.selected_revision_id == d_b
+    from graph_memory.world_supergraph.storage import load_world_graph_revision
+
+    store_b = load_world_graph_revision(
+        handle_b.cache_world_root, WORLD_ID, handle_b.buddy_revision_id
+    )
+    assert "node:cutover-mireward-clash" not in store_b.nodes
+    buddy_direct = store_b.edges[
+        "edge:node:cutover-edge-a:located_in:node:cutover-edge-b"
+    ]
+    assert buddy_direct.predicate == "located_in"
+    assert buddy_direct.source_node_id == "node:cutover-edge-a"
+    assert buddy_direct.target_node_id == "node:cutover-edge-b"
+    buddy_reverse = store_b.edges[
+        "edge:node:cutover-edge-b:belongs_to:node:cutover-edge-c"
+    ]
+    assert buddy_reverse.predicate == "belongs_to"
+    assert buddy_reverse.source_node_id == "node:cutover-edge-b"
+    assert buddy_reverse.target_node_id == "node:cutover-edge-c"
+
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_unmapped_edge_predicate_fails_closed(write_world):
+    """§3 repair: an accepted edge whose Buddy predicate has no explicit
+    DungeonMind mapping fails closed (``governed_write_inexpressible``) with
+    zero mutation — no head advance, no new revision, no review rows, and the
+    frozen Buddy store untouched. No predicate mapping is ever invented."""
+    import psycopg
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+    revisions_before = _graph_revision_ids(dsn)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-unmapped"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-unmapped-a",
+        label="Unmapped Anchor",
+        extra_nodes=[
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-unmapped-b",
+                label="Unmapped Target",
+                node_type="location",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+        edges=[
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:cutover-unmapped-same-as",
+                from_node_id="node:cutover-unmapped-a",
+                to_node_id="node:cutover-unmapped-b",
+                predicate="same_as",  # intentionally unresolved predicate
+                span="session-26:recap:paragraph:003",
+            ),
+        ],
+    )
+    assert len(accepted_ids) == 3
 
     class _Request:
         review_package = package
@@ -925,27 +2513,504 @@ def test_governed_write_fails_closed_and_changes_nothing(
     with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
         wga.confirm_via_dungeonmind(
             _Request(),
-            world_root=hydrated["frozen_root"],
-            database_url=hydrated["dsn"],
-            cache_root=hydrated["cache_root"],
-            frozen_root=hydrated["frozen_root"],
+            world_root=frozen_root,
+            database_url=dsn,
+            cache_root=cache_root,
+            frozen_root=frozen_root,
             confirming_principal="gm@confirm",
             assertion_ids=None,
-            repo_root=tmp_path,
+            repo_root=write_world["tmp_path"],
         )
-    # The Buddy node assertion cannot be expressed in DungeonMind's v1 review
-    # contract; the write fails closed before any mutation on either side.
     assert excinfo.value.code == "governed_write_inexpressible"
 
-    assert _tree_digest(hydrated["frozen_root"]) == frozen_digest_before
-    assert adopted_world_contributions(hydrated["dsn"]) == contributions_before
+    # Zero mutation: head, revisions, reviews, and the frozen store unchanged.
+    head = write_world["bundle"].world_graph.get_head(WORLD_ID)
+    assert head is not None and head.head_revision_id == d_a
+    assert _graph_revision_ids(dsn) == revisions_before
+    with psycopg.connect(dsn) as conn:
+        review_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.contribution_reviews"
+        ).fetchone()[0]
+        publication_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.finalized_review_publications"
+        ).fetchone()[0]
+    assert review_rows == 0
+    assert publication_rows == 0
+    assert _tree_digest(frozen_root) == frozen_digest_before
 
 
-def adopted_world_contributions(dsn: str) -> list[str]:
+@pytest.mark.integration
+def test_governed_write_endpoint_admission_fails_closed(write_world):
+    """§3 repair: an accepted edge whose Buddy predicate has an explicit
+    DungeonMind mapping but whose concrete endpoint kinds are not admitted for
+    the qualified predicate fails closed (``governed_write_inexpressible``)
+    with zero mutation. world-object-v5 defines ``dnd5e:leads_to`` as
+    Location→Location; an NPC→Location ``leads_to`` edge must never become
+    authoritative. The name mapping alone is not admission."""
     import psycopg
 
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+    revisions_before = _graph_revision_ids(dsn)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-admission"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-admit-a",
+        label="Admission Anchor",
+        extra_nodes=[
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-admit-b",
+                label="Admission Target",
+                node_type="location",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+        edges=[
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:cutover-admit-leads-to",
+                from_node_id="node:cutover-admit-a",  # npc — not a Location
+                to_node_id="node:cutover-admit-b",
+                predicate="leads_to",
+                span="session-26:recap:paragraph:003",
+            ),
+        ],
+    )
+    # Buddy's identity gate admits the edge; DungeonMind endpoint admission is
+    # the writer's governed responsibility.
+    assert len(accepted_ids) == 3
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.confirm_via_dungeonmind(
+            _Request(),
+            world_root=frozen_root,
+            database_url=dsn,
+            cache_root=cache_root,
+            frozen_root=frozen_root,
+            confirming_principal="gm@confirm",
+            assertion_ids=None,
+            repo_root=write_world["tmp_path"],
+        )
+    assert excinfo.value.code == "governed_write_inexpressible"
+    assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
+
+    # Zero mutation: head, revisions, reviews, and the frozen store unchanged.
+    head = write_world["bundle"].world_graph.get_head(WORLD_ID)
+    assert head is not None and head.head_revision_id == d_a
+    assert _graph_revision_ids(dsn) == revisions_before
     with psycopg.connect(dsn) as conn:
-        rows = conn.execute(
-            "SELECT contribution_id FROM dungeonmind.graph_contributions ORDER BY 1"
-        ).fetchall()
-    return [row[0] for row in rows]
+        review_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.contribution_reviews"
+        ).fetchone()[0]
+        publication_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.finalized_review_publications"
+        ).fetchone()[0]
+    assert review_rows == 0
+    assert publication_rows == 0
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_reverse_direction_fails_closed(write_world):
+    """§3 repair: an accepted edge whose concrete endpoint kinds ARE admitted
+    for the qualified predicate but whose edge id carries a reverse-direction
+    qualifier (``is-threatened-by``) fails closed with zero mutation. The
+    conformance contract rejects reverse-looking edge ids before automatic
+    translation because a valid endpoint pair can otherwise be published with
+    inverted semantics; the writer applies the same audit to accepted writes.
+    ``dnd5e:threatens`` admits NPC→Location, so endpoint admission alone
+    would let this through."""
+    import psycopg
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+    revisions_before = _graph_revision_ids(dsn)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-direction"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-direction-a",
+        label="Direction Anchor",
+        extra_nodes=[
+            _preview_node(
+                artifact_id,
+                # The canonicalized value edge id inherits this target id, so
+                # the stored edge id reads …threatens…is-threatened-by… — a
+                # reverse-looking id for the threatens predicate.
+                node_id="node:is-threatened-by-mireward",
+                label="Direction Target",
+                node_type="location",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+        edges=[
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:cutover-direction-threatens",
+                from_node_id="node:cutover-direction-a",  # npc
+                to_node_id="node:is-threatened-by-mireward",  # location
+                predicate="threatens",
+                span="session-26:recap:paragraph:003",
+            ),
+        ],
+    )
+    # Buddy's identity gate admits the edge (2 nodes + 1 edge); the direction
+    # audit is the writer's governed responsibility.
+    assert len(accepted_ids) == 3
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.confirm_via_dungeonmind(
+            _Request(),
+            world_root=frozen_root,
+            database_url=dsn,
+            cache_root=cache_root,
+            frozen_root=frozen_root,
+            confirming_principal="gm@confirm",
+            assertion_ids=None,
+            repo_root=write_world["tmp_path"],
+        )
+    assert excinfo.value.code == "governed_write_inexpressible"
+    assert excinfo.value.details.get("reason") == "reverse_direction_qualifier"
+
+    # Zero mutation: head, revisions, reviews, and the frozen store unchanged.
+    head = write_world["bundle"].world_graph.get_head(WORLD_ID)
+    assert head is not None and head.head_revision_id == d_a
+    assert _graph_revision_ids(dsn) == revisions_before
+    with psycopg.connect(dsn) as conn:
+        review_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.contribution_reviews"
+        ).fetchone()[0]
+        publication_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.finalized_review_publications"
+        ).fetchone()[0]
+    assert review_rows == 0
+    assert publication_rows == 0
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_rejected_unmapped_kind_does_not_veto(write_world):
+    """§3 repair: a rejected assertion is preserved in the durable review
+    record without DungeonMind qualification, so a rejected node whose Buddy
+    kind has no DungeonMind mapping (``job``) cannot veto the publication of
+    the accepted assertions alongside it. The v6 materializer skips rejected
+    assertions; the writer must not demand their materializability."""
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    bundle = write_world["bundle"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-rejected-veto"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-veto-a",
+        label="Veto Anchor",
+        extra_nodes=[
+            # Cross-kind label collision with the existing location:mireward:
+            # the identity gate rejects this node (blocked_collision). Its
+            # Buddy kind "job" has no world-object-v5 mapping — before the
+            # repair, qualifying it vetoed the whole confirmation.
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-mireward-job",
+                label="Mireward",
+                node_type="quest",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+    )
+    assert len(accepted_ids) == 1
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    payload = wga.confirm_via_dungeonmind(
+        _Request(),
+        world_root=frozen_root,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=write_world["tmp_path"],
+    )
+    assert payload["outcome"] == "published"
+    assert payload["parent_revision_id"] == d_a
+    d_b = payload["committed_revision_id"]
+
+    # The durable review record preserves the rejected assertion with a
+    # REJECTED verdict; the accepted node is ACCEPTED.
+    operation_id = wga._derive_confirm_operation_id(
+        world_id=WORLD_ID, package=package, assertion_ids=None
+    )
+    publication = bundle.finalized_review_publications.get(WORLD_ID, operation_id)
+    assert publication is not None
+    review_state = bundle.contribution_reviews.get(WORLD_ID, publication.review_id)
+    assert review_state is not None
+    verdict_by_id = {
+        verdict.assertion_id: str(verdict.acceptance_state)
+        for verdict in review_state.record.assertion_verdicts
+    }
+    reviewed_by_id = {
+        assertion.assertion_id: assertion
+        for assertion in review_state.reviewed_contribution.assertions
+    }
+    assert set(verdict_by_id) == set(reviewed_by_id)
+    rejected_ids = {
+        assertion_id
+        for assertion_id, assertion in reviewed_by_id.items()
+        if assertion.subject_object_id == "node:cutover-mireward-job"
+    }
+    assert len(rejected_ids) == 1
+    for assertion_id in accepted_ids:
+        assert verdict_by_id[assertion_id] == "accepted"
+    for assertion_id in rejected_ids:
+        assert verdict_by_id[assertion_id] == "rejected"
+
+    # Temporal normalization is accept-only: the accepted assertion's Buddy
+    # session hint is normalized away (DungeonMind expresses real-world
+    # session provenance as session refs at materialization), while every
+    # rejected assertion is preserved in the durable review record exactly as
+    # the sealed package adjudicated it — the writer never rewrites rejected
+    # material that never materializes. (Today's gate emits only rejected
+    # nodes, which carry no session hint; the rejected-edge-with-hint shape
+    # is proven directly at the writer seam in
+    # test_build_v2_candidate_temporal_normalization_is_accept_only.)
+    package_rejected_temporal = {
+        str(item["assertion_id"]): item.get("temporal_scope") or None
+        for item in package["effect"]["rejected_assertions"]
+    }
+    for assertion_id in accepted_ids:
+        assert reviewed_by_id[assertion_id].temporal_scope is None
+    for assertion_id in rejected_ids:
+        assert (
+            reviewed_by_id[assertion_id].temporal_scope
+            == package_rejected_temporal[assertion_id]
+        )
+
+    # The published graph carries the accepted node; the rejected unmapped
+    # node never materializes.
+    stored = bundle.world_graph.get_revision(WORLD_ID, d_b)
+    assert stored is not None
+    object_ids = {
+        obj.get("object_id") for obj in stored.graph_payload.get("objects") or []
+    }
+    assert "node:cutover-veto-a" in object_ids
+    assert "node:cutover-mireward-job" not in object_ids
+
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_hermes_latest_recap_compares_dungeonmind_head_not_frozen_store(
+    write_world, monkeypatch
+):
+    """§3 repair: the Hermes latest-recap branch routes its comparison root
+    through the World Graph authority. After D_B publishes session-26 state,
+    the comparison reads the DungeonMind-backed hydration (latest session
+    session-26) and labels it with the DungeonMind revision — it never
+    compares the frozen Buddy store (latest session session-25) while
+    labeling it with the DungeonMind revision."""
+    from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.agent_world_graph_query_context import (
+        AgentWorldGraphQueryContextRequest,
+    )
+    from apps.live_control_server.services.recap_artifacts import (
+        RecapArtifactRecord,
+    )
+    from graph_memory.interaction import latest_recap as latest_recap_module
+    from graph_memory.world_supergraph.storage import load_world_graph_revision
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    tmp_path = write_world["tmp_path"]
+
+    # Setup invariant: the frozen store's latest session predates session-26,
+    # so a frozen read would report memory_lag for a session-26 recap.
+    frozen_store = load_world_graph_revision(
+        frozen_root, WORLD_ID, FROZEN_HEAD_REVISION
+    )
+    frozen_sessions = latest_recap_module._graph_session_ids(
+        frozen_store.model_dump(mode="json", by_alias=True), CAMPAIGN_ID
+    )
+    assert frozen_sessions and frozen_sessions[-1] == "session-25"
+
+    # Publish D_B through the real confirm path: a node plus an edge whose
+    # value carries session-26 observation provenance.
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-recap-route"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, _accepted = _seal_tinker_package(
+        handle.cache_world_root,
+        tmp_path,
+        preview_slug=slug,
+        node_id="node:cutover-recap-a",
+        label="Recap Anchor",
+        extra_nodes=[
+            _preview_node(
+                artifact_id,
+                node_id="node:cutover-recap-b",
+                label="Recap Target",
+                node_type="location",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+        edges=[
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:recap-a-located-in-b",
+                from_node_id="node:cutover-recap-a",
+                to_node_id="node:cutover-recap-b",
+                predicate="located_in",
+                span="session-26:recap:paragraph:003",
+            ),
+        ],
+    )
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    payload = wga.confirm_via_dungeonmind(
+        _Request(),
+        world_root=frozen_root,
+        database_url=dsn,
+        cache_root=cache_root,
+        frozen_root=frozen_root,
+        confirming_principal="gm@confirm",
+        assertion_ids=None,
+        repo_root=tmp_path,
+    )
+    assert payload["outcome"] == "published"
+    d_b = payload["committed_revision_id"]
+
+    # The admitted recap registry names session-26; its source file exists.
+    (tmp_path / "Session 26 - Recap.md").write_text(
+        "The Recap Anchor holds the Recap Target.\n", encoding="utf-8"
+    )
+    record = RecapArtifactRecord(
+        artifact_id="longmont-c2/session-26",
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-26",
+        source_recap_path="Session 26 - Recap.md",
+        run_bundle_uri="runs/session-26/bundle.json",
+        run_manifest_uri="runs/session-26/manifest.json",
+        source_span_index_uri="runs/session-26/spans.json",
+        registered_at="2026-08-18T00:00:00Z",
+        updated_at="2026-08-18T00:00:00Z",
+    )
+    monkeypatch.setattr(
+        latest_recap_module,
+        "list_recap_artifact_records",
+        lambda root, campaign_id: [record],
+    )
+
+    captured: dict = {}
+
+    def _fake_run_hermes_graph_query(*, graph_envelope, **_kwargs):
+        captured["graph_envelope"] = graph_envelope
+        return {"answer": "ok", "grounding": {"state": "grounded"}}
+
+    monkeypatch.setattr(
+        live_agent_loop, "run_hermes_graph_query", _fake_run_hermes_graph_query
+    )
+    monkeypatch.setattr(
+        live_agent_loop,
+        "load_session",
+        lambda base: ({"campaign_id": CAMPAIGN_ID, "session": 26}, {}, [], []),
+    )
+    envelope = {
+        "world_id": WORLD_ID,
+        "campaign_id": CAMPAIGN_ID,
+        "revision_id": d_b,
+        "status": "ready",
+        "matched_node_ids": [],
+        "nodes": [],
+    }
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: dict(envelope),
+    )
+
+    live_agent_loop.process_live_query(
+        "What changed after the latest ingested recap?",
+        base=tmp_path / "live-session",
+        root=tmp_path,
+        query_backend="hermes",
+        world_graph_context=AgentWorldGraphQueryContextRequest.model_validate(
+            {
+                "schema": "dmb_agent_world_graph_query_context_request_v1",
+                "world_id": WORLD_ID,
+                "campaign_id": CAMPAIGN_ID,
+                "focus": {"kind": "none", "session_id": None},
+                "admissibility": "gm",
+            }
+        ),
+        outer_campaign_id=CAMPAIGN_ID,
+    )
+
+    change = captured["graph_envelope"]["latest_recap_change"]
+    assert change["comparison_boundary"]["graph_revision_id"] == d_b
+    # The comparison read the DungeonMind-backed D_B hydration: session-26 is
+    # present, so the graph is caught up with the session-26 recap. A frozen
+    # Store-A read would have reported memory_lag at session-25 instead.
+    assert change["comparison_boundary"]["graph_latest_session_id"] == "session-26"
+    assert change["outcome"] == "no_change"
+    assert change["memory_lag"] is False

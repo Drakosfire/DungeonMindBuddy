@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import world_graph_root
@@ -61,12 +62,13 @@ def _resolved_root(root: Path | None) -> Path:
 def _route_authority_read(
     request: WorldGraphProjectionRequest,
     root: Path | None,
-) -> tuple[Path, WorldGraphProjectionRequest]:
+) -> Any:
     """Route the read through the selected World Graph authority.
 
-    Explicit roots (tests) bypass routing. In ``dungeonmind`` authority mode
-    the read is served from the DungeonMind-hydrated cache root and legacy
-    pre-cutover revision pins are rewritten through the adoption bridge.
+    Explicit non-production roots (tests) bypass routing. In ``dungeonmind``
+    authority mode the read is served from the DungeonMind-hydrated cache root,
+    exact revision pins are bridged, and the returned route carries the public
+    DungeonMind revision identity for response normalization.
     """
     from apps.live_control_server.integrations.dungeonmind_kernel import (
         world_graph_authority,
@@ -91,7 +93,32 @@ def _route_authority_read(
         ) from None
 
 
-def _map_kernel_error(exc: kernel.WorldGraphProjectionError) -> WorldGraphProjectionServiceError:
+def _normalize_authority_identity(
+    projection: WorldGraphProjection,
+    route: Any,
+) -> WorldGraphProjection:
+    """Rewrite private hydrated-cache revision ids to public DungeonMind ids.
+
+    The hydrated cache's Buddy content-addressed revision ids are an internal
+    implementation detail; product-visible revision/head identity names the
+    selected/current DungeonMind revision so a returned id is exactly
+    re-pinnable against the authority.
+    """
+    if route.public_revision_id is None or projection.snapshot is None:
+        return projection
+    snapshot = projection.snapshot.model_copy(
+        update={
+            "revision_id": route.public_revision_id,
+            "head_revision_id": route.public_head_revision_id,
+            "is_head": route.public_revision_id == route.public_head_revision_id,
+        }
+    )
+    return projection.model_copy(update={"snapshot": snapshot})
+
+
+def _map_kernel_error(
+    exc: kernel.WorldGraphProjectionError,
+) -> WorldGraphProjectionServiceError:
     return WorldGraphProjectionServiceError(
         str(exc),
         code=exc.code,
@@ -138,7 +165,9 @@ def _sync_observation_from_counters(
     observation.resident_status = counters.last_resident_status
     observation.resident_wait_ms = counters.resident_wait_ms
     observation.cold_load_ms = counters.cold_load_ms
-    observation.resident_revision_count = kernel.get_world_read_runtime().resident_count()
+    observation.resident_revision_count = (
+        kernel.get_world_read_runtime().resident_count()
+    )
     observation.graph_payload_reads_this_request = counters.graph_payload_reads
     observation.revision_manifest_reads_this_request = counters.revision_manifest_reads
     observation.contribution_reads_this_request = counters.contribution_reads
@@ -161,7 +190,8 @@ def project_world_graph(
     *,
     root: Path | None = None,
 ) -> WorldGraphProjection:
-    graph_root, request = _route_authority_read(request, root)
+    route = _route_authority_read(request, root)
+    graph_root, request = route.graph_root, route.request
     counters = kernel.begin_request_io()
     observation = kernel.ProjectionRequestObservation(
         world_id=request.world_id,
@@ -204,7 +234,7 @@ def project_world_graph(
                 kernel.set_last_projection_observation(observation)
                 _emit_observation(observation)
                 _register_recipe_best_effort(request, graph_root=graph_root)
-                return cached
+                return _normalize_authority_identity(cached, route)
 
             def _builder() -> WorldGraphProjection:
                 return kernel.project_world_graph_from_context(
@@ -214,8 +244,12 @@ def project_world_graph(
                 )
 
             build_started = time.perf_counter()
-            projection, cache_status = get_or_build_cached_projection(cache_key, _builder)
-            observation.projection_build_ms = (time.perf_counter() - build_started) * 1000.0
+            projection, cache_status = get_or_build_cached_projection(
+                cache_key, _builder
+            )
+            observation.projection_build_ms = (
+                time.perf_counter() - build_started
+            ) * 1000.0
             observation.projection_cache_status = cache_status
         else:
             observation.projection_cache_status = "disabled"
@@ -225,7 +259,9 @@ def project_world_graph(
                 request,
                 context,
             )
-            observation.projection_build_ms = (time.perf_counter() - build_started) * 1000.0
+            observation.projection_build_ms = (
+                time.perf_counter() - build_started
+            ) * 1000.0
 
         observation.nodes_returned = len(projection.nodes)
         observation.relationships_returned = len(projection.relationships)
@@ -234,7 +270,7 @@ def project_world_graph(
         kernel.set_last_projection_observation(observation)
         _emit_observation(observation)
         _register_recipe_best_effort(request, graph_root=graph_root)
-        return projection
+        return _normalize_authority_identity(projection, route)
     except kernel.WorldGraphProjectionError as exc:
         _sync_observation_from_counters(observation, counters)
         kernel.set_last_projection_observation(observation)
