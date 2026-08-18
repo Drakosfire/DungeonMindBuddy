@@ -1255,6 +1255,12 @@ def _ensure_hydrated_revision(
     Cache hit when a prior hydration already covers the revision (and the
     translation version matches); otherwise re-hydrates from DungeonMind
     durable state alone — the derivative cache is expendable.
+
+    The exact V3 adopted-membership verification runs on every call, cache
+    hit or rebuild: the cache is derivative, so a warm cache must never
+    certify durable adopted rows it did not re-check. Tampering with adopted
+    DungeonMind rows after hydration therefore fails closed on the next read
+    instead of remaining invisible behind the cache.
     """
     with _HYDRATION_LOCK:
         cache_root.mkdir(parents=True, exist_ok=True)
@@ -1266,6 +1272,9 @@ def _ensure_hydrated_revision(
             and metadata.get("translation_version") == HYDRATION_TRANSLATION_VERSION
             and metadata.get("dungeonmind_revision_id") == revision_id
         ):
+            _verify_adopted_membership(
+                bundle, world_id, binding=binding, frozen_root=frozen_root
+            )
             return HydrationHandle(
                 world_id=world_id,
                 cache_world_root=final_dir,
