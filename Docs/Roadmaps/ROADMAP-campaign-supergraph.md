@@ -1,10 +1,10 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-17 — post-#614: CUTOVER observational-correspondence DESIGN is DONE; next CUTOVER capability is the DungeonMind observational-correspondence implementation; product-authority cutover remains BLOCKED
-**Repository anchor:** `e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a` (Buddy `main` at guarded CUTOVER authority-sync start)
+**Updated:** 2026-08-18 — post-DungeonMind #35: read-only observational-correspondence implementation is DONE; next CUTOVER capability is the exact adopted-membership receipt V3 implementation; product-authority cutover remains BLOCKED
+**Repository anchor:** `93ad974d2f9690e5f8f552059d2fb71f5181b9b9` (Buddy `main` at guarded CUTOVER authority-sync start)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
-**DungeonMind pin:** `d2204dd0901237d8b446b4f2363f896306e32e6f` (PR #34 merge / current DungeonMind `main`; unchanged #33 runtime-under-proof remains `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`)
+**DungeonMind pin:** `9ff0d1f9e278e44fb1444bdf1fda8beb6348bc11` (PR #35 merge / current DungeonMind `main`; unchanged #33 runtime-under-proof remains `f2e273804d7e4e2f5bcaf4c964525f8ccb0c4e92`)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)  
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)  
@@ -96,7 +96,7 @@ At the immutable Eldyrwild adjudication domain:
 
 The remaining relationship debt is Buddy-owned. The adjudication ledger distinguishes source corrections, compound assertions that are not one relationship, identity-not-relationship cases, and insufficient-evidence cases. Those are different authority problems and should not be collapsed into one migration PR.
 
-## Current critical path — observational-correspondence implementation before product cutover
+## Current critical path — exact adopted-membership checkpoint before product cutover
 
 ```text
 DONE    Captain/Thrin alias package (#587)
@@ -122,17 +122,32 @@ DONE    cutover-observational-correspondence-drift DESIGN (#614)
         NOT_ADOPTED plus typed integrity/unavailable errors; no dual
         writes, no authority transfer.
 
-READY   dungeonmind-observational-correspondence-implementation
-        DungeonMind implementation of the accepted contract per the
-        handoff's DND-only lease (base d2204dd0…). Must prove the
-        classifications and typed failure semantics at the PostgreSQL
-        owning boundary with zero durable writes. A pinned
-        exact-snapshot catch-up successor handoff is drafted on branch
+DONE    dungeonmind-observational-correspondence-implementation (#35)
+        DungeonMind PR #35; head 36e9c0d21aaccbd9dfe850a5f6fe27e1e9789529;
+        merge 9ff0d1f9e278e44fb1444bdf1fda8beb6348bc11; 3 review cycles
+        (4955043192 / 4955268953 / 4955637320, all CHANGES REQUIRED;
+        merged by steward split decision). Proved exact bundle identity,
+        fail-closed pre-classification adopted-history integrity, closed
+        MISMATCH algebra, zero durable writes. Cycle 3 residual
+        intentionally open: V2 cardinality-only pins cannot detect
+        same-cardinality adopted-membership substitution behind STALE.
+
+READY   cutover-exact-membership-receipt-v3
+        DungeonMind implementation of ExistingWorldAdoptionReceiptV3 with
+        one membership_sha256 over sorted (record_id, record_fingerprint)
+        pairs across source artifacts, source revisions, contributions,
+        and identity decisions; steward-supervised Eldyrwild V2→V3
+        promotion from the exact sealed bundle; pre-STALE checkpoint
+        verification; unpromoted V2 fails closed. Handoff
+        Docs/Plans/HANDOFF-CUTOVER-exact-membership-receipt-v3.md;
+        DungeonMind base 9ff0d1f9…. A pinned exact-snapshot catch-up
+        successor handoff remains parked on branch
         cutover/design-pinned-snapshot-catchup (unmerged; DO NOT
-        DISPATCH until this implementation is merged and recorded).
+        DISPATCH until this slice is merged and recorded; must be
+        re-anchored to advance the membership checkpoint A→B).
 
 BLOCKED DungeonMind whole-world authority cutover
-        Requires the merged correspondence implementation plus later
+        Requires the merged receipt V3 implementation plus re-anchored
         catch-up and quiescence/authority-transition designs and CODE.
         Exact PostgreSQL adoption and read-only correspondence do not
         switch Buddy reads/writes.
@@ -188,7 +203,7 @@ READY   PR009 Play projection migration
         Consume the same projection and admissibility contracts for encounter/play lenses.
 ```
 
-The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the DungeonMind observational-correspondence implementation, before any product-authority cutover.
+The tracker, not this roadmap, decides which `READY` slice is dispatched next. At the current anchor it gives priority to the exact adopted-membership receipt V3 implementation, before any product-authority cutover.
 
 ## Phase 8 exit criteria
 

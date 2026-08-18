@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — observational correspondence and snapshot drift
 
 **Created:** 2026-08-17
-**Status:** DESIGN ACCEPTED — Buddy PR #614 merged `e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a` (2026-08-17; 4 review cycles; accepting Cycle 4 `4953256382`); the §2 steward Buddy sync lands with this commit; the observational-correspondence implementation is the current CUTOVER work and may dispatch per §4/§7
+**Status:** DONE / HISTORICAL — design accepted by Buddy PR #614 (merge `e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a`); implementation merged as DungeonMind PR #35 (merge `9ff0d1f9e278e44fb1444bdf1fda8beb6348bc11`, 2026-08-18). The Review Cycle 3 exact-membership residual was explicitly split into successor [`HANDOFF-CUTOVER-exact-membership-receipt-v3.md`](HANDOFF-CUTOVER-exact-membership-receipt-v3.md), which is the current CUTOVER work. Do not redispatch this handoff.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-observational-correspondence-drift.md`
 **Conversation/workstream:** `CUTOVER — observational correspondence and snapshot drift`
 **Flow / owner:** `CUTOVER`
@@ -41,7 +41,13 @@ pr_body_template: |
 
 - **Design PR:** Buddy #614; final head `b270b1ea13d198ba0008e38cf6b5dedb64036bdf`; merge `e1d2b4941f629f9cd6bcaf02a9bac5d7dca8e83a` (2026-08-17); 4 review cycles — Cycle 1 `4952698951` on `3d4ff31c…`, Cycle 2 `4953087216` on `5b4a15c6…`, Cycle 3 `4953155964` on `d92f65b7…`, accepting Cycle 4 `4953256382` on `b270b1ea…` (formal COMMENTs because reviewer == author).
 - **What the design fixed:** the read-only `ExistingWorldCorrespondenceResultV1` contract — `CORRESPONDING` / `STALE` / `MISMATCH` / `NOT_ADOPTED` classifications, the closed six-check algebra, and typed failure semantics (`PersistenceIntegrityError` for malformed input, integrity-invalid durable bytes, or a dangling adoption receipt; `PersistenceUnavailableError` for unavailable persistence; `NOT_ADOPTED` only on a `get_for_world` receipt miss). The §4 lease is DND-only; the cross-repo Buddy predecessor sync is steward-owned (§2) and landed as a direct guarded commit.
-- **What remains false:** the DungeonMind observational-correspondence implementation has not been dispatched or merged; §7 evidence does not exist yet. Product authority remains Buddy; disposition remains `CUTOVER_NOT_READY`. Catch-up/quiescence, living-write ownership, authority switch, first post-cutover mutation, and demolition remain unresolved.
+- **What remains false:** exact adopted-membership checkpointing does not exist yet (V2 receipts carry cardinality-only history pins; the same-cardinality substitution class below is open). Product authority remains Buddy; disposition remains `CUTOVER_NOT_READY`. Catch-up/quiescence, living-write ownership, authority switch, first post-cutover mutation, and demolition remain unresolved.
+
+## Completion record — implementation (DungeonMind PR #35)
+
+- **Implementation PR:** DungeonMind #35; merged head `36e9c0d21aaccbd9dfe850a5f6fe27e1e9789529`; base `d2204dd0901237d8b446b4f2363f896306e32e6f`; merge `9ff0d1f9e278e44fb1444bdf1fda8beb6348bc11` (2026-08-18); 3 review cycles — Cycle 1 `4955043192` on `a37a0ebe…`, Cycle 2 `4955268953` on `a13757ed…`, Cycle 3 `4955637320` on `36e9c0d2…` (all CHANGES REQUIRED, formal COMMENTs because reviewer == author). Merged by explicit steward split decision recorded in the PR disposition comment, not by approval of the Cycle 3 residual.
+- **What the implementation proved:** the read-only correspondence service at the PostgreSQL owning boundary — exact bundle/adoption identity binding (canonical bundle SHA-256 + `adoption_id` + full source provenance against the durable receipt); fail-closed `PersistenceIntegrityError` before any classification for missing/corrupt adopted history across evidence-referenced, contribution-referenced, and fully enumerated source membership with receipt cardinality pins; closed public `MISMATCH` algebra (`not_evaluated` only after the first divergence); deterministic, zero-write classification. The steward-authorized read-only port extension `SourceRepository.list_artifacts_for_world` landed inside this slice.
+- **What was intentionally NOT closed (owned by the V3 successor):** the Cycle 3 same-cardinality adopted-membership substitution class. V2 receipts retain only four adoption-time cardinalities, not exact membership; `adopt A with unreferenced U → delete U → insert valid X (counts restored) → present valid B` can still return `STALE` under an unpromoted V2 receipt. Successor: [`HANDOFF-CUTOVER-exact-membership-receipt-v3.md`](HANDOFF-CUTOVER-exact-membership-receipt-v3.md).
 
 ## §1 Mission and merge-ready invariant
 
