@@ -1771,6 +1771,13 @@ def _qualified_edge_update(
     endpoints but does not re-check predicate-specific endpoint kinds, so
     this writer is the last governed gate — an inadmitted endpoint pair fails
     closed here rather than becoming authoritative.
+
+    The writer also applies the conformance contract's full-edge direction
+    audit (``edge_has_reverse_direction_qualifier_v4``) before automatic
+    translation: an edge id carrying a reverse-qualifier pattern for its
+    Buddy predicate (``is-threatened-by`` on a ``threatens`` edge) marks a
+    relationship authored in the reverse direction, and name mapping plus
+    admission-valid endpoints would otherwise publish inverted semantics.
     """
     import json as _json
 
@@ -1778,6 +1785,7 @@ def _qualified_edge_update(
         _canonical_json,
     )
     from apps.live_control_server.integrations.dungeonmind_kernel.whole_world_conformance_v4 import (
+        edge_has_reverse_direction_qualifier_v4,
         resolve_buddy_predicate_mapping_v4,
     )
 
@@ -1797,6 +1805,22 @@ def _qualified_edge_update(
             },
         )
     dm_predicate, reverse_endpoints = mapping
+    edge_id = value.get("edge_id")
+    if isinstance(edge_id, str) and edge_has_reverse_direction_qualifier_v4(
+        buddy_predicate=str(assertion.predicate or ""),
+        edge_id=edge_id,
+    ):
+        raise WorldGraphAuthorityError(
+            "confirmed edge id carries a reverse-direction qualifier for the predicate",
+            code="governed_write_inexpressible",
+            details={
+                "assertion_id": assertion.assertion_id,
+                "buddy_predicate": assertion.predicate,
+                "dm_predicate": dm_predicate,
+                "edge_id": edge_id,
+                "reason": "reverse_direction_qualifier",
+            },
+        )
     _assert_edge_endpoint_admission(
         assertion,
         dm_predicate=dm_predicate,

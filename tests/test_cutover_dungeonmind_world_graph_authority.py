@@ -634,6 +634,87 @@ def test_edge_endpoint_admission_enforced():
     assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
 
 
+def test_edge_reverse_direction_audit_enforced():
+    """The conformance contract's full-edge direction audit also gates
+    accepted writes: an edge id carrying a reverse-qualifier pattern for its
+    Buddy predicate (``is-threatened-by``) marks a relationship authored in
+    the reverse direction, so name mapping plus admission-valid endpoints
+    would publish inverted semantics. The writer fails closed before
+    automatic translation — the same audit the conformance contract applies
+    (``edge_has_reverse_direction_qualifier_v4``), keyed on the Buddy
+    predicate and casefolded. A clean edge id with the same predicate and
+    endpoint kinds qualifies."""
+    import json as _json
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    def _edge(*, predicate: str, edge_id: str, subject: str, target: str):
+        return SimpleNamespace(
+            assertion_id=f"assertion:{edge_id}",
+            assertion_kind="edge",
+            subject_object_id=subject,
+            object_object_id=target,
+            predicate=predicate,
+            label=predicate,
+            value=_json.dumps({"edge_id": edge_id, "predicate": predicate}),
+        )
+
+    # dnd5e:threatens admits npc → location, so only the direction audit can
+    # fail these: the endpoint pair is valid for the qualified predicate.
+    kinds = {"node:a": "npc", "node:b": "location"}
+    for edge_id in (
+        "edge:node:a:threatens:node:b:is-threatened-by-b",
+        "edge:node:a:threatens:node:b:IS-THREATENED-BY-b",  # casefolded
+        "edge:node:a:threatens:node:b:threatened-by-b",
+    ):
+        with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+            wga._qualified_edge_update(
+                _edge(
+                    predicate="threatens",
+                    edge_id=edge_id,
+                    subject="node:a",
+                    target="node:b",
+                ),
+                endpoint_kinds=kinds,
+            )
+        assert excinfo.value.code == "governed_write_inexpressible"
+        assert excinfo.value.details.get("reason") == "reverse_direction_qualifier"
+        assert excinfo.value.details.get("dm_predicate") == "dnd5e:threatens"
+
+    # The audit keys on the Buddy predicate: an attacks edge is audited
+    # against the attacks patterns. dnd5e:attacks admits npc → npc, so here
+    # too only the direction audit can fail the write.
+    attack_kinds = {"node:a": "npc", "node:b": "npc"}
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga._qualified_edge_update(
+            _edge(
+                predicate="attacks",
+                edge_id="edge:node:a:attacks:node:b:attacked-by-b",
+                subject="node:a",
+                target="node:b",
+            ),
+            endpoint_kinds=attack_kinds,
+        )
+    assert excinfo.value.details.get("reason") == "reverse_direction_qualifier"
+
+    # Control: the same predicates and admitted endpoint kinds with clean
+    # edge ids qualify.
+    for predicate, control_kinds in (("threatens", kinds), ("attacks", attack_kinds)):
+        update = wga._qualified_edge_update(
+            _edge(
+                predicate=predicate,
+                edge_id=f"edge:node:a:{predicate}:node:b",
+                subject="node:a",
+                target="node:b",
+            ),
+            endpoint_kinds=control_kinds,
+        )
+        assert _json.loads(update["value"])["dm_predicate"] == f"dnd5e:{predicate}"
+
+
 def test_temporal_scope_session_hint_round_trip():
     """Buddy's edge producer encodes real-world session provenance as
     ``temporal_scope={"session_id": ...}``. The confirm path normalizes the
@@ -2410,6 +2491,101 @@ def test_governed_write_endpoint_admission_fails_closed(write_world):
         )
     assert excinfo.value.code == "governed_write_inexpressible"
     assert excinfo.value.details.get("reason") == "endpoint_kind_not_admitted"
+
+    # Zero mutation: head, revisions, reviews, and the frozen store unchanged.
+    head = write_world["bundle"].world_graph.get_head(WORLD_ID)
+    assert head is not None and head.head_revision_id == d_a
+    assert _graph_revision_ids(dsn) == revisions_before
+    with psycopg.connect(dsn) as conn:
+        review_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.contribution_reviews"
+        ).fetchone()[0]
+        publication_rows = conn.execute(
+            "SELECT count(*) FROM dungeonmind.finalized_review_publications"
+        ).fetchone()[0]
+    assert review_rows == 0
+    assert publication_rows == 0
+    assert _tree_digest(frozen_root) == frozen_digest_before
+
+
+@pytest.mark.integration
+def test_governed_write_reverse_direction_fails_closed(write_world):
+    """§3 repair: an accepted edge whose concrete endpoint kinds ARE admitted
+    for the qualified predicate but whose edge id carries a reverse-direction
+    qualifier (``is-threatened-by``) fails closed with zero mutation. The
+    conformance contract rejects reverse-looking edge ids before automatic
+    translation because a valid endpoint pair can otherwise be published with
+    inverted semantics; the writer applies the same audit to accepted writes.
+    ``dnd5e:threatens`` admits NPC→Location, so endpoint admission alone
+    would let this through."""
+    import psycopg
+
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority as wga,
+    )
+
+    dsn = write_world["dsn"]
+    frozen_root = write_world["frozen_root"]
+    cache_root = write_world["cache_root"]
+    d_a = write_world["receipt"].published_revision_id
+    frozen_digest_before = _tree_digest(frozen_root)
+    revisions_before = _graph_revision_ids(dsn)
+
+    handle = wga.ensure_hydrated_authority(
+        WORLD_ID, database_url=dsn, cache_root=cache_root, frozen_root=frozen_root
+    )
+    slug = "session-26-cutover-direction"
+    artifact_id = f"artifact:recap:longmont-c2:{slug}"
+    package, accepted_ids = _seal_tinker_package(
+        handle.cache_world_root,
+        write_world["tmp_path"],
+        preview_slug=slug,
+        node_id="node:cutover-direction-a",
+        label="Direction Anchor",
+        extra_nodes=[
+            _preview_node(
+                artifact_id,
+                # The canonicalized value edge id inherits this target id, so
+                # the stored edge id reads …threatens…is-threatened-by… — a
+                # reverse-looking id for the threatens predicate.
+                node_id="node:is-threatened-by-mireward",
+                label="Direction Target",
+                node_type="location",
+                span="session-26:recap:paragraph:002",
+            ),
+        ],
+        edges=[
+            _preview_edge(
+                artifact_id,
+                edge_id="edge:cutover-direction-threatens",
+                from_node_id="node:cutover-direction-a",  # npc
+                to_node_id="node:is-threatened-by-mireward",  # location
+                predicate="threatens",
+                span="session-26:recap:paragraph:003",
+            ),
+        ],
+    )
+    # Buddy's identity gate admits the edge (2 nodes + 1 edge); the direction
+    # audit is the writer's governed responsibility.
+    assert len(accepted_ids) == 3
+
+    class _Request:
+        review_package = package
+        assertion_ids = None
+
+    with pytest.raises(wga.WorldGraphAuthorityError) as excinfo:
+        wga.confirm_via_dungeonmind(
+            _Request(),
+            world_root=frozen_root,
+            database_url=dsn,
+            cache_root=cache_root,
+            frozen_root=frozen_root,
+            confirming_principal="gm@confirm",
+            assertion_ids=None,
+            repo_root=write_world["tmp_path"],
+        )
+    assert excinfo.value.code == "governed_write_inexpressible"
+    assert excinfo.value.details.get("reason") == "reverse_direction_qualifier"
 
     # Zero mutation: head, revisions, reviews, and the frozen store unchanged.
     head = write_world["bundle"].world_graph.get_head(WORLD_ID)
