@@ -132,25 +132,30 @@ DONE    dungeonmind-observational-correspondence-implementation (#35)
         intentionally open: V2 cardinality-only pins cannot detect
         same-cardinality adopted-membership substitution behind STALE.
 
-READY   cutover-exact-membership-receipt-v3
-        DungeonMind implementation of ExistingWorldAdoptionReceiptV3 with
-        one membership_sha256 over sorted (record_id, record_fingerprint)
-        pairs across source artifacts, source revisions, contributions,
-        and identity decisions; steward-supervised Eldyrwild V2→V3
-        promotion from the exact sealed bundle; pre-STALE checkpoint
-        verification; unpromoted V2 fails closed. Handoff
-        Docs/Plans/HANDOFF-CUTOVER-exact-membership-receipt-v3.md;
-        DungeonMind base 9ff0d1f9…. A pinned exact-snapshot catch-up
-        successor handoff remains parked on branch
-        cutover/design-pinned-snapshot-catchup (unmerged; DO NOT
-        DISPATCH until this slice is merged and recorded; must be
-        re-anchored to advance the membership checkpoint A→B).
+DONE    cutover-exact-membership-receipt-v3 (DungeonMind #36)
+        DungeonMind PR #36; head 6a249b483687c5f25c46298016c53dbb9afe4521;
+        merge 9a19584d31baea77f590d7726e508b144c7dd39d; Review Cycle 3
+        PASS / no code changes requested; formal review 4956825887;
+        integration green. Exact adopted-membership receipt V3 with one
+        membership_sha256 over sorted (record_id, record_fingerprint)
+        pairs; steward-supervised Eldyrwild V2→V3 promotion; pre-STALE
+        checkpoint verification; unpromoted V2 fails closed.
 
-BLOCKED DungeonMind whole-world authority cutover
-        Requires the merged receipt V3 implementation plus re-anchored
-        catch-up and quiescence/authority-transition designs and CODE.
-        Exact PostgreSQL adoption and read-only correspondence do not
-        switch Buddy reads/writes.
+DEFERRED pinned exact-snapshot catch-up
+        Activates only if the final real pre-switch correspondence check
+        returns STALE. No observed B means no A→B project. The parked
+        design handoff on branch cutover/design-pinned-snapshot-catchup
+        stays unmerged.
+
+DOING   DungeonMind whole-world authority cutover
+        Whole-world authority transfer per
+        Docs/Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md
+        (dispatched directly on main at ad0ca263…): implement routing,
+        freeze Buddy graph writes, require final V3 CORRESPONDING, switch
+        reads, switch the normal GM-confirmed writer, make a real
+        DungeonMind-owned mutation, reload it. Concrete failures become
+        repair work; generic CUTOVER_NOT_READY is disallowed without a
+        newly observed failing invariant.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.
