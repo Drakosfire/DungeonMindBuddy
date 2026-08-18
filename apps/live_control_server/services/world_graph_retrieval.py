@@ -17,6 +17,7 @@ from graph_memory.retrieval.models import (
     WorldGraphObjectRequest,
     WorldGraphRetrievalDiagnostic,
     WorldGraphRetrievalErrorResponse,
+    WorldGraphRetrievalRequestContext,
     WorldGraphRetrievalResult,
     WorldGraphSearchRequest,
     WorldGraphSourceAnchorReadRequest,
@@ -52,6 +53,39 @@ class WorldGraphRetrievalServiceError(ValueError):
 
 def _resolved_root(root: Path | None) -> Path:
     return (root if root is not None else world_graph_root()).resolve()
+
+
+def _route_authority_read(
+    request: WorldGraphRetrievalRequestContext,
+    root: Path | None,
+) -> tuple[Path, WorldGraphRetrievalRequestContext]:
+    """Route the read through the selected World Graph authority.
+
+    Explicit roots (tests) bypass routing. In ``dungeonmind`` authority mode
+    the read is served from the DungeonMind-hydrated cache root and legacy
+    pre-cutover revision pins are rewritten through the adoption bridge.
+    """
+    from apps.live_control_server.integrations.dungeonmind_kernel import (
+        world_graph_authority,
+    )
+
+    try:
+        return world_graph_authority.route_service_read(
+            request, root, default_root=world_graph_root()
+        )
+    except world_graph_authority.WorldGraphAuthorityError as exc:
+        raise WorldGraphRetrievalServiceError(
+            str(exc),
+            code=exc.code,
+            status_code=world_graph_authority.authority_error_status_code(exc),
+            diagnostics=[
+                WorldGraphRetrievalDiagnostic(
+                    code=exc.code,
+                    message=str(exc),
+                    severity="error",
+                )
+            ],
+        ) from None
 
 
 def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
@@ -105,7 +139,7 @@ def search_campaign_graph(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root = _resolved_root(root)
+    graph_root, request = _route_authority_read(request, root)
     try:
         return kernel.search_campaign_graph(graph_root, request)
     except kernel.WorldGraphRetrievalError as exc:
@@ -119,7 +153,7 @@ def get_campaign_object(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root = _resolved_root(root)
+    graph_root, request = _route_authority_read(request, root)
     try:
         return kernel.get_campaign_object(graph_root, request)
     except kernel.WorldGraphRetrievalError as exc:
@@ -133,7 +167,7 @@ def get_object_neighborhood(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root = _resolved_root(root)
+    graph_root, request = _route_authority_read(request, root)
     try:
         return kernel.get_object_neighborhood(graph_root, request)
     except kernel.WorldGraphRetrievalError as exc:
@@ -147,7 +181,7 @@ def get_object_evidence(
     *,
     root: Path | None = None,
 ) -> WorldGraphRetrievalResult:
-    graph_root = _resolved_root(root)
+    graph_root, request = _route_authority_read(request, root)
     try:
         return kernel.get_object_evidence(graph_root, request)
     except kernel.WorldGraphRetrievalError as exc:
@@ -162,7 +196,7 @@ def read_source_anchor(
     root: Path | None = None,
     repo_root: Path | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
-    graph_root = _resolved_root(root)
+    graph_root, request = _route_authority_read(request, root)
     file_root = _resolved_repo_root(root=root, repo_root=repo_root)
     try:
         resolved = kernel.resolve_admitted_anchor_match(graph_root, request)
