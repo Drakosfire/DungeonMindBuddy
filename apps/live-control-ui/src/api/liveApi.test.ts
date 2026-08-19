@@ -20,6 +20,8 @@ import {
   LiveApiError,
   listWorldContainers,
   listWorkspaceDocuments,
+  putPlayRun,
+  putPlayRunReferenceManifest,
   postLiveQuery,
   postThreatQueryHydration,
   postWorldGraphProjection,
@@ -2060,5 +2062,67 @@ describe("liveApi PR380B World Graph recap client", () => {
     expect(String(url)).toBe("/api/live/world-graph/recap-projection");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+});
+
+describe("Play Run start API", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const artifactId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const runRecord = {
+    schema_version: "dmb_play_run_record_v1" as const,
+    run_id: runId,
+    campaign_id: "longmont-c2",
+    playable_artifact_id: artifactId,
+    playable_revision: 7,
+    playable_content_sha256: sha,
+    run_revision: 1,
+    created_at: "2026-08-17T00:00:00Z",
+    updated_at: "2026-08-17T00:00:00Z",
+    progress: {
+      current_scene_id: null,
+      current_beat_id: null,
+      resolved_beat_ids: [],
+      selections: {},
+      notes_by_element_id: {},
+    },
+  };
+  const manifestRecord = {
+    schema_version: "dmb_play_run_reference_manifest_v1" as const,
+    run_id: runId,
+    playable_artifact_id: artifactId,
+    playable_revision: 7,
+    playable_content_sha256: sha,
+    elements: [{ kind: "scene" as const, element_id: "scene:gate" }],
+    sealed_at: "2026-08-17T00:00:00Z",
+  };
+
+  it("PUTs exact Run create body to /play-runs/{run_id}", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(runRecord));
+    const request = {
+      playable_artifact_id: artifactId,
+      expected_playable_revision: 7,
+      expected_playable_content_sha256: sha,
+    };
+    const result = await putPlayRun(runId, request);
+    expect(result).toEqual(runRecord);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(`/api/live/play-runs/${runId}`);
+    expect(init?.method).toBe("PUT");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
+  it("seals the reference manifest with PUT and no request body", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(manifestRecord));
+    const result = await putPlayRunReferenceManifest(runId);
+    expect(result).toEqual(manifestRecord);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(`/api/live/play-runs/${runId}/reference-manifest`);
+    expect(init?.method).toBe("PUT");
+    expect(init?.body).toBeUndefined();
   });
 });

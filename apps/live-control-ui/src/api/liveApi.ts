@@ -57,6 +57,7 @@ import type {
   PlayRunRecord,
   PlayRunsListResponse,
   PlayRunReferenceManifest,
+  CreatePlayRunRequest,
   ReplacePlayRunProgressRequest,
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
@@ -1814,9 +1815,28 @@ export async function getPlayRun(runId: string): Promise<PlayRunRecord> {
   return apiFetch<PlayRunRecord>(`/api/live/play-runs/${encodeURIComponent(runId)}`);
 }
 
+export async function putPlayRun(
+  runId: string,
+  request: CreatePlayRunRequest,
+): Promise<PlayRunRecord> {
+  return apiFetch<PlayRunRecord>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+}
+
 export async function getPlayRunReferenceManifest(runId: string): Promise<PlayRunReferenceManifest> {
   return apiFetch<PlayRunReferenceManifest>(
     `/api/live/play-runs/${encodeURIComponent(runId)}/reference-manifest`,
+  );
+}
+
+export async function putPlayRunReferenceManifest(
+  runId: string,
+): Promise<PlayRunReferenceManifest> {
+  return apiFetch<PlayRunReferenceManifest>(
+    `/api/live/play-runs/${encodeURIComponent(runId)}/reference-manifest`,
+    { method: "PUT" },
   );
 }
 

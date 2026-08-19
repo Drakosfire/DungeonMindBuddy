@@ -1471,6 +1471,12 @@ export interface ReplacePlayRunProgressRequest {
   progress: PlayRunProgress;
 }
 
+export interface CreatePlayRunRequest {
+  playable_artifact_id: string;
+  expected_playable_revision: number;
+  expected_playable_content_sha256: string;
+}
+
 export interface PlayRunReferenceElement {
   kind: PlayableReferenceKind;
   element_id: string;
