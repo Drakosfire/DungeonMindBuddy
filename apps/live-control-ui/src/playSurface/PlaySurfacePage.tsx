@@ -17,6 +17,7 @@ import {
   RunbookTableDeck,
   type RunbookMutationStatus,
 } from "./runbook/RunbookTableDeck";
+import { StartRunPanel } from "./StartRunPanel";
 import {
   admitNativeRunbook,
   isCanonicalUuid,
@@ -171,39 +172,43 @@ function PlayChooser() {
       <header>
         <p className="play-kicker">Play</p>
         <h1>Choose a Run</h1>
-        <p className="play-muted">Open one exact durable Run. Nothing is selected until you choose it.</p>
+        <p className="play-muted">Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it.</p>
       </header>
-      {status === "loading" ? <p>Loading Runs…</p> : null}
-      {status === "recovery_pending" ? (
-        <p role="alert">Run recovery is pending. Play cannot list or mutate Runs until that recovery finishes.</p>
-      ) : null}
-      {status === "unavailable" ? (
-        <p role="alert">{detail ?? "Play Runs are unavailable."}</p>
-      ) : null}
-      {status === "ready" && records.length === 0 ? (
-        <p className="play-muted">No durable Runs are available.</p>
-      ) : null}
-      {status === "ready" && records.length > 0 ? (
-        <ul className="play-run-list">
-          {records.map((record) => (
-            <li key={record.run_id}>
-              <a
-                href={`/play?run=${encodeURIComponent(record.run_id)}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigateToRun(record.run_id);
-                }}
-              >
-                <strong>{record.run_id}</strong>
-                <span className="play-muted">
-                  {" "}
-                  · campaign {record.campaign_id} · revision {record.playable_revision}
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <section data-testid="play-existing-runs">
+        <h2>Existing Runs</h2>
+        {status === "loading" ? <p>Loading Runs…</p> : null}
+        {status === "recovery_pending" ? (
+          <p role="alert">Run recovery is pending. Play cannot list or mutate Runs until that recovery finishes.</p>
+        ) : null}
+        {status === "unavailable" ? (
+          <p role="alert">{detail ?? "Play Runs are unavailable."}</p>
+        ) : null}
+        {status === "ready" && records.length === 0 ? (
+          <p className="play-muted">No durable Runs are available.</p>
+        ) : null}
+        {status === "ready" && records.length > 0 ? (
+          <ul className="play-run-list">
+            {records.map((record) => (
+              <li key={record.run_id}>
+                <a
+                  href={`/play?run=${encodeURIComponent(record.run_id)}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigateToRun(record.run_id);
+                  }}
+                >
+                  <strong>{record.run_id}</strong>
+                  <span className="play-muted">
+                    {" "}
+                    · campaign {record.campaign_id} · revision {record.playable_revision}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+      <StartRunPanel onStarted={navigateToRun} />
     </main>
   );
 }

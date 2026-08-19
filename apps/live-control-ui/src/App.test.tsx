@@ -87,6 +87,8 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     listPlayRuns: vi.fn(),
     getPlayRun: vi.fn(),
     getPlayRunReferenceManifest: vi.fn(),
+    putPlayRun: vi.fn(),
+    putPlayRunReferenceManifest: vi.fn(),
     putPlayRunProgress: vi.fn(),
   };
 });
@@ -219,6 +221,8 @@ describe("App inspector integration", () => {
       new liveApi.LiveApiError("not found", 404),
     );
     vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
+    vi.mocked(liveApi.putPlayRun).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
+    vi.mocked(liveApi.putPlayRunReferenceManifest).mockRejectedValue(new liveApi.LiveApiError("not found", 404));
   });
 
   it("renders the launcher at the root route", () => {
@@ -664,13 +668,87 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("link", { name: "Play" })).toHaveClass("active");
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Choose a Run" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Existing Runs" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Start a Run" })).toBeInTheDocument();
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+    expect(screen.getByTestId("play-start-run-submit")).toBeDisabled();
     expect(screen.getByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
       "href",
       `/play?run=${PLAY_RUN_ID}`,
     );
     expect(screen.queryByTestId("runbook-table-deck")).not.toBeInTheDocument();
     expect(screen.queryByText(/ofConks/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps existing Runs openable when Start Run discovery fails", async () => {
+    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
+      schema_version: "dmb_play_runs_list_v1",
+      records: [playRunRecord()],
+    });
+    vi.mocked(liveApi.listWorkspaceDocuments).mockRejectedValue(
+      new liveApi.LiveApiError("workspace documents unavailable", 503),
+    );
+    window.history.pushState({}, "", "/play");
+    render(<App />);
+
+    expect(await screen.findByRole("link", { name: new RegExp(PLAY_RUN_ID) })).toHaveAttribute(
+      "href",
+      `/play?run=${PLAY_RUN_ID}`,
+    );
+    expect(await screen.findByTestId("play-start-run-unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("play-existing-runs")).toBeInTheDocument();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+  });
+
+  it("navigates to the exact new Run only after create and seal are confirmed", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(PLAY_RUN_ID);
+    mockReadyPlayRun();
+    vi.mocked(liveApi.listPlayRuns).mockResolvedValue({
+      schema_version: "dmb_play_runs_list_v1",
+      records: [],
+    });
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [
+        fixtureWorkspaceDocumentRecord({
+          document_id: PLAY_ARTIFACT_ID,
+          title: "North Gate Runbook",
+          kind: "runbook",
+          revision: 3,
+          content_status: "committed",
+        }),
+      ],
+    });
+    vi.mocked(liveApi.putPlayRun).mockResolvedValue(playRunRecord());
+    vi.mocked(liveApi.putPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: PLAY_RUN_ID,
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      playable_revision: 3,
+      playable_content_sha256: PLAY_SHA,
+      sealed_at: "2026-08-17T00:00:00Z",
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+    });
+    window.history.pushState({}, "", "/play");
+    render(<App />);
+
+    await user.click(await screen.findByTestId(`play-start-runbook-${PLAY_ARTIFACT_ID}`));
+    await user.click(screen.getByTestId("play-start-run-submit"));
+
+    expect(await screen.findByTestId("runbook-table-deck")).toBeInTheDocument();
+    expect(liveApi.putPlayRun).toHaveBeenCalledWith(PLAY_RUN_ID, {
+      playable_artifact_id: PLAY_ARTIFACT_ID,
+      expected_playable_revision: 3,
+      expected_playable_content_sha256: PLAY_SHA,
+    });
+    expect(liveApi.putPlayRunReferenceManifest).toHaveBeenCalledWith(PLAY_RUN_ID);
+    expect(window.location.pathname).toBe("/play");
+    expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
   });
 
   it("loads only the exact Run UUID from /play?run=", async () => {
