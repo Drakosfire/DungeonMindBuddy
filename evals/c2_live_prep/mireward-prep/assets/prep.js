@@ -3,7 +3,8 @@
  */
 (function () {
   const STORAGE_PREFIX = "mireward-prep.";
-  const COMBAT_STORAGE_KEY = "combat.northReachGate";
+  /** Session 26 wall-breach encounter — do not reuse Session 22 northReachGate key. */
+  const COMBAT_STORAGE_KEY = "combat.mirewardWallBreach";
   const COMBAT_STATE_UPDATED_EVENT = "mireward-prep:combat-state-updated";
   const STATBLOCK_DOGFOOD_DRAFT_KEY = "statblockDogfood.lastDraft";
   const STATBLOCK_CORPUS_INDEX_REFRESH_EVENT = "mireward-prep:statblock-corpus-index-refresh";
@@ -3634,14 +3635,14 @@
     if (!root) {
       return {
         campaign_id: "longmont-c2",
-        session: 22,
-        encounter_slug: "north_reach_gate",
+        session: 26,
+        encounter_slug: "mireward_wall_breach",
       };
     }
     return {
       campaign_id: root.getAttribute("data-combat-save-campaign") || "longmont-c2",
-      session: Number(root.getAttribute("data-combat-save-session") || "22"),
-      encounter_slug: root.getAttribute("data-combat-save-encounter") || "north_reach_gate",
+      session: Number(root.getAttribute("data-combat-save-session") || "26"),
+      encounter_slug: root.getAttribute("data-combat-save-encounter") || "mireward_wall_breach",
     };
   }
 

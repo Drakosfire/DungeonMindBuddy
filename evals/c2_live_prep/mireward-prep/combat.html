@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Combat tracker — Mireward prep</title>
+  <title>Combat tracker — Session 26 wall breach</title>
   <link rel="stylesheet" href="assets/prep.css" />
   <link rel="stylesheet" href="assets/prep-markdown-themes.css" />
 </head>
@@ -12,12 +12,12 @@
     class="wrap combat-wrap"
     id="combat-tracker"
     data-combat-save-campaign="longmont-c2"
-    data-combat-save-session="22"
-    data-combat-save-encounter="north_reach_gate"
+    data-combat-save-session="26"
+    data-combat-save-encounter="mireward_wall_breach"
   >
     <nav id="site-nav" class="site-nav"></nav>
 
-    <h1>North Reach Gate combat tracker</h1>
+    <h1>Session 26 — Mireward wall breach</h1>
 
     <div class="combat-toolbar">
       <button type="button" data-combat-action="sort-init" class="primary">Sort initiative + save order</button>
@@ -27,7 +27,7 @@
       <button type="button" data-combat-action="import-state">Import state</button>
       <button type="button" data-combat-action="reset-all" class="danger">Reset combat state</button>
       <input id="combat-import-file" class="combat-import-file" type="file" accept="application/json,.json" />
-      <span id="combat-save-status" class="combat-save-status">Loads browser localStorage first, then saves/combat/longmont-c2__session_22__north_reach_gate__combat_state_v1.json if empty.</span>
+      <span id="combat-save-status" class="combat-save-status">Loads browser localStorage (<code>combat.mirewardWallBreach</code>) first, then saves/combat/longmont-c2__session_26__mireward_wall_breach__combat_state_v1.json if empty. Use Reset to clear a stale Session 22 north-gate board.</span>
     </div>
 
     <div class="combat-meta">
@@ -36,13 +36,13 @@
         <div class="card-bd">
           <div id="combat-round" class="combat-round">Round 1</div>
           <div id="combat-current-turn" class="combat-current-turn"><span class="pill pill-success">PC</span> Baergrom</div>
-          <p class="muted">Use the arrows to move any entity manually, or sort once initiative values are entered.</p>
+          <p class="muted">Enter initiatives, then Sort. Click <strong>Meat Mind</strong> / <strong>Latchling</strong> names to preview their Threat sheet in a popup (same as markdown statblocks). Meat Mind Seed Corruption flips unprotected Marked Refugees.</p>
         </div>
       </div>
     </div>
 
     <div class="combat-table-wrap">
-      <table class="combat-table" aria-label="North Reach Gate combat initiative and HP tracker">
+      <table class="combat-table" aria-label="Session 26 Mireward wall breach combat initiative and HP tracker">
         <thead>
           <tr>
             <th class="combat-col-order">Move</th>
@@ -55,31 +55,26 @@
           </tr>
         </thead>
         <tbody id="combat-rows">
-          <tr><td></td><td><div class="combat-name">Baergrom</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name">Bonogo</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name">Caelynn</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name">Ephanna</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name">Karsemine</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name">Stafl</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name">Lysandra</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name">Thrinn</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md">Sewer Meat Creature A</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>37 / 37</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/sewer_meat_creature_statblock_cr3.md">Sewer Meat Creature B</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>37 / 37</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/corrupted_meat_golem_statblock_cr3.md">Corrupted Meat Golem A</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>55 / 55</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md">Tripod Null-Calf A</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>95 / 95</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/tripod_null_calf_statblock_cr5.md">Tripod Null-Calf B</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>95 / 95</td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Baergrom</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Bonogo</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td>Festering wound (Session 25).</td></tr>
+          <tr><td></td><td><div class="combat-name">Caelynn</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Ephanna</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Karsemine</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Stafl</div><div class="combat-team"><span class="pill pill-success">PC</span></div></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Lysandra</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td></td><td></td><td>Wall group.</td></tr>
+          <tr><td></td><td><div class="combat-name">Ogonob</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td></td><td></td><td>Field companion.</td></tr>
+          <tr><td></td><td><div class="combat-name">Thrinn</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td></td><td></td><td>Underground / dragged under.</td></tr>
           <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md">Fleshborn Hybrid A</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>45 / 45</td><td></td><td></td></tr>
           <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/fleshborn_hybrid_statblock_cr3.md">Fleshborn Hybrid B</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>45 / 45</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing A</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing B</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing C</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing D</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing E</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing F</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing G</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing H</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing I</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
-          <tr><td></td><td><div class="combat-name"><a data-repo="corpus/eldyrwild-markdown/Elderwyld/Shephards Flock/Statblocks and Tokens/aberrant_meat_wing_statblock_cr1.md">Aberrant Meatwing J</a></div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>18 / 18</td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Meat Mind</div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>200 / 200</td><td></td><td>Seed Corruption → flip unprotected Marked Refugee.</td></tr>
+          <tr><td></td><td><div class="combat-name">Mireward Latchling A</div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>52 / 52</td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Mireward Latchling B</div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>52 / 52</td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Mireward Latchling C</div><div class="combat-team"><span class="pill pill-warn">enemy</span></div></td><td></td><td></td><td>52 / 52</td><td></td><td></td></tr>
+          <tr><td></td><td><div class="combat-name">Marked Refugee A</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td>8 / 8</td><td></td><td>Partially corrupted · protected? Y/N</td></tr>
+          <tr><td></td><td><div class="combat-name">Marked Refugee B</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td>8 / 8</td><td></td><td>Partially corrupted · protected? Y/N</td></tr>
+          <tr><td></td><td><div class="combat-name">Marked Refugee C</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td>8 / 8</td><td></td><td>Partially corrupted · protected? Y/N</td></tr>
+          <tr><td></td><td><div class="combat-name">Town Guard A</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td>11 / 11</td><td></td><td>Basic town guard · wall / breach.</td></tr>
+          <tr><td></td><td><div class="combat-name">Town Guard B</div><div class="combat-team"><span class="pill pill-info">ally</span></div></td><td></td><td></td><td>11 / 11</td><td></td><td>Basic town guard · wall / breach.</td></tr>
         </tbody>
       </table>
     </div>
@@ -88,7 +83,7 @@
   <div class="combat-floating-controls" aria-label="Floating turn controls">
     <div class="combat-floating-status" aria-live="polite">
       <span id="floating-round">Round 1</span>
-      <span id="floating-turn">Turn 1/25</span>
+      <span id="floating-turn">Turn 1/18</span>
       <span id="floating-active">Baergrom</span>
     </div>
     <button type="button" data-combat-action="previous-turn">Previous turn</button>
