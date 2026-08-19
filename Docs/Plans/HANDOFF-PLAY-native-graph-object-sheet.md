@@ -10,7 +10,7 @@ pr_body_template: |
   ## Verification pointer
   - Design anchor: merged PR #603 / current main at `bc442717addb264073a68f7528929ec1aac51b2a`
   - P3A design anchor: `Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md` at design commit `b47c66c6a780308ceb2d8720de2f3086aad33cfc`
-  - Required predecessor before dispatch: merged P3A native Runbook table deck + post-merge state-authority sync naming P3B next
+  - Required predecessor before dispatch: Start Run dogfood bridge → Runbook briefing/instructions → live dogfood → re-anchor; P3A merged is not sufficient to dispatch P3B
   - Base/head: <PIN_AFTER_P3A_STATE_SYNC> / <implementation head>
   - Changed paths: must remain inside HANDOFF §4
   - Verification: HANDOFF §7 + roadmap review disposition
@@ -23,7 +23,7 @@ pr_body_template: |
 # HANDOFF — open native Play graph-object sheets from exact Runbook references
 
 **Created:** 2026-08-16  
-**Status:** DESIGNED — **DO NOT DISPATCH** until P3A is implemented, merged, and atomically synchronized as complete with P3B named next; then pin the exact implementation base.  
+**Status:** DESIGNED — **NON-DISPATCHABLE.** P3A is merged, but current sequence is the Start Run dogfood bridge, then Runbook briefing/instructions, then live dogfood / re-anchor, before this P3B capability may be pinned.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-graph-object-sheet.md`  
 **Conversation/workstream:** `Playable Architecture Graduation / P3B`  
 **Flow / owner:** `PLAY`  
@@ -53,7 +53,19 @@ P3A: designed on documents/play-p3a-native-runbook-deck, not dispatchable yet
 P3B: this design, successor only
 ```
 
-The living roadmap still truthfully names P2C as the current next slice. This handoff is deliberately designed more than one dependency ahead so design work does not block later implementation, but it is **not** current dispatch authority.
+P3A is now merged (PR #618). That does **not** make this file current dispatch authority. Product sequence after P3A is:
+
+```text
+Start Run from committed Runbook
+        ↓
+Play Runbook briefing / instructions
+        ↓
+real session dogfood
+        ↓
+re-anchor, then pin this P3B handoff
+```
+
+This handoff remains **NON-DISPATCHABLE** until that dogfood sequence has landed and a later re-anchor names P3B next.
 
 Before P3B CODE dispatch, all of the following must be true:
 
@@ -61,7 +73,7 @@ Before P3B CODE dispatch, all of the following must be true:
 2. P3A's handoff is on `main`, pinned to its exact post-P2C base, implemented, merged, and reviewed;
 3. the exact P3A implementation/evidence head, final reviewed head, merge SHA, and formal review-cycle count are known;
 4. a guarded post-P3A state-authority sync marks P3A merged/historical;
-5. `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` names P3B as the current next slice and this file as the next handoff;
+5. Start Run → Runbook briefing/instructions → live dogfood have completed, and `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` then names P3B as the current next slice and this file as the next handoff;
 6. this handoff is present on `main`;
 7. every `PIN_AFTER_P3A_STATE_SYNC` is replaced on the implementation branch with that exact synchronized `main` SHA;
 8. the implementation agent re-reads the merged P3A projection/admission/component seams, because those paths do not exist on this design anchor and their final names/shapes are predecessor authority.

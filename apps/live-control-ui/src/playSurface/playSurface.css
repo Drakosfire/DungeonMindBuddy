@@ -35,6 +35,18 @@
   gap: 0.5rem;
 }
 
+.play-chooser h2,
+.play-start-run h2 {
+  margin: 1rem 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.play-start-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .play-run-list a,
 .play-run-list button {
   display: block;
@@ -45,6 +57,11 @@
   background: #fbf7ef;
   color: inherit;
   cursor: pointer;
+}
+
+.play-run-list button[aria-pressed="true"] {
+  border-color: #6b4f2a;
+  background: #f3ead8;
 }
 
 .play-deck-meta {

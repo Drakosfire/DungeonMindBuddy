@@ -1,7 +1,15 @@
 # HANDOFF — project one durable Runbook as a native Play table deck
 
+> **MERGED / HISTORICAL (2026-08-19):** PR **#618** merged as
+> `03252d51c8e13ff0322204bacdc605d3fc3a1201` after **3 review cycles**.
+> Reviewed head `a907e623c3e53113688c2a55161e0c7ad4c4d53b`;
+> implementation/evidence head `196144bb59281f15931305ecc70b252d69f5670d`.
+> P3A proved native `/play` over one exact Run + sealed manifest + committed Runbook.
+> Immediate consuming successor: `Docs/Plans/HANDOFF-PLAY-start-run-from-runbook.md`
+> (Start Run dogfood bridge). P3B remains designed but deferred behind that sequence.
+
 **Created:** 2026-08-17
-**Status:** ACTIVE — dispatch one P3A implementation capability.
+**Status:** MERGED / HISTORICAL — PR #618 / main `03252d51c8e13ff0322204bacdc605d3fc3a1201` after **3 formal review cycles**. Implementation/evidence head `196144bb59281f15931305ecc70b252d69f5670d`; final reviewed head `a907e623c3e53113688c2a55161e0c7ad4c4d53b`. This file is not current dispatch authority.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-native-runbook-table-deck.md`
 **Workstream:** `Playable Architecture Graduation / P3A`
 **Flow / owner:** `PLAY`
