@@ -1,3 +1,5 @@
+import type { JSONContent } from "@tiptap/core";
+
 import type {
   PlayRunProgress,
   PlayRunRecord,
@@ -66,6 +68,7 @@ export type NativeRunbookReadyDeck = {
   run: PlayRunRecord;
   manifest: PlayRunReferenceManifest;
   snapshot: WorkspaceDocumentSnapshot;
+  importedDoc: JSONContent;
   structure: PlayableStructureIndex;
   scenes: NativeRunbookScene[];
   previewSceneId: string | null;
@@ -171,6 +174,15 @@ function playableHeadingIdentity(node: unknown): { kind: PlayableElementKind; id
   return null;
 }
 
+function isOrdinaryRootInstructionHeading(node: unknown): boolean {
+  if (playableHeadingIdentity(node) != null) return false;
+  if (node == null || typeof node !== "object") return false;
+  const record = node as { type?: unknown; attrs?: unknown };
+  if (record.type !== "heading") return false;
+  const level = (record.attrs as { level?: unknown } | null | undefined)?.level;
+  return level === 1 || level === 2;
+}
+
 type AuthoredSlice = {
   kind: PlayableElementKind;
   id: string;
@@ -180,8 +192,10 @@ type AuthoredSlice = {
 
 /**
  * Disjoint authored bodies: each Playable heading owns nodes until the next
- * root Playable heading. Sibling Beat/Choice/Option slices never inherit the
- * previous sibling's body.
+ * root Playable heading or an ordinary unmarked document-root H1/H2. Sibling
+ * Beat/Choice/Option slices never inherit the previous sibling's body, and
+ * unmarked Runbook-level sections after playable material stay outside the
+ * preceding element's body.
  */
 export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlice> {
   const slices = new Map<string, AuthoredSlice>();
@@ -216,6 +230,11 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
         title: collectNodeText(node).replace(/\s+/g, " ").trim(),
         bodyNodes: [],
       };
+      continue;
+    }
+    if (isOrdinaryRootInstructionHeading(node)) {
+      flush();
+      current = null;
       continue;
     }
     if (current) current.bodyNodes.push(node);
@@ -458,6 +477,7 @@ export function admitNativeRunbook(input: {
     run,
     manifest,
     snapshot,
+    importedDoc: imported.doc,
     structure: indexed.index,
     scenes,
     ...displayed,

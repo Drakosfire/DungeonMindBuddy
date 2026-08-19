@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { LiveApiError, putPlayRunProgress, getPlayRun } from "../../api/liveApi";
 import type { PlayRunProgress, PlayRunRecord } from "../../api/types";
+import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
 import {
   canonicalizePlayRunProgress,
   type NativeRunbookReadyDeck,
@@ -30,6 +31,7 @@ export function RunbookTableDeck({
   const mutationsOpen = mutationStatus === "idle" || mutationStatus === "saving";
   const [viewSceneId, setViewSceneId] = useState<string | null>(deck.displayedSceneId);
   const [viewBeatId, setViewBeatId] = useState<string | null>(deck.displayedBeatId);
+  const [viewMode, setViewMode] = useState<"table" | "runbook">("table");
   const [noteDraft, setNoteDraft] = useState("");
   const mountedRef = useRef(true);
   const liveRunIdRef = useRef(run.run_id);
@@ -48,6 +50,10 @@ export function RunbookTableDeck({
     setViewSceneId(deck.displayedSceneId);
     setViewBeatId(deck.displayedBeatId);
   }, [run.run_id, run.progress.current_scene_id, run.progress.current_beat_id, deck.displayedSceneId, deck.displayedBeatId]);
+
+  useEffect(() => {
+    setViewMode("table");
+  }, [run.run_id]);
 
   const viewScene = sceneById(deck, viewSceneId);
   const viewBeat = viewScene?.beats.find((beat) => beat.id === viewBeatId) ?? viewScene?.beats[0] ?? null;
@@ -163,6 +169,24 @@ export function RunbookTableDeck({
             Runbook revision {run.playable_revision} · run revision {run.run_revision}
           </span>
         </div>
+        <div className="play-mode-toggle" role="group" aria-label="Play projection">
+          <button
+            type="button"
+            data-testid="play-mode-table"
+            aria-pressed={viewMode === "table"}
+            onClick={() => setViewMode("table")}
+          >
+            Table
+          </button>
+          <button
+            type="button"
+            data-testid="play-mode-runbook"
+            aria-pressed={viewMode === "runbook"}
+            onClick={() => setViewMode("runbook")}
+          >
+            Runbook
+          </button>
+        </div>
       </header>
 
       {deck.currentIsPreview ? (
@@ -182,6 +206,17 @@ export function RunbookTableDeck({
         </p>
       ) : null}
 
+      {viewMode === "runbook" ? (
+        <div className="play-runbook-document" data-testid="play-runbook-document">
+          <MarkdownEditorCore
+            content={deck.importedDoc}
+            editable={false}
+            documentKey={`${run.run_id}:${run.playable_revision}:${run.playable_content_sha256}`}
+            className="play-runbook-editor"
+            dataTestId="play-runbook-editor"
+          />
+        </div>
+      ) : (
       <div className="play-deck-columns">
         <nav aria-label="Scenes">
           <h2>Scenes</h2>
@@ -314,6 +349,7 @@ export function RunbookTableDeck({
           )}
         </article>
       </div>
+      )}
     </section>
   );
 }

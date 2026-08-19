@@ -46,6 +46,38 @@ const MARKDOWN = [
   "",
 ].join("\n");
 
+const INSTRUCTION_MARKDOWN = [
+  "# Session intent",
+  "",
+  "Hold the north gate until dawn.",
+  "",
+  "## Pressures",
+  "",
+  "- Wall breach",
+  "- Tealeaf silence",
+  "",
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+  "## Gate",
+  "",
+  "Scene intro.",
+  "",
+  "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+  "### Approach",
+  "",
+  "Approach body.",
+  "",
+  "<!-- dmb-playable-element:v1 kind=beat id=beat:inside -->",
+  "### Inside",
+  "",
+  "Inside body.",
+  "",
+  "## Open questions",
+  "",
+  "- Does Tealeaf answer?",
+  "- How much wall falls?",
+  "",
+].join("\n");
+
 vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
   return {
@@ -82,7 +114,7 @@ function runRecord(overrides: Partial<PlayRunRecord> = {}): PlayRunRecord {
   };
 }
 
-function readyDeck(run: PlayRunRecord = runRecord()) {
+function readyDeck(run: PlayRunRecord = runRecord(), markdown: string = MARKDOWN) {
   const admitted = admitNativeRunbook({
     run,
     manifest: {
@@ -95,9 +127,13 @@ function readyDeck(run: PlayRunRecord = runRecord()) {
       elements: [
         { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
         { kind: "beat", element_id: "beat:inside", scene_id: "scene:gate" },
-        { kind: "choice", element_id: "choice:enter", scene_id: "scene:gate" },
-        { kind: "option", element_id: "option:no", scene_id: "scene:gate", choice_id: "choice:enter" },
-        { kind: "option", element_id: "option:yes", scene_id: "scene:gate", choice_id: "choice:enter" },
+        ...(markdown === MARKDOWN
+          ? [
+              { kind: "choice" as const, element_id: "choice:enter", scene_id: "scene:gate" },
+              { kind: "option" as const, element_id: "option:no", scene_id: "scene:gate", choice_id: "choice:enter" },
+              { kind: "option" as const, element_id: "option:yes", scene_id: "scene:gate", choice_id: "choice:enter" },
+            ]
+          : []),
         { kind: "scene", element_id: "scene:gate" },
       ],
     },
@@ -117,7 +153,7 @@ function readyDeck(run: PlayRunRecord = runRecord()) {
         created_at: "2026-08-17T00:00:00Z",
         updated_at: "2026-08-17T00:00:00Z",
       },
-      markdown: MARKDOWN,
+      markdown,
       content_sha256: run.playable_content_sha256,
       file_fingerprint: "present",
       file_exists: true,
@@ -130,10 +166,12 @@ function readyDeck(run: PlayRunRecord = runRecord()) {
 
 function Harness({
   initialRun = runRecord(),
+  markdown = MARKDOWN,
 }: {
   initialRun?: PlayRunRecord;
+  markdown?: string;
 }) {
-  const [deck, setDeck] = useState(() => readyDeck(initialRun));
+  const [deck, setDeck] = useState(() => readyDeck(initialRun, markdown));
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   return (
     <RunbookTableDeck
@@ -310,5 +348,66 @@ describe("RunbookTableDeck", () => {
     expect(await screen.findByRole("button", { name: /Inside/ })).toBeInTheDocument();
     expect(screen.queryByTestId("play-cas-conflict")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults to Table mode and does not mount the full Runbook until explicitly opened", () => {
+    render(<Harness markdown={INSTRUCTION_MARKDOWN} />);
+    expect(screen.getByTestId("play-mode-table")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("play-mode-runbook")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("navigation", { name: "Scenes" })).toBeInTheDocument();
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Approach");
+    expect(screen.queryByTestId("play-runbook-document")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Open questions" })).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("renders ordinary instructions and playable headings from the admitted document in Runbook mode", async () => {
+    const user = userEvent.setup();
+    render(<Harness markdown={INSTRUCTION_MARKDOWN} />);
+    await user.click(screen.getByTestId("play-mode-runbook"));
+
+    const documentView = await screen.findByTestId("play-runbook-document");
+    expect(await screen.findByTestId("play-runbook-editor")).toHaveAttribute(
+      "data-markdown-editor-status",
+      "ready",
+    );
+    expect(documentView).toHaveTextContent("Session intent");
+    expect(documentView).toHaveTextContent("Hold the north gate until dawn.");
+    expect(documentView).toHaveTextContent("Pressures");
+    expect(documentView).toHaveTextContent("Open questions");
+    expect(documentView).toHaveTextContent("Does Tealeaf answer?");
+    expect(documentView).toHaveTextContent("Gate");
+    expect(documentView).toHaveTextContent("Approach");
+    expect(screen.queryByRole("navigation", { name: "Scenes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save note" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+    expect(documentView.querySelector("[contenteditable='true']")).toBeNull();
+    expect(documentView.querySelector("[contenteditable='false']")).not.toBeNull();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps local Beat focus and writes nothing across Table → Runbook → Table", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Inside" }));
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside");
+
+    await user.click(screen.getByTestId("play-mode-runbook"));
+    expect(await screen.findByTestId("play-runbook-document")).toBeInTheDocument();
+    expect(screen.queryByTestId("focused-beat")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("play-mode-table"));
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside");
+    expect(screen.queryByTestId("play-runbook-document")).not.toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps Open questions out of the preceding Beat body in Table mode", async () => {
+    const user = userEvent.setup();
+    render(<Harness markdown={INSTRUCTION_MARKDOWN} />);
+    await user.click(screen.getByRole("button", { name: "Inside" }));
+    expect(screen.getByTestId("focused-beat")).toHaveTextContent("Inside body.");
+    expect(screen.getByTestId("focused-beat")).not.toHaveTextContent("Open questions");
+    expect(screen.getByTestId("focused-beat")).not.toHaveTextContent("Does Tealeaf answer");
   });
 });

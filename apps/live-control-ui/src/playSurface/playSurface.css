@@ -70,6 +70,39 @@
   font-size: 0.9rem;
 }
 
+.play-mode-toggle {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.play-mode-toggle button {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #d9d1c3;
+  background: #fff;
+  cursor: pointer;
+}
+
+.play-mode-toggle button[aria-pressed="true"] {
+  border-color: #6b4f2a;
+  background: #f3ead8;
+}
+
+.play-runbook-document {
+  min-height: 16rem;
+}
+
+.play-runbook-editor .ProseMirror {
+  min-height: 16rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #d9d1c3;
+  background: #fff;
+}
+
+.play-runbook-editor .ProseMirror[contenteditable="false"] {
+  cursor: default;
+}
+
 .play-deck-columns {
   display: grid;
   grid-template-columns: minmax(10rem, 14rem) minmax(10rem, 14rem) minmax(0, 1fr);

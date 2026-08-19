@@ -21,8 +21,17 @@ pr_body_template: |
 
 # HANDOFF — start one exact Run from a committed Runbook
 
+> **MERGED / HISTORICAL (2026-08-19):** PR **#621** merged as
+> `a0e03bed359dce094a18a5a5824d07487fe4b490` after **2 review cycles**.
+> Reviewed head `11f5724f5ec7ce7158906cfdcce249c532cbd38e`;
+> implementation/evidence head `8dc1bad2ac4d85906975a6936861e52a3f043e70`.
+> D1 proved one explicit Start Run from one chosen committed Runbook into native `/play`.
+> Immediate consuming successor: `Docs/Plans/HANDOFF-PLAY-native-runbook-instructions.md`
+> (exact admitted Runbook view beside the table deck). P3B remains designed but deferred
+> behind D2, then live dogfood / re-anchor.
+
 **Created:** 2026-08-19  
-**Status:** ACTIVE — dispatch exactly one dogfood-enabling Play capability.  
+**Status:** MERGED / HISTORICAL — PR #621 / main `a0e03bed359dce094a18a5a5824d07487fe4b490` after **2 formal review cycles**. Implementation/evidence head `8dc1bad2ac4d85906975a6936861e52a3f043e70`; final reviewed head `11f5724f5ec7ce7158906cfdcce249c532cbd38e`. This file is not current dispatch authority.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-start-run-from-runbook.md`  
 **Workstream:** `Playable Architecture Graduation / dogfood bridge D1`  
 **Flow / owner:** `PLAY`  
@@ -729,14 +738,14 @@ Tracker or authority update needed:
 
 ---
 
-## Named successor — do not implement here
+## Named successor — consuming D2, do not implement here
 
-**Next capability:** `PLAY — project Runbook briefing/instructions in native Play`.
+**Next capability:** `PLAY — expose the exact admitted Runbook beside the native Play table deck`.
+
+Canonical handoff: `Docs/Plans/HANDOFF-PLAY-native-runbook-instructions.md`.
 
 Purpose:
 
-> Let native Play expose accepted Runbook-level instructional prose — session intent, current state, pressures, GM decisions/reminders, and other unmarked planning guidance — alongside the existing Scene/Beat deck without inventing new durable Playable element kinds or Runtime identities.
+> Let native Play expose the full exact admitted Runbook as a rich read-only view beside the existing Scene/Beat table deck, without inventing new durable Playable element kinds or Runtime identities.
 
-That successor is where the recent planning-scaffold product direction first changes what Play *reads*. This Start Run slice changes only how an exact committed Runbook becomes an exact runnable session.
-
-After briefing lands, run a real session dogfood before re-briefing P3B.
+D1 only made an exact committed Runbook into an exact runnable session. After D2 lands, run a real session dogfood before re-briefing P3B.
