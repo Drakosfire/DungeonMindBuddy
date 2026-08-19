@@ -193,4 +193,23 @@ describe("StartRunPanel", () => {
     expect(onStarted).toHaveBeenCalledTimes(1);
     expect(liveApi.getPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID);
   });
+
+  it("does not hide an Existing Runs sibling when Runbook discovery fails", async () => {
+    vi.mocked(liveApi.listWorkspaceDocuments).mockRejectedValue(
+      new LiveApiError("workspace documents unavailable", 503),
+    );
+    render(
+      <div>
+        <section data-testid="play-existing-runs">
+          <a href={`/play?run=${RUN_ID}`}>{RUN_ID}</a>
+        </section>
+        <StartRunPanel onStarted={vi.fn()} />
+      </div>,
+    );
+
+    expect(await screen.findByTestId("play-start-run-unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("play-existing-runs")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: RUN_ID })).toHaveAttribute("href", `/play?run=${RUN_ID}`);
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+  });
 });
