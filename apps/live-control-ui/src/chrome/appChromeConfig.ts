@@ -3,6 +3,7 @@ export type AppRouteKey =
   | "surface"
   | "tiptap-callout-spike"
   | "plan"
+  | "play"
   | "ingest"
   | "build";
 
@@ -29,6 +30,11 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Plan",
   },
   {
+    route: "play",
+    href: "/play",
+    label: "Play",
+  },
+  {
     route: "ingest",
     href: "/ingest",
     label: "Ingest",
@@ -48,6 +54,7 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   index: "Command Board",
   surface: "Live Control",
   plan: "Plan",
+  play: "Play",
   ingest: "Memory Ingest",
   build: "Build",
   "tiptap-callout-spike": "Tiptap callout bridge",

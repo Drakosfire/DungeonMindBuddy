@@ -1,0 +1,148 @@
+.play-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem 2rem;
+  max-width: 72rem;
+}
+
+.play-surface-header h1,
+.play-chooser h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+}
+
+.play-kicker,
+.play-muted {
+  color: var(--text-muted, #5c574e);
+  font-size: 0.9rem;
+}
+
+.play-status {
+  padding: 1.25rem 1.5rem;
+}
+
+.play-status[role="alert"] {
+  border-left: 3px solid #8a4b2f;
+}
+
+.play-run-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.play-run-list a,
+.play-run-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #d9d1c3;
+  background: #fbf7ef;
+  color: inherit;
+  cursor: pointer;
+}
+
+.play-deck-meta {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.play-deck-columns {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) minmax(10rem, 14rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.play-nav-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.play-nav-list button {
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d9d1c3;
+  background: #fff;
+  cursor: pointer;
+}
+
+.play-nav-list button[aria-current="true"],
+.play-nav-list button.current {
+  border-color: #6b4f2a;
+  background: #f3ead8;
+}
+
+.play-preview-flag,
+.play-banner {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  background: #f4eee3;
+  font-size: 0.9rem;
+}
+
+.play-authored {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.play-authored h2,
+.play-authored h3,
+.play-authored h4 {
+  margin: 0 0 0.3rem;
+}
+
+.play-body {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.play-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.play-choice {
+  border-top: 1px solid #e4dccb;
+  padding-top: 0.75rem;
+}
+
+.play-option-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.play-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.play-notes textarea {
+  min-height: 5rem;
+  font: inherit;
+}
+
+@media (max-width: 52rem) {
+  .play-deck-columns {
+    grid-template-columns: 1fr;
+  }
+}

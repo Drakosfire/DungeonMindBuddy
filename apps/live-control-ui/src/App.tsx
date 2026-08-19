@@ -33,17 +33,19 @@ import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane"
 import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
 import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
+import { PlaySurfacePage } from "./playSurface/PlaySurfacePage";
 import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
+type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "play" | "ingest" | "build";
 
 function currentRoute(): AppRoute {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/surface" || path === "/live-control") return "surface";
   if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
   if (path === "/plan") return "plan";
+  if (path === "/play") return "play";
   if (path === "/ingest") return "ingest";
   if (path === "/build") return "build";
   return "index";
@@ -57,7 +59,7 @@ function IndexSurfacePublisher() {
       campaignId: null,
       documentId: null,
       sessionNumber: null,
-      ambientSummary: "Launcher · pick Plan, Ingest, Build, or Combat",
+      ambientSummary: "Launcher · pick Plan, Play, Ingest, Build, or Combat",
       sourceEnvelope: null,
     }),
     [],
@@ -83,7 +85,7 @@ function MirewardIndex() {
       <IndexSurfacePublisher />
       <header className="launcher-header">
         <h1>Command Board</h1>
-        <p>Core surfaces for prep, memory review, worldbuilding, and combat.</p>
+        <p>Core surfaces for prep, live play, memory review, worldbuilding, and combat.</p>
       </header>
 
       <section className="launcher-grid" aria-label="Main surfaces">
@@ -91,6 +93,11 @@ function MirewardIndex() {
           <span className="launcher-kicker">Plan</span>
           <strong>Prep surface</strong>
           <span>Session prep canvas with reference chips and planning tools.</span>
+        </a>
+        <a className="launcher-card" href="/play">
+          <span className="launcher-kicker">Play</span>
+          <strong>Runbook table deck</strong>
+          <span>Open one exact durable Run and play its bound Runbook.</span>
         </a>
         <a className="launcher-card" href="/ingest">
           <span className="launcher-kicker">Ingest</span>
@@ -281,6 +288,8 @@ export function App() {
     content = <TiptapSpikeRoute />;
   } else if (route === "plan") {
     content = <PlanSurfacePage />;
+  } else if (route === "play") {
+    content = <PlaySurfacePage />;
   } else if (route === "ingest") {
     content = <MemoryIngestPage />;
   } else if (route === "build") {

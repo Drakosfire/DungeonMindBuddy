@@ -35,6 +35,7 @@
   const PRODUCT_NAV = [
     { id: "index", label: "Index", href: "/" },
     { id: "plan", label: "Plan", href: "/plan" },
+    { id: "play", label: "Play", href: "/play" },
     { id: "ingest", label: "Ingest", href: "/ingest" },
     { id: "build", label: "Build", href: "/build" },
     { id: "combat", label: "Combat Tracker", href: "/combat" },
