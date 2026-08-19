@@ -1,8 +1,8 @@
 # Roadmap — Campaign Supergraph
 
 **Status:** Canonical implementation roadmap  
-**Updated:** 2026-08-18 — DungeonMind #37 governed review publication is DONE; Buddy #619 authority transfer adapter is merged as an incomplete forward-fix predecessor; current CUTOVER capability is the Buddy DungeonMind authority completion repair; the live cutover itself remains unexecuted
-**Repository anchor:** `866e3a435d4f615fa3fb627d62765802445f2a21` (Buddy `main` at authority-completion dispatch)
+**Updated:** 2026-08-18 — CUTOVER_COMPLETE: Buddy #620 merged and live D_A→D_B committed; DungeonMind is living Eldyrwild World Graph authority
+**Repository anchor:** `18bcb18475ac30679ebec84bec17c4e81390f674` (Buddy `main` at #620 merge / live cutover base)
 **#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`  
 **DungeonMind pin:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (PR #37 merge / current DungeonMind `main`)
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -147,28 +147,24 @@ DONE    cutover-v6-governed-review-publication (DungeonMind #37)
         DungeonMind public v2 contribution-review finalize + v6
         materialization + head CAS publication seam.
 
+DONE    cutover/whole-world-authority-transfer (Buddy #619 + #620 + live)
+        Buddy PR #619 merged at 6c2fe9d37dcecf34e025db8373fce072de30b62e
+        (2 review cycles) as the authority adapter predecessor.
+        Buddy PR #620 merged at 18bcb18475ac30679ebec84bec17c4e81390f674
+        (4 review cycles; final PASS review 4966969478) completing the
+        adapter repairs. Live cutover then adopted exact A at V3,
+        switched product reads to DungeonMind, and published the first
+        DungeonMind-owned child:
+          D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720
+          D_B = rev:680c246047d67f9fe0293ee90526f670
+        Buddy local World Graph writer remains fail-closed.
+        Parent handoff status: CUTOVER_COMPLETE.
+
 DEFERRED pinned exact-snapshot catch-up
-        Activates only if the final real pre-switch correspondence check
-        returns STALE. No observed B means no A→B project. The parked
-        design handoff on branch cutover/design-pinned-snapshot-catchup
+        Still conditional only — no STALE observed during the live
+        pre-switch correspondence check (result was CORRESPONDING). The
+        parked design handoff on branch cutover/design-pinned-snapshot-catchup
         stays unmerged.
-
-MERGED  cutover/whole-world-authority-transfer (Buddy #619)
-        Buddy PR #619 merged at 6c2fe9d37dcecf34e025db8373fce072de30b62e;
-        2 review cycles. Landed the DungeonMind authority adapter,
-        hydration, read routing, and quiescence guard with known repair
-        debt; incomplete forward-fix predecessor, not a completed cutover.
-
-DOING   DungeonMind World Graph authority completion
-        Buddy authority completion per
-        Docs/Plans/HANDOFF-CUTOVER-dungeonmind-authority-completion.md
-        (steward dispatch commit 866e3a43…): exact #37 repin,
-        published-head-bound hydration excluding CAS losers, DND public
-        revision identity, cold-cache A→D_A bridge, exact V3 membership
-        enforcement, explicit-root routing closure, cache-root guard
-        safety, and the real Buddy confirmation → DND v2/v6
-        finalize/publish path. The live cutover executes against the
-        parent handoff after this repair merges.
 ```
 
 Historical correction/heal slices (integrity heal, Lysandra, Session-24, closure, #566) remain `DONE` and are not current dispatch. The tracker, not this roadmap, decides which `READY` slice is dispatched next.

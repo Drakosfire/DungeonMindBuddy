@@ -22,13 +22,16 @@ pr_body_template: |
 # HANDOFF — DungeonMind World Graph authority completion
 
 **Created:** 2026-08-18  
-**Status:** ACTIVE — next CUTOVER implementation dispatch; repair the merged #619 authority adapter and make the live cutover attempt operable.  
+**Status:** DONE — Buddy PR #620 merged; live cutover executed under the parent handoff  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-dungeonmind-authority-completion.md`  
 **Conversation/workstream:** `CUTOVER — whole-world authority transfer`  
 **Flow / owner:** `CUTOVER`  
 **Direction:** DESIGN → CODE → REVIEW → LIVE  
 **Buddy implementation base:** `6c2fe9d37dcecf34e025db8373fce072de30b62e`  
 **DungeonMind exact target pin:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (merge of DungeonMind PR #37)  
+**Implementation PR:** Buddy #620 — `CUTOVER: complete DungeonMind World Graph authority`  
+**Merge:** `18bcb18475ac30679ebec84bec17c4e81390f674`  
+**Review cycles:** 4 (final PASS review `4966969478` on head `8b9e5e8a68b8a5b766c7684234807c3df4944141`)  
 **Parent authority:** `Docs/Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md`  
 **Suggested branch:** `cutover/dungeonmind-world-graph-authority-completion`  
 **Suggested PR title:** `CUTOVER: complete DungeonMind World Graph authority`

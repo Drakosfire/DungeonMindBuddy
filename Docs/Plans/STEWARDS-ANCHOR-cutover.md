@@ -1,13 +1,14 @@
 # STEWARD'S ANCHOR — CUTOVER
 
-**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority  
 **Line of work:** `CUTOVER`  
 **Created:** 2026-08-17  
+**Completed:** 2026-08-18 (live D_A→D_B)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Anchor creation parent:** `ad0ca263225173962f0d59e76a3e95fd200d6aca`  
+**Buddy integration tip at completion:** `18bcb18475ac30679ebec84bec17c4e81390f674` (merge of Buddy PR #620)  
 **DungeonMind authority anchor:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (merge of DungeonMind PR #37 — governed review publication: v2 finalize + v6 materialization + head CAS publication)  
-**Active implementation handoff:** [`HANDOFF-CUTOVER-dungeonmind-authority-completion.md`](HANDOFF-CUTOVER-dungeonmind-authority-completion.md)  
-**Merged forward-fix predecessor:** Buddy PR #619 (whole-world authority transfer adapter) merged at `6c2fe9d37dcecf34e025db8373fce072de30b62e`; its remaining merged repair debt is owned by the active handoff above.  
+**Completed implementation handoffs:** Buddy PR #619 (`6c2fe9d37dcecf34e025db8373fce072de30b62e`) + Buddy PR #620 (`18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS review `4966969478`) + parent [`HANDOFF-CUTOVER-whole-world-authority-transfer.md`](HANDOFF-CUTOVER-whole-world-authority-transfer.md)  
+**Live authority:** DungeonMind PostgreSQL (`dungeonmind_cutover_live@127.0.0.1:54329`); head `D_B = rev:680c246047d67f9fe0293ee90526f670`; parent `D_A = rev:34b1f8e2625d5ba693fc726a2a1a4720`; Buddy local World Graph writer fail-closed under `DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind`  
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
 **Repository law:** [`../../AGENTS.md`](../../AGENTS.md)
 

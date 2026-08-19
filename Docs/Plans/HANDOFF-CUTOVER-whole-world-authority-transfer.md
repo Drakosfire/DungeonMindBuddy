@@ -23,14 +23,17 @@ pr_body_template: |
 # HANDOFF — whole World Graph authority transfer
 
 **Created:** 2026-08-17  
-**Status:** ACTIVE — DISPATCH CUTOVER NOW; this handoff is direct steward authority, not a design-review gate  
+**Status:** CUTOVER_COMPLETE — DungeonMind is living Eldyrwild World Graph authority; Buddy local writer authority retired/fail-closed  
 **Conversation/workstream:** `CUTOVER — whole World Graph authority transfer`  
 **Flow / owner:** `CUTOVER`  
 **Direction:** STEWARD → CODE/OPERATE → REVIEW/REPAIR  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CUTOVER-whole-world-authority-transfer.md`  
 **Primary implementation repository:** `Drakosfire/DungeonMindBuddy`  
 **Buddy dispatch base:** `9ff4f885a365231841204514c3b27d9e7da5f6bd` (`main` at steward dispatch)  
-**DungeonMind authority base:** `9a19584d31baea77f590d7726e508b144c7dd39d` (merge of DungeonMind PR #36)  
+**DungeonMind authority base at completion:** `2edc07ff27a21b1c83aed847edf95b77d297910e` (merge of DungeonMind PR #37; superseded the #36 pin used at original dispatch)  
+**Implementation PRs:** Buddy #619 (`6c2fe9d37dcecf34e025db8373fce072de30b62e`) + Buddy #620 (`18bcb18475ac30679ebec84bec17c4e81390f674`; 4 review cycles; final PASS `4966969478`)  
+**Live D_A:** `rev:34b1f8e2625d5ba693fc726a2a1a4720`  
+**Live D_B:** `rev:680c246047d67f9fe0293ee90526f670` (parent = D_A; canary `node:cutover-canary` / `Cutover Canary`)  
 **Suggested Buddy branch:** `cutover/whole-world-authority-transfer`  
 **Suggested Buddy PR title:** `CUTOVER: transfer World Graph authority to DungeonMind`
 
